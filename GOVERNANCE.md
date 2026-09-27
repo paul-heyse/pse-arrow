@@ -166,7 +166,7 @@ change to that policy is a separate maintainer decision.
 
 ## 5. How the pins move
 
-**The IDAES parity pin (`idaes-pse==2.12.0`).** This is the only durable coupling to
+**The IDAES parity pin (`idaes-pse==2.13.0`).** This is the only durable coupling to
 IDAES and it is what "parity" means. Moving it requires a short ADR that records: the new
 version, what changed in the numerical behaviour under test, which parity tests moved and
 why, and whether any preserved enumeration changed. The PR must update the pin in

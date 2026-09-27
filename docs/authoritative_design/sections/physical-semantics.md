@@ -5,15 +5,11 @@ status: current
 
 # Physical semantics, materials and properties
 
-This area gives every value a complete physical meaning. It also binds authored chemistry
-to the library that computes properties. `pse-quantity` owns quantity kinds, units, bases,
-reference states, conversions and the inference that checks each operation.
-`pse-material` owns elements, species, phases and stoichiometry. `pse-kernels` owns the
-physical provider contract and its FeOS PC-SAFT/DIPPR and valve-law providers. The runtime
-loads the registry once per physical inventory (`pse-runtime::physical`). It admits
-selected materials, providers and reactions in `crates/pse-runtime/src/workflow/`
-(`sources.rs`, `reactions.rs`). Typed preparation applies the checks before any library
-algebra (`pse-compiler::typed_math`, `pse-math::typed`).
+`pse-quantity` owns physical types, exact unit algebra and operation admission.
+The runtime admits and retains the actual physical inventory. `pse-modeling` checks
+scientific declarations as generic entities, functions, interfaces, definitions and tables;
+`pse-compiler` and `pse-math` lower them to library-owned mathematics. Scientific knowledge
+lives in authored bundles, not a material crate or thermodynamic provider factory.
 
 ## 8. Physical typing
 
@@ -41,11 +37,11 @@ A `QuantityTypeId` resolves to a complete key:
 - optional basis
 - optional reference state (the datum)
 - point or difference scale
-- ordered index shape (domain kinds)
+- ordered index shape (package-declared entity-kind IDs)
 - optional subject kind
 
 The registered type also names its canonical unit and an optional nominal magnitude. An
-absent subject differs from an explicit `none`. Equality compares every IEEE bit,
+absent subject differs from every declared subject-kind identity. Equality compares every IEEE bit,
 including signed zero.
 
 | Distinction | Encoded by |
@@ -55,7 +51,7 @@ including signed zero.
 | molar vs mass-specific enthalpy | `basis` |
 | enthalpies with different datums | `reference_state`; mixing them is a datum mismatch |
 | species vs phase composition | `shape` and `subject_kind` |
-| vector over species vs over cells | `shape` domain kinds, even when lengths match |
+| vector over species vs over cells | `shape` entity kinds, even when lengths match |
 
 `admission::require_same_contract` compares every component and the canonical unit. It
 names the first component that differs. Ports, connections, instance slots and provider
@@ -96,15 +92,15 @@ declared gauge reference.
   duplicate identities are refused. No compound-unit parser runs at execution time: a
   spelling must name an admitted unit.
 - **Currency.** Currency is an optional eighth base axis. A conversion between years is
-  an ordinary registered scale. The only bundled currency data is the explicitly
-  synthetic `fixture-currency` package; production cost data must be declared separately
+  an ordinary registered scale. The synthetic `fixture-currency` package remains separate from the seed
+  costing package's sourced CEPCI conversions
   ([§19.5](workflows-and-results.md#section-19-5)).
 
-A smoothing tolerance (`SmoothMax`, `SmoothMin`, `SmoothAbs`, `SafeSqrt`, `SafeLog`) is a
-positive finite scalar in the first operand's canonical coordinate. A tolerance that
-carries a unit is converted as a *difference* of that operand's kind, basis and reference.
-Celsius offsets and gauge datums therefore never enter a tolerance. `SafeLog` requires a
-dimensionless input (`pse-quantity::smoothing`).
+Smoothing and safe-domain functions are authored prelude functions with polymorphic
+physical signatures. Their widths are positive differences in the operand's quantity
+context; an affine representation offset is never a width. Function requirements and
+validity predicates are checked through the ordinary typed path. No smoothing formula
+is selected by a scientific name in production Rust.
 
 ### 8.3 Quantity inference
 
@@ -112,7 +108,7 @@ dimensionless input (`pse-quantity::smoothing`).
 preparation builds a body. `pse-compiler::typed_math` lowers authored syntax, and
 `pse-math::typed::BodyBuilder` calls inference before it constructs any Symbolica atom.
 Dynamics applies the same inference to time derivatives
-(`crates/pse-runtime/src/workflow/dynamics.rs`). The result is the complete result type
+(`pse-compiler::workspace::modeling`). The result is the complete result type
 together with the selected rule and its operand order, never a dimension alone.
 
 | Operation | Rule |
@@ -131,18 +127,11 @@ operand bases, or a required operand contract). `PhysicalPreconditions` checks e
 against the actual operands at the point of application. A declared invariant ID is not
 evidence that the invariant holds.
 
-The reference `physical` package declares six compositions:
-
-- flow × specific enthalpy → energy flow
-- flow × composition → component flow
-- gas constant × temperature → molar energy
-- pressure ÷ molar energy → molar density
-- temperature ÷ temperature scale → dimensionless
-- activation energy ÷ molar energy → dimensionless
-
-`crates/pse-quantity/tests/standard_package.rs` exercises these compositions, the gauge
-datum and the smoothing tolerances. When a package needs a genuinely new composition, it
-adds a rule. Adapters do not invent rules.
+The physical package owns the operation declarations required by its knowledge bundles.
+The standard-package tests exercise representative products, gauge datums and quantity
+contracts. New physical compositions add explicit rules; adapters never infer them from
+dimensions. Finite reductions retain their contracted kind and an empty-set prototype;
+disjoint rule contracts are selected by actual operand prerequisites.
 
 Failures use the `compile.math` family ([§23.2](operations-and-validation.md#section-23-2)):
 
@@ -158,7 +147,9 @@ Malformed registry declarations are validation invariants.
 A `Basis` states what a quantity is per: molar, mass, volume, energy, standard volume or
 dimensionless. It may add a composition or rate convention, and a standard-volume basis
 names its reference conditions. A `ReferenceState` records its kind, optional temperature
-and pressure, whether formation enthalpy is included, and an optional phase.
+and pressure, whether formation enthalpy is included, and an optional datum subject.
+The source boundary requires that subject to be an authored entity; its meaning belongs
+to the declaring package rather than a closed phase vocabulary.
 Enthalpy-like and entropy-like types carry their reference, and the additive rule refuses
 to combine different datums.
 
@@ -168,8 +159,7 @@ enthalpy, and its gauge-pressure datum is a distinct reference. The stock ideal-
 thermochemistry datum is 298.15 K / 100000 Pa. A method that needs any other
 datum declares it. A change of basis or reference goes through a registered conversion
 together with its parameter dependencies, applied by an explicit model operation (§8.2).
-Selected reactions currently need a molar basis (§9.7). Mass-to-molar conversion inside
-chemistry is not implemented.
+Reaction definitions state their actual basis and heat convention (§9.7).
 
 ### 8.5 Nominal magnitudes
 
@@ -190,268 +180,125 @@ nominal defines normalization; it is not a bound, a start value or native solver
 
 ## 9. Materials, properties and reactions
 
-> Decision: [ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md),
-> [ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)
+> Decision: [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md),
+> [ADR-0099](../../adr/0099-modeling-language-and-identities.md),
+> [ADR-0100](../../adr/0100-modeling-functions-and-accounting.md) (proposed; implementation authorized).
 
-Libraries own the physics. FeOS computes thermodynamic properties and num-dual computes
-their derivatives. The project owns the binding contract: which authored species maps to
-which parameter record, in which coordinate order, with which physical port types,
-datums, operating window and phase policy. Selected admission consumes, retains or refuses
-every declaration ([ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)).
-Selected property, reaction or phase-equilibrium meaning is never silently ignored. IDAES
-names are preserved in enumerations and property names so that parity tests can map both
-ways ([§6.14](schema-and-relations.md#section-6-14),
-[relationship to IDAES](../../relationship-to-idaes.md)). Numerical IDAES equivalence is
-not claimed.
+Packages own chemistry, thermodynamic identities and correlations. Symbolica/Numerica owns
+arithmetic and derivatives; native libraries own nonlinear iteration and linear algebra.
+FeOS and num-dual remain independent reference-test dependencies only. They do not supply
+production properties. The compatibility enum vocabulary does not imply a scientific
+implementation or general IDAES equivalence (§6.14).
 
 ### 9.1 Material declarations
 
-Material facts are authored relations ([§6.4](schema-and-relations.md#section-6-4)):
-species (component type, charge, formula, molecular weight, valid phase types), species
-elements, phases, phase-species membership, reactions, stoichiometry, and material
-systems. Element masses are reference data (the CIAAW 2024 abridged subset in
-`packages/reference/elements`). A species is identified by its ID, not its formula.
-Element IDs are named identities of their symbols.
-
-`reactions::validate_materials` admits a selected material system only when all of the
-following hold:
-
-- the species are distinct and the phases are distinct
-- every species/phase pair has an explicit phase-species row
-- each species' declared valid phase types include the phase type
-- every species is neutral and non-dissociating
-
-A provider that names a material system must cover exactly that system's species and a
-single phase. Nothing is derived from an implicit "every component is valid somewhere"
-closure. Membership is declared, and a missing row is an error.
-
-IDAES `GenericParameterBlock` configuration survives only as authored storage:
-`property_packages`, `method_selections`, `phase_equilibrium_pairs` and package-owned
-reactions. An instance that binds a property or reaction package is refused with "package
-binding requires an admitted native material/provider declaration". Executed properties
-come only from native provider declarations (§9.4).
+The physical bundle declares generic kinds; seed packages supply chemical entities,
+attributes, composition and coefficient tables. IDs distinguish members independently of
+names or formula strings. All 21 previously shipped element masses are retained in authored
+chemistry data. Molecular-weight and element-closure checks consume those actual rows.
+Package requirements express valid memberships and stoichiometric constraints. There is
+no separate `pse-material` authority or scientific foreign-key schema.
 
 ### 9.2 State coordinates
 
-The provider declaration states the thermodynamic state coordinates. The FeOS provider
-uses temperature, molar density, and N−1 mole fractions in the declared component order.
-One explicitly named dependent species takes the complement. Pressure is an output, not a
-state variable. The provider refuses a noninterior multicomponent trial state instead of
-clipping or renormalizing it.
-
-The reference `states` package declares FTPx and FcTP single-phase state coordinates with
-their port interfaces and IDAES-compatible bounds (mole fraction in [1e-20, 1.001]). These
-are declarations, and they execute only through the refused package binding (§9.1). No
-state-definition template, `defined_state`/`always_flash` inference or flash-required
-projection exists in the current execution path.
+State coordinates are definition contracts. FTPx and FPhx bindings compose physical
+pressure, temperature or enthalpy, composition and flow with a selected property package.
+Homogeneous potential definitions use explicit density and composition coordinates;
+equilibrium definitions introduce their own phase fractions and phase compositions.
+Bounds, starts, normalization, reference conversions and operating intervals are declared
+rather than supplied by a provider factory. Changing coordinates changes a binding or
+authored equation; every analysis still consumes the same checked definitions.
 
 ### 9.3 Property method data
 
-The `methods` and `thermo-examples` reference packages declare correlation forms with
-sourced coefficients in explicit natural units:
+The `methods` bundle owns Shomate, polynomial, constant-property, Perry density and
+RPP4 vapor-pressure equations. The `seed-data` bundle owns their coefficients, physical
+scales, reference values and provenance. `CaloricReference` defaults subtract explicit
+enthalpy/entropy primitives evaluated at the reference temperature and add the supplied
+datum. Derivative fixtures check those primitives against heat capacity; this does not
+presume arbitrary symbolic antiderivatives.
 
-- NIST Shomate
-- RPP4 polynomial
-- Perry liquid heat capacity and density
-- ideal mixing
+Published values, IDAES comparison inputs and derived interpolation examples remain
+separate. Authored fixture tolerances reflect their actual source and precision. The
+common conformance runner executes the formulas through the production mathematical path.
 
-Enthalpy and entropy forms are definite integrals from an explicit reference. The data
-also includes precedence rows and per-dataset validity intervals. An xtask test evaluates
-these formulas against the published values and integral identities
-(`xtask/src/codegen/physical/tests/formulas.rs`).
+### 9.4 External-function contract
 
-This is declared, tested data, not an executed method registry. No workflow resolves
-`method_selections` through `method_precedence`. To execute a correlation today, author it
-as an ordinary typed computation definition
-([§10](models-and-composition.md#section-10)). Physical typing and the provider contract
-check it like any other expression.
+`pse-kernels` is the generic external-function host. `ProviderSpec` binds implementation
+identity and revision, parameter-data identity, ordered typed ports, logical array shapes,
+derivative source, available order and smoothness order. The host does not carry a species,
+phase or equation-of-state interpretation. Registration compares the worker's actual
+contract with the declaration; unsupported or inconsistent capabilities refuse.
 
-### 9.4 Physical provider contract
-
-`pse_kernels::ProviderSpec` is the complete, immutable meaning of a provider:
-
-- implementation ID and algorithm revision
-- exact parameter-data hash
-- selected phase and its revision
-- ordered components
-- ordered scalar input and output ports, each a quantity type with its representation unit
-- optional operating envelope
-- implemented derivative order and proven smoothness order, kept separate
-
-`ProviderSpec::validate` checks the following against the registry:
-
-- every port's type, unit dimension and scalar shape
-- unique identities
-- capacity limits
-
-`Registration::new` checks that the factory's worker reports the same spec. A declaration
-alone is never executable.
-
-A `ProviderRequest` names its outputs and the raw derivative order it needs: value, first
-or second. Asking for more than the implemented order, or more than the smoothness order,
-is refused. Results must be finite and have the declared shape before they are returned.
-Failures stay typed:
-
-| Class | Meaning |
-|---|---|
-| `Trial`, `OutsideEnvelope`, `Singular` | recoverable rejection of one trial point |
-| `Contract` | invalid registration or demand |
-| `Limit`, `Cancelled` | resource or cooperative stop |
-| `Terminal` | unrecoverable library failure |
-
-Native adapters (`pse-backend-native::callback`) and residual dynamics treat trial classes
-as recoverable ([ADR-0093](../../adr/0093-qualified-native-strategies.md)). Diagnostics
-attribute them to their provider and port ([§23.2](operations-and-validation.md#section-23-2)).
-`ProviderSpec::identity` frames the complete meaning, and only consumed provider contracts
-enter the prepared semantic key ([§14](mathematics-and-compilation.md#section-14)). Having
-derivatives does not imply phase regularity.
-
-Typed preparation converts each input from its canonical coordinate to the port's unit,
-and each output back again, with visible scale/offset atoms. Provider ports therefore
-declare natural units without any implicit reinterpretation.
+Requests select exact outputs and derivative order. Physical representation conversions
+remain explicit at the boundary. Returned values and derivatives must have the declared
+shape and be finite within the admitted domain. Typed trial, contract, resource,
+cancellation and terminal failures survive into native callbacks and diagnostic results.
+Derivative availability and smoothness are separate contracts.
 
 ### 9.5 Phase equilibrium
 
-Phase-equilibrium execution is not implemented and is refused explicitly. The
-`native_providers` declaration carries a `formulation`, and only `homogeneous_density` is
-admitted. `workflow::sources::factory` and `FeosPackage::new` both refuse
-`phase_equilibrium`. Nothing executes flash, bubble/dew, SmoothVLE or complementarity
-formulations, or equilibrium-temperature variables.
+Authored equilibrium knowledge includes ideal bubble/dew equations, Rachford–Rice starts,
+SmoothVLE and log-fugacity equality. The seed binds BTIdeal, FPhx and BT_PR comparisons.
+Implicit closures can be inline, nested through the registered KINSOL capability or
+accelerated through the registered cubic-root capability where the declared contract fits.
 
-What exists is limited to diagnostics:
-
-- `FeosPackage::initialize_npt` runs FeOS NPT density initialization with an explicit
-  vapor-like or liquid-like density guess. This does not select a phase branch.
-- Mechanical stability (the sign of dP/dρ) and global phase stability are separate
-  observations, reported as `not_requested`, `stable`, `unstable` or `failed`.
-- `StabilityPolicy` (`unchecked`, `mechanical`, `global`) decides which checks reject a
-  trial. A failed check is never reported as stable.
+Nested-flash selection compares explicitly eligible regimes under an authored criterion.
+Ties, singular derivatives, failed alternatives and unproved branch crossings refuse.
+Implicit derivatives describe the selected smooth neighborhood. Neither a converged local
+closure nor these derivative checks establish global phase stability or selector smoothness.
 
 ### 9.6 Property demand
 
-Property demand is explicit at each provider call. A model binds a provider through
-`authored.native_providers` and names the output it consumes. Its bodies call that
-provider through typed preparation, and each evaluation asks for exactly the outputs and
-derivative order it needs. The FeOS worker computes one coherent state per derivative
-seed block for all requested outputs. Its one-trial cache includes the complete inputs and
-demand, and a failure clears the cache.
-
-The global demand fixed point is not part of the current design. That covers property
-requirement seeds, method-resolution closure and the `inferred.property_requirements`,
-`method_resolutions` and `state_flash_required` relations. A missing property is a missing
-provider output or an unresolved path in the definition, and it is refused where it
-occurs.
+Lazy demand closure instantiates requested definition members and their defining equations.
+Interface defaults, explicit overrides and dispatch tables compose the selected physics.
+Function references resolve in their definition scope; imports delimit visibility.
+Effective-member lineage remains inspectable. The compiler groups shared implementations
+without collapsing independent instance coordinates. External functions use explicit
+registered capability references; scientific names never choose a Rust factory.
 
 ### 9.7 Reaction binding
 
-A selected reaction runs through an `authored.reaction_applications` row. The row names
-the following:
+Reaction forms, rate functions, stoichiometry and thermal conventions are authored data.
+The saponification seed uses neutral formula units, a sourced Arrhenius form and an explicit
+reaction heat. Generic accumulators consume the selected component and energy contributions;
+requirements and conformance fixtures check elemental closure. Its solvent-only caloric
+approximation is explicit in the package and distinct from total component flow.
+This seed does not establish ionic speciation, equilibrium-reaction or multiphase-reaction
+qualification. Extending those sciences means new package definitions and fixtures.
 
-- material system, reaction and phase
-- the authored rate instance and output (an extent per time)
-- one material balance per reactive species
-- an energy balance, with an explicit heat-rate instance and output
-- the element-closure tolerance
-- provenance
+### 9.8 Authored thermodynamic implementations
 
-`workflow::reactions::project` requires all of the following:
+The current authored thermodynamic seed contains ideal gas/liquid forms, Peng–Robinson
+residual potentials and the IDAES delta-convention override, and nonassociating PC-SAFT
+hard-chain/dispersion potentials. Interface defaults derive properties through physical
+partial derivatives. Density closures exercise inline, nested and cubic-accelerated
+realizations. Caloric and residual terms retain separate explicit reference choices.
 
-- a single homogeneous phase that matches the system
-- a molar `rate` reaction with an explicit reaction phase
-- species inside the material system
-- element closure within the declared tolerance, checked by
-  `pse_material::stoichiometry::admit_homogeneous` against actual element compositions
-- molar-amount-per-time species balances and an energy-rate heat term
-
-It then projects one authored rate into every species balance as signed generation or
-consumption, using |ν| as the multiplier. It creates no second rate evaluator. The heat
-enters as an explicit `heat_in` term, so formation energy is never guessed or counted
-twice.
-
-Refused cases include:
-
-- concentration-form laws, because an implicit concentration conversion would be needed
-- equilibrium or multiphase reactions
-- nonmolar bases
-- package-owned reactions
-
-The declared convention also allows a formation-enthalpy route, but only the
-explicit-heat route is implemented. The fixture methane + propane → 2 ethane is a
-constructed conservation example, not a kinetic claim.
-
-### 9.8 Provider implementations
-
-**FeOS PC-SAFT with DIPPR ideal gas** (`pse_kernels::feos`) is the thermodynamic provider,
-with explicit homogeneous density:
-
-- **Record binding.** Each authored species maps to a PC-SAFT record and a DIPPR record,
-  both identified by CAS number. The records are checked before `Parameters::from_records`
-  runs, not selected with FeOS `subset`. Duplicate or missing records, and conflicting
-  binary data, are refused. A missing binary interaction is refused under
-  `require_explicit` and treated as zero only under the explicit `zero` policy.
-- **Chemistry checks.** When a material system is named, the species molecular weight and
-  formula must agree with the bound record. Component counts up to 128 are admitted, and
-  derivative width follows the component count.
-- **Outputs.** Pressure, total molar enthalpy, total molar entropy and ln φ for each
-  component, all computed from one FeOS state.
-- **References.** Enthalpy and entropy have separate references. Enthalpy is the DIPPR
-  integral from 298.15 K, without formation enthalpy. Entropy is zero for the pure ideal
-  gas at 298.15 K and 1 bar, and it includes mixing and residual terms. The FeOS pressure
-  datum is corrected inside dual arithmetic. No absolute third-law entropy is claimed.
-  The two references must be distinct registry states with those exact values.
-- **Operating envelope.** The declared envelope covers temperature, density, pressure and
-  every composition, including NPT initialization. It is enforced on every trial. Its
-  bounds and provenance are part of provider identity. The envelope is not empirical
-  certification.
-- **Selected data.** Parameter data are authored in the declaration, so the provider is
-  not tied to a fixed component set. The bundled dataset
-  (`FeosData::light_hydrocarbons`, `crates/pse-kernels/data/`) covers methane, ethane
-  and propane, with identified sources and explicit zero binary interactions.
-- **Pins.** FeOS/feos-core, num-dual, `quantity` and nalgebra use the workspace pins
-  (`Cargo.toml`). num-dual stays at the version compatible with FeOS. FeOS's `quantity`
-  crate is used only at the boundary and is never a units authority.
-
-**Directional valve law** (`pse_kernels::valve`) is a declared C² non-reversing
-pressure-difference law. num-dual supplies its exact local derivatives.
-
-**Helmholtz and CoolProp** providers are not implemented. No IDAES Helmholtz parameter
-files, `general_helmholtz` equivalent or CoolProp coefficient source is present. A new
-provider implements `ProviderFactory` and `Provider` under §9.4, and a `kind` in
-`workflow::sources::factory` selects it. Any other `kind` is refused as an unknown native
-provider factory. A general cubic equation of state is also absent.
+Methane/ethane/propane data feed both homogeneous process models and the vessel. A declared
+C² directional-valve function replaces the Rust provider. Independent frozen teqp, FeOS
+and caloric oracle inputs remain in tests, with source and convention notes in each bundle.
+The source packages contain no general multiparameter Helmholtz or CoolProp implementation.
+Focused executed evidence and its limits are recorded by the owning execution packet;
+this inventory does not claim the excluded K9 campaign.
 
 ### 9.9 Electrolytes and inherent reactions
 
-These are not implemented. The authored schema can store charge, dissociation species,
-component types such as `Ion` and `Apparent`, and `inherent` reactions. Selected admission
-refuses them: any species with nonzero charge or a dissociation relation is refused as
-"ionic/dissociating selected chemistry". Only `rate` reactions are admitted, and package
-bindings are refused. True/apparent species bases, eNRTL and inherent-reaction extents do
-not execute.
+Electrolyte, true/apparent-species, eNRTL and inherent-reaction packages are outside the
+current seed. Generic entities and tables can describe their data, but declarations alone
+provide no numerical qualification. A future port supplies equations, physical contracts,
+requirements, source provenance and authored fixtures; a missing generic mechanism is a
+kernel gap, not permission for a scientific special case in Rust.
 
 ### 9.10 Scaling defaults and validity
 
-`authored.default_scaling` rows (the equivalent of IDAES `default_scaling_factors`) are
-keyed by property package, property kind and index. They take effect only through an
-explicit `authored.provider_scaling_bindings` row that names three things:
+Starts, nominals, validity intervals and scientific checks are annotations on the same
+model that is solved. Numerical policy resolution retains source priority and unit
+conversion (§16); block and recycle projections consume that resolved policy.
 
-- the provider and its selected output
-- the target variable
-- the provenance
+A validity annotation records membership independently from permission to extrapolate.
+An out-of-domain trial is typed and attributed to its source/member/value/bounds. A final
+candidate must pass original equations, declared checks and fixture expectations. A policy
+allowing unclosed conservation does not waive arbitrary failed checks. Solver success,
+physical validity, numerical acceptance and empirical adequacy remain distinct observations.
 
-The workflow checks that the output and target share one complete contract. It then
-contributes a `property_default` numerical source in the output's unit
-(`workflow::numerics`), ranked as in §8.5. A default that is not bound through such a row
-has no effect.
-
-Validity has two separate meanings:
-
-- **Provider envelope.** This is executed. A trial outside it becomes a recoverable
-  `OutsideEnvelope` failure. Nothing is extrapolated silently.
-- **Correlation validity intervals.** These are data in the reference method packages
-  (§9.3) and are not checked at execution time.
-
-Neither kind of validity establishes empirical accuracy, which rests on independent
-reference comparisons within the scoped qualification
-([§24.2](operations-and-validation.md#section-24-2)). The recorded capability limits are
-in [§25](scope-and-open-design.md#section-25).

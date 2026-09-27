@@ -34,18 +34,161 @@ pub struct SourcedRequirement {
     /// Registry-owned declaration.
     pub declaration: NumericalRequirement,
 }
+/// An explicit coordinate projection preserves the already resolved source policy.
+#[derive(Clone, Debug)]
+pub struct TargetProjection {
+    /// Original selected coordinate.
+    pub source: SemanticId,
+    /// Original coordinate role.
+    pub source_kind: NumericalTarget,
+    /// Representation required by the consumer.
+    pub target: TargetSpec,
+}
+/// Project resolved magnitudes without selecting defaults or applying precedence again.
+/// # Errors
+/// Missing or repeated targets, changed physical contracts, integer substitutions and
+/// nonrepresentable magnitudes are refused. Affine offsets never enter magnitudes.
+pub fn project(
+    registry: &QuantityRegistry,
+    source: &ResolvedNumericalPolicy,
+    projections: &[TargetProjection],
+) -> Result<ResolvedNumericalPolicy, MathError> {
+    let mut key = FramedHasher::new("pse.numerical.projection.v1");
+    key.hash(&source.key);
+    let mut ordered = projections.iter().collect::<Vec<_>>();
+    ordered.sort_by_key(|p| (p.target.id, p.target.kind.as_str()));
+    let mut seen = std::collections::BTreeSet::new();
+    let mut targets = Vec::with_capacity(ordered.len());
+    for projection in ordered {
+        let target = &projection.target;
+        if !seen.insert((target.id, target.kind.as_str()))
+            || target.integer
+            || target.declared_tolerance.is_some()
+        {
+            return Err(failure(
+                target.id,
+                "projection must name unique continuous coordinates without new tolerances",
+            ));
+        }
+        let original = source
+            .targets
+            .iter()
+            .find(|t| t.id == projection.source && t.kind == projection.source_kind)
+            .ok_or_else(|| failure(projection.source, "projection source was not resolved"))?;
+        pse_quantity::admission::require_same_contract(
+            original.quantity.into(),
+            target.quantity,
+            registry,
+        )?;
+        let scale = pse_quantity::convert_spec_for_type(
+            registry.unit(original.unit.into())?,
+            registry.unit(target.unit)?,
+            &registry.quantity_type(target.quantity)?.key,
+        )?
+        .scale
+        .abs();
+        let mut result = original.clone();
+        result.id = target.id;
+        result.kind = target.kind;
+        result.quantity = target.quantity.as_id();
+        result.unit = target.unit.as_id();
+        result.nominal *= scale;
+        result.coordinate_scale /= scale;
+        result.absolute *= scale;
+        result.budget *= scale;
+        if [result.nominal, result.coordinate_scale, result.budget]
+            .iter()
+            .any(|v| !v.is_finite() || *v <= 0.0)
+            || !result.absolute.is_finite()
+        {
+            return Err(failure(
+                target.id,
+                "projected magnitude is not representable",
+            ));
+        }
+        for p in &mut result.provenance {
+            if p.field != "relative_tolerance" {
+                p.value *= scale;
+            }
+        }
+        key.id(&projection.source)
+            .id(&target.id)
+            .id(&target.quantity.as_id())
+            .id(&target.unit.as_id())
+            .u64(scale.to_bits());
+        projection.source_kind.frame(&mut key);
+        target.kind.frame(&mut key);
+        targets.push(result);
+    }
+    Ok(ResolvedNumericalPolicy {
+        policy: source.policy.clone(),
+        targets,
+        key: key.finish_hash(),
+    })
+}
 fn rank(source: NumericalSource) -> u8 {
     match source {
-        NumericalSource::Analysis => 5,
-        NumericalSource::Case => 4,
-        NumericalSource::Model => 3,
-        NumericalSource::PropertyDefault => 2,
+        NumericalSource::Analysis => 7,
+        NumericalSource::Case => 6,
+        NumericalSource::Model => 5,
+        NumericalSource::ModelHint => 4,
+        NumericalSource::DerivedNominal => 2,
+        NumericalSource::PropertyDefault => 3,
         NumericalSource::QuantityNominal => 1,
         NumericalSource::CanonicalFallback => 0,
     }
 }
 fn failure(id: SemanticId, message: &str) -> MathError {
     MathError::Contract(format!("numerical target {id}: {message}"))
+}
+
+/// Derive an inverse characteristic magnitude from independently evaluated original
+/// additive terms. The sanctioned scheme names retain IDAES's exact definitions,
+/// including `harmonicMean` being a sum of reciprocals rather than an average.
+/// # Errors
+/// Nonfinite observations or an unrepresentable positive scale are explicit failures.
+pub fn term_scale(
+    scheme: pse_model::generated::enums::ConstraintScalingScheme,
+    terms: &[f64],
+) -> Result<f64, MathError> {
+    use pse_model::generated::enums::ConstraintScalingScheme as S;
+    if terms.is_empty() || terms.iter().any(|v| !v.is_finite()) {
+        return Err(MathError::Contract(
+            "derived nominal requires finite original term observations".into(),
+        ));
+    }
+    let nonzero = terms
+        .iter()
+        .map(|v| v.abs())
+        .filter(|v| *v > 0.0)
+        .collect::<Vec<_>>();
+    if nonzero.is_empty() {
+        return Ok(1.0);
+    }
+    // Rescaling avoids spurious overflow of sums/squares. No finite observation is
+    // silently replaced with 1 when the mathematical scale cannot be represented.
+    let maximum = nonzero.iter().copied().fold(0.0, f64::max);
+    let minimum = nonzero.iter().copied().fold(f64::INFINITY, f64::min);
+    let value = match scheme {
+        S::HarmonicMean => nonzero.iter().map(|v| minimum / v).sum::<f64>() / minimum,
+        S::InverseSum => (1.0 / maximum) / nonzero.iter().map(|v| v / maximum).sum::<f64>(),
+        S::InverseRSS => {
+            (1.0 / maximum)
+                / nonzero
+                    .iter()
+                    .map(|v| (v / maximum).powi(2))
+                    .sum::<f64>()
+                    .sqrt()
+        }
+        S::InverseMaximum => 1.0 / maximum,
+        S::InverseMinimum => 1.0 / minimum,
+    };
+    if !value.is_finite() || value <= 0.0 {
+        return Err(MathError::Contract(
+            "derived nominal scale is outside representable positive values".into(),
+        ));
+    }
+    Ok(value)
 }
 /// Resolve all selected targets, refusing unknown requirements and equal-priority conflicts.
 pub fn resolve(
@@ -417,6 +560,47 @@ mod tests {
         }
     }
     #[test]
+    fn numerical_projection_preserves_precedence_and_affine_magnitudes() {
+        let registry = standard_registry().unwrap();
+        let source = resolve(
+            &registry,
+            &[target()],
+            &[requirement(2, NumericalSource::Model, 20.0)],
+            &Default::default(),
+        )
+        .unwrap();
+        let mut projection = TargetProjection {
+            source: id(1),
+            source_kind: NumericalTarget::Variable,
+            target: TargetSpec {
+                id: id(3),
+                kind: NumericalTarget::Row,
+                unit: ids::unit("degC"),
+                ..target()
+            },
+        };
+        let projected = project(&registry, &source, &[projection.clone()]).unwrap();
+        let result = &projected.targets[0];
+        assert_eq!(result.nominal, 20.0);
+        assert_eq!(result.budget, 0.7);
+        assert_eq!(result.coordinate_scale, source.targets[0].coordinate_scale);
+        assert_eq!(result.provenance, source.targets[0].provenance);
+        assert_ne!(projected.key, source.key);
+        assert!(
+            project(
+                &registry,
+                &source,
+                &[projection.clone(), projection.clone()]
+            )
+            .is_err()
+        );
+        projection.source = id(4);
+        assert!(project(&registry, &source, &[projection.clone()]).is_err());
+        projection.source = id(1);
+        projection.target.quantity = ids::quantity("neutral");
+        assert!(project(&registry, &source, &[projection]).is_err());
+    }
+    #[test]
     fn numerical_policy_precedence_frozen_budget_and_affine_unit_magnitudes() {
         let registry = standard_registry().unwrap();
         let authored = [
@@ -460,6 +644,34 @@ mod tests {
             )
             .is_err()
         );
+    }
+    #[test]
+    fn original_term_schemes_keep_names_zero_rules_and_finite_semantics() {
+        use pse_model::generated::enums::ConstraintScalingScheme as S;
+        for (scheme, expected) in [
+            (S::HarmonicMean, 0.75),
+            (S::InverseSum, 1.0 / 6.0),
+            (S::InverseRSS, 1.0 / 20.0_f64.sqrt()),
+            (S::InverseMaximum, 0.25),
+            (S::InverseMinimum, 0.5),
+        ] {
+            assert!((term_scale(scheme, &[0.0, -2.0, 4.0]).unwrap() - expected).abs() < 1e-15);
+            assert_eq!(term_scale(scheme, &[0.0, 0.0]).unwrap(), 1.0);
+            assert!(term_scale(scheme, &[f64::NAN]).is_err());
+            assert!(term_scale(scheme, &[]).is_err());
+        }
+        assert!(term_scale(S::InverseRSS, &[1e308, 1e308]).unwrap() > 0.0);
+        let sources = [
+            NumericalSource::CanonicalFallback,
+            NumericalSource::QuantityNominal,
+            NumericalSource::DerivedNominal,
+            NumericalSource::PropertyDefault,
+            NumericalSource::ModelHint,
+            NumericalSource::Model,
+            NumericalSource::Case,
+            NumericalSource::Analysis,
+        ];
+        assert!(sources.windows(2).all(|s| rank(s[0]) < rank(s[1])));
     }
     #[test]
     fn numerical_policy_integer_normalized_budget_uses_lattice_coordinates() {

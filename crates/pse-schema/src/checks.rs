@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::builder::Registry;
 use crate::error::SchemaError;
-use crate::model::{ExtensionUse, FieldContract, RelationDecl};
+use crate::model::{FieldContract, RelationDecl};
 
 /// Admit a declaration's literal against its resolved logical contract before it can
 /// become a migration default or a context-resolved expression value.
@@ -215,8 +215,6 @@ pub(crate) fn documents(
                 section.entity_kind,
                 section.name_column,
                 section.naming_scope_column,
-                section.expression_owner_column,
-                section.expression_fields,
             );
             if mappings
                 .insert(section.relation, projection)
@@ -271,7 +269,6 @@ fn document_section(
     let relation = registry
         .relation(section.relation)
         .ok_or_else(|| invalid_document(section.relation, "unknown relation"))?;
-    document_grammars(section, relation)?;
     if let Some(identity) = section.identity_column
         && (relation.primary_key != [identity]
             || !relation.column(identity).is_some_and(|column| {
@@ -323,73 +320,5 @@ fn document_section(
             "scope must be a semantic-ID foreign key",
         ));
     }
-    let has_dsl = relation.columns.iter().any(|column| {
-        let mut nested = Vec::new();
-        column.value_type().walk(&mut nested);
-        nested
-            .into_iter()
-            .any(|ty| matches!(ty.extension(), Some(ExtensionUse::ExprDsl)))
-    });
-    if has_dsl != section.expression_owner_column.is_some()
-        || has_dsl != section.expression_owner_kind.is_some()
-    {
-        return Err(invalid_document(
-            section.relation,
-            "every DSL-bearing section requires exactly one explicit expression owner",
-        ));
-    }
-    if let Some(owner) = section.expression_owner_column
-        && !relation.column(owner).is_some_and(|column| {
-            column.value_type() == FieldContract::id()
-                && !column.nullable()
-                && column.fk().is_some_and(|fk| {
-                    section
-                        .expression_owner_kind
-                        .is_some_and(|kind| kind.target() == (fk.relation, fk.column))
-                })
-        })
-    {
-        return Err(invalid_document(
-            section.relation,
-            "expression owner must be the explicit nonnullable foreign key for its declared kind",
-        ));
-    }
     Ok(())
-}
-
-fn document_grammars(
-    section: &crate::model::DocumentSection,
-    relation: &crate::model::RelationSpec,
-) -> Result<(), SchemaError> {
-    let mut expected = BTreeSet::new();
-    for column in &relation.columns {
-        dsl_field_paths(&column.value_type(), column.name(), &mut expected);
-    }
-    let declared = section
-        .expression_fields
-        .iter()
-        .map(|(path, _)| (*path).to_owned())
-        .collect::<BTreeSet<_>>();
-    if declared.len() != section.expression_fields.len() || declared != expected {
-        return Err(invalid_document(
-            section.relation,
-            "DSL grammar mapping must cover every exact exposed DSL leaf once",
-        ));
-    }
-    Ok(())
-}
-fn dsl_field_paths(ty: &FieldContract, path: &str, paths: &mut BTreeSet<String>) {
-    if matches!(ty.extension(), Some(ExtensionUse::ExprDsl)) {
-        paths.insert(path.to_owned());
-        return;
-    }
-    for child in ty.children() {
-        let child_path = match ty.data_type() {
-            arrow_schema::DataType::List(_)
-            | arrow_schema::DataType::LargeList(_)
-            | arrow_schema::DataType::FixedSizeList(..) => format!("{path}[]"),
-            _ => format!("{path}.{}", child.name()),
-        };
-        dsl_field_paths(&child, &child_path, paths);
-    }
 }

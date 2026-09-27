@@ -9,7 +9,7 @@ use pse_math::binding::{
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
-fn inputs() -> Inputs {
+pub(super) fn inputs() -> Inputs {
     let quantities = Arc::new(pse_quantity::standard::standard_registry().unwrap());
     let q = pse_quantity::standard::ids::quantity("neutral");
     let unit = quantities.quantity_type(q).unwrap().canonical_unit;
@@ -226,7 +226,10 @@ fn absent_empty_membership_and_removed_definitions_are_observed() {
         "components".into(),
         Domain {
             members: pse_math::binding::FiniteDomain::new(id(70), vec![], 10).unwrap(),
-            kind: pse_quantity::DomainKind::Species,
+            kind: pse_quantity::standard::standard_registry()
+                .unwrap()
+                .entity_kind_named("species")
+                .unwrap(),
         },
     );
     w.publish(i.clone()).unwrap();
@@ -244,7 +247,10 @@ fn absent_empty_membership_and_removed_definitions_are_observed() {
         "components".into(),
         Domain {
             members: pse_math::binding::FiniteDomain::new(id(70), vec![id(71)], 10).unwrap(),
-            kind: pse_quantity::DomainKind::Species,
+            kind: pse_quantity::standard::standard_registry()
+                .unwrap()
+                .entity_kind_named("species")
+                .unwrap(),
         },
     );
     w.publish(i.clone()).unwrap();
@@ -447,15 +453,13 @@ fn consumed_provider_revisions_invalidate_but_unrelated_providers_backdate() {
     let port = i.cases[&id(9)].structure.variables()[0].port.clone();
     let h = ContentHash::from_bytes([0; 32]);
     let spec = pse_kernels::ProviderSpec {
-        envelope: None,
+        shapes: pse_kernels::ProviderShapes::default(),
+        derivative_source: pse_kernels::DerivativeSource::Analytic,
+
         id: id(80),
         revision: h,
         data: h,
-        components: vec![id(90)],
-        phase: pse_kernels::Phase {
-            id: id(81),
-            revision: h,
-        },
+
         inputs: vec![port.clone()],
         outputs: vec![port],
         derivatives: DerivativeOrder::Second,
@@ -490,14 +494,11 @@ fn consumed_provider_revisions_invalidate_but_unrelated_providers_backdate() {
             ..spec.clone()
         },
         pse_kernels::ProviderSpec {
-            phase: pse_kernels::Phase {
-                id: id(82),
-                revision: ContentHash::from_bytes([2; 32]),
-            },
+            revision: ContentHash::from_bytes([2; 32]),
             ..spec.clone()
         },
         pse_kernels::ProviderSpec {
-            components: vec![id(91), id(90)],
+            id: id(91),
             ..spec.clone()
         },
         pse_kernels::ProviderSpec {
@@ -520,7 +521,12 @@ fn finite_membership_and_ragged_bindings_match_clean_preparation() {
     let mut i = inputs();
     let scalar = i.definitions[&id(10)].formals[0].quantity;
     let mut shaped = i.quantities.quantity_type(scalar).unwrap().clone();
-    shaped.key.shape = vec![pse_quantity::DomainKind::Species];
+    shaped.key.shape = vec![
+        pse_quantity::standard::standard_registry()
+            .unwrap()
+            .entity_kind_named("species")
+            .unwrap(),
+    ];
     shaped.id = QuantityTypeId::from_id(id(91));
     let shaped_id = i.quantities.resolve_key(&shaped.key).unwrap_or(shaped.id);
     if shaped_id == shaped.id {
@@ -542,7 +548,10 @@ fn finite_membership_and_ragged_bindings_match_clean_preparation() {
     );
     let domain = |members: Vec<SemanticId>| Domain {
         members: pse_math::binding::FiniteDomain::new(id(70), members, 10).unwrap(),
-        kind: pse_quantity::DomainKind::Species,
+        kind: pse_quantity::standard::standard_registry()
+            .unwrap()
+            .entity_kind_named("species")
+            .unwrap(),
     };
     i.domains.insert("members".into(), domain(vec![id(71)]));
     let mut w = CompilerWorkspace::new(i.clone(), WorkspaceLimits::default()).unwrap();
@@ -569,9 +578,33 @@ fn finite_membership_and_ragged_bindings_match_clean_preparation() {
 }
 
 #[test]
-fn conditional_blocks_drop_objective_demands_and_reuse_pure_salsa_products() {
-    let i = inputs();
+fn conditional_blocks_require_equalities_and_reuse_pure_salsa_products() {
+    let mut i = inputs();
     let mut w = CompilerWorkspace::new(i.clone(), WorkspaceLimits::default()).unwrap();
+    assert!(
+        w.prepare_initialization_blocks(id(9), Profile::default(), DerivativeOrder::First)
+            .is_err()
+    );
+    let case = i.cases.get_mut(&id(9)).unwrap();
+    let source = &case.structure;
+    let mut instances = source.instances().to_vec();
+    for instance in &mut instances {
+        instance
+            .contributions
+            .retain(|contribution| matches!(contribution.target, Target::Row(_)));
+    }
+    case.structure = Arc::new(
+        CaseStructure::new(
+            source.variables().to_vec(),
+            source.parameters().to_vec(),
+            instances,
+            source.rows().to_vec(),
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    w.publish(i.clone()).unwrap();
     let first = w
         .prepare_initialization_blocks(id(9), Profile::default(), DerivativeOrder::First)
         .unwrap();

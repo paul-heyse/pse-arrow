@@ -76,3 +76,54 @@ impl InvariantChecker for StandardInvariantChecker {
         declaration.check(operation, operands, registry)
     }
 }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "explicit source-contract test fixtures"
+)]
+mod tests {
+    use super::*;
+    use crate::{IndexSet, QuantityTypeId, infer::infer_with_evidence};
+
+    #[test]
+    fn caloric_operations_require_the_declared_datum_and_difference_roles() {
+        let registry = standard_registry().expect("source package projection");
+        let quantity = |hex| QuantityTypeId::from_id(pse_ids::SemanticId::parse_hex(hex).unwrap());
+        let delta_h = quantity("d5bb3d48b9804f2f8d5a6f0a7cadaee8");
+        let delta_t = quantity("459a933fd00837bbc50372e31ac9801c");
+        let cp = quantity("cd653ba98fa94d16b5d66b363f21c3d6");
+        let indices = IndexSet::new();
+        let divide = |left, right| {
+            infer_with_evidence(
+                &OpRequest::Div,
+                &[
+                    Operand {
+                        quantity_type: left,
+                        indices: &indices,
+                    },
+                    Operand {
+                        quantity_type: right,
+                        indices: &indices,
+                    },
+                ],
+                &registry,
+                &StandardInvariantChecker,
+            )
+        };
+        assert_eq!(divide(delta_h, delta_t).unwrap().result, cp);
+        assert_eq!(
+            divide(cp, cp).unwrap().result,
+            registry.neutral_dimensionless().unwrap()
+        );
+        for wrong_h in [
+            quantity("1831d0d72dc74b299ba8ecb6d4da6f53"), // a point of the same datum
+            quantity("94b88c5bead5458629c2afc11ffcff20"), // another datum's difference
+        ] {
+            assert!(divide(wrong_h, delta_t).is_err());
+            assert!(divide(wrong_h, delta_h).is_err());
+        }
+        assert!(divide(delta_h, quantity("c64b96975a4a59755f8711d3bf628bc9")).is_err());
+    }
+}

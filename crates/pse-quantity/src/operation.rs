@@ -4,7 +4,7 @@
 //! Registered complete-quantity operation declarations (blueprint §6.2, §8.3).
 use crate::{
     BasisId, BasisRule, ConversionId, InvariantId, Opcode, OperationId, QuantityKindId,
-    QuantityScaleRule, QuantityShapeRule, ReferenceRule, ReferenceStateId, SubjectKind,
+    QuantityScaleRule, QuantityShapeRule, ReferenceRule, ReferenceStateId, EntityKindId,
     SubjectRule,
 };
 /// A conversion applied once to the named operand before rule matching.
@@ -47,7 +47,7 @@ pub struct QuantityOperation {
     /// Operand supplying a preserved subject.
     pub subject_source: Option<u16>,
     /// Explicit result subject for `declared_result`.
-    pub result_subject_kind: Option<SubjectKind>,
+    pub result_subject_kind: Option<EntityKindId>,
     /// Explicit result basis for `declared_result`.
     pub result_basis: Option<BasisId>,
     /// Explicit result datum for `declared_result`.

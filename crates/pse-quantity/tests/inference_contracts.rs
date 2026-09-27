@@ -28,6 +28,7 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
         .pow(Ratio::new(2, 1).expect("two"))
         .expect("squared");
     let mut b = QuantityRegistryBuilder::new();
+    for (id,name) in [(21,"custom"),(22,"species"),(23,"phase")] { b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(id)),name:name.into()}); }
     b.unit(Unit {
         id: UnitId::from_id(raw(1)),
         symbol: "K".into(),
@@ -357,7 +358,7 @@ fn registered_integral_removes_only_its_actual_lexical_binder() {
     let mut builder = original.to_builder();
     let mut body = original.quantity_type(qty(1)).unwrap().clone();
     body.id = qty(5);
-    body.key.shape = vec![DomainKind::Custom];
+    body.key.shape = vec![EntityKindId::from_id(raw(21))];
     builder.quantity_type(body);
     let mut operation = original.operations_for(Opcode::Mul).next().unwrap().clone();
     operation.id = OperationId::from_id(raw(40));
@@ -369,7 +370,7 @@ fn registered_integral_removes_only_its_actual_lexical_binder() {
     let bound = BoundIndexRef::new(
         BoundIndexId::from_id(raw(50)),
         DomainId::from_id(raw(51)),
-        DomainKind::Custom,
+        EntityKindId::from_id(raw(21)),
     );
     let indices = IndexSet::try_from_iter([bound]).unwrap();
     let request = OpRequest::Integral {
@@ -424,7 +425,7 @@ fn registered_sum_contract_changes_kind_and_never_falls_back_after_refusal() {
     let mut builder = original.to_builder();
     let mut body = original.quantity_type(qty(2)).unwrap().clone();
     body.id = qty(20);
-    body.key.shape = vec![DomainKind::Species];
+    body.key.shape = vec![EntityKindId::from_id(raw(22))];
     builder.quantity_type(body.clone());
     let mut kind = original.kind(body.key.kind).unwrap().clone();
     kind.id = QuantityKindId::from_id(raw(21));
@@ -442,10 +443,10 @@ fn registered_sum_contract_changes_kind_and_never_falls_back_after_refusal() {
     operation.shape_rule = QuantityShapeRule::ReduceBoundIndex;
     builder.operation(operation.clone());
     assert!(builder.clone().build().is_err());
-    builder.reduction_domain(operation.id, DomainKind::Species);
+    builder.reduction_domain(operation.id, EntityKindId::from_id(raw(22)));
     let mut phase_body = body.clone();
     phase_body.id = qty(22);
-    phase_body.key.shape = vec![DomainKind::Phase];
+    phase_body.key.shape = vec![EntityKindId::from_id(raw(23))];
     builder.quantity_type(phase_body.clone());
     let missing_result = builder.clone().build().unwrap();
     builder.quantity_type(total.clone());
@@ -453,7 +454,7 @@ fn registered_sum_contract_changes_kind_and_never_falls_back_after_refusal() {
     let bound = BoundIndexRef::new(
         BoundIndexId::from_id(raw(50)),
         DomainId::from_id(raw(51)),
-        DomainKind::Species,
+        EntityKindId::from_id(raw(22)),
     );
     let indices = IndexSet::try_from_iter([bound]).unwrap();
     let request = OpRequest::Reduce {
@@ -484,7 +485,7 @@ fn registered_sum_contract_changes_kind_and_never_falls_back_after_refusal() {
     };
     assert!(infer(&wrong, &operands, &registry).is_err());
     let phase = BoundIndexRef {
-        kind: DomainKind::Phase,
+        kind: EntityKindId::from_id(raw(23)),
         ..bound
     };
     let phase_indices = IndexSet::try_from_iter([phase]).unwrap();

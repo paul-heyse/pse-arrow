@@ -584,7 +584,7 @@ mod integrated_performance_unit {
     use pse_columnar::CancellationToken;
     use pse_relations::{
         columnar::RelationRow,
-        generated::reference::{elements, math_context},
+        generated::reference::{constants, math_context},
     };
 
     #[test]
@@ -648,7 +648,7 @@ mod integrated_performance_unit {
     impl Producer for Fake {
         fn declarations(&self) -> BTreeMap<String, pse_ids::SemanticId> {
             BTreeMap::from([
-                ("values".into(), elements::spec(&self.registry).unwrap().id),
+                ("values".into(), constants::spec(&self.registry).unwrap().id),
                 (
                     "empty".into(),
                     math_context::spec(&self.registry).unwrap().id,
@@ -694,18 +694,21 @@ mod integrated_performance_unit {
                         .map(datafusion::arrow::array::RecordBatch::num_rows)
                         .sum::<usize>();
                 }
-                let mut builder = elements::Row::builder(&registry, 1).unwrap();
-                elements::Row::push(
+                let mut builder = constants::Row::builder(&registry, 1).unwrap();
+                constants::Row::push(
                     &mut builder,
-                    elements::Row {
-                        element_id: pse_ids::SemanticId::from_bytes([1; 16]),
-                        symbol: "C".into(),
-                        name: "carbon".into(),
-                        atomic_mass: rows as f64,
+                    constants::Row {
+                        constant_id: pse_ids::SemanticId::from_bytes([1; 16]),
+                        name: "rows".into(),
+                        idaes_name: None,
+                        value: rows as f64,
+                        unit_id: pse_ids::SemanticId::from_bytes([2; 16]),
+                        quantity_kind_id: pse_ids::SemanticId::from_bytes([3; 16]),
+                        doc: "Synthetic producer result".into(),
                     },
                 )
                 .unwrap();
-                let values = elements::Row::finish(builder).unwrap();
+                let values = constants::Row::finish(builder).unwrap();
                 let empty = FieldCheckedBatch::concat(
                     &registry,
                     math_context::spec(&registry).unwrap(),

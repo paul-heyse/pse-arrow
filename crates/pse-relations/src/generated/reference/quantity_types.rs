@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    248u8, 71u8, 94u8, 223u8, 186u8, 208u8, 141u8, 214u8, 32u8, 139u8, 147u8, 204u8,
-    147u8, 108u8, 119u8, 221u8, 155u8, 227u8, 35u8, 162u8, 173u8, 38u8, 231u8, 21u8,
-    225u8, 245u8, 254u8, 109u8, 23u8, 160u8, 142u8, 40u8,
+    86u8, 103u8, 114u8, 127u8, 87u8, 79u8, 218u8, 23u8, 75u8, 254u8, 201u8, 235u8, 12u8,
+    22u8, 109u8, 65u8, 172u8, 88u8, 69u8, 228u8, 172u8, 130u8, 121u8, 1u8, 74u8, 89u8,
+    15u8, 76u8, 243u8, 183u8, 116u8, 129u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
     fn append(
@@ -92,10 +92,10 @@ impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
             children[4usize].as_mut(),
         )?;
         <Vec<
-            crate::generated::enums::DomainKind,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Option<
-            crate::generated::enums::SubjectKind,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[7usize].as_mut(),
@@ -139,13 +139,13 @@ impl crate::columnar::ArrowValue for ReferenceQuantityTypesRow {
                 index,
             )?,
             r#shape: <Vec<
-                crate::generated::enums::DomainKind,
+                pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
             r#subject_kind: <Option<
-                crate::generated::enums::SubjectKind,
+                pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
@@ -277,10 +277,10 @@ impl crate::columnar::RelationRow for ReferenceQuantityTypesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        26_624_usize + size_of::<Self::Builder>()
+        28_672_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        208usize
+        224usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -324,18 +324,18 @@ impl crate::columnar::RelationRow for ReferenceQuantityTypesRow {
                 .iter()
                 .try_fold(
                     8usize,
-                    |bytes, item| crate::columnar::allocation_add(
+                    |bytes, _| crate::columnar::allocation_add(
                         bytes,
-                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                        Ok::<usize, crate::RelationError>(16usize)?,
                     ),
                 )?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if let Some(value) = (self.r#subject_kind).as_ref() {
+            if (self.r#subject_kind).is_some() {
                 crate::columnar::allocation_add(
                     1,
-                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                    Ok::<usize, crate::RelationError>(16usize)?,
                 )
             } else {
                 Ok::<usize, crate::RelationError>(1)
@@ -456,7 +456,7 @@ pub struct ReferenceQuantityTypesView<'a> {
     reference_state_id_column: &'a arrow_array::FixedSizeBinaryArray,
     scale_kind_column: &'a arrow_array::StringArray,
     shape_column: &'a arrow_array::ListArray,
-    subject_kind_column: &'a arrow_array::StringArray,
+    subject_kind_column: &'a arrow_array::FixedSizeBinaryArray,
     canonical_unit_id_column: &'a arrow_array::FixedSizeBinaryArray,
     nominal_magnitude_column: &'a arrow_array::Float64Array,
     doc_column: &'a arrow_array::StringArray,
@@ -518,7 +518,7 @@ impl<'a> ReferenceQuantityTypesView<'a> {
                 arrow_array::ListArray,
             >(batch.column(5usize).as_ref())?,
             subject_kind_column: crate::columnar::array::<
-                arrow_array::StringArray,
+                arrow_array::FixedSizeBinaryArray,
             >(batch.column(6usize).as_ref())?,
             canonical_unit_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
@@ -630,7 +630,7 @@ impl<'a> ReferenceQuantityTypesView<'a> {
         "subject_kind",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn subject_kind_column(&self) -> &'a arrow_array::StringArray {
+    pub const fn subject_kind_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
         self.subject_kind_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "subject_kind", "`.")]

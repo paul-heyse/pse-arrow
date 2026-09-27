@@ -74,7 +74,7 @@ and semantic judgments remain separate; there is no generated approval or archit
 | Library capability evidence (DP-15) | `docs/capability-maps/` (`just lib-outline <file>` first) and the library skills: `symbolica-faer-oximo`, `native-solver-libraries`, `salsa`, `rust-graphs`, `datafusion`, `deltalake`, `library-research` |
 | Error taxonomy (DP-21) | blueprint §23.2; every `pub enum *Error` derives `thiserror::Error` and implements `miette::Diagnostic` (AGENTS.md *Invariants*) |
 | Dependency admission (DP-13) | [dependency policy](../../../dev/dependency-policy.md) and ADR-0066: no library or licence is refused in phases 0–1, so licence is never a reason to reject a §F candidate |
-| Reference validation (PS-13) | IDAES parity against `idaes-pse==2.12.0` as a reference oracle, clean-room: read for behaviour, never copied ([relationship to IDAES](../../../relationship-to-idaes.md)) |
+| Reference validation (PS-13) | IDAES parity against `idaes-pse==2.13.0` as a reference oracle, clean-room: read for behaviour, never copied ([relationship to IDAES](../../../relationship-to-idaes.md)) |
 
 ## Local policies that tighten the standard
 

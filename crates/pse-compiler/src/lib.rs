@@ -3,7 +3,6 @@
 
 //! Physically typed finite process definitions lowered directly to library mathematics.
 
-pub mod source_binding;
 pub mod typed_math;
 
 mod physical_identity;

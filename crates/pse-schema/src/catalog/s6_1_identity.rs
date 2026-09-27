@@ -18,10 +18,40 @@ use crate::model::{
 /// Declares the §6.1 identity and package relations.
 pub fn declare(builder: &mut RegistryBuilder) {
     declare_packages(builder);
+    declare_quantity_aliases(builder);
     declare_documents(builder);
     declare_entities(builder);
     declare_aliases(builder);
     declare_package_graph(builder);
+}
+
+fn declare_quantity_aliases(builder: &mut RegistryBuilder) {
+    builder.declare_relation(
+        RelationDecl::new(
+            Namespace::Authored,
+            "package_quantity_aliases",
+            1,
+            Authority::Authored,
+            SnapshotClass::Model,
+            "Physical type names visible within the declaring package's modeling source.",
+        )
+        .pk(&["package_id", "name"])
+        .columns(vec![
+            FieldContract::reference("package_id", FieldContract::id(), "The declaring package.")
+                .with_fk("authored.packages", "package_id"),
+            FieldContract::label(
+                "name",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Local physical type name.",
+            ),
+            FieldContract::reference(
+                "quantity_type_id",
+                FieldContract::id(),
+                "The complete admitted physical type.",
+            )
+            .with_fk("reference.quantity_types", "quantity_type_id"),
+        ]),
+    );
 }
 
 /// `authored.packages @1` (blueprint §6.1).

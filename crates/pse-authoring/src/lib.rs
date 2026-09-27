@@ -18,7 +18,6 @@
 //! - [`generated::documents`] — strict typed document contracts.
 //! - [`ids`] — entity identity assignment under both policies.
 //! - Native source edits preserve exact before-images; provider commands own writes.
-//! - [`targets`] — `pse.target_path` parsing and resolution.
 //! - [`p0`] — pure exact package resolution.
 //!
 //! `generated` is added together with the first generated `documents.rs` (packet A-6).
@@ -27,9 +26,9 @@ pub mod dsl;
 pub mod error;
 mod grammar;
 pub mod ids;
+pub mod language;
 pub mod p0;
 pub mod span;
-pub mod targets;
 
 pub use crate::error::AuthoringError;
 pub use crate::span::{ParseBudget, SourceSpan};

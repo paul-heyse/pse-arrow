@@ -2,16 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Native relational integrity queries over explicit source bindings.
-use super::inv::{columns, declare as invariant, identifier, table};
+use super::inv::{declare as invariant, identifier, table};
 use crate::{RegistryBuilder, model::InvariantKind};
 
 /// Add mechanical integrity projections and explicitly declared domain contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
     builder.derive_integrity();
     entity_registration(builder);
-    target_checks(builder);
     super::invariant_closure::declare(builder);
-    super::invariant_domain::declare(builder);
 }
 fn entity_registration(builder: &mut RegistryBuilder) {
     let mut mappings = std::collections::BTreeMap::new();
@@ -90,64 +88,4 @@ fn entity_registration(builder: &mut RegistryBuilder) {
         );
     }
 }
-fn target_checks(builder: &mut RegistryBuilder) {
-    for relation in [
-        "authored.case_spec_targets",
-        "authored.case_activation_targets",
-        "authored.observation_targets",
-    ] {
-        let keys = builder
-            .declared_relations()
-            .iter()
-            .find(|spec| spec.key.qualified_name() == relation)
-            .and_then(|spec| spec.primary_key.clone())
-            .unwrap_or_default();
-        let source = table(relation);
-        let projection = columns(&keys, "s");
-        for (kind, column, declarations, identity) in [
-            (
-                "symbol",
-                "symbol_decl_id",
-                "authored.template_symbols",
-                "symbol_decl_id",
-            ),
-            (
-                "group",
-                "symbol_decl_id",
-                "authored.template_symbols",
-                "symbol_decl_id",
-            ),
-            (
-                "equation",
-                "equation_decl_id",
-                "authored.template_equations",
-                "equation_decl_id",
-            ),
-        ] {
-            invariant(
-                builder,
-                relation,
-                &format!("closure:target_owner:{kind}"),
-                InvariantKind::Closure,
-                &keys,
-                format!(
-                    "SELECT {projection} FROM (SELECT *, member.{kind}.{column} AS target_id FROM {source} WHERE member.kind = '{kind}') s JOIN authored.instances i ON s.instance_id = i.instance_id WHERE NOT EXISTS (SELECT 1 FROM {declarations} d WHERE d.{identity} = s.target_id AND d.template_id = i.template_id)"
-                ),
-                &[relation, "authored.instances", declarations],
-                "Concrete target declarations belong to the actual target instance's template.",
-            );
-        }
-        invariant(
-            builder,
-            relation,
-            "closure:target_port_owner",
-            InvariantKind::Closure,
-            &keys,
-            format!(
-                "SELECT {projection} FROM (SELECT *, member.port.template_id AS port_template_id, member.port.name AS port_name FROM {source} WHERE member.kind = 'port') s JOIN authored.instances i ON s.instance_id = i.instance_id WHERE TRUE AND NOT EXISTS (SELECT 1 FROM authored.template_ports p WHERE p.template_id = s.port_template_id AND p.template_id = i.template_id AND p.name = s.port_name)"
-            ),
-            &[relation, "authored.instances", "authored.template_ports"],
-            "Port targets name an actual declared port of the target instance's template.",
-        );
-    }
-}
+

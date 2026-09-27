@@ -8,13 +8,13 @@ file directly).
 
 `pse-arrow` is a process systems engineering core in Rust. Typed process definitions
 in authored relations are the model authority. Library-owned mathematics (Symbolica/
-Numerica), FeOS thermodynamics and class-specific native solvers do the numerical work;
+Numerica) and class-specific native solvers execute authored scientific knowledge;
 Arrow/DataFusion/Delta serve data-boundary, relational and publication roles. Rust and
 Python workflows, dynamics and fitting are implemented and qualified locally on Linux;
 the architecture sections record the supported scope and its limits.
 
-It is a **clean-room re-implementation** of core IDAES-PSE capabilities, parity-tested
-against `idaes-pse==2.12.0`. **Not affiliated with IDAES.** Read `external/idaes-pse`
+It is a **clean-room re-implementation** of core IDAES-PSE capabilities. The current parity
+reference is `idaes-pse==2.13.0`. **Not affiliated with IDAES.** Read `external/idaes-pse`
 for *behaviour*; never copy its code, docstrings or comments. The parity harness is the
 only sanctioned coupling, and the enumerations preserved by name are listed in the
 blueprint (§6.14). See `docs/relationship-to-idaes.md`.
@@ -33,7 +33,9 @@ qualification basis and its exclusions are summarized in
 [§24.2](docs/authoritative_design/sections/operations-and-validation.md). Retired plans,
 packets and reviews are not a backlog and authorize nothing.
 
-[Current work](docs/plans/README.md) lists what is actually active; today no plan is.
+[Current work](docs/plans/README.md) links the owning packet status and remaining decision
+work. Plan 21 K0–K8 implementation is complete; its packet records conformance and the
+assessment's remaining static-quality findings. K9 remains proposed and excluded.
 New work starts only when the maintainer authorizes it. Build a target directly and remove replaced
 code/callers/tests without compatibility APIs or a second production path. Correctness
 tests retain explicit force-validation. Full library eligibility remains in force.
@@ -246,7 +248,7 @@ checks available for manual qualification.
 | `just quality` | on demand | Python format/lint/types/import boundaries and repo config are clean | that the code works |
 | `just deps-report` | on demand | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
 | `just policy` | on demand | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
-| `just parity` | on demand, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.12.0` | nothing about cases not exercised, or other IDAES versions |
+| `just parity` | on demand, when parity is in scope | the exercised parity checks pass against `idaes-pse==2.13.0` | nothing about cases not exercised, or other IDAES versions |
 | `just docs` | on demand | documentation HTML and scoped search build; manual CI can also check internal links | nothing about whether the prose is true |
 | `just adr-lint` | on demand | ADR front matter, numbering, supersession and register rows are well-formed | nothing about whether the decisions are good |
 

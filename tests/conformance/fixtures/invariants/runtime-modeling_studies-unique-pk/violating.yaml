@@ -1,0 +1,22 @@
+{
+  "invariant": "runtime.modeling_studies:unique:pk",
+  "rows": {
+    "runtime.modeling_studies": [
+      {
+        "points": "[\"list\",[]]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unattempted": "[\"i64\",1]"
+      },
+      {
+        "points": "[\"list\",[]]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unattempted": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

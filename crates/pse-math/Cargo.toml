@@ -26,6 +26,7 @@ pse-ids.workspace = true
 pse-diagnostics.workspace = true
 pse-quantity.workspace = true
 pse-kernels.workspace = true
+serde.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 

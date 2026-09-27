@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-kernels"
-description = "KernelSpec registry and the built-in property, transport and reaction kernels (blueprint §3.2, §9)."
+description = "Generic physically typed external-function contracts and worker ownership."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -23,12 +23,6 @@ pse-model.workspace = true
 pse-diagnostics.workspace = true
 thiserror.workspace = true
 miette.workspace = true
-feos.workspace = true
-feos-core.workspace = true
-num-dual.workspace = true
-nalgebra.workspace = true
-quantity.workspace = true
-serde_json.workspace = true
 
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }

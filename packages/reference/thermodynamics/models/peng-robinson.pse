@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e16f32a3739a874c126cc515f27f") package peng_robinson {
+@id("01a0e16f32a3739a874c126de931fbb7") use kinds @"1.0.0";
+@id("01a0e16f32a3739a874c126e9ed994cd") use caloric @"1.0.0";
+@id("01a0e16f32a3739a874c126f267b5147") use pure_properties @"1.0.0";
+@id("01a0e16f32a3739a874c127084b1b608") use helmholtz @"1.0.0";
+@id("01a0e16f32a3739a874c12713218f3c0") table critical[j:kinds.species]:{tc:Temperature,pc:Pressure,omega:Scalar};
+@id("01a0e16f32a3739a874c127263557761") table interaction[i:kinds.species,j:kinds.species]:Scalar;
+@id("01a0e16f32a3739a874c1273be829596") fn attractive(t:Scalar,j:kinds.species)->Scalar valid(t>0) = 0.45724*helmholtz.reduced_gas_constant()^2*tc*tc/pc*(1+k*(1-sqrt(t/tc)))^2 where tc=critical[j].tc/caloric.kelvin(),pc=critical[j].pc/pure_properties.pressure_unit(),w=critical[j].omega,k=0.37464+1.54226*w-0.26992*w*w;
+@id("01a0e16f32a3739a874c127454d61f81") fn covolume(j:kinds.species)->Scalar = 0.07780*helmholtz.reduced_gas_constant()*(critical[j].tc/caloric.kelvin())/(critical[j].pc/pure_properties.pressure_unit());
+@id("01a0e16f32a3739a874c12757f489c73") fn a_mix(t:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar = sum(i in members | sum(j in members | n[i]*n[j]*sqrt(attractive(t,i)*attractive(t,j))*(1-interaction[i,j])))/(sum(i in members | n[i]))^2;
+@id("01a0e16f32a3739a874c12768b51c088") fn b_mix(n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar = sum(i in members | n[i]*covolume(i))/sum(i in members | n[i]);
+@id("01a0e16f32a3739a874c1277f7023238") fn potential(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar valid(t>0 and r>0 and b_mix(n,members)*r<1 and sum(j in members | n[j])>0 and sum(j in members | if n[j]>0 then 0 else 1)==0) = -log(1-b*r)-a/(2*sqrt(2)*b*helmholtz.reduced_gas_constant()*t)*log((1+(1+sqrt(2))*b*r)/(1+(1-sqrt(2))*b*r)) where a=a_mix(t,n,members),b=b_mix(n,members);
+@id("01a0e16f32a3739a874c1278c0cab6b0") fn pressure_coordinate(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar = helmholtz.reduced_gas_constant()*t*r/(1-b*r)-a*r*r/(1+2*b*r-b*b*r*r) where a=a_mix(t,n,members),b=b_mix(n,members);
+@id("01a0e17a4587742dba37029731f4b644") fn density_residual(t:Scalar,p:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar=p*(1-b*r)*(1+2*b*r-b*b*r*r)-helmholtz.reduced_gas_constant()*t*r*(1+2*b*r-b*b*r*r)+a*r*r*(1-b*r) where a=a_mix(t,n,members),b=b_mix(n,members);
+@id("01a0e17a4587742dba37029883951354") interface DensityRoot extends helmholtz.HelmholtzPhase {
+@id("01a0e17a4587742dba3702994065516a") override param potential:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar=peng_robinson.potential;
+@id("01a0e17a4587742dba37029a4515bbdd") var target_pressure:Pressure;
+@id("01a0e17a4587742dba37029b59248c6a") param density_lower:Scalar;
+@id("01a0e17a4587742dba37029c88c8eb09") param density_upper:Scalar;
+@id("01a0e17a4587742dba37029d8d49cec3") param density_start:Scalar;
+@id("01a0e17a4587742dba37029e28827903") implicit density {
+@id("01a0e17a4587742dba37029fb3c7f009") var coordinate:Scalar;
+@id("01a0e17a4587742dba3702a03f57d8c1") eq residual:density_residual(t,target_pressure/pure_properties.pressure_unit(),coordinate,n,components)==0;
+@id("01a0e17a4587742dba3702a11464f97e") annotation start coordinate(density_start);
+@id("01a0e17a4587742dba3702a2f5d0749a") annotation bounds coordinate(density_lower,density_upper);
+@id("01a0e17a4587742dba3702a47a06a72d") annotation nominal coordinate(density_start);
+@id("01a0e17a4587742dba3702a51fb460cd") annotation scale residual(inverseSum);
+}
+@id("01a0e17a4587742dba3702a657f77fb4") eq density_binding:rho==density.coordinate*helmholtz.density_unit();
+@id("01a0e17a4587742dba3702a74b2f5e34") annotation start rho(density_start*helmholtz.density_unit());
+@id("01a0e1b78065727b91c0d5d969c5a0c2") annotation nominal rho(density_start*helmholtz.density_unit());
+@id("01a0e17a4587742dba3702a3987c3535") annotation valid rho(density_lower*helmholtz.density_unit(),density_upper*helmholtz.density_unit(),reject);
+@id("01a0e17a4587742dba3702a8903e21fb") annotation check rho((pressure/pure_properties.pressure_unit()-target_pressure/pure_properties.pressure_unit())^2<1e-6);
+}
+@id("01a0e17a4587742dba3702a9f82392ed") def InlineDensity(selected:Set<kinds.species>):DensityRoot {
+@id("01a0e17a4587742dba3702aa65fbd99a") override param components:Set<kinds.species>=selected;
+@id("01a0e17a4587742dba3702ab9501bf52") realize density_policy on density using inline;
+}
+@id("01a0e17a4587742dba3702ac9a481616") def NestedDensity(selected:Set<kinds.species>):DensityRoot {
+@id("01a0e17a4587742dba3702addc2f0dbd") override param components:Set<kinds.species>=selected;
+@id("01a0e17a4587742dba3702ae26199736") realize density_policy on density using nested;
+}
+@id("01a0e17a4587742dba3702af08a837e4") def AcceleratedDensity(selected:Set<kinds.species>):DensityRoot {
+@id("01a0e17a4587742dba3702b04b49c8a0") override param components:Set<kinds.species>=selected;
+@id("01a0e17a4587742dba3702b1150c3137") realize density_policy on density using accelerated(cubic_roots);
+}
+@id("01a0e17fb4307404bb45616ed2b17342") fn delta_row(t:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>,j:kinds.species)->Scalar=2*sum(k in members | n[k]*sqrt(attractive(t,j)*attractive(t,k))*(1-interaction[j,k]))/(sum(k in members | n[k])*a_mix(t,n,members));
+@id("01a0e17fb4307404bb45616ff29b66e8") fn idaes_ln_phi(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>,j:kinds.species)->Scalar=bj/b*(z-1)-log(z*(1-b*r))-a/(2*sqrt(2)*b*helmholtz.reduced_gas_constant()*t)*(delta_row(t,n,members,j)-bj/b)*log((1+(1+sqrt(2))*b*r)/(1+(1-sqrt(2))*b*r)) where a=a_mix(t,n,members),b=b_mix(n,members),bj=covolume(j),z=pressure_coordinate(t,r,n,members)/(helmholtz.reduced_gas_constant()*t*r);
+@id("01a0e17fb4307404bb4561704fec4bb4") interface IdaesDeltaPhase extends helmholtz.HelmholtzPhase {
+@id("01a0e17fb4307404bb4561718f09f6a3") override param potential:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar=peng_robinson.potential;
+@id("01a0e17fb4307404bb45617215c75611") override let ln_phi[j in components]:Scalar=idaes_ln_phi(t,r,n,components,j);
+}
+@id("01a0e17fb4307404bb4561737c9e18a4") def IdaesHomogeneousPhase(selected:Set<kinds.species>):IdaesDeltaPhase {
+@id("01a0e17fb4307404bb45617496564068") override param components:Set<kinds.species>=selected;
+}
+@id("01a0e1b4f60e71eab341886ccc55109c") def BoundedCubicDensity(selected:Set<kinds.species>,lower:Scalar,upper:Scalar,start:Scalar):DensityRoot {
+@id("01a0e1b4f60e71eab341886daee58dbe") override param components:Set<kinds.species>=selected;
+@id("01a0e1b4f60e71eab341886e0cc8ceca") override param density_lower:Scalar=lower;
+@id("01a0e1b4f60e71eab341886ff83b3baa") override param density_upper:Scalar=upper;
+@id("01a0e1b4f60e71eab3418870bc232ac6") override param density_start:Scalar=start;
+@id("01a0e1b4f60e71eab3418871e34f6039") realize density_policy on density using accelerated(cubic_roots);
+@id("01a0e1c3a789761794daedce02a46562") override let r:Scalar=density.coordinate;
+}
+}

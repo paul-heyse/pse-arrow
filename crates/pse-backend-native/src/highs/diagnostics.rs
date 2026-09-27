@@ -93,8 +93,11 @@ impl Range {
 pub struct Relaxation {
     /// Raw native operation status.
     pub operation_status: i32,
-    /// Native model termination after diagnostic relaxation.
-    pub termination: NativeTermination,
+    /// HiGHS restores the original model status after relaxation; this is not the
+    /// relaxed solve's termination. A fresh copied model commonly reports NotSet.
+    pub restored_status: NativeTermination,
+    /// Weighted infeasibility objective retained by a successful native operation.
+    pub penalty: Option<f64>,
     /// Available relaxed coordinates; never the original solve's candidate.
     pub primal: Option<Vec<f64>>,
 }
@@ -189,69 +192,34 @@ impl Session {
                 }
             }
         }
-        if request.iis {
-            let (mut nc, mut nr) = (0, 0);
-            let mut ci = vec![0; n];
-            let mut ri = vec![0; m];
-            let mut cb = vec![0; n];
-            let mut rb = vec![0; m];
-            let mut cs = vec![0; n];
-            let mut rs = vec![0; m];
-            let status = unsafe {
-                ffi::Highs_getIis(
-                    ptr,
-                    &mut nc,
-                    &mut nr,
-                    ci.as_mut_ptr(),
-                    ri.as_mut_ptr(),
-                    cb.as_mut_ptr(),
-                    rb.as_mut_ptr(),
-                    cs.as_mut_ptr(),
-                    rs.as_mut_ptr(),
-                )
-            };
-            if status == 0
-                && nc >= 0
-                && nr >= 0
-                && nc as usize <= n
-                && nr as usize <= m
-                && (nc > 0 || nr > 0)
-            {
-                let columns = ci[..nc as usize]
-                    .iter()
-                    .zip(&cb)
-                    .map(|(&i, &b)| {
-                        p.contract
-                            .variables
-                            .get(i as usize)
-                            .map(|v| (v.id, b))
-                            .ok_or_else(|| ProblemError::Contract("native IIS column index".into()))
-                    })
-                    .collect::<Result<_, _>>()?;
-                let rows = ri[..nr as usize]
-                    .iter()
-                    .zip(&rb)
-                    .map(|(&i, &b)| {
-                        p.contract
-                            .rows
-                            .get(i as usize)
-                            .map(|v| (*v, b))
-                            .ok_or_else(|| ProblemError::Contract("native IIS row index".into()))
-                    })
-                    .collect::<Result<_, _>>()?;
-                report.iis = Some(Iis {
-                    columns,
-                    rows,
-                    column_status: cs,
-                    row_status: rs,
-                    relaxation_only: discrete,
-                });
-            } else {
-                report.unavailable.insert(
-                    "iis".into(),
-                    format!("native status={status}, columns={nc}, rows={nr}"),
-                );
+        if request.iis && discrete {
+            // The diagnostic contract is the continuous relaxation. Give HiGHS an
+            // explicitly continuous copy instead of labelling a mixed-integer IIS as one.
+            let mut relaxation = p.clone();
+            for (variable, domain) in relaxation.contract.variables.iter_mut().zip(&p.domains) {
+                if *domain == VariableDomain::Binary {
+                    variable.lower = variable.lower.max(0.);
+                    variable.upper = variable.upper.min(1.);
+                } else if domain.is_semi() {
+                    variable.lower = variable.lower.min(0.);
+                    variable.upper = variable.upper.max(0.);
+                }
             }
+            relaxation.domains.fill(VariableDomain::Continuous);
+            let mut hash = pse_ids::FramedHasher::new("pse.highs.iis-relaxation.v1");
+            hash.hash(&p.contract.identity).hash(&p.assumptions);
+            relaxation.contract.identity = hash.finish_hash();
+            let mut model = upload(&relaxation)?;
+            let _binding = CallbackBinding::new(model.as_mut_ptr(), execution.clone())?;
+            let mut result = Report::default();
+            collect_iis(&mut model, &relaxation, execution, &mut result)?;
+            if let Some(iis) = &mut result.iis {
+                iis.relaxation_only = true;
+            }
+            report.iis = result.iis;
+            report.unavailable.extend(result.unavailable);
+        } else if request.iis {
+            collect_iis(self.model()?, p, execution, &mut report)?;
         }
         if request.ranging {
             if discrete
@@ -336,6 +304,17 @@ impl Session {
                     )
                     .map_err(|_| ProblemError::Contract("diagnostic time limit".into()))?;
                 let ptr = model.as_mut_ptr();
+                // The copied diagnostic model minimizes weighted violations.
+                // HiGHS preserves the original objective offset through its elastic
+                // operation; carrying that offset would contaminate the penalty.
+                check(
+                    unsafe { ffi::Highs_changeObjectiveSense(ptr, ffi::kHighsObjSenseMinimize) },
+                    "relaxation objective sense",
+                )?;
+                check(
+                    unsafe { ffi::Highs_changeObjectiveOffset(ptr, 0.) },
+                    "relaxation objective offset",
+                )?;
                 let binding = CallbackBinding::new(ptr, execution.clone())?;
                 let data =
                     |v: &Option<Vec<f64>>| v.as_ref().map_or(std::ptr::null(), |v| v.as_ptr());
@@ -351,7 +330,15 @@ impl Session {
                     )
                 };
                 drop(binding);
-                let termination = termination(unsafe { ffi::Highs_getModelStatus(ptr) });
+                let restored_status = termination(unsafe { ffi::Highs_getModelStatus(ptr) });
+                let penalty = if status == 0 {
+                    match info(ptr, "objective_function_value")? {
+                        Some(Metric::Real(v)) if v.is_finite() => Some(v),
+                        _ => None,
+                    }
+                } else {
+                    None
+                };
                 let mut x = vec![0.0; n];
                 let primal = if matches!(
                     info(ptr, "primal_solution_status")?,
@@ -373,7 +360,8 @@ impl Session {
                 };
                 report.relaxation = Some(Relaxation {
                     operation_status: status,
-                    termination,
+                    restored_status,
+                    penalty,
                     primal,
                 });
             }
@@ -414,4 +402,104 @@ impl Session {
         self.pending_sparse = Some(values.clone());
         Ok(())
     }
+}
+
+// The session already owns the native scheduler gate, including separately uploaded models.
+fn collect_iis(
+    model: &mut highs::Model,
+    p: &CoefficientProblem,
+    execution: &Execution,
+    report: &mut Report,
+) -> Result<(), ProblemError> {
+    let ptr = model.as_mut_ptr();
+    let n = p.contract.variables.len();
+    let m = p.contract.rows.len();
+    // The pinned default is only a light bound test. An IIS request needs
+    // HiGHS' elastic-LP reduction and its dedicated remaining time allowance.
+    check(
+        unsafe {
+            ffi::Highs_setIntOptionValue(
+                ptr,
+                c"iis_strategy".as_ptr(),
+                ffi::kHighsIisStrategyFromLpRowPriority,
+            )
+        },
+        "irreducible IIS strategy",
+    )?;
+    check(
+        unsafe {
+            ffi::Highs_setDoubleOptionValue(
+                ptr,
+                c"iis_time_limit".as_ptr(),
+                execution
+                    .time_limit
+                    .saturating_sub(execution.started.elapsed())
+                    .as_secs_f64(),
+            )
+        },
+        "remaining IIS time",
+    )?;
+    let (mut nc, mut nr) = (0, 0);
+    let mut ci = vec![0; n];
+    let mut ri = vec![0; m];
+    let mut cb = vec![0; n];
+    let mut rb = vec![0; m];
+    let mut cs = vec![0; n];
+    let mut rs = vec![0; m];
+    let status = unsafe {
+        ffi::Highs_getIis(
+            ptr,
+            &mut nc,
+            &mut nr,
+            ci.as_mut_ptr(),
+            ri.as_mut_ptr(),
+            cb.as_mut_ptr(),
+            rb.as_mut_ptr(),
+            cs.as_mut_ptr(),
+            rs.as_mut_ptr(),
+        )
+    };
+    if status == 0
+        && nc >= 0
+        && nr >= 0
+        && nc as usize <= n
+        && nr as usize <= m
+        && (nc > 0 || nr > 0)
+    {
+        let columns = ci[..nc as usize]
+            .iter()
+            .zip(&cb)
+            .map(|(&i, &b)| {
+                p.contract
+                    .variables
+                    .get(i as usize)
+                    .map(|v| (v.id, b))
+                    .ok_or_else(|| ProblemError::Contract("native IIS column index".into()))
+            })
+            .collect::<Result<_, _>>()?;
+        let rows = ri[..nr as usize]
+            .iter()
+            .zip(&rb)
+            .map(|(&i, &b)| {
+                p.contract
+                    .rows
+                    .get(i as usize)
+                    .map(|v| (*v, b))
+                    .ok_or_else(|| ProblemError::Contract("native IIS row index".into()))
+            })
+            .collect::<Result<_, _>>()?;
+        report.iis = Some(Iis {
+            columns,
+            rows,
+            column_status: cs,
+            row_status: rs,
+            relaxation_only: false,
+        });
+    } else {
+        report.unavailable.insert(
+            "iis".into(),
+            format!("native status={status}, columns={nc}, rows={nr}"),
+        );
+    }
+    Ok(())
 }

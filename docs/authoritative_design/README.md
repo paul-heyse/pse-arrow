@@ -11,8 +11,8 @@ current system, why it is shaped that way and its limits:
 | [Schema and relations](sections/schema-and-relations.md) | §4 registry and generation, §6 relation families |
 | [Identity and publication](sections/identity-and-publication.md) | §5 identity and hashing, §20 publication, retention and compatibility |
 | [Mathematics and compilation](sections/mathematics-and-compilation.md) | §7 library-owned mathematics, §14 preparation and reuse |
-| [Physical semantics](sections/physical-semantics.md) | §8 physical typing, §9 materials, providers and reactions |
-| [Models and composition](sections/models-and-composition.md) | §10 balances, §11 templates, §12 connectivity, §22 authoring |
+| [Physical semantics](sections/physical-semantics.md) | §8 physical typing, §9 authored scientific knowledge and external functions |
+| [Models and composition](sections/models-and-composition.md) | §10 accumulators, §11 definitions, §12 connectivity, §22 authoring |
 | [Numerical execution](sections/numerical-execution.md) | §15 structure, §16 numerical policy, §17 initialization, §18 native solving |
 | [Workflows and results](sections/workflows-and-results.md) | §13 dynamics, §19 cases and fitting, §21 Python boundary |
 | [Operations and validation](sections/operations-and-validation.md) | §23 observability and failures, §24 tests and qualification basis |

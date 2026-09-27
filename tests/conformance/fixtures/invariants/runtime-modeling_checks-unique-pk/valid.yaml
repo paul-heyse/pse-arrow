@@ -1,0 +1,22 @@
+{
+  "invariant": "runtime.modeling_checks:unique:pk",
+  "rows": {
+    "runtime.modeling_checks": [
+      {
+        "extrapolation_allowed": "[\"bool\",true]",
+        "kind": "[\"enum\",\"expectation\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "sample_index": "[\"i64\",1]",
+        "satisfied": "[\"bool\",true]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "step": "[\"i64\",1]",
+        "target_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "time": "[\"f64\",\"3ff0000000000000\"]",
+        "tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "value": "[\"f64\",\"3ff0000000000000\"]",
+        "within_validity": "[\"bool\",true]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

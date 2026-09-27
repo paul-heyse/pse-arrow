@@ -125,15 +125,13 @@ fn provider() -> (ProviderSpec, Box<dyn Provider>, Arc<AtomicUsize>) {
     let q = pse_quantity::standard::ids::quantity("neutral");
     let u = registry.quantity_type(q).unwrap().canonical_unit;
     let spec = ProviderSpec {
-        envelope: None,
+        shapes: pse_kernels::ProviderShapes::default(),
+        derivative_source: pse_kernels::DerivativeSource::Analytic,
+
         id: id(10),
         revision: ContentHash::from_bytes([1; 32]),
         data: ContentHash::from_bytes([2; 32]),
-        components: vec![],
-        phase: Phase {
-            id: id(11),
-            revision: ContentHash::from_bytes([3; 32]),
-        },
+
         inputs: vec![Port {
             id: id(12),
             quantity: q,
@@ -158,6 +156,173 @@ fn provider() -> (ProviderSpec, Box<dyn Provider>, Arc<AtomicUsize>) {
     )
 }
 #[test]
+fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
+    use crate::typed::{Binary, BodyBuilder, BodyLimits};
+    use pse_quantity::{
+        IndexSet,
+        standard::{StandardInvariantChecker, standard_registry},
+    };
+    let registry = standard_registry().unwrap();
+    let mut b = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let (mut spec, _, calls) = provider();
+    spec.derivatives = DerivativeOrder::Value;
+    spec.smoothness = DerivativeOrder::Value;
+    let admitted = AdmittedProvider::new(spec.clone(), &registry).unwrap();
+    let x = b
+        .input(0, spec.inputs[0].quantity, IndexSet::new(), id(1))
+        .unwrap();
+    let assumption = b
+        .domain(id(22), |b| {
+            Ok(b.provider(&admitted, std::slice::from_ref(&x), id(21))?
+                .remove(0))
+        })
+        .unwrap();
+    let square = b
+        .binary(Binary::Mul, x.clone(), x.clone(), None, id(1))
+        .unwrap();
+    let guarded = b.with_assumption(square.clone(), &assumption);
+    let prepared = b.prepare(&[guarded, square]).unwrap();
+    assert_eq!(prepared.available_order(), DerivativeOrder::Second);
+    assert!(prepared.support().controls.contains(&0));
+    let cancel = Arc::new(AtomicBool::new(false));
+    let mut workers = BTreeMap::from([(
+        spec.key(),
+        Box::new(Cubic {
+            spec,
+            calls: calls.clone(),
+        }) as Box<dyn Provider>,
+    )]);
+    let mut guarded = prepared
+        .compile(
+            &[0],
+            &[0],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    let value = guarded
+        .evaluate(&[2.], DerivativeOrder::Second, &mut workers, &cancel)
+        .unwrap();
+    assert_eq!(value.values, [4.]);
+    assert_eq!(value.jacobian, [4.]);
+    assert_eq!(value.hessians, [2.]);
+    assert_eq!(calls.load(Ordering::Relaxed), 1);
+    assert!(
+        guarded
+            .evaluate(&[-2.], DerivativeOrder::Second, &mut workers, &cancel)
+            .is_err()
+    );
+    let before = calls.load(Ordering::Relaxed);
+    let mut unguarded = prepared
+        .compile(
+            &[1],
+            &[0],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap()
+        .worker();
+    assert_eq!(
+        unguarded
+            .evaluate(&[-2.], DerivativeOrder::Second, &mut workers, &cancel)
+            .unwrap()
+            .values,
+        [4.]
+    );
+    assert_eq!(calls.load(Ordering::Relaxed), before);
+    cancel.store(true, Ordering::Relaxed);
+    assert!(matches!(
+        guarded.evaluate(&[2.], DerivativeOrder::Second, &mut workers, &cancel),
+        Err(MathError::Cancelled)
+    ));
+}
+
+#[test]
+fn composed_external_partials_use_symbolica_chain_rule_through_nested_calls() {
+    use crate::typed::{BodyBuilder, BodyLimits};
+    use pse_quantity::{
+        IndexSet,
+        standard::{StandardInvariantChecker, standard_registry},
+    };
+    let registry = standard_registry().unwrap();
+    for (order, partials, expected, derivative) in [
+        (DerivativeOrder::First, 1, 2304., 9216.),
+        (DerivativeOrder::Value, 2, 9216., 0.),
+    ] {
+        let mut b = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            1,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let (spec, provider, _) = provider();
+        let admitted = AdmittedProvider::new(spec.clone(), &registry).unwrap();
+        let x = b
+            .input(0, spec.inputs[0].quantity, IndexSet::new(), id(1))
+            .unwrap();
+        let x = b.bind(x).unwrap();
+        let scope = b.function_scope();
+        let y = b
+            .provider(&admitted, std::slice::from_ref(&x), id(21))
+            .unwrap()
+            .remove(0);
+        let z = b.provider(&admitted, &[y], id(22)).unwrap().remove(0);
+        let partial = b.partial(scope, z, &vec![x; partials], id(23)).unwrap();
+        let body = b.prepare(&[partial]).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut compiled = body
+            .compile(
+                &[0],
+                &[0],
+                order,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap()
+            .worker();
+        let mut providers = BTreeMap::from([(spec.key(), provider)]);
+        let result = compiled
+            .evaluate(&[2.], order, &mut providers, &cancel)
+            .unwrap();
+        assert_eq!(result.values, [expected]);
+        if order == DerivativeOrder::First {
+            assert_eq!(result.jacobian, [derivative]);
+        }
+        assert!(
+            compiled
+                .evaluate(&[0.], order, &mut providers, &cancel)
+                .is_err()
+        );
+        assert!(
+            body.compile(
+                &[0],
+                &[0],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel
+            )
+            .is_err()
+        );
+    }
+}
+
+#[test]
 fn symbolica_composes_provider_partials_after_arithmetic_barriers() {
     crate::initialize().unwrap();
     let (spec, provider, calls) = provider();
@@ -165,6 +330,7 @@ fn symbolica_composes_provider_partials_after_arithmetic_barriers() {
     let stages = vec![
         block(vec![&x * &x], vec![1]),
         Stage::Provider {
+            partial: vec![],
             spec: spec.clone(),
             inputs: vec![1],
             outputs: vec![2],
@@ -279,6 +445,7 @@ fn parameter_only_switches_preserve_all_branch_support() {
         vec![
             block(vec![Atom::num(0)], vec![2]),
             Stage::Branch {
+                continuity: DerivativeOrder::Value,
                 comparison: Comparison::Lt,
                 left: 2,
                 right: 1,
@@ -381,6 +548,7 @@ fn multi_input_provider_lift_preserves_mixed_raw_partials() {
         vec![
             block(vec![&x * &x, &x * &y], vec![2, 3]),
             Stage::Provider {
+                partial: vec![],
                 spec: spec.clone(),
                 inputs: vec![2, 3],
                 outputs: vec![4],
@@ -716,4 +884,97 @@ fn supported_taylor_primitives_reconcile_with_admitted_expansion() {
         .unwrap();
     assert!(result.hessians.iter().all(|x| x.is_finite()));
     assert!((result.values[6] - 2.0_f64.powf(1.5)).abs() < 1e-12);
+}
+
+#[test]
+fn derivative_work_refusal_retains_required_and_available_operations() {
+    crate::initialize().unwrap();
+    let body = PreparedBody::new(
+        2,
+        3,
+        vec![2],
+        vec![block(
+            vec![library::formal(0).unwrap() * library::formal(1).unwrap()],
+            vec![2],
+        )],
+        DerivativeOrder::Second,
+    )
+    .unwrap();
+    let error = body
+        .compile(
+            &[0],
+            &[0, 1],
+            DerivativeOrder::First,
+            Optimization::default(),
+            EvaluationLimits {
+                operations: 1,
+                ..Default::default()
+            },
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap_err();
+    assert!(
+        matches!(error,MathError::WorkLimit{source_id,required,available:1,components:3,..} if source_id==id(1) && required>1)
+    );
+}
+
+#[test]
+fn local_taylor_coordinates_preserve_transitive_and_permuted_derivatives() {
+    crate::initialize().unwrap();
+    let n = 16;
+    let mut stages = vec![];
+    for i in 0..n {
+        let x = library::formal(i).unwrap();
+        stages.push(block(vec![&x * &x], vec![n + i]));
+        stages.push(block(
+            vec![library::formal(n + i).unwrap().sin()],
+            vec![2 * n + i],
+        ));
+    }
+    let outputs = (2 * n..3 * n).collect::<Vec<_>>();
+    let body = PreparedBody::new(n, 3 * n, outputs, stages, DerivativeOrder::Second).unwrap();
+    let coordinates = (0..n).rev().collect::<Vec<_>>();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let compiled = body
+        .compile(
+            &(0..n).collect::<Vec<_>>(),
+            &coordinates,
+            DerivativeOrder::Second,
+            Optimization::default(),
+            EvaluationLimits {
+                operations: 5000,
+                ..Default::default()
+            },
+            &cancel,
+        )
+        .unwrap();
+    let inputs = (0..n).map(|i| (i + 1) as f64 / 10.0).collect::<Vec<_>>();
+    let result = compiled
+        .worker()
+        .evaluate(
+            &inputs,
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap();
+    for (row, &x) in inputs.iter().enumerate() {
+        assert!((result.values[row] - (x * x).sin()).abs() < 1e-12);
+        for (i, &coordinate) in coordinates.iter().enumerate() {
+            let expected = if coordinate == row {
+                2.0 * x * (x * x).cos()
+            } else {
+                0.0
+            };
+            assert!((result.jacobian[row * n + i] - expected).abs() < 1e-12);
+            for j in 0..n {
+                let expected = if coordinate == row && i == j {
+                    2.0 * (x * x).cos() - 4.0 * x * x * (x * x).sin()
+                } else {
+                    0.0
+                };
+                assert!((result.hessians[row * n * n + i * n + j] - expected).abs() < 1e-12);
+            }
+        }
+    }
 }

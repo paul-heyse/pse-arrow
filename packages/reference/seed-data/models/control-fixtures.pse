@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("3d46c54466244a0a9882811830e20a2e") package control_fixtures {
+@id("c86e3989fdbe4f2c81a0a592e09b4d05") use temperature_driving_force @"1.0.0";
+@id("5b0910b1c5df49b4828c0cac56540e38") use control @"1.0.0";
+@id("3fce049dec88498792d8765449ad9d94") use distributed_volumes @"1.0.0";
+@id("8c8baac36c9546cea6bd53993bdcc090") def SaturatedPID {
+@id("0fa3060e5c0b4a63a9d9031b2e4538e1") domain t:Time from 0{s} to 2{s};
+@id("6559f9166e4142eaa11304bbaef94e55") when analysis.route==analysis.integrated {
+@id("bd3c1d8816984cbca551d5924f43c362") discretize grid on t using integrated(elements=1,order=1);
+}
+@id("b1168f22032d4e91a4ef88b53c698b92") when analysis.route==analysis.simultaneous {
+@id("d1bffbdbada84332ada9bd396010ece5") discretize grid on t using distributed_volumes.radau(elements=16,order=3);
+}
+@id("2a2ae5c151d642f8adcb42d052a37cab") child regulator:control.PID=control.PID(timeline=t,first=0{s},Kp=2,Ti=1{s},Td=0{s},initial_integral=1{s});
+@id("e2f2058f562a4990b2c23307467dd894") eq measured[i in t]:regulator.measurement[i]==0;
+@id("363130d4b1d244f086be0182761dc988") eq target[i in t]:regulator.setpoint[i]==1;
+@id("f29697b8934a4a9e8f7be05be4a9e5c2") let recovery_error[i in t]:Time=regulator.integral_state[i]-1{s}*exp(-2*(i/1{s}));
+@id("e2187121fe58434495ae5e0d8d046174") annotation check recovery_error(abs(recovery_error[i])<0.00001{s});
+@id("b6baf9089e8e4295b96ecd4d6a7fd384") let saturation_error[i in t]:Scalar=regulator.output[i]-1;
+@id("587155b7553045238187cf7646bff87e") annotation check saturation_error(abs(saturation_error[i])<1e-6);
+}
+@id("1993725dc6e94f1099b147ff839e7758") test antiwindup_integrated source "Back-calculation PID equation, matching IDAES 2.13 gain parameterization; analytic saturation recovery I=exp(-2t) with smoothing error below 1e-10" revision "1" fixture {dof 0; run integrated; integrate samples(0{s},0.5{s},1{s},2{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});} {
+@id("78b9b41aacaf4b8f8ceda9ae158a554e") child root:SaturatedPID=SaturatedPID();
+}
+@id("ea82f4b195684fe0aa01b13961782ebb") test antiwindup_simultaneous source "Back-calculation PID equation, matching IDAES 2.13 gain parameterization; analytic saturation recovery I=exp(-2t) with smoothing error below 1e-10" revision "1" fixture {dof 0; run simultaneous;} {
+@id("23e535e153484561af52f15dbba71ceb") child root:SaturatedPID=SaturatedPID();
+}
+@id("c30ef62cb57444dc89432df5850aae58") use kinds @"1.0.0";
+@id("c4a897cef26d42929e485474c8da6eed") use chem @"1.0.0";
+@id("d02bd312349f46cda9571e022d34061c") use reactors @"1.0.0";
+@id("69a88b61fcb945029d061a895fbfafcd") use saponification @"1.0.0";
+@id("318bf542e11744408077ff7e58ad2c32") use equilibrium @"1.0.0";
+@id("5f80787fec7e40f2a5d6e6dbb866553c") table initial_feed[j:kinds.species]:MolarDensity;
+@id("a5d890c2adfe4277a2855cad480c3dee") dataset feed:initial_feed source "Dynamic demonstration inlet at the steady IDAES 2.13 saponification CSTR specification" {
+[chem.water]=[55388{mol/m3}];
+[chem.sodium_hydroxide]=[100{mol/m3}];
+[chem.ethyl_acetate]=[100{mol/m3}];
+[chem.sodium_acetate]=[1e-08{mol/m3}];
+[chem.ethanol]=[1e-08{mol/m3}];
+}
+@id("a70dc0e63c17457196733ebac0b6952f") table initial_outlet[j:kinds.species]:MolarDensity;
+@id("65d4734c82f941688b8fe3d5dd8a07bd") dataset initial_state:initial_outlet source "Steady zero-duty CSTR solution with Arrhenius rate and solvent heat capacity, checked against IDAES 2.13 CSTR fixture" {
+[chem.water]=[55388{mol/m3}];
+[chem.sodium_hydroxide]=[20.316088036339764{mol/m3}];
+[chem.ethyl_acetate]=[20.316088036339764{mol/m3}];
+[chem.sodium_acetate]=[79.68391197366024{mol/m3}];
+[chem.ethanol]=[79.68391197366024{mol/m3}];
+}
+@id("f2c452a0401a452c921e4dbd516719a7") def ControlledCSTR {
+@id("96a1f0dbc1ab4acfaeb9e82c74bb2f94") domain t:Time from 0{s} to 20{s};
+@id("6e868ca54ae447ad93c2db89d7001e43") when analysis.route==analysis.integrated {
+@id("adfba282bd4f4817bb7a84741192510c") discretize grid on t using integrated(elements=1,order=1);
+}
+@id("e61c2d04f46f4793a1e43588332592f3") when analysis.route==analysis.simultaneous {
+@id("9c0d5164d1874e2bb64cc02b6938fbd1") discretize grid on t using distributed_volumes.radau(elements=12,order=3);
+}
+@id("51e4def814ea4480a226e1b9cc2dafb8") param components:Set<kinds.species>=chem.saponification_species;
+@id("37b1d1e618ea45ed853e123584ba9957") param solutes:Set<kinds.species>={chem.sodium_hydroxide,chem.ethyl_acetate,chem.sodium_acetate,chem.ethanol};
+@id("2306b66713b84a30a4dfb5415e344e5b") eq fixed_solvent_rate[i in t,p in phases]:cell[i].phase_material_accumulation[p,chem.water]==0{mol/s};
+
+@id("842bd32772424164bd60c1ff18697e3d") param phases:Set<kinds.phase>={equilibrium.liquid};
+@id("7cff63b22a824dc7b4e472e979ad1aa3") child cell[i in t]:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,holdup=true);
+@id("a618e9dd5ef0444c93e64af5541d7402") child regulator:control.PID=control.PID(timeline=t,first=0{s},initial_filter=0.40858373453369{s});
+@id("ce6814920f494e57ad2587f864778d8b") eq inlet_temperature[i in t]:cell[i].inlet.T==303.15{K};
+@id("b20101bceaf449d49988a502bcaa6176") eq inlet_pressure[i in t]:cell[i].inlet.pressure==101325{Pa};
+@id("b96d962b235a424aa46a1611476e9565") eq inlet_flow[i in t]:cell[i].inlet.volume_flow==0.001{m3/s};
+@id("d62755c2408f4103ac9bc72df37afd74") eq inlet_concentration[i in t,j in components]:cell[i].inlet.concentration[j]==initial_feed[j];
+@id("b3878b61db7c42af85d0d72251230991") eq volume[i in t]:cell[i].volume==0.0015{m3};
+@id("b6db8dd49ff445448759860693bd4bf4") eq pressure[i in t]:cell[i].delta_pressure==0{Pa};
+@id("701a2bfd2cd14b40bad047a6c64f6cf0") eq material_rate[i in t,p in phases,j in solutes]:d(cell[i].phase_material_holdup[p,j])/di==cell[i].phase_material_accumulation[p,j];
+@id("2eb2b92763184720964d31ebcba7b6d9") eq energy_rate[i in t,p in phases]:d(cell[i].phase_energy_holdup[p])/di==cell[i].phase_energy_accumulation[p];
+@id("59838f7a6d8c4abb9af8e64d80d7128a") eq measurement[i in t]:regulator.measurement[i]==(cell[i].outlet.T-300{K})/temperature_driving_force.kelvin_difference();
+@id("62fafb7ccd34404d80dbba16cf533785") eq target[i in t]:regulator.setpoint[i]==5;
+@id("6d4403abffa941aead525214ad3e5d59") eq duty[i in t]:cell[i].heat==10000*reactors.power_unit()*regulator.output[i];
+@id("09e0996be231496f9eed2ffe52faf352") eq initial_energy:cell[0{s}].phase_energy_holdup[equilibrium.liquid]==reactors.stored_energy(0.0015{m3},saponification.liquid_data[chem.water].density,saponification.component_enthalpy(304.0858373453369{K},equilibrium.liquid,chem.water),101325{Pa});
+@id("cde9c6a2b91f44b4a273281d506c3fa3") eq initial_inventory[j in solutes]:cell[0{s}].phase_material_holdup[equilibrium.liquid,j]==0.0015{m3}*initial_outlet[j];
+@id("6a5989f1e66142a699392958a85bb18a") let temperature[i in t]:Temperature=cell[i].outlet.T;
+@id("9d0459f45eff45a8a6723d5ce7828bb6") let reactant[i in t]:MolarDensity=cell[i].outlet.concentration[chem.ethyl_acetate];
+@id("447c3c0e27ba44b69c088955f44a8821") annotation report temperature("controlled CSTR temperature");
+@id("b4b0b8d2530b460b9c422d5e06a832b4") annotation report reactant("controlled CSTR reactant");
+@id("d327e66fb95548ccb5033f5b100eeb56") annotation check temperature((i!=0{s} or abs(temperature[i]-304.0858373453369{K})<0.002{K}) and (i!=1{s} or abs(temperature[i]-304.684711005116{K})<0.002{K}) and (i!=5{s} or abs(temperature[i]-304.8917741663{K})<0.002{K}) and (i!=20{s} or abs(temperature[i]-304.989180370365{K})<0.002{K}));
+@id("308f004a329a4234b252341fca3b2ba8") annotation check reactant((i!=0{s} or abs(reactant[i]-20.31608803634{mol/m3})<0.01{mol/m3}) and (i!=1{s} or abs(reactant[i]-20.0418922088{mol/m3})<0.01{mol/m3}) and (i!=5{s} or abs(reactant[i]-19.91592179354{mol/m3})<0.01{mol/m3}) and (i!=20{s} or abs(reactant[i]-19.86671515627{mol/m3})<0.01{mol/m3}));
+}
+@id("7b4665c39e1748cb91118b24f3638f64") test cstr_integrated source "Independent reduced incompressible CSTR/controller ODE, SciPy 1.18.1 DOP853 and Radau agree with rtol=1e-11 atol=1e-12; sample comparisons only" revision "1" fixture {dof 0; value root.cell[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.cell[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.cell[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.cell[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.cell[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.cell[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].inlet.T=303.15{K}; value root.cell[0{s}].outlet.T=304.0858373453369{K}; value root.cell[0{s}].reaction.T=304.0858373453369{K}; value root.cell[0{s}].volume=0.0015{m3}; run integrated; integrate samples(0{s},1{s},5{s},20{s}) relative(1e-10) normalized_absolute(1e-12) step(1e-5{s});} {
+@id("fe7a6d2fd15843f3bf583fe189e16467") child root:ControlledCSTR=ControlledCSTR();
+}
+@id("ad7bac7b5fdd495a990a1bdcd920c35e") test cstr_simultaneous source "Independent reduced incompressible CSTR/controller ODE, SciPy 1.18.1 DOP853 and Radau agree with rtol=1e-11 atol=1e-12; sample comparisons only" revision "1" fixture {dof 0; value root.cell[0{s}].inlet.concentration[chem.water]=initial_feed[chem.water]; value root.cell[0{s}].inlet.concentration[chem.sodium_hydroxide]=initial_feed[chem.sodium_hydroxide]; value root.cell[0{s}].inlet.concentration[chem.ethyl_acetate]=initial_feed[chem.ethyl_acetate]; value root.cell[0{s}].inlet.concentration[chem.sodium_acetate]=initial_feed[chem.sodium_acetate]; value root.cell[0{s}].inlet.concentration[chem.ethanol]=initial_feed[chem.ethanol]; value root.cell[0{s}].outlet.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].outlet.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].outlet.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].outlet.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].outlet.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].reaction.concentration[chem.water]=initial_outlet[chem.water]; value root.cell[0{s}].reaction.concentration[chem.sodium_hydroxide]=initial_outlet[chem.sodium_hydroxide]; value root.cell[0{s}].reaction.concentration[chem.ethyl_acetate]=initial_outlet[chem.ethyl_acetate]; value root.cell[0{s}].reaction.concentration[chem.sodium_acetate]=initial_outlet[chem.sodium_acetate]; value root.cell[0{s}].reaction.concentration[chem.ethanol]=initial_outlet[chem.ethanol]; value root.cell[0{s}].inlet.T=303.15{K}; value root.cell[0{s}].outlet.T=304.0858373453369{K}; value root.cell[0{s}].reaction.T=304.0858373453369{K}; value root.cell[0{s}].volume=0.0015{m3}; run simultaneous;} {
+@id("c1949bf2ca80483389891e41ad1157df") child root:ControlledCSTR=ControlledCSTR();
+}
+}

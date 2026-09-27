@@ -23,13 +23,6 @@ fn ordinal() -> T {
 fn record(fields: Vec<(&'static str, T)>) -> T {
     T::structure(fields.into_iter().map(|(n, t)| t.with_name(n)).collect())
 }
-fn port() -> T {
-    record(vec![
-        ("symbol_id", T::id()),
-        ("quantity_id", T::id()),
-        ("unit_id", T::id()),
-    ])
-}
 pub(super) fn declare(b: &mut RegistryBuilder) {
     relation(
         b,
@@ -110,7 +103,9 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "analysis",
             "case",
             "model",
+            "model_hint",
             "property_default",
+            "derived_nominal",
             "quantity_nominal",
             "canonical_fallback",
         ],
@@ -125,27 +120,6 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         "CandidateUse",
         ["usable", "qualified_unclosed", "unusable"],
-    );
-    relation(
-        b,
-        N::Authored,
-        "provider_scaling_bindings",
-        S::Model,
-        &["binding_id"],
-        vec![
-            column("binding_id", T::id()),
-            column("model_id", T::id()),
-            column("case_id", T::id()).optional(),
-            column("provider", text()),
-            column("output", ordinal()),
-            column("target_id", T::id()),
-            column("target_kind", T::enumeration("NumericalTarget")),
-            column("property_package_id", T::id()),
-            column("property_kind_id", T::id()),
-            column("index", T::list(T::id())),
-            column("provenance", text()),
-        ],
-        "Explicit provider output to numerical target and authored property default. No name, arity or package execution inference.",
     );
     relation(
         b,
@@ -366,152 +340,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
     );
     declare_dynamics_fitting(b);
-    declare_balances(b);
-    relation(
-        b,
-        N::Authored,
-        "model_compositions",
-        S::Model,
-        &["model_id"],
-        vec![
-            column("model_id", T::id()),
-            column("root_instance_id", T::id()),
-        ],
-        "Selected root of a reusable template/instance composition. Lowering is a checked projection; authored templates remain authoritative.",
-    );
-    enumeration(
-        b,
-        "NativeVariableDomain",
-        [
-            "continuous",
-            "integer",
-            "binary",
-            "semi_continuous",
-            "semi_integer",
-        ],
-    );
     enumeration(b, "NativeObjectiveSense", ["minimize", "maximize"]);
     enumeration(
         b,
         "NativeMetricKind",
         ["real", "integer", "boolean", "text", "unavailable"],
-    );
-    let definition = record(vec![
-        ("definition_id", T::id()),
-        ("sources", T::list(text())),
-        (
-            "formals",
-            T::list(record(vec![("path", text()), ("quantity_id", T::id())])),
-        ),
-        ("domains", T::list(text())),
-        ("groups", T::list(text())),
-        ("providers", T::list(text())),
-        (
-            "units",
-            T::list(record(vec![("spelling", text()), ("unit_id", T::id())])),
-        ),
-        (
-            "literals",
-            T::list(record(vec![
-                ("start", ordinal()),
-                ("end", ordinal()),
-                ("quantity_id", T::id()),
-            ])),
-        ),
-    ]);
-    let variable = record(vec![
-        ("port", port()),
-        ("fixed", flag()),
-        ("domain", T::enumeration("NativeVariableDomain")),
-        ("lower", real().optional()),
-        ("upper", real().optional()),
-    ]);
-    let instance = record(vec![
-        ("instance_id", T::id()),
-        ("definition_id", T::id()),
-        (
-            "slots",
-            T::list(record(vec![
-                ("source_id", T::id()),
-                ("formal_quantity_id", T::id()),
-                ("formal_unit_id", T::id()),
-            ])),
-        ),
-        (
-            "contributions",
-            T::list(record(vec![
-                ("output", ordinal()),
-                ("row_id", T::id().optional()),
-                ("scale", real()),
-            ])),
-        ),
-    ]);
-    let case = record(vec![
-        ("case_id", T::id()),
-        ("name", text()),
-        ("variables", T::list(variable)),
-        ("parameters", T::list(port())),
-        ("instances", T::list(instance)),
-        (
-            "rows",
-            T::list(record(vec![
-                ("row_id", T::id()),
-                ("quantity_id", T::id()),
-                ("lower", real().optional()),
-                ("upper", real().optional()),
-            ])),
-        ),
-        (
-            "objective",
-            record(vec![
-                ("quantity_id", T::id()),
-                ("sense", T::enumeration("NativeObjectiveSense")),
-            ])
-            .optional(),
-        ),
-        (
-            "values",
-            T::list(record(vec![("symbol_id", T::id()), ("value", real())])),
-        ),
-    ]);
-    relation_version(
-        b,
-        N::Authored,
-        "computation_models",
-        2,
-        S::Model,
-        &["model_id"],
-        vec![
-            column("model_id", T::id()),
-            column("name", text()),
-            column("definitions", T::list(definition)),
-            column(
-                "domains",
-                T::list(record(vec![
-                    ("name", text()),
-                    ("domain_id", T::id()),
-                    ("members", T::list(T::id())),
-                    ("kind", T::enumeration("DomainKind")),
-                ])),
-            ),
-            column(
-                "groups",
-                T::list(record(vec![
-                    ("name", text()),
-                    ("quantity_id", T::id()),
-                    ("axes", T::list(text())),
-                    (
-                        "slots",
-                        T::list(record(vec![
-                            ("members", T::list(T::id())),
-                            ("slot", ordinal()),
-                        ])),
-                    ),
-                ])),
-            ),
-            column("cases", T::list(case)),
-        ],
-        "Authoritative bounded native-model declaration. Typed builders and package documents share this contract; compiler products are derived and non-durable.",
     );
     relation_version(
         b,
@@ -622,180 +455,16 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
 }
 
 fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
-    relation(
-        b,
-        N::Authored,
-        "directional_valve_laws",
-        S::Model,
-        &["model_id", "name"],
-        vec![
-            column("model_id", T::id()),
-            column("name", text()),
-            column("transition_width_id", T::id()),
-        ],
-        "Declared nonreversing C2 valve closure: zero at nonpositive pressure difference, square-root law above the positive authored pressure transition width, and the unique quintic matching values and first two derivatives between. Width is a fixed positive pressure coordinate, never an implicit numerical tolerance.",
-    );
-    relation(
-        b,
-        N::Authored,
-        "reaction_applications",
-        S::Model,
-        &["application_id"],
-        vec![
-            column("application_id", T::id()),
-            column("model_id", T::id()),
-            column("case_id", T::id()),
-            column("material_system_id", T::id()),
-            column("reaction_id", T::id()),
-            column("phase_id", T::id()),
-            column("rate_instance_id", T::id()),
-            column("rate_output", ordinal()),
-            column(
-                "species_balances",
-                T::list(record(vec![
-                    ("species_id", T::id()),
-                    ("balance_id", T::id()),
-                ])),
-            ),
-            column("energy_balance_id", T::id()),
-            column("heat_instance_id", T::id()),
-            column("heat_output", ordinal()),
-            column("element_tolerance", real()),
-            column("provenance", text()),
-        ],
-        "Selected homogeneous molar reaction. The authored rate is an extent per time. Stoichiometry derives species source outputs; an explicit signed heat-rate output supplies energy. No formation energy or kinetics is guessed.",
-    );
-    enumeration(
-        b,
-        "ThermodynamicFormulation",
-        ["homogeneous_density", "phase_equilibrium"],
-    );
-    enumeration(b, "StabilityPolicy", ["unchecked", "mechanical", "global"]);
-    enumeration(
-        b,
-        "StabilityStatus",
-        ["not_requested", "stable", "unstable", "failed"],
-    );
-    enumeration(b, "MissingInteractionPolicy", ["require_explicit", "zero"]);
-    relation_version(
-        b,
-        N::Authored,
-        "native_providers",
-        3,
-        S::Model,
-        &["model_id", "name"],
-        vec![
-            column("model_id", T::id()),
-            column("name", text()),
-            column("kind", text()),
-            column("material_system_id", T::id()).optional(),
-            column("inputs", T::list(port())),
-            column("outputs", T::list(port())),
-            column(
-                "envelope",
-                record(vec![
-                    ("temperature", T::list(real())),
-                    ("density", T::list(real())),
-                    ("pressure", T::list(real())),
-                    ("composition", T::list(T::list(real()))),
-                    ("provenance", text()),
-                ]),
-            ),
-            column("enthalpy_reference", T::id()),
-            column("entropy_reference", T::id()),
-            column(
-                "components",
-                T::list(record(vec![
-                    ("species_id", T::id()),
-                    ("pcsaft_cas", text()),
-                    ("ideal_gas_cas", text()),
-                ])),
-            ),
-            column("dependent_species", T::id()),
-            column(
-                "quantity_kinds",
-                record(vec![
-                    ("temperature", T::id()),
-                    ("density", T::id()),
-                    ("fraction", T::id()),
-                    ("pressure", T::id()),
-                    ("enthalpy", T::id()),
-                    ("entropy", T::id()),
-                    ("ln_fugacity", T::id()),
-                ]),
-            ),
-            column(
-                "data",
-                record(vec![
-                    ("pcsaft", text()),
-                    ("ideal_gas", text()),
-                    ("binary", text()),
-                    ("provenance", text()),
-                    (
-                        "missing_interactions",
-                        T::enumeration("MissingInteractionPolicy"),
-                    ),
-                ]),
-            ),
-            column("formulation", T::enumeration("ThermodynamicFormulation")),
-            column("stability", T::enumeration("StabilityPolicy")),
-            column("output", ordinal()),
-        ],
-        "Explicit PC-SAFT/DIPPR records, species mapping, physical roles and selected formulation. Independent composition coordinates follow component order with the declared dependent species omitted; outputs are pressure, enthalpy, entropy and ordered ln(phi). No Python callback or opaque provider state is persisted.",
-    );
-    let state = record(vec![
-        ("symbol_id", T::id()),
-        ("differential", flag()),
-        ("initial_row", T::id()),
-        ("offset", real()),
-        ("scale", real()),
-        ("residual_scale", real()),
-    ]);
-    let event = record(vec![
-        ("event_id", T::id()),
-        ("guard_row", T::id()),
-        ("reset_rows", T::list(T::id())),
-        ("terminal", flag()),
-        ("next_mode", ordinal()),
-        ("tolerance", real()),
-    ]);
     enumeration(b, "ObservationTimeBasis", ["elapsed", "model_clock"]);
     relation_version(
         b,
         N::Authored,
-        "dynamic_cases",
-        2,
-        S::Model,
-        &["dynamic_id"],
-        vec![
-            column("dynamic_id", T::id()),
-            column("model_id", T::id()),
-            column("case_id", T::id()),
-            column("time_id", T::id()),
-            column("time_origin", real()).optional(),
-            column("states", T::list(state)),
-            column("parameters", T::list(T::id())),
-            column("outputs", T::list(T::id())),
-            column(
-                "modes",
-                T::list(record(vec![
-                    ("rhs_rows", T::list(T::id())),
-                    ("events", T::list(event)),
-                ])),
-            ),
-        ],
-        "Semi-explicit dynamics over existing compiled functions. Integration time is canonical seconds; model time is (integration time - time_origin) divided by the time port unit scale. An absent origin is zero.",
-    );
-    relation_version(
-        b,
-        N::Authored,
         "fit_cases",
-        2,
+        3,
         S::Case,
         &["fit_id"],
         vec![
             column("fit_id", T::id()),
-            column("model_id", T::id()),
             column(
                 "parameters",
                 T::list(record(vec![
@@ -812,7 +481,11 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                 T::list(record(vec![
                     ("experiment_id", T::id()),
                     ("case_id", T::id()),
-                    ("dynamic_id", T::id().optional()),
+                    ("route", T::enumeration("ModelingAnalysisRoute")),
+                    ("bindings", T::list(record(vec![
+                        ("parameter_id", T::id()),
+                        ("path", text()),
+                    ]))),
                 ])),
             ),
             column(
@@ -820,7 +493,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                 T::list(record(vec![
                     ("observation_id", T::id()),
                     ("experiment_id", T::id()),
-                    ("output_id", T::id()),
+                    ("output_path", text()),
                     ("time", real().optional()),
                     (
                         "time_basis",
@@ -832,7 +505,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                 ])),
             ),
         ],
-        "Native simultaneous fitting. Observation time defaults to elapsed seconds from the integration start; model_clock uses the declared dynamic time origin. Explicit time units must be non-affine time units. Measurement values, units and uncertainty remain authored.observations.",
+        "Shared-parameter fitting over authored modeling cases. Each experiment binds shared parameter identities to local source paths in canonical physical units. Observation paths select original members. Elapsed time is relative to the integration start; model_clock is the authored axis coordinate. Measurement values, units and uncertainty remain authored.observations.",
     );
     relation_version(
         b,
@@ -1003,81 +676,5 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             column("unit_id", T::id()),
         ],
         "Observation-aligned original physical predictions and half weighted squared standardized residual contributions.",
-    );
-}
-
-fn declare_balances(b: &mut RegistryBuilder) {
-    enumeration(
-        b,
-        "BalanceRole",
-        [
-            "inlet",
-            "outlet",
-            "generation",
-            "consumption",
-            "heat_in",
-            "heat_out",
-            "work_in",
-            "work_out",
-            "internal_in",
-            "internal_out",
-        ],
-    );
-    relation_version(
-        b,
-        N::Authored,
-        "physical_balances",
-        2,
-        S::Model,
-        &["balance_id"],
-        vec![
-            column("balance_id", T::id()),
-            column("model_id", T::id()),
-            column("case_id", T::id()),
-            column("quantity_id", T::id()),
-            column("accumulation", T::id()).optional(),
-            column("tolerance", real()),
-            column("integral_tolerance", real()).optional(),
-            column("provenance", text()),
-            column(
-                "terms",
-                T::list(record(vec![
-                    ("source_id", T::id()),
-                    ("role", T::enumeration("BalanceRole")),
-                    ("multiplier", real()),
-                    ("transfer_id", T::id().optional()),
-                    ("mode", ordinal().optional()),
-                    ("instance_id", T::id()),
-                    ("output", ordinal()),
-                ])),
-            ),
-            column(
-                "impulses",
-                T::list(record(vec![("event_id", T::id()), ("value", real())])),
-            ),
-        ],
-        "Authoritative signed physical contributions in canonical quantity coordinates. A balance derives one zero-equality steady row or one dynamic flux row. Accumulation and event impulses use the conserved state's canonical units. Declared tolerances and provenance are not empirical certification.",
-    );
-    relation(
-        b,
-        N::Runtime,
-        "physical_checks",
-        S::Derived,
-        &["run_id", "step", "sample", "balance_id"],
-        vec![
-            column("run_id", T::id()),
-            column("step", ordinal()),
-            column("sample", ordinal()),
-            column("balance_id", T::id()),
-            column("quantity_id", T::id()),
-            column("unit_id", T::id()),
-            column("time", real()).optional(),
-            column("closure", real()).optional(),
-            column("tolerance", real()),
-            column("accepted", flag()).optional(),
-            column("error", text()).optional(),
-            column("provenance", text()),
-        ],
-        "Independent contribution or accumulation-minus-integrated-flux closure, separate from native status and mathematical feasibility. Missing evaluation is not a pass.",
     );
 }

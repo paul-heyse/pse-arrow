@@ -496,6 +496,9 @@ pub fn recover_diagnostics(
     if let Some(v) = r.relaxation.as_mut().and_then(|r| r.primal.as_mut()) {
         values(v, &n.variables, false)?;
     }
+    if let Some(v) = r.relaxation.as_mut().and_then(|r| r.penalty.as_mut()) {
+        *v = mul(*v, n.objective)?;
+    }
     for (name, range) in &mut r.ranging {
         let row = name.starts_with("row_");
         let cost = name.starts_with("column_cost_");

@@ -1,0 +1,23 @@
+{
+  "invariant": "authored.package_quantity_aliases:unique:pk",
+  "rows": {
+    "authored.package_quantity_aliases": [
+      {
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

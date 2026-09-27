@@ -14,6 +14,7 @@ struct Toy {
 impl Toy {
     fn new(dae: bool, event: bool) -> Self {
         let mut c = Contract {
+            quadratures: vec![],
             balances: vec![],
             identity: ContentHash::from_bytes([2; 32]),
             states: vec![id(1)],
@@ -55,7 +56,7 @@ impl Oracle for Toy {
                 }
                 s
             }
-            Function::BalanceFlux => vec![(0, 0), (0, n)],
+            Function::QuadratureFlux => vec![(0, 0), (0, n)],
             Function::Output => vec![(0, 0), (0, n)],
             Function::Roots => vec![],
             Function::Reset(_) => (0..n).map(|i| (i, i)).collect(),
@@ -91,7 +92,7 @@ impl Oracle for Toy {
                 }
                 (v, j)
             }
-            Function::BalanceFlux => (vec![-p[0] * x[0]], vec![(0, 0, -p[0]), (0, n, -x[0])]),
+            Function::QuadratureFlux => (vec![-p[0] * x[0]], vec![(0, 0, -p[0]), (0, n, -x[0])]),
             Function::Output => (vec![x[0] + p[0]], vec![(0, 0, 1.0), (0, n, 1.0)]),
             Function::Roots => (
                 if self.c.events[mode].is_empty() {
@@ -266,8 +267,28 @@ fn algebraic_initial_sensitivities_follow_native_consistency() {
 }
 
 #[test]
+fn native_quadrature_does_not_invent_a_conservation_claim() {
+    let mut oracle=Toy::new(false,false);
+    oracle.c.quadratures=vec![id(9)];
+    assert!(oracle.c.balances.is_empty());
+    let mut methods=vec![Method::Diffsol];
+    #[cfg(feature="idas")]
+    methods.push(Method::Idas);
+    for method in methods {
+    let profile=Profile{method,end:1.,samples:vec![0.,0.3,1.],parameter_scales:vec![1.],rtol:1e-9,out_rtol:Some(1e-9),out_atol:vec![1e-10],..Default::default()};
+    let report=integrate(&mut oracle,&profile,&[1.],Arc::new(AtomicBool::new(false))).unwrap();
+    assert_eq!(report.termination,Termination::Completed,"{:?}",report.error);
+    for sample in &report.samples { assert!((sample.integrals[0]-((-sample.time).exp()-1.)).abs()<1e-6); }
+    }
+    let mut invalid=oracle.c.clone();
+    invalid.balances=vec![Balance{id:id(42),state:0,scale:1.,tolerance:1e-6,impulses:Default::default()}];
+    assert!(invalid.validate().is_err());
+}
+
+#[test]
 fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
     let mut oracle = Toy::new(false, false);
+    oracle.c.quadratures = vec![id(8)];
     oracle.c.balances = vec![Balance {
         id: id(8),
         state: 0,
@@ -296,9 +317,10 @@ fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
     .unwrap();
     assert_eq!(r.termination, Termination::Completed, "{:?}", r.error);
     for s in &r.samples {
-        assert!((s.state[0] - r.consistent_initial[0] - s.balance_integrals[0]).abs() < 1e-6);
+        assert!((s.state[0] - r.consistent_initial[0] - s.integrals[0]).abs() < 1e-6);
     }
     let mut event = Toy::new(false, true);
+    event.c.quadratures = oracle.c.quadratures.clone();
     event.c.balances = oracle.c.balances.clone();
     profile.changes.clear();
     let r = integrate(
@@ -323,7 +345,7 @@ fn integrated_balances_carry_segments_and_refuse_undeclared_jumps() {
     for s in &r.samples {
         let jump = if s.time >= 0.25 { impulse } else { 0.0 };
         assert!(
-            (s.state[0] - r.consistent_initial[0] - s.balance_integrals[0] - jump).abs() < 1e-6
+            (s.state[0] - r.consistent_initial[0] - s.integrals[0] - jump).abs() < 1e-6
         );
     }
     profile.out_rtol = None;
@@ -524,5 +546,27 @@ fn idas_recovers_typed_trial_and_terminal_policy_stops() {
                 .iter()
                 .any(|e| e.phase == "idas.evaluation.failure")
         );
+    }
+}
+
+#[test]
+fn quadratures_coexist_with_consistent_dae_forward_sensitivities() {
+    let mut methods=vec![Method::Diffsol];
+    #[cfg(feature="idas")]
+    methods.push(Method::Idas);
+    for method in methods {
+        for dae in [false,true] {
+            let mut oracle=Toy::new(dae,false);
+            oracle.c.quadratures=vec![id(9)];
+            let mut p=profile(dae);
+            p.method=method;p.sensitivities=true;
+            p.out_rtol=Some(1e-8);p.out_atol=vec![1e-9];
+            let r=run(&mut oracle,&p);
+            assert_eq!(r.termination,Termination::Completed,"{method:?}, DAE {dae}: {:?}",r.error);
+            for s in &r.samples {
+                assert!((s.integrals[0]-(2.*(-2.*s.time).exp()-2.)).abs()<1e-6);
+                assert!((s.output_sensitivities[0]-((1.-2.*s.time)*(-2.*s.time).exp()+1.)).abs()<1e-5);
+            }
+        }
     }
 }

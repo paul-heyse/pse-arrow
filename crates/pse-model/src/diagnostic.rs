@@ -70,6 +70,31 @@ impl BoundaryDiagnostic {
         }
     }
 }
+impl crate::HeapUsage for BoundaryDiagnostic {
+    fn heap_bytes(&self) -> usize {
+        self.stage.capacity()
+            + self.rule.capacity()
+            + self.sources.capacity() * size_of::<SemanticId>()
+            + self.locations.capacity() * size_of::<SourceLocation>()
+            + self
+                .locations
+                .iter()
+                .map(|v| v.path.capacity() + v.name.as_ref().map_or(0, String::capacity))
+                .sum::<usize>()
+            + self
+                .observations
+                .iter()
+                .map(|(name, value)| {
+                    // A conservative BTree node allowance includes its inline key/value.
+                    128 + name.capacity()
+                        + match value {
+                            Observation::Text(value) => value.capacity(),
+                            _ => 0,
+                        }
+                })
+                .sum::<usize>()
+    }
+}
 pse_diagnostics::impl_diagnostic! {
     BoundaryDiagnostic,
     code(this) { Some(match this.class {

@@ -4,27 +4,19 @@ use super::fixtures::*;
 use pse_backend_native::solve::{Backend, Termination};
 use pse_runtime::{CancelSource, math::solves::Outcome, workflow::RunReport};
 #[tokio::test]
-async fn publication_resource() {
+async fn authored_publication_resource() {
     let owner = WorkflowRuntime::new().unwrap();
     let rt = runtime(&owner);
-    let f = json("bindings.json");
-    let revision = builder(&owner).await.freeze().unwrap();
-    let case = sid(&f["root_case"]);
+    let package = seed_package(&owner).await;
+    let case = pse_ids::SemanticId::parse_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015").unwrap();
     let cancelled = CancelSource::new();
     cancelled.cancel();
     assert!(
-        revision
-            .prepare(case, profile(Backend::Ipopt, false), compiler(), &cancelled)
+        seed_prepare(&package, case, profile(Backend::Ipopt, false), &cancelled)
             .await
             .is_err()
     );
-    let prepared = revision
-        .prepare(
-            case,
-            profile(Backend::Ipopt, false),
-            compiler(),
-            &CancelSource::new(),
-        )
+    let prepared = seed_prepare(&package, case, profile(Backend::Ipopt, false), &CancelSource::new())
         .await
         .unwrap();
     let a = prepared.start().unwrap();
@@ -32,8 +24,8 @@ async fn publication_resource() {
     let (a, b) = tokio::join!(a.wait(), b.wait());
     let a = a.unwrap();
     let b = b.unwrap();
-    success(&a);
-    success(&b);
+    authored_success(&a);
+    authored_success(&b);
     assert_ne!(a.run_id, b.run_id);
     let directory = tempfile::tempdir().unwrap();
     let base = url::Url::from_directory_path(directory.path()).unwrap();
@@ -46,7 +38,7 @@ async fn publication_resource() {
     let name = datafusion::common::ResolvedTableReference {
         catalog: "artifact".into(),
         schema: "authored".into(),
-        table: "computation_models".into(),
+        table: "modeling_declarations".into(),
     };
     assert!(reopened.member(&name).is_ok());
     let mut wrong = root.clone();
@@ -93,25 +85,24 @@ async fn publication_resource() {
     drop(a);
     drop(b);
     drop(prepared);
-    drop(revision);
+
     assert!(owner.runtime.pool().reserved() > 0);
     assert!(!arrays.is_empty());
     drop(arrays);
     assert!(owner.runtime.pool().reserved() <= reserved);
     // A limited or cancelled attempt remains an attempt, never an optimum certificate.
-    let revision = builder(&owner).await.freeze().unwrap();
     let mut limited = profile(Backend::Ipopt, false);
     limited.controls.iterations = 1;
-    let p = revision
-        .prepare(case, limited, compiler(), &CancelSource::new())
+    let p = seed_prepare(&package, case, limited, &CancelSource::new())
         .await
         .unwrap();
     let result = p.start().unwrap().wait().await.unwrap();
-    let RunReport::Solves(report) = result.report().unwrap() else {
+    let RunReport::Modeling(report) = result.report().unwrap() else {
         panic!()
     };
+    let report=&report[0];
     assert!(
-        matches!(&report.outcomes[0],Outcome::Native(r) if r.termination.category != Termination::Success)
+        matches!(&report.outcome,Outcome::Native(r) if r.termination.category != Termination::Success)
     );
     assert_eq!(
         result
@@ -121,13 +112,7 @@ async fn publication_resource() {
             .num_rows(),
         1
     );
-    let p = revision
-        .prepare(
-            case,
-            profile(Backend::Ipopt, false),
-            compiler(),
-            &CancelSource::new(),
-        )
+    let p = seed_prepare(&package, case, profile(Backend::Ipopt, false), &CancelSource::new())
         .await
         .unwrap();
     let handle = p.start().unwrap();

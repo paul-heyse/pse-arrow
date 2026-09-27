@@ -17,9 +17,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    140u8, 244u8, 9u8, 146u8, 124u8, 57u8, 49u8, 247u8, 178u8, 86u8, 201u8, 183u8, 180u8,
-    117u8, 147u8, 235u8, 188u8, 217u8, 41u8, 139u8, 117u8, 59u8, 169u8, 4u8, 224u8,
-    214u8, 253u8, 142u8, 141u8, 109u8, 240u8, 169u8,
+    179u8, 102u8, 47u8, 5u8, 126u8, 51u8, 190u8, 99u8, 229u8, 29u8, 78u8, 135u8, 128u8,
+    103u8, 137u8, 52u8, 234u8, 163u8, 161u8, 163u8, 189u8, 151u8, 233u8, 101u8, 1u8,
+    83u8, 83u8, 18u8, 5u8, 12u8, 83u8, 195u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredDatasetsRow {
     fn append(
@@ -111,6 +111,25 @@ fn check_declaration(
 ) -> Result<(), crate::RelationError> {
     reg.contract(spec)?.require_generated(crate::generated::contracts::expected())?;
     Ok(())
+}
+#[cfg(test)]
+mod consolidation_unit {
+    #[test]
+    fn equal_fingerprint_cannot_admit_a_changed_declaration() -> Result<
+        (),
+        crate::RelationError,
+    > {
+        let registry = pse_schema::registry()?;
+        let original = super::spec(registry)?;
+        let mut altered = original.clone();
+        altered.columns[0] = altered
+            .columns[0]
+            .clone()
+            .with_nullable(!altered.columns[0].nullable());
+        assert_eq!(altered.fingerprint, super::FINGERPRINT);
+        assert!(super::check_declaration(registry, &altered).is_err());
+        Ok(())
+    }
 }
 /// The schema built from the authoritative declaration.
 /// # Errors

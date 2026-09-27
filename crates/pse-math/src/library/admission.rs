@@ -65,6 +65,7 @@ fn expansion(c: OperationCount, layout: &JetLayout) -> Result<usize, MathError> 
     reason = "Distinct compilation contexts and remaining body allowances"
 )]
 pub(crate) fn bounded_evaluator(
+    source_id: pse_ids::SemanticId,
     expressions: &[Atom],
     parameters: &[Atom],
     layout: &JetLayout,
@@ -108,7 +109,13 @@ pub(crate) fn bounded_evaluator(
     }
     let bound = expansion(scalar, layout)?;
     if bound > remaining {
-        return Err(MathError::Limit("derivative expansion"));
+        return Err(MathError::WorkLimit {
+            source_id,
+            resource: "derivative expansion",
+            required: bound,
+            available: remaining,
+            components: layout.width(),
+        });
     }
     // Numeric slots: original parameters/constants, external input/output buffers,
     // one slot per arithmetic operation, <=3 assignment vectors per instruction

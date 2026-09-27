@@ -14,9 +14,9 @@ use crate::reference_state::ReferenceState;
 use crate::unit::Unit;
 use crate::unit_set::UnitSet;
 use crate::{
-    BasisId, BasisKind, BasisRule, ConversionId, ConversionKind, DomainKind, Opcode, OperationId,
+    BasisId, BasisKind, BasisRule, ConversionId, ConversionKind, EntityKind, EntityKindId, Opcode, OperationId,
     QuantityAdditionKind, QuantityError, QuantityKindId, QuantityScaleRule, QuantityShapeRule,
-    QuantityTypeId, ReferenceRule, ReferenceStateId, ScaleKind, SubjectKind, SubjectRule, UnitId,
+    QuantityTypeId, ReferenceRule, ReferenceStateId, ScaleKind, SubjectRule, UnitId,
     UnitSetId,
 };
 use pse_ids::SemanticId;
@@ -25,6 +25,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Unadmitted declarations. Duplicate identities are retained until `build` rejects them.
 #[derive(Clone, Debug, Default)]
 pub struct QuantityRegistryBuilder {
+    entity_kinds:Vec<EntityKind>,
     units: Vec<Unit>,
     kinds: Vec<QuantityKind>,
     bases: Vec<Basis>,
@@ -32,7 +33,7 @@ pub struct QuantityRegistryBuilder {
     quantity_types: Vec<QuantityType>,
     conversions: Vec<ConversionRule>,
     operations: Vec<QuantityOperation>,
-    reduction_domains: Vec<(OperationId, DomainKind)>,
+    reduction_domains: Vec<(OperationId, EntityKindId)>,
     unit_sets: Vec<UnitSet>,
     neutral: Vec<QuantityTypeId>,
 }
@@ -50,6 +51,7 @@ impl QuantityRegistryBuilder {
     pub fn new() -> Self {
         Self::default()
     }
+    add_declaration!(entity_kind, entity_kinds, EntityKind);
     add_declaration!(unit, units, Unit);
     add_declaration!(kind, kinds, QuantityKind);
     add_declaration!(basis, bases, Basis);
@@ -58,7 +60,7 @@ impl QuantityRegistryBuilder {
     add_declaration!(conversion, conversions, ConversionRule);
     add_declaration!(operation, operations, QuantityOperation);
     /// Declare the exact domain kind consumed by a registered index reduction.
-    pub fn reduction_domain(&mut self, operation: OperationId, domain: DomainKind) -> &mut Self {
+    pub fn reduction_domain(&mut self, operation: OperationId, domain: EntityKindId) -> &mut Self {
         self.reduction_domains.push((operation, domain));
         self
     }
@@ -86,6 +88,7 @@ impl QuantityRegistryBuilder {
             }
         };
         let mut registry = QuantityRegistry {
+            entity_kinds:index(self.entity_kinds,|x|x.id,"entity_kind")?,
             units: index(self.units, |x| x.id, "unit")?,
             kinds: index(self.kinds, |x| x.id, "quantity_kind")?,
             bases: index(self.bases, |x| x.id, "basis")?,
@@ -135,6 +138,7 @@ impl QuantityRegistryBuilder {
 /// An immutable collection of admitted physical declarations.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuantityRegistry {
+    entity_kinds:BTreeMap<EntityKindId,EntityKind>,
     units: BTreeMap<UnitId, Unit>,
     kinds: BTreeMap<QuantityKindId, QuantityKind>,
     bases: BTreeMap<BasisId, Basis>,
@@ -142,7 +146,7 @@ pub struct QuantityRegistry {
     quantity_types: BTreeMap<QuantityTypeId, QuantityType>,
     conversions: BTreeMap<ConversionId, ConversionRule>,
     operations: BTreeMap<OperationId, QuantityOperation>,
-    reduction_domains: BTreeMap<OperationId, DomainKind>,
+    reduction_domains: BTreeMap<OperationId, EntityKindId>,
     unit_sets: BTreeMap<UnitSetId, UnitSet>,
     neutral: Option<QuantityTypeId>,
     by_key: BTreeMap<QuantityTypeKey, QuantityTypeId>,
@@ -169,6 +173,7 @@ impl QuantityRegistry {
     /// Saturation makes an overflow exceed every finite admission allowance.
     pub fn allocation_extent(&self) -> usize {
         let mut bytes = [
+            self.entity_kinds.len(),
             self.units.len(),
             self.kinds.len(),
             self.bases.len(),
@@ -187,6 +192,7 @@ impl QuantityRegistry {
         .fold(size_of::<Self>(), |n, count| {
             n.saturating_add(count.saturating_mul(512))
         });
+        for kind in self.entity_kinds.values(){bytes=bytes.saturating_add(kind.name.capacity());}
         for unit in self.units.values() {
             bytes = bytes.saturating_add(unit.symbol.capacity());
         }
@@ -234,6 +240,7 @@ impl QuantityRegistry {
     /// catches duplicate identities/keys in the extended candidate.
     pub fn to_builder(&self) -> QuantityRegistryBuilder {
         QuantityRegistryBuilder {
+            entity_kinds:self.entity_kinds.values().cloned().collect(),
             units: self.units.values().cloned().collect(),
             kinds: self.kinds.values().cloned().collect(),
             bases: self.bases.values().cloned().collect(),
@@ -250,6 +257,14 @@ impl QuantityRegistry {
             neutral: self.neutral.into_iter().collect(),
         }
     }
+    lookup!(entity_kind, entity_kinds, EntityKindId, EntityKind);
+    /// Declared generic kinds in semantic identity order.
+    pub fn entity_kinds(&self)->impl ExactSizeIterator<Item=&EntityKind>{self.entity_kinds.values()}
+    /// Resolve an unambiguous qualified package name at a legacy source boundary.
+    pub fn entity_kind_named(&self,name:&str)->Option<EntityKindId>{
+        let mut found=self.entity_kinds.values().filter(|k|k.name==name);
+        let first=found.next()?.id;if found.next().is_some(){None}else{Some(first)}
+    }
     lookup!(unit, units, UnitId, Unit);
     lookup!(kind, kinds, QuantityKindId, QuantityKind);
     lookup!(basis, bases, BasisId, Basis);
@@ -263,13 +278,13 @@ impl QuantityRegistry {
     lookup!(conversion, conversions, ConversionId, ConversionRule);
     lookup!(operation, operations, OperationId, QuantityOperation);
     /// Exact admitted reduction dispatch contract, separate from applicability preconditions.
-    pub fn reduction_domain(&self, operation: OperationId) -> Option<DomainKind> {
+    pub fn reduction_domain(&self, operation: OperationId) -> Option<EntityKindId> {
         self.reduction_domains.get(&operation).copied()
     }
     /// Every exact operation/domain dispatch declaration in stable operation order.
     pub fn reduction_domains(
         &self,
-    ) -> impl ExactSizeIterator<Item = (OperationId, DomainKind)> + '_ {
+    ) -> impl ExactSizeIterator<Item = (OperationId, EntityKindId)> + '_ {
         self.reduction_domains.iter().map(|(id, kind)| (*id, *kind))
     }
     lookup!(unit_set, unit_sets, UnitSetId, UnitSet);
@@ -348,6 +363,10 @@ impl QuantityRegistry {
     }
     fn validate(&self) -> Result<(), QuantityError> {
         let mut symbols = BTreeSet::new();
+        for kind in self.entity_kinds.values(){require(kind.id.as_id()!=SemanticId::NIL&&!kind.name.is_empty(),"entity_kind.identity",kind.id.as_id(),"kind requires an identity and name")?;}
+        for ty in self.quantity_types.values(){for kind in ty.key.shape.iter().chain(ty.key.subject_kind.iter()){self.entity_kind(*kind)?;}}
+        for kind in self.reduction_domains.values(){self.entity_kind(*kind)?;}
+        for operation in self.operations.values(){if let Some(kind)=operation.result_subject_kind{self.entity_kind(kind)?;}}
         for unit in self.units.values() {
             unit.validate()?;
             if let Some(reference) = unit.reference_state {
@@ -429,7 +448,7 @@ impl QuantityRegistry {
                     && ty.key.basis.is_none()
                     && ty.key.reference_state.is_none()
                     && ty.key.shape.is_empty()
-                    && matches!(ty.key.subject_kind, None | Some(SubjectKind::None))
+                    && ty.key.subject_kind.is_none()
                     && ty.key.scale_kind == ScaleKind::Point,
                 "quantity_type.neutral_scalar",
                 id.as_id(),
@@ -726,5 +745,38 @@ fn require(
         Ok(())
     } else {
         Err(error(rule, subject, detail))
+    }
+}
+
+#[cfg(test)]
+mod generic_kind_tests {
+    use super::*;
+    use crate::{EntityKind, EntityKindId};
+    #[test]
+    fn authored_kind_identity_controls_axes_and_subjects() {
+        use crate::{DimensionVector,QuantityAdditionKind,QuantityTypeKey};
+        let raw=SemanticId::from_bytes([1;16]);
+        let mut seed=QuantityRegistryBuilder::new();
+        seed.unit(Unit{id:raw.into(),symbol:"1".into(),dimension:DimensionVector::DIMENSIONLESS,scale_to_canonical:1.0,offset_to_canonical:0.0,is_affine:false,reference_state:None});
+        seed.kind(QuantityKind{id:raw.into(),dimension:DimensionVector::DIMENSIONLESS,extensive:false,addition_kind:QuantityAdditionKind::Additive});
+        seed.quantity_type(QuantityType{id:raw.into(),key:QuantityTypeKey{kind:raw.into(),basis:None,reference_state:None,scale_kind:ScaleKind::Point,shape:vec![],subject_kind:None},canonical_unit:raw.into(),nominal_magnitude:None});
+        seed.neutral_dimensionless(raw.into());
+        let registry=seed.build().unwrap();
+        let membrane=EntityKindId::from_id(SemanticId::from_bytes([91;16]));
+        let mut quantity=registry.quantity_type(registry.neutral_dimensionless().unwrap()).unwrap().clone();
+        quantity.id=crate::QuantityTypeId::from_id(SemanticId::from_bytes([92;16]));
+        quantity.key.shape=vec![membrane];
+        quantity.key.subject_kind=Some(membrane);
+        let mut missing=registry.to_builder();missing.quantity_type(quantity.clone());
+        assert!(missing.build().is_err());
+        let mut builder=registry.to_builder();builder.entity_kind(EntityKind{id:membrane,name:"synthetic.membrane".into()});builder.quantity_type(quantity.clone());
+        let admitted=builder.build().unwrap();
+        assert_eq!(admitted.quantity_type(quantity.id).unwrap().key.shape,[membrane]);
+        assert_eq!(admitted.quantity_type(quantity.id).unwrap().key.subject_kind,Some(membrane));
+        assert_eq!(admitted.entity_kind_named("synthetic.membrane"),Some(membrane));
+        let mut renamed=admitted.to_builder();
+        // A second identity is a second kind even when its display spelling is equal.
+        renamed.entity_kind(EntityKind{id:EntityKindId::from_id(SemanticId::from_bytes([93;16])),name:"synthetic.membrane".into()});
+        assert_eq!(renamed.build().unwrap().entity_kind_named("synthetic.membrane"),None);
     }
 }

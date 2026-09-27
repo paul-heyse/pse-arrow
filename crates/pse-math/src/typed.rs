@@ -2,11 +2,19 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Physical admission precedes library normalization at every construction boundary.
+#[path = "typed_external.rs"]
+mod external;
+#[path = "typed_partial.rs"]
+mod partial;
+#[path = "typed_piecewise.rs"]
+mod piecewise;
 use crate::{
     Function, MathError,
     guarded::{Comparison, CompiledBody, Condition, PreparedBody, Stage},
     library::{self, Optimization},
 };
+use piecewise::branch_order;
+pub(crate) use piecewise::proven_branch_order;
 use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
 use pse_quantity::{
@@ -88,6 +96,14 @@ impl Default for BodyLimits {
     }
 }
 
+/// Opaque boundary separating explicit function arguments from its local body.
+#[derive(Clone, Copy, Debug)]
+pub struct FunctionScope(usize);
+
+/// Opaque dependence on a checked domain; it cannot supply a numerical value.
+#[derive(Clone, Copy, Debug)]
+pub struct DomainAssumption(Option<usize>);
+
 /// A single specialization's typed construction context, never a model-wide graph.
 pub struct BodyBuilder<'a> {
     context: &'a crate::SymbolicContext,
@@ -99,11 +115,12 @@ pub struct BodyBuilder<'a> {
     next_slot: usize,
     occurrences: usize,
     stages: Vec<Stage>,
-    nonsmooth: bool,
     provider_order: DerivativeOrder,
     physical_only: bool,
-    provider_cache:
-        std::collections::HashMap<(pse_kernels::ProviderKey, Vec<Atom>), Vec<TypedValue>>,
+    provider_cache: std::collections::HashMap<
+        (pse_kernels::ProviderKey, Vec<Atom>, Vec<usize>),
+        Vec<TypedValue>,
+    >,
 }
 impl std::fmt::Debug for BodyBuilder<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -128,7 +145,6 @@ impl<'a> BodyBuilder<'a> {
             || limits.slots > library::MAX_FORMAL_SYMBOLS
             || inputs > limits.slots
             || limits.occurrences == 0
-            || limits.occurrences > 16384
         {
             return Err(MathError::Limit("body limits"));
         }
@@ -142,7 +158,6 @@ impl<'a> BodyBuilder<'a> {
             next_slot: inputs,
             occurrences: 0,
             stages: vec![],
-            nonsmooth: false,
             provider_order: DerivativeOrder::Second,
             physical_only: false,
             provider_cache: std::collections::HashMap::new(),
@@ -311,16 +326,187 @@ impl<'a> BodyBuilder<'a> {
         value.atom = library::formal(slot)?;
         Ok(())
     }
+    /// Keep an already checked domain barrier even when the returned expression simplifies away.
+    pub fn with_assumption(
+        &self,
+        mut value: TypedValue,
+        assumption: &DomainAssumption,
+    ) -> TypedValue {
+        value.effects.extend(assumption.0);
+        value
+    }
+    /// Evaluate a physically checked predicate only for domain admission, at value order.
+    /// Predicate-local providers and branches do not supply mathematical derivatives.
+    pub fn domain<T>(&mut self, source: SemanticId, build: T) -> Result<DomainAssumption, MathError>
+    where
+        T: FnOnce(&mut Self) -> Result<TypedValue, MathError>,
+    {
+        let parent = std::mem::take(&mut self.stages);
+        let cache = std::mem::take(&mut self.provider_cache);
+        let order = self.provider_order;
+        let predicate = build(self).and_then(|value| self.materialize(value.atom, source));
+        let stages = std::mem::replace(&mut self.stages, parent);
+        self.provider_cache = cache;
+        self.provider_order = order;
+        let argument = predicate?;
+        if self.physical_only {
+            return Ok(DomainAssumption(None));
+        }
+        let token = self.slot()?;
+        self.stages.push(Stage::Domain {
+            stages,
+            argument,
+            token,
+            source,
+        });
+        Ok(DomainAssumption(Some(token)))
+    }
+    /// Preserve an authored validity interval as original-domain obligations,
+    /// independent of symbolic simplification and requested derivative order.
+    pub fn within_range(
+        &mut self,
+        mut value: TypedValue,
+        lower: TypedValue,
+        upper: TypedValue,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let mut lo = self.binary(Binary::Sub, value.clone(), lower, None, source)?;
+        let mut hi = self.binary(Binary::Sub, upper, value.clone(), None, source)?;
+        self.require(
+            &mut lo,
+            Condition::Nonnegative,
+            DerivativeOrder::Value,
+            source,
+        )?;
+        self.require(
+            &mut hi,
+            Condition::Nonnegative,
+            DerivativeOrder::Value,
+            source,
+        )?;
+        value.effects.extend(lo.effects);
+        value.effects.extend(hi.effects);
+        Ok(value)
+    }
     /// Retain an authored shared binding as one evaluated block output.
     /// Physical meaning, source attribution and ordered domain effects are preserved.
     /// # Errors
     /// The bounded body has no remaining value slot.
-    pub fn bind(&mut self, mut value: TypedValue) -> Result<TypedValue, MathError> {
+    pub fn bind(&mut self, value: TypedValue) -> Result<TypedValue, MathError> {
+        if matches!(
+            value.atom.as_view(),
+            symbolica::atom::AtomView::Num(_) | symbolica::atom::AtomView::Var(_)
+        ) {
+            // Constants and existing slots already have bounded representations.
+            // Preserve their physical contract and effects without an alias block.
+            return Ok(value);
+        }
+        self.independent(value)
+    }
+    /// Bind a fresh function argument even when two arguments share a value.
+    /// Explicit partials must distinguish f(a, b) evaluated at a == b.
+    pub fn independent(&mut self, mut value: TypedValue) -> Result<TypedValue, MathError> {
         if !self.physical_only {
             let slot = self.materialize(value.atom, value.source)?;
             value.atom = library::formal(slot)?;
         }
         Ok(value)
+    }
+    /// Begin a pure function body after its independently bound explicit arguments.
+    pub fn function_scope(&self) -> FunctionScope {
+        FunctionScope(self.stages.len())
+    }
+
+    /// Differentiate an admitted pure body using Symbolica, retaining its original obligations.
+    /// Arguments must be independently bound before `scope`; repeated arguments request
+    /// higher derivatives. Branches and external calls need their own derivative contract.
+    /// # Errors
+    /// Unsupported effect, missing complete derivative type, or a bounded symbolic refusal.
+    pub fn partial(
+        &mut self,
+        scope: FunctionScope,
+        value: TypedValue,
+        arguments: &[TypedValue],
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        use pse_quantity::scheme::{Scheme, Substitution};
+        if arguments.is_empty() || arguments.len() > 8 || scope.0 > self.stages.len() {
+            return Err(MathError::Limit("function partial order or scope"));
+        }
+        let mut quantity = Scheme::Concrete(value.quantity);
+        for argument in arguments {
+            quantity = Scheme::Quotient(
+                Box::new(Scheme::Delta(Box::new(quantity))),
+                Box::new(Scheme::Delta(Box::new(Scheme::Concrete(argument.quantity)))),
+            );
+        }
+        let quantity = quantity
+            .resolve_with_evidence(self.registry, &Substitution::new(), self.checker)
+            .map_err(|e| MathError::Contract(e.to_string()))?;
+        if !self.physical_only
+            && self.stages[scope.0..]
+                .iter()
+                .any(|s| matches!(s, Stage::Provider { .. }))
+        {
+            let atom = self.external_partial(scope, &value.atom, arguments, source)?;
+            return Ok(TypedValue {
+                atom,
+                quantity,
+                indices: value.indices,
+                effects: value.effects,
+                source,
+            });
+        }
+        if !self.physical_only
+            && self.stages[scope.0..]
+                .iter()
+                .any(|s| matches!(s, Stage::Branch { .. }))
+        {
+            let output = self.slot()?;
+            let stages = piecewise::partial_paths(
+                &self.stages[scope.0..],
+                std::collections::BTreeMap::new(),
+                &value.atom,
+                arguments,
+                output,
+                source,
+                self.limits.occurrences,
+                &mut 0,
+                &mut self.next_slot,
+                self.limits.slots,
+            )?;
+            piecewise::strengthen_guards(&mut self.stages[scope.0..], arguments.len());
+            self.stages.extend(stages);
+            return Ok(TypedValue {
+                atom: library::formal(output)?,
+                quantity,
+                indices: value.indices,
+                effects: value.effects,
+                source,
+            });
+        }
+        let atom = if self.physical_only {
+            value.atom.clone()
+        } else {
+            self.shared_partial(scope, &value.atom, arguments, source)?
+        };
+        // A partial evaluates derivatives even when its caller asks only for values.
+        // Keep every original guard and strengthen the local derivative-order guards.
+        for stage in &mut self.stages[scope.0..] {
+            if let Stage::Require { order, .. } = stage {
+                *order = match (*order, arguments.len()) {
+                    (DerivativeOrder::Second, 1) => DerivativeOrder::First,
+                    _ => DerivativeOrder::Value,
+                };
+            }
+        }
+        Ok(TypedValue {
+            atom,
+            quantity,
+            indices: value.indices,
+            effects: value.effects,
+            source,
+        })
     }
     fn materialize(&mut self, atom: Atom, source: SemanticId) -> Result<usize, MathError> {
         if self.physical_only {
@@ -472,10 +658,8 @@ impl<'a> BodyBuilder<'a> {
             Unary::Abs => OpRequest::Abs,
             Unary::Exp => OpRequest::Transcendental(Opcode::Exp),
             Unary::Log => OpRequest::Transcendental(Opcode::Log),
-            Unary::Log10 => OpRequest::Transcendental(Opcode::Log10),
             Unary::Sin => OpRequest::Transcendental(Opcode::Sin),
             Unary::Cos => OpRequest::Transcendental(Opcode::Cos),
-            Unary::Tan => OpRequest::Transcendental(Opcode::Tan),
         };
         let (quantity, indices) = self.result(request, &[&value])?;
         if self.physical_only {
@@ -488,7 +672,14 @@ impl<'a> BodyBuilder<'a> {
             });
         }
         match function {
-            Unary::Log | Unary::Log10 => self.require(
+            Unary::Exp => {
+                // Symbolica 3.0.0's exp/log normalization can discard an exponent
+                // whose logarithmic factors do not simplify. Keep the exponent as
+                // an evaluated dependency; Numerica still owns exp and its jets.
+                let slot = self.materialize(value.atom.clone(), source)?;
+                value.atom = library::formal(slot)?;
+            }
+            Unary::Log => self.require(
                 &mut value,
                 Condition::Positive,
                 DerivativeOrder::Value,
@@ -530,7 +721,6 @@ impl<'a> BodyBuilder<'a> {
         let atom = match function {
             Unary::Exp => value.atom.exp(),
             Unary::Log => value.atom.log(),
-            Unary::Log10 => value.atom.log() / Atom::num(10).log(),
             Unary::Sqrt => value.atom.sqrt(),
             Unary::Abs => {
                 return Err(MathError::Contract(
@@ -539,23 +729,6 @@ impl<'a> BodyBuilder<'a> {
             }
             Unary::Sin => value.atom.sin(),
             Unary::Cos => value.atom.cos(),
-            Unary::Tan => {
-                let mut cosine = TypedValue {
-                    effects: value.effects.clone(),
-                    atom: value.atom.cos(),
-                    quantity: value.quantity,
-                    indices: value.indices.clone(),
-                    source,
-                };
-                self.require(
-                    &mut cosine,
-                    Condition::Nonzero,
-                    DerivativeOrder::Value,
-                    source,
-                )?;
-                value.effects.extend(&cosine.effects);
-                value.atom.sin() / cosine.atom
-            }
         };
         Ok(TypedValue {
             effects: value.effects.clone(),
@@ -608,12 +781,40 @@ impl<'a> BodyBuilder<'a> {
         inputs: &[TypedValue],
         source: SemanticId,
     ) -> Result<Vec<TypedValue>, MathError> {
+        self.provider_partial(registration, inputs, &[], source)
+    }
+    /// Select supplied first or second local partials and compose any remaining outer jets.
+    /// Unit offsets disappear and physical delta-unit chain factors remain explicit.
+    pub fn provider_partial(
+        &mut self,
+        registration: &pse_kernels::AdmittedProvider,
+        inputs: &[TypedValue],
+        partial: &[usize],
+        source: SemanticId,
+    ) -> Result<Vec<TypedValue>, MathError> {
         self.tick()?;
         let spec = registration.spec();
+        let remaining = (spec.derivatives.min(spec.smoothness) as usize)
+            .checked_sub(partial.len())
+            .ok_or_else(|| {
+                MathError::Contract("external partial exceeds supplied derivative order".into())
+            })?;
+        if partial.iter().any(|i| *i >= inputs.len()) {
+            return Err(MathError::Contract("external partial coordinate".into()));
+        }
+        let available = match remaining {
+            0 => DerivativeOrder::Value,
+            1 => DerivativeOrder::First,
+            _ => DerivativeOrder::Second,
+        };
         if inputs.len() != spec.inputs.len() {
             return Err(MathError::Contract("provider input arity".into()));
         }
-        let cache_key = (spec.key(), inputs.iter().map(|v| v.atom.clone()).collect());
+        let cache_key = (
+            spec.key(),
+            inputs.iter().map(|v| v.atom.clone()).collect(),
+            partial.to_vec(),
+        );
         if !self.physical_only
             && let Some(outputs) = self.provider_cache.get(&cache_key)
         {
@@ -645,6 +846,7 @@ impl<'a> BodyBuilder<'a> {
                 .collect());
         }
         let mut input_slots = vec![];
+        let mut input_scales = vec![];
         for (value, port) in inputs.iter().zip(&spec.inputs) {
             pse_quantity::admission::require_same_contract(
                 value.quantity,
@@ -657,6 +859,7 @@ impl<'a> BodyBuilder<'a> {
                 self.registry.unit(port.unit)?,
                 &ty.key,
             )?;
+            input_scales.push(conversion.scale);
             input_slots.push(self.materialize(
                 &value.atom * Atom::num(conversion.scale) + Atom::num(conversion.offset),
                 source,
@@ -673,6 +876,25 @@ impl<'a> BodyBuilder<'a> {
                 self.registry.unit(ty.canonical_unit)?,
                 &ty.key,
             )?;
+            use pse_quantity::scheme::{Scheme, Substitution};
+            let mut scheme = Scheme::Concrete(port.quantity);
+            for i in partial {
+                scheme = Scheme::Quotient(
+                    Box::new(Scheme::Delta(Box::new(scheme))),
+                    Box::new(Scheme::Delta(Box::new(Scheme::Concrete(
+                        inputs[*i].quantity,
+                    )))),
+                );
+            }
+            let quantity = scheme
+                .resolve_with_evidence(self.registry, &Substitution::new(), self.checker)
+                .map_err(|e| MathError::Contract(e.to_string()))?;
+            let scale = partial
+                .iter()
+                .fold(conversion.scale, |s, i| s * input_scales[*i]);
+            if !scale.is_finite() {
+                return Err(MathError::Contract("external partial unit scale".into()));
+            }
             outputs.push(TypedValue {
                 effects: inputs
                     .iter()
@@ -682,10 +904,14 @@ impl<'a> BodyBuilder<'a> {
                 atom: if self.physical_only {
                     Atom::num(0)
                 } else {
-                    library::formal(slot)? * Atom::num(conversion.scale)
-                        + Atom::num(conversion.offset)
+                    library::formal(slot)? * Atom::num(scale)
+                        + Atom::num(if partial.is_empty() {
+                            conversion.offset
+                        } else {
+                            0.
+                        })
                 },
-                quantity: port.quantity,
+                quantity,
                 indices: inputs
                     .first()
                     .map_or_else(IndexSet::new, |v| v.indices.clone()),
@@ -697,13 +923,11 @@ impl<'a> BodyBuilder<'a> {
                 "provider lexical indices differ".into(),
             ));
         }
-        self.provider_order = self
-            .provider_order
-            .min(spec.derivatives)
-            .min(spec.smoothness);
+        self.provider_order = self.provider_order.min(available);
         if !self.physical_only {
             self.stages.push(Stage::Provider {
                 spec: spec.clone(),
+                partial: partial.to_vec(),
                 inputs: input_slots,
                 outputs: slots,
                 source,
@@ -767,13 +991,17 @@ impl<'a> BodyBuilder<'a> {
         let else_stages = std::mem::replace(&mut self.stages, parent);
         self.provider_cache = parent_providers;
         self.stages.push(Stage::Branch {
+            continuity: if guard.variable {
+                DerivativeOrder::Value
+            } else {
+                DerivativeOrder::Second
+            },
             comparison: guard.comparison,
             left: guard.left,
             right: guard.right,
             then: then_stages,
             otherwise: else_stages,
         });
-        self.nonsmooth |= guard.variable;
         Ok(TypedValue {
             effects,
             atom: library::formal(result_slot)?,
@@ -796,7 +1024,7 @@ impl<'a> BodyBuilder<'a> {
                 "provider derivatives or phase smoothness insufficient".into(),
             ));
         }
-        if self.nonsmooth && order > DerivativeOrder::Value {
+        if order > branch_order(&self.stages) {
             return Err(MathError::Contract(
                 "variable nonsmooth operations have no C1/C2 neighborhood proof".into(),
             ));
@@ -804,6 +1032,72 @@ impl<'a> BodyBuilder<'a> {
         Ok(())
     }
 
+    /// Reduce scalar cells after enumeration, retaining the consumed physical domain.
+    /// The independent prototype prevents an empty set from hiding an invalid contract.
+    pub fn finite_reduce(
+        &mut self,
+        kind: pse_quantity::ReductionKind,
+        domain: Option<pse_quantity::EntityKindId>,
+        prototype: QuantityTypeId,
+        terms: &[TypedValue],
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let indices = IndexSet::new();
+        self.tick()?;
+        let inferred = pse_quantity::infer::infer_with_evidence(
+            &OpRequest::FiniteReduce { kind, domain },
+            &[pse_quantity::infer::Operand {
+                quantity_type: prototype,
+                indices: &indices,
+            }],
+            self.registry,
+            self.checker,
+        )?;
+        if !inferred.conversions.is_empty() {
+            return Err(MathError::Contract(
+                "finite reduction conversion requires an explicit model operation".into(),
+            ));
+        }
+        for term in terms {
+            pse_quantity::admission::require_same_contract(
+                prototype,
+                term.quantity,
+                self.registry,
+            )?;
+            if !term.indices.is_empty() {
+                return Err(MathError::Contract(
+                    "finite reduction cell retains free indices".into(),
+                ));
+            }
+        }
+        let atom = if self.physical_only {
+            Atom::num(0)
+        } else {
+            match kind {
+                pse_quantity::ReductionKind::Sum => terms
+                    .iter()
+                    .fold(Atom::num(0), |sum, term| sum + &term.atom),
+                pse_quantity::ReductionKind::Prod => terms
+                    .iter()
+                    .fold(Atom::num(1), |product, term| product * &term.atom),
+                _ => {
+                    return Err(MathError::Contract(
+                        "finite source reduction requires sum or product".into(),
+                    ));
+                }
+            }
+        };
+        Ok(TypedValue {
+            atom,
+            quantity: inferred.result,
+            indices: inferred.indices,
+            source,
+            effects: terms
+                .iter()
+                .flat_map(|term| term.effects.iter().copied())
+                .collect(),
+        })
+    }
     /// Reduce admitted finite term occurrences without deduplicating a bag.
     /// The prototype is independently type checked, including when there are no members.
     /// # Errors

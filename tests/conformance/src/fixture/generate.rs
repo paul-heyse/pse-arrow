@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Deterministic concrete data construction; expected keys are independent of the invariant queries.
-#[path = "generate/inference.rs"]
-mod inference;
 #[path = "generate/semantic.rs"]
 mod semantic;
 use super::Fixture;

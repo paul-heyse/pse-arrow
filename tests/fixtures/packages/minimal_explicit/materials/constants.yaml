@@ -1,0 +1,7 @@
+constants:
+  - id: "01991d6a-13a0-7000-8000-000000000002"
+    name: probe
+    value: 2.0
+    unit_id: "00000000000000000000000000000011"
+    quantity_kind_id: "00000000000000000000000000000021"
+    doc: Synthetic parser fixture.

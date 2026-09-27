@@ -80,6 +80,8 @@ macro_rules! semantic_id_newtype {
 }
 
 crate::semantic_id_newtype! {
+    /// Package-declared entity kind used by physical axes and subjects.
+    EntityKindId,
     /// Identifies a unit (`reference.units`, blueprint §6.2).
     UnitId,
     /// Identifies a unit set, the per-package choice of base units (`reference.unit_sets`).

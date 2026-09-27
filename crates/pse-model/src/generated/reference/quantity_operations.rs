@@ -66,7 +66,7 @@ pub struct ReferenceQuantityOperationsRow {
     ///subject_source
     pub r#subject_source: Option<i64>,
     ///result_subject_kind
-    pub r#result_subject_kind: Option<crate::generated::enums::SubjectKind>,
+    pub r#result_subject_kind: Option<pse_ids::SemanticId>,
     ///result_basis_id
     pub r#result_basis_id: Option<pse_ids::SemanticId>,
     ///result_reference_state_id

@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e1a936cf7134841d5b2d8e49f10c") package nested_equilibrium {
+@id("01a0e1a936cf7134841d5b2e72a826b4") use kinds @"1.0.0";
+@id("01a0e1a936cf7134841d5b2fa8833a4b") use equilibrium @"1.0.0";
+@id("01a0e1a936cf7134841d5b308a81218b") use caloric @"1.0.0";
+@id("01a0e1a936cf7134841d5b312e59333a") interface FlashSplit {
+@id("01a0e1a936cf7134841d5b322192dcae") param components:Set<kinds.species>;
+@id("01a0e1a936cf7134841d5b33af8f13d7") var T:Temperature;
+@id("01a0e1a936cf7134841d5b34c29bfc53") var pressure:Pressure;
+@id("01a0e1a936cf7134841d5b355fbd91e5") var z[j in components]:MoleFraction;
+@id("01a0e1a936cf7134841d5b36a29d9517") let beta:Scalar;
+@id("01a0e1a936cf7134841d5b3778574673") let x[j in components]:MoleFraction;
+@id("01a0e1a936cf7134841d5b380dd072c1") let y[j in components]:MoleFraction;
+}
+@id("01a0e1a936cf7134841d5b39fc915b63") def IdealFlash(selected:Set<kinds.species>,vapor_pressure:Fn(T:Temperature,j:kinds.species)->Pressure):FlashSplit {
+@id("01a0e1a936cf7134841d5b3a91161915") override param components:Set<kinds.species>=selected;
+@id("01a0e1a936cf7134841d5b3b0423accc") let feed[j in components]:Scalar=z[j]/equilibrium.fraction_unit();
+@id("01a0e1a936cf7134841d5b3ce2589166") let K[j in components]:Scalar=vapor_pressure(T,j)/pressure;
+@id("01a0e1a936cf7134841d5b3debe0f37e") let seed:Scalar=equilibrium.rr_start(feed,K,components);
+@id("01a0e1a936cf7134841d5b3e8fa7f5f1") implicit split select minimum((1-fraction)*sum(j in components | liquid[j]*(log(liquid[j])+log(K[j])))+fraction*sum(j in components | vapor[j]*log(vapor[j])),1e-9) {
+@id("01a0e1a936cf7134841d5b3fe9180357") var fraction:Scalar;
+@id("01a0e1a936cf7134841d5b40f068fea6") var liquid[j in components]:Scalar;
+@id("01a0e1a936cf7134841d5b41bec55ac9") var vapor[j in components]:Scalar;
+@id("01a0e1a936cf7134841d5b422528d81f") annotation bounds fraction(-20,20);
+@id("01a0e1a936cf7134841d5b43b04cb995") annotation bounds liquid(1e-10,1);
+@id("01a0e1a936cf7134841d5b4406e56877") annotation bounds vapor(1e-10,1);
+@id("01a0e1a936d074a8ae57c313ae36eecf") regime two_phase eligible(fraction>0 and fraction<1) {
+@id("01a0e1a936d074a8ae57c314d12c0972") eq material[j in components]:feed[j]==(1-fraction)*liquid[j]+fraction*vapor[j];
+@id("01a0e1a936d074a8ae57c315ef15c25d") eq normalization:sum(j in components | liquid[j]-vapor[j])==0;
+@id("01a0e1a936d074a8ae57c316fadc5d56") eq fugacity[j in components]:log(liquid[j])+log(K[j])==log(vapor[j]);
+@id("01a0e1a936d074a8ae57c3170f279ebc") annotation start fraction(seed);
+@id("01a0e1a936d074a8ae57c3184c2d8c01") annotation start liquid(feed[j]/(1+seed*(K[j]-1)));
+@id("01a0e1a936d074a8ae57c319c1205086") annotation start vapor(K[j]*feed[j]/(1+seed*(K[j]-1)));
+}
+@id("01a0e1a936d074a8ae57c31a42907889") regime liquid_only eligible(sum(j in components | K[j]*feed[j])<1) {
+@id("01a0e1a936d074a8ae57c31b15b66957") eq phase:fraction==0;
+@id("01a0e1a936d074a8ae57c31c849bab26") eq composition_l[j in components]:liquid[j]==feed[j];
+@id("01a0e1a936d074a8ae57c31d3c75d02e") eq composition_v[j in components]:vapor[j]==K[j]*feed[j]/sum(k in components | K[k]*feed[k]);
+@id("01a0e1a936d074a8ae57c31ec57d1d9b") annotation start fraction(0);
+@id("01a0e1a936d074a8ae57c31f98b3f75e") annotation start liquid(feed[j]);
+@id("01a0e1a936d074a8ae57c320a15f6144") annotation start vapor(K[j]*feed[j]/sum(k in components | K[k]*feed[k]));
+}
+@id("01a0e1a936d074a8ae57c321927005f1") regime vapor_only eligible(sum(j in components | feed[j]/K[j])<1) {
+@id("01a0e1a936d074a8ae57c322a5a92e52") eq phase:fraction==1;
+@id("01a0e1a936d074a8ae57c32309045c8a") eq composition_l[j in components]:liquid[j]==(feed[j]/K[j])/sum(k in components | feed[k]/K[k]);
+@id("01a0e1a936d074a8ae57c324d6e0db8f") eq composition_v[j in components]:vapor[j]==feed[j];
+@id("01a0e1a936d074a8ae57c3255c5a3ef7") annotation start fraction(1);
+@id("01a0e1a936d074a8ae57c3262e3ef55b") annotation start liquid((feed[j]/K[j])/sum(k in components | feed[k]/K[k]));
+@id("01a0e1a936d074a8ae57c327d6bf8cd9") annotation start vapor(feed[j]);
+}
+}
+@id("01a0e1a936d074a8ae57c3283098c909") realize closure_policy on split using nested;
+@id("01a0e1a936d074a8ae57c329f9b9b0ef") override let beta:Scalar=split.fraction;
+@id("01a0e1a936d074a8ae57c32a7a53a7d1") override let x[j in components]:MoleFraction=split.liquid[j]*equilibrium.fraction_unit();
+@id("01a0e1a936d074a8ae57c32beaac6c47") override let y[j in components]:MoleFraction=split.vapor[j]*equilibrium.fraction_unit();
+}
+}

@@ -26,7 +26,6 @@ package-fixtures = [
   "dep:pse-authoring",
   "dep:pse-engine",
   "dep:pse-catalog",
-  "dep:pse-material",
   "dep:pse-relations",
   "dep:pse-runtime",
   "dep:pse-rules",
@@ -43,7 +42,6 @@ bindgen.workspace = true
 pse-schema.workspace = true
 pse-authoring = { workspace = true, optional = true }
 pse-catalog = { workspace = true, optional = true }
-pse-material = { workspace = true, optional = true }
 pse-quantity.workspace = true
 pse-relations = { workspace = true, optional = true }
 pse-runtime = { workspace = true, optional = true }
@@ -67,4 +65,3 @@ syn.workspace = true
 
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }
-pse-material = { workspace = true, features = ["fixtures"] }

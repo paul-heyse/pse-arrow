@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Attach only source evidence supplied by the compiler or native boundary.
-use super::{RunReport, RunRequest, RunResult};
+use super::{RunReport, RunResult};
 use pse_model::diagnostic::{
     BoundaryClass as Class, BoundaryDiagnostic, Observation, SourceLocation,
 };
@@ -14,23 +14,82 @@ impl super::WorkflowError {
     }
 }
 
-fn observed(error: &(dyn std::error::Error + 'static), stage: &str) -> BoundaryDiagnostic {
-    let mut result = BoundaryDiagnostic::new(Class::Internal, stage, [], error.to_string());
+pub(super) fn observed(
+    error: &(dyn std::error::Error + 'static),
+    stage: &str,
+) -> BoundaryDiagnostic {
+    let mut result = BoundaryDiagnostic::new(Class::Internal, stage, [], "workflow.unclassified");
+    result
+        .observations
+        .insert("detail".into(), Observation::Text(error.to_string()));
     let mut current = Some(error);
     while let Some(error) = current {
         if let Some(boundary) = error.downcast_ref::<BoundaryDiagnostic>() {
             return boundary.clone();
         }
+        if let Some(modeling) = error.downcast_ref::<pse_modeling::ModelingError>() {
+            return modeling.boundary_diagnostic();
+        }
+        if let Some(authoring) = error.downcast_ref::<pse_authoring::AuthoringError>() {
+            use pse_authoring::AuthoringError as E;
+            result.class = Class::InvalidModel;
+            let (rule, span) = match authoring {
+                E::Syntax { at, .. } => ("authoring.syntax", Some(*at)),
+                E::Contract { at, .. } => ("authoring.contract", *at),
+                E::UnknownKey { at, .. } => ("authoring.unknown_key", Some(*at)),
+                E::MissingId { at, .. } => ("authoring.missing_id", Some(*at)),
+                E::UnresolvedTarget { at, .. } => ("authoring.unresolved_target", Some(*at)),
+                E::Budget { .. } => {
+                    result.class = Class::ResourceLimit;
+                    ("authoring.budget", None)
+                }
+                E::DocumentIo { .. } => ("authoring.document_io", None),
+                E::DerivedWrite { .. } => ("authoring.derived_write", None),
+                E::RenameNamed { .. } => ("authoring.rename_named", None),
+                E::UnknownRowKey { .. } => ("authoring.unknown_row_key", None),
+                E::PackageUnresolved { .. } => ("authoring.package_unresolved", None),
+                E::PackageVersionConflict { .. } => ("authoring.package_version_conflict", None),
+                E::SchemaVersionMismatch { .. } => ("authoring.schema_version", None),
+            };
+            result.rule = rule.into();
+            if let Some(span) = span {
+                result.sources.push(span.document_id);
+                result.locations.push(SourceLocation {
+                    source: span.document_id,
+                    path: format!("document/{}", span.document_id),
+                    name: None,
+                    start: Some(span.start),
+                    end: Some(span.end),
+                });
+            }
+        }
         if let Some(super::WorkflowError::Contract(_)) =
             error.downcast_ref::<super::WorkflowError>()
         {
             result.class = Class::InvalidModel;
+            result.rule = "workflow.contract".into();
         }
         if let Some(error) = error.downcast_ref::<pse_math::MathError>() {
             use pse_math::MathError as E;
+            result.rule = match error {
+                E::Instance { .. } => result.rule.as_str(),
+                E::Domain { .. } => "math.domain",
+                E::OutsideRange { .. } => "math.range",
+                E::Evaluation { .. } => "math.evaluation",
+                E::Provider { .. } => "math.provider",
+                E::Cancelled => "math.cancelled",
+                E::Limit(_) | E::WorkLimit { .. } => "math.limit",
+                E::Contract(_) => "math.contract",
+                E::Quantity(_) => "math.quantity",
+                E::Library(_) => "math.library",
+                E::CoefficientRange => "math.coefficient_range",
+            }
+            .into();
             match error {
                 E::Instance { instance, .. } => result.sources.push(*instance),
-                E::Domain { source_id, .. } | E::Evaluation { source_id, .. } => {
+                E::Domain { source_id, .. }
+                | E::OutsideRange { source_id, .. }
+                | E::Evaluation { source_id, .. } => {
                     result.sources.push(*source_id);
                     result.class = Class::TrialRejected;
                 }
@@ -46,9 +105,31 @@ fn observed(error: &(dyn std::error::Error + 'static), stage: &str) -> BoundaryD
                     result.class = Class::TrialRejected;
                 }
                 E::Cancelled => result.class = Class::Cancelled,
-                E::Limit(_) => result.class = Class::ResourceLimit,
+                E::Limit(_) | E::WorkLimit { .. } => result.class = Class::ResourceLimit,
                 E::Contract(_) | E::Quantity(_) => result.class = Class::InvalidModel,
                 E::Library(_) => result.class = Class::Infrastructure,
+                E::CoefficientRange => result.class = Class::Infrastructure,
+            }
+            if let E::OutsideRange {
+                target,
+                value,
+                lower,
+                upper,
+                ..
+            } = error
+            {
+                result.sources.push(*target);
+                for (name, value) in [
+                    ("value", Some(*value)),
+                    ("lower", *lower),
+                    ("upper", *upper),
+                ] {
+                    if let Some(value) = value {
+                        result
+                            .observations
+                            .insert(name.into(), Observation::Real(value));
+                    }
+                }
             }
             if let E::Evaluation { order, .. } = error {
                 result.observations.insert(
@@ -59,6 +140,32 @@ fn observed(error: &(dyn std::error::Error + 'static), stage: &str) -> BoundaryD
                         pse_kernels::DerivativeOrder::Second => 2,
                     }),
                 );
+            }
+            if let E::WorkLimit {
+                source_id,
+                resource,
+                required,
+                available,
+                components,
+            } = error
+            {
+                result.sources.push(*source_id);
+                result
+                    .observations
+                    .insert("resource".into(), Observation::Text((*resource).into()));
+                for (name, value) in [
+                    ("required_operations", required),
+                    ("available_operations", available),
+                    ("taylor_components", components),
+                ] {
+                    result.observations.insert(
+                        name.into(),
+                        i64::try_from(*value).map_or_else(
+                            |_| Observation::Text(value.to_string()),
+                            Observation::Integer,
+                        ),
+                    );
+                }
             }
         }
         if let Some(error) = error.downcast_ref::<pse_backend_native::ProblemError>() {
@@ -124,6 +231,16 @@ fn observed(error: &(dyn std::error::Error + 'static), stage: &str) -> BoundaryD
         }
         if let Some(error) = error.downcast_ref::<pse_compiler::workspace::CompileError>() {
             use pse_compiler::workspace::CompileError as E;
+            result.rule = match error {
+                E::Missing(_) => "compiler.missing",
+                E::Syntax { .. } => "compiler.syntax",
+                E::Math(_) => "compiler.math",
+                E::Modeling(_) => "compiler.modeling",
+                E::Structure(_) => "compiler.structure",
+                E::Cancelled => "compiler.cancelled",
+                E::Limit(_) => "compiler.limit",
+            }
+            .into();
             result.class = match error {
                 E::Cancelled => Class::Cancelled,
                 E::Limit(_) => Class::ResourceLimit,
@@ -167,6 +284,15 @@ fn observed(error: &(dyn std::error::Error + 'static), stage: &str) -> BoundaryD
                 super::WorkflowError::Shared(error) => Some(error.as_ref()),
                 super::WorkflowError::Contract(_) => None,
             }
+        } else if let Some(driver) = error.downcast_ref::<crate::authoring_driver::DriverError>() {
+            use crate::authoring_driver::DriverError as E;
+            match driver {
+                E::Authoring(e) => Some(e),
+                E::Catalog(e) => Some(e),
+                E::Resource(e) => Some(e),
+                E::Allocation(e) => Some(e),
+                E::Relation(e) => Some(e),
+            }
         } else if let Some(pse_math::MathError::Instance { cause, .. }) =
             error.downcast_ref::<pse_math::MathError>()
         {
@@ -188,6 +314,10 @@ fn observed(error: &(dyn std::error::Error + 'static), stage: &str) -> BoundaryD
             error.downcast_ref::<pse_compiler::workspace::CompileError>()
         {
             Some(e.as_ref())
+        } else if let Some(pse_compiler::workspace::CompileError::Modeling(e)) =
+            error.downcast_ref::<pse_compiler::workspace::CompileError>()
+        {
+            Some(e)
         } else {
             error.source()
         };
@@ -198,34 +328,10 @@ fn observed(error: &(dyn std::error::Error + 'static), stage: &str) -> BoundaryD
 }
 impl RunResult {
     pub(super) fn capture_diagnostics(&self) -> Vec<BoundaryDiagnostic> {
-        let mut diagnostics = match &self.report {
-            Err(error) => vec![observed(error.as_ref(), "run")],
-            Ok(RunReport::Solves(report)) => report
-                .outcomes
-                .iter()
-                .filter_map(|outcome| match outcome {
-                    crate::math::solves::Outcome::Rejected(e) => {
-                        Some(observed(e.as_ref(), "solve"))
-                    }
-                    crate::math::solves::Outcome::Native(r) => {
-                        r.validation_error.as_ref().map(|message| {
-                            BoundaryDiagnostic::new(
-                                Class::TrialRejected,
-                                "solve.final_evaluation",
-                                [],
-                                message.clone(),
-                            )
-                        })
-                    }
-                    _ => None,
-                })
-                .collect(),
-            Ok(RunReport::Simulation(r)) => r
-                .error
-                .as_ref()
-                .map(|e| observed(e, "simulation"))
-                .into_iter()
-                .collect(),
+        match &self.report {
+            Err(error) => vec![error.boundary_diagnostic()],
+            Ok(RunReport::Modeling(r)) => r.iter().filter_map(|r| r.diagnostic()).collect(),
+            Ok(RunReport::Simulation(r)) => r.diagnostic().into_iter().collect(),
             Ok(RunReport::Fit(r)) => r
                 .diagnostic
                 .iter()
@@ -250,116 +356,9 @@ impl RunResult {
                             )
                         }),
                 )
+                .chain(r.validation_error.clone())
                 .collect(),
-        };
-        for diagnostic in &mut diagnostics {
-            for revision in self.request.revisions() {
-                enrich(diagnostic, revision);
-            }
-            if let RunRequest::Solves(steps) = &self.request {
-                for step in steps {
-                    for occurrences in step.compiled().occurrences.values() {
-                        for occurrence in occurrences
-                            .iter()
-                            .filter(|o| diagnostic.sources.contains(&o.id))
-                        {
-                            diagnostic.locations.push(SourceLocation {
-                                source: occurrence.id,
-                                path: format!(
-                                    "model/{}/case/{}/definition/{}",
-                                    step.revision.0.row.model_id, step.case, occurrence.definition
-                                ),
-                                name: Some(step.revision.0.row.name.clone()),
-                                start: Some(occurrence.span.start),
-                                end: Some(occurrence.span.end),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-        diagnostics
-    }
-}
 
-fn enrich(diagnostic: &mut BoundaryDiagnostic, revision: &super::ModelRevision) {
-    for case in &revision.0.row.cases {
-        for (symbol_id, quantity_id, unit_id) in case
-            .variables
-            .iter()
-            .map(|variable| {
-                (
-                    variable.port.symbol_id,
-                    variable.port.quantity_id,
-                    variable.port.unit_id,
-                )
-            })
-            .chain(
-                case.parameters
-                    .iter()
-                    .map(|port| (port.symbol_id, port.quantity_id, port.unit_id)),
-            )
-        {
-            if !diagnostic.sources.contains(&symbol_id) {
-                continue;
-            }
-            let name =
-                case.instances.iter().find_map(|instance| {
-                    let index = instance
-                        .slots
-                        .iter()
-                        .position(|slot| slot.source_id == symbol_id)?;
-                    let definition =
-                        revision.0.row.definitions.iter().find(|definition| {
-                            definition.definition_id == instance.definition_id
-                        })?;
-                    definition
-                        .formals
-                        .get(index)
-                        .map(|formal| format!("{}.{}", case.name, formal.path))
-                });
-            diagnostic.locations.push(SourceLocation {
-                source: symbol_id,
-                path: format!(
-                    "model/{}/case/{}/port/{}",
-                    revision.0.row.model_id, case.case_id, symbol_id
-                ),
-                name,
-                start: None,
-                end: None,
-            });
-            for (field, value) in [("unit", unit_id), ("quantity", quantity_id)] {
-                diagnostic.observations.insert(
-                    format!("port/{}/{field}", symbol_id),
-                    Observation::Text(value.to_hex()),
-                );
-            }
-            if let Some(unit) = revision
-                .0
-                .physical
-                .quantities
-                .units()
-                .find(|unit| unit.id.as_id() == unit_id)
-            {
-                diagnostic.observations.insert(
-                    format!("port/{}/unit_symbol", symbol_id),
-                    Observation::Text(unit.symbol.clone()),
-                );
-            }
-        }
-        for instance in &case.instances {
-            if diagnostic.sources.contains(&instance.instance_id) {
-                diagnostic.locations.push(SourceLocation {
-                    source: instance.instance_id,
-                    path: format!(
-                        "model/{}/case/{}/instance/{}",
-                        revision.0.row.model_id, case.case_id, instance.instance_id
-                    ),
-                    name: Some(case.name.clone()),
-                    start: None,
-                    end: None,
-                });
-            }
         }
     }
 }
@@ -368,9 +367,55 @@ fn enrich(diagnostic: &mut BoundaryDiagnostic, revision: &super::ModelRevision) 
 mod tests {
     use super::*;
     #[test]
+    fn modeling_failure_retains_class_rule_and_source_through_wrappers() {
+        let declaration = pse_ids::SemanticId::from_bytes([9; 16]);
+        let error = pse_modeling::ModelingError::Unsupported {
+            declaration,
+            capability: "synthetic capability".into(),
+        };
+        let wrapped =
+            super::super::WorkflowError::Math(crate::math::MathRuntimeError::Compile(error.into()));
+        let diagnostic = wrapped.boundary_diagnostic();
+        assert_eq!(diagnostic.class, Class::Unsupported);
+        assert_eq!(diagnostic.rule, "modeling.capability");
+        assert_eq!(diagnostic.sources, vec![declaration]);
+        assert!(
+            matches!(&diagnostic.observations["detail"], Observation::Text(value) if value == "synthetic capability")
+        );
+    }
+    #[test]
     fn unattributed_failure_never_acquires_a_guessed_source() {
         let e = pse_backend_native::ProblemError::Contract("presolve evaluation failed".into());
         assert!(observed(&e, "presolve").sources.is_empty());
+    }
+    #[test]
+    fn derivative_work_limit_retains_quantitative_witness_through_wrappers() {
+        let source_id = pse_ids::SemanticId::from_bytes([8; 16]);
+        let error = pse_math::MathError::WorkLimit {
+            source_id,
+            resource: "derivative expansion",
+            required: 12,
+            available: 3,
+            components: 6,
+        };
+        let wrapped =
+            super::super::WorkflowError::Math(crate::math::MathRuntimeError::Compile(error.into()));
+        let diagnostic = wrapped.boundary_diagnostic();
+        assert_eq!(diagnostic.class, Class::ResourceLimit);
+        assert_eq!(diagnostic.rule, "math.limit");
+        assert_eq!(diagnostic.sources, vec![source_id]);
+        assert!(matches!(
+            diagnostic.observations["required_operations"],
+            Observation::Integer(12)
+        ));
+        assert!(matches!(
+            diagnostic.observations["available_operations"],
+            Observation::Integer(3)
+        ));
+        assert!(matches!(
+            diagnostic.observations["taylor_components"],
+            Observation::Integer(6)
+        ));
     }
     #[test]
     fn instance_and_expression_are_retained_independently() {
@@ -400,26 +445,6 @@ mod tests {
         assert_eq!(d.sources, vec![definition]);
         assert_eq!(d.locations[0].start, Some(4));
         assert_eq!(d.locations[0].end, Some(5));
-    }
-    #[test]
-    fn exact_port_attribution_uses_authored_names_and_units() {
-        let revision = super::super::dynamics::tests::source().freeze().unwrap();
-        let id = super::super::tests::id(1);
-        let mut diagnostic =
-            BoundaryDiagnostic::new(Class::InvalidModel, "control", [id], "known offending port");
-        enrich(&mut diagnostic, &revision);
-        assert_eq!(
-            diagnostic.locations[0].name.as_deref(),
-            Some("functions.state")
-        );
-        assert!(
-            diagnostic.locations[0]
-                .path
-                .ends_with(&format!("/port/{id}"))
-        );
-        assert!(
-            matches!(&diagnostic.observations[&format!("port/{id}/unit_symbol")], Observation::Text(symbol) if symbol == "fixture_minute")
-        );
     }
     #[test]
     fn provider_recoverability_is_preserved_with_its_witness() {

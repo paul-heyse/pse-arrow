@@ -10,6 +10,15 @@ impl Expr {
     pub fn walk(&self, mut visitor: impl FnMut(&Self)) {
         walk_expr(self, &mut visitor);
     }
+    /// Transform every expression child, then its parent, without rendering or reparsing.
+    /// # Errors
+    /// The visitor's first failure is returned unchanged.
+    pub fn try_walk_mut<E>(
+        &mut self,
+        mut visitor: impl FnMut(&mut Self) -> Result<(), E>,
+    ) -> Result<(), E> {
+        mutate_expr(self, &mut visitor)
+    }
     /// Every member/domain path, including paths inside subscripts and predicates.
     pub fn paths(&self) -> Vec<&Path> {
         let mut paths = Vec::new();
@@ -31,6 +40,10 @@ impl Expr {
 }
 
 impl Predicate {
+    /// Visit every expression in the predicate, including calls and indexed coordinates.
+    pub fn walk_expressions(&self, mut visitor: impl FnMut(&Expr)) {
+        walk_predicate(self, &mut visitor);
+    }
     /// Compare syntax and exact literal values while ignoring source positions.
     pub fn structural_eq(&self, other: &Self) -> bool {
         let mut left = self.clone();
@@ -102,9 +115,17 @@ fn walk_expr(expr: &Expr, visitor: &mut dyn FnMut(&Expr)) {
                 walk_expr(arg, visitor);
             }
         }
-        ExprKind::Kernel { args, .. } => {
+        ExprKind::Kernel { args, .. } | ExprKind::NamedCall { args, .. } => {
             for arg in args {
                 walk_expr(arg, visitor);
+            }
+        }
+        ExprKind::Partial { args, wrt, .. } => {
+            for a in args {
+                walk_expr(a, visitor);
+            }
+            for p in wrt {
+                walk_path(p, visitor);
             }
         }
         ExprKind::Reduce { binder, body, .. } => {
@@ -113,6 +134,19 @@ fn walk_expr(expr: &Expr, visitor: &mut dyn FnMut(&Expr)) {
                 walk_predicate(filter, visitor);
             }
             walk_expr(body, visitor);
+        }
+        ExprKind::Fold {
+            binder,
+            value,
+            step,
+            ..
+        } => {
+            walk_path(&binder.domain, visitor);
+            if let Some(filter) = &binder.filter {
+                walk_predicate(filter, visitor);
+            }
+            walk_expr(value, visitor);
+            walk_expr(step, visitor);
         }
         ExprKind::Derivative { body, wrt } => {
             walk_expr(body, visitor);
@@ -176,9 +210,17 @@ fn strip_expr(expr: &mut Expr) {
                 strip_expr(arg);
             }
         }
-        ExprKind::Kernel { args, .. } => {
+        ExprKind::Kernel { args, .. } | ExprKind::NamedCall { args, .. } => {
             for arg in args {
                 strip_expr(arg);
+            }
+        }
+        ExprKind::Partial { args, wrt, .. } => {
+            for a in args {
+                strip_expr(a);
+            }
+            for p in wrt {
+                strip_path(p);
             }
         }
         ExprKind::Reduce { binder, body, .. } => {
@@ -187,6 +229,19 @@ fn strip_expr(expr: &mut Expr) {
                 strip_predicate(filter);
             }
             strip_expr(body);
+        }
+        ExprKind::Fold {
+            binder,
+            value,
+            step,
+            ..
+        } => {
+            strip_path(&mut binder.domain);
+            if let Some(filter) = &mut binder.filter {
+                strip_predicate(filter);
+            }
+            strip_expr(value);
+            strip_expr(step);
         }
         ExprKind::Derivative { body, wrt } => {
             strip_expr(body);
@@ -258,9 +313,21 @@ fn paths_expr<'a>(expr: &'a Expr, paths: &mut Vec<&'a Path>) {
                 paths_expr(arg, paths);
             }
         }
-        ExprKind::Kernel { args, .. } => {
+        ExprKind::Kernel { args, .. } | ExprKind::NamedCall { args, .. } => {
             for arg in args {
                 paths_expr(arg, paths);
+            }
+        }
+        ExprKind::Partial { args, wrt, .. } => {
+            for a in args {
+                paths_expr(a, paths);
+            }
+            for p in wrt {
+                for segment in &p.segments {
+                    for i in &segment.indices {
+                        paths_expr(i, paths);
+                    }
+                }
             }
         }
         ExprKind::Reduce { binder, body, .. } => {
@@ -269,6 +336,19 @@ fn paths_expr<'a>(expr: &'a Expr, paths: &mut Vec<&'a Path>) {
                 paths_predicate(filter, paths);
             }
             paths_expr(body, paths);
+        }
+        ExprKind::Fold {
+            binder,
+            value,
+            step,
+            ..
+        } => {
+            paths_path(&binder.domain, paths);
+            if let Some(filter) = &binder.filter {
+                paths_predicate(filter, paths);
+            }
+            paths_expr(value, paths);
+            paths_expr(step, paths);
         }
         ExprKind::Derivative { body, wrt } => {
             paths_expr(body, paths);
@@ -324,6 +404,225 @@ fn paths_equation<'a>(equation: &'a Equation, paths: &mut Vec<&'a Path>) {
             paths_predicate(guard, paths);
             paths_equation(then, paths);
             paths_equation(otherwise, paths);
+        }
+    }
+}
+
+fn mutate_path<E>(p: &mut Path, f: &mut impl FnMut(&mut Expr) -> Result<(), E>) -> Result<(), E> {
+    for segment in &mut p.segments {
+        for index in &mut segment.indices {
+            mutate_expr(index, f)?;
+        }
+    }
+    Ok(())
+}
+fn mutate_predicate<E>(
+    p: &mut Predicate,
+    f: &mut impl FnMut(&mut Expr) -> Result<(), E>,
+) -> Result<(), E> {
+    match &mut p.kind {
+        PredicateKind::Compare { lhs, rhs, .. } => {
+            mutate_expr(lhs, f)?;
+            mutate_expr(rhs, f)?;
+        }
+        PredicateKind::In { expr, domain } => {
+            mutate_expr(expr, f)?;
+            mutate_path(domain, f)?;
+        }
+        PredicateKind::Atom(e) => mutate_expr(e, f)?,
+        PredicateKind::And(a, b) | PredicateKind::Or(a, b) => {
+            mutate_predicate(a, f)?;
+            mutate_predicate(b, f)?;
+        }
+        PredicateKind::Not(p) => mutate_predicate(p, f)?,
+        _ => {}
+    }
+    Ok(())
+}
+fn mutate_expr<E>(e: &mut Expr, f: &mut impl FnMut(&mut Expr) -> Result<(), E>) -> Result<(), E> {
+    match &mut e.kind {
+        ExprKind::Path(p) => mutate_path(p, f)?,
+        ExprKind::Number(_) => {}
+        ExprKind::Neg(e) => mutate_expr(e, f)?,
+        ExprKind::Binary { lhs, rhs, .. } => {
+            mutate_expr(lhs, f)?;
+            mutate_expr(rhs, f)?;
+        }
+        ExprKind::Call { args, .. }
+        | ExprKind::NamedCall { args, .. }
+        | ExprKind::Kernel { args, .. } => {
+            for a in args {
+                mutate_expr(a, f)?;
+            }
+        }
+        ExprKind::Partial { args, wrt, .. } => {
+            for a in args {
+                mutate_expr(a, f)?;
+            }
+            for p in wrt {
+                mutate_path(p, f)?;
+            }
+        }
+        ExprKind::Reduce { binder, body, .. } => {
+            mutate_path(&mut binder.domain, f)?;
+            if let Some(p) = &mut binder.filter {
+                mutate_predicate(p, f)?;
+            }
+            mutate_expr(body, f)?;
+        }
+        ExprKind::Fold {
+            binder,
+            value,
+            step,
+            ..
+        } => {
+            mutate_path(&mut binder.domain, f)?;
+            if let Some(filter) = &mut binder.filter {
+                mutate_predicate(filter, f)?;
+            }
+            mutate_expr(value, f)?;
+            mutate_expr(step, f)?;
+        }
+        ExprKind::Derivative { body, wrt } => {
+            mutate_expr(body, f)?;
+            mutate_path(wrt, f)?;
+        }
+        ExprKind::Conditional {
+            guard,
+            then,
+            otherwise,
+        } => {
+            mutate_predicate(guard, f)?;
+            mutate_expr(then, f)?;
+            mutate_expr(otherwise, f)?;
+        }
+        ExprKind::Let { bindings, body } => {
+            for (_, v) in bindings {
+                mutate_expr(v, f)?;
+            }
+            mutate_expr(body, f)?;
+        }
+    }
+    f(e)
+}
+
+impl Expr {
+    /// Paths that are free in this expression, respecting sequential local bindings.
+    /// Function names and partial argument selectors are separate name spaces.
+    pub fn free_paths(&self) -> Vec<&Path> {
+        let mut output = Vec::new();
+        free_expr(self, &std::collections::BTreeSet::new(), &mut output);
+        output
+    }
+}
+fn free_path<'a>(p: &'a Path, bound: &std::collections::BTreeSet<String>, out: &mut Vec<&'a Path>) {
+    if p.segments.first().is_some_and(|s| !bound.contains(&s.name)) {
+        out.push(p);
+    }
+    for s in &p.segments {
+        for i in &s.indices {
+            free_expr(i, bound, out);
+        }
+    }
+}
+fn free_predicate<'a>(
+    p: &'a Predicate,
+    bound: &std::collections::BTreeSet<String>,
+    out: &mut Vec<&'a Path>,
+) {
+    match &p.kind {
+        PredicateKind::Compare { lhs, rhs, .. } => {
+            free_expr(lhs, bound, out);
+            free_expr(rhs, bound, out);
+        }
+        PredicateKind::In { expr, domain } => {
+            free_expr(expr, bound, out);
+            free_path(domain, bound, out);
+        }
+        PredicateKind::Atom(e) => free_expr(e, bound, out),
+        PredicateKind::And(a, b) | PredicateKind::Or(a, b) => {
+            free_predicate(a, bound, out);
+            free_predicate(b, bound, out);
+        }
+        PredicateKind::Not(p) => free_predicate(p, bound, out),
+        _ => {}
+    }
+}
+fn free_expr<'a>(e: &'a Expr, bound: &std::collections::BTreeSet<String>, out: &mut Vec<&'a Path>) {
+    match &e.kind {
+        ExprKind::Path(p) => free_path(p, bound, out),
+        ExprKind::Number(_) => {}
+        ExprKind::Neg(e) => free_expr(e, bound, out),
+        ExprKind::Binary { lhs, rhs, .. } => {
+            free_expr(lhs, bound, out);
+            free_expr(rhs, bound, out);
+        }
+        ExprKind::Call { args, .. }
+        | ExprKind::NamedCall { args, .. }
+        | ExprKind::Kernel { args, .. } => {
+            for a in args {
+                free_expr(a, bound, out);
+            }
+        }
+        ExprKind::Partial { args, wrt, .. } => {
+            for a in args {
+                free_expr(a, bound, out);
+            }
+            for p in wrt {
+                for segment in &p.segments {
+                    for i in &segment.indices {
+                        free_expr(i, bound, out);
+                    }
+                }
+            }
+        }
+        ExprKind::Let { bindings, body } => {
+            let mut local = bound.clone();
+            for (name, value) in bindings {
+                free_expr(value, &local, out);
+                local.insert(name.clone());
+            }
+            free_expr(body, &local, out);
+        }
+        ExprKind::Reduce { binder, body, .. } => {
+            free_path(&binder.domain, bound, out);
+            let mut local = bound.clone();
+            local.insert(binder.var.clone());
+            if let Some(p) = &binder.filter {
+                free_predicate(p, &local, out);
+            }
+            free_expr(body, &local, out);
+        }
+        ExprKind::Fold {
+            accumulator,
+            item,
+            binder,
+            value,
+            step,
+        } => {
+            free_path(&binder.domain, bound, out);
+            let mut local = bound.clone();
+            local.insert(binder.var.clone());
+            if let Some(filter) = &binder.filter {
+                free_predicate(filter, &local, out);
+            }
+            free_expr(value, &local, out);
+            local.insert(accumulator.clone());
+            local.insert(item.clone());
+            free_expr(step, &local, out);
+        }
+        ExprKind::Derivative { body, wrt } => {
+            free_expr(body, bound, out);
+            free_path(wrt, bound, out);
+        }
+        ExprKind::Conditional {
+            guard,
+            then,
+            otherwise,
+        } => {
+            free_predicate(guard, bound, out);
+            free_expr(then, bound, out);
+            free_expr(otherwise, bound, out);
         }
     }
 }

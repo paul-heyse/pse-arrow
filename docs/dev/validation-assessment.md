@@ -153,8 +153,6 @@ vessel recipe and `python/pse/tests/test_plan14_acceptance.py`.
 | Command | Generates | Consumes |
 |---|---|---|
 | `just plan14-reference` | `tests/fixtures/plan14/thermo-reference.json`, `real-algebra-reference.json` and `tests/fixtures/thermo-entropy-reference.json` | `crates/pse-kernels/data` parameter files. Runs in an isolated locked CPython 3.12 environment (`build/plan14-reference`, dependency group `thermo-reference` with teqp) with no product imports. |
-| `just plan14-fixtures` | The remaining `tests/fixtures/plan14` declarations and `package/` | `tests/fixtures/packages/physical-primitives`, kernel data and the frozen `thermo-reference.json`. Run it after `plan14-reference`. |
-| `just unit-plan14-sources` | Nothing | Decodes the shared declarations through generated Python contracts, without constructing a runtime or solving. |
 
 FeOS values are compared against offline teqp PC-SAFT states and Decimal-precision
 DIPPR100 caloric integrals from 298.15 K, within the tolerances recorded in the

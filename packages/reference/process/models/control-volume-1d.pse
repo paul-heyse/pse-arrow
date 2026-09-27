@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("65b0847b7e4a4f718b25f1871dc1daf2") package distributed_volumes {
+@id("eb054c27bc964cc89693e03cd732e518") use kinds @"1.0.0";
+@id("2be2dd6d85b44d3fa97711f0d43d763a") use equilibrium @"1.0.0";
+@id("608e3fbb5ca3431aacc26a64a438600a") difference backward order(1) offsets(-1,0) weights(-1,1) quadrature(0,1);
+@id("3a8e7b8e081448779241319f1b9ba066") collocation radau alpha(1) beta(0) right(true);
+@id("5acf960bd71843ec8ba37d39fbd4807e") interface ControlVolume1D {
+@id("77061ca6a0cc44688789ad1790deec9d") param inlet_package:equilibrium.ThermoPackage;
+@id("9b694694fbc54518884f33b77a9b52d9") param outlet_package:equilibrium.ThermoPackage;
+@id("5ec1d971de2a4a349f4a61ddc1e10cc8") param components:Set<kinds.species>=outlet_package.components;
+@id("7b82ccacace9472f9cd3f13e899894dd") param finite_elements:Integer=20;
+@id("d10963832f4b4e78a1ec386c7a66e43c") param radau_scheme:Boolean=false;
+@id("27ba899d84604ea2afaa6736bab42786") param interpolation_order:Integer=3;
+@id("7e7638e07aee4f55a2565b7fccdf363f") require inlet_package.components==components : "distributed states require matching component membership";
+@id("e7d69cdce4e8487694f6d1c2b39e4676") require inlet_package.defined and not outlet_package.defined : "the inlet is specified; downstream states close composition";
+@id("0230daeaab034983aa37f48878bbc9b6") require not analysis.dynamic : "this spatial control volume requires a separate time-accumulation closure for dynamic use";
+@id("d3b808fd60a54f2090857e819ef919cd") domain x:Scalar from 0 to 1;
+@id("9ec90e23619848199023156631749465") when radau_scheme {
+@id("948f7e5c227f4637bd03e00db87473bc") discretize mesh on x using radau(elements=finite_elements,order=interpolation_order);
+}
+@id("c5192d7756514733a1a4c0352c5fbe72") when not radau_scheme {
+@id("91ace9f8686148cba4881f9180ef4626") discretize mesh on x using backward(elements=finite_elements,order=1);
+}
+@id("02c7e6a69ca345b2a32f77998c37f8e9") child state[i in x]:equilibrium.ThermoPackage=if i==0 then inlet_package else outlet_package;
+@id("3ba9ac4107094ae2bca0d4698eefbed5") var component_flux[i in x,j in components]:ComponentFlow;
+@id("40ef24bbe0c14296ad33b0be555a123d") var enthalpy_flux[i in x]:Power;
+@id("2b903c45de224d03afcbd306af420da1") var heat[i in x]:Power;
+@id("2116eacbb7724661b934dcd27e0e4492") var work[i in x]:Power;
+@id("6234534542b543d89df84f23e823f090") var pressure_gradient[i in x]:DeltaPressure;
+@id("8ecb47d197fb4b2e9b7ecd7a69421c2c") eq component_flux_binding[i in x,j in components]:component_flux[i,j]==state[i].component_flow[j];
+@id("4213c0d9e2764be88d2f3f0e28d1b8d4") eq enthalpy_flux_binding[i in x]:enthalpy_flux[i]==state[i].energy_flow;
+@id("6a0fecfc637d4c9c80c6660ed718184f") accumulate material_source[i in x,j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
+@id("420d9cfdbbeb4933b705a4d51b91b906") accumulate energy_source[i in x]:Power accounting tolerance 0.001{W};
+@id("e2b40380880b45a3ae543635dc241fca") contribute [i in x] energy_source[i] role positive=heat[i];
+@id("c998a97be41f4952a952e1aad92bf405") contribute [i in x] energy_source[i] role positive=work[i];
+@id("be8f600f855c4b1d9477626c9d007ac4") eq material_balance[i in x,j in components]:d(component_flux[i,j])/di==material_source[i,j];
+@id("561d34de791f4b6e8373d1ce67c26a72") eq energy_balance[i in x]:d(enthalpy_flux[i])/di==energy_source[i];
+@id("fe0336aeadcf435ba86b9073bed350a7") eq pressure_balance[i in x]:d(state[i].pressure)/di==pressure_gradient[i];
+@id("b9bfb2fe699847049a0cf8aa4ac14c3c") annotation start component_flux(state[i].component_flow[j]);
+@id("559a97e1b61746d7804dc765690a6ca9") annotation nominal component_flux(100{mol/s});
+@id("bd806eb9e7684c9693a2d17ce2f4118f") annotation start enthalpy_flux(state[i].energy_flow);
+@id("dca57e9e5b0a4c8bb76c51354fd6c415") annotation nominal enthalpy_flux(100000{W});
+@id("6556de8fb1984832ae70e62cb0fd166f") annotation start heat(0{W});
+@id("e8ef526de9a449859cde6f978cd55b1e") annotation start work(0{W});
+@id("719a9ab1b21b43b09d64bc9d36032e1f") annotation start pressure_gradient(0{Pa});
+@id("4ee8174280494135b5392139e3850534") let material_closure[j in components]:ComponentFlow=component_flux[1,j]-component_flux[0,j]-integral(i in x | material_source[i,j]);
+@id("b6fd4914be18431f9fea2325a855d514") let energy_closure:Power=enthalpy_flux[1]-enthalpy_flux[0]-integral(i in x | energy_source[i]);
+@id("173436cc2b5a41b7bc793a24c2ccf7f0") annotation check material_closure(abs(material_closure[j])<1e-5{mol/s});
+@id("efcc7e0704d44b8db86f620d9e0527d7") annotation check energy_closure(abs(energy_closure)<0.01{W});
+@id("d72d514ef43f447685299a74e8d84f12") annotation scale component_flux_binding(inverseSum);
+@id("83c572284284445990ed58f197ae817c") annotation scale enthalpy_flux_binding(inverseSum);
+@id("b9e03d7cce4541d0a418992081825bc5") annotation scale material_balance(inverseSum);
+@id("6e3e3985672d450eb2f625ffe0c1e39c") annotation scale energy_balance(inverseSum);
+@id("b83d188be67f45bca1a71582634602d5") annotation scale pressure_balance(inverseSum);
+}
+}

@@ -25,6 +25,15 @@ pub enum PhysicalRequirement {
         /// Compare ordered shape as well; false still compares every other key axis.
         match_shape: bool,
     },
+    /// Differences share one actual reference and the prototype's other axes.
+    /// This explicitly permits normalization within another admitted datum;
+    /// it never converts between datums or accepts affine points.
+    SameReferenceDifferences {
+        /// Admitted difference supplying kind, basis, subject and optional shape.
+        required: QuantityTypeId,
+        /// Compare the prototype's ordered shape as well.
+        match_shape: bool,
+    },
 }
 
 /// A predicate over explicitly selected positions in the operation's declared order.
@@ -64,6 +73,16 @@ impl PhysicalPrecondition {
             PhysicalRequirement::OperandQuantityContract { required, .. } => {
                 registry.quantity_type(required)?;
             }
+            PhysicalRequirement::SameReferenceDifferences { required, .. } => {
+                if self.operand_positions.len() < 2
+                    || registry.quantity_type(required)?.key.scale_kind
+                        != crate::ScaleKind::Difference
+                {
+                    return Err(refusal(
+                        "reference normalization needs a difference prototype and at least two operands",
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -92,8 +111,10 @@ impl PhysicalPrecondition {
         }
         let mut expected_basis = match self.requirement {
             PhysicalRequirement::EqualOperandBases { required } => required,
-            PhysicalRequirement::OperandQuantityContract { .. } => None,
+            PhysicalRequirement::OperandQuantityContract { .. }
+            | PhysicalRequirement::SameReferenceDifferences { .. } => None,
         };
+        let mut reference = None;
         for position in &self.operand_positions {
             let operand = operands
                 .get(usize::from(*position))
@@ -113,11 +134,29 @@ impl PhysicalPrecondition {
                 PhysicalRequirement::OperandQuantityContract {
                     required,
                     match_shape,
+                }
+                | PhysicalRequirement::SameReferenceDifferences {
+                    required,
+                    match_shape,
                 } => {
                     let expected = &registry.quantity_type(required)?.key;
+                    let family = matches!(
+                        self.requirement,
+                        PhysicalRequirement::SameReferenceDifferences { .. }
+                    );
+                    let reference_matches = if family {
+                        let same = reference
+                            .is_none_or(|previous| previous == actual.reference_state)
+                            && actual.reference_state.is_some()
+                                == expected.reference_state.is_some();
+                        reference = Some(actual.reference_state);
+                        same
+                    } else {
+                        actual.reference_state == expected.reference_state
+                    };
                     if actual.kind != expected.kind
                         || actual.basis != expected.basis
-                        || actual.reference_state != expected.reference_state
+                        || !reference_matches
                         || actual.scale_kind != expected.scale_kind
                         || actual.subject_kind != expected.subject_kind
                         || (match_shape && actual.shape != expected.shape)

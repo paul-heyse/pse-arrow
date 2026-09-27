@@ -4,25 +4,27 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#authored::r#fit_cases::{
-    AuthoredFitCasesFieldParametersItem, AuthoredFitCasesFieldExperimentsItem,
-    AuthoredFitCasesFieldObservationsItem, AuthoredFitCasesRow, Row,
+    AuthoredFitCasesFieldParametersItem,
+    AuthoredFitCasesFieldExperimentsItemBindingsItem,
+    AuthoredFitCasesFieldExperimentsItem, AuthoredFitCasesFieldObservationsItem,
+    AuthoredFitCasesRow, Row,
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    219u8, 244u8, 5u8, 89u8, 58u8, 96u8, 190u8, 124u8, 237u8, 233u8, 93u8, 57u8, 234u8,
-    223u8, 60u8, 185u8,
+    112u8, 123u8, 225u8, 163u8, 40u8, 77u8, 121u8, 209u8, 186u8, 173u8, 149u8, 126u8,
+    128u8, 1u8, 60u8, 180u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "fit_cases";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    121u8, 33u8, 186u8, 212u8, 24u8, 110u8, 72u8, 57u8, 90u8, 114u8, 29u8, 43u8, 228u8,
-    147u8, 202u8, 123u8, 164u8, 73u8, 235u8, 96u8, 78u8, 4u8, 206u8, 197u8, 143u8, 223u8,
-    122u8, 201u8, 75u8, 118u8, 122u8, 123u8,
+    178u8, 160u8, 154u8, 80u8, 227u8, 233u8, 167u8, 19u8, 172u8, 50u8, 131u8, 117u8,
+    162u8, 200u8, 24u8, 169u8, 32u8, 224u8, 30u8, 186u8, 123u8, 112u8, 126u8, 198u8,
+    59u8, 217u8, 193u8, 10u8, 193u8, 135u8, 191u8, 59u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredFitCasesFieldParametersItem {
     fn append(
@@ -105,6 +107,55 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldParametersItem {
         })
     }
 }
+impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#path, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#parameter_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#path: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItem {
     fn append(
         &self,
@@ -119,9 +170,10 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItem {
             children[0usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#case_id, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#route, children[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#dynamic_id,
-            children[2usize].as_mut(),
+            &self.r#bindings,
+            children[3usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -139,9 +191,12 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItem {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
-        <Option<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::ModelingAnalysisRoute as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            AuthoredFitCasesFieldExperimentsItemBindingsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -160,10 +215,14 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItem {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#dynamic_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
+            r#route: <crate::generated::enums::ModelingAnalysisRoute as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#bindings: <Vec<
+                AuthoredFitCasesFieldExperimentsItemBindingsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
         })
@@ -187,7 +246,7 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#output_id,
+            &self.r#output_path,
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#time, children[3usize].as_mut())?;
@@ -223,9 +282,7 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[2usize].as_mut(),
-        )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
@@ -255,7 +312,7 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#output_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#output_path: <String as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -299,20 +356,16 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesRow {
         let children = output.field_builders_mut();
         crate::columnar::ArrowValue::append(&self.r#fit_id, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#model_id,
+            &self.r#parameters,
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#parameters,
+            &self.r#experiments,
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#experiments,
-            children[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
             &self.r#observations,
-            children[4usize].as_mut(),
+            children[3usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -327,18 +380,15 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[1usize].as_mut(),
-        )?;
         <Vec<
             AuthoredFitCasesFieldParametersItem,
-        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <Vec<
             AuthoredFitCasesFieldExperimentsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Vec<
             AuthoredFitCasesFieldObservationsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -353,26 +403,22 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#model_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
             r#parameters: <Vec<
                 AuthoredFitCasesFieldParametersItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(2usize).as_ref(),
+                input.column(1usize).as_ref(),
                 index,
             )?,
             r#experiments: <Vec<
                 AuthoredFitCasesFieldExperimentsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
+                input.column(2usize).as_ref(),
                 index,
             )?,
             r#observations: <Vec<
                 AuthoredFitCasesFieldObservationsItem,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(3usize).as_ref(),
                 index,
             )?,
         })
@@ -424,18 +470,17 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
         columns: &mut [Box<dyn arrow_array::builder::ArrayBuilder>],
     ) -> Result<(), crate::RelationError> {
         crate::columnar::ArrowValue::append(&self.r#fit_id, columns[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#model_id, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#parameters,
-            columns[2usize].as_mut(),
+            columns[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#experiments,
-            columns[3usize].as_mut(),
+            columns[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#observations,
-            columns[4usize].as_mut(),
+            columns[3usize].as_mut(),
         )?;
         Ok(())
     }
@@ -471,17 +516,13 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        55_296_usize + size_of::<Self::Builder>()
+        57_344_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        432usize
+        448usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            Ok::<usize, crate::RelationError>(16usize)?,
-        )?;
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(16usize)?,
@@ -559,14 +600,33 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
                             )?;
                             bytes = crate::columnar::allocation_add(
                                 bytes,
-                                if ((item).r#dynamic_id).is_some() {
-                                    crate::columnar::allocation_add(
-                                        1,
-                                        Ok::<usize, crate::RelationError>(16usize)?,
-                                    )
-                                } else {
-                                    Ok::<usize, crate::RelationError>(1)
-                                }?,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#route).as_str().len(),
+                                )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#bindings)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            {
+                                                let mut bytes = 1usize;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(8, ((item).r#path).len())?,
+                                                )?;
+                                                Ok::<usize, crate::RelationError>(bytes)
+                                            }?,
+                                        ),
+                                    )?,
                             )?;
                             Ok::<usize, crate::RelationError>(bytes)
                         }?,
@@ -593,7 +653,10 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
                             )?;
                             bytes = crate::columnar::allocation_add(
                                 bytes,
-                                Ok::<usize, crate::RelationError>(16usize)?,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#output_path).len(),
+                                )?,
                             )?;
                             bytes = crate::columnar::allocation_add(
                                 bytes,
@@ -651,7 +714,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "fit_id",
@@ -659,37 +722,30 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "model_id",
+        name: "parameters",
         position: 1usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "parameters",
+        name: "experiments",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "experiments",
-        position: 3usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
         name: "observations",
-        position: 4usize,
+        position: 3usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
     ///fit_id
     pub const FIT_ID: crate::columnar::ColumnReference = super::COLUMNS[0usize];
-    ///model_id
-    pub const MODEL_ID: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///parameters
-    pub const PARAMETERS: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const PARAMETERS: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///experiments
-    pub const EXPERIMENTS: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const EXPERIMENTS: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///observations
-    pub const OBSERVATIONS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const OBSERVATIONS: crate::columnar::ColumnReference = super::COLUMNS[3usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -697,7 +753,6 @@ pub mod columns {
 pub struct AuthoredFitCasesView<'a> {
     batch: &'a crate::RecordBatch,
     fit_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    model_id_column: &'a arrow_array::FixedSizeBinaryArray,
     parameters_column: &'a arrow_array::ListArray,
     experiments_column: &'a arrow_array::ListArray,
     observations_column: &'a arrow_array::ListArray,
@@ -743,18 +798,15 @@ impl<'a> AuthoredFitCasesView<'a> {
             fit_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
-            model_id_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
-            >(batch.column(1usize).as_ref())?,
             parameters_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(2usize).as_ref())?,
+            >(batch.column(1usize).as_ref())?,
             experiments_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(3usize).as_ref())?,
+            >(batch.column(2usize).as_ref())?,
             observations_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -783,18 +835,6 @@ impl<'a> AuthoredFitCasesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "model_id",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn model_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.model_id_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "model_id", "`.")]
-    pub fn model_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[1usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
         "parameters",
         "`, including its offsets and validity bitmap.",
     )]
@@ -803,7 +843,7 @@ impl<'a> AuthoredFitCasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "parameters", "`.")]
     pub fn parameters_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[1usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -815,7 +855,7 @@ impl<'a> AuthoredFitCasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "experiments", "`.")]
     pub fn experiments_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[2usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -827,7 +867,7 @@ impl<'a> AuthoredFitCasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "observations", "`.")]
     pub fn observations_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -842,7 +882,6 @@ impl<'a> AuthoredFitCasesView<'a> {
         }
         Ok(AuthoredFitCasesRow {
             r#fit_id: crate::columnar::ArrowValue::read(self.fit_id_column, index)?,
-            r#model_id: crate::columnar::ArrowValue::read(self.model_id_column, index)?,
             r#parameters: crate::columnar::ArrowValue::read(
                 self.parameters_column,
                 index,

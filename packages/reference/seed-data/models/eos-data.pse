@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e16f32a3739a874c1279c0bb4b35") package eos_data {
+@id("01a0e16f32a3739a874c127a25168daa") use chem @"1.0.0";
+@id("01a0e16f32a3739a874c127b9803d848") use peng_robinson @"1.0.0";
+@id("01a0e16f32a3739a874c127cae43c1ee") dataset bt_critical:peng_robinson.critical source "IDAES 2.13 BT_PR oracle parameter values, attributed there to RPP4" {
+[chem.benzene]=[562.2{K},4890000{Pa},0.212];
+[chem.toluene]=[591.8{K},4100000{Pa},0.263];
+}
+@id("01a0e16f32a3739a874c127d71e83629") dataset bt_interactions:peng_robinson.interaction source "BT_PR comparison convention: all ordered binary interaction coefficients zero" {
+[chem.benzene,chem.benzene]=[0];
+[chem.benzene,chem.toluene]=[0];
+[chem.toluene,chem.benzene]=[0];
+[chem.toluene,chem.toluene]=[0];
+}
+}

@@ -10,7 +10,9 @@ pub fn render_expr(expr: &Expr) -> String {
     match &expr.kind {
         ExprKind::Number(number) => format!(
             "{}{}",
-            number.value,
+            number
+                .exact_integer
+                .map_or_else(|| number.value.to_string(), |v| v.to_string()),
             number
                 .unit
                 .as_ref()
@@ -28,6 +30,21 @@ pub fn render_expr(expr: &Expr) -> String {
             let arguments: Vec<_> = args.iter().map(render_expr).collect();
             format!("{}({})", function.as_str(), arguments.join(", "))
         }
+        ExprKind::NamedCall { name, args } => format!(
+            "{}({})",
+            name,
+            args.iter().map(render_expr).collect::<Vec<_>>().join(", ")
+        ),
+        ExprKind::Partial {
+            function,
+            wrt,
+            args,
+        } => format!(
+            "partial({}, {})({})",
+            function,
+            wrt.iter().map(render_path).collect::<Vec<_>>().join(", "),
+            args.iter().map(render_expr).collect::<Vec<_>>().join(", ")
+        ),
         ExprKind::Kernel { name, args } => format!(
             "kernel.{name}({})",
             args.iter().map(render_expr).collect::<Vec<_>>().join(", ")
@@ -45,6 +62,26 @@ pub fn render_expr(expr: &Expr) -> String {
                     render_predicate(filter)
                 )),
             render_expr(body)
+        ),
+        ExprKind::Fold {
+            accumulator,
+            item,
+            binder,
+            value,
+            step,
+        } => format!(
+            "fold({accumulator}, {item}; {} in {}{} | {}; {})",
+            binder.var,
+            render_path(&binder.domain),
+            binder
+                .filter
+                .as_ref()
+                .map_or_else(String::new, |filter| format!(
+                    " where {}",
+                    render_predicate(filter)
+                )),
+            render_expr(value),
+            render_expr(step)
         ),
         ExprKind::Derivative { body, wrt } => {
             format!("d({})/d {}", render_expr(body), render_path(wrt))

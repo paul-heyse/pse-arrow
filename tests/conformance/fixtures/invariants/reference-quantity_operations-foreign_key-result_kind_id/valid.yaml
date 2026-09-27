@@ -25,7 +25,7 @@
         "result_basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "result_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "result_reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "result_subject_kind": "[\"enum\",\"species\"]",
+        "result_subject_kind": "[\"id\",\"01010101010101010101010101010101\"]",
         "scale_rule": "[\"enum\",\"preserve\"]",
         "scale_source": "[\"i64\",1]",
         "shape_rule": "[\"enum\",\"scalar\"]",

@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("f3be6bfd407c484998cc0d28f2b27eaf") package temperature_driving_force {
+@id("60795c8aee6e4a47959bc14cff7cb1be") fn kelvin_difference()->DeltaTemperature=1{K};
+@id("780109948654481aa7591905a7596b47") fn logarithmic(a:DeltaTemperature,b:DeltaTemperature)->DeltaTemperature valid(a>0{K} and b>0{K} and a!=b)=(a-b)/log(a/b);
+@id("2e885d4649f5403594822173b0cf78af") fn arithmetic(a:DeltaTemperature,b:DeltaTemperature)->DeltaTemperature=(a+b)/2;
+@id("783027c60edb4619a651251fbb14e02c") fn underwood(a:DeltaTemperature,b:DeltaTemperature)->DeltaTemperature valid(a>0{K} and b>0{K})=kelvin_difference()*(((a/kelvin_difference())^(1/3)+(b/kelvin_difference())^(1/3))/2)^3;
+@id("e99ec803e9df4113a05f6be552074b52") interface DeltaT {
+@id("95904fdadb5d447fb323e94e2a5d0b2f") var first:DeltaTemperature;
+@id("f740b27526e84361886e4bc441498e02") var second:DeltaTemperature;
+@id("9f5350d0248f4b2997a61e0688457fb7") let mean:DeltaTemperature;
+@id("919592442ec84270aeb38d4e9a476a99") annotation start first(20{K});
+@id("4e4278495600475f8c7eae212e810747") annotation start second(10{K});
+@id("43f947082e314ee990199bf1939ef32c") annotation nominal first(10{K});
+@id("386ed1fc9e62411bb3e515af6a048b9f") annotation nominal second(10{K});
+}
+@id("b0f62b767d97482e86040fbce17ec875") def LMTD:DeltaT {
+@id("de53b86730394d2ca80d70ed2819d3cd") let mean:DeltaTemperature=logarithmic(first,second);
+}
+@id("f5e12c7e5c844cbcac0ee8e0339fb838") def AMTD:DeltaT {
+@id("0aa42981b8f84f4a8572f5617023c0d3") let mean:DeltaTemperature=arithmetic(first,second);
+}
+@id("b0382995b0cb4348aaac273b3321b8d5") def Underwood:DeltaT {
+@id("7db5fd123b5a420e9c9ae84272544e01") let mean:DeltaTemperature=underwood(first,second);
+}
+}

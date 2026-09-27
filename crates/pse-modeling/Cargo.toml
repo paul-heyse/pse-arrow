@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+name = "pse-modeling"
+description = "Pure checking and specialization of generic modeling declarations."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+[lints]
+workspace = true
+[dependencies]
+pse-model.workspace = true
+pse-authoring.workspace = true
+pse-quantity.workspace = true
+pse-ids.workspace = true
+pse-diagnostics.workspace = true
+petgraph.workspace = true
+thiserror.workspace = true
+miette.workspace = true
+[dev-dependencies]
+pse-quantity = { workspace = true, features = ["fixtures"] }

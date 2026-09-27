@@ -6,11 +6,16 @@ pub mod assembled;
 pub mod callback;
 pub mod conic;
 mod convexity;
+pub mod derivative_diagnostics;
 pub mod dynamics;
 #[cfg(feature = "highs")]
 pub mod highs;
+#[cfg(feature = "kinsol")]
+pub mod implicit;
 #[cfg(feature = "ipopt")]
 pub mod ipopt;
+#[cfg(feature = "highs")]
+pub mod jacobian_diagnostics;
 #[cfg(feature = "kinsol")]
 pub mod kinsol;
 mod nlp_pattern;
@@ -87,6 +92,22 @@ pub enum ProblemError {
     /// Mathematical evaluation retains its domain/provider cause.
     #[error(transparent)]
     Math(#[from] pse_math::MathError),
+}
+impl ProblemError {
+    /// Owned error payload admitted separately from bounded native report history.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(match self {
+            Self::Unavailable { alternatives, .. } => alternatives
+                .capacity()
+                .saturating_mul(size_of::<solve::Backend>()),
+            Self::Contract(s) => s.capacity(),
+            Self::Structural { rows, columns, .. } => rows
+                .capacity()
+                .saturating_add(columns.capacity())
+                .saturating_mul(size_of::<SemanticId>()),
+            Self::Math(e) => e.retained_bytes(),
+        })
+    }
 }
 pse_diagnostics::impl_diagnostic! {
     ProblemError,
@@ -287,7 +308,7 @@ pub fn validate_nlp(oracle: &dyn NlpOracle, order: DerivativeOrder) -> Result<()
 }
 
 /// Library-owned sparse coefficients for linear or quadratic programs.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct CoefficientProblem {
     /// Variable identity and bounds; rows describe linear constraints.
     pub contract: OracleContract,

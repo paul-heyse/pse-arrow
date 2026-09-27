@@ -27,21 +27,6 @@ Member names are canonical string values; declaration order is presentation only
 | `reference` | `` | false |
 | `derived` | `` | false |
 
-## `BalanceRole`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `inlet` | `` | false |
-| `outlet` | `` | false |
-| `generation` | `` | false |
-| `consumption` | `` | false |
-| `heat_in` | `` | false |
-| `heat_out` | `` | false |
-| `work_in` | `` | false |
-| `work_out` | `` | false |
-| `internal_in` | `` | false |
-| `internal_out` | `` | false |
-
 ## `BasisKind`
 
 | Member | IDAES name | Deprecated |
@@ -62,27 +47,6 @@ Member names are canonical string values; declaration order is presentation only
 | `registered_conversion` | `` | false |
 | `cancel` | `` | false |
 | `declared_result` | `` | false |
-
-## `BlowerMaterial`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CarbonSteel` | `CarbonSteel` | false |
-| `Aluminum` | `Aluminum` | false |
-| `Fiberglass` | `Fiberglass` | false |
-| `StainlessSteel` | `StainlessSteel` | false |
-| `NickelAlloy` | `NickelAlloy` | false |
-
-## `BlowerType`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Centrifugal` | `Centrifugal` | false |
-| `Rotary` | `Rotary` | false |
 
 ## `BoundKind`
 
@@ -107,28 +71,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `usable` | `` | false |
 | `qualified_unclosed` | `` | false |
 | `unusable` | `` | false |
-
-## `CapabilityRequirement`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `material_flow_terms` | `` | false |
-| `enthalpy_flow_terms` | `` | false |
-| `material_density_terms` | `` | false |
-| `energy_density_terms` | `` | false |
-| `diffusion_terms` | `` | false |
-| `reaction_rate_basis` | `` | false |
-| `phase_equilibrium` | `` | false |
-
-## `CaseKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `base` | `` | false |
-| `overlay` | `` | false |
-| `initialization_stage` | `` | false |
-| `scenario` | `` | false |
-| `sweep_sample` | `` | false |
 
 ## `ChangeKind`
 
@@ -166,20 +108,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `payload` | `` | false |
 | `provenance` | `` | false |
 
-## `ComponentType`
-
-IDAES compatibility source: `idaes.core.base.components`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Component` | `Component` | false |
-| `Solute` | `Solute` | false |
-| `Solvent` | `Solvent` | false |
-| `Ion` | `Ion` | false |
-| `Anion` | `Anion` | false |
-| `Cation` | `Cation` | false |
-| `Apparent` | `Apparent` | false |
-
 ## `CompositionBasis`
 
 | Member | IDAES name | Deprecated |
@@ -190,84 +118,12 @@ IDAES compatibility source: `idaes.core.base.components`.
 | `molality` | `` | false |
 | `molarity` | `` | false |
 
-## `CompressorDriveType`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `ElectricMotor` | `ElectricMotor` | false |
-| `SteamTurbine` | `SteamTurbine` | false |
-| `gasTurbine` | `gasTurbine` | false |
-
-## `CompressorMaterial`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CarbonSteel` | `CarbonSteel` | false |
-| `StainlessSteel` | `StainlessSteel` | false |
-| `NickelAlloy` | `NickelAlloy` | false |
-
-## `CompressorType`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Centrifugal` | `Centrifugal` | false |
-| `Reciprocating` | `Reciprocating` | false |
-| `Screw` | `Screw` | false |
-
 ## `ComputationKind`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `simulation` | `` | false |
 | `fit` | `` | false |
-
-## `ConcentrationForm`
-
-IDAES compatibility source: `idaes.models.properties.modular_properties.base.utility`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `molarity` | `molarity` | false |
-| `activity` | `activity` | false |
-| `molality` | `molality` | false |
-| `moleFraction` | `moleFraction` | false |
-| `massFraction` | `massFraction` | false |
-| `partialPressure` | `partialPressure` | false |
-
-## `ConfigCategory`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `parameter` | `` | false |
-| `feature` | `` | false |
-| `method_option` | `` | false |
-| `law_option` | `` | false |
-
-## `ConfigValueKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `boolean` | `` | false |
-| `signed` | `` | false |
-| `unsigned` | `` | false |
-| `real` | `` | false |
-| `text` | `` | false |
-| `semantic_id` | `` | false |
-| `enum` | `` | false |
-| `index` | `` | false |
-| `quantity` | `` | false |
-
-## `ConnectionExpansion`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `equality` | `` | false |
 
 ## `ConstraintScalingScheme`
 
@@ -281,55 +137,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `inverseMaximum` | `inverseMaximum` | false |
 | `inverseMinimum` | `inverseMinimum` | false |
 
-## `ContributionSign`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `positive` | `` | false |
-| `negative` | `` | false |
-
-## `ContributionSubjectKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `total` | `` | false |
-| `energy` | `` | false |
-| `momentum` | `` | false |
-| `species` | `` | false |
-| `element` | `` | false |
-| `phase_species` | `` | false |
-
-## `ControllerAntiwindupType`
-
-IDAES compatibility source: `idaes.models.control.controller`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `NONE` | `NONE` | false |
-| `CONDITIONAL_INTEGRATION` | `CONDITIONAL_INTEGRATION` | false |
-| `BACK_CALCULATION` | `BACK_CALCULATION` | false |
-
-## `ControllerMVBoundType`
-
-IDAES compatibility source: `idaes.models.control.controller`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `NONE` | `NONE` | false |
-| `SMOOTH_BOUND` | `SMOOTH_BOUND` | false |
-| `LOGISTIC` | `LOGISTIC` | false |
-
-## `ControllerType`
-
-IDAES compatibility source: `idaes.models.control.controller`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `P` | `P` | false |
-| `PI` | `PI` | false |
-| `PD` | `PD` | false |
-| `PID` | `PID` | false |
-
 ## `ConversionKind`
 
 | Member | IDAES name | Deprecated |
@@ -337,36 +144,6 @@ IDAES compatibility source: `idaes.models.control.controller`.
 | `scale` | `` | false |
 | `affine` | `` | false |
 | `kernel` | `` | false |
-
-## `CubicType`
-
-IDAES compatibility source: `idaes.models.properties.modular_properties.eos.ceos_common`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `PR` | `PR` | false |
-| `SRK` | `SRK` | false |
-
-## `DaeVarTypes`
-
-IDAES compatibility source: `idaes.core.solvers.petsc`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `ALGEBRAIC` | `ALGEBRAIC` | false |
-| `DIFFERENTIAL` | `DIFFERENTIAL` | false |
-| `DERIVATIVE` | `DERIVATIVE` | false |
-| `TIME` | `TIME` | false |
-
-## `DefaultScalingRecommendation`
-
-IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `userInputRecommended` | `userInputRecommended` | false |
-| `userInputRequired` | `userInputRequired` | false |
-| `userSetManually` | `userSetManually` | false |
 
 ## `DerivationGranularity`
 
@@ -456,74 +233,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `user.model` | `` | false |
 | `validation.invariant` | `` | false |
 
-## `Direction`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `inlet` | `` | false |
-| `outlet` | `` | false |
-| `bidirectional` | `` | false |
-
-## `DiscretizationScheme`
-
-IDAES compatibility source: `pyomo.dae`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `BACKWARD` | `BACKWARD` | false |
-| `FORWARD` | `FORWARD` | false |
-| `CENTRAL` | `CENTRAL` | false |
-| `LAGRANGE_RADAU` | `LAGRANGE-RADAU` | false |
-| `LAGRANGE_LEGENDRE` | `LAGRANGE-LEGENDRE` | false |
-
-## `DisplayKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `variable` | `` | false |
-| `expression` | `` | false |
-| `parameter` | `` | false |
-| `stream` | `` | false |
-| `performance` | `` | false |
-
-## `DistributedVars`
-
-IDAES compatibility source: `idaes.core.base.control_volume1d`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `variant` | `variant` | false |
-| `uniform` | `uniform` | false |
-
-## `DomainBindingSource`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `domain` | `` | false |
-| `parameter` | `` | false |
-| `species` | `` | false |
-| `phase` | `` | false |
-| `phase_species` | `` | false |
-| `element` | `` | false |
-
-## `DomainKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `time` | `` | false |
-| `length` | `` | false |
-| `species` | `` | false |
-| `phase` | `` | false |
-| `phase_species` | `` | false |
-| `element` | `` | false |
-| `reaction` | `` | false |
-| `port_set` | `` | false |
-| `stage` | `` | false |
-| `cell` | `` | false |
-| `face` | `` | false |
-| `node` | `` | false |
-| `custom` | `` | false |
-
 ## `DualQualification`
 
 | Member | IDAES name | Deprecated |
@@ -533,80 +242,16 @@ IDAES compatibility source: `idaes.core.base.control_volume1d`.
 | `unavailable` | `` | false |
 | `not_applicable_parameter` | `` | false |
 
-## `ElementProjectionFormula`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `molar_count` | `` | false |
-| `mass_count_over_mw` | `` | false |
-
-## `EnergyBalanceType`
-
-IDAES compatibility source: `idaes.core.base.control_volume_base`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `useDefault` | `useDefault` | false |
-| `none` | `none` | false |
-| `enthalpyPhase` | `enthalpyPhase` | false |
-| `enthalpyTotal` | `enthalpyTotal` | false |
-| `energyPhase` | `energyPhase` | false |
-| `energyTotal` | `energyTotal` | false |
-| `isothermal` | `isothermal` | false |
-
-## `EnergySplittingType`
-
-IDAES compatibility source: `idaes.models.unit_models.separator`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `none` | `none` | false |
-| `equal_temperature` | `equal_temperature` | false |
-| `equal_molar_enthalpy` | `equal_molar_enthalpy` | false |
-| `enthalpy_split` | `enthalpy_split` | false |
-
 ## `EntityKind`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `package` | `` | false |
-| `dimension` | `` | false |
-| `quantity_type` | `` | false |
 | `unit` | `` | false |
 | `unit_set` | `` | false |
 | `quantity_kind` | `` | false |
 | `constant` | `` | false |
-| `symbol_declaration` | `` | false |
-| `equation_declaration` | `` | false |
-| `contribution_declaration` | `` | false |
-| `element` | `` | false |
-| `domain` | `` | false |
-| `species` | `` | false |
-| `phase` | `` | false |
-| `material_system` | `` | false |
-| `reaction` | `` | false |
-| `property_package` | `` | false |
-| `reaction_package` | `` | false |
-| `method` | `` | false |
-| `kernel` | `` | false |
-| `template` | `` | false |
-| `instance` | `` | false |
-| `port` | `` | false |
-| `flowsheet` | `` | false |
-| `scope` | `` | false |
-| `connection` | `` | false |
-| `case` | `` | false |
 | `dataset` | `` | false |
-| `observation` | `` | false |
-| `solver_profile` | `` | false |
-| `discretization_policy` | `` | false |
-
-## `EquationSyntax`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `relation` | `` | false |
-| `conditional` | `` | false |
 
 ## `EvidenceUnavailableReason`
 
@@ -620,30 +265,15 @@ IDAES compatibility source: `idaes.models.unit_models.separator`.
 | `unknown` | `` | false |
 | `nonfinite` | `` | false |
 
-## `ExpressionFamily`
+## `ExternalDerivativeSource`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
-| `template` | `` | false |
-| `instance` | `` | false |
-| `display` | `` | false |
-| `contribution` | `` | false |
-| `guard` | `` | false |
-
-## `ExpressionOwnerKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `template` | `` | false |
-| `instance` | `` | false |
-
-## `ExpressionSyntax`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `expression` | `` | false |
-| `predicate` | `` | false |
-| `equation` | `` | false |
+| `analytic` | `` | false |
+| `symbolic` | `` | false |
+| `automatic` | `` | false |
+| `supplied` | `` | false |
+| `implicit` | `` | false |
 
 ## `FailureClass`
 
@@ -674,44 +304,6 @@ IDAES compatibility source: `idaes.models.unit_models.separator`.
 | `internal.invariant` | `` | false |
 | `user.model` | `` | false |
 
-## `FanMaterial`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CarbonSteel` | `CarbonSteel` | false |
-| `Fiberglass` | `Fiberglass` | false |
-| `StainlessSteel` | `StainlessSteel` | false |
-| `NickelAlloy` | `NickelAlloy` | false |
-
-## `FanType`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CentrifugalBackward` | `CentrifugalBackward` | false |
-| `CentrifugalStraight` | `CentrifugalStraight` | false |
-| `VaneAxial` | `VaneAxial` | false |
-| `TubeAxial` | `TubeAxial` | false |
-
-## `FeatureKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `bool` | `` | false |
-| `enum` | `` | false |
-| `choice` | `` | false |
-
-## `FeatureRuleKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `implies` | `` | false |
-| `excludes` | `` | false |
-| `requires` | `` | false |
-
 ## `FindingSeverity`
 
 | Member | IDAES name | Deprecated |
@@ -719,145 +311,12 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `error` | `` | false |
 | `warning` | `` | false |
 
-## `FlashType`
-
-IDAES compatibility source: `idaes.models.unit_models.feed_flash`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `isothermal` | `isothermal` | false |
-| `isenthalpic` | `isenthalpic` | false |
-
-## `FlowDirection`
-
-IDAES compatibility source: `idaes.core.base.control_volume_base`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `notSet` | `notSet` | false |
-| `forward` | `forward` | false |
-| `backward` | `backward` | false |
-
-## `GeneratorKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `grid` | `` | false |
-| `latin_hypercube` | `` | false |
-| `uniform_random` | `` | false |
-| `list` | `` | false |
-
-## `HXMaterial`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CarbonSteelCarbonSteel` | `CarbonSteelCarbonSteel` | false |
-| `CarbonSteelBrass` | `CarbonSteelBrass` | false |
-| `CarbonSteelStainlessSteel` | `CarbonSteelStainlessSteel` | false |
-| `CarbonSteelMonel` | `CarbonSteelMonel` | false |
-| `CarbonSteelTitanium` | `CarbonSteelTitanium` | false |
-| `CarbonSteelCrMoSteel` | `CarbonSteelCrMoSteel` | false |
-| `CrMoSteelCrMoSteel` | `CrMoSteelCrMoSteel` | false |
-| `StainlessSteelStainlessSteel` | `StainlessSteelStainlessSteel` | false |
-| `MonelMonel` | `MonelMonel` | false |
-| `TitaniumTitanium` | `TitaniumTitanium` | false |
-
-## `HXTubeLength`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `EightFoot` | `EightFoot` | false |
-| `TwelveFoot` | `TwelveFoot` | false |
-| `SixteenFoot` | `SixteenFoot` | false |
-| `TwentyFoot` | `TwentyFoot` | false |
-
-## `HXType`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `floating_head` | `floating_head` | false |
-| `fixed_head` | `fixed_head` | false |
-| `Utube` | `Utube` | false |
-| `kettle_vap` | `kettle_vap` | false |
-
-## `HeatExchangerFlowPattern`
-
-IDAES compatibility source: `idaes.models.unit_models.heat_exchanger`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `countercurrent` | `countercurrent` | false |
-| `cocurrent` | `cocurrent` | false |
-| `crossflow` | `crossflow` | false |
-
-## `HeaterMaterial`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CarbonSteel` | `CarbonSteel` | false |
-| `CrMoSteel` | `CrMoSteel` | false |
-| `StainlessSteel` | `StainlessSteel` | false |
-
-## `HeaterSource`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Fuel` | `Fuel` | false |
-| `Reformer` | `Reformer` | false |
-| `Pyrolysis` | `Pyrolysis` | false |
-| `HotWater` | `HotWater` | false |
-| `Salts` | `Salts` | false |
-| `DowthermA` | `DowthermA` | false |
-| `steamBoiler` | `steamBoiler` | false |
-
-## `HenryType`
-
-IDAES compatibility source: `idaes.models.properties.modular_properties.phase_equil.henry`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Hcp` | `Hcp` | false |
-| `Hxp` | `Hxp` | false |
-| `Kpc` | `Kpc` | false |
-| `Kpx` | `Kpx` | false |
-
 ## `IdPolicy`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `explicit` | `` | false |
 | `named` | `` | false |
-
-## `IndexMapKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `source_axis` | `` | false |
-| `fixed_member` | `` | false |
-| `bound_domain` | `` | false |
-
-## `InitializationStatus`
-
-IDAES compatibility source: `idaes.core.initialization.initializer_base`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Ok` | `Ok` | false |
-| `none` | `none` | false |
-| `Failed` | `Failed` | false |
-| `DoF` | `DoF` | false |
-| `PrecheckFailed` | `PrecheckFailed` | false |
-| `Error` | `Error` | false |
 
 ## `InputConsumptionKind`
 
@@ -878,121 +337,12 @@ IDAES compatibility source: `idaes.core.initialization.initializer_base`.
 | `closure` | `` | false |
 | `acyclic` | `` | false |
 
-## `LawExpansion`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `conservation` | `` | false |
-| `isothermal` | `` | false |
-| `pressure_total` | `` | false |
-
-## `LawFamily`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `material` | `` | false |
-| `energy` | `` | false |
-| `momentum` | `` | false |
-| `element` | `` | false |
-| `charge` | `` | false |
-| `cost` | `` | false |
-| `utility` | `` | false |
-
-## `LawSubjectProjection`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `identity` | `` | false |
-| `species_to_element` | `` | false |
-
-## `MaterialBalanceType`
-
-IDAES compatibility source: `idaes.core.base.control_volume_base`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `useDefault` | `useDefault` | false |
-| `none` | `none` | false |
-| `componentPhase` | `componentPhase` | false |
-| `componentTotal` | `componentTotal` | false |
-| `elementTotal` | `elementTotal` | false |
-| `total` | `total` | false |
-
-## `MaterialFlowBasis`
-
-IDAES compatibility source: `idaes.core.base.process_base`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `molar` | `molar` | false |
-| `mass` | `mass` | false |
-| `other` | `other` | false |
-
 ## `MemberSelectionKind`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `full` | `` | false |
 | `revision` | `` | false |
-
-## `MethodCandidateReason`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `applicable` | `` | false |
-| `scope_mismatch` | `` | false |
-| `family_mismatch` | `` | false |
-| `missing_provision` | `` | false |
-| `incompatible_signature` | `` | false |
-| `missing_parameter` | `` | false |
-| `shadowed` | `` | false |
-
-## `MethodDependencyTarget`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `property` | `` | false |
-| `state_symbol` | `` | false |
-
-## `MethodFamily`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `state_definition` | `` | false |
-| `eos` | `` | false |
-| `pure_component` | `` | false |
-| `phase_equilibrium_form` | `` | false |
-| `phase_equilibrium_state` | `` | false |
-| `bubble_dew` | `` | false |
-| `henry` | `` | false |
-| `transport_mixing` | `` | false |
-| `reaction_rate_form` | `` | false |
-| `rate_constant` | `` | false |
-| `equilibrium_form` | `` | false |
-| `equilibrium_constant` | `` | false |
-| `heat_of_reaction` | `` | false |
-| `enthalpy_transport` | `` | false |
-| `custom` | `` | false |
-
-## `MethodOutputKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `template_symbol` | `` | false |
-| `kernel_output` | `` | false |
-
-## `MethodRealization`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `equation_template` | `` | false |
-| `kernel` | `` | false |
-
-## `MethodScopeMap`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `same_state` | `` | false |
 
 ## `MigrationOp`
 
@@ -1003,44 +353,176 @@ IDAES compatibility source: `idaes.core.base.process_base`.
 | `rename_column` | `` | false |
 | `change_nullable` | `` | false |
 
-## `MissingInteractionPolicy`
+## `ModelingAccumulatorMode`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
-| `require_explicit` | `` | false |
-| `zero` | `` | false |
+| `conservation` | `` | false |
+| `accounting` | `` | false |
 
-## `MixingType`
-
-IDAES compatibility source: `idaes.models.unit_models.mixer`.
+## `ModelingAnalysisRoute`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
-| `none` | `none` | false |
-| `extensive` | `extensive` | false |
+| `steady` | `` | false |
+| `integrated` | `` | false |
+| `simultaneous` | `` | false |
 
-## `MomentumBalanceType`
-
-IDAES compatibility source: `idaes.core.base.control_volume_base`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `none` | `none` | false |
-| `pressureTotal` | `pressureTotal` | false |
-| `pressurePhase` | `pressurePhase` | false |
-| `momentumTotal` | `momentumTotal` | false |
-| `momentumPhase` | `momentumPhase` | false |
-
-## `MomentumMixingType`
-
-IDAES compatibility source: `idaes.models.unit_models.mixer`.
+## `ModelingCheckKind`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
-| `none` | `none` | false |
-| `minimize` | `minimize` | false |
-| `equality` | `equality` | false |
-| `minimize_and_equality` | `minimize_and_equality` | false |
+| `expectation` | `` | false |
+| `check` | `` | false |
+| `original_equation` | `` | false |
+| `closure` | `` | false |
+| `validity` | `` | false |
+
+## `ModelingConformanceKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `coverage` | `` | false |
+| `preparation` | `` | false |
+| `degrees_of_freedom` | `` | false |
+| `derivatives` | `` | false |
+| `envelope` | `` | false |
+| `start_to_solve` | `` | false |
+| `closure` | `` | false |
+| `expectation` | `` | false |
+| `check` | `` | false |
+
+## `ModelingConformanceStatus`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `passed` | `` | false |
+| `failed` | `` | false |
+| `inconclusive` | `` | false |
+| `not_applicable` | `` | false |
+| `cancelled` | `` | false |
+| `unattempted` | `` | false |
+
+## `ModelingContributionRole`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `inflow` | `` | false |
+| `outflow` | `` | false |
+| `generation` | `` | false |
+| `consumption` | `` | false |
+| `accumulation` | `` | false |
+| `transfer` | `` | false |
+| `positive` | `` | false |
+| `negative` | `` | false |
+
+## `ModelingDeclarationKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `relaxation` | `` | false |
+| `continuation` | `` | false |
+| `package` | `` | false |
+| `entity_kind` | `` | false |
+| `interface` | `` | false |
+| `definition` | `` | false |
+| `case` | `` | false |
+| `test` | `` | false |
+| `stage` | `` | false |
+| `implicit` | `` | false |
+| `regime` | `` | false |
+| `parameter` | `` | false |
+| `variable` | `` | false |
+| `let` | `` | false |
+| `alias` | `` | false |
+| `attribute` | `` | false |
+| `set` | `` | false |
+| `child` | `` | false |
+| `port` | `` | false |
+| `preset` | `` | false |
+| `scope_value` | `` | false |
+| `function` | `` | false |
+| `equation` | `` | false |
+| `table` | `` | false |
+| `dataset` | `` | false |
+| `entity` | `` | false |
+| `enum` | `` | false |
+| `import` | `` | false |
+| `when` | `` | false |
+| `accumulator` | `` | false |
+| `contribution` | `` | false |
+| `connection` | `` | false |
+| `annotation` | `` | false |
+| `requirement` | `` | false |
+| `expectation` | `` | false |
+| `continuous` | `` | false |
+| `difference_scheme` | `` | false |
+| `collocation_scheme` | `` | false |
+| `discretization` | `` | false |
+| `realization` | `` | false |
+
+## `ModelingDiagnosticSampleStop`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `completed` | `` | false |
+| `sample_limit` | `` | false |
+| `finding_limit` | `` | false |
+| `time_limit` | `` | false |
+| `cancelled` | `` | false |
+
+## `ModelingElasticObservation`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `feasible_witness` | `` | false |
+| `local_obstruction` | `` | false |
+| `inconclusive` | `` | false |
+
+## `ModelingFixtureBinding`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `value` | `` | false |
+| `fix` | `` | false |
+| `free` | `` | false |
+| `lower` | `` | false |
+| `upper` | `` | false |
+
+## `ModelingFixtureExecution`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `pure` | `` | false |
+| `steady` | `` | false |
+| `initialized` | `` | false |
+| `integrated` | `` | false |
+| `simultaneous` | `` | false |
+
+## `ModelingInitializationStep`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `stage` | `` | false |
+| `homotopy` | `` | false |
+| `original` | `` | false |
+
+## `ModelingRealValueKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `finite` | `` | false |
+| `negative_infinity` | `` | false |
+| `positive_infinity` | `` | false |
+| `indeterminate` | `` | false |
+
+## `ModelingRealizationPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `inline` | `` | false |
+| `nested` | `` | false |
+| `accelerated` | `` | false |
 
 ## `Namespace`
 
@@ -1218,16 +700,6 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `panic` | `` | false |
 | `invalid` | `` | false |
 
-## `NativeVariableDomain`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `continuous` | `` | false |
-| `integer` | `` | false |
-| `binary` | `` | false |
-| `semi_continuous` | `` | false |
-| `semi_integer` | `` | false |
-
 ## `NativeWarmCapability`
 
 | Member | IDAES name | Deprecated |
@@ -1252,7 +724,9 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `analysis` | `` | false |
 | `case` | `` | false |
 | `model` | `` | false |
+| `model_hint` | `` | false |
 | `property_default` | `` | false |
+| `derived_nominal` | `` | false |
 | `quantity_nominal` | `` | false |
 | `canonical_fallback` | `` | false |
 
@@ -1332,15 +806,6 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `namespace` | `` | false |
 | `publish` | `` | false |
 
-## `Orientation`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `into_scope` | `` | false |
-| `out_of_scope` | `` | false |
-| `generation` | `` | false |
-| `accumulation` | `` | false |
-
 ## `PackageKind`
 
 | Member | IDAES name | Deprecated |
@@ -1349,91 +814,6 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `library` | `` | false |
 | `model` | `` | false |
 | `case` | `` | false |
-
-## `ParameterSourceCoordinate`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `member` | `` | false |
-| `ref_entity` | `` | false |
-| `phase_species_pair` | `` | false |
-
-## `ParticipationExclusionReason`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `family_mismatch` | `` | false |
-| `subject_mismatch` | `` | false |
-| `internal_transfer` | `` | false |
-
-## `PhaseType`
-
-IDAES compatibility source: `idaes.core.base.phases`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `undefined` | `undefined` | false |
-| `liquidPhase` | `liquidPhase` | false |
-| `vaporPhase` | `vaporPhase` | false |
-| `solidPhase` | `solidPhase` | false |
-| `aqueousPhase` | `aqueousPhase` | false |
-
-## `PhysicalCoordinateKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `fixed` | `` | false |
-| `axis` | `` | false |
-
-## `PortKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `material` | `` | false |
-| `heat` | `` | false |
-| `work` | `` | false |
-| `signal` | `` | false |
-
-## `PredicateComparison`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `eq` | `` | false |
-| `not_eq` | `` | false |
-| `lt` | `` | false |
-| `le` | `` | false |
-| `gt` | `` | false |
-| `ge` | `` | false |
-
-## `PredicateKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `boolean` | `` | false |
-| `null` | `` | false |
-| `atom` | `` | false |
-| `compare` | `` | false |
-| `in` | `` | false |
-| `and` | `` | false |
-| `or` | `` | false |
-| `not` | `` | false |
-
-## `PredicateOperandKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `expression` | `` | false |
-| `enum_literal` | `` | false |
-
-## `PropertyCategory`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `state` | `` | false |
-| `thermo` | `` | false |
-| `transport` | `` | false |
-| `reaction` | `` | false |
-| `derived` | `` | false |
 
 ## `PublicationKind`
 
@@ -1448,44 +828,6 @@ IDAES compatibility source: `idaes.core.base.phases`.
 | `diagnostics` | `` | false |
 | `inspection` | `` | false |
 
-## `PumpMaterial`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CastIron` | `CastIron` | false |
-| `DuctileIron` | `DuctileIron` | false |
-| `CastSteel` | `CastSteel` | false |
-| `Bronze` | `Bronze` | false |
-| `StainlessSteel` | `StainlessSteel` | false |
-| `HastelloyC` | `HastelloyC` | false |
-| `Monel` | `Monel` | false |
-| `Nickel` | `Nickel` | false |
-| `Titanium` | `Titanium` | false |
-| `NiAlBronze` | `NiAlBronze` | false |
-| `CarbonSteel` | `CarbonSteel` | false |
-
-## `PumpMotorType`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Open` | `Open` | false |
-| `Enclosed` | `Enclosed` | false |
-| `ExplosionProof` | `ExplosionProof` | false |
-
-## `PumpType`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Centrifugal` | `Centrifugal` | false |
-| `ExternalGear` | `ExternalGear` | false |
-| `Reciprocating` | `Reciprocating` | false |
-
 ## `QuantityAdditionKind`
 
 | Member | IDAES name | Deprecated |
@@ -1499,6 +841,7 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 |---|---|---|
 | `equal_operand_bases` | `` | false |
 | `operand_quantity_contract` | `` | false |
+| `same_reference_differences` | `` | false |
 
 ## `QuantityScaleRule`
 
@@ -1528,14 +871,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `per_mass` | `` | false |
 | `per_area` | `` | false |
 
-## `ReactionKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `rate` | `` | false |
-| `equilibrium` | `` | false |
-| `inherent` | `` | false |
-
 ## `ReductionKind`
 
 | Member | IDAES name | Deprecated |
@@ -1564,13 +899,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `ideal_gas_at_conditions` | `` | false |
 | `custom` | `` | false |
 
-## `RequirementSource`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `seed` | `` | false |
-| `requirement` | `` | false |
-
 ## `RetentionReason`
 
 | Member | IDAES name | Deprecated |
@@ -1586,41 +914,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 |---|---|---|
 | `point` | `` | false |
 | `difference` | `` | false |
-
-## `ScopeKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `package` | `` | false |
-| `phase` | `` | false |
-| `species` | `` | false |
-| `phase_species` | `` | false |
-| `reaction` | `` | false |
-
-## `SelectorOp`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `self` | `` | false |
-| `instance_parameter` | `` | false |
-| `descendant_of` | `` | false |
-| `kind_is` | `` | false |
-| `tagged_with` | `` | false |
-| `union` | `` | false |
-| `intersection` | `` | false |
-| `difference` | `` | false |
-| `include` | `` | false |
-| `exclude` | `` | false |
-
-## `Sense`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `eq` | `` | false |
-| `le` | `` | false |
-| `ge` | `` | false |
-| `definition` | `` | false |
-| `range` | `` | false |
 
 ## `Severity`
 
@@ -1638,38 +931,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `derived` | `` | false |
 | `sidecar` | `` | false |
 
-## `SolverVariableType`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `continuous` | `` | false |
-| `binary` | `` | false |
-| `integer` | `` | false |
-
-## `SourceBindingKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `symbol` | `` | false |
-| `equation` | `` | false |
-| `port` | `` | false |
-| `domain` | `` | false |
-| `parameter` | `` | false |
-| `feature` | `` | false |
-| `entity` | `` | false |
-| `unit` | `` | false |
-
-## `SplittingType`
-
-IDAES compatibility source: `idaes.models.unit_models.separator`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `totalFlow` | `totalFlow` | false |
-| `phaseFlow` | `phaseFlow` | false |
-| `componentFlow` | `componentFlow` | false |
-| `phaseComponentFlow` | `phaseComponentFlow` | false |
-
 ## `Stability`
 
 | Member | IDAES name | Deprecated |
@@ -1678,42 +939,6 @@ IDAES compatibility source: `idaes.models.unit_models.separator`.
 | `evolving` | `` | false |
 | `internal` | `` | false |
 
-## `StabilityPolicy`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `unchecked` | `` | false |
-| `mechanical` | `` | false |
-| `global` | `` | false |
-
-## `StabilityStatus`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `not_requested` | `` | false |
-| `stable` | `` | false |
-| `unstable` | `` | false |
-| `failed` | `` | false |
-
-## `StateIndex`
-
-IDAES compatibility source: `idaes.models.properties.modular_properties.base.utility`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `true` | `true` | false |
-| `apparent` | `apparent` | false |
-
-## `SubjectKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `species` | `` | false |
-| `phase` | `` | false |
-| `element` | `` | false |
-| `reaction` | `` | false |
-| `none` | `` | false |
-
 ## `SubjectRule`
 
 | Member | IDAES name | Deprecated |
@@ -1721,68 +946,6 @@ IDAES compatibility source: `idaes.models.properties.modular_properties.base.uti
 | `preserve` | `` | false |
 | `require_equal` | `` | false |
 | `declared_result` | `` | false |
-
-## `SymbolRole`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `variable` | `` | false |
-| `parameter` | `` | false |
-| `expression` | `` | false |
-| `derivative` | `` | false |
-| `reference` | `` | false |
-
-## `TargetKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `symbol` | `` | false |
-| `port` | `` | false |
-| `group` | `` | false |
-| `equation` | `` | false |
-| `instance_wildcard` | `` | false |
-
-## `TearPolicy`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `free` | `` | false |
-| `mandatory` | `` | false |
-| `forbidden` | `` | false |
-
-## `TemplateKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `unit` | `` | false |
-| `control_volume` | `` | false |
-| `state_block` | `` | false |
-| `reaction_block` | `` | false |
-| `connection_rule` | `` | false |
-| `costing_method` | `` | false |
-| `law` | `` | false |
-| `initializer` | `` | false |
-| `scaler` | `` | false |
-| `flowsheet` | `` | false |
-| `helper` | `` | false |
-
-## `ThermodynamicAssumption`
-
-IDAES compatibility source: `idaes.models.unit_models.pressure_changer`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `isothermal` | `isothermal` | false |
-| `isentropic` | `isentropic` | false |
-| `pump` | `pump` | false |
-| `adiabatic` | `adiabatic` | false |
-
-## `ThermodynamicFormulation`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `homogeneous_density` | `` | false |
-| `phase_equilibrium` | `` | false |
 
 ## `TimeCoordinateKind`
 
@@ -1804,44 +967,6 @@ IDAES compatibility source: `idaes.models.unit_models.pressure_changer`.
 | `failed` | `` | false |
 | `panic` | `` | false |
 
-## `TrayMaterial`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CarbonSteel` | `CarbonSteel` | false |
-| `StainlessSteel303` | `StainlessSteel303` | false |
-| `StainlessSteel316` | `StainlessSteel316` | false |
-| `Carpenter20CB3` | `Carpenter20CB3` | false |
-| `Monel` | `Monel` | false |
-
-## `TrayType`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `Sieve` | `Sieve` | false |
-| `Valve` | `Valve` | false |
-| `BubbleCap` | `BubbleCap` | false |
-
-## `Treatment`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `fixed` | `` | false |
-| `free` | `` | false |
-| `parameter` | `` | false |
-
-## `TriState`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `true` | `` | false |
-| `false` | `` | false |
-| `inherit` | `` | false |
-
 ## `TruthValue`
 
 | Member | IDAES name | Deprecated |
@@ -1850,44 +975,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `false` | `` | false |
 | `unknown` | `` | false |
 | `conflict` | `` | false |
-
-## `ValveFunctionType`
-
-IDAES compatibility source: `idaes.models.unit_models.valve`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `linear` | `linear` | false |
-| `quick_opening` | `quick_opening` | false |
-| `equal_percentage` | `equal_percentage` | false |
-
-## `VariableSemanticRole`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `state` | `` | false |
-| `design_capacity` | `` | false |
-| `allocation` | `` | false |
-| `slack` | `` | false |
-| `aux_reformulation` | `` | false |
-| `reporting_only` | `` | false |
-
-## `VesselMaterial`
-
-IDAES compatibility source: `idaes.models.costing.SSLW`.
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `CarbonSteel` | `CarbonSteel` | false |
-| `LowAlloySteel` | `LowAlloySteel` | false |
-| `StainlessSteel304` | `StainlessSteel304` | false |
-| `StainlessSteel316` | `StainlessSteel316` | false |
-| `Carpenter20CB3` | `Carpenter20CB3` | false |
-| `Nickel200` | `Nickel200` | false |
-| `Monel400` | `Monel400` | false |
-| `Inconel600` | `Inconel600` | false |
-| `Incoloy825` | `Incoloy825` | false |
-| `Titanium` | `Titanium` | false |
 
 ## `WeightNormalization`
 

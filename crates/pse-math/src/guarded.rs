@@ -92,8 +92,17 @@ pub(crate) enum Stage {
         /// Authored occurrence.
         source: SemanticId,
     },
+    /// Value-only domain predicate. Its local values cannot enter numerical expressions.
+    Domain {
+        stages: Vec<Stage>,
+        argument: Slot,
+        token: Slot,
+        source: SemanticId,
+    },
     /// Lazy regions. Both branches write the same declared result slots.
     Branch {
+        /// Boundary agreement established by the physically typed builder.
+        continuity: DerivativeOrder,
         /// Comparison.
         comparison: Comparison,
         /// Left comparison scalar.
@@ -107,8 +116,10 @@ pub(crate) enum Stage {
     },
     /// Multi-output fallible call, outside Symbolica's infallible scalar callbacks.
     Provider {
-        /// Exact compiled registration, including phase and data revision.
+        /// Exact compiled registration, including implementation and data revision.
         spec: ProviderSpec,
+        /// Explicit local partial coordinates, applied before outer jet composition.
+        partial: Vec<usize>,
         /// Ordered input slots.
         inputs: Vec<Slot>,
         /// Ordered value output slots.
@@ -139,7 +150,7 @@ pub(crate) fn validate_dependencies(
                 ))
             }
         };
-        let outputs = match stage {
+        let outputs: Option<&[Slot]> = match stage {
             Stage::Block {
                 expressions,
                 outputs,
@@ -166,6 +177,19 @@ pub(crate) fn validate_dependencies(
             Stage::Require { argument, .. } => {
                 read(&[*argument])?;
                 None
+            }
+            Stage::Domain {
+                stages,
+                argument,
+                token,
+                ..
+            } => {
+                let mut local = assigned.clone();
+                validate_dependencies(stages, symbols, &mut local, depth + 1, remaining)?;
+                if !local.contains(argument) {
+                    return Err(MathError::Contract("unassigned domain predicate".into()));
+                }
+                Some(std::slice::from_ref(token))
             }
             Stage::Provider {
                 spec,

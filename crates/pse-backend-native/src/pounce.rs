@@ -537,7 +537,7 @@ impl Session {
                         report.quality = Some(q)
                     }
                     Err(e) => {
-                        report.validation_error = Some(e.to_string());
+                        report.record_validation_failure(e);
                         report.termination.assurance = Assurance::None
                     }
                 }

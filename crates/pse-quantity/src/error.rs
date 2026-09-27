@@ -232,6 +232,36 @@ pub enum QuantityError {
     },
 }
 
+impl QuantityError {
+    /// Conservative owned diagnostic extent, including variable operand witnesses.
+    pub fn retained_bytes(&self) -> usize {
+        let heap = match self {
+            Self::Registry { detail, .. } | Self::InferencePrecondition { detail, .. } => {
+                detail.capacity()
+            }
+            Self::UnregisteredResultType { requested, .. } => requested.capacity(),
+            Self::OperationUnsupported { input_kinds, .. } => input_kinds
+                .capacity()
+                .saturating_mul(size_of::<QuantityKindId>()),
+            Self::AmbiguousLiteral { candidates, .. } => candidates
+                .capacity()
+                .saturating_mul(size_of::<QuantityTypeId>()),
+            Self::Incompatible { operands, .. } => operands.iter().fold(
+                operands
+                    .capacity()
+                    .saturating_mul(size_of::<(QuantityTypeId, crate::IndexSet)>()),
+                |bytes, (_, axes)| bytes.saturating_add(axes.len().saturating_mul(2048)),
+            ),
+            Self::Dimension(_)
+            | Self::UnitConvertMismatch { .. }
+            | Self::StaticDomain { .. }
+            | Self::ContractMismatch { .. }
+            | Self::UnknownId { .. } => 0,
+        };
+        size_of::<Self>().saturating_add(heap)
+    }
+}
+
 fn operand_contracts(operands: &[(QuantityTypeId, crate::IndexSet)]) -> String {
     operands
         .iter()

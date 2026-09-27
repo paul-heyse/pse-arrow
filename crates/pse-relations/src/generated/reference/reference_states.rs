@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    191u8, 99u8, 89u8, 7u8, 232u8, 89u8, 225u8, 227u8, 195u8, 95u8, 99u8, 96u8, 103u8,
-    97u8, 166u8, 239u8, 2u8, 195u8, 94u8, 183u8, 65u8, 176u8, 5u8, 142u8, 239u8, 164u8,
-    81u8, 132u8, 194u8, 100u8, 84u8, 20u8,
+    63u8, 237u8, 15u8, 155u8, 101u8, 17u8, 255u8, 61u8, 124u8, 185u8, 148u8, 35u8, 15u8,
+    39u8, 119u8, 34u8, 24u8, 2u8, 219u8, 232u8, 80u8, 85u8, 229u8, 215u8, 46u8, 132u8,
+    183u8, 162u8, 68u8, 36u8, 74u8, 245u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceReferenceStatesRow {
     fn append(
@@ -50,7 +50,7 @@ impl crate::columnar::ArrowValue for ReferenceReferenceStatesRow {
             children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#phase_id,
+            &self.r#subject_id,
             children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#doc, children[6usize].as_mut())?;
@@ -115,7 +115,7 @@ impl crate::columnar::ArrowValue for ReferenceReferenceStatesRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#phase_id: <Option<
+            r#subject_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
@@ -187,7 +187,10 @@ impl crate::columnar::RelationRow for ReferenceReferenceStatesRow {
             &self.r#include_enthalpy_of_formation,
             columns[4usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#phase_id, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#subject_id,
+            columns[5usize].as_mut(),
+        )?;
         crate::columnar::ArrowValue::append(&self.r#doc, columns[6usize].as_mut())?;
         Ok(())
     }
@@ -266,7 +269,7 @@ impl crate::columnar::RelationRow for ReferenceReferenceStatesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if (self.r#phase_id).is_some() {
+            if (self.r#subject_id).is_some() {
                 crate::columnar::allocation_add(
                     1,
                     Ok::<usize, crate::RelationError>(16usize)?,
@@ -317,7 +320,7 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "phase_id",
+        name: "subject_id",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
@@ -338,8 +341,8 @@ pub mod columns {
     pub const PRESSURE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///include_enthalpy_of_formation
     pub const INCLUDE_ENTHALPY_OF_FORMATION: crate::columnar::ColumnReference = super::COLUMNS[4usize];
-    ///phase_id
-    pub const PHASE_ID: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///subject_id
+    pub const SUBJECT_ID: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///doc
     pub const DOC: crate::columnar::ColumnReference = super::COLUMNS[6usize];
 }
@@ -353,7 +356,7 @@ pub struct ReferenceReferenceStatesView<'a> {
     temperature_column: &'a arrow_array::Float64Array,
     pressure_column: &'a arrow_array::Float64Array,
     include_enthalpy_of_formation_column: &'a arrow_array::BooleanArray,
-    phase_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    subject_id_column: &'a arrow_array::FixedSizeBinaryArray,
     doc_column: &'a arrow_array::StringArray,
 }
 impl<'a> ReferenceReferenceStatesView<'a> {
@@ -409,7 +412,7 @@ impl<'a> ReferenceReferenceStatesView<'a> {
             include_enthalpy_of_formation_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
             >(batch.column(4usize).as_ref())?,
-            phase_id_column: crate::columnar::array::<
+            subject_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(5usize).as_ref())?,
             doc_column: crate::columnar::array::<
@@ -503,14 +506,14 @@ impl<'a> ReferenceReferenceStatesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "phase_id",
+        "subject_id",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn phase_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.phase_id_column
+    pub const fn subject_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.subject_id_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "phase_id", "`.")]
-    pub fn phase_id_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "subject_id", "`.")]
+    pub fn subject_id_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
@@ -551,7 +554,10 @@ impl<'a> ReferenceReferenceStatesView<'a> {
                 self.include_enthalpy_of_formation_column,
                 index,
             )?,
-            r#phase_id: crate::columnar::ArrowValue::read(self.phase_id_column, index)?,
+            r#subject_id: crate::columnar::ArrowValue::read(
+                self.subject_id_column,
+                index,
+            )?,
             r#doc: crate::columnar::ArrowValue::read(self.doc_column, index)?,
         })
     }

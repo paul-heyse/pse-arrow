@@ -20,8 +20,8 @@ pub struct ReferenceReferenceStatesRow {
     pub r#pressure: Option<f64>,
     ///include_enthalpy_of_formation
     pub r#include_enthalpy_of_formation: bool,
-    ///phase_id
-    pub r#phase_id: Option<pse_ids::SemanticId>,
+    ///subject_id
+    pub r#subject_id: Option<pse_ids::SemanticId>,
     ///doc
     pub r#doc: String,
 }
@@ -36,7 +36,7 @@ impl crate::SemanticEq for ReferenceReferenceStatesRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#include_enthalpy_of_formation,
                 &other.r#include_enthalpy_of_formation,
-            ) && crate::SemanticEq::semantic_eq(&self.r#phase_id, &other.r#phase_id)
+            ) && crate::SemanticEq::semantic_eq(&self.r#subject_id, &other.r#subject_id)
             && crate::SemanticEq::semantic_eq(&self.r#doc, &other.r#doc)
     }
 }
@@ -59,8 +59,8 @@ impl crate::SemanticFrame for ReferenceReferenceStatesRow {
         crate::SemanticFrame::frame(&self.r#pressure, hash);
         hash.str(stringify!(r#include_enthalpy_of_formation));
         crate::SemanticFrame::frame(&self.r#include_enthalpy_of_formation, hash);
-        hash.str(stringify!(r#phase_id));
-        crate::SemanticFrame::frame(&self.r#phase_id, hash);
+        hash.str(stringify!(r#subject_id));
+        crate::SemanticFrame::frame(&self.r#subject_id, hash);
         hash.str(stringify!(r#doc));
         crate::SemanticFrame::frame(&self.r#doc, hash);
     }
@@ -75,7 +75,7 @@ impl crate::HeapUsage for ReferenceReferenceStatesRow {
             .saturating_add(
                 crate::HeapUsage::heap_bytes(&self.r#include_enthalpy_of_formation),
             )
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#phase_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#subject_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
     }
 }

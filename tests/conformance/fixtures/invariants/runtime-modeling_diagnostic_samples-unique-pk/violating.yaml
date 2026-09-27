@@ -1,0 +1,24 @@
+{
+  "invariant": "runtime.modeling_diagnostic_samples:unique:pk",
+  "rows": {
+    "runtime.modeling_diagnostic_samples": [
+      {
+        "outcomes": "[\"list\",[]]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "stop": "[\"enum\",\"completed\"]",
+        "unattempted": "[\"i64\",1]"
+      },
+      {
+        "outcomes": "[\"list\",[]]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "stop": "[\"enum\",\"completed\"]",
+        "unattempted": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

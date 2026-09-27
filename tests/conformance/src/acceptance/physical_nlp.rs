@@ -1,190 +1,53 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
+//! Scientific equations and oracle expectations are owned by the authored seed.
 use super::fixtures::*;
 use pse_backend_native::solve::{Assurance, Backend, Termination};
-use pse_runtime::{math::solves::Outcome, workflow::RunReport};
+use pse_runtime::{CancelSource, math::solves::Outcome};
 #[tokio::test]
-async fn physical_nlp() {
+async fn authored_physical_nlp_preserves_native_routes_and_original_qualification() {
     let owner = WorkflowRuntime::new().unwrap();
-    let f = json("bindings.json");
-    let revision = builder(&owner).await.freeze().unwrap();
+    let package = seed_package(&owner).await;
+    let id = |s| pse_ids::SemanticId::parse_hex(s).unwrap();
+    let heater = id("68ba8dc2d6b05d9a9fe1b1a3625d8015");
+    let optimization = id("079a378ba3ce46728b32c87f4fe6a3df");
+    let flash = id("040af20814bc57abb565c3c7f680be05");
     for backend in [Backend::Ipopt, Backend::Pounce, Backend::Kinsol] {
-        let mut root = revision.edit();
-        if backend == Backend::Kinsol {
-            for c in &mut root.declaration_mut().cases {
-                for v in &mut c.variables {
-                    v.lower = None;
-                    v.upper = None;
-                }
-            }
-        }
-        let root = root.freeze().unwrap();
-        let result = solve(&root, sid(&f["root_case"]), backend, false).await;
-        success(&result);
-        for (name, expected, tol) in [
-            ("temperature", 76.85, 1e-5),
-            ("density", f["expected"]["density"].as_f64().unwrap(), 1e-5),
-            ("recycle", 5., 1e-5),
-        ] {
-            near(
-                variable(&result, sid(&f["root_ports"][name]["symbol_id"])),
-                expected,
-                tol,
-            );
-        }
-        assert_eq!(
-            result
-                .table("authored.computation_models")
-                .unwrap()
-                .batch()
-                .num_rows(),
-            1
-        );
+        let prepared = seed_prepare(&package, heater, profile(backend, false), &CancelSource::new()).await.unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let report = authored_success(&result);
+        assert!(report.checks.iter().filter(|r|r.kind==pse_relations::generated::enums::ModelingCheckKind::Closure).count()>=2);
+        assert!(result.table("authored.modeling_declarations").unwrap().batch().num_rows()>0);
+        assert!(result.table("authored.computation_models").is_err());
     }
     for (backend, presolve, assurance) in [
-        (
-            Backend::Ipopt,
-            pse_backend_native::presolve::Policy::Off,
-            Assurance::LocalStationary,
-        ),
-        (
-            Backend::Pounce,
-            pse_backend_native::presolve::Policy::Off,
-            Assurance::LocalStationary,
-        ),
-        (
-            Backend::Ipopt,
-            pse_backend_native::presolve::Policy::Auto,
-            Assurance::Feasible,
-        ),
-        (
-            Backend::Pounce,
-            pse_backend_native::presolve::Policy::Auto,
-            Assurance::Feasible,
-        ),
+        (Backend::Ipopt, pse_backend_native::presolve::Policy::Off, Assurance::LocalStationary),
+        (Backend::Pounce, pse_backend_native::presolve::Policy::Off, Assurance::LocalStationary),
+        (Backend::Ipopt, pse_backend_native::presolve::Policy::Auto, Assurance::Feasible),
+        (Backend::Pounce, pse_backend_native::presolve::Policy::Auto, Assurance::Feasible),
     ] {
-        let mut settings = profile(backend, true);
-        settings.presolve = presolve;
-        let result = revision
-            .prepare(
-                sid(&f["optimization"]),
-                settings,
-                compiler(),
-                &pse_runtime::CancelSource::new(),
-            )
-            .await
-            .unwrap()
-            .start()
-            .unwrap()
-            .wait()
-            .await
-            .unwrap();
-        success(&result);
-        let RunReport::Solves(report) = result.report().unwrap() else {
-            panic!("expected optimization result")
-        };
-        assert_eq!(report.outcomes.len(), 1);
-        let Outcome::Native(report) = &report.outcomes[0] else {
-            panic!("expected native optimization")
-        };
-        assert!(matches!(
-            report.termination.category,
-            Termination::Success | Termination::Acceptable
-        ));
-        assert_eq!(report.termination.assurance, assurance, "{report:?}");
-        if assurance == Assurance::Feasible {
-            // The pinned presolver tightens a bound from an inequality without
-            // recovering that row's multiplier. Original complementarity catches it.
-            assert_eq!(
-                report.metrics.get("quality.complementarity.accepted"),
-                Some(&pse_backend_native::solve::Metric::Bool(false))
-            );
-            assert_eq!(
-                report.qualification,
-                pse_backend_native::solve::Qualification::Feasible
-            );
-        }
-        let temperature = revision
-            .declaration()
-            .cases
-            .iter()
-            .find(|case| case.case_id == sid(&f["optimization"]))
-            .unwrap()
-            .variables[0]
-            .port
-            .symbol_id;
-        near(variable(&result, temperature), 76.85, 1e-5);
-    }
-    let mut separator = revision.edit();
-    for c in &mut separator.declaration_mut().cases {
-        for v in &mut c.variables {
-            v.upper = None;
+        let mut settings=profile(backend,true);
+        settings.presolve=presolve;
+        let result=seed_prepare(&package,optimization,settings,&CancelSource::new()).await.unwrap()
+            .start().unwrap().wait().await.unwrap();
+        let report=authored_success(&result);
+        let Outcome::Native(native)=&report.outcome else {panic!("expected native optimization")};
+        assert!(matches!(native.termination.category,Termination::Success|Termination::Acceptable));
+        assert_eq!(native.termination.assurance,assurance,"{native:?}");
+        if assurance==Assurance::Feasible {
+            assert_eq!(native.qualification,pse_backend_native::solve::Qualification::Feasible);
         }
     }
-    let separator = separator.freeze().unwrap();
-    for case in separator
-        .declaration()
-        .cases
-        .iter()
-        .filter(|c| c.name.starts_with("separator-"))
-    {
-        let result = solve(&separator, case.case_id, Backend::Kinsol, false).await;
-        success(&result);
-        let feed = case
-            .values
-            .iter()
-            .find(|v| v.symbol_id == case.parameters[0].symbol_id)
-            .unwrap()
-            .value;
-        near(
-            variable(&result, case.variables[0].port.symbol_id),
-            0.4 * feed,
-            1e-7,
-        );
+    for backend in [Backend::Ipopt,Backend::Pounce] {
+        let result=seed_prepare(&package,flash,profile(backend,false),&CancelSource::new()).await.unwrap()
+            .start().unwrap().wait().await.unwrap();
+        authored_success(&result);
     }
-    let flash = revision
-        .declaration()
-        .cases
-        .iter()
-        .find(|c| c.name == "flash")
-        .unwrap();
-    let reference = json("thermo-reference.json")["flash"].clone();
-    for backend in [Backend::Ipopt, Backend::Pounce] {
-        let result = solve(&revision, flash.case_id, backend, false).await;
-        success(&result);
-        let expected = [
-            reference["liquid_density"].as_f64().unwrap(),
-            reference["vapor_density"].as_f64().unwrap(),
-            reference["liquid"][0].as_f64().unwrap(),
-            reference["liquid"][1].as_f64().unwrap(),
-            reference["vapor"][0].as_f64().unwrap(),
-            reference["vapor"][1].as_f64().unwrap(),
-            reference["beta"].as_f64().unwrap(),
-        ];
-        for (v, expected) in flash.variables.iter().zip(expected) {
-            near(
-                variable(&result, v.port.symbol_id),
-                expected,
-                2e-5 * expected.abs().max(1.),
-            );
-        }
+    for case in ["fc52409793e44e61adb3eff88946fdb6","efcd1d0ad288438daf6764b4ab25a2a6","8c22c4a4f87141b083bfc0d9442d382c","d84e844726e64a2c9b23d96a4039b4f9"] {
+        let result=seed_prepare(&package,id(case),profile(Backend::Ipopt,false),&CancelSource::new()).await.unwrap()
+            .start().unwrap().wait().await.unwrap();
+        authored_success(&result);
     }
-    // Original constrained roots cannot silently discard optimization/inequalities.
-    let case = revision
-        .declaration()
-        .cases
-        .iter()
-        .find(|c| c.case_id == sid(&f["optimization"]))
-        .unwrap();
-    assert!(
-        revision
-            .prepare(
-                case.case_id,
-                profile(Backend::Kinsol, false),
-                compiler(),
-                &pse_runtime::CancelSource::new()
-            )
-            .await
-            .is_err()
-    );
+    // Root-only strategies must retain objective and inequality admission refusals.
+    assert!(seed_prepare(&package,optimization,profile(Backend::Kinsol,false),&CancelSource::new()).await.is_err());
 }

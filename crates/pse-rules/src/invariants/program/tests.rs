@@ -130,8 +130,8 @@ async fn native_query_binding_rejects_hidden_missing_and_unused_inputs() {
         ("SELECT 1", vec![spec.key]),
         ("DELETE FROM authored.packages", vec![spec.key]),
         (
-            "SELECT * FROM authored.species",
-            vec![registry.relation("authored.species").unwrap().key],
+            "SELECT * FROM authored.datasets",
+            vec![registry.relation("authored.datasets").unwrap().key],
         ),
     ] {
         assert!(
@@ -283,44 +283,3 @@ async fn native_duplicate_keys_produce_one_typed_finding() {
     );
 }
 
-#[tokio::test]
-async fn stoichiometry_phase_policy_preserves_defaults_restrictions_and_missing_members() {
-    let registry = pse_schema::catalog::assemble().unwrap();
-    let invariant = registry
-        .invariants()
-        .iter()
-        .find(|value| value.name == "closure:stoichiometry_species_in_phase")
-        .unwrap();
-    let context = datafusion::prelude::SessionContext::new();
-    for sql in [
-        "CREATE SCHEMA authored",
-        "CREATE VIEW authored.species AS SELECT * FROM (VALUES (1, CAST(NULL AS VARCHAR[])), (2, ['liquid']), (3, CAST([] AS VARCHAR[]))) AS t(species_id, valid_phase_types)",
-        "CREATE VIEW authored.phases AS SELECT * FROM (VALUES (10, 'liquid'), (20, 'aqueous'), (30, 'vapor')) AS t(phase_id, phase_type)",
-        "CREATE VIEW authored.phase_species AS SELECT * FROM (VALUES (10, 2)) AS t(phase_id, species_id)",
-        "CREATE VIEW authored.stoichiometry AS SELECT * FROM (VALUES (1,10,1), (2,10,2), (3,20,1), (4,30,1), (5,30,2), (6,10,3), (7,99,1), (8,10,99), (9,20,2)) AS t(reaction_id, phase_id, species_id)",
-    ] {
-        context.sql(sql).await.unwrap().collect().await.unwrap();
-    }
-    let result = context
-        .sql(&invariant.query)
-        .await
-        .unwrap()
-        .collect()
-        .await
-        .unwrap();
-    let mut actual = Vec::new();
-    for batch in result {
-        actual.extend(
-            batch
-                .column(0)
-                .as_any()
-                .downcast_ref::<datafusion::arrow::array::Int64Array>()
-                .unwrap()
-                .values()
-                .iter()
-                .copied(),
-        );
-    }
-    actual.sort_unstable();
-    assert_eq!(actual, [1, 3, 5, 6, 7, 8, 9]);
-}

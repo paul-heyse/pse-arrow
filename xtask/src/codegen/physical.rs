@@ -38,7 +38,6 @@ pub(super) fn append(root: &Path, registry: &Registry, tree: &mut GeneratedTree)
         physical.quantities(),
         physical.preconditions(),
     )?;
-    pse_codegen::codegen::rust::physical::append_element_fixture(tree, physical.elements())?;
     Ok(())
 }
 
@@ -64,10 +63,6 @@ fn load(root: &Path, registry: &Registry) -> Result<Physical> {
         ensure!(
             physical.neutral().is_some(),
             "physical fixture must declare an explicit neutral quantity"
-        );
-        ensure!(
-            physical.elements().elements().len() != 0,
-            "physical fixture must declare actual elements"
         );
         Ok(physical)
     })

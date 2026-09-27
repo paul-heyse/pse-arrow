@@ -1,0 +1,251 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "datasets": [
+    {
+      "dataset_id": "4e353905d12355358aba9e599823fb30",
+      "name": "synthetic vessel heat observations",
+      "source": "Closed inventory analytic balance U(t)=1202.3168203660216 J + 10 W*t, and direct heat observation 10 W. Synthetic standard uncertainties 1 J and 1 W. Hash of compact key-sorted JSON authored observation rows, excluding parser-supplied source spans. No statistical coverage claim.",
+      "content_hash": "blake3:f433e343facc1723fdc67eb16b5b1ec2ef9d1ec438b2c4fcdda4b9c66972daea"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "cc754cdf034d5f3eaf87909ed6dbf09c",
+      "dataset_id": "4e353905d12355358aba9e599823fb30",
+      "target": "heat rate",
+      "value": 10.0,
+      "unit_id": "34207cdbb6fab2ee10002e057595c758",
+      "std_dev": 1.0,
+      "timestamp": null,
+      "tag": "steady"
+    },
+    {
+      "observation_id": "3523f2ab606e55f0bb2868728fe91ec2",
+      "dataset_id": "4e353905d12355358aba9e599823fb30",
+      "target": "U(1 s)",
+      "value": 1212.3168203660216,
+      "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+      "std_dev": 1.0,
+      "timestamp": null,
+      "tag": "transient"
+    },
+    {
+      "observation_id": "48f3414cc55e532a87d829ad6e469fa2",
+      "dataset_id": "4e353905d12355358aba9e599823fb30",
+      "target": "heat rate",
+      "value": 10.0,
+      "unit_id": "34207cdbb6fab2ee10002e057595c758",
+      "std_dev": 1.0,
+      "timestamp": null,
+      "tag": "mixed"
+    },
+    {
+      "observation_id": "ffa96ecb83275875a48c1e7c623cde2c",
+      "dataset_id": "4e353905d12355358aba9e599823fb30",
+      "target": "U(1 s)",
+      "value": 1212.3168203660216,
+      "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+      "std_dev": 1.0,
+      "timestamp": null,
+      "tag": "mixed"
+    },
+    {
+      "observation_id": "60a142a025e55f3da898c629281a51ef",
+      "dataset_id": "4e353905d12355358aba9e599823fb30",
+      "target": "U(1 s)",
+      "value": 1212.3168203660216,
+      "unit_id": "94e71aed4ef8d26cd686cf578884d940",
+      "std_dev": 1.0,
+      "timestamp": null,
+      "tag": "unidentifiable"
+    }
+  ],
+  "fit_cases": [
+    {
+      "fit_id": "d8e1e58d1db25d97b8c66a4503e12c8e",
+      "parameters": [
+        {
+          "symbol_id": "6188c9d1084e5883afdee80c9fee9145",
+          "fixed": false,
+          "value": 3.0,
+          "lower": 0.0,
+          "upper": 20.0,
+          "scale": 10.0
+        }
+      ],
+      "experiments": [
+        {
+          "experiment_id": "a4b09ef6b5fb57408e81cb15b794e660",
+          "case_id": "f1b94720fef75b3bab2e29090ef0c315",
+          "route": "steady",
+          "bindings": [
+            {
+              "parameter_id": "6188c9d1084e5883afdee80c9fee9145",
+              "path": "heat"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        {
+          "observation_id": "cc754cdf034d5f3eaf87909ed6dbf09c",
+          "experiment_id": "a4b09ef6b5fb57408e81cb15b794e660",
+          "output_path": "heat",
+          "time": null,
+          "time_basis": null,
+          "time_unit_id": null,
+          "included": true,
+          "importance": 1.0
+        }
+      ]
+    },
+    {
+      "fit_id": "5f011b848cb65d76ad4f40a0feee0125",
+      "parameters": [
+        {
+          "symbol_id": "6188c9d1084e5883afdee80c9fee9145",
+          "fixed": false,
+          "value": 3.0,
+          "lower": 0.0,
+          "upper": 20.0,
+          "scale": 10.0
+        }
+      ],
+      "experiments": [
+        {
+          "experiment_id": "b39f24e05b7d5490904f6138b4d7e080",
+          "case_id": "29dd6a1a3e444acfbf14992087f9d32c",
+          "route": "integrated",
+          "bindings": [
+            {
+              "parameter_id": "6188c9d1084e5883afdee80c9fee9145",
+              "path": "root.heat"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        {
+          "observation_id": "3523f2ab606e55f0bb2868728fe91ec2",
+          "experiment_id": "b39f24e05b7d5490904f6138b4d7e080",
+          "output_path": "root.cell[0{s}].energy",
+          "time": 1.0,
+          "time_basis": "elapsed",
+          "time_unit_id": null,
+          "included": true,
+          "importance": 1.0
+        }
+      ]
+    },
+    {
+      "fit_id": "21770d8f6a0c5d8ab9ce836154608fb6",
+      "parameters": [
+        {
+          "symbol_id": "6188c9d1084e5883afdee80c9fee9145",
+          "fixed": false,
+          "value": 3.0,
+          "lower": 0.0,
+          "upper": 20.0,
+          "scale": 10.0
+        }
+      ],
+      "experiments": [
+        {
+          "experiment_id": "d05d75e1faf8534d93d49385c016759d",
+          "case_id": "f1b94720fef75b3bab2e29090ef0c315",
+          "route": "steady",
+          "bindings": [
+            {
+              "parameter_id": "6188c9d1084e5883afdee80c9fee9145",
+              "path": "heat"
+            }
+          ]
+        },
+        {
+          "experiment_id": "1ea23c5bc42c536da3d7dfca12ad7bed",
+          "case_id": "29dd6a1a3e444acfbf14992087f9d32c",
+          "route": "integrated",
+          "bindings": [
+            {
+              "parameter_id": "6188c9d1084e5883afdee80c9fee9145",
+              "path": "root.heat"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        {
+          "observation_id": "48f3414cc55e532a87d829ad6e469fa2",
+          "experiment_id": "d05d75e1faf8534d93d49385c016759d",
+          "output_path": "heat",
+          "time": null,
+          "time_basis": null,
+          "time_unit_id": null,
+          "included": true,
+          "importance": 1.0
+        },
+        {
+          "observation_id": "ffa96ecb83275875a48c1e7c623cde2c",
+          "experiment_id": "1ea23c5bc42c536da3d7dfca12ad7bed",
+          "output_path": "root.cell[0{s}].energy",
+          "time": 1.0,
+          "time_basis": "elapsed",
+          "time_unit_id": null,
+          "included": true,
+          "importance": 1.0
+        }
+      ]
+    },
+    {
+      "fit_id": "a9fe50aaf6445a6b9a8af098f85d3c35",
+      "parameters": [
+        {
+          "symbol_id": "6188c9d1084e5883afdee80c9fee9145",
+          "fixed": false,
+          "value": 3.0,
+          "lower": 0.0,
+          "upper": 20.0,
+          "scale": 10.0
+        },
+        {
+          "symbol_id": "f24f8a46b327586fad05952cdde5aef0",
+          "fixed": false,
+          "value": 3240.889128548147,
+          "lower": 2240.889128548147,
+          "upper": 4240.889128548147,
+          "scale": 1000.0
+        }
+      ],
+      "experiments": [
+        {
+          "experiment_id": "9d78ac0bbeb65c4ea555cbb40bf336dc",
+          "case_id": "29dd6a1a3e444acfbf14992087f9d32c",
+          "route": "integrated",
+          "bindings": [
+            {
+              "parameter_id": "6188c9d1084e5883afdee80c9fee9145",
+              "path": "root.heat"
+            },
+            {
+              "parameter_id": "f24f8a46b327586fad05952cdde5aef0",
+              "path": "root.inlet_enthalpy"
+            }
+          ]
+        }
+      ],
+      "observations": [
+        {
+          "observation_id": "60a142a025e55f3da898c629281a51ef",
+          "experiment_id": "9d78ac0bbeb65c4ea555cbb40bf336dc",
+          "output_path": "root.cell[0{s}].energy",
+          "time": 1.0,
+          "time_basis": "elapsed",
+          "time_unit_id": null,
+          "included": true,
+          "importance": 1.0
+        }
+      ]
+    }
+  ]
+}

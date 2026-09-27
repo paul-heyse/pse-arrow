@@ -20,17 +20,20 @@ pub enum DocumentKind {
     PackageHeader,
     /// A YAML entity document under one of the package's directories.
     Entities,
+    /// Generic modeling source, parsed directly to generated modeling declarations.
+    Modeling,
 }
 
 impl DocumentKind {
-    /// Both kinds.
-    pub const ALL: [Self; 2] = [Self::PackageHeader, Self::Entities];
+    /// Complete document inventory.
+    pub const ALL: [Self; 3] = [Self::PackageHeader, Self::Entities, Self::Modeling];
 
     /// The wire spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::PackageHeader => "package_header",
             Self::Entities => "entities",
+            Self::Modeling => "modeling",
         }
     }
 }
@@ -41,60 +44,10 @@ impl fmt::Display for DocumentKind {
     }
 }
 
-/// Declared grammar of one authoring DSL field, including nested values.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum DslSyntax {
-    /// Arithmetic or value expression.
-    Expression,
-    /// Boolean predicate, including an atomic Boolean feature.
-    Predicate,
-    /// A relation or conditional equation.
-    Equation,
-}
-impl DslSyntax {
-    /// Complete grammar inventory.
-    pub const ALL: [Self; 3] = [Self::Expression, Self::Predicate, Self::Equation];
-    /// Stable declared spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Expression => "expression",
-            Self::Predicate => "predicate",
-            Self::Equation => "equation",
-        }
-    }
-}
-
-/// Semantic owner of a source expression; its resolved template is a binding context.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ExpressionOwnerKind {
-    /// A reusable template declaration.
-    Template,
-    /// An authored instance, bound through its declared template.
-    Instance,
-}
-impl ExpressionOwnerKind {
-    /// Complete admitted ownership alternatives.
-    pub const ALL: [Self; 2] = [Self::Template, Self::Instance];
-    /// Stable spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Template => "template",
-            Self::Instance => "instance",
-        }
-    }
-    /// Exact foreign-key target required by the declaration.
-    pub const fn target(self) -> (&'static str, &'static str) {
-        match self {
-            Self::Template => ("authored.templates", "template_id"),
-            Self::Instance => ("authored.instances", "instance_id"),
-        }
-    }
-}
-
 /// One top-level key of a document, and the relation its rows land in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DocumentSection {
-    /// The document key, for example `templates`.
+    /// The document key, for example `units`.
     pub key: &'static str,
     /// The qualified relation the section populates.
     pub relation: &'static str,
@@ -108,12 +61,6 @@ pub struct DocumentSection {
     pub name_column: Option<&'static str>,
     /// Explicit owning entity foreign key; absent means package scope.
     pub naming_scope_column: Option<&'static str>,
-    /// Exact owner foreign key used by the shared source expression binder.
-    pub expression_owner_column: Option<&'static str>,
-    /// Meaning of the declared owner; present exactly when the owner column is present.
-    pub expression_owner_kind: Option<ExpressionOwnerKind>,
-    /// Exact DSL leaf paths (`column[].field`) and their grammar, in declaration order.
-    pub expression_fields: &'static [(&'static str, DslSyntax)],
     /// What the section declares.
     pub doc: &'static str,
 }
@@ -152,12 +99,12 @@ impl DocumentSection {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DocumentSpec {
     /// The document's name, which is also its generated struct's name stem, for example
-    /// `templates`.
+    /// `materials`.
     pub name: &'static str,
     /// What kind of file it is.
     pub kind: DocumentKind,
     /// The glob the loader matches, relative to the package root, for example
-    /// `templates/*.yaml`.
+    /// `materials/*.yaml`.
     pub path_glob: &'static str,
     /// The sections, in declaration order.
     pub sections: Vec<DocumentSection>,

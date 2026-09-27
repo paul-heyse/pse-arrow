@@ -166,9 +166,7 @@ fn duplicate_enum_members_and_document_sections_are_rejected() {
         entity_kind: None,
         name_column: None,
         naming_scope_column: None,
-        expression_owner_column: None,
-        expression_owner_kind: None,
-        expression_fields: &[],
+
         doc: "items",
     };
     builder.declare_document(DocumentSpec {
@@ -485,9 +483,7 @@ fn document_identity_projection_is_admitted_and_fingerprinted() {
                 entity_kind: Some("thing"),
                 name_column: Some("name"),
                 naming_scope_column: None,
-                expression_owner_column: None,
-                expression_owner_kind: None,
-                expression_fields: &[],
+
                 doc: "Rows.",
             }],
         }
@@ -522,81 +518,6 @@ fn document_identity_projection_is_admitted_and_fingerprinted() {
     duplicate.sections[0].name_column = Some("label");
     conflicting.declare_document(duplicate);
     assert!(conflicting.build().is_err());
-}
-
-#[test]
-fn document_dsl_grammar_requires_complete_nested_leaf_coverage_and_affects_projection() {
-    use pse_schema::model::DslSyntax;
-    fn build(fields: &'static [(&'static str, DslSyntax)]) -> Result<Registry, SchemaError> {
-        let mut builder = RegistryBuilder::new();
-        builder.declare_relation(
-            RelationDecl::new(
-                Namespace::Authored,
-                "templates",
-                1,
-                Authority::Authored,
-                SnapshotClass::Model,
-                "owner",
-            )
-            .pk(&["template_id"])
-            .columns(vec![FieldContract::key(
-                "template_id",
-                FieldContract::id(),
-                "id",
-            )]),
-        );
-        builder.declare_relation(relation(
-            "expressions",
-            1,
-            vec![
-                FieldContract::reference("template_id", FieldContract::id(), "owner")
-                    .with_fk("authored.templates", "template_id"),
-                FieldContract::payload(
-                    "bindings",
-                    FieldContract::list(FieldContract::structure(vec![
-                        FieldContract::extended(ExtensionUse::ExprDsl)
-                            .with_name("value")
-                            .with_nullable(false),
-                    ])),
-                    "nested source",
-                ),
-            ],
-        ));
-        builder.declare_document(DocumentSpec {
-            name: "expressions",
-            kind: DocumentKind::Entities,
-            path_glob: "expressions/*.yaml",
-            doc: "fixture",
-            sections: vec![DocumentSection {
-                key: "expressions",
-                relation: "authored.expressions",
-                repeated: true,
-                identity_column: Some("id"),
-                entity_kind: None,
-                name_column: None,
-                naming_scope_column: None,
-                expression_owner_column: Some("template_id"),
-                expression_owner_kind: Some(pse_schema::model::ExpressionOwnerKind::Template),
-                expression_fields: fields,
-                doc: "grammar",
-            }],
-        });
-        builder.build()
-    }
-    let expression = build(&[("bindings[].value", DslSyntax::Expression)]).unwrap();
-    let predicate = build(&[("bindings[].value", DslSyntax::Predicate)]).unwrap();
-    assert_ne!(expression.schema_batches(), predicate.schema_batches());
-    assert_ne!(expression.fingerprint(), predicate.fingerprint());
-    for fields in [
-        &[][..],
-        &[("bindings.value", DslSyntax::Expression)][..],
-        &[
-            ("bindings[].value", DslSyntax::Expression),
-            ("bindings[].value", DslSyntax::Predicate),
-        ][..],
-    ] {
-        assert!(build(fields).is_err());
-    }
 }
 
 #[test]

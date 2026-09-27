@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 58
-date: 2026-09-26
+revision: 59
+date: 2026-09-27
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -27,6 +27,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 | 56 | 2026-09-26 | ADR-0096 / Plan 19: the mixed legacy blueprint is replaced by focused current contracts under `sections/`; retired mechanisms keep one-line identity pointers; former anchors map below. Product contracts unchanged. | ADR-0096 accepted by the maintainer |
 | 57 | 2026-09-26 | ADR-0088–0095 accepted as implemented (Plan 16 contracts in §0.5–§0.6, §5, §9, §13, §18, §20, §24; §0.1, §0.3, §24.4); ADR-0095 supersedes the retired ADR-0033/0036. No contract text changed. | maintainer acceptance |
 | 58 | 2026-09-26 | ADR-0066 accepted as implemented (§3.3.2); no contract text changed. | maintainer acceptance |
+| 59 | 2026-09-27 | Plan 21 K0–K8: generic modeling ownership, authored scientific knowledge, analysis/result contracts and retirement; ADR-0097–0101 remain proposed. Contract updates describe the implemented K0–K8 boundaries and their explicit scientific limits. K9 is excluded. | implementation authorized; decision acceptance pending |
 
 ## Former anchors
 
@@ -130,12 +131,12 @@ owner. A heading whose mechanism was retired leads to its one-line retirement po
 | <a id="101-the-conservation-law-template"></a>§10.1 The conservation law template | [models and composition: Law instances over contributions](sections/models-and-composition.md#section-10-1) |
 | <a id="102-contribution-kinds"></a>§10.2 Contribution kinds | [models and composition: Contribution roles and signs](sections/models-and-composition.md#section-10-2) |
 | <a id="103-the-lumped-control-volume-template-cvlumped1-idaes-controlvolume0dblock"></a>§10.3 The lumped control volume template (cv.lumped@1, IDAES ControlVolume0DBlock) | [models and composition: Lumped control volumes, steady and dynamic](sections/models-and-composition.md#section-10-3) |
-| <a id="104-the-distributed-control-volume-template-cvdistributed_1d1-idaes-controlvolume1dblock"></a>§10.4 The distributed control volume template (cv.distributed_1d@1, IDAES ControlVolume1DBlock) | [models and composition: Distributed control volume — retired](sections/models-and-composition.md#section-10-4) |
+| <a id="104-the-distributed-control-volume-template-cvdistributed_1d1-idaes-controlvolume1dblock"></a>§10.4 The distributed control volume template (cv.distributed_1d@1, IDAES ControlVolume1DBlock) | [models and composition: Distributed control volume](sections/models-and-composition.md#section-10-4) |
 | <a id="105-what-the-template-model-changes-structurally"></a>§10.5 What the template model changes structurally | [models and composition: Formulation selection without code](sections/models-and-composition.md#section-10-5) |
 | <a id="11-the-unit-model-library-as-templates"></a>§11 The unit model library as templates | [models and composition: Unit models](sections/models-and-composition.md#section-11) |
 | <a id="111-catalog"></a>§11.1 Catalog | [models and composition: What ships and what executes](sections/models-and-composition.md#section-11-1) |
 | <a id="112-worked-template-the-heater"></a>§11.2 Worked template: the heater | [models and composition: Worked variant: adding heat input to a unit](sections/models-and-composition.md#section-11-2) |
-| <a id="113-worked-template-fragment-isentropic-pressure-change"></a>§11.3 Worked template fragment: isentropic pressure change | [models and composition: Isentropic pressure-change fragment — retired](sections/models-and-composition.md#section-11-3) |
+| <a id="113-worked-template-fragment-isentropic-pressure-change"></a>§11.3 Worked template fragment: isentropic pressure change | [models and composition: Pressure-change assumptions](sections/models-and-composition.md#section-11-3) |
 | <a id="114-derived-templates"></a>§11.4 Derived templates | [models and composition: Variants and narrowing](sections/models-and-composition.md#section-11-4) |
 | <a id="12-connectivity"></a>§12 Connectivity | [models and composition: Connectivity](sections/models-and-composition.md#section-12) |
 | <a id="121-ports"></a>§12.1 Ports | [models and composition: Typed ports](sections/models-and-composition.md#section-12-1) |
@@ -148,7 +149,7 @@ owner. A heading whose mechanism was retired leads to its one-line retirement po
 | <a id="131-the-flowsheet-template-and-time-domain"></a>§13.1 The flowsheet template and time domain | [workflows and results: Time domain and origins](sections/workflows-and-results.md#section-13-1) |
 | <a id="132-dynamic-and-holdup-inference"></a>§13.2 Dynamic and holdup inference | [workflows and results: Declared dynamic roles](sections/workflows-and-results.md#section-13-2) |
 | <a id="133-accumulation-terms-and-derivative-symbols"></a>§13.3 Accumulation terms and derivative symbols | [workflows and results: Time derivatives and accumulation](sections/workflows-and-results.md#section-13-3) |
-| <a id="134-discretization-is-a-lowering-pass-p11"></a>§13.4 Discretization is a lowering pass (P11) | [workflows and results: Discretization lowering pass — retired](sections/workflows-and-results.md#section-13-4) |
+| <a id="134-discretization-is-a-lowering-pass-p11"></a>§13.4 Discretization is a lowering pass (P11) | [workflows and results: Discretization lowering](sections/workflows-and-results.md#section-13-4) |
 | <a id="135-dynamic-operations-as-case-operations"></a>§13.5 Dynamic operations as case operations | [workflows and results: Dynamic operations over immutable revisions](sections/workflows-and-results.md#section-13-5) |
 | <a id="136-trajectory-backends"></a>§13.6 Trajectory backends | [workflows and results: Native integrators and trajectories](sections/workflows-and-results.md#section-13-6) |
 | <a id="14-the-compiler"></a>§14 The compiler | [mathematics and compilation: Compilation and preparation](sections/mathematics-and-compilation.md#section-14) |
@@ -170,13 +171,13 @@ owner. A heading whose mechanism was retired leads to its one-line retirement po
 | <a id="16-scaling-as-an-explicit-transformation"></a>§16 Scaling as an explicit transformation | [numerical execution: Numerical policy and scaling](sections/numerical-execution.md#section-16) |
 | <a id="161-model"></a>§16.1 Model | [numerical execution: Resolved numerical policy and normalization](sections/numerical-execution.md#section-16-1) |
 | <a id="162-sources-of-scaling-factors-in-precedence-order"></a>§16.2 Sources of scaling factors, in precedence order | [numerical execution: Sources and precedence](sections/numerical-execution.md#section-16-2) |
-| <a id="163-nominal-value-algebra-constraint-scaling-without-a-solved-point"></a>§16.3 Nominal value algebra (constraint scaling without a solved point) | [numerical execution: Nominal value algebra — retired](sections/numerical-execution.md#section-16-3) |
-| <a id="164-scaler-templates"></a>§16.4 Scaler templates | [numerical execution: Scaler templates — retired](sections/numerical-execution.md#section-16-4) |
+| <a id="163-nominal-value-algebra-constraint-scaling-without-a-solved-point"></a>§16.3 Nominal value algebra (constraint scaling without a solved point) | [numerical execution: Nominal value algebra](sections/numerical-execution.md#section-16-3) |
+| <a id="164-scaler-templates"></a>§16.4 Scaler templates | [numerical execution: Scaling schemes](sections/numerical-execution.md#section-16-4) |
 | <a id="165-profiling-and-persistence"></a>§16.5 Profiling and persistence | [numerical execution: Identity, provenance and persistence](sections/numerical-execution.md#section-16-5) |
 | <a id="17-initialization-plans"></a>§17 Initialization plans | [numerical execution: Initialization, starts and recycles](sections/numerical-execution.md#section-17) |
 | <a id="171-plan-model"></a>§17.1 Plan model | [numerical execution: Structural initialization model](sections/numerical-execution.md#section-17-1) |
-| <a id="172-standard-plan-templates"></a>§17.2 Standard plan templates | [numerical execution: Standard plan templates — retired](sections/numerical-execution.md#section-17-2) |
-| <a id="173-plug-ins-and-initialization-order"></a>§17.3 Plug-ins and initialization order | [numerical execution: Plug-ins and initialization order — retired](sections/numerical-execution.md#section-17-3) |
+| <a id="172-standard-plan-templates"></a>§17.2 Standard plan templates | [numerical execution: Authored initialization stages](sections/numerical-execution.md#section-17-2) |
+| <a id="173-plug-ins-and-initialization-order"></a>§17.3 Plug-ins and initialization order | [numerical execution: Initialization order](sections/numerical-execution.md#section-17-3) |
 | <a id="174-flowsheet-and-dynamic-plans"></a>§17.4 Flowsheet and dynamic plans | [numerical execution: Flowsheet recycles and dynamic starts](sections/numerical-execution.md#section-17-4) |
 | <a id="175-continuation-homotopy"></a>§17.5 Continuation (homotopy) | [numerical execution: Continuation](sections/numerical-execution.md#section-17-5) |
 | <a id="18-backends"></a>§18 Backends | [numerical execution: Native class-specific execution](sections/numerical-execution.md#section-18) |

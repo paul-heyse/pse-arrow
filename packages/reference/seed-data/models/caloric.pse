@@ -1,0 +1,90 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e1550b117611b1f5a20b04d5d8e2") package caloric_data {
+@id("01a0e1550b117611b1f5a20c24299be4") use caloric @"1.0.0";
+@id("01a0e1484fb87705b3f22bcefb1f99d8") use chem @"1.0.0";
+@id("01a0e159fa9673b48608c5b5334bcc1a") entity caloric.fit benzene_liquid_perry {}
+@id("01a0e159fa9673b48608c5b65afb49b5") entity caloric.fit toluene_liquid_perry {}
+@id("01a0e159fa9673b48608c5b7ec3d03a6") entity caloric.fit benzene_gas_rpp4_oracle {}
+@id("01a0e159fa9673b48608c5b8eba69344") entity caloric.fit toluene_gas_rpp4_oracle {}
+@id("01a0e159fa9673b48608c5b9bfe2c4df") entity caloric.fit methane_dippr100 {}
+@id("01a0e159fa9673b48608c5ba8ea10fae") entity caloric.fit ethane_dippr100 {}
+@id("01a0e159fa9673b48608c5bb3eba899d") entity caloric.fit propane_dippr100 {}
+@id("01a0e1484fb87705b3f22bd4297dde3d") dataset nitrogen_shomate:caloric.shomate source "NIST WebBook nitrogen CAS 7727-37-9; Chase 1998; January 2009 fit; 100-500 K" {
+[chem.nitrogen]=[28.98641,1.853978,-9.647459,16.63537,0.000117,100{K},500{K}];
+}
+@id("01a0e1484fb87705b3f22bd8fe49aa48") test nitrogen_shomate_values fixture {dof 0; run pure;} {
+@id("01a0e1484fb87705b3f22bd97567a8d4") expect caloric.shomate_cp(300{K},caloric.shomate[chem.nitrogen])==29.12{J/(mol*K)} tolerance 0.005{J/(mol*K)};
+@id("01a0e1484fb87705b3f22bda75574392") expect caloric.shomate_cp(400{K},caloric.shomate[chem.nitrogen])==29.25{J/(mol*K)} tolerance 0.005{J/(mol*K)};
+@id("01a0e1484fb87705b3f22bdb25394875") expect caloric.shomate_h_primitive(400{K},caloric.shomate[chem.nitrogen])-caloric.shomate_h_primitive(298.15{K},caloric.shomate[chem.nitrogen])==2970{J/mol} tolerance 5{J/mol};
+@id("01a0e1484fb87705b3f22bdc3e4d2d78") expect partial(caloric.shomate_h_primitive,T)(300{K},caloric.shomate[chem.nitrogen])==caloric.shomate_cp(300{K},caloric.shomate[chem.nitrogen]) tolerance 1e-10{J/(mol*K)};
+}
+
+@id("01a0e1550b117611b1f5a230f9f88967") dataset perry_liquid:caloric.polynomial source "Perry 7th edition Table 2-196 equation 1; J/(kmol K), T/K" {
+[benzene_liquid_perry]=[129440,-169.5,0.64781,0,0,0.001{J/(mol*K)},278.68{K},353.24{K}];
+[toluene_liquid_perry]=[140140,-152.3,0.695,0,0,0.001{J/(mol*K)},178.18{K},500{K}];
+}
+@id("01a0e1550b117611b1f5a2318d83dca8") test liquid_source_values fixture {dof 0; run pure;} {
+@id("01a0e1550b117611b1f5a23259ad1391") expect caloric.polynomial_cp(278.68{K},caloric.polynomial[benzene_liquid_perry])==132.51{J/(mol*K)} tolerance 0.005{J/(mol*K)};
+@id("01a0e1550b117611b1f5a233c70df80b") expect caloric.polynomial_cp(353.24{K},caloric.polynomial[benzene_liquid_perry])==150.40{J/(mol*K)} tolerance 0.005{J/(mol*K)};
+@id("01a0e1550b117611b1f5a2341a26a7d0") expect partial(caloric.polynomial_h_primitive,T)(300{K},caloric.polynomial[benzene_liquid_perry])==caloric.polynomial_cp(300{K},caloric.polynomial[benzene_liquid_perry]) tolerance 1e-10{J/(mol*K)};
+@id("01a0e1550b117611b1f5a235bb339a3b") expect partial(caloric.constant_h_primitive,T)(300{K},75.3{J/(mol*K)})==75.3{J/(mol*K)} tolerance 1e-10{J/(mol*K)};
+@id("01a0e1550b117611b1f5a23663f2aed6") expect caloric.constant_s_primitive(400{K},75.3{J/(mol*K)})-caloric.constant_s_primitive(300{K},75.3{J/(mol*K)})==21.662460055619096{J/(mol*K)} tolerance 1e-9{J/(mol*K)};
+}
+@id("01a0e1575d2f7080bba3cc615b4b23da") test liquid_references fixture {dof 0; run pure; value root.T=298.15{K}; value root.T_reference=298.15{K}; value root.h_reference=123{J/mol}; value root.s_reference=45{J/(mol*K)};} {
+@id("01a0e1575d2f7080bba3cc622f613a18") child root:caloric.PolynomialLiquid=caloric.PolynomialLiquid(p=caloric.polynomial[benzene_liquid_perry]);
+@id("01a0e1575d2f7080bba3cc6394e78f69") expect root.enthalpy==123{J/mol} tolerance 1e-10{J/mol};
+@id("01a0e1575d2f7080bba3cc647d816de7") expect root.entropy==45{J/(mol*K)} tolerance 1e-10{J/(mol*K)};
+}
+@id("01a0e1575d2f7080bba3cc655982e414") test gas_references fixture {dof 0; run pure; value root.T=298.15{K}; value root.T_reference=298.15{K}; value root.h_reference=123{J/mol}; value root.s_reference=45{J/(mol*K)};} {
+@id("01a0e1575d2f7080bba3cc66213af0f8") child root:caloric.PolynomialGas=caloric.PolynomialGas(p=caloric.polynomial[benzene_liquid_perry]);
+@id("01a0e1575d2f7080bba3cc67e4539412") expect root.enthalpy==123{J/mol} tolerance 1e-10{J/mol};
+@id("01a0e1575d2f7080bba3cc68915ad0c2") expect root.entropy==45{J/(mol*K)} tolerance 1e-10{J/(mol*K)};
+}
+@id("01a0e159fa9673b48608c5bc8713a574") dataset rpp4_oracle:caloric.polynomial source "IDAES 2.13 BT_ideal parameter inputs attributed to RPP4; controlled 298.15-500 K comparison envelope, not source validity certification" {
+[benzene_gas_rpp4_oracle]=[-33.92,0.4739,-0.0003017,0.00000007130,0,1{J/(mol*K)},298.15{K},500{K}];
+[toluene_gas_rpp4_oracle]=[-24.35,0.5125,-0.0002765,0.00000004911,0,1{J/(mol*K)},298.15{K},500{K}];
+}
+@id("01a0e159fa9673b48608c5bd80590841") dataset vessel_caloric:caloric.polynomial source "FeOS 0.10.1 poling2000.json DIPPR100; kgmol coordinates; controlled 298.15-500 K retirement comparison envelope" {
+[methane_dippr100]=[37980.46523972399,-74.62230199792532,0.3018981376651441,-0.00028327374140048084,9.071078716405182e-08,0.001{J/(mol*K)},298.15{K},500{K}];
+[ethane_dippr100]=[34737.82481864423,-36.80812601056439,0.4705985841874733,-0.000552994908733372,2.0678068531347104e-07,0.001{J/(mol*K)},298.15{K},500{K}];
+[propane_dippr100]=[31985.73769203551,42.66150769374427,0.4997823479771912,-0.0006562605344508351,2.5600230401293817e-07,0.001{J/(mol*K)},298.15{K},500{K}];
+}
+@id("01a0e159fa9673b48608c5be1e5e1b6b") test caloric_form_identities fixture {dof 0; run pure;} {
+@id("01a0e159fa9673b48608c5bf7c7b76c7") expect caloric.polynomial_cp(400{K},caloric.polynomial[benzene_gas_rpp4_oracle])==111.9312{J/(mol*K)} tolerance 1e-8{J/(mol*K)};
+@id("01a0e159fa9673b48608c5c07810b35a") expect partial(caloric.polynomial_h_primitive,T)(300{K},caloric.polynomial[benzene_liquid_perry])==caloric.polynomial_cp(300{K},caloric.polynomial[benzene_liquid_perry]) tolerance 1e-10{J/(mol*K)};
+@id("01a0e159fa9673b48608c5c190f5acc1") expect partial(caloric.polynomial_h_primitive,T)(300{K},caloric.polynomial[toluene_liquid_perry])==caloric.polynomial_cp(300{K},caloric.polynomial[toluene_liquid_perry]) tolerance 1e-10{J/(mol*K)};
+@id("01a0e159fa9673b48608c5c29c7d4cf8") expect partial(caloric.polynomial_h_primitive,T)(300{K},caloric.polynomial[benzene_gas_rpp4_oracle])==caloric.polynomial_cp(300{K},caloric.polynomial[benzene_gas_rpp4_oracle]) tolerance 1e-10{J/(mol*K)};
+@id("01a0e159fa9673b48608c5c390dc5288") expect partial(caloric.polynomial_h_primitive,T)(300{K},caloric.polynomial[toluene_gas_rpp4_oracle])==caloric.polynomial_cp(300{K},caloric.polynomial[toluene_gas_rpp4_oracle]) tolerance 1e-10{J/(mol*K)};
+@id("01a0e159fa9673b48608c5c4270dc931") expect partial(caloric.polynomial_h_primitive,T)(300{K},caloric.polynomial[methane_dippr100])==caloric.polynomial_cp(300{K},caloric.polynomial[methane_dippr100]) tolerance 1e-10{J/(mol*K)};
+@id("01a0e159fa9673b48608c5c5f3348415") expect partial(caloric.polynomial_h_primitive,T)(300{K},caloric.polynomial[ethane_dippr100])==caloric.polynomial_cp(300{K},caloric.polynomial[ethane_dippr100]) tolerance 1e-10{J/(mol*K)};
+@id("01a0e159fa9673b48608c5c611cb8a70") expect partial(caloric.polynomial_h_primitive,T)(300{K},caloric.polynomial[propane_dippr100])==caloric.polynomial_cp(300{K},caloric.polynomial[propane_dippr100]) tolerance 1e-10{J/(mol*K)};
+}
+@id("01a0e15f7bbc77769bb7a760a7d8b700") test entropy_derivative_identities fixture {dof 0; run pure;} {
+@id("01a0e15f7bbc77769bb7a7617899d529") expect partial(caloric.polynomial_entropy_coordinate,t)(300,caloric.polynomial[benzene_liquid_perry])==caloric.s_unit()*(caloric.polynomial_cp(300{K},caloric.polynomial[benzene_liquid_perry])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
+@id("01a0e15f7bbc77769bb7a7622877a1e6") expect partial(caloric.polynomial_entropy_coordinate,t)(300,caloric.polynomial[toluene_liquid_perry])==caloric.s_unit()*(caloric.polynomial_cp(300{K},caloric.polynomial[toluene_liquid_perry])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
+@id("01a0e15f7bbc77769bb7a7633a4ff937") expect partial(caloric.polynomial_entropy_coordinate,t)(300,caloric.polynomial[benzene_gas_rpp4_oracle])==caloric.s_unit()*(caloric.polynomial_cp(300{K},caloric.polynomial[benzene_gas_rpp4_oracle])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
+@id("01a0e15f7bbc77769bb7a7643d1243e0") expect partial(caloric.polynomial_entropy_coordinate,t)(300,caloric.polynomial[toluene_gas_rpp4_oracle])==caloric.s_unit()*(caloric.polynomial_cp(300{K},caloric.polynomial[toluene_gas_rpp4_oracle])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
+@id("01a0e15f7bbc77769bb7a7659f2fcd3f") expect partial(caloric.polynomial_entropy_coordinate,t)(300,caloric.polynomial[methane_dippr100])==caloric.s_unit()*(caloric.polynomial_cp(300{K},caloric.polynomial[methane_dippr100])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
+@id("01a0e15f7bbc77769bb7a7667b6fb9e3") expect partial(caloric.polynomial_entropy_coordinate,t)(300,caloric.polynomial[ethane_dippr100])==caloric.s_unit()*(caloric.polynomial_cp(300{K},caloric.polynomial[ethane_dippr100])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
+@id("01a0e15f7bbc77769bb7a7672fb8f934") expect partial(caloric.polynomial_entropy_coordinate,t)(300,caloric.polynomial[propane_dippr100])==caloric.s_unit()*(caloric.polynomial_cp(300{K},caloric.polynomial[propane_dippr100])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
+@id("01a0e15f7bbc77769bb7a7686128a08e") expect partial(caloric.shomate_entropy_coordinate,t)(300,caloric.shomate[chem.nitrogen])==caloric.s_unit()*(caloric.shomate_cp(300{K},caloric.shomate[chem.nitrogen])/caloric.cp_unit())/300 tolerance 1e-10{J/(mol*K)};
+@id("01a0e15f7bbc77769bb7a769964df2e0") expect partial(caloric.constant_entropy_coordinate,t)(300,75.3{J/(mol*K)})==0.251{J/(mol*K)} tolerance 1e-10{J/(mol*K)};
+}
+@id("01a0e16127e470a5896844b60f09f2ef") test liquid_envelope_rejected fixture {dof 0; run pure; failure trial_rejected "math.domain";} {
+@id("01a0e16127e470a5896844b70942a384") expect caloric.polynomial_cp(400{K},caloric.polynomial[benzene_liquid_perry])==150{J/(mol*K)} tolerance 1{J/(mol*K)};
+}
+@id("01a0e16127e470a5896844b87c45c7ed") test vessel_caloric_reference source "Plan14 Decimal DIPPR100 frozen oracle; tests/fixtures/plan14/thermo-reference.json" revision "plan14-thermodynamic-reference-v1" fixture {dof 0; run pure;} {
+@id("01a0e16127e470a5896844b9934b50cb") expect 0.2*(caloric.polynomial_h_primitive(300.0{K},caloric.polynomial[methane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[methane_dippr100])) + 0.3*(caloric.polynomial_h_primitive(300.0{K},caloric.polynomial[ethane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[ethane_dippr100])) + 0.5*(caloric.polynomial_h_primitive(300.0{K},caloric.polynomial[propane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[propane_dippr100]))==110.88591367620424{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e16127e470a5896844ba8749893e") expect 0.2*(caloric.polynomial_h_primitive(350.0{K},caloric.polynomial[methane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[methane_dippr100])) + 0.3*(caloric.polynomial_h_primitive(350.0{K},caloric.polynomial[ethane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[ethane_dippr100])) + 0.5*(caloric.polynomial_h_primitive(350.0{K},caloric.polynomial[propane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[propane_dippr100]))==3291.7026814953447{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e16127e470a5896844bbe30cd9bb") expect 0.6*(caloric.polynomial_h_primitive(400.0{K},caloric.polynomial[methane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[methane_dippr100])) + 0.25*(caloric.polynomial_h_primitive(400.0{K},caloric.polynomial[ethane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[ethane_dippr100])) + 0.15000000000000002*(caloric.polynomial_h_primitive(400.0{K},caloric.polynomial[propane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[propane_dippr100]))==5102.8281402246885{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e16127e470a5896844bcf5cfcd7d") expect 0.1*(caloric.polynomial_h_primitive(300.0{K},caloric.polynomial[methane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[methane_dippr100])) + 0.2*(caloric.polynomial_h_primitive(300.0{K},caloric.polynomial[ethane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[ethane_dippr100])) + 0.7*(caloric.polynomial_h_primitive(300.0{K},caloric.polynomial[propane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[propane_dippr100]))==121.87185639870955{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e16127e470a5896844bdb91478a0") expect 0.2*(caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[methane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[methane_dippr100])) + 0.3*(caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[ethane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[ethane_dippr100])) + 0.5*(caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[propane_dippr100])-caloric.polynomial_h_primitive(298.15{K},caloric.polynomial[propane_dippr100]))==0.0{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+}
+@id("01a0e1971f907551992598195248466c") entity caloric.fit benzene_liquid_idaes_oracle {}
+@id("01a0e1971f9075519925981a8c19e8c4") entity caloric.fit toluene_liquid_idaes_oracle {}
+@id("01a0e1971f9075519925981b9829c48a") dataset liquid_idaes_oracle:caloric.polynomial source "IDAES 2.13 BT_ideal.py and test_BTIdeal_FPhx.py; explicit J/(kmol K) coefficients, distinct from published Perry data" {
+[benzene_liquid_idaes_oracle]=[129,-0.17,0.000648,0,0,0.001{J/(mol*K)},298.15{K},450{K}];
+[toluene_liquid_idaes_oracle]=[140,-0.152,0.000695,0,0,0.001{J/(mol*K)},298.15{K},450{K}];
+}
+}

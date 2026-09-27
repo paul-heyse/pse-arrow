@@ -117,6 +117,7 @@ impl Pipeline {
         compatibility: Compatibility,
         limit: usize,
     ) -> Result<Self, ProblemError> {
+        let source_warm = warm;
         let normalization = oracle.normalization().cloned().unwrap_or_else(|| {
             pse_math::normalization::Normalization::identity(
                 oracle.contract().variables.len(),
@@ -492,6 +493,44 @@ impl Pipeline {
             nh,
             scaling: projected_scaling,
         };
+        // Propagation may fix a nonlinear row's last variable while retaining
+        // that row. Such a projection can be valid but is not admissible to an
+        // equality-matched native NLP. Auto is optional: keep the original problem
+        // rather than uploading an overdetermined transformed oracle.
+        if nr > 0 && report.proof.is_none() {
+            let admission = crate::structural::oracle(
+                &transport.contract, transport.jac.matrix().symbolic(),
+                &transport.bounds, crate::structural::Mode::Nlp,
+            );
+            if let Err(error) = admission {
+                if !matches!(policy, Policy::Auto) || !matches!(error, ProblemError::Structural { .. }) {
+                    return Err(error);
+                }
+                let reason = error.to_string();
+                drop(transport);
+                drop(outer);
+                drop(row_wrapper);
+                drop(affine);
+                let adapter = Rc::try_unwrap(original).map_err(|_| {
+                    ProblemError::Contract("presolve structural refusal retained callback owner".into())
+                })?.into_inner();
+                let execution = adapter.state.execution.clone();
+                // The original start and supplied original-space warm start remain
+                // the authorities; the declined wrapper's projected start is discarded.
+                let mut fallback = Self::new(adapter.oracle, initial, &Policy::Off,
+                    tolerance, scaling, execution, source_warm, compatibility, limit)?;
+                fallback.report.requested = policy.clone();
+                for (pass, mut decision) in report.passes {
+                    if decision.applied {
+                        decision.applied = false;
+                        decision.reason = Some("transformed equality matching failed; original coordinates retained".into());
+                    }
+                    fallback.report.passes.insert(pass, decision);
+                }
+                fallback.report.diagnostics.insert("structure.declined".into(), reason);
+                return Ok(fallback);
+            }
+        }
         Ok(Self {
             original,
             outer,
@@ -597,7 +636,7 @@ impl Pipeline {
                 Ok(())
             });
             if let Err(e) = result {
-                report.validation_error = Some(e.to_string());
+                report.record_validation_failure(e);
                 report.termination.assurance = Assurance::None;
             }
             if let Some(mut original) = self.original.borrow_mut().solution.take() {
@@ -650,7 +689,10 @@ impl Pipeline {
     }
 }
 fn failure(original: &Rc<RefCell<Adapter>>) -> ProblemError {
-    let a = original.borrow();
+    let mut a = original.borrow_mut();
+    if let Some(error) = a.state.last_failure.take() {
+        return error;
+    }
     if let Some((kind, message)) = &a.state.terminal {
         if *kind == Termination::Cancelled {
             return pse_math::MathError::Cancelled.into();

@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e15d9eff71b98e7519f362a7ba3d") package phase_data {
+@id("01a0e15d9eff71b98e7519f4efdb5ad8") use caloric @"1.0.0";
+@id("01a0e15d9eff71b98e7519f5332e09da") use pure_properties @"1.0.0";
+@id("01a0e15d9eff71b98e7519f61596e937") entity caloric.fit benzene_perry_density {}
+@id("01a0e15d9eff71b98e7519f7bff05cff") entity caloric.fit toluene_perry_density {}
+@id("01a0e15d9eff71b98e7519f81d919c04") entity caloric.fit water_perry_oracle {}
+@id("01a0e15d9eff71b98e7519f917c7805e") entity caloric.fit benzene_rpp4_oracle {}
+@id("01a0e15d9eff71b98e7519fa526ae0b6") entity caloric.fit toluene_rpp4_oracle {}
+@id("01a0e15d9eff71b98e7519fba701c2e8") entity caloric.fit water_rpp4_oracle {}
+@id("01a0e15d9eff71b98e7519fca5226d2f") dataset perry_densities:pure_properties.liquid_density source "Perry 7th edition Table 2-30; natural density kmol/m3; critical endpoint excluded" {
+[benzene_perry_density]=[1.0162,0.2655,562.16{K},0.28212,278.68{K},562.16{K}];
+[toluene_perry_density]=[0.8488,0.26655,591.8{K},0.2878,178.18{K},591.8{K}];
+}
+@id("01a0e15d9eff71b98e7519fd9901ed7a") dataset water_density_oracle:pure_properties.liquid_density source "IDAES 2.13 test_Perrys input values and selected comparison interval" {
+[water_perry_oracle]=[5.459,0.30542,647.13{K},0.081,273.16{K},333.15{K}];
+}
+@id("01a0e15d9eff71b98e7519fe3b8d583e") dataset rpp4_pressure_oracles:pure_properties.vapor_pressure source "IDAES 2.13 BT_ideal and test_RPP4 oracle inputs; selected comparison intervals" {
+[benzene_rpp4_oracle]=[-6.98273,1.33213,-2.62863,-3.33399,562.2{K},4890000{Pa},298.15{K},500{K}];
+[toluene_rpp4_oracle]=[-7.28607,1.38091,-2.83433,-2.79168,591.8{K},4100000{Pa},298.15{K},500{K}];
+[water_rpp4_oracle]=[-7.76451,1.45838,-2.77580,-1.23303,647.3{K},22120000{Pa},298.15{K},373.15{K}];
+}
+@id("01a0e15d9eff71b98e7519ff51aff28f") test water_source_oracles fixture {dof 0; run pure;} {
+@id("01a0e15d9eff71b98e751a00a736373f") expect pure_properties.perry_density(273.16{K},pure_properties.liquid_density[water_perry_oracle])==55583{mol/m3} tolerance 0{mol/m3} relative 1e-4;
+@id("01a0e15d9eff71b98e751a012d6427b3") expect pure_properties.perry_density(333.15{K},pure_properties.liquid_density[water_perry_oracle])==54703{mol/m3} tolerance 0{mol/m3} relative 1e-4;
+@id("01a0e15d9eff71b98e751a02cd650678") expect pure_properties.rpp4_pressure(298.15{K},pure_properties.vapor_pressure[water_rpp4_oracle])==3171.4391{Pa} tolerance 0.001{Pa};
+@id("01a0e15d9eff71b98e751a03fb0e887b") expect pure_properties.rpp4_pressure(373.15{K},pure_properties.vapor_pressure[water_rpp4_oracle])==101378{Pa} tolerance 0{Pa} relative 1e-4;
+}
+@id("01a0e15d9eff71b98e751a045545b291") test pressure_interface fixture {dof 0; run pure; value root.T=373.15{K};} {
+@id("01a0e15d9eff71b98e751a05327478aa") child root:pure_properties.VaporPressure=pure_properties.Rpp4VaporPressure(p=pure_properties.vapor_pressure[water_rpp4_oracle]);
+@id("01a0e15d9eff71b98e751a06aab4b497") expect root.pressure==101378{Pa} tolerance 0{Pa} relative 1e-4;
+}
+@id("01a0e16127e470a5896844b4731c4f7c") test critical_endpoint_rejected fixture {dof 0; run pure; failure trial_rejected "math.domain";} {
+@id("01a0e16127e470a5896844b51e6733d6") expect pure_properties.rpp4_pressure(562.2{K},pure_properties.vapor_pressure[benzene_rpp4_oracle])==4890000{Pa} tolerance 1{Pa};
+}
+}

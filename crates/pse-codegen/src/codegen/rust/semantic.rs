@@ -14,7 +14,7 @@ use crate::codegen::GeneratedTree;
 const NATIVE: &str = "crates/pse-relations/src/generated";
 const MODEL: &str = "crates/pse-model/src/generated";
 
-/// Serde is emitted only for actual document and durable receipt consumers.
+/// Serde is emitted only for document, analysis-request and durable receipt consumers.
 fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
     reg.documents()
         .iter()
@@ -24,6 +24,7 @@ fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
                 .map(|section| section.relation.to_owned())
         })
         .chain([
+            "authored.numerical_requirements".into(),
             "runtime.publications".into(),
             "runtime.native_dependencies".into(),
             "runtime.solver_capabilities".into(),

@@ -127,46 +127,10 @@ fn source_row(reg: &Registry, section: &DocumentSection) -> Result<String, Schem
     }
     let mut value: serde_json::Value =
         serde_json::from_str(&object).map_err(|cause| error(cause.to_string()))?;
-    for (path, syntax) in section.expression_fields {
-        let mut field = &mut value;
-        for segment in path.split('.') {
-            let name = segment.trim_end_matches("[]");
-            field = nonnull(field)
-                .get_mut("properties")
-                .and_then(|properties| properties.get_mut(name))
-                .ok_or_else(|| {
-                    error(format!(
-                        "declared source DSL path {path} absent from schema"
-                    ))
-                })?;
-            let depth = (segment.len() - name.len()) / 2;
-            for _ in 0..depth {
-                field = nonnull(field).get_mut("items").ok_or_else(|| {
-                    error(format!("declared source DSL path {path} is not a list"))
-                })?;
-            }
-        }
-        nonnull(field)["x-pse-dsl-syntax"] = serde_json::Value::String(syntax.as_str().to_owned());
-    }
     // Feature unification can enable serde_json/preserve_order in a workspace build.
     // Fix object ordering explicitly in either graph; arrays retain declaration order.
     value.sort_all_objects();
     serde_json::to_string(&value).map_err(|cause| error(cause.to_string()))
-}
-
-fn nonnull(value: &mut serde_json::Value) -> &mut serde_json::Value {
-    let nullable = value
-        .get("anyOf")
-        .and_then(serde_json::Value::as_array)
-        .is_some_and(|branches| {
-            branches.len() == 2
-                && branches[1].get("type").and_then(serde_json::Value::as_str) == Some("null")
-        });
-    if nullable {
-        &mut value["anyOf"][0]
-    } else {
-        value
-    }
 }
 
 fn object(properties: &[String], required: &[String]) -> String {

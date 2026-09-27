@@ -213,6 +213,47 @@ async fn durable_decode_checks_visible_binary_children_only() {
     }
 }
 
+#[test]
+fn storage_visibility_preserves_sliced_boolean_values_and_parent_masks() {
+    use datafusion::arrow::{
+        array::{Array, BooleanArray, StructArray},
+        buffer::NullBuffer,
+    };
+    let values = (0..24)
+        .map(|i| (i != 9).then_some(i % 2 == 0))
+        .collect::<Vec<_>>();
+    let source = StructArray::new(
+        vec![Arc::new(Field::new("flag", DataType::Boolean, true))].into(),
+        vec![Arc::new(BooleanArray::from(values.clone()))],
+        Some(NullBuffer::from(
+            (0..24).map(|i| i != 8).collect::<Vec<_>>(),
+        )),
+    );
+    // A non-byte-aligned child offset, a parent null, an independent child null,
+    // and visible true/false values exercise the validity and value coordinates.
+    for (offset, length) in [(0, 24), (7, 5), (8, 4), (9, 0)] {
+        let result = super::visibility::storage(Arc::new(source.slice(offset, length))).unwrap();
+        result.to_data().validate_full().unwrap();
+        let actual = result.as_any().downcast_ref::<StructArray>().unwrap();
+        let child = actual
+            .column(0)
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .unwrap();
+        for i in 0..length {
+            assert_eq!(actual.is_null(i), offset + i == 8);
+            assert_eq!(
+                child.iter().nth(i).unwrap(),
+                if offset + i == 8 {
+                    None
+                } else {
+                    values[offset + i]
+                }
+            );
+        }
+    }
+}
+
 #[tokio::test]
 #[expect(
     clippy::too_many_lines,

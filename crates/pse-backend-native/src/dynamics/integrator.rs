@@ -92,7 +92,7 @@ impl Shared<'_> {
     }
     fn nout_mode(&self, mode: usize, f: Function) -> usize {
         match f {
-            Function::BalanceFlux => self.contract.balances.len(),
+            Function::QuadratureFlux => self.contract.quadratures.len(),
             Function::Output => self.contract.outputs.len(),
             Function::Roots => self.contract.events[mode].len(),
             _ => self.contract.states.len(),
@@ -412,7 +412,7 @@ pub(super) fn integrate_with_progress(
         oracle: RefCell::new(oracle),
         contract: contract_value.clone(),
         parameters: RefCell::new(parameters.to_vec()),
-        integrals: RefCell::new(vec![0.0; contract_value.balances.len()]),
+        integrals: RefCell::new(vec![0.0; contract_value.quadratures.len()]),
         mode: Cell::new(0),
         seed: RefCell::new(None),
         seed_sens: RefCell::new(None),
@@ -467,10 +467,10 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
             init: Operator::new(shared.clone(), Function::Initial)?,
             out: Operator::new(
                 shared.clone(),
-                if shared.contract.balances.is_empty() {
+                if shared.contract.quadratures.is_empty() {
                     Function::Output
                 } else {
-                    Function::BalanceFlux
+                    Function::QuadratureFlux
                 },
             )?,
             root: Operator::new(shared.clone(), Function::Roots)?,
@@ -597,7 +597,8 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
                         .evaluate(Function::Output, time, &state, false)
                         .values;
                     r.samples.push(Sample {
-                        balance_integrals: shared.integrals.borrow().clone(),
+                        mode: shared.mode.get(),
+                        integrals: shared.integrals.borrow().clone(),
                         time,
                         state: state.clone(),
                         outputs,
@@ -814,7 +815,7 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             s.state_mut_back(time).map_err(native)?;
         }
         if root.is_some() || matches!(reason, OdeSolverStopReason::TstopReached) {
-            if !shared.contract.balances.is_empty() {
+            if !shared.contract.quadratures.is_empty() {
                 let g = s.state().g;
                 for (total, value) in shared.integrals.borrow_mut().iter_mut().zip(g.as_slice()) {
                     *total += value;
@@ -883,7 +884,7 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             return Err(contract("nonfinite output sensitivity"));
         }
     }
-    let balance_integrals = if shared.contract.balances.is_empty() {
+    let integrals = if shared.contract.quadratures.is_empty() {
         vec![]
     } else {
         let g = s.interpolate_out(t).map_err(native)?;
@@ -894,7 +895,8 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             .collect()
     };
     Ok(Sample {
-        balance_integrals,
+                        mode: shared.mode.get(),
+        integrals,
         time: t,
         state: y.as_slice().to_vec(),
         outputs: eval.values,

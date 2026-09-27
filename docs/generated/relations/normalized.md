@@ -2,27 +2,6 @@
 
 # normalized relations
 
-## `instance_bindings`
-
-Complete finite prospective roots and children; guards are decided by P4.
-
-Version: 1. Snapshot class: `derived`. Primary key: `instance_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `instance_id` | `semantic_id` | false | `key` | — | — |
-| `parent_instance_id` | `semantic_id` | true | `payload` | — | — |
-| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
-| `submodel_template_id` | `semantic_id` | true | `payload` | — | — |
-| `submodel_name` | `Utf8` | true | `payload` | — | — |
-| `index` | `index_tuple` | false | `payload` | — | — |
-| `path` | `Utf8` | false | `payload` | — | — |
-| `property_package_id` | `semantic_id` | true | `payload` | — | — |
-| `reaction_package_id` | `semantic_id` | true | `payload` | — | — |
-| `guard_source_id` | `semantic_id` | true | `payload` | — | — |
-| `guard_node_id` | `Int64` | true | `payload` | — | — |
-| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
-
 ## `package_graph`
 
 P0's output: every referenced package pinned by content hash, with its depth and its resolved dependencies. Phase 0 admits exact version requirements only.
@@ -38,41 +17,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `package_id`.
 | `dependency_package_ids` | `List` | false | `payload` | — | — |
 | `dependency_package_ids.item` | `semantic_id` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
-
-## `resolved_source_occurrences`
-
-Native occurrence/declaration joins retain every matching declaration, including ambiguous matches; syntax binding must select the declared lexical/global/template scope.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `document_id, field_path, ordinal, match_ordinal`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `document_id` | `semantic_id` | false | `key` | — | — |
-| `field_path` | `Utf8` | false | `key` | — | — |
-| `ordinal` | `Int64` | false | `key` | — | — |
-| `match_ordinal` | `Int64` | false | `key` | — | — |
-| `source_key` | `content_hash` | false | `payload` | — | — |
-| `kind` | `enum:SourceBindingKind` | false | `payload` | — | — |
-| `owner_template_id` | `semantic_id` | true | `payload` | — | — |
-| `semantic_id` | `semantic_id` | true | `payload` | — | — |
-| `name` | `Utf8` | false | `payload` | — | — |
-
-## `source_occurrences`
-
-Parser field roots (lookup_name absent), named path segments and qualified prefixes. Field paths and source spans locate syntax; native source-key projection binds the complete declared key of the retained source row. Lexical interpretation remains in the source AST.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `document_id, field_path, ordinal`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `document_id` | `semantic_id` | false | `key` | `authored.documents.document_id` | — |
-| `field_path` | `Utf8` | false | `key` | — | — |
-| `ordinal` | `Int64` | false | `key` | — | — |
-| `source_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
-| `owner_kind` | `enum:ExpressionOwnerKind` | false | `payload` | — | — |
-| `owner_id` | `semantic_id` | false | `payload` | — | — |
-| `lookup_name` | `Utf8` | true | `payload` | — | — |
-| `source_span` | `source_span` | false | `payload` | — | — |
 
 ## `units`
 

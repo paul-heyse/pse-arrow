@@ -23,12 +23,30 @@ pub(super) fn storage(array: ArrayRef) -> Result<ArrayRef> {
                 .ok_or_else(|| {
                     DataFusionError::Internal("declared struct has a different Arrow array".into())
                 })?;
-            // flatten owns parent-mask propagation, including already-null children.
-            // Keep the declared fields: child nulls remain hidden by the same parent.
-            let (_, children) = source.flatten();
-            let children = children
-                .into_iter()
-                .map(storage)
+            // Nullable gather propagates the parent mask and normalizes sliced
+            // child offsets. Arrow 59.3 flatten/nullif attach a fresh mask to the
+            // original offset of Boolean children, producing an invalid bitmap.
+            // Keep declared fields: added child nulls are hidden by this parent.
+            let indices = if source.null_count() == 0 {
+                None
+            } else {
+                let length = u64::try_from(source.len())
+                    .map_err(|error| DataFusionError::External(Box::new(error)))?;
+                Some(UInt64Array::new(
+                    (0..length).collect::<Vec<_>>().into(),
+                    source.nulls().cloned(),
+                ))
+            };
+            let children = source
+                .columns()
+                .iter()
+                .map(|child| {
+                    let child = match &indices {
+                        Some(indices) => take(child.as_ref(), indices, None)?,
+                        None => Arc::clone(child),
+                    };
+                    storage(child)
+                })
                 .collect::<Result<Vec<_>>>()?;
             Ok(Arc::new(StructArray::try_new_with_length(
                 source.fields().clone(),

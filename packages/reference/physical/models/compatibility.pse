@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// Sanctioned compatibility names; numerical algorithms do not dispatch on these enums.
+@id("6fd64d1df0894dbbadd325c6fdf579c1") package compatibility {
+    @id("cce87b2dfba84402b55c7c17124b799b") enum BlowerMaterial {CarbonSteel, Aluminum, Fiberglass, StainlessSteel, NickelAlloy}
+    @id("a9646d20486f446fb61b500daf846707") enum BlowerType {Centrifugal, Rotary}
+    @id("20fc3b921d7c47f49a46e1dd248fe827") enum ComponentType {Component, Solute, Solvent, Ion, Anion, Cation, Apparent}
+    @id("973b5cd502674a30ab47acf1404437e7") enum CompressorDriveType {ElectricMotor, SteamTurbine, gasTurbine}
+    @id("3cb672370ac94cabb5ed13be6ff95d1b") enum CompressorMaterial {CarbonSteel, StainlessSteel, NickelAlloy}
+    @id("b601d9efb1e64ce3a32d4cdb6da9c9b0") enum CompressorType {Centrifugal, Reciprocating, Screw}
+    @id("f918c0154ca545ed844c45a4b898ce49") enum ConcentrationForm {molarity, activity, molality, moleFraction, massFraction, partialPressure}
+    @id("98d59a58758a4f44808714314b76b6f3") enum ControllerAntiwindupType {NONE, CONDITIONAL_INTEGRATION, BACK_CALCULATION}
+    @id("4052882992ad4a5faea02c997a9f8825") enum ControllerMVBoundType {NONE, SMOOTH_BOUND, LOGISTIC}
+    @id("9ba6a5f23d8e455982a95a61c40afe30") enum ControllerType {P, PI, PD, PID}
+    @id("bd0cf113def7439398be5c8950709c2f") enum CubicType {PR, SRK}
+    @id("c0bb4960736c490d892c70315574eac8") enum DaeVarTypes {ALGEBRAIC, DIFFERENTIAL, DERIVATIVE, TIME}
+    @id("818a639606db4cca8e534ac3b6e14773") enum DefaultScalingRecommendation {userInputRecommended, userInputRequired, userSetManually}
+    @id("6e5f65c6fb9445c69061b82e04b428d7") enum DiscretizationScheme {BACKWARD, FORWARD, CENTRAL, LAGRANGE_RADAU, LAGRANGE_LEGENDRE}
+    @id("255d4b78aa0e475e9f21db76e1ca0e6f") enum DistributedVars {variant, uniform}
+    @id("ab6045d82b3b4637a79106532c52b14f") enum EnergyBalanceType {useDefault, none, enthalpyPhase, enthalpyTotal, energyPhase, energyTotal, isothermal}
+    @id("55c43362aa8c4172a41cb0fc817745e4") enum EnergySplittingType {none, equal_temperature, equal_molar_enthalpy, enthalpy_split}
+    @id("adc6fdec53bf43ddb7ec902be035416a") enum FanMaterial {CarbonSteel, Fiberglass, StainlessSteel, NickelAlloy}
+    @id("19c5a39f04974cba92919c3699e95629") enum FanType {CentrifugalBackward, CentrifugalStraight, VaneAxial, TubeAxial}
+    @id("7ab1798adcb446daa0b13dcd0e4502f6") enum FlashType {isothermal, isenthalpic}
+    @id("fe538bfac7b748998ae0b259383433f9") enum FlowDirection {notSet, forward, backward}
+    @id("d84207108a564b379f26e04374c23a56") enum HXMaterial {CarbonSteelCarbonSteel, CarbonSteelBrass, CarbonSteelStainlessSteel, CarbonSteelMonel, CarbonSteelTitanium, CarbonSteelCrMoSteel, CrMoSteelCrMoSteel, StainlessSteelStainlessSteel, MonelMonel, TitaniumTitanium}
+    @id("1acac6cbbd6649bf8b99042b0422e603") enum HXTubeLength {EightFoot, TwelveFoot, SixteenFoot, TwentyFoot}
+    @id("0e621c933939422f82f76ad2f49d3a65") enum HXType {floating_head, fixed_head, Utube, kettle_vap}
+    @id("ab2c0784bc9b4a51abd186ad100385d7") enum HeatExchangerFlowPattern {countercurrent, cocurrent, crossflow}
+    @id("1a00433147bd4076b06a58c5592dcb5c") enum HeaterMaterial {CarbonSteel, CrMoSteel, StainlessSteel}
+    @id("6fe3d8d9c2704f9bb94bb0c1876a1048") enum HeaterSource {Fuel, Reformer, Pyrolysis, HotWater, Salts, DowthermA, steamBoiler}
+    @id("bacc88d81e91493c9a62d2c7aa7a3918") enum HenryType {Hcp, Hxp, Kpc, Kpx}
+    @id("25381f72c3cd412da6d968ed7179fffa") enum InitializationStatus {Ok, none, Failed, DoF, PrecheckFailed, Error}
+    @id("68ba94f5ed074ce7a949cf29d9a67d86") enum MaterialBalanceType {useDefault, none, componentPhase, componentTotal, elementTotal, total}
+    @id("77a4fbb8960444e8849b63fccbfa2d4d") enum MaterialFlowBasis {molar, mass, other}
+    @id("293871e8f55647e7ae4d48345569adb4") enum MixingType {none, extensive}
+    @id("3ca8e77e3f814cf1b360b4f3daf9e2a0") enum MomentumBalanceType {none, pressureTotal, pressurePhase, momentumTotal, momentumPhase}
+    @id("3bd0aea27ce34cd585f570d7732374e3") enum MomentumMixingType {none, minimize, equality, minimize_and_equality}
+    @id("4c71f127fd274d9c938224796b73634f") enum PhaseType {undefined, liquidPhase, vaporPhase, solidPhase, aqueousPhase}
+    @id("0ba581ed91124e9ab59844380e0fc17a") enum PumpMaterial {CastIron, DuctileIron, CastSteel, Bronze, StainlessSteel, HastelloyC, Monel, Nickel, Titanium, NiAlBronze, CarbonSteel}
+    @id("bee8922867ce46a19d58d0fcbb6748ee") enum PumpMotorType {Open, Enclosed, ExplosionProof}
+    @id("5734c1f7283d46abae9f6fa95c303d8b") enum PumpType {Centrifugal, ExternalGear, Reciprocating}
+    @id("41d74aca8d554639a913963996389785") enum SplittingType {totalFlow, phaseFlow, componentFlow, phaseComponentFlow}
+    @id("3b3f5f5a6ec5415a88f363966fc03bb4") enum StateIndex {true, apparent}
+    @id("e67edea3188c4fe4ba5c37fb9fc3fb03") enum ThermodynamicAssumption {isothermal, isentropic, pump, adiabatic}
+    @id("486ac967b62e43eeac8bff2e05a18050") enum TrayMaterial {CarbonSteel, StainlessSteel303, StainlessSteel316, Carpenter20CB3, Monel}
+    @id("cb1d53f56611436baeafbc7f0f7167d8") enum TrayType {Sieve, Valve, BubbleCap}
+    @id("f7730f9a82b24860a771f3cfbcaa97e0") enum ValveFunctionType {linear, quick_opening, equal_percentage}
+    @id("11ffe32671e54512a48be6e2bf517929") enum VesselMaterial {CarbonSteel, LowAlloySteel, StainlessSteel304, StainlessSteel316, Carpenter20CB3, Nickel200, Monel400, Inconel600, Incoloy825, Titanium}
+}

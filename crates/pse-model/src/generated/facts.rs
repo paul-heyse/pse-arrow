@@ -5,214 +5,32 @@
 /// Typed relation values at the synchronous/relational compiler boundary.
 #[derive(Clone, Debug, PartialEq)]
 pub enum FactBatch {
-    #[doc = stringify!(r#AuthoredCaseActivationTargets)]
-    r#AuthoredCaseActivationTargets(
-        Vec<super::r#authored::r#case_activation_targets::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredCaseActivations)]
-    r#AuthoredCaseActivations(Vec<super::r#authored::r#case_activations::Row>),
-    #[doc = stringify!(r#AuthoredCaseObjectives)]
-    r#AuthoredCaseObjectives(Vec<super::r#authored::r#case_objectives::Row>),
-    #[doc = stringify!(r#AuthoredCasePolicies)]
-    r#AuthoredCasePolicies(Vec<super::r#authored::r#case_policies::Row>),
-    #[doc = stringify!(r#AuthoredCaseSetSamples)]
-    r#AuthoredCaseSetSamples(Vec<super::r#authored::r#case_set_samples::Row>),
-    #[doc = stringify!(r#AuthoredCaseSets)]
-    r#AuthoredCaseSets(Vec<super::r#authored::r#case_sets::Row>),
-    #[doc = stringify!(r#AuthoredCaseSpecTargets)]
-    r#AuthoredCaseSpecTargets(Vec<super::r#authored::r#case_spec_targets::Row>),
-    #[doc = stringify!(r#AuthoredCaseSpecs)]
-    r#AuthoredCaseSpecs(Vec<super::r#authored::r#case_specs::Row>),
-    #[doc = stringify!(r#AuthoredCases)]
-    r#AuthoredCases(Vec<super::r#authored::r#cases::Row>),
-    #[doc = stringify!(r#AuthoredComputationModels)]
-    r#AuthoredComputationModels(Vec<super::r#authored::r#computation_models::Row>),
-    #[doc = stringify!(r#AuthoredConnections)]
-    r#AuthoredConnections(Vec<super::r#authored::r#connections::Row>),
-    #[doc = stringify!(r#AuthoredContinuousDomains)]
-    r#AuthoredContinuousDomains(Vec<super::r#authored::r#continuous_domains::Row>),
     #[doc = stringify!(r#AuthoredDatasets)]
     r#AuthoredDatasets(Vec<super::r#authored::r#datasets::Row>),
-    #[doc = stringify!(r#AuthoredDefaultScaling)]
-    r#AuthoredDefaultScaling(Vec<super::r#authored::r#default_scaling::Row>),
-    #[doc = stringify!(r#AuthoredDirectionalValveLaws)]
-    r#AuthoredDirectionalValveLaws(
-        Vec<super::r#authored::r#directional_valve_laws::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredDocumentEdits)]
-    r#AuthoredDocumentEdits(Vec<super::r#authored::r#document_edits::Row>),
     #[doc = stringify!(r#AuthoredDocuments)]
     r#AuthoredDocuments(Vec<super::r#authored::r#documents::Row>),
-    #[doc = stringify!(r#AuthoredDomainMembers)]
-    r#AuthoredDomainMembers(Vec<super::r#authored::r#domain_members::Row>),
-    #[doc = stringify!(r#AuthoredDomains)]
-    r#AuthoredDomains(Vec<super::r#authored::r#domains::Row>),
-    #[doc = stringify!(r#AuthoredDynamicCases)]
-    r#AuthoredDynamicCases(Vec<super::r#authored::r#dynamic_cases::Row>),
     #[doc = stringify!(r#AuthoredEntities)]
     r#AuthoredEntities(Vec<super::r#authored::r#entities::Row>),
     #[doc = stringify!(r#AuthoredFitCases)]
     r#AuthoredFitCases(Vec<super::r#authored::r#fit_cases::Row>),
-    #[doc = stringify!(r#AuthoredFlowsheets)]
-    r#AuthoredFlowsheets(Vec<super::r#authored::r#flowsheets::Row>),
-    #[doc = stringify!(r#AuthoredHenryDeclarations)]
-    r#AuthoredHenryDeclarations(Vec<super::r#authored::r#henry_declarations::Row>),
-    #[doc = stringify!(r#AuthoredInstanceDomainBindings)]
-    r#AuthoredInstanceDomainBindings(
-        Vec<super::r#authored::r#instance_domain_bindings::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredInstanceEquations)]
-    r#AuthoredInstanceEquations(Vec<super::r#authored::r#instance_equations::Row>),
-    #[doc = stringify!(r#AuthoredInstances)]
-    r#AuthoredInstances(Vec<super::r#authored::r#instances::Row>),
-    #[doc = stringify!(r#AuthoredMaterialSystems)]
-    r#AuthoredMaterialSystems(Vec<super::r#authored::r#material_systems::Row>),
-    #[doc = stringify!(r#AuthoredMethodSelections)]
-    r#AuthoredMethodSelections(Vec<super::r#authored::r#method_selections::Row>),
-    #[doc = stringify!(r#AuthoredModelCompositions)]
-    r#AuthoredModelCompositions(Vec<super::r#authored::r#model_compositions::Row>),
-    #[doc = stringify!(r#AuthoredNativeProviders)]
-    r#AuthoredNativeProviders(Vec<super::r#authored::r#native_providers::Row>),
+    #[doc = stringify!(r#AuthoredModelingDeclarations)]
+    r#AuthoredModelingDeclarations(Vec<super::r#authored::r#modeling_declarations::Row>),
     #[doc = stringify!(r#AuthoredNumericalRequirements)]
     r#AuthoredNumericalRequirements(
         Vec<super::r#authored::r#numerical_requirements::Row>,
     ),
-    #[doc = stringify!(r#AuthoredObservationTargets)]
-    r#AuthoredObservationTargets(Vec<super::r#authored::r#observation_targets::Row>),
     #[doc = stringify!(r#AuthoredObservations)]
     r#AuthoredObservations(Vec<super::r#authored::r#observations::Row>),
+    #[doc = stringify!(r#AuthoredPackageQuantityAliases)]
+    r#AuthoredPackageQuantityAliases(
+        Vec<super::r#authored::r#package_quantity_aliases::Row>,
+    ),
     #[doc = stringify!(r#AuthoredPackageUnitSets)]
     r#AuthoredPackageUnitSets(Vec<super::r#authored::r#package_unit_sets::Row>),
     #[doc = stringify!(r#AuthoredPackages)]
     r#AuthoredPackages(Vec<super::r#authored::r#packages::Row>),
-    #[doc = stringify!(r#AuthoredParameterValues)]
-    r#AuthoredParameterValues(Vec<super::r#authored::r#parameter_values::Row>),
-    #[doc = stringify!(r#AuthoredPhaseEquilibriumPairs)]
-    r#AuthoredPhaseEquilibriumPairs(
-        Vec<super::r#authored::r#phase_equilibrium_pairs::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredPhaseSpecies)]
-    r#AuthoredPhaseSpecies(Vec<super::r#authored::r#phase_species::Row>),
-    #[doc = stringify!(r#AuthoredPhases)]
-    r#AuthoredPhases(Vec<super::r#authored::r#phases::Row>),
-    #[doc = stringify!(r#AuthoredPhysicalBalances)]
-    r#AuthoredPhysicalBalances(Vec<super::r#authored::r#physical_balances::Row>),
-    #[doc = stringify!(r#AuthoredPropertyPackages)]
-    r#AuthoredPropertyPackages(Vec<super::r#authored::r#property_packages::Row>),
-    #[doc = stringify!(r#AuthoredProviderScalingBindings)]
-    r#AuthoredProviderScalingBindings(
-        Vec<super::r#authored::r#provider_scaling_bindings::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredReactionApplications)]
-    r#AuthoredReactionApplications(Vec<super::r#authored::r#reaction_applications::Row>),
-    #[doc = stringify!(r#AuthoredReactionMethods)]
-    r#AuthoredReactionMethods(Vec<super::r#authored::r#reaction_methods::Row>),
-    #[doc = stringify!(r#AuthoredReactionPackages)]
-    r#AuthoredReactionPackages(Vec<super::r#authored::r#reaction_packages::Row>),
-    #[doc = stringify!(r#AuthoredReactions)]
-    r#AuthoredReactions(Vec<super::r#authored::r#reactions::Row>),
-    #[doc = stringify!(r#AuthoredRenameRequests)]
-    r#AuthoredRenameRequests(Vec<super::r#authored::r#rename_requests::Row>),
-    #[doc = stringify!(r#AuthoredScenarios)]
-    r#AuthoredScenarios(Vec<super::r#authored::r#scenarios::Row>),
-    #[doc = stringify!(r#AuthoredScopes)]
-    r#AuthoredScopes(Vec<super::r#authored::r#scopes::Row>),
-    #[doc = stringify!(r#AuthoredSelectorTerms)]
-    r#AuthoredSelectorTerms(Vec<super::r#authored::r#selector_terms::Row>),
-    #[doc = stringify!(r#AuthoredSpecies)]
-    r#AuthoredSpecies(Vec<super::r#authored::r#species::Row>),
-    #[doc = stringify!(r#AuthoredSpeciesElements)]
-    r#AuthoredSpeciesElements(Vec<super::r#authored::r#species_elements::Row>),
-    #[doc = stringify!(r#AuthoredStateBounds)]
-    r#AuthoredStateBounds(Vec<super::r#authored::r#state_bounds::Row>),
-    #[doc = stringify!(r#AuthoredStoichiometry)]
-    r#AuthoredStoichiometry(Vec<super::r#authored::r#stoichiometry::Row>),
-    #[doc = stringify!(r#AuthoredTemplateContributionContracts)]
-    r#AuthoredTemplateContributionContracts(
-        Vec<super::r#authored::r#template_contribution_contracts::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateContributions)]
-    r#AuthoredTemplateContributions(
-        Vec<super::r#authored::r#template_contributions::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateDerivatives)]
-    r#AuthoredTemplateDerivatives(Vec<super::r#authored::r#template_derivatives::Row>),
-    #[doc = stringify!(r#AuthoredTemplateDisplay)]
-    r#AuthoredTemplateDisplay(Vec<super::r#authored::r#template_display::Row>),
-    #[doc = stringify!(r#AuthoredTemplateDisplayIndices)]
-    r#AuthoredTemplateDisplayIndices(
-        Vec<super::r#authored::r#template_display_indices::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateDomainBindings)]
-    r#AuthoredTemplateDomainBindings(
-        Vec<super::r#authored::r#template_domain_bindings::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateDomains)]
-    r#AuthoredTemplateDomains(Vec<super::r#authored::r#template_domains::Row>),
-    #[doc = stringify!(r#AuthoredTemplateEquations)]
-    r#AuthoredTemplateEquations(Vec<super::r#authored::r#template_equations::Row>),
-    #[doc = stringify!(r#AuthoredTemplateFeatureRules)]
-    r#AuthoredTemplateFeatureRules(
-        Vec<super::r#authored::r#template_feature_rules::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateFeatures)]
-    r#AuthoredTemplateFeatures(Vec<super::r#authored::r#template_features::Row>),
-    #[doc = stringify!(r#AuthoredTemplateGuards)]
-    r#AuthoredTemplateGuards(Vec<super::r#authored::r#template_guards::Row>),
-    #[doc = stringify!(r#AuthoredTemplateLawContracts)]
-    r#AuthoredTemplateLawContracts(
-        Vec<super::r#authored::r#template_law_contracts::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateLawInstances)]
-    r#AuthoredTemplateLawInstances(
-        Vec<super::r#authored::r#template_law_instances::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateMaterialConstraints)]
-    r#AuthoredTemplateMaterialConstraints(
-        Vec<super::r#authored::r#template_material_constraints::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateParams)]
-    r#AuthoredTemplateParams(Vec<super::r#authored::r#template_params::Row>),
-    #[doc = stringify!(r#AuthoredTemplatePortMembers)]
-    r#AuthoredTemplatePortMembers(Vec<super::r#authored::r#template_port_members::Row>),
-    #[doc = stringify!(r#AuthoredTemplatePorts)]
-    r#AuthoredTemplatePorts(Vec<super::r#authored::r#template_ports::Row>),
-    #[doc = stringify!(r#AuthoredTemplatePropertyRequirements)]
-    r#AuthoredTemplatePropertyRequirements(
-        Vec<super::r#authored::r#template_property_requirements::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateRequirements)]
-    r#AuthoredTemplateRequirements(Vec<super::r#authored::r#template_requirements::Row>),
-    #[doc = stringify!(r#AuthoredTemplateScopes)]
-    r#AuthoredTemplateScopes(Vec<super::r#authored::r#template_scopes::Row>),
-    #[doc = stringify!(r#AuthoredTemplateSubmodels)]
-    r#AuthoredTemplateSubmodels(Vec<super::r#authored::r#template_submodels::Row>),
-    #[doc = stringify!(r#AuthoredTemplateSymbolContracts)]
-    r#AuthoredTemplateSymbolContracts(
-        Vec<super::r#authored::r#template_symbol_contracts::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateSymbolExpressions)]
-    r#AuthoredTemplateSymbolExpressions(
-        Vec<super::r#authored::r#template_symbol_expressions::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateSymbolProperties)]
-    r#AuthoredTemplateSymbolProperties(
-        Vec<super::r#authored::r#template_symbol_properties::Row>,
-    ),
-    #[doc = stringify!(r#AuthoredTemplateSymbols)]
-    r#AuthoredTemplateSymbols(Vec<super::r#authored::r#template_symbols::Row>),
-    #[doc = stringify!(r#AuthoredTemplates)]
-    r#AuthoredTemplates(Vec<super::r#authored::r#templates::Row>),
-    #[doc = stringify!(r#NormalizedInstanceBindings)]
-    r#NormalizedInstanceBindings(Vec<super::r#normalized::r#instance_bindings::Row>),
     #[doc = stringify!(r#NormalizedPackageGraph)]
     r#NormalizedPackageGraph(Vec<super::r#normalized::r#package_graph::Row>),
-    #[doc = stringify!(r#NormalizedResolvedSourceOccurrences)]
-    r#NormalizedResolvedSourceOccurrences(
-        Vec<super::r#normalized::r#resolved_source_occurrences::Row>,
-    ),
-    #[doc = stringify!(r#NormalizedSourceOccurrences)]
-    r#NormalizedSourceOccurrences(Vec<super::r#normalized::r#source_occurrences::Row>),
     #[doc = stringify!(r#NormalizedUnits)]
     r#NormalizedUnits(Vec<super::r#normalized::r#units::Row>),
     #[doc = stringify!(r#ProvenanceAssertions)]
@@ -231,52 +49,20 @@ pub enum FactBatch {
     r#ReferenceArtifactProfiles(Vec<super::r#reference::r#artifact_profiles::Row>),
     #[doc = stringify!(r#ReferenceBases)]
     r#ReferenceBases(Vec<super::r#reference::r#bases::Row>),
-    #[doc = stringify!(r#ReferenceConnectionBindings)]
-    r#ReferenceConnectionBindings(Vec<super::r#reference::r#connection_bindings::Row>),
     #[doc = stringify!(r#ReferenceConstants)]
     r#ReferenceConstants(Vec<super::r#reference::r#constants::Row>),
     #[doc = stringify!(r#ReferenceConversionRules)]
     r#ReferenceConversionRules(Vec<super::r#reference::r#conversion_rules::Row>),
     #[doc = stringify!(r#ReferenceDimensions)]
     r#ReferenceDimensions(Vec<super::r#reference::r#dimensions::Row>),
-    #[doc = stringify!(r#ReferenceElementProjectionContracts)]
-    r#ReferenceElementProjectionContracts(
-        Vec<super::r#reference::r#element_projection_contracts::Row>,
-    ),
-    #[doc = stringify!(r#ReferenceElements)]
-    r#ReferenceElements(Vec<super::r#reference::r#elements::Row>),
     #[doc = stringify!(r#ReferenceEngineProfiles)]
     r#ReferenceEngineProfiles(Vec<super::r#reference::r#engine_profiles::Row>),
     #[doc = stringify!(r#ReferenceFunctionCapabilities)]
     r#ReferenceFunctionCapabilities(
         Vec<super::r#reference::r#function_capabilities::Row>,
     ),
-    #[doc = stringify!(r#ReferenceLawBindings)]
-    r#ReferenceLawBindings(Vec<super::r#reference::r#law_bindings::Row>),
     #[doc = stringify!(r#ReferenceMathContext)]
     r#ReferenceMathContext(Vec<super::r#reference::r#math_context::Row>),
-    #[doc = stringify!(r#ReferenceMethodDependencies)]
-    r#ReferenceMethodDependencies(Vec<super::r#reference::r#method_dependencies::Row>),
-    #[doc = stringify!(r#ReferenceMethodKernelInputs)]
-    r#ReferenceMethodKernelInputs(Vec<super::r#reference::r#method_kernel_inputs::Row>),
-    #[doc = stringify!(r#ReferenceMethodParameterAxes)]
-    r#ReferenceMethodParameterAxes(
-        Vec<super::r#reference::r#method_parameter_axes::Row>,
-    ),
-    #[doc = stringify!(r#ReferenceMethodParameters)]
-    r#ReferenceMethodParameters(Vec<super::r#reference::r#method_parameters::Row>),
-    #[doc = stringify!(r#ReferenceMethodPrecedence)]
-    r#ReferenceMethodPrecedence(Vec<super::r#reference::r#method_precedence::Row>),
-    #[doc = stringify!(r#ReferenceMethodProvisions)]
-    r#ReferenceMethodProvisions(Vec<super::r#reference::r#method_provisions::Row>),
-    #[doc = stringify!(r#ReferenceMethodSpecs)]
-    r#ReferenceMethodSpecs(Vec<super::r#reference::r#method_specs::Row>),
-    #[doc = stringify!(r#ReferenceMethodStateParameters)]
-    r#ReferenceMethodStateParameters(
-        Vec<super::r#reference::r#method_state_parameters::Row>,
-    ),
-    #[doc = stringify!(r#ReferencePropertyKinds)]
-    r#ReferencePropertyKinds(Vec<super::r#reference::r#property_kinds::Row>),
     #[doc = stringify!(r#ReferenceQuantityKinds)]
     r#ReferenceQuantityKinds(Vec<super::r#reference::r#quantity_kinds::Row>),
     #[doc = stringify!(r#ReferenceQuantityOperationReductions)]
@@ -343,10 +129,48 @@ pub enum FactBatch {
     r#RuntimeFitVariables(Vec<super::r#runtime::r#fit_variables::Row>),
     #[doc = stringify!(r#RuntimeMaintenanceOutcomes)]
     r#RuntimeMaintenanceOutcomes(Vec<super::r#runtime::r#maintenance_outcomes::Row>),
+    #[doc = stringify!(r#RuntimeModelingChecks)]
+    r#RuntimeModelingChecks(Vec<super::r#runtime::r#modeling_checks::Row>),
+    #[doc = stringify!(r#RuntimeModelingConformance)]
+    r#RuntimeModelingConformance(Vec<super::r#runtime::r#modeling_conformance::Row>),
+    #[doc = stringify!(r#RuntimeModelingDiagnosticSamples)]
+    r#RuntimeModelingDiagnosticSamples(
+        Vec<super::r#runtime::r#modeling_diagnostic_samples::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeModelingDiagnostics)]
+    r#RuntimeModelingDiagnostics(Vec<super::r#runtime::r#modeling_diagnostics::Row>),
+    #[doc = stringify!(r#RuntimeModelingFindings)]
+    r#RuntimeModelingFindings(Vec<super::r#runtime::r#modeling_findings::Row>),
+    #[doc = stringify!(r#RuntimeModelingFixtureStatus)]
+    r#RuntimeModelingFixtureStatus(
+        Vec<super::r#runtime::r#modeling_fixture_status::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeModelingInitializations)]
+    r#RuntimeModelingInitializations(
+        Vec<super::r#runtime::r#modeling_initializations::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeModelingJacobianOptimization)]
+    r#RuntimeModelingJacobianOptimization(
+        Vec<super::r#runtime::r#modeling_jacobian_optimization::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeModelingLinearDiagnostics)]
+    r#RuntimeModelingLinearDiagnostics(
+        Vec<super::r#runtime::r#modeling_linear_diagnostics::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeModelingNonlinearExplanations)]
+    r#RuntimeModelingNonlinearExplanations(
+        Vec<super::r#runtime::r#modeling_nonlinear_explanations::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeModelingReports)]
+    r#RuntimeModelingReports(Vec<super::r#runtime::r#modeling_reports::Row>),
+    #[doc = stringify!(r#RuntimeModelingStudies)]
+    r#RuntimeModelingStudies(Vec<super::r#runtime::r#modeling_studies::Row>),
+    #[doc = stringify!(r#RuntimeModelingTrajectoryModes)]
+    r#RuntimeModelingTrajectoryModes(
+        Vec<super::r#runtime::r#modeling_trajectory_modes::Row>,
+    ),
     #[doc = stringify!(r#RuntimeNativeDependencies)]
     r#RuntimeNativeDependencies(Vec<super::r#runtime::r#native_dependencies::Row>),
-    #[doc = stringify!(r#RuntimePhysicalChecks)]
-    r#RuntimePhysicalChecks(Vec<super::r#runtime::r#physical_checks::Row>),
     #[doc = stringify!(r#RuntimePublications)]
     r#RuntimePublications(Vec<super::r#runtime::r#publications::Row>),
     #[doc = stringify!(r#RuntimeReleaseCheckpoints)]
@@ -380,124 +204,16 @@ impl FactBatch {
     /// Exact declared relation identity.
     pub fn relation(&self) -> pse_ids::SemanticId {
         match self {
-            Self::r#AuthoredCaseActivationTargets(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    229u8, 238u8, 43u8, 208u8, 30u8, 204u8, 249u8, 220u8, 21u8, 245u8,
-                    140u8, 203u8, 61u8, 184u8, 17u8, 140u8,
-                ])
-            }
-            Self::r#AuthoredCaseActivations(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    235u8, 80u8, 55u8, 140u8, 157u8, 255u8, 145u8, 253u8, 42u8, 134u8,
-                    0u8, 59u8, 246u8, 148u8, 198u8, 95u8,
-                ])
-            }
-            Self::r#AuthoredCaseObjectives(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    192u8, 241u8, 118u8, 167u8, 54u8, 126u8, 32u8, 92u8, 1u8, 198u8,
-                    223u8, 42u8, 201u8, 103u8, 220u8, 73u8,
-                ])
-            }
-            Self::r#AuthoredCasePolicies(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    164u8, 4u8, 106u8, 44u8, 2u8, 164u8, 64u8, 213u8, 219u8, 199u8, 22u8,
-                    154u8, 112u8, 236u8, 222u8, 178u8,
-                ])
-            }
-            Self::r#AuthoredCaseSetSamples(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    7u8, 103u8, 227u8, 27u8, 113u8, 230u8, 84u8, 249u8, 200u8, 133u8,
-                    131u8, 76u8, 244u8, 32u8, 187u8, 8u8,
-                ])
-            }
-            Self::r#AuthoredCaseSets(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    32u8, 137u8, 28u8, 29u8, 240u8, 102u8, 167u8, 55u8, 250u8, 21u8,
-                    45u8, 155u8, 36u8, 102u8, 171u8, 31u8,
-                ])
-            }
-            Self::r#AuthoredCaseSpecTargets(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    7u8, 174u8, 120u8, 10u8, 175u8, 9u8, 105u8, 164u8, 229u8, 185u8,
-                    128u8, 188u8, 5u8, 76u8, 105u8, 23u8,
-                ])
-            }
-            Self::r#AuthoredCaseSpecs(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    138u8, 70u8, 96u8, 52u8, 245u8, 108u8, 11u8, 155u8, 218u8, 251u8,
-                    114u8, 241u8, 144u8, 42u8, 132u8, 181u8,
-                ])
-            }
-            Self::r#AuthoredCases(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    239u8, 160u8, 102u8, 134u8, 127u8, 156u8, 216u8, 85u8, 134u8, 233u8,
-                    91u8, 96u8, 43u8, 82u8, 94u8, 254u8,
-                ])
-            }
-            Self::r#AuthoredComputationModels(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    218u8, 56u8, 178u8, 84u8, 40u8, 18u8, 200u8, 80u8, 43u8, 191u8,
-                    158u8, 87u8, 134u8, 175u8, 152u8, 113u8,
-                ])
-            }
-            Self::r#AuthoredConnections(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    72u8, 47u8, 11u8, 48u8, 135u8, 197u8, 158u8, 219u8, 30u8, 17u8,
-                    190u8, 90u8, 66u8, 117u8, 108u8, 152u8,
-                ])
-            }
-            Self::r#AuthoredContinuousDomains(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    16u8, 173u8, 25u8, 107u8, 13u8, 92u8, 101u8, 28u8, 89u8, 19u8, 108u8,
-                    12u8, 38u8, 98u8, 220u8, 136u8,
-                ])
-            }
             Self::r#AuthoredDatasets(_) => {
                 pse_ids::SemanticId::from_bytes([
                     59u8, 236u8, 185u8, 228u8, 41u8, 208u8, 184u8, 126u8, 236u8, 177u8,
                     250u8, 248u8, 114u8, 233u8, 153u8, 26u8,
                 ])
             }
-            Self::r#AuthoredDefaultScaling(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    180u8, 85u8, 90u8, 243u8, 119u8, 73u8, 183u8, 196u8, 254u8, 81u8,
-                    111u8, 244u8, 1u8, 123u8, 149u8, 160u8,
-                ])
-            }
-            Self::r#AuthoredDirectionalValveLaws(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    44u8, 170u8, 115u8, 220u8, 75u8, 44u8, 194u8, 13u8, 238u8, 93u8,
-                    163u8, 159u8, 29u8, 182u8, 241u8, 213u8,
-                ])
-            }
-            Self::r#AuthoredDocumentEdits(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    241u8, 102u8, 5u8, 13u8, 130u8, 174u8, 4u8, 149u8, 90u8, 51u8, 98u8,
-                    140u8, 120u8, 174u8, 85u8, 48u8,
-                ])
-            }
             Self::r#AuthoredDocuments(_) => {
                 pse_ids::SemanticId::from_bytes([
                     99u8, 190u8, 207u8, 9u8, 212u8, 163u8, 112u8, 24u8, 220u8, 125u8,
                     59u8, 69u8, 202u8, 18u8, 26u8, 201u8,
-                ])
-            }
-            Self::r#AuthoredDomainMembers(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    61u8, 157u8, 88u8, 116u8, 109u8, 234u8, 13u8, 67u8, 114u8, 219u8,
-                    57u8, 29u8, 163u8, 109u8, 14u8, 228u8,
-                ])
-            }
-            Self::r#AuthoredDomains(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    6u8, 119u8, 73u8, 124u8, 214u8, 208u8, 251u8, 9u8, 112u8, 23u8,
-                    161u8, 227u8, 130u8, 203u8, 0u8, 130u8,
-                ])
-            }
-            Self::r#AuthoredDynamicCases(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    214u8, 251u8, 45u8, 253u8, 216u8, 170u8, 204u8, 220u8, 119u8, 159u8,
-                    15u8, 213u8, 244u8, 233u8, 207u8, 186u8,
                 ])
             }
             Self::r#AuthoredEntities(_) => {
@@ -508,62 +224,14 @@ impl FactBatch {
             }
             Self::r#AuthoredFitCases(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    219u8, 244u8, 5u8, 89u8, 58u8, 96u8, 190u8, 124u8, 237u8, 233u8,
-                    93u8, 57u8, 234u8, 223u8, 60u8, 185u8,
+                    112u8, 123u8, 225u8, 163u8, 40u8, 77u8, 121u8, 209u8, 186u8, 173u8,
+                    149u8, 126u8, 128u8, 1u8, 60u8, 180u8,
                 ])
             }
-            Self::r#AuthoredFlowsheets(_) => {
+            Self::r#AuthoredModelingDeclarations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    146u8, 0u8, 17u8, 123u8, 35u8, 133u8, 16u8, 245u8, 12u8, 188u8, 14u8,
-                    85u8, 109u8, 114u8, 106u8, 211u8,
-                ])
-            }
-            Self::r#AuthoredHenryDeclarations(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    30u8, 252u8, 53u8, 242u8, 149u8, 230u8, 193u8, 254u8, 123u8, 65u8,
-                    215u8, 3u8, 107u8, 218u8, 180u8, 200u8,
-                ])
-            }
-            Self::r#AuthoredInstanceDomainBindings(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    226u8, 220u8, 139u8, 74u8, 205u8, 244u8, 36u8, 1u8, 164u8, 34u8,
-                    51u8, 58u8, 96u8, 73u8, 53u8, 198u8,
-                ])
-            }
-            Self::r#AuthoredInstanceEquations(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    240u8, 194u8, 124u8, 166u8, 222u8, 163u8, 4u8, 32u8, 114u8, 207u8,
-                    128u8, 194u8, 3u8, 50u8, 6u8, 246u8,
-                ])
-            }
-            Self::r#AuthoredInstances(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    46u8, 246u8, 191u8, 0u8, 23u8, 176u8, 16u8, 21u8, 87u8, 227u8, 187u8,
-                    109u8, 177u8, 179u8, 13u8, 195u8,
-                ])
-            }
-            Self::r#AuthoredMaterialSystems(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    65u8, 76u8, 157u8, 241u8, 64u8, 98u8, 45u8, 104u8, 45u8, 176u8, 33u8,
-                    123u8, 78u8, 124u8, 252u8, 146u8,
-                ])
-            }
-            Self::r#AuthoredMethodSelections(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    8u8, 221u8, 182u8, 210u8, 242u8, 211u8, 167u8, 228u8, 44u8, 106u8,
-                    95u8, 26u8, 180u8, 24u8, 160u8, 219u8,
-                ])
-            }
-            Self::r#AuthoredModelCompositions(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    154u8, 5u8, 143u8, 200u8, 110u8, 98u8, 78u8, 159u8, 57u8, 164u8,
-                    252u8, 205u8, 171u8, 181u8, 216u8, 149u8,
-                ])
-            }
-            Self::r#AuthoredNativeProviders(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    29u8, 157u8, 198u8, 180u8, 213u8, 206u8, 150u8, 73u8, 2u8, 5u8,
-                    207u8, 45u8, 74u8, 111u8, 229u8, 223u8,
+                    12u8, 17u8, 84u8, 48u8, 17u8, 44u8, 75u8, 198u8, 44u8, 215u8, 65u8,
+                    3u8, 43u8, 250u8, 125u8, 197u8,
                 ])
             }
             Self::r#AuthoredNumericalRequirements(_) => {
@@ -572,16 +240,16 @@ impl FactBatch {
                     14u8, 205u8, 146u8, 223u8, 180u8, 183u8,
                 ])
             }
-            Self::r#AuthoredObservationTargets(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    40u8, 168u8, 217u8, 108u8, 72u8, 195u8, 41u8, 23u8, 92u8, 142u8,
-                    192u8, 77u8, 25u8, 182u8, 103u8, 156u8,
-                ])
-            }
             Self::r#AuthoredObservations(_) => {
                 pse_ids::SemanticId::from_bytes([
                     250u8, 146u8, 75u8, 84u8, 139u8, 195u8, 104u8, 203u8, 38u8, 108u8,
                     18u8, 169u8, 98u8, 155u8, 27u8, 96u8,
+                ])
+            }
+            Self::r#AuthoredPackageQuantityAliases(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    238u8, 181u8, 59u8, 157u8, 219u8, 60u8, 118u8, 16u8, 9u8, 153u8,
+                    81u8, 78u8, 148u8, 255u8, 12u8, 172u8,
                 ])
             }
             Self::r#AuthoredPackageUnitSets(_) => {
@@ -596,298 +264,10 @@ impl FactBatch {
                     66u8, 130u8, 190u8, 129u8, 203u8,
                 ])
             }
-            Self::r#AuthoredParameterValues(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    195u8, 106u8, 246u8, 226u8, 141u8, 75u8, 181u8, 16u8, 183u8, 214u8,
-                    240u8, 178u8, 254u8, 127u8, 26u8, 11u8,
-                ])
-            }
-            Self::r#AuthoredPhaseEquilibriumPairs(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    255u8, 45u8, 16u8, 25u8, 47u8, 61u8, 70u8, 242u8, 114u8, 164u8, 68u8,
-                    21u8, 31u8, 181u8, 37u8, 62u8,
-                ])
-            }
-            Self::r#AuthoredPhaseSpecies(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    12u8, 163u8, 194u8, 110u8, 130u8, 94u8, 81u8, 64u8, 189u8, 175u8,
-                    106u8, 105u8, 234u8, 37u8, 225u8, 202u8,
-                ])
-            }
-            Self::r#AuthoredPhases(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    100u8, 101u8, 29u8, 108u8, 198u8, 38u8, 31u8, 21u8, 13u8, 206u8,
-                    116u8, 202u8, 216u8, 193u8, 208u8, 96u8,
-                ])
-            }
-            Self::r#AuthoredPhysicalBalances(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    235u8, 209u8, 31u8, 55u8, 38u8, 111u8, 91u8, 183u8, 31u8, 239u8,
-                    133u8, 140u8, 114u8, 103u8, 148u8, 134u8,
-                ])
-            }
-            Self::r#AuthoredPropertyPackages(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    52u8, 195u8, 59u8, 7u8, 75u8, 171u8, 222u8, 148u8, 189u8, 16u8,
-                    140u8, 160u8, 226u8, 41u8, 21u8, 58u8,
-                ])
-            }
-            Self::r#AuthoredProviderScalingBindings(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    185u8, 137u8, 113u8, 218u8, 42u8, 229u8, 62u8, 18u8, 198u8, 74u8,
-                    73u8, 25u8, 42u8, 65u8, 243u8, 13u8,
-                ])
-            }
-            Self::r#AuthoredReactionApplications(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    84u8, 27u8, 22u8, 242u8, 123u8, 102u8, 216u8, 24u8, 204u8, 156u8,
-                    237u8, 34u8, 89u8, 36u8, 208u8, 152u8,
-                ])
-            }
-            Self::r#AuthoredReactionMethods(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    73u8, 27u8, 175u8, 160u8, 172u8, 134u8, 233u8, 116u8, 26u8, 3u8, 9u8,
-                    100u8, 130u8, 39u8, 78u8, 33u8,
-                ])
-            }
-            Self::r#AuthoredReactionPackages(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    207u8, 117u8, 214u8, 54u8, 19u8, 51u8, 133u8, 79u8, 201u8, 235u8,
-                    54u8, 220u8, 212u8, 172u8, 222u8, 216u8,
-                ])
-            }
-            Self::r#AuthoredReactions(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    150u8, 202u8, 173u8, 74u8, 58u8, 227u8, 206u8, 7u8, 138u8, 234u8,
-                    86u8, 46u8, 41u8, 76u8, 89u8, 64u8,
-                ])
-            }
-            Self::r#AuthoredRenameRequests(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    206u8, 247u8, 124u8, 169u8, 69u8, 105u8, 99u8, 16u8, 216u8, 156u8,
-                    71u8, 27u8, 76u8, 52u8, 56u8, 225u8,
-                ])
-            }
-            Self::r#AuthoredScenarios(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    105u8, 51u8, 28u8, 13u8, 0u8, 191u8, 61u8, 169u8, 142u8, 204u8,
-                    189u8, 167u8, 50u8, 149u8, 250u8, 180u8,
-                ])
-            }
-            Self::r#AuthoredScopes(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    142u8, 116u8, 89u8, 244u8, 40u8, 164u8, 14u8, 175u8, 232u8, 241u8,
-                    153u8, 218u8, 155u8, 128u8, 78u8, 132u8,
-                ])
-            }
-            Self::r#AuthoredSelectorTerms(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    34u8, 233u8, 73u8, 198u8, 10u8, 173u8, 94u8, 98u8, 101u8, 96u8, 78u8,
-                    94u8, 124u8, 59u8, 201u8, 172u8,
-                ])
-            }
-            Self::r#AuthoredSpecies(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    20u8, 204u8, 2u8, 77u8, 218u8, 66u8, 137u8, 24u8, 20u8, 209u8, 165u8,
-                    84u8, 255u8, 8u8, 109u8, 121u8,
-                ])
-            }
-            Self::r#AuthoredSpeciesElements(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    33u8, 120u8, 227u8, 241u8, 129u8, 3u8, 25u8, 31u8, 214u8, 230u8,
-                    178u8, 251u8, 68u8, 72u8, 242u8, 64u8,
-                ])
-            }
-            Self::r#AuthoredStateBounds(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    161u8, 80u8, 126u8, 242u8, 24u8, 108u8, 37u8, 39u8, 91u8, 29u8,
-                    234u8, 83u8, 196u8, 88u8, 212u8, 176u8,
-                ])
-            }
-            Self::r#AuthoredStoichiometry(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    74u8, 240u8, 91u8, 62u8, 101u8, 232u8, 84u8, 165u8, 129u8, 152u8,
-                    119u8, 107u8, 60u8, 221u8, 170u8, 141u8,
-                ])
-            }
-            Self::r#AuthoredTemplateContributionContracts(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    107u8, 45u8, 42u8, 207u8, 33u8, 79u8, 4u8, 160u8, 168u8, 38u8, 24u8,
-                    51u8, 87u8, 96u8, 18u8, 200u8,
-                ])
-            }
-            Self::r#AuthoredTemplateContributions(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    171u8, 97u8, 3u8, 156u8, 158u8, 242u8, 19u8, 90u8, 178u8, 207u8,
-                    82u8, 48u8, 68u8, 244u8, 182u8, 61u8,
-                ])
-            }
-            Self::r#AuthoredTemplateDerivatives(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    130u8, 194u8, 226u8, 166u8, 234u8, 55u8, 86u8, 248u8, 80u8, 242u8,
-                    220u8, 115u8, 255u8, 198u8, 176u8, 29u8,
-                ])
-            }
-            Self::r#AuthoredTemplateDisplay(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    46u8, 250u8, 43u8, 129u8, 206u8, 239u8, 102u8, 154u8, 116u8, 50u8,
-                    154u8, 112u8, 22u8, 240u8, 115u8, 135u8,
-                ])
-            }
-            Self::r#AuthoredTemplateDisplayIndices(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    64u8, 30u8, 44u8, 125u8, 138u8, 50u8, 43u8, 199u8, 84u8, 80u8, 149u8,
-                    164u8, 180u8, 246u8, 134u8, 62u8,
-                ])
-            }
-            Self::r#AuthoredTemplateDomainBindings(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    182u8, 0u8, 177u8, 122u8, 211u8, 8u8, 137u8, 75u8, 197u8, 174u8,
-                    132u8, 195u8, 240u8, 224u8, 194u8, 2u8,
-                ])
-            }
-            Self::r#AuthoredTemplateDomains(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    98u8, 98u8, 143u8, 17u8, 35u8, 99u8, 213u8, 141u8, 153u8, 164u8,
-                    221u8, 70u8, 162u8, 187u8, 149u8, 148u8,
-                ])
-            }
-            Self::r#AuthoredTemplateEquations(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    134u8, 225u8, 214u8, 26u8, 13u8, 22u8, 6u8, 18u8, 247u8, 108u8, 31u8,
-                    55u8, 170u8, 215u8, 176u8, 176u8,
-                ])
-            }
-            Self::r#AuthoredTemplateFeatureRules(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    41u8, 88u8, 81u8, 195u8, 26u8, 147u8, 218u8, 26u8, 249u8, 76u8,
-                    116u8, 169u8, 168u8, 223u8, 42u8, 29u8,
-                ])
-            }
-            Self::r#AuthoredTemplateFeatures(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    58u8, 126u8, 122u8, 7u8, 152u8, 26u8, 79u8, 210u8, 159u8, 149u8, 4u8,
-                    161u8, 75u8, 40u8, 144u8, 192u8,
-                ])
-            }
-            Self::r#AuthoredTemplateGuards(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    148u8, 46u8, 1u8, 164u8, 132u8, 128u8, 204u8, 167u8, 38u8, 89u8,
-                    148u8, 35u8, 128u8, 203u8, 130u8, 30u8,
-                ])
-            }
-            Self::r#AuthoredTemplateLawContracts(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    81u8, 239u8, 198u8, 234u8, 48u8, 233u8, 71u8, 192u8, 24u8, 221u8,
-                    255u8, 225u8, 55u8, 206u8, 71u8, 116u8,
-                ])
-            }
-            Self::r#AuthoredTemplateLawInstances(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    138u8, 33u8, 137u8, 105u8, 108u8, 94u8, 128u8, 76u8, 198u8, 26u8,
-                    192u8, 157u8, 44u8, 186u8, 11u8, 151u8,
-                ])
-            }
-            Self::r#AuthoredTemplateMaterialConstraints(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    247u8, 82u8, 137u8, 16u8, 66u8, 14u8, 200u8, 132u8, 112u8, 111u8,
-                    11u8, 17u8, 201u8, 62u8, 250u8, 236u8,
-                ])
-            }
-            Self::r#AuthoredTemplateParams(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    167u8, 222u8, 92u8, 236u8, 180u8, 54u8, 40u8, 131u8, 92u8, 68u8,
-                    120u8, 234u8, 44u8, 101u8, 163u8, 234u8,
-                ])
-            }
-            Self::r#AuthoredTemplatePortMembers(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    20u8, 99u8, 82u8, 34u8, 244u8, 172u8, 233u8, 126u8, 21u8, 187u8,
-                    241u8, 138u8, 77u8, 97u8, 186u8, 70u8,
-                ])
-            }
-            Self::r#AuthoredTemplatePorts(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    46u8, 222u8, 128u8, 121u8, 83u8, 119u8, 104u8, 3u8, 179u8, 211u8,
-                    11u8, 167u8, 222u8, 80u8, 3u8, 245u8,
-                ])
-            }
-            Self::r#AuthoredTemplatePropertyRequirements(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    201u8, 14u8, 213u8, 181u8, 51u8, 160u8, 187u8, 64u8, 201u8, 41u8,
-                    36u8, 171u8, 44u8, 109u8, 96u8, 165u8,
-                ])
-            }
-            Self::r#AuthoredTemplateRequirements(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    170u8, 204u8, 164u8, 163u8, 36u8, 138u8, 233u8, 251u8, 151u8, 64u8,
-                    218u8, 44u8, 90u8, 181u8, 225u8, 69u8,
-                ])
-            }
-            Self::r#AuthoredTemplateScopes(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    25u8, 184u8, 248u8, 1u8, 59u8, 101u8, 216u8, 215u8, 8u8, 164u8, 33u8,
-                    89u8, 198u8, 214u8, 157u8, 228u8,
-                ])
-            }
-            Self::r#AuthoredTemplateSubmodels(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    177u8, 130u8, 245u8, 218u8, 65u8, 137u8, 91u8, 233u8, 251u8, 209u8,
-                    237u8, 227u8, 10u8, 249u8, 23u8, 151u8,
-                ])
-            }
-            Self::r#AuthoredTemplateSymbolContracts(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    213u8, 149u8, 185u8, 152u8, 71u8, 245u8, 50u8, 220u8, 29u8, 212u8,
-                    104u8, 146u8, 64u8, 28u8, 148u8, 29u8,
-                ])
-            }
-            Self::r#AuthoredTemplateSymbolExpressions(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    215u8, 165u8, 162u8, 79u8, 123u8, 52u8, 68u8, 26u8, 94u8, 164u8,
-                    42u8, 235u8, 45u8, 144u8, 162u8, 155u8,
-                ])
-            }
-            Self::r#AuthoredTemplateSymbolProperties(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    187u8, 136u8, 199u8, 46u8, 145u8, 182u8, 33u8, 211u8, 24u8, 236u8,
-                    165u8, 115u8, 204u8, 44u8, 218u8, 221u8,
-                ])
-            }
-            Self::r#AuthoredTemplateSymbols(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    17u8, 134u8, 23u8, 165u8, 75u8, 183u8, 186u8, 97u8, 204u8, 123u8,
-                    93u8, 151u8, 238u8, 102u8, 239u8, 228u8,
-                ])
-            }
-            Self::r#AuthoredTemplates(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    217u8, 76u8, 0u8, 113u8, 43u8, 63u8, 26u8, 209u8, 150u8, 190u8,
-                    178u8, 249u8, 226u8, 4u8, 94u8, 135u8,
-                ])
-            }
-            Self::r#NormalizedInstanceBindings(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    179u8, 104u8, 88u8, 64u8, 32u8, 58u8, 72u8, 241u8, 20u8, 76u8, 130u8,
-                    155u8, 74u8, 124u8, 29u8, 220u8,
-                ])
-            }
             Self::r#NormalizedPackageGraph(_) => {
                 pse_ids::SemanticId::from_bytes([
                     219u8, 27u8, 213u8, 189u8, 204u8, 237u8, 182u8, 92u8, 233u8, 192u8,
                     66u8, 95u8, 232u8, 102u8, 216u8, 25u8,
-                ])
-            }
-            Self::r#NormalizedResolvedSourceOccurrences(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    100u8, 118u8, 12u8, 77u8, 53u8, 249u8, 226u8, 106u8, 115u8, 87u8,
-                    217u8, 26u8, 2u8, 97u8, 199u8, 145u8,
-                ])
-            }
-            Self::r#NormalizedSourceOccurrences(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    83u8, 159u8, 228u8, 225u8, 230u8, 110u8, 154u8, 230u8, 75u8, 207u8,
-                    255u8, 231u8, 158u8, 114u8, 45u8, 44u8,
                 ])
             }
             Self::r#NormalizedUnits(_) => {
@@ -944,12 +324,6 @@ impl FactBatch {
                     186u8, 211u8, 34u8, 57u8, 223u8, 13u8,
                 ])
             }
-            Self::r#ReferenceConnectionBindings(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    88u8, 188u8, 171u8, 228u8, 225u8, 25u8, 163u8, 76u8, 194u8, 8u8,
-                    141u8, 44u8, 134u8, 224u8, 29u8, 179u8,
-                ])
-            }
             Self::r#ReferenceConstants(_) => {
                 pse_ids::SemanticId::from_bytes([
                     232u8, 57u8, 136u8, 160u8, 238u8, 38u8, 4u8, 120u8, 236u8, 170u8,
@@ -968,18 +342,6 @@ impl FactBatch {
                     40u8, 138u8, 139u8, 93u8, 213u8, 57u8,
                 ])
             }
-            Self::r#ReferenceElementProjectionContracts(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    151u8, 38u8, 31u8, 124u8, 251u8, 171u8, 183u8, 81u8, 18u8, 234u8,
-                    15u8, 24u8, 205u8, 18u8, 60u8, 93u8,
-                ])
-            }
-            Self::r#ReferenceElements(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    7u8, 150u8, 168u8, 53u8, 75u8, 214u8, 80u8, 204u8, 221u8, 190u8,
-                    186u8, 151u8, 97u8, 31u8, 201u8, 124u8,
-                ])
-            }
             Self::r#ReferenceEngineProfiles(_) => {
                 pse_ids::SemanticId::from_bytes([
                     232u8, 19u8, 246u8, 116u8, 46u8, 21u8, 132u8, 158u8, 153u8, 19u8,
@@ -992,70 +354,10 @@ impl FactBatch {
                     147u8, 138u8, 207u8, 143u8, 168u8,
                 ])
             }
-            Self::r#ReferenceLawBindings(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    146u8, 50u8, 154u8, 53u8, 184u8, 204u8, 63u8, 131u8, 172u8, 14u8,
-                    180u8, 14u8, 40u8, 1u8, 192u8, 114u8,
-                ])
-            }
             Self::r#ReferenceMathContext(_) => {
                 pse_ids::SemanticId::from_bytes([
                     51u8, 62u8, 13u8, 26u8, 38u8, 20u8, 193u8, 116u8, 155u8, 4u8, 220u8,
                     214u8, 126u8, 237u8, 126u8, 211u8,
-                ])
-            }
-            Self::r#ReferenceMethodDependencies(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    255u8, 195u8, 255u8, 153u8, 220u8, 16u8, 164u8, 7u8, 58u8, 21u8, 6u8,
-                    178u8, 208u8, 155u8, 46u8, 48u8,
-                ])
-            }
-            Self::r#ReferenceMethodKernelInputs(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    187u8, 229u8, 230u8, 178u8, 92u8, 38u8, 178u8, 120u8, 135u8, 169u8,
-                    47u8, 245u8, 119u8, 8u8, 202u8, 240u8,
-                ])
-            }
-            Self::r#ReferenceMethodParameterAxes(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    128u8, 245u8, 219u8, 239u8, 90u8, 160u8, 235u8, 141u8, 136u8, 101u8,
-                    172u8, 183u8, 88u8, 102u8, 157u8, 118u8,
-                ])
-            }
-            Self::r#ReferenceMethodParameters(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    103u8, 30u8, 191u8, 24u8, 180u8, 72u8, 122u8, 203u8, 223u8, 226u8,
-                    120u8, 165u8, 37u8, 25u8, 5u8, 150u8,
-                ])
-            }
-            Self::r#ReferenceMethodPrecedence(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    162u8, 67u8, 113u8, 32u8, 92u8, 208u8, 56u8, 176u8, 21u8, 85u8, 86u8,
-                    103u8, 203u8, 138u8, 236u8, 148u8,
-                ])
-            }
-            Self::r#ReferenceMethodProvisions(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    233u8, 25u8, 180u8, 37u8, 45u8, 223u8, 10u8, 45u8, 138u8, 201u8,
-                    204u8, 211u8, 91u8, 151u8, 50u8, 159u8,
-                ])
-            }
-            Self::r#ReferenceMethodSpecs(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    60u8, 53u8, 179u8, 18u8, 105u8, 91u8, 156u8, 76u8, 192u8, 135u8,
-                    124u8, 158u8, 172u8, 252u8, 231u8, 203u8,
-                ])
-            }
-            Self::r#ReferenceMethodStateParameters(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    108u8, 143u8, 88u8, 253u8, 148u8, 217u8, 31u8, 101u8, 183u8, 150u8,
-                    91u8, 45u8, 134u8, 48u8, 219u8, 173u8,
-                ])
-            }
-            Self::r#ReferencePropertyKinds(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    30u8, 82u8, 216u8, 68u8, 240u8, 251u8, 182u8, 14u8, 178u8, 142u8,
-                    105u8, 222u8, 199u8, 169u8, 194u8, 191u8,
                 ])
             }
             Self::r#ReferenceQuantityKinds(_) => {
@@ -1238,16 +540,88 @@ impl FactBatch {
                     192u8, 192u8, 197u8, 195u8, 179u8, 237u8,
                 ])
             }
+            Self::r#RuntimeModelingChecks(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    184u8, 36u8, 78u8, 109u8, 81u8, 91u8, 181u8, 9u8, 120u8, 245u8, 1u8,
+                    177u8, 172u8, 146u8, 205u8, 120u8,
+                ])
+            }
+            Self::r#RuntimeModelingConformance(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    84u8, 238u8, 35u8, 87u8, 246u8, 179u8, 107u8, 72u8, 193u8, 87u8,
+                    51u8, 108u8, 0u8, 253u8, 184u8, 44u8,
+                ])
+            }
+            Self::r#RuntimeModelingDiagnosticSamples(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    29u8, 217u8, 47u8, 6u8, 108u8, 94u8, 89u8, 245u8, 180u8, 211u8, 82u8,
+                    21u8, 230u8, 23u8, 109u8, 146u8,
+                ])
+            }
+            Self::r#RuntimeModelingDiagnostics(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    107u8, 238u8, 141u8, 70u8, 235u8, 237u8, 49u8, 176u8, 30u8, 237u8,
+                    30u8, 8u8, 214u8, 93u8, 177u8, 116u8,
+                ])
+            }
+            Self::r#RuntimeModelingFindings(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    255u8, 115u8, 88u8, 251u8, 54u8, 247u8, 118u8, 33u8, 92u8, 223u8,
+                    166u8, 154u8, 225u8, 47u8, 224u8, 76u8,
+                ])
+            }
+            Self::r#RuntimeModelingFixtureStatus(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    97u8, 1u8, 112u8, 183u8, 6u8, 127u8, 10u8, 125u8, 10u8, 1u8, 104u8,
+                    231u8, 219u8, 106u8, 81u8, 241u8,
+                ])
+            }
+            Self::r#RuntimeModelingInitializations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    55u8, 62u8, 60u8, 179u8, 145u8, 29u8, 42u8, 104u8, 166u8, 15u8,
+                    146u8, 250u8, 144u8, 141u8, 112u8, 81u8,
+                ])
+            }
+            Self::r#RuntimeModelingJacobianOptimization(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    67u8, 214u8, 232u8, 97u8, 187u8, 7u8, 242u8, 54u8, 208u8, 27u8,
+                    246u8, 164u8, 130u8, 240u8, 62u8, 233u8,
+                ])
+            }
+            Self::r#RuntimeModelingLinearDiagnostics(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    55u8, 153u8, 8u8, 38u8, 12u8, 214u8, 56u8, 26u8, 4u8, 56u8, 154u8,
+                    98u8, 167u8, 10u8, 187u8, 20u8,
+                ])
+            }
+            Self::r#RuntimeModelingNonlinearExplanations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    169u8, 27u8, 21u8, 156u8, 217u8, 63u8, 27u8, 218u8, 67u8, 162u8,
+                    186u8, 251u8, 185u8, 148u8, 53u8, 144u8,
+                ])
+            }
+            Self::r#RuntimeModelingReports(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    26u8, 179u8, 96u8, 239u8, 177u8, 140u8, 177u8, 156u8, 92u8, 10u8,
+                    73u8, 198u8, 21u8, 12u8, 162u8, 172u8,
+                ])
+            }
+            Self::r#RuntimeModelingStudies(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    114u8, 45u8, 219u8, 252u8, 43u8, 54u8, 157u8, 200u8, 255u8, 101u8,
+                    139u8, 171u8, 205u8, 177u8, 213u8, 98u8,
+                ])
+            }
+            Self::r#RuntimeModelingTrajectoryModes(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    173u8, 82u8, 11u8, 63u8, 40u8, 18u8, 2u8, 221u8, 187u8, 196u8, 66u8,
+                    124u8, 232u8, 103u8, 161u8, 177u8,
+                ])
+            }
             Self::r#RuntimeNativeDependencies(_) => {
                 pse_ids::SemanticId::from_bytes([
                     106u8, 141u8, 117u8, 73u8, 238u8, 52u8, 191u8, 110u8, 88u8, 54u8,
                     14u8, 123u8, 67u8, 1u8, 244u8, 89u8,
-                ])
-            }
-            Self::r#RuntimePhysicalChecks(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    119u8, 162u8, 212u8, 3u8, 113u8, 215u8, 150u8, 44u8, 114u8, 189u8,
-                    8u8, 46u8, 216u8, 196u8, 60u8, 194u8,
                 ])
             }
             Self::r#RuntimePublications(_) => {
@@ -1339,91 +713,17 @@ impl FactBatch {
     /// Number of values, preserving empty relation membership.
     pub fn len(&self) -> usize {
         match self {
-            Self::r#AuthoredCaseActivationTargets(rows) => rows.len(),
-            Self::r#AuthoredCaseActivations(rows) => rows.len(),
-            Self::r#AuthoredCaseObjectives(rows) => rows.len(),
-            Self::r#AuthoredCasePolicies(rows) => rows.len(),
-            Self::r#AuthoredCaseSetSamples(rows) => rows.len(),
-            Self::r#AuthoredCaseSets(rows) => rows.len(),
-            Self::r#AuthoredCaseSpecTargets(rows) => rows.len(),
-            Self::r#AuthoredCaseSpecs(rows) => rows.len(),
-            Self::r#AuthoredCases(rows) => rows.len(),
-            Self::r#AuthoredComputationModels(rows) => rows.len(),
-            Self::r#AuthoredConnections(rows) => rows.len(),
-            Self::r#AuthoredContinuousDomains(rows) => rows.len(),
             Self::r#AuthoredDatasets(rows) => rows.len(),
-            Self::r#AuthoredDefaultScaling(rows) => rows.len(),
-            Self::r#AuthoredDirectionalValveLaws(rows) => rows.len(),
-            Self::r#AuthoredDocumentEdits(rows) => rows.len(),
             Self::r#AuthoredDocuments(rows) => rows.len(),
-            Self::r#AuthoredDomainMembers(rows) => rows.len(),
-            Self::r#AuthoredDomains(rows) => rows.len(),
-            Self::r#AuthoredDynamicCases(rows) => rows.len(),
             Self::r#AuthoredEntities(rows) => rows.len(),
             Self::r#AuthoredFitCases(rows) => rows.len(),
-            Self::r#AuthoredFlowsheets(rows) => rows.len(),
-            Self::r#AuthoredHenryDeclarations(rows) => rows.len(),
-            Self::r#AuthoredInstanceDomainBindings(rows) => rows.len(),
-            Self::r#AuthoredInstanceEquations(rows) => rows.len(),
-            Self::r#AuthoredInstances(rows) => rows.len(),
-            Self::r#AuthoredMaterialSystems(rows) => rows.len(),
-            Self::r#AuthoredMethodSelections(rows) => rows.len(),
-            Self::r#AuthoredModelCompositions(rows) => rows.len(),
-            Self::r#AuthoredNativeProviders(rows) => rows.len(),
+            Self::r#AuthoredModelingDeclarations(rows) => rows.len(),
             Self::r#AuthoredNumericalRequirements(rows) => rows.len(),
-            Self::r#AuthoredObservationTargets(rows) => rows.len(),
             Self::r#AuthoredObservations(rows) => rows.len(),
+            Self::r#AuthoredPackageQuantityAliases(rows) => rows.len(),
             Self::r#AuthoredPackageUnitSets(rows) => rows.len(),
             Self::r#AuthoredPackages(rows) => rows.len(),
-            Self::r#AuthoredParameterValues(rows) => rows.len(),
-            Self::r#AuthoredPhaseEquilibriumPairs(rows) => rows.len(),
-            Self::r#AuthoredPhaseSpecies(rows) => rows.len(),
-            Self::r#AuthoredPhases(rows) => rows.len(),
-            Self::r#AuthoredPhysicalBalances(rows) => rows.len(),
-            Self::r#AuthoredPropertyPackages(rows) => rows.len(),
-            Self::r#AuthoredProviderScalingBindings(rows) => rows.len(),
-            Self::r#AuthoredReactionApplications(rows) => rows.len(),
-            Self::r#AuthoredReactionMethods(rows) => rows.len(),
-            Self::r#AuthoredReactionPackages(rows) => rows.len(),
-            Self::r#AuthoredReactions(rows) => rows.len(),
-            Self::r#AuthoredRenameRequests(rows) => rows.len(),
-            Self::r#AuthoredScenarios(rows) => rows.len(),
-            Self::r#AuthoredScopes(rows) => rows.len(),
-            Self::r#AuthoredSelectorTerms(rows) => rows.len(),
-            Self::r#AuthoredSpecies(rows) => rows.len(),
-            Self::r#AuthoredSpeciesElements(rows) => rows.len(),
-            Self::r#AuthoredStateBounds(rows) => rows.len(),
-            Self::r#AuthoredStoichiometry(rows) => rows.len(),
-            Self::r#AuthoredTemplateContributionContracts(rows) => rows.len(),
-            Self::r#AuthoredTemplateContributions(rows) => rows.len(),
-            Self::r#AuthoredTemplateDerivatives(rows) => rows.len(),
-            Self::r#AuthoredTemplateDisplay(rows) => rows.len(),
-            Self::r#AuthoredTemplateDisplayIndices(rows) => rows.len(),
-            Self::r#AuthoredTemplateDomainBindings(rows) => rows.len(),
-            Self::r#AuthoredTemplateDomains(rows) => rows.len(),
-            Self::r#AuthoredTemplateEquations(rows) => rows.len(),
-            Self::r#AuthoredTemplateFeatureRules(rows) => rows.len(),
-            Self::r#AuthoredTemplateFeatures(rows) => rows.len(),
-            Self::r#AuthoredTemplateGuards(rows) => rows.len(),
-            Self::r#AuthoredTemplateLawContracts(rows) => rows.len(),
-            Self::r#AuthoredTemplateLawInstances(rows) => rows.len(),
-            Self::r#AuthoredTemplateMaterialConstraints(rows) => rows.len(),
-            Self::r#AuthoredTemplateParams(rows) => rows.len(),
-            Self::r#AuthoredTemplatePortMembers(rows) => rows.len(),
-            Self::r#AuthoredTemplatePorts(rows) => rows.len(),
-            Self::r#AuthoredTemplatePropertyRequirements(rows) => rows.len(),
-            Self::r#AuthoredTemplateRequirements(rows) => rows.len(),
-            Self::r#AuthoredTemplateScopes(rows) => rows.len(),
-            Self::r#AuthoredTemplateSubmodels(rows) => rows.len(),
-            Self::r#AuthoredTemplateSymbolContracts(rows) => rows.len(),
-            Self::r#AuthoredTemplateSymbolExpressions(rows) => rows.len(),
-            Self::r#AuthoredTemplateSymbolProperties(rows) => rows.len(),
-            Self::r#AuthoredTemplateSymbols(rows) => rows.len(),
-            Self::r#AuthoredTemplates(rows) => rows.len(),
-            Self::r#NormalizedInstanceBindings(rows) => rows.len(),
             Self::r#NormalizedPackageGraph(rows) => rows.len(),
-            Self::r#NormalizedResolvedSourceOccurrences(rows) => rows.len(),
-            Self::r#NormalizedSourceOccurrences(rows) => rows.len(),
             Self::r#NormalizedUnits(rows) => rows.len(),
             Self::r#ProvenanceAssertions(rows) => rows.len(),
             Self::r#ProvenanceDerivations(rows) => rows.len(),
@@ -1433,25 +733,12 @@ impl FactBatch {
             Self::r#ReferenceAliases(rows) => rows.len(),
             Self::r#ReferenceArtifactProfiles(rows) => rows.len(),
             Self::r#ReferenceBases(rows) => rows.len(),
-            Self::r#ReferenceConnectionBindings(rows) => rows.len(),
             Self::r#ReferenceConstants(rows) => rows.len(),
             Self::r#ReferenceConversionRules(rows) => rows.len(),
             Self::r#ReferenceDimensions(rows) => rows.len(),
-            Self::r#ReferenceElementProjectionContracts(rows) => rows.len(),
-            Self::r#ReferenceElements(rows) => rows.len(),
             Self::r#ReferenceEngineProfiles(rows) => rows.len(),
             Self::r#ReferenceFunctionCapabilities(rows) => rows.len(),
-            Self::r#ReferenceLawBindings(rows) => rows.len(),
             Self::r#ReferenceMathContext(rows) => rows.len(),
-            Self::r#ReferenceMethodDependencies(rows) => rows.len(),
-            Self::r#ReferenceMethodKernelInputs(rows) => rows.len(),
-            Self::r#ReferenceMethodParameterAxes(rows) => rows.len(),
-            Self::r#ReferenceMethodParameters(rows) => rows.len(),
-            Self::r#ReferenceMethodPrecedence(rows) => rows.len(),
-            Self::r#ReferenceMethodProvisions(rows) => rows.len(),
-            Self::r#ReferenceMethodSpecs(rows) => rows.len(),
-            Self::r#ReferenceMethodStateParameters(rows) => rows.len(),
-            Self::r#ReferencePropertyKinds(rows) => rows.len(),
             Self::r#ReferenceQuantityKinds(rows) => rows.len(),
             Self::r#ReferenceQuantityOperationReductions(rows) => rows.len(),
             Self::r#ReferenceQuantityOperations(rows) => rows.len(),
@@ -1482,8 +769,20 @@ impl FactBatch {
             Self::r#RuntimeFitParameters(rows) => rows.len(),
             Self::r#RuntimeFitVariables(rows) => rows.len(),
             Self::r#RuntimeMaintenanceOutcomes(rows) => rows.len(),
+            Self::r#RuntimeModelingChecks(rows) => rows.len(),
+            Self::r#RuntimeModelingConformance(rows) => rows.len(),
+            Self::r#RuntimeModelingDiagnosticSamples(rows) => rows.len(),
+            Self::r#RuntimeModelingDiagnostics(rows) => rows.len(),
+            Self::r#RuntimeModelingFindings(rows) => rows.len(),
+            Self::r#RuntimeModelingFixtureStatus(rows) => rows.len(),
+            Self::r#RuntimeModelingInitializations(rows) => rows.len(),
+            Self::r#RuntimeModelingJacobianOptimization(rows) => rows.len(),
+            Self::r#RuntimeModelingLinearDiagnostics(rows) => rows.len(),
+            Self::r#RuntimeModelingNonlinearExplanations(rows) => rows.len(),
+            Self::r#RuntimeModelingReports(rows) => rows.len(),
+            Self::r#RuntimeModelingStudies(rows) => rows.len(),
+            Self::r#RuntimeModelingTrajectoryModes(rows) => rows.len(),
             Self::r#RuntimeNativeDependencies(rows) => rows.len(),
-            Self::r#RuntimePhysicalChecks(rows) => rows.len(),
             Self::r#RuntimePublications(rows) => rows.len(),
             Self::r#RuntimeReleaseCheckpoints(rows) => rows.len(),
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
@@ -1510,102 +809,12 @@ impl FactBatch {
         let mut hash = pse_ids::FramedHasher::new("pse:typed-facts:v1");
         hash.id(&self.relation()).u64(self.len() as u64);
         match self {
-            Self::r#AuthoredCaseActivationTargets(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredCaseActivations(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredCaseObjectives(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredCasePolicies(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredCaseSetSamples(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredCaseSets(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredCaseSpecTargets(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredCaseSpecs(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredCases(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredComputationModels(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredConnections(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredContinuousDomains(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
             Self::r#AuthoredDatasets(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#AuthoredDefaultScaling(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredDirectionalValveLaws(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredDocumentEdits(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
             Self::r#AuthoredDocuments(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredDomainMembers(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredDomains(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredDynamicCases(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1620,47 +829,7 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#AuthoredFlowsheets(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredHenryDeclarations(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredInstanceDomainBindings(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredInstanceEquations(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredInstances(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredMaterialSystems(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredMethodSelections(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredModelCompositions(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredNativeProviders(rows) => {
+            Self::r#AuthoredModelingDeclarations(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1670,12 +839,12 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#AuthoredObservationTargets(rows) => {
+            Self::r#AuthoredObservations(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#AuthoredObservations(rows) => {
+            Self::r#AuthoredPackageQuantityAliases(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1690,247 +859,7 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#AuthoredParameterValues(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredPhaseEquilibriumPairs(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredPhaseSpecies(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredPhases(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredPhysicalBalances(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredPropertyPackages(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredProviderScalingBindings(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredReactionApplications(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredReactionMethods(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredReactionPackages(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredReactions(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredRenameRequests(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredScenarios(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredScopes(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredSelectorTerms(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredSpecies(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredSpeciesElements(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredStateBounds(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredStoichiometry(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateContributionContracts(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateContributions(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateDerivatives(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateDisplay(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateDisplayIndices(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateDomainBindings(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateDomains(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateEquations(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateFeatureRules(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateFeatures(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateGuards(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateLawContracts(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateLawInstances(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateMaterialConstraints(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateParams(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplatePortMembers(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplatePorts(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplatePropertyRequirements(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateRequirements(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateScopes(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateSubmodels(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateSymbolContracts(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateSymbolExpressions(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateSymbolProperties(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplateSymbols(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#AuthoredTemplates(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#NormalizedInstanceBindings(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
             Self::r#NormalizedPackageGraph(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#NormalizedResolvedSourceOccurrences(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#NormalizedSourceOccurrences(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1980,11 +909,6 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#ReferenceConnectionBindings(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
             Self::r#ReferenceConstants(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -2000,16 +924,6 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#ReferenceElementProjectionContracts(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceElements(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
             Self::r#ReferenceEngineProfiles(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -2020,57 +934,7 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#ReferenceLawBindings(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
             Self::r#ReferenceMathContext(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceMethodDependencies(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceMethodKernelInputs(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceMethodParameterAxes(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceMethodParameters(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceMethodPrecedence(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceMethodProvisions(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceMethodSpecs(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferenceMethodStateParameters(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#ReferencePropertyKinds(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2225,12 +1089,72 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#RuntimeNativeDependencies(rows) => {
+            Self::r#RuntimeModelingChecks(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#RuntimePhysicalChecks(rows) => {
+            Self::r#RuntimeModelingConformance(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingDiagnosticSamples(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingDiagnostics(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingFindings(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingFixtureStatus(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingInitializations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingJacobianOptimization(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingLinearDiagnostics(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingNonlinearExplanations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingReports(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingStudies(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeModelingTrajectoryModes(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeNativeDependencies(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2311,78 +1235,11 @@ impl FactBatch {
     /// One exact generated row, retaining its relation identity.
     pub fn row(&self, index: usize) -> Option<Self> {
         match self {
-            Self::r#AuthoredCaseActivationTargets(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredCaseActivationTargets(vec![row.clone()]))
-            }
-            Self::r#AuthoredCaseActivations(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredCaseActivations(vec![row.clone()]))
-            }
-            Self::r#AuthoredCaseObjectives(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredCaseObjectives(vec![row.clone()]))
-            }
-            Self::r#AuthoredCasePolicies(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredCasePolicies(vec![row.clone()]))
-            }
-            Self::r#AuthoredCaseSetSamples(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredCaseSetSamples(vec![row.clone()]))
-            }
-            Self::r#AuthoredCaseSets(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredCaseSets(vec![row.clone()]))
-            }
-            Self::r#AuthoredCaseSpecTargets(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredCaseSpecTargets(vec![row.clone()]))
-            }
-            Self::r#AuthoredCaseSpecs(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredCaseSpecs(vec![row.clone()]))
-            }
-            Self::r#AuthoredCases(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredCases(vec![row.clone()]))
-            }
-            Self::r#AuthoredComputationModels(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredComputationModels(vec![row.clone()]))
-            }
-            Self::r#AuthoredConnections(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredConnections(vec![row.clone()]))
-            }
-            Self::r#AuthoredContinuousDomains(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredContinuousDomains(vec![row.clone()]))
-            }
             Self::r#AuthoredDatasets(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredDatasets(vec![row.clone()]))
             }
-            Self::r#AuthoredDefaultScaling(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredDefaultScaling(vec![row.clone()]))
-            }
-            Self::r#AuthoredDirectionalValveLaws(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredDirectionalValveLaws(vec![row.clone()]))
-            }
-            Self::r#AuthoredDocumentEdits(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredDocumentEdits(vec![row.clone()]))
-            }
             Self::r#AuthoredDocuments(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredDocuments(vec![row.clone()]))
-            }
-            Self::r#AuthoredDomainMembers(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredDomainMembers(vec![row.clone()]))
-            }
-            Self::r#AuthoredDomains(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredDomains(vec![row.clone()]))
-            }
-            Self::r#AuthoredDynamicCases(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredDynamicCases(vec![row.clone()]))
             }
             Self::r#AuthoredEntities(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredEntities(vec![row.clone()]))
@@ -2390,51 +1247,21 @@ impl FactBatch {
             Self::r#AuthoredFitCases(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredFitCases(vec![row.clone()]))
             }
-            Self::r#AuthoredFlowsheets(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredFlowsheets(vec![row.clone()]))
-            }
-            Self::r#AuthoredHenryDeclarations(rows) => {
+            Self::r#AuthoredModelingDeclarations(rows) => {
                 rows.get(index)
-                    .map(|row| Self::r#AuthoredHenryDeclarations(vec![row.clone()]))
-            }
-            Self::r#AuthoredInstanceDomainBindings(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredInstanceDomainBindings(vec![row.clone()]))
-            }
-            Self::r#AuthoredInstanceEquations(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredInstanceEquations(vec![row.clone()]))
-            }
-            Self::r#AuthoredInstances(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredInstances(vec![row.clone()]))
-            }
-            Self::r#AuthoredMaterialSystems(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredMaterialSystems(vec![row.clone()]))
-            }
-            Self::r#AuthoredMethodSelections(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredMethodSelections(vec![row.clone()]))
-            }
-            Self::r#AuthoredModelCompositions(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredModelCompositions(vec![row.clone()]))
-            }
-            Self::r#AuthoredNativeProviders(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredNativeProviders(vec![row.clone()]))
+                    .map(|row| Self::r#AuthoredModelingDeclarations(vec![row.clone()]))
             }
             Self::r#AuthoredNumericalRequirements(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredNumericalRequirements(vec![row.clone()]))
             }
-            Self::r#AuthoredObservationTargets(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredObservationTargets(vec![row.clone()]))
-            }
             Self::r#AuthoredObservations(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#AuthoredObservations(vec![row.clone()]))
+            }
+            Self::r#AuthoredPackageQuantityAliases(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#AuthoredPackageQuantityAliases(vec![row.clone()]))
             }
             Self::r#AuthoredPackageUnitSets(rows) => {
                 rows.get(index)
@@ -2443,210 +1270,9 @@ impl FactBatch {
             Self::r#AuthoredPackages(rows) => {
                 rows.get(index).map(|row| Self::r#AuthoredPackages(vec![row.clone()]))
             }
-            Self::r#AuthoredParameterValues(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredParameterValues(vec![row.clone()]))
-            }
-            Self::r#AuthoredPhaseEquilibriumPairs(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredPhaseEquilibriumPairs(vec![row.clone()]))
-            }
-            Self::r#AuthoredPhaseSpecies(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredPhaseSpecies(vec![row.clone()]))
-            }
-            Self::r#AuthoredPhases(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredPhases(vec![row.clone()]))
-            }
-            Self::r#AuthoredPhysicalBalances(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredPhysicalBalances(vec![row.clone()]))
-            }
-            Self::r#AuthoredPropertyPackages(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredPropertyPackages(vec![row.clone()]))
-            }
-            Self::r#AuthoredProviderScalingBindings(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredProviderScalingBindings(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#AuthoredReactionApplications(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredReactionApplications(vec![row.clone()]))
-            }
-            Self::r#AuthoredReactionMethods(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredReactionMethods(vec![row.clone()]))
-            }
-            Self::r#AuthoredReactionPackages(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredReactionPackages(vec![row.clone()]))
-            }
-            Self::r#AuthoredReactions(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredReactions(vec![row.clone()]))
-            }
-            Self::r#AuthoredRenameRequests(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredRenameRequests(vec![row.clone()]))
-            }
-            Self::r#AuthoredScenarios(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredScenarios(vec![row.clone()]))
-            }
-            Self::r#AuthoredScopes(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredScopes(vec![row.clone()]))
-            }
-            Self::r#AuthoredSelectorTerms(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredSelectorTerms(vec![row.clone()]))
-            }
-            Self::r#AuthoredSpecies(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredSpecies(vec![row.clone()]))
-            }
-            Self::r#AuthoredSpeciesElements(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredSpeciesElements(vec![row.clone()]))
-            }
-            Self::r#AuthoredStateBounds(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredStateBounds(vec![row.clone()]))
-            }
-            Self::r#AuthoredStoichiometry(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredStoichiometry(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateContributionContracts(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateContributionContracts(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#AuthoredTemplateContributions(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateContributions(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateDerivatives(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateDerivatives(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateDisplay(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateDisplay(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateDisplayIndices(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateDisplayIndices(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateDomainBindings(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateDomainBindings(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateDomains(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateDomains(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateEquations(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateEquations(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateFeatureRules(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateFeatureRules(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateFeatures(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateFeatures(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateGuards(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateGuards(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateLawContracts(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateLawContracts(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateLawInstances(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateLawInstances(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateMaterialConstraints(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateMaterialConstraints(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#AuthoredTemplateParams(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateParams(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplatePortMembers(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplatePortMembers(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplatePorts(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplatePorts(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplatePropertyRequirements(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplatePropertyRequirements(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#AuthoredTemplateRequirements(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateRequirements(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateScopes(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateScopes(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateSubmodels(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateSubmodels(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplateSymbolContracts(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateSymbolContracts(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#AuthoredTemplateSymbolExpressions(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateSymbolExpressions(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#AuthoredTemplateSymbolProperties(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateSymbolProperties(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#AuthoredTemplateSymbols(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#AuthoredTemplateSymbols(vec![row.clone()]))
-            }
-            Self::r#AuthoredTemplates(rows) => {
-                rows.get(index).map(|row| Self::r#AuthoredTemplates(vec![row.clone()]))
-            }
-            Self::r#NormalizedInstanceBindings(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#NormalizedInstanceBindings(vec![row.clone()]))
-            }
             Self::r#NormalizedPackageGraph(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#NormalizedPackageGraph(vec![row.clone()]))
-            }
-            Self::r#NormalizedResolvedSourceOccurrences(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#NormalizedResolvedSourceOccurrences(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#NormalizedSourceOccurrences(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#NormalizedSourceOccurrences(vec![row.clone()]))
             }
             Self::r#NormalizedUnits(rows) => {
                 rows.get(index).map(|row| Self::r#NormalizedUnits(vec![row.clone()]))
@@ -2681,10 +1307,6 @@ impl FactBatch {
             Self::r#ReferenceBases(rows) => {
                 rows.get(index).map(|row| Self::r#ReferenceBases(vec![row.clone()]))
             }
-            Self::r#ReferenceConnectionBindings(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceConnectionBindings(vec![row.clone()]))
-            }
             Self::r#ReferenceConstants(rows) => {
                 rows.get(index).map(|row| Self::r#ReferenceConstants(vec![row.clone()]))
             }
@@ -2695,15 +1317,6 @@ impl FactBatch {
             Self::r#ReferenceDimensions(rows) => {
                 rows.get(index).map(|row| Self::r#ReferenceDimensions(vec![row.clone()]))
             }
-            Self::r#ReferenceElementProjectionContracts(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceElementProjectionContracts(
-                        vec![row.clone()],
-                    ))
-            }
-            Self::r#ReferenceElements(rows) => {
-                rows.get(index).map(|row| Self::r#ReferenceElements(vec![row.clone()]))
-            }
             Self::r#ReferenceEngineProfiles(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#ReferenceEngineProfiles(vec![row.clone()]))
@@ -2712,49 +1325,9 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#ReferenceFunctionCapabilities(vec![row.clone()]))
             }
-            Self::r#ReferenceLawBindings(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceLawBindings(vec![row.clone()]))
-            }
             Self::r#ReferenceMathContext(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#ReferenceMathContext(vec![row.clone()]))
-            }
-            Self::r#ReferenceMethodDependencies(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceMethodDependencies(vec![row.clone()]))
-            }
-            Self::r#ReferenceMethodKernelInputs(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceMethodKernelInputs(vec![row.clone()]))
-            }
-            Self::r#ReferenceMethodParameterAxes(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceMethodParameterAxes(vec![row.clone()]))
-            }
-            Self::r#ReferenceMethodParameters(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceMethodParameters(vec![row.clone()]))
-            }
-            Self::r#ReferenceMethodPrecedence(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceMethodPrecedence(vec![row.clone()]))
-            }
-            Self::r#ReferenceMethodProvisions(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceMethodProvisions(vec![row.clone()]))
-            }
-            Self::r#ReferenceMethodSpecs(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceMethodSpecs(vec![row.clone()]))
-            }
-            Self::r#ReferenceMethodStateParameters(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferenceMethodStateParameters(vec![row.clone()]))
-            }
-            Self::r#ReferencePropertyKinds(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#ReferencePropertyKinds(vec![row.clone()]))
             }
             Self::r#ReferenceQuantityKinds(rows) => {
                 rows.get(index)
@@ -2876,13 +1449,69 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeMaintenanceOutcomes(vec![row.clone()]))
             }
+            Self::r#RuntimeModelingChecks(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingChecks(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingConformance(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingConformance(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingDiagnosticSamples(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingDiagnosticSamples(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeModelingDiagnostics(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingDiagnostics(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingFindings(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingFindings(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingFixtureStatus(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingFixtureStatus(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingInitializations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingInitializations(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingJacobianOptimization(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingJacobianOptimization(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeModelingLinearDiagnostics(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingLinearDiagnostics(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeModelingNonlinearExplanations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingNonlinearExplanations(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeModelingReports(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingReports(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingStudies(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingStudies(vec![row.clone()]))
+            }
+            Self::r#RuntimeModelingTrajectoryModes(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeModelingTrajectoryModes(vec![row.clone()]))
+            }
             Self::r#RuntimeNativeDependencies(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeNativeDependencies(vec![row.clone()]))
-            }
-            Self::r#RuntimePhysicalChecks(rows) => {
-                rows.get(index)
-                    .map(|row| Self::r#RuntimePhysicalChecks(vec![row.clone()]))
             }
             Self::r#RuntimePublications(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimePublications(vec![row.clone()]))
@@ -2941,123 +1570,6 @@ impl FactBatch {
     /// Full canonical semantic comparison without allocating row copies.
     pub fn same_row(&self, index: usize, other: &Self, other_index: usize) -> bool {
         match (self, other) {
-            (
-                Self::r#AuthoredCaseActivationTargets(left),
-                Self::r#AuthoredCaseActivationTargets(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredCaseActivations(left),
-                Self::r#AuthoredCaseActivations(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredCaseObjectives(left),
-                Self::r#AuthoredCaseObjectives(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredCasePolicies(left), Self::r#AuthoredCasePolicies(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredCaseSetSamples(left),
-                Self::r#AuthoredCaseSetSamples(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredCaseSets(left), Self::r#AuthoredCaseSets(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredCaseSpecTargets(left),
-                Self::r#AuthoredCaseSpecTargets(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredCaseSpecs(left), Self::r#AuthoredCaseSpecs(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredCases(left), Self::r#AuthoredCases(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredComputationModels(left),
-                Self::r#AuthoredComputationModels(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredConnections(left), Self::r#AuthoredConnections(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredContinuousDomains(left),
-                Self::r#AuthoredContinuousDomains(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#AuthoredDatasets(left), Self::r#AuthoredDatasets(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3066,67 +1578,7 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (
-                Self::r#AuthoredDefaultScaling(left),
-                Self::r#AuthoredDefaultScaling(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredDirectionalValveLaws(left),
-                Self::r#AuthoredDirectionalValveLaws(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredDocumentEdits(left),
-                Self::r#AuthoredDocumentEdits(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredDomainMembers(left),
-                Self::r#AuthoredDomainMembers(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredDomains(left), Self::r#AuthoredDomains(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredDynamicCases(left), Self::r#AuthoredDynamicCases(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -3150,91 +1602,9 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (Self::r#AuthoredFlowsheets(left), Self::r#AuthoredFlowsheets(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
             (
-                Self::r#AuthoredHenryDeclarations(left),
-                Self::r#AuthoredHenryDeclarations(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredInstanceDomainBindings(left),
-                Self::r#AuthoredInstanceDomainBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredInstanceEquations(left),
-                Self::r#AuthoredInstanceEquations(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredInstances(left), Self::r#AuthoredInstances(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredMaterialSystems(left),
-                Self::r#AuthoredMaterialSystems(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredMethodSelections(left),
-                Self::r#AuthoredMethodSelections(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredModelCompositions(left),
-                Self::r#AuthoredModelCompositions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredNativeProviders(left),
-                Self::r#AuthoredNativeProviders(right),
+                Self::r#AuthoredModelingDeclarations(left),
+                Self::r#AuthoredModelingDeclarations(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3254,10 +1624,7 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (
-                Self::r#AuthoredObservationTargets(left),
-                Self::r#AuthoredObservationTargets(right),
-            ) => {
+            (Self::r#AuthoredObservations(left), Self::r#AuthoredObservations(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -3265,7 +1632,10 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (Self::r#AuthoredObservations(left), Self::r#AuthoredObservations(right)) => {
+            (
+                Self::r#AuthoredPackageQuantityAliases(left),
+                Self::r#AuthoredPackageQuantityAliases(right),
+            ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -3293,512 +1663,8 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#AuthoredParameterValues(left),
-                Self::r#AuthoredParameterValues(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredPhaseEquilibriumPairs(left),
-                Self::r#AuthoredPhaseEquilibriumPairs(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredPhaseSpecies(left), Self::r#AuthoredPhaseSpecies(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredPhases(left), Self::r#AuthoredPhases(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredPhysicalBalances(left),
-                Self::r#AuthoredPhysicalBalances(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredPropertyPackages(left),
-                Self::r#AuthoredPropertyPackages(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredProviderScalingBindings(left),
-                Self::r#AuthoredProviderScalingBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredReactionApplications(left),
-                Self::r#AuthoredReactionApplications(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredReactionMethods(left),
-                Self::r#AuthoredReactionMethods(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredReactionPackages(left),
-                Self::r#AuthoredReactionPackages(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredReactions(left), Self::r#AuthoredReactions(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredRenameRequests(left),
-                Self::r#AuthoredRenameRequests(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredScenarios(left), Self::r#AuthoredScenarios(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredScopes(left), Self::r#AuthoredScopes(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredSelectorTerms(left),
-                Self::r#AuthoredSelectorTerms(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredSpecies(left), Self::r#AuthoredSpecies(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredSpeciesElements(left),
-                Self::r#AuthoredSpeciesElements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredStateBounds(left), Self::r#AuthoredStateBounds(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredStoichiometry(left),
-                Self::r#AuthoredStoichiometry(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateContributionContracts(left),
-                Self::r#AuthoredTemplateContributionContracts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateContributions(left),
-                Self::r#AuthoredTemplateContributions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDerivatives(left),
-                Self::r#AuthoredTemplateDerivatives(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDisplay(left),
-                Self::r#AuthoredTemplateDisplay(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDisplayIndices(left),
-                Self::r#AuthoredTemplateDisplayIndices(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDomainBindings(left),
-                Self::r#AuthoredTemplateDomainBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDomains(left),
-                Self::r#AuthoredTemplateDomains(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateEquations(left),
-                Self::r#AuthoredTemplateEquations(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateFeatureRules(left),
-                Self::r#AuthoredTemplateFeatureRules(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateFeatures(left),
-                Self::r#AuthoredTemplateFeatures(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateGuards(left),
-                Self::r#AuthoredTemplateGuards(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateLawContracts(left),
-                Self::r#AuthoredTemplateLawContracts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateLawInstances(left),
-                Self::r#AuthoredTemplateLawInstances(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateMaterialConstraints(left),
-                Self::r#AuthoredTemplateMaterialConstraints(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateParams(left),
-                Self::r#AuthoredTemplateParams(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplatePortMembers(left),
-                Self::r#AuthoredTemplatePortMembers(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplatePorts(left),
-                Self::r#AuthoredTemplatePorts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplatePropertyRequirements(left),
-                Self::r#AuthoredTemplatePropertyRequirements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateRequirements(left),
-                Self::r#AuthoredTemplateRequirements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateScopes(left),
-                Self::r#AuthoredTemplateScopes(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSubmodels(left),
-                Self::r#AuthoredTemplateSubmodels(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSymbolContracts(left),
-                Self::r#AuthoredTemplateSymbolContracts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSymbolExpressions(left),
-                Self::r#AuthoredTemplateSymbolExpressions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSymbolProperties(left),
-                Self::r#AuthoredTemplateSymbolProperties(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSymbols(left),
-                Self::r#AuthoredTemplateSymbols(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredTemplates(left), Self::r#AuthoredTemplates(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedInstanceBindings(left),
-                Self::r#NormalizedInstanceBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
                 Self::r#NormalizedPackageGraph(left),
                 Self::r#NormalizedPackageGraph(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedResolvedSourceOccurrences(left),
-                Self::r#NormalizedResolvedSourceOccurrences(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedSourceOccurrences(left),
-                Self::r#NormalizedSourceOccurrences(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3894,17 +1760,6 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (
-                Self::r#ReferenceConnectionBindings(left),
-                Self::r#ReferenceConnectionBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#ReferenceConstants(left), Self::r#ReferenceConstants(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3925,25 +1780,6 @@ impl FactBatch {
                 }
             }
             (Self::r#ReferenceDimensions(left), Self::r#ReferenceDimensions(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceElementProjectionContracts(left),
-                Self::r#ReferenceElementProjectionContracts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#ReferenceElements(left), Self::r#ReferenceElements(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -3973,111 +1809,7 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (Self::r#ReferenceLawBindings(left), Self::r#ReferenceLawBindings(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#ReferenceMathContext(left), Self::r#ReferenceMathContext(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodDependencies(left),
-                Self::r#ReferenceMethodDependencies(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodKernelInputs(left),
-                Self::r#ReferenceMethodKernelInputs(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodParameterAxes(left),
-                Self::r#ReferenceMethodParameterAxes(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodParameters(left),
-                Self::r#ReferenceMethodParameters(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodPrecedence(left),
-                Self::r#ReferenceMethodPrecedence(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodProvisions(left),
-                Self::r#ReferenceMethodProvisions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#ReferenceMethodSpecs(left), Self::r#ReferenceMethodSpecs(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodStateParameters(left),
-                Self::r#ReferenceMethodStateParameters(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferencePropertyKinds(left),
-                Self::r#ReferencePropertyKinds(right),
-            ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -4398,8 +2130,8 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#RuntimeNativeDependencies(left),
-                Self::r#RuntimeNativeDependencies(right),
+                Self::r#RuntimeModelingChecks(left),
+                Self::r#RuntimeModelingChecks(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4409,8 +2141,140 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#RuntimePhysicalChecks(left),
-                Self::r#RuntimePhysicalChecks(right),
+                Self::r#RuntimeModelingConformance(left),
+                Self::r#RuntimeModelingConformance(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingDiagnosticSamples(left),
+                Self::r#RuntimeModelingDiagnosticSamples(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingDiagnostics(left),
+                Self::r#RuntimeModelingDiagnostics(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingFindings(left),
+                Self::r#RuntimeModelingFindings(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingFixtureStatus(left),
+                Self::r#RuntimeModelingFixtureStatus(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingInitializations(left),
+                Self::r#RuntimeModelingInitializations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingJacobianOptimization(left),
+                Self::r#RuntimeModelingJacobianOptimization(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingLinearDiagnostics(left),
+                Self::r#RuntimeModelingLinearDiagnostics(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingNonlinearExplanations(left),
+                Self::r#RuntimeModelingNonlinearExplanations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingReports(left),
+                Self::r#RuntimeModelingReports(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingStudies(left),
+                Self::r#RuntimeModelingStudies(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingTrajectoryModes(left),
+                Self::r#RuntimeModelingTrajectoryModes(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeNativeDependencies(left),
+                Self::r#RuntimeNativeDependencies(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4567,90 +2431,6 @@ impl FactBatch {
     /// Conservative clone extent, checked before allocating a one-row batch.
     pub fn row_bytes(&self, index: usize) -> Option<usize> {
         match self {
-            Self::r#AuthoredCaseActivationTargets(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredCaseActivations(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredCaseObjectives(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredCasePolicies(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredCaseSetSamples(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredCaseSets(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredCaseSpecTargets(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredCaseSpecs(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredCases(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredComputationModels(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredConnections(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredContinuousDomains(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#AuthoredDatasets(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -4658,49 +2438,7 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#AuthoredDefaultScaling(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredDirectionalValveLaws(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredDocumentEdits(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#AuthoredDocuments(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredDomainMembers(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredDomains(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredDynamicCases(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4721,63 +2459,7 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#AuthoredFlowsheets(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredHenryDeclarations(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredInstanceDomainBindings(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredInstanceEquations(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredInstances(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredMaterialSystems(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredMethodSelections(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredModelCompositions(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredNativeProviders(rows) => {
+            Self::r#AuthoredModelingDeclarations(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4791,14 +2473,14 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#AuthoredObservationTargets(rows) => {
+            Self::r#AuthoredObservations(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#AuthoredObservations(rows) => {
+            Self::r#AuthoredPackageQuantityAliases(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4819,343 +2501,7 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#AuthoredParameterValues(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredPhaseEquilibriumPairs(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredPhaseSpecies(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredPhases(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredPhysicalBalances(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredPropertyPackages(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredProviderScalingBindings(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredReactionApplications(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredReactionMethods(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredReactionPackages(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredReactions(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredRenameRequests(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredScenarios(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredScopes(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredSelectorTerms(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredSpecies(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredSpeciesElements(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredStateBounds(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredStoichiometry(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateContributionContracts(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateContributions(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateDerivatives(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateDisplay(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateDisplayIndices(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateDomainBindings(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateDomains(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateEquations(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateFeatureRules(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateFeatures(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateGuards(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateLawContracts(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateLawInstances(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateMaterialConstraints(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateParams(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplatePortMembers(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplatePorts(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplatePropertyRequirements(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateRequirements(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateScopes(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateSubmodels(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateSymbolContracts(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateSymbolExpressions(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateSymbolProperties(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplateSymbols(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#AuthoredTemplates(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#NormalizedInstanceBindings(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#NormalizedPackageGraph(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#NormalizedResolvedSourceOccurrences(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#NormalizedSourceOccurrences(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5225,13 +2571,6 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#ReferenceConnectionBindings(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#ReferenceConstants(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -5253,20 +2592,6 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#ReferenceElementProjectionContracts(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceElements(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#ReferenceEngineProfiles(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -5281,77 +2606,7 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#ReferenceLawBindings(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
             Self::r#ReferenceMathContext(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceMethodDependencies(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceMethodKernelInputs(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceMethodParameterAxes(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceMethodParameters(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceMethodPrecedence(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceMethodProvisions(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceMethodSpecs(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferenceMethodStateParameters(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#ReferencePropertyKinds(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5568,14 +2823,98 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#RuntimeNativeDependencies(rows) => {
+            Self::r#RuntimeModelingChecks(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#RuntimePhysicalChecks(rows) => {
+            Self::r#RuntimeModelingConformance(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingDiagnosticSamples(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingDiagnostics(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingFindings(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingFixtureStatus(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingInitializations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingJacobianOptimization(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingLinearDiagnostics(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingNonlinearExplanations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingReports(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingStudies(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeModelingTrajectoryModes(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeNativeDependencies(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5685,160 +3024,6 @@ impl FactBatch {
     /// Complete primary-key equality; hash collisions do not merge keys.
     pub fn same_key(&self, index: usize, other: &Self, other_index: usize) -> bool {
         match (self, other) {
-            (
-                Self::r#AuthoredCaseActivationTargets(left),
-                Self::r#AuthoredCaseActivationTargets(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#activation_id,
-                            &right.r#activation_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#ordinal,
-                                &right.r#ordinal,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredCaseActivations(left),
-                Self::r#AuthoredCaseActivations(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#activation_id,
-                            &right.r#activation_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredCaseObjectives(left),
-                Self::r#AuthoredCaseObjectives(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#case_id, &right.r#case_id)
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#objective_id,
-                                &right.r#objective_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredCasePolicies(left), Self::r#AuthoredCasePolicies(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#case_id, &right.r#case_id)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredCaseSetSamples(left),
-                Self::r#AuthoredCaseSetSamples(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#case_set_id,
-                            &right.r#case_set_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#sample_ordinal,
-                                &right.r#sample_ordinal,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredCaseSets(left), Self::r#AuthoredCaseSets(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#case_set_id,
-                            &right.r#case_set_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredCaseSpecTargets(left),
-                Self::r#AuthoredCaseSpecTargets(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#spec_id, &right.r#spec_id)
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#ordinal,
-                                &right.r#ordinal,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredCaseSpecs(left), Self::r#AuthoredCaseSpecs(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#spec_id, &right.r#spec_id)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredCases(left), Self::r#AuthoredCases(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#case_id, &right.r#case_id)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredComputationModels(left),
-                Self::r#AuthoredComputationModels(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#model_id,
-                            &right.r#model_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredConnections(left), Self::r#AuthoredConnections(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#connection_id,
-                            &right.r#connection_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredContinuousDomains(left),
-                Self::r#AuthoredContinuousDomains(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#domain_id,
-                            &right.r#domain_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#AuthoredDatasets(left), Self::r#AuthoredDatasets(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5850,98 +3035,12 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (
-                Self::r#AuthoredDefaultScaling(left),
-                Self::r#AuthoredDefaultScaling(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#property_package_id,
-                            &right.r#property_package_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#property_kind_id,
-                                &right.r#property_kind_id,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#index,
-                                &right.r#index,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredDirectionalValveLaws(left),
-                Self::r#AuthoredDirectionalValveLaws(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#model_id,
-                            &right.r#model_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredDocumentEdits(left),
-                Self::r#AuthoredDocumentEdits(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#document_id,
-                            &right.r#document_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(
                             &left.r#document_id,
                             &right.r#document_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredDomainMembers(left),
-                Self::r#AuthoredDomainMembers(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#member_id,
-                            &right.r#member_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredDomains(left), Self::r#AuthoredDomains(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#domain_id,
-                            &right.r#domain_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredDynamicCases(left), Self::r#AuthoredDynamicCases(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#dynamic_id,
-                            &right.r#dynamic_id,
                         )
                     }
                     _ => false,
@@ -5966,130 +3065,16 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (Self::r#AuthoredFlowsheets(left), Self::r#AuthoredFlowsheets(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#instance_id,
-                            &right.r#instance_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
             (
-                Self::r#AuthoredHenryDeclarations(left),
-                Self::r#AuthoredHenryDeclarations(right),
+                Self::r#AuthoredModelingDeclarations(left),
+                Self::r#AuthoredModelingDeclarations(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(
-                            &left.r#species_id,
-                            &right.r#species_id,
+                            &left.r#declaration_id,
+                            &right.r#declaration_id,
                         )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#phase_id,
-                                &right.r#phase_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredInstanceDomainBindings(left),
-                Self::r#AuthoredInstanceDomainBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#instance_id,
-                            &right.r#instance_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#domain_name,
-                                &right.r#domain_name,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredInstanceEquations(left),
-                Self::r#AuthoredInstanceEquations(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#equation_decl_id,
-                            &right.r#equation_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredInstances(left), Self::r#AuthoredInstances(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#instance_id,
-                            &right.r#instance_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredMaterialSystems(left),
-                Self::r#AuthoredMaterialSystems(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#material_system_id,
-                            &right.r#material_system_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredMethodSelections(left),
-                Self::r#AuthoredMethodSelections(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#selection_id,
-                            &right.r#selection_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredModelCompositions(left),
-                Self::r#AuthoredModelCompositions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#model_id,
-                            &right.r#model_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredNativeProviders(left),
-                Self::r#AuthoredNativeProviders(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#model_id,
-                            &right.r#model_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
                     }
                     _ => false,
                 }
@@ -6108,24 +3093,6 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (
-                Self::r#AuthoredObservationTargets(left),
-                Self::r#AuthoredObservationTargets(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#observation_id,
-                            &right.r#observation_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#ordinal,
-                                &right.r#ordinal,
-                            )
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#AuthoredObservations(left), Self::r#AuthoredObservations(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6133,6 +3100,20 @@ impl FactBatch {
                             &left.r#observation_id,
                             &right.r#observation_id,
                         )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#AuthoredPackageQuantityAliases(left),
+                Self::r#AuthoredPackageQuantityAliases(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#package_id,
+                            &right.r#package_id,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
                     }
                     _ => false,
                 }
@@ -6163,683 +3144,6 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#AuthoredParameterValues(left),
-                Self::r#AuthoredParameterValues(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#owner_entity_id,
-                            &right.r#owner_entity_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#parameter_kind,
-                                &right.r#parameter_kind,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#index,
-                                &right.r#index,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredPhaseEquilibriumPairs(left),
-                Self::r#AuthoredPhaseEquilibriumPairs(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#property_package_id,
-                            &right.r#property_package_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#phase_a_id,
-                                &right.r#phase_a_id,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#phase_b_id,
-                                &right.r#phase_b_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredPhaseSpecies(left), Self::r#AuthoredPhaseSpecies(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#phase_id,
-                            &right.r#phase_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#species_id,
-                                &right.r#species_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredPhases(left), Self::r#AuthoredPhases(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#phase_id,
-                            &right.r#phase_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredPhysicalBalances(left),
-                Self::r#AuthoredPhysicalBalances(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#balance_id,
-                            &right.r#balance_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredPropertyPackages(left),
-                Self::r#AuthoredPropertyPackages(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#property_package_id,
-                            &right.r#property_package_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredProviderScalingBindings(left),
-                Self::r#AuthoredProviderScalingBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#binding_id,
-                            &right.r#binding_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredReactionApplications(left),
-                Self::r#AuthoredReactionApplications(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#application_id,
-                            &right.r#application_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredReactionMethods(left),
-                Self::r#AuthoredReactionMethods(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#reaction_id,
-                            &right.r#reaction_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredReactionPackages(left),
-                Self::r#AuthoredReactionPackages(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#reaction_package_id,
-                            &right.r#reaction_package_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredReactions(left), Self::r#AuthoredReactions(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#reaction_id,
-                            &right.r#reaction_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredRenameRequests(left),
-                Self::r#AuthoredRenameRequests(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#entity_id,
-                            &right.r#entity_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredScenarios(left), Self::r#AuthoredScenarios(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#scenario_id,
-                            &right.r#scenario_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredScopes(left), Self::r#AuthoredScopes(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#scope_id,
-                            &right.r#scope_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredSelectorTerms(left),
-                Self::r#AuthoredSelectorTerms(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#term_id, &right.r#term_id)
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredSpecies(left), Self::r#AuthoredSpecies(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#species_id,
-                            &right.r#species_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredSpeciesElements(left),
-                Self::r#AuthoredSpeciesElements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#species_id,
-                            &right.r#species_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#element_id,
-                                &right.r#element_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredStateBounds(left), Self::r#AuthoredStateBounds(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#property_package_id,
-                            &right.r#property_package_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#state_symbol,
-                                &right.r#state_symbol,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredStoichiometry(left),
-                Self::r#AuthoredStoichiometry(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#reaction_id,
-                            &right.r#reaction_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#phase_id,
-                                &right.r#phase_id,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#species_id,
-                                &right.r#species_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateContributionContracts(left),
-                Self::r#AuthoredTemplateContributionContracts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#contribution_decl_id,
-                            &right.r#contribution_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateContributions(left),
-                Self::r#AuthoredTemplateContributions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#contribution_decl_id,
-                            &right.r#contribution_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDerivatives(left),
-                Self::r#AuthoredTemplateDerivatives(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#symbol_decl_id,
-                            &right.r#symbol_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDisplay(left),
-                Self::r#AuthoredTemplateDisplay(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#kind, &right.r#kind)
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#label,
-                                &right.r#label,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDisplayIndices(left),
-                Self::r#AuthoredTemplateDisplayIndices(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#kind, &right.r#kind)
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#label,
-                                &right.r#label,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDomainBindings(left),
-                Self::r#AuthoredTemplateDomainBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateDomains(left),
-                Self::r#AuthoredTemplateDomains(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateEquations(left),
-                Self::r#AuthoredTemplateEquations(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#equation_decl_id,
-                            &right.r#equation_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateFeatureRules(left),
-                Self::r#AuthoredTemplateFeatureRules(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#rule, &right.r#rule)
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#antecedent,
-                                &right.r#antecedent,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#consequent,
-                                &right.r#consequent,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateFeatures(left),
-                Self::r#AuthoredTemplateFeatures(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateGuards(left),
-                Self::r#AuthoredTemplateGuards(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#guard_id,
-                            &right.r#guard_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateLawContracts(left),
-                Self::r#AuthoredTemplateLawContracts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#law_instance_decl_id,
-                            &right.r#law_instance_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateLawInstances(left),
-                Self::r#AuthoredTemplateLawInstances(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#law_instance_decl_id,
-                            &right.r#law_instance_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateMaterialConstraints(left),
-                Self::r#AuthoredTemplateMaterialConstraints(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateParams(left),
-                Self::r#AuthoredTemplateParams(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplatePortMembers(left),
-                Self::r#AuthoredTemplatePortMembers(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#ordinal,
-                                &right.r#ordinal,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplatePorts(left),
-                Self::r#AuthoredTemplatePorts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplatePropertyRequirements(left),
-                Self::r#AuthoredTemplatePropertyRequirements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#requirement_id,
-                            &right.r#requirement_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateRequirements(left),
-                Self::r#AuthoredTemplateRequirements(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#requirement,
-                                &right.r#requirement,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateScopes(left),
-                Self::r#AuthoredTemplateScopes(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSubmodels(left),
-                Self::r#AuthoredTemplateSubmodels(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSymbolContracts(left),
-                Self::r#AuthoredTemplateSymbolContracts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#symbol_decl_id,
-                            &right.r#symbol_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSymbolExpressions(left),
-                Self::r#AuthoredTemplateSymbolExpressions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#symbol_decl_id,
-                            &right.r#symbol_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSymbolProperties(left),
-                Self::r#AuthoredTemplateSymbolProperties(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#symbol_decl_id,
-                            &right.r#symbol_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#AuthoredTemplateSymbols(left),
-                Self::r#AuthoredTemplateSymbols(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#symbol_decl_id,
-                            &right.r#symbol_decl_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#AuthoredTemplates(left), Self::r#AuthoredTemplates(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#template_id,
-                            &right.r#template_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedInstanceBindings(left),
-                Self::r#NormalizedInstanceBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#instance_id,
-                            &right.r#instance_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
                 Self::r#NormalizedPackageGraph(left),
                 Self::r#NormalizedPackageGraph(right),
             ) => {
@@ -6849,54 +3153,6 @@ impl FactBatch {
                             &left.r#package_id,
                             &right.r#package_id,
                         )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedResolvedSourceOccurrences(left),
-                Self::r#NormalizedResolvedSourceOccurrences(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#document_id,
-                            &right.r#document_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#field_path,
-                                &right.r#field_path,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#ordinal,
-                                &right.r#ordinal,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#match_ordinal,
-                                &right.r#match_ordinal,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#NormalizedSourceOccurrences(left),
-                Self::r#NormalizedSourceOccurrences(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#document_id,
-                            &right.r#document_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#field_path,
-                                &right.r#field_path,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#ordinal,
-                                &right.r#ordinal,
-                            )
                     }
                     _ => false,
                 }
@@ -7009,20 +3265,6 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (
-                Self::r#ReferenceConnectionBindings(left),
-                Self::r#ReferenceConnectionBindings(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#rule_template_id,
-                            &right.r#rule_template_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#ReferenceConstants(left), Self::r#ReferenceConstants(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -7057,35 +3299,6 @@ impl FactBatch {
                 }
             }
             (
-                Self::r#ReferenceElementProjectionContracts(left),
-                Self::r#ReferenceElementProjectionContracts(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#law_template_id,
-                            &right.r#law_template_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#source_basis_id,
-                                &right.r#source_basis_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#ReferenceElements(left), Self::r#ReferenceElements(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#element_id,
-                            &right.r#element_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
                 Self::r#ReferenceEngineProfiles(left),
                 Self::r#ReferenceEngineProfiles(right),
             ) => {
@@ -7110,182 +3323,12 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (Self::r#ReferenceLawBindings(left), Self::r#ReferenceLawBindings(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#law_template_id,
-                            &right.r#law_template_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#balance_enum_id,
-                                &right.r#balance_enum_id,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#balance_member,
-                                &right.r#balance_member,
-                            )
-                    }
-                    _ => false,
-                }
-            }
             (Self::r#ReferenceMathContext(left), Self::r#ReferenceMathContext(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(
                             &left.r#package_id,
                             &right.r#package_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodDependencies(left),
-                Self::r#ReferenceMethodDependencies(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#method_id,
-                            &right.r#method_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#ordinal,
-                                &right.r#ordinal,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodKernelInputs(left),
-                Self::r#ReferenceMethodKernelInputs(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#method_id,
-                            &right.r#method_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#input_name,
-                                &right.r#input_name,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodParameterAxes(left),
-                Self::r#ReferenceMethodParameterAxes(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#method_id,
-                            &right.r#method_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#parameter_kind,
-                                &right.r#parameter_kind,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#position,
-                                &right.r#position,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodParameters(left),
-                Self::r#ReferenceMethodParameters(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#method_id,
-                            &right.r#method_id,
-                        ) && crate::SemanticEq::semantic_eq(&left.r#name, &right.r#name)
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodPrecedence(left),
-                Self::r#ReferenceMethodPrecedence(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#is_default,
-                            &right.r#is_default,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#property_specific,
-                                &right.r#property_specific,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#scope_kind,
-                                &right.r#scope_kind,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodProvisions(left),
-                Self::r#ReferenceMethodProvisions(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#method_id,
-                            &right.r#method_id,
-                        )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#property_kind_id,
-                                &right.r#property_kind_id,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (Self::r#ReferenceMethodSpecs(left), Self::r#ReferenceMethodSpecs(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#method_id,
-                            &right.r#method_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferenceMethodStateParameters(left),
-                Self::r#ReferenceMethodStateParameters(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#method_id,
-                            &right.r#method_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#ReferencePropertyKinds(left),
-                Self::r#ReferencePropertyKinds(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#property_kind_id,
-                            &right.r#property_kind_id,
                         )
                     }
                     _ => false,
@@ -7719,6 +3762,213 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeModelingChecks(left),
+                Self::r#RuntimeModelingChecks(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#sample_index,
+                                &right.r#sample_index,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#target_id,
+                                &right.r#target_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#source_id,
+                                &right.r#source_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#kind,
+                                &right.r#kind,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingConformance(left),
+                Self::r#RuntimeModelingConformance(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#fixture_id,
+                                &right.r#fixture_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#sample_index,
+                                &right.r#sample_index,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#target_id,
+                                &right.r#target_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#source_id,
+                                &right.r#source_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#kind,
+                                &right.r#kind,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingDiagnosticSamples(left),
+                Self::r#RuntimeModelingDiagnosticSamples(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingDiagnostics(left),
+                Self::r#RuntimeModelingDiagnostics(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingFindings(left),
+                Self::r#RuntimeModelingFindings(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#ordinal,
+                                &right.r#ordinal,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingFixtureStatus(left),
+                Self::r#RuntimeModelingFixtureStatus(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#fixture_id,
+                                &right.r#fixture_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingInitializations(left),
+                Self::r#RuntimeModelingInitializations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingJacobianOptimization(left),
+                Self::r#RuntimeModelingJacobianOptimization(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingLinearDiagnostics(left),
+                Self::r#RuntimeModelingLinearDiagnostics(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingNonlinearExplanations(left),
+                Self::r#RuntimeModelingNonlinearExplanations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingReports(left),
+                Self::r#RuntimeModelingReports(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#target_id,
+                                &right.r#target_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#source_id,
+                                &right.r#source_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingStudies(left),
+                Self::r#RuntimeModelingStudies(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeModelingTrajectoryModes(left),
+                Self::r#RuntimeModelingTrajectoryModes(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#sample,
+                                &right.r#sample,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeNativeDependencies(left),
                 Self::r#RuntimeNativeDependencies(right),
             ) => {
@@ -7732,29 +3982,6 @@ impl FactBatch {
                             && crate::SemanticEq::semantic_eq(
                                 &left.r#name,
                                 &right.r#name,
-                            )
-                    }
-                    _ => false,
-                }
-            }
-            (
-                Self::r#RuntimePhysicalChecks(left),
-                Self::r#RuntimePhysicalChecks(right),
-            ) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#step,
-                                &right.r#step,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#sample,
-                                &right.r#sample,
-                            )
-                            && crate::SemanticEq::semantic_eq(
-                                &left.r#balance_id,
-                                &right.r#balance_id,
                             )
                     }
                     _ => false,
@@ -8016,92 +4243,13 @@ impl FactBatch {
         let mut hash = pse_ids::FramedHasher::new("pse:typed-row-key:v1");
         hash.id(&self.relation());
         match self {
-            Self::r#AuthoredCaseActivationTargets(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#activation_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
-            }
-            Self::r#AuthoredCaseActivations(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#activation_id, &mut hash);
-            }
-            Self::r#AuthoredCaseObjectives(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#case_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#objective_id, &mut hash);
-            }
-            Self::r#AuthoredCasePolicies(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#case_id, &mut hash);
-            }
-            Self::r#AuthoredCaseSetSamples(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#case_set_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#sample_ordinal, &mut hash);
-            }
-            Self::r#AuthoredCaseSets(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#case_set_id, &mut hash);
-            }
-            Self::r#AuthoredCaseSpecTargets(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#spec_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
-            }
-            Self::r#AuthoredCaseSpecs(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#spec_id, &mut hash);
-            }
-            Self::r#AuthoredCases(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#case_id, &mut hash);
-            }
-            Self::r#AuthoredComputationModels(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#model_id, &mut hash);
-            }
-            Self::r#AuthoredConnections(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#connection_id, &mut hash);
-            }
-            Self::r#AuthoredContinuousDomains(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#domain_id, &mut hash);
-            }
             Self::r#AuthoredDatasets(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#dataset_id, &mut hash);
             }
-            Self::r#AuthoredDefaultScaling(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#property_package_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#property_kind_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#index, &mut hash);
-            }
-            Self::r#AuthoredDirectionalValveLaws(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#model_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#AuthoredDocumentEdits(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#document_id, &mut hash);
-            }
             Self::r#AuthoredDocuments(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#document_id, &mut hash);
-            }
-            Self::r#AuthoredDomainMembers(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#member_id, &mut hash);
-            }
-            Self::r#AuthoredDomains(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#domain_id, &mut hash);
-            }
-            Self::r#AuthoredDynamicCases(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#dynamic_id, &mut hash);
             }
             Self::r#AuthoredEntities(rows) => {
                 let row = rows.get(index)?;
@@ -8111,57 +4259,22 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#fit_id, &mut hash);
             }
-            Self::r#AuthoredFlowsheets(rows) => {
+            Self::r#AuthoredModelingDeclarations(rows) => {
                 let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#instance_id, &mut hash);
-            }
-            Self::r#AuthoredHenryDeclarations(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#species_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#phase_id, &mut hash);
-            }
-            Self::r#AuthoredInstanceDomainBindings(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#instance_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#domain_name, &mut hash);
-            }
-            Self::r#AuthoredInstanceEquations(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#equation_decl_id, &mut hash);
-            }
-            Self::r#AuthoredInstances(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#instance_id, &mut hash);
-            }
-            Self::r#AuthoredMaterialSystems(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#material_system_id, &mut hash);
-            }
-            Self::r#AuthoredMethodSelections(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#selection_id, &mut hash);
-            }
-            Self::r#AuthoredModelCompositions(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#model_id, &mut hash);
-            }
-            Self::r#AuthoredNativeProviders(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#model_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
+                crate::SemanticFrame::frame(&row.r#declaration_id, &mut hash);
             }
             Self::r#AuthoredNumericalRequirements(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#requirement_id, &mut hash);
             }
-            Self::r#AuthoredObservationTargets(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#observation_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
-            }
             Self::r#AuthoredObservations(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#observation_id, &mut hash);
+            }
+            Self::r#AuthoredPackageQuantityAliases(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#package_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#name, &mut hash);
             }
             Self::r#AuthoredPackageUnitSets(rows) => {
                 let row = rows.get(index)?;
@@ -8171,231 +4284,9 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#package_id, &mut hash);
             }
-            Self::r#AuthoredParameterValues(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#owner_entity_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#parameter_kind, &mut hash);
-                crate::SemanticFrame::frame(&row.r#index, &mut hash);
-            }
-            Self::r#AuthoredPhaseEquilibriumPairs(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#property_package_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#phase_a_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#phase_b_id, &mut hash);
-            }
-            Self::r#AuthoredPhaseSpecies(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#phase_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#species_id, &mut hash);
-            }
-            Self::r#AuthoredPhases(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#phase_id, &mut hash);
-            }
-            Self::r#AuthoredPhysicalBalances(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#balance_id, &mut hash);
-            }
-            Self::r#AuthoredPropertyPackages(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#property_package_id, &mut hash);
-            }
-            Self::r#AuthoredProviderScalingBindings(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#binding_id, &mut hash);
-            }
-            Self::r#AuthoredReactionApplications(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#application_id, &mut hash);
-            }
-            Self::r#AuthoredReactionMethods(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#reaction_id, &mut hash);
-            }
-            Self::r#AuthoredReactionPackages(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#reaction_package_id, &mut hash);
-            }
-            Self::r#AuthoredReactions(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#reaction_id, &mut hash);
-            }
-            Self::r#AuthoredRenameRequests(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#entity_id, &mut hash);
-            }
-            Self::r#AuthoredScenarios(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#scenario_id, &mut hash);
-            }
-            Self::r#AuthoredScopes(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#scope_id, &mut hash);
-            }
-            Self::r#AuthoredSelectorTerms(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#term_id, &mut hash);
-            }
-            Self::r#AuthoredSpecies(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#species_id, &mut hash);
-            }
-            Self::r#AuthoredSpeciesElements(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#species_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#element_id, &mut hash);
-            }
-            Self::r#AuthoredStateBounds(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#property_package_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#state_symbol, &mut hash);
-            }
-            Self::r#AuthoredStoichiometry(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#reaction_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#phase_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#species_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateContributionContracts(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#contribution_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateContributions(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#contribution_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateDerivatives(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#symbol_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateDisplay(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#kind, &mut hash);
-                crate::SemanticFrame::frame(&row.r#label, &mut hash);
-            }
-            Self::r#AuthoredTemplateDisplayIndices(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#kind, &mut hash);
-                crate::SemanticFrame::frame(&row.r#label, &mut hash);
-            }
-            Self::r#AuthoredTemplateDomainBindings(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#AuthoredTemplateDomains(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#AuthoredTemplateEquations(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#equation_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateFeatureRules(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#rule, &mut hash);
-                crate::SemanticFrame::frame(&row.r#antecedent, &mut hash);
-                crate::SemanticFrame::frame(&row.r#consequent, &mut hash);
-            }
-            Self::r#AuthoredTemplateFeatures(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#AuthoredTemplateGuards(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#guard_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateLawContracts(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#law_instance_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateLawInstances(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#law_instance_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateMaterialConstraints(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateParams(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#AuthoredTemplatePortMembers(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
-            }
-            Self::r#AuthoredTemplatePorts(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#AuthoredTemplatePropertyRequirements(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#requirement_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateRequirements(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#requirement, &mut hash);
-            }
-            Self::r#AuthoredTemplateScopes(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#AuthoredTemplateSubmodels(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#AuthoredTemplateSymbolContracts(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#symbol_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateSymbolExpressions(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#symbol_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateSymbolProperties(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#symbol_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplateSymbols(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#symbol_decl_id, &mut hash);
-            }
-            Self::r#AuthoredTemplates(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#template_id, &mut hash);
-            }
-            Self::r#NormalizedInstanceBindings(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#instance_id, &mut hash);
-            }
             Self::r#NormalizedPackageGraph(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#package_id, &mut hash);
-            }
-            Self::r#NormalizedResolvedSourceOccurrences(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#document_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#field_path, &mut hash);
-                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
-                crate::SemanticFrame::frame(&row.r#match_ordinal, &mut hash);
-            }
-            Self::r#NormalizedSourceOccurrences(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#document_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#field_path, &mut hash);
-                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
             }
             Self::r#NormalizedUnits(rows) => {
                 let row = rows.get(index)?;
@@ -8435,10 +4326,6 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#basis_id, &mut hash);
             }
-            Self::r#ReferenceConnectionBindings(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#rule_template_id, &mut hash);
-            }
             Self::r#ReferenceConstants(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#constant_id, &mut hash);
@@ -8451,15 +4338,6 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
             }
-            Self::r#ReferenceElementProjectionContracts(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#law_template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#source_basis_id, &mut hash);
-            }
-            Self::r#ReferenceElements(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#element_id, &mut hash);
-            }
             Self::r#ReferenceEngineProfiles(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#engine_profile_id, &mut hash);
@@ -8468,59 +4346,9 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#name, &mut hash);
             }
-            Self::r#ReferenceLawBindings(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#law_template_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#balance_enum_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#balance_member, &mut hash);
-            }
             Self::r#ReferenceMathContext(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#package_id, &mut hash);
-            }
-            Self::r#ReferenceMethodDependencies(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#method_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
-            }
-            Self::r#ReferenceMethodKernelInputs(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#method_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#input_name, &mut hash);
-            }
-            Self::r#ReferenceMethodParameterAxes(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#method_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#parameter_kind, &mut hash);
-                crate::SemanticFrame::frame(&row.r#position, &mut hash);
-            }
-            Self::r#ReferenceMethodParameters(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#method_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#ReferenceMethodPrecedence(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#is_default, &mut hash);
-                crate::SemanticFrame::frame(&row.r#property_specific, &mut hash);
-                crate::SemanticFrame::frame(&row.r#scope_kind, &mut hash);
-            }
-            Self::r#ReferenceMethodProvisions(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#method_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#property_kind_id, &mut hash);
-            }
-            Self::r#ReferenceMethodSpecs(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#method_id, &mut hash);
-            }
-            Self::r#ReferenceMethodStateParameters(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#method_id, &mut hash);
-            }
-            Self::r#ReferencePropertyKinds(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#property_kind_id, &mut hash);
             }
             Self::r#ReferenceQuantityKinds(rows) => {
                 let row = rows.get(index)?;
@@ -8658,18 +4486,79 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#table_uri, &mut hash);
             }
+            Self::r#RuntimeModelingChecks(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#sample_index, &mut hash);
+                crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#source_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#kind, &mut hash);
+            }
+            Self::r#RuntimeModelingConformance(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#fixture_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#sample_index, &mut hash);
+                crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#source_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#kind, &mut hash);
+            }
+            Self::r#RuntimeModelingDiagnosticSamples(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeModelingDiagnostics(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeModelingFindings(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
+            }
+            Self::r#RuntimeModelingFixtureStatus(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#fixture_id, &mut hash);
+            }
+            Self::r#RuntimeModelingInitializations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeModelingJacobianOptimization(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeModelingLinearDiagnostics(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeModelingNonlinearExplanations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeModelingReports(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#target_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#source_id, &mut hash);
+            }
+            Self::r#RuntimeModelingStudies(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+            }
+            Self::r#RuntimeModelingTrajectoryModes(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#sample, &mut hash);
+            }
             Self::r#RuntimeNativeDependencies(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#kind, &mut hash);
                 crate::SemanticFrame::frame(&row.r#scope, &mut hash);
                 crate::SemanticFrame::frame(&row.r#name, &mut hash);
-            }
-            Self::r#RuntimePhysicalChecks(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#step, &mut hash);
-                crate::SemanticFrame::frame(&row.r#sample, &mut hash);
-                crate::SemanticFrame::frame(&row.r#balance_id, &mut hash);
             }
             Self::r#RuntimePublications(rows) => {
                 let row = rows.get(index)?;
@@ -8760,125 +4649,11 @@ impl FactBatch {
     /// The incoming relation identity differs.
     pub fn append(&mut self, other: Self) -> Result<(), crate::ModelError> {
         match (self, other) {
-            (
-                Self::r#AuthoredCaseActivationTargets(left),
-                Self::r#AuthoredCaseActivationTargets(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredCaseActivations(left),
-                Self::r#AuthoredCaseActivations(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredCaseObjectives(left),
-                Self::r#AuthoredCaseObjectives(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredCasePolicies(left),
-                Self::r#AuthoredCasePolicies(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredCaseSetSamples(left),
-                Self::r#AuthoredCaseSetSamples(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredCaseSets(left), Self::r#AuthoredCaseSets(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredCaseSpecTargets(left),
-                Self::r#AuthoredCaseSpecTargets(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredCaseSpecs(left), Self::r#AuthoredCaseSpecs(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredCases(left), Self::r#AuthoredCases(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredComputationModels(left),
-                Self::r#AuthoredComputationModels(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredConnections(left),
-                Self::r#AuthoredConnections(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredContinuousDomains(left),
-                Self::r#AuthoredContinuousDomains(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
             (Self::r#AuthoredDatasets(left), Self::r#AuthoredDatasets(mut right)) => {
                 left.append(&mut right);
                 Ok(())
             }
-            (
-                Self::r#AuthoredDefaultScaling(left),
-                Self::r#AuthoredDefaultScaling(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredDirectionalValveLaws(left),
-                Self::r#AuthoredDirectionalValveLaws(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredDocumentEdits(left),
-                Self::r#AuthoredDocumentEdits(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
             (Self::r#AuthoredDocuments(left), Self::r#AuthoredDocuments(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredDomainMembers(left),
-                Self::r#AuthoredDomainMembers(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredDomains(left), Self::r#AuthoredDomains(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredDynamicCases(left),
-                Self::r#AuthoredDynamicCases(mut right),
-            ) => {
                 left.append(&mut right);
                 Ok(())
             }
@@ -8891,61 +4666,8 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#AuthoredFlowsheets(left),
-                Self::r#AuthoredFlowsheets(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredHenryDeclarations(left),
-                Self::r#AuthoredHenryDeclarations(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredInstanceDomainBindings(left),
-                Self::r#AuthoredInstanceDomainBindings(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredInstanceEquations(left),
-                Self::r#AuthoredInstanceEquations(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredInstances(left), Self::r#AuthoredInstances(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredMaterialSystems(left),
-                Self::r#AuthoredMaterialSystems(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredMethodSelections(left),
-                Self::r#AuthoredMethodSelections(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredModelCompositions(left),
-                Self::r#AuthoredModelCompositions(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredNativeProviders(left),
-                Self::r#AuthoredNativeProviders(mut right),
+                Self::r#AuthoredModelingDeclarations(left),
+                Self::r#AuthoredModelingDeclarations(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -8958,15 +4680,15 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#AuthoredObservationTargets(left),
-                Self::r#AuthoredObservationTargets(mut right),
+                Self::r#AuthoredObservations(left),
+                Self::r#AuthoredObservations(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
             }
             (
-                Self::r#AuthoredObservations(left),
-                Self::r#AuthoredObservations(mut right),
+                Self::r#AuthoredPackageQuantityAliases(left),
+                Self::r#AuthoredPackageQuantityAliases(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -8983,326 +4705,8 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#AuthoredParameterValues(left),
-                Self::r#AuthoredParameterValues(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredPhaseEquilibriumPairs(left),
-                Self::r#AuthoredPhaseEquilibriumPairs(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredPhaseSpecies(left),
-                Self::r#AuthoredPhaseSpecies(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredPhases(left), Self::r#AuthoredPhases(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredPhysicalBalances(left),
-                Self::r#AuthoredPhysicalBalances(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredPropertyPackages(left),
-                Self::r#AuthoredPropertyPackages(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredProviderScalingBindings(left),
-                Self::r#AuthoredProviderScalingBindings(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredReactionApplications(left),
-                Self::r#AuthoredReactionApplications(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredReactionMethods(left),
-                Self::r#AuthoredReactionMethods(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredReactionPackages(left),
-                Self::r#AuthoredReactionPackages(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredReactions(left), Self::r#AuthoredReactions(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredRenameRequests(left),
-                Self::r#AuthoredRenameRequests(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredScenarios(left), Self::r#AuthoredScenarios(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredScopes(left), Self::r#AuthoredScopes(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredSelectorTerms(left),
-                Self::r#AuthoredSelectorTerms(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredSpecies(left), Self::r#AuthoredSpecies(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredSpeciesElements(left),
-                Self::r#AuthoredSpeciesElements(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredStateBounds(left),
-                Self::r#AuthoredStateBounds(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredStoichiometry(left),
-                Self::r#AuthoredStoichiometry(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateContributionContracts(left),
-                Self::r#AuthoredTemplateContributionContracts(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateContributions(left),
-                Self::r#AuthoredTemplateContributions(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateDerivatives(left),
-                Self::r#AuthoredTemplateDerivatives(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateDisplay(left),
-                Self::r#AuthoredTemplateDisplay(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateDisplayIndices(left),
-                Self::r#AuthoredTemplateDisplayIndices(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateDomainBindings(left),
-                Self::r#AuthoredTemplateDomainBindings(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateDomains(left),
-                Self::r#AuthoredTemplateDomains(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateEquations(left),
-                Self::r#AuthoredTemplateEquations(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateFeatureRules(left),
-                Self::r#AuthoredTemplateFeatureRules(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateFeatures(left),
-                Self::r#AuthoredTemplateFeatures(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateGuards(left),
-                Self::r#AuthoredTemplateGuards(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateLawContracts(left),
-                Self::r#AuthoredTemplateLawContracts(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateLawInstances(left),
-                Self::r#AuthoredTemplateLawInstances(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateMaterialConstraints(left),
-                Self::r#AuthoredTemplateMaterialConstraints(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateParams(left),
-                Self::r#AuthoredTemplateParams(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplatePortMembers(left),
-                Self::r#AuthoredTemplatePortMembers(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplatePorts(left),
-                Self::r#AuthoredTemplatePorts(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplatePropertyRequirements(left),
-                Self::r#AuthoredTemplatePropertyRequirements(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateRequirements(left),
-                Self::r#AuthoredTemplateRequirements(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateScopes(left),
-                Self::r#AuthoredTemplateScopes(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateSubmodels(left),
-                Self::r#AuthoredTemplateSubmodels(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateSymbolContracts(left),
-                Self::r#AuthoredTemplateSymbolContracts(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateSymbolExpressions(left),
-                Self::r#AuthoredTemplateSymbolExpressions(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateSymbolProperties(left),
-                Self::r#AuthoredTemplateSymbolProperties(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#AuthoredTemplateSymbols(left),
-                Self::r#AuthoredTemplateSymbols(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#AuthoredTemplates(left), Self::r#AuthoredTemplates(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#NormalizedInstanceBindings(left),
-                Self::r#NormalizedInstanceBindings(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#NormalizedPackageGraph(left),
                 Self::r#NormalizedPackageGraph(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#NormalizedResolvedSourceOccurrences(left),
-                Self::r#NormalizedResolvedSourceOccurrences(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#NormalizedSourceOccurrences(left),
-                Self::r#NormalizedSourceOccurrences(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -9362,13 +4766,6 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#ReferenceConnectionBindings(left),
-                Self::r#ReferenceConnectionBindings(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#ReferenceConstants(left),
                 Self::r#ReferenceConstants(mut right),
             ) => {
@@ -9390,17 +4787,6 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#ReferenceElementProjectionContracts(left),
-                Self::r#ReferenceElementProjectionContracts(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (Self::r#ReferenceElements(left), Self::r#ReferenceElements(mut right)) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#ReferenceEngineProfiles(left),
                 Self::r#ReferenceEngineProfiles(mut right),
             ) => {
@@ -9415,78 +4801,8 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#ReferenceLawBindings(left),
-                Self::r#ReferenceLawBindings(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
                 Self::r#ReferenceMathContext(left),
                 Self::r#ReferenceMathContext(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceMethodDependencies(left),
-                Self::r#ReferenceMethodDependencies(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceMethodKernelInputs(left),
-                Self::r#ReferenceMethodKernelInputs(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceMethodParameterAxes(left),
-                Self::r#ReferenceMethodParameterAxes(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceMethodParameters(left),
-                Self::r#ReferenceMethodParameters(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceMethodPrecedence(left),
-                Self::r#ReferenceMethodPrecedence(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceMethodProvisions(left),
-                Self::r#ReferenceMethodProvisions(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceMethodSpecs(left),
-                Self::r#ReferenceMethodSpecs(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferenceMethodStateParameters(left),
-                Self::r#ReferenceMethodStateParameters(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#ReferencePropertyKinds(left),
-                Self::r#ReferencePropertyKinds(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -9696,15 +5012,99 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#RuntimeNativeDependencies(left),
-                Self::r#RuntimeNativeDependencies(mut right),
+                Self::r#RuntimeModelingChecks(left),
+                Self::r#RuntimeModelingChecks(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
             }
             (
-                Self::r#RuntimePhysicalChecks(left),
-                Self::r#RuntimePhysicalChecks(mut right),
+                Self::r#RuntimeModelingConformance(left),
+                Self::r#RuntimeModelingConformance(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingDiagnosticSamples(left),
+                Self::r#RuntimeModelingDiagnosticSamples(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingDiagnostics(left),
+                Self::r#RuntimeModelingDiagnostics(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingFindings(left),
+                Self::r#RuntimeModelingFindings(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingFixtureStatus(left),
+                Self::r#RuntimeModelingFixtureStatus(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingInitializations(left),
+                Self::r#RuntimeModelingInitializations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingJacobianOptimization(left),
+                Self::r#RuntimeModelingJacobianOptimization(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingLinearDiagnostics(left),
+                Self::r#RuntimeModelingLinearDiagnostics(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingNonlinearExplanations(left),
+                Self::r#RuntimeModelingNonlinearExplanations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingReports(left),
+                Self::r#RuntimeModelingReports(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingStudies(left),
+                Self::r#RuntimeModelingStudies(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeModelingTrajectoryModes(left),
+                Self::r#RuntimeModelingTrajectoryModes(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeNativeDependencies(left),
+                Self::r#RuntimeNativeDependencies(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -9808,143 +5208,23 @@ impl FactBatch {
 impl crate::HeapUsage for FactBatch {
     fn heap_bytes(&self) -> usize {
         match self {
-            Self::r#AuthoredCaseActivationTargets(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredCaseActivations(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredCaseObjectives(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredCasePolicies(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredCaseSetSamples(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredCaseSets(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredCaseSpecTargets(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredCaseSpecs(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredCases(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredComputationModels(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredConnections(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredContinuousDomains(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredDatasets(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredDefaultScaling(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredDirectionalValveLaws(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredDocumentEdits(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredDocuments(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredDomainMembers(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredDomains(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredDynamicCases(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredEntities(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredFitCases(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredFlowsheets(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredHenryDeclarations(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredInstanceDomainBindings(rows) => {
+            Self::r#AuthoredModelingDeclarations(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
-            Self::r#AuthoredInstanceEquations(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredInstances(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredMaterialSystems(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredMethodSelections(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredModelCompositions(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredNativeProviders(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredNumericalRequirements(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
-            Self::r#AuthoredObservationTargets(rows) => {
+            Self::r#AuthoredObservations(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#AuthoredPackageQuantityAliases(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
-            Self::r#AuthoredObservations(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredPackageUnitSets(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#AuthoredPackages(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredParameterValues(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredPhaseEquilibriumPairs(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredPhaseSpecies(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredPhases(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredPhysicalBalances(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredPropertyPackages(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredProviderScalingBindings(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredReactionApplications(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredReactionMethods(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredReactionPackages(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredReactions(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredRenameRequests(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredScenarios(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredScopes(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredSelectorTerms(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredSpecies(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredSpeciesElements(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredStateBounds(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredStoichiometry(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplateContributionContracts(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateContributions(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateDerivatives(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateDisplay(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplateDisplayIndices(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateDomainBindings(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateDomains(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplateEquations(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplateFeatureRules(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateFeatures(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplateGuards(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplateLawContracts(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateLawInstances(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateMaterialConstraints(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateParams(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplatePortMembers(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplatePorts(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplatePropertyRequirements(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateRequirements(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateScopes(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplateSubmodels(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplateSymbolContracts(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateSymbolExpressions(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateSymbolProperties(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#AuthoredTemplateSymbols(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#AuthoredTemplates(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#NormalizedInstanceBindings(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
             Self::r#NormalizedPackageGraph(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#NormalizedResolvedSourceOccurrences(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#NormalizedSourceOccurrences(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
             Self::r#NormalizedUnits(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ProvenanceAssertions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ProvenanceDerivations(rows) => crate::HeapUsage::heap_bytes(rows),
@@ -9956,39 +5236,14 @@ impl crate::HeapUsage for FactBatch {
             Self::r#ReferenceAliases(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceArtifactProfiles(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceBases(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#ReferenceConnectionBindings(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
             Self::r#ReferenceConstants(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceConversionRules(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceDimensions(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#ReferenceElementProjectionContracts(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#ReferenceElements(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceEngineProfiles(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceFunctionCapabilities(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
-            Self::r#ReferenceLawBindings(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceMathContext(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#ReferenceMethodDependencies(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#ReferenceMethodKernelInputs(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#ReferenceMethodParameterAxes(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#ReferenceMethodParameters(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#ReferenceMethodPrecedence(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#ReferenceMethodProvisions(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#ReferenceMethodSpecs(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#ReferenceMethodStateParameters(rows) => {
-                crate::HeapUsage::heap_bytes(rows)
-            }
-            Self::r#ReferencePropertyKinds(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceQuantityKinds(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceQuantityOperationReductions(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
@@ -10041,8 +5296,38 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeMaintenanceOutcomes(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeModelingChecks(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeModelingConformance(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingDiagnosticSamples(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingDiagnostics(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingFindings(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeModelingFixtureStatus(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingInitializations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingJacobianOptimization(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingLinearDiagnostics(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingNonlinearExplanations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeModelingReports(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeModelingStudies(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeModelingTrajectoryModes(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeNativeDependencies(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#RuntimePhysicalChecks(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimePublications(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeReleaseCheckpoints(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResolvedNumerics(rows) => crate::HeapUsage::heap_bytes(rows),

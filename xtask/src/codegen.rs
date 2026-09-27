@@ -119,7 +119,7 @@ fn contract_roots(tree: &mut GeneratedTree) {
     tree.roots.retain(|root| {
         !matches!(
             root.to_str(),
-            Some("crates/pse-quantity/src/generated" | "crates/pse-material/src/generated")
+            Some("crates/pse-quantity/src/generated")
         )
     });
 }

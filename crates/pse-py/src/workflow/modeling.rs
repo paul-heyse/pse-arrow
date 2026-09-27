@@ -1,0 +1,1641 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Owned Python handles over the generic kernel; no numerical semantics cross the boundary.
+use super::*;
+use pse_ids::SemanticId;
+use std::collections::BTreeMap;
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FlowSelectionDocument {
+    nodes: Vec<SemanticId>,
+    connections: Vec<FlowConnectionDocument>,
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FlowConnectionDocument {
+    connection: SemanticId,
+    group: SemanticId,
+    cost: f64,
+    policy: String,
+}
+fn flow_selection(py: Python<'_>, bytes: &[u8], allowance: usize) -> PyResult<pse_runtime::math::flows::ModelingFlowSelection> {
+    if bytes.len()>allowance/4 {return Err(invalid(py,"flow selection exceeds workspace allowance"));}
+    let wire=serde_json::from_slice::<strategies::AnalysisDocument<FlowSelectionDocument>>(bytes).map_err(|e|invalid(py,e.to_string()))?.payload;
+    let mut nodes=std::collections::BTreeSet::new();
+    for node in wire.nodes {if !nodes.insert(node) {return Err(invalid(py,"duplicate selected flow node"));}}
+    let mut connections=BTreeMap::new();
+    for c in wire.connections {
+        use pse_runtime::math::flows::{Decision,Policy};
+        let policy=match c.policy.as_str() {"free"=>Policy::Free,"mandatory"=>Policy::Mandatory,"forbidden"=>Policy::Forbidden,_=>return Err(invalid(py,"unknown tear policy"))};
+        if connections.insert(c.connection,Decision{id:c.group,cost:c.cost,policy}).is_some() {return Err(invalid(py,"duplicate selected connection"));}
+    }
+    Ok(pse_runtime::math::flows::ModelingFlowSelection{nodes,connections})
+}
+
+pub(super) fn from_documents(
+    runtime: &NativeRuntime,
+    py: Python<'_>,
+    documents: Vec<BTreeMap<String, String>>,
+    physical: &NativePhysicalContext,
+) -> PyResult<NativeModelingPackage> {
+    let cancel = CancelSource::new();
+    let inner = blocking(
+        py,
+        &runtime.owner,
+        async {
+            let pool = runtime.owner.shared.pool();
+            let token = cancel.token();
+            let bundles = documents
+                .iter()
+                .map(|documents| {
+                    pse_runtime::authoring_driver::document::load_package_texts_owned(
+                        documents,
+                        &runtime.owner.registry,
+                        pse_authoring::ParseBudget::default(),
+                        &pool,
+                        &token,
+                    )
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let owned =
+                pse_runtime::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                    bundles, &pool, &token,
+                )?;
+            runtime
+                .inner
+                .modeling_from_documents(&owned, physical.inner.clone())
+        },
+        || cancel.cancel(),
+    )?;
+    Ok(NativeModelingPackage {
+        owner: runtime.owner.clone(),
+        inner,
+        limits: Default::default(),
+    })
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingPackage {
+    owner: Arc<runtime::Runtime>,
+    inner: native::ModelingPackage,
+    limits: pse_modeling::Limits,
+}
+/// Fixture-local solve and derivative inspection choices over the shared harness.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct ModelingFixturePolicy {
+    inner: native::ModelingFixturePolicy,
+}
+#[pymethods]
+impl ModelingFixturePolicy {
+    #[new]
+    #[pyo3(signature=(settings=None, *, derivative_step=None, derivative_tolerance=None, derivative_cells=None))]
+    fn new(py: Python<'_>, settings: Option<&SolveSettings>, derivative_step: Option<f64>, derivative_tolerance: Option<f64>, derivative_cells: Option<usize>) -> PyResult<Self> {
+        let derivatives = if derivative_step.is_some() || derivative_tolerance.is_some() || derivative_cells.is_some() {
+            let policy = pse_backend_native::derivative_diagnostics::Policy {
+                perturbation: derivative_step.unwrap_or(1e-6),
+                relative_tolerance: derivative_tolerance.unwrap_or(1e-4),
+                maximum_cells: derivative_cells.unwrap_or(100_000),
+            };
+            policy.allowance().map_err(|e| errors::diagnostic(py, &e))?;
+            Some(policy)
+        } else { None };
+        Ok(Self { inner: native::ModelingFixturePolicy {
+            solver: settings.map(|s| s.profile.clone()), derivatives,
+        }})
+    }
+}
+/// Explicit source expansion limits, independent of runtime memory and native work budgets.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ModelingLimits {
+    limits: pse_modeling::Limits,
+}
+#[pymethods]
+impl ModelingLimits {
+    #[new]
+    #[pyo3(signature=(*, depth=None, items=None, members=None, body_occurrences=None))]
+    fn new(py: Python<'_>, depth: Option<usize>, items: Option<usize>, members: Option<usize>, body_occurrences: Option<usize>) -> PyResult<Self> {
+        let default = pse_modeling::Limits::default();
+        let limits = pse_modeling::Limits { depth: depth.unwrap_or(default.depth), items: items.unwrap_or(default.items), members: members.unwrap_or(default.members), body_occurrences };
+        if limits.depth == 0 || limits.items == 0 || limits.members == 0 || limits.body_occurrences == Some(0) {
+            return Err(invalid(py, "modeling expansion limits must be positive"));
+        }
+        Ok(Self { limits })
+    }
+    #[getter]
+    fn depth(&self) -> usize { self.limits.depth }
+    #[getter]
+    fn items(&self) -> usize { self.limits.items }
+    #[getter]
+    fn members(&self) -> usize { self.limits.members }
+    #[getter]
+    fn body_occurrences(&self) -> Option<usize> { self.limits.body_occurrences }
+}
+/// Authored event expression selections; native root handling owns execution.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct ModelingEventSettings {
+    event: native::ModelingDynamicEvent,
+}
+#[pymethods]
+impl ModelingEventSettings {
+    #[new]
+    #[pyo3(signature=(*, guard, tolerance, terminal=false, next_mode=None, reset=None))]
+    fn new(
+        guard: String,
+        tolerance: f64,
+        terminal: bool,
+        next_mode: Option<String>,
+        reset: Option<BTreeMap<String, String>>,
+    ) -> Self {
+        Self {
+            event: native::ModelingDynamicEvent {
+                guard,
+                tolerance,
+                terminal,
+                next_mode,
+                reset: reset.unwrap_or_default(),
+            },
+        }
+    }
+}
+/// A same-layout source specialization selected by explicit Boolean facts.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct ModelingModeSettings {
+    mode: native::ModelingDynamicMode,
+}
+#[pymethods]
+impl ModelingModeSettings {
+    #[new]
+    #[pyo3(signature=(*, name, facts=None, events=None))]
+    fn new(
+        name: String,
+        facts: Option<BTreeMap<String, bool>>,
+        events: Option<Vec<PyRef<'_, ModelingEventSettings>>>,
+    ) -> Self {
+        Self {
+            mode: native::ModelingDynamicMode {
+                name,
+                facts: facts.unwrap_or_default(),
+                events: events
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|e| e.event.clone())
+                    .collect(),
+            },
+        }
+    }
+}
+#[pymethods]
+impl NativeModelingPackage {
+    fn with_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Edit {declarations:Vec<pse_authoring::language::Declaration>}
+        if source.len()>self.owner.shared.budget().math.workspace_bytes/2 {return Err(invalid(py,"declaration edit exceeds workspace allowance"));}
+        let edit=serde_json::from_slice::<Edit>(source).map_err(|e|invalid(py,e.to_string()))?;
+        let inner=py.detach(||self.inner.with_declarations(edit.declarations)).map_err(|e|errors::diagnostic(py,&e))?;
+        Ok(Self{owner:self.owner.clone(),inner,limits:self.limits})
+    }
+    fn with_fit_data(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
+        if source.len() > self.owner.shared.budget().math.workspace_bytes / 2 {
+            return Err(invalid(py,"fit source extent"));
+        }
+        let data: native::FitData = serde_json::from_slice(source).map_err(|e|invalid(py,e.to_string()))?;
+        let inner=self.inner.clone().with_fit_data(data).map_err(|e|errors::diagnostic(py,&e))?;
+        Ok(Self{owner:self.owner.clone(),inner,limits:self.limits})
+    }
+
+    #[pyo3(signature=(fit_id, settings, simulations, *, modes=None, rank_tolerance=1e-8, max_cells=1000000))]
+    fn prepare_fit(
+        &self,
+        py: Python<'_>,
+        fit_id: &str,
+        settings: &SolveSettings,
+        simulations: Vec<(String, PyRef<'_, SimulationSettings>)>,
+        modes: Option<Vec<(String, Vec<PyRef<'_, ModelingModeSettings>>)>>,
+        rank_tolerance: f64,
+        max_cells: usize,
+    ) -> PyResult<NativePreparedOperation> {
+        let fit = id(py, fit_id)?;
+        let count = simulations.len();
+        let simulations = simulations
+            .into_iter()
+            .map(|(key, v)| id(py, &key).map(|key| (key, v.profile.clone())))
+            .collect::<PyResult<std::collections::BTreeMap<_, _>>>()?;
+        if simulations.len() != count {
+            return Err(invalid(py, "duplicate experiment settings"));
+        }
+        let modes = modes.unwrap_or_default();
+        let count = modes.len();
+        let modes = modes.into_iter().map(|(key,values)|id(py,&key).map(|key|(key,values.into_iter().map(|m|m.mode.clone()).collect()))).collect::<PyResult<BTreeMap<_,_>>>()?;
+        if modes.len()!=count {return Err(invalid(py,"duplicate experiment mode settings"));}
+        let cancel = CancelSource::new();
+        let profile = native::FitProfile {
+            solver: settings.profile.clone(),
+            simulations,
+            modes,
+            rank_tolerance,
+            max_cells,
+        };
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .prepare_fit(fit, profile, Default::default(), self.limits, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativePreparedOperation {
+            owner: self.owner.clone(),
+            inner: PreparedOperation::Fit(inner),
+        })
+    }
+
+
+    fn with_limits(&self, limits: &ModelingLimits) -> Self {
+        Self { owner: self.owner.clone(), inner: self.inner.clone(), limits: limits.limits }
+    }
+
+    #[pyo3(signature=(case_id,settings,nominals,*,penalty_tolerance,maximum_attempts,time_limit))]
+    fn explain_nonlinear(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SolveSettings,
+        nominals: BTreeMap<String, f64>,
+        penalty_tolerance: f64,
+        maximum_attempts: usize,
+        time_limit: f64,
+    ) -> PyResult<NativeModelingNonlinearExplanation> {
+        let root = id(py, case_id)?;
+        let nominals = nominals
+            .into_iter()
+            .map(|(key, value)| Ok((id(py, &key)?, value)))
+            .collect::<PyResult<_>>()?;
+        let time_limit = Duration::try_from_secs_f64(time_limit)
+            .map_err(|_| invalid(py, "explanation time limit must be finite and positive"))?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let analysis = self
+                    .inner
+                    .declared_analysis(
+                        root,
+                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                        Default::default(),
+                        settings.profile.clone(),
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                self.inner
+                    .explain_nonlinear(
+                        &analysis,
+                        native::ModelingNonlinearPolicy {
+                            nominals,
+                            penalty_tolerance,
+                            maximum_attempts,
+                            time_limit,
+                        },
+                        &cancel,
+                    )
+                    .await
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingNonlinearExplanation {
+            inner: Arc::new(inner),
+        })
+    }
+    fn diagnose_samples(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SolveSettings,
+        diagnostics: &ModelingDiagnosticSettings,
+        samples: Vec<(String, BTreeMap<String, f64>)>,
+        maximum_samples: usize,
+        time_limit: f64,
+    ) -> PyResult<NativeModelingDiagnosticSamples> {
+        let root = id(py, case_id)?;
+        let duration = std::time::Duration::try_from_secs_f64(time_limit)
+            .map_err(|_| invalid(py, "diagnostic time limit must be finite and positive"))?;
+        let samples = samples
+            .into_iter()
+            .map(|(name, values)| {
+                Ok((
+                    id(py, &name)?,
+                    values
+                        .into_iter()
+                        .map(|(key, value)| Ok((id(py, &key)?, value)))
+                        .collect::<PyResult<BTreeMap<_, _>>>()?,
+                ))
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let analysis = self
+                    .inner
+                    .declared_analysis(
+                        root,
+                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                        Default::default(),
+                        settings.profile.clone(),
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
+                let samples = samples
+                    .into_iter()
+                    .map(|(name, overrides)| {
+                        let mut values = prepared.model.values.clone();
+                        values.scalars.extend(overrides);
+                        (name, values)
+                    })
+                    .collect();
+                self.inner
+                    .diagnose_samples(
+                        prepared,
+                        samples,
+                        diagnostics.policy.clone(),
+                        analysis.compiler,
+                        maximum_samples,
+                        duration,
+                        &cancel,
+                    )
+                    .await
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingDiagnosticSamples {
+            inner: Arc::new(inner),
+        })
+    }
+    #[pyo3(signature=(case_id,settings,modes=None))]
+    fn prepare_simulation(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SimulationSettings,
+        modes: Option<Vec<PyRef<'_, ModelingModeSettings>>>,
+    ) -> PyResult<NativePreparedOperation> {
+        let root = id(py, case_id)?;
+        let cancel = CancelSource::new();
+        let modes = modes.map(|modes| modes.into_iter().map(|m| m.mode.clone()).collect());
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let prepared = if let Some(modes) = modes {
+                    self.inner
+                        .declared_simulation_modes(
+                            root,
+                            Default::default(),
+                            settings.profile.clone(),
+                            self.limits,
+                            modes,
+                            &cancel,
+                        )
+                        .await?
+                } else {
+                    self.inner
+                        .declared_simulation(
+                            root,
+                            Default::default(),
+                            Some(settings.profile.clone()),
+                            self.limits,
+                            &cancel,
+                        )
+                        .await?
+                };
+                Ok::<_, native::WorkflowError>(prepared)
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativePreparedOperation {
+            owner: self.owner.clone(),
+            inner: PreparedOperation::Simulation(Box::new(inner)),
+        })
+    }
+    #[pyo3(signature=(case_id,settings,modes=None))]
+    fn simulate(
+        &self, py: Python<'_>, case_id: &str, settings: &SimulationSettings,
+        modes: Option<Vec<PyRef<'_, ModelingModeSettings>>>,
+    ) -> PyResult<NativeModelingTrajectory> {
+        let operation=self.prepare_simulation(py,case_id,settings,modes)?;
+        let PreparedOperation::Simulation(prepared)=operation.inner else{return Err(invalid(py,"simulation preparation mismatch"));};
+        let cancel=CancelSource::new();
+        let inner=blocking(py,&self.owner,prepared.run(&cancel),||cancel.cancel())?;
+        Ok(NativeModelingTrajectory{inner:Arc::new(inner)})
+    }
+    fn diagnose(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SolveSettings,
+        diagnostics: &ModelingDiagnosticSettings,
+    ) -> PyResult<NativeModelingDiagnostics> {
+        let root = id(py, case_id)?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let analysis = self
+                    .inner
+                    .declared_analysis(
+                        root,
+                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                        Default::default(),
+                        settings.profile.clone(),
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
+                let values = prepared.model.values.clone();
+                self.inner
+                    .diagnose_case(
+                        prepared,
+                        values,
+                        diagnostics.policy.clone(),
+                        analysis.compiler,
+                        &cancel,
+                    )
+                    .await
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingDiagnostics {
+            inner: Arc::new(inner),
+        })
+    }
+    #[pyo3(signature=(case_id,settings,*,rays=false,iis=false,ranging=false,relaxation=None,lower_penalties=None,upper_penalties=None,row_penalties=None,maximum_entries=100_000))]
+    fn diagnose_linear(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SolveSettings,
+        rays: bool,
+        iis: bool,
+        ranging: bool,
+        relaxation: Option<(f64, f64, f64)>,
+        lower_penalties: Option<BTreeMap<String, f64>>,
+        upper_penalties: Option<BTreeMap<String, f64>>,
+        row_penalties: Option<BTreeMap<String, f64>>,
+        maximum_entries: usize,
+    ) -> PyResult<NativeModelingNativeAnalysis> {
+        #[cfg(not(feature = "solver-highs"))]
+        {
+            let _ = (
+                case_id,
+                settings,
+                rays,
+                iis,
+                ranging,
+                relaxation,
+                lower_penalties,
+                upper_penalties,
+                row_penalties,
+                maximum_entries,
+            );
+            Err(invalid(py, "HiGHS capability is not installed"))
+        }
+        #[cfg(feature = "solver-highs")]
+        {
+            use pse_backend_native::highs::diagnostics::{Penalties, Request};
+            let root = id(py, case_id)?;
+            let cancel = CancelSource::new();
+            let inner = blocking(
+                py,
+                &self.owner,
+                async {
+                    let analysis = self
+                        .inner
+                        .declared_analysis(
+                            root,
+                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                            Default::default(),
+                            settings.profile.clone(),
+                            Default::default(),
+                            self.limits,
+                            &cancel,
+                        )
+                        .await?;
+                    let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
+                    let plan = &prepared.model.case.compiled().plan;
+                    let rows = plan
+                        .structure()
+                        .rows()
+                        .iter()
+                        .map(|r| r.id)
+                        .collect::<Vec<_>>();
+                    let align=|values:Option<BTreeMap<String,f64>>,ids:&[pse_ids::SemanticId]|->Result<Option<Vec<f64>>,native::WorkflowError>{
+                    values.map(|values|{
+                        let values=values.into_iter().map(|(key,v)|pse_ids::SemanticId::parse_hex(&key).map(|id|(id,v)).map_err(|e|native::WorkflowError::Contract(e.to_string()))).collect::<Result<BTreeMap<_,_>,_>>()?;
+                        if values.len()!=ids.len(){return Err(native::WorkflowError::Contract("local penalties require every source coordinate exactly once".into()));}
+                        ids.iter().map(|id|values.get(id).copied().ok_or_else(||native::WorkflowError::Contract("local penalty source coordinate absent".into()))).collect()
+                    }).transpose()
+                };
+                    if relaxation.is_none()
+                        && (lower_penalties.is_some()
+                            || upper_penalties.is_some()
+                            || row_penalties.is_some())
+                    {
+                        return Err(native::WorkflowError::Contract(
+                            "local penalties require explicit global relaxation penalties".into(),
+                        ));
+                    }
+                    let relaxation = relaxation
+                        .map(|(lower, upper, row)| {
+                            Ok::<_, native::WorkflowError>(Penalties {
+                                global: [lower, upper, row],
+                                lower: align(lower_penalties, plan.columns())?,
+                                upper: align(upper_penalties, plan.columns())?,
+                                rows: align(row_penalties, &rows)?,
+                            })
+                        })
+                        .transpose()?;
+                    self.inner
+                        .diagnose_linear(
+                            prepared,
+                            Request {
+                                rays,
+                                iis,
+                                ranging,
+                                relaxation,
+                            },
+                            settings.profile.controls.clone(),
+                            maximum_entries,
+                            &cancel,
+                        )
+                        .await?
+                        .into_export()
+                },
+                || cancel.cancel(),
+            )?;
+            Ok(NativeModelingNativeAnalysis {
+                inner: Arc::new(inner),
+            })
+        }
+    }
+    #[pyo3(signature=(case_id,settings,*,maximum_rows=32,maximum_entries=100_000,maximum_attempts=64,multiplier_bound=10.0,tolerance=1e-7,rank_relative=1e-8))]
+    fn diagnose_jacobian(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SolveSettings,
+        maximum_rows: usize,
+        maximum_entries: usize,
+        maximum_attempts: usize,
+        multiplier_bound: f64,
+        tolerance: f64,
+        rank_relative: f64,
+    ) -> PyResult<NativeModelingNativeAnalysis> {
+        #[cfg(not(feature = "solver-highs"))]
+        {
+            let _ = (
+                case_id,
+                settings,
+                maximum_rows,
+                maximum_entries,
+                maximum_attempts,
+                multiplier_bound,
+                tolerance,
+                rank_relative,
+            );
+            Err(invalid(py, "HiGHS capability is not installed"))
+        }
+        #[cfg(feature = "solver-highs")]
+        {
+            let root = id(py, case_id)?;
+            let cancel = CancelSource::new();
+            let inner = blocking(
+                py,
+                &self.owner,
+                async {
+                    let analysis = self
+                        .inner
+                        .declared_analysis(
+                            root,
+                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                            Default::default(),
+                            settings.profile.clone(),
+                            Default::default(),
+                            self.limits,
+                            &cancel,
+                        )
+                        .await?;
+                    let prepared = self.inner.prepare_diagnostics(&analysis, &cancel).await?;
+                    let values = prepared.model.values.clone();
+                    self.inner
+                        .diagnose_jacobian_optimization(
+                            prepared,
+                            values,
+                            pse_backend_native::jacobian_diagnostics::Policy {
+                                maximum_rows,
+                                maximum_entries,
+                                maximum_attempts,
+                                multiplier_bound,
+                                tolerance,
+                                rank_relative,
+                            },
+                            settings.profile.controls.clone(),
+                            &cancel,
+                        )
+                        .await?
+                        .into_export()
+                },
+                || cancel.cancel(),
+            )?;
+            Ok(NativeModelingNativeAnalysis {
+                inner: Arc::new(inner),
+            })
+        }
+    }
+    #[pyo3(signature=(case_id, settings, *, stages=Vec::new(), homotopy=false, initial_step=0.25, minimum_step=1e-6, growth=1.5, maximum_attempts=128, time_limit=60.0))]
+    fn initialize(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SolveSettings,
+        stages: Vec<String>,
+        homotopy: bool,
+        initial_step: f64,
+        minimum_step: f64,
+        growth: f64,
+        maximum_attempts: usize,
+        time_limit: f64,
+    ) -> PyResult<NativeModelingInitialization> {
+        let root = id(py, case_id)?;
+        let duration = std::time::Duration::try_from_secs_f64(time_limit)
+            .map_err(|_| invalid(py, "initialization time limit must be finite and positive"))?;
+        let policy = native::ModelingInitialization {
+            stages,
+            homotopy,
+            initial_step,
+            minimum_step,
+            growth,
+            maximum_attempts,
+            time_limit: duration,
+        };
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let analysis = self
+                    .inner
+                    .declared_analysis(
+                        root,
+                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                        Default::default(),
+                        settings.profile.clone(),
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                self.inner
+                    .initialize_model(&analysis, policy, &cancel)
+                    .await
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingInitialization {
+            inner: Arc::new(inner),
+        })
+    }
+    #[pyo3(signature=(case_ids, settings, *, predecessors=Vec::new(), maximum_points=1024))]
+    fn study(
+        &self,
+        py: Python<'_>,
+        case_ids: Vec<String>,
+        settings: &SolveSettings,
+        predecessors: Vec<Option<usize>>,
+        maximum_points: usize,
+    ) -> PyResult<NativeModelingStudy> {
+        if maximum_points == 0
+            || maximum_points > 4096
+            || case_ids.len() > maximum_points
+            || !predecessors.is_empty() && predecessors.len() != case_ids.len()
+        {
+            return Err(invalid(
+                py,
+                "invalid bounded study extent or predecessor list",
+            ));
+        }
+        if predecessors
+            .iter()
+            .enumerate()
+            .any(|(i, p)| p.is_some_and(|j| j >= i))
+        {
+            return Err(invalid(
+                py,
+                "study predecessor must identify an earlier point",
+            ));
+        }
+        let ids = case_ids
+            .iter()
+            .map(|v| id(py, v))
+            .collect::<PyResult<Vec<_>>>()?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let mut points = Vec::new();
+                for (index, root) in ids.into_iter().enumerate() {
+                    let analysis = self
+                        .inner
+                        .declared_analysis(
+                            root,
+                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                            Default::default(),
+                            settings.profile.clone(),
+                            Default::default(),
+                            self.limits,
+                            &cancel,
+                        )
+                        .await
+                        .map_err(Arc::new);
+                    points.push(native::ModelingStudyPoint {
+                        analysis,
+                        predecessor: predecessors.get(index).copied().flatten(),
+                    });
+                }
+                self.inner.study(points, maximum_points, &cancel).await
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingStudy {
+            inner: Arc::new(inner),
+        })
+    }
+    fn inspect(&self, py: Python<'_>, case_id: &str, settings: &SolveSettings) -> PyResult<Vec<u8>> {
+        let root=id(py,case_id)?;
+        let cancel=CancelSource::new();
+        let model=blocking(py,&self.owner,async {
+            let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.profile.clone(),Default::default(),self.limits,&cancel).await?;
+            self.inner.prepare(analysis.root,analysis.instance,analysis.bindings,analysis.limits,&cancel).await
+        },||cancel.cancel())?;
+        py.detach(|| {
+            let source=&model.compiled().model;
+            let lineage=|l:&pse_modeling::specialize::Lineage|serde_json::json!({"declaration":l.declaration,"instance":l.instance,"path":l.path,"demand":l.demand,"default_owner":l.default_owner,"is_override":l.is_override,"presets":l.presets});
+            serde_json::to_vec(&serde_json::json!({"payload":{
+                "instances":source.instances.values().map(|i|serde_json::json!({"id":i.id,"definition":i.definition,"parent":i.parent,"path":i.path,"members":i.members})).collect::<Vec<_>>(),
+                "members":source.symbols.values().map(|s|serde_json::json!({"id":s.id,"role":s.role,"lineage":lineage(&s.lineage)})).collect::<Vec<_>>(),
+                "ports":source.ports.values().map(|p|serde_json::json!({"id":p.id,"symbol":p.symbol,"lineage":lineage(&p.lineage)})).collect::<Vec<_>>(),
+                "connections":source.connections.values().map(|c|serde_json::json!({"id":c.id,"from":c.from,"to":c.to,"lineage":lineage(&c.lineage)})).collect::<Vec<_>>()
+            }}))
+        }).map_err(|e|invalid(py,e.to_string()))
+    }
+    fn prepare_flow(&self, py: Python<'_>, case_id: &str, selection: &[u8], settings: &SolveSettings) -> PyResult<NativePreparedFlow> {
+        let root=id(py,case_id)?;
+        let selection=flow_selection(py,selection,self.owner.shared.budget().math.workspace_bytes)?;
+        let cancel=CancelSource::new();
+        let inner=blocking(py,&self.owner,async {
+            let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.profile.clone(),Default::default(),self.limits,&cancel).await?;
+            self.inner.prepare_flow(&analysis,selection,&cancel).await
+        },||cancel.cancel())?;
+        Ok(NativePreparedFlow{owner:self.owner.clone(),math:self.owner.shared.math().clone(),inner})
+    }
+    fn prepare_recycle(&self, py: Python<'_>, case_id: &str, selection: &[u8], request: &[u8], settings: &SolveSettings) -> PyResult<NativePreparedStrategy> {
+        #[cfg(feature="native-solvers")]
+        {
+            let root=id(py,case_id)?;
+            let selection=flow_selection(py,selection,self.owner.shared.budget().math.workspace_bytes)?;
+            if request.len()>self.owner.shared.budget().math.workspace_bytes/4 {return Err(invalid(py,"recycle request exceeds workspace allowance"));}
+            let request=serde_json::from_slice::<strategies::AnalysisDocument<native::RecycleRequest>>(request).map_err(|e|invalid(py,e.to_string()))?.payload;
+            let cancel=CancelSource::new();
+            let inner=blocking(py,&self.owner,async {
+                let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.profile.clone(),Default::default(),self.limits,&cancel).await?;
+                self.inner.prepare_recycle(&analysis,selection,request,&cancel).await
+            },||cancel.cancel())?;
+            Ok(NativePreparedStrategy{owner:self.owner.clone(),inner:strategies::Strategy::Recycle(inner)})
+        }
+        #[cfg(not(feature="native-solvers"))]
+        {let _=(case_id,selection,request,settings);Err(invalid(py,"KINSOL strategy workflow is not linked"))}
+    }
+    fn prepare_block_initialization(&self, py: Python<'_>, case_id: &str, settings: &SolveSettings, stages: Vec<BTreeMap<String,f64>>) -> PyResult<NativePreparedStrategy> {
+        #[cfg(feature="native-solvers")]
+        {
+            let root=id(py,case_id)?;
+            if !matches!(settings.profile.intent,pse_backend_native::solve::SolveIntent::Initialize|pse_backend_native::solve::SolveIntent::Root)
+                || matches!(settings.profile.presolve,pse_backend_native::presolve::Policy::Explicit{..})
+                || !matches!(settings.profile.convexity,pse_runtime::math::solves::ConvexityPolicy::Exact)
+                || !matches!(settings.profile.backend,pse_runtime::math::solves::BackendSettings::Default) {
+                return Err(invalid(py,"initialization requires root/initialize intent and has no explicit preprocessing or convexity strategy"));
+            }
+            if stages.len()>4096 {return Err(invalid(py,"continuation stage allowance"));}
+            let stages=stages.into_iter().map(|s|s.into_iter().map(|(k,v)|id(py,&k).map(|k|(k,v))).collect::<PyResult<_>>()).collect::<PyResult<_>>()?;
+            let profile=pse_runtime::math::initialization::InitializationProfile{selection:settings.profile.selection,controls:settings.profile.controls.clone(),linear:pse_backend_native::kinsol::Linear::Klu,numerics:settings.profile.numerics.clone(),stages};
+            let cancel=CancelSource::new();
+            let inner=blocking(py,&self.owner,async {
+                let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.profile.clone(),Default::default(),self.limits,&cancel).await?;
+                self.inner.prepare_block_initialization(&analysis,profile,&cancel).await
+            },||cancel.cancel())?;
+            Ok(NativePreparedStrategy{owner:self.owner.clone(),inner:strategies::Strategy::Initialization(inner)})
+        }
+        #[cfg(not(feature="native-solvers"))]
+        {let _=(case_id,settings,stages);Err(invalid(py,"initialization workflow is not linked"))}
+    }
+    fn declarations(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        py.detach(|| serde_json::to_vec(self.inner.declarations()))
+            .map_err(|e| invalid(py, e.to_string()))
+    }
+    #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4, fixture_policies=None))]
+    fn conform(
+        &self,
+        py: Python<'_>,
+        settings: &SolveSettings,
+        maximum_fixtures: usize,
+        maximum_checks: usize,
+        derivative_cells: usize,
+        derivative_step: f64,
+        derivative_tolerance: f64,
+        fixture_policies: Option<BTreeMap<String, Py<ModelingFixturePolicy>>>,
+    ) -> PyResult<NativeModelingConformance> {
+        let cancel = CancelSource::new();
+        let fixture_policies = fixture_policies.unwrap_or_default().into_iter()
+            .map(|(key, policy)| Ok((id(py, &key)?, policy.borrow(py).inner.clone())))
+            .collect::<PyResult<BTreeMap<_, _>>>()?;
+        let policy = native::ModelingConformancePolicy {
+            fixture_policies,
+            compiler: Default::default(),
+            solver: settings.profile.clone(),
+            numerical: Default::default(),
+            limits: self.limits,
+            derivatives: pse_backend_native::derivative_diagnostics::Policy {
+                perturbation: derivative_step,
+                relative_tolerance: derivative_tolerance,
+                maximum_cells: derivative_cells,
+            },
+            maximum_fixtures,
+            maximum_checks,
+        };
+        let inner = blocking(py, &self.owner, self.inner.conform(policy, &cancel), || {
+            cancel.cancel()
+        })?;
+        Ok(NativeModelingConformance {
+            inner: Arc::new(inner),
+        })
+    }
+    #[pyo3(signature=(case_id, settings, *, route="steady"))]
+    fn prepare_solve(
+        &self, py: Python<'_>, case_id: &str, settings: &SolveSettings, route: &str,
+    ) -> PyResult<NativePreparedOperation> {
+        let root=id(py,case_id)?;
+        let route=route.parse().map_err(|_|invalid(py,"unknown modeling analysis route"))?;
+        let cancel=CancelSource::new();
+        let inner=blocking(py,&self.owner,async {
+            let analysis=self.inner.declared_analysis(root,route,Default::default(),settings.profile.clone(),Default::default(),self.limits,&cancel).await?;
+            self.inner.prepare_analysis(&analysis,&cancel).await
+        },||cancel.cancel())?;
+        Ok(NativePreparedOperation{owner:self.owner.clone(),inner:PreparedOperation::Modeling(Box::new(inner))})
+    }
+    #[pyo3(signature=(case_id, settings, *, route="steady"))]
+    fn solve_case(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SolveSettings,
+        route: &str,
+    ) -> PyResult<NativeModelingResult> {
+        let root = id(py, case_id)?;
+        let route = route
+            .parse()
+            .map_err(|_| invalid(py, "unknown modeling analysis route"))?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let analysis = self
+                    .inner
+                    .declared_analysis(
+                        root,
+                        route,
+                        Default::default(),
+                        settings.profile.clone(),
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                let prepared = self.inner.prepare_analysis(&analysis, &cancel).await?;
+                self.inner
+                    .solve_case(prepared, analysis.compiler, &cancel)
+                    .await
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingResult {
+            inner: Arc::new(inner),
+        })
+    }
+}
+
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingNonlinearExplanation {
+    inner: Arc<native::ModelingNonlinearExplanation>,
+}
+#[pymethods]
+impl NativeModelingNonlinearExplanation {
+    fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.findings_table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+
+    #[getter]
+    fn complete(&self) -> bool {
+        self.inner.complete
+    }
+    #[getter]
+    fn stop(&self) -> Option<inspection::DiagnosticReport> {
+        self.inner
+            .stop
+            .as_ref()
+            .map(|error| inspection::DiagnosticReport::observe(error))
+    }
+    fn candidate_rows(&self) -> Vec<String> {
+        self.inner
+            .candidate_rows
+            .iter()
+            .map(|id| id.to_hex())
+            .collect()
+    }
+    fn background_variables(&self) -> Vec<String> {
+        self.inner
+            .background_variables
+            .iter()
+            .map(|id| id.to_hex())
+            .collect()
+    }
+    fn attempts(&self) -> Vec<NativeModelingElasticAttempt> {
+        (0..self.inner.attempts.len())
+            .map(|index| NativeModelingElasticAttempt {
+                owner: self.inner.clone(),
+                index,
+            })
+            .collect()
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingElasticAttempt {
+    owner: Arc<native::ModelingNonlinearExplanation>,
+    index: usize,
+}
+#[pymethods]
+impl NativeModelingElasticAttempt {
+    #[getter]
+    fn observation(&self) -> &'static str {
+        match self.owner.attempts[self.index].observation {
+            native::ElasticObservation::FeasibleWitness => "feasible_witness",
+            native::ElasticObservation::LocalObstruction => "local_obstruction",
+            native::ElasticObservation::Inconclusive => "inconclusive",
+        }
+    }
+    #[getter]
+    fn penalty(&self) -> Option<f64> {
+        self.owner.attempts[self.index].penalty
+    }
+    fn omitted(&self) -> Vec<String> {
+        self.owner.attempts[self.index]
+            .omitted
+            .iter()
+            .map(|id| id.to_hex())
+            .collect()
+    }
+    fn result(&self) -> Option<NativeModelingResult> {
+        self.owner.attempts[self.index]
+            .result
+            .as_ref()
+            .ok()
+            .map(|r| NativeModelingResult {
+                inner: Arc::new(r.clone()),
+            })
+    }
+    fn failure(&self) -> Option<inspection::DiagnosticReport> {
+        self.owner.attempts[self.index]
+            .diagnostic()
+            .as_ref()
+            .map(|error| inspection::DiagnosticReport::observe(error))
+    }
+}
+
+/// Explicit profile data, with native validation and bounded decoding.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingTrajectory {
+    inner: Arc<native::ModelingTrajectory>,
+}
+#[pymethods]
+impl NativeModelingTrajectory {
+    #[getter]
+    fn accepted(&self) -> bool {
+        self.inner.accepted
+    }
+    #[getter]
+    fn checks_complete(&self) -> bool {
+        self.inner.checks_complete
+    }
+    #[getter]
+    fn validation_error(&self) -> Option<inspection::DiagnosticReport> {
+        self.inner
+            .validation_error
+            .as_ref()
+            .map(|e| inspection::DiagnosticReport::observe(e))
+    }
+
+    #[getter]
+    fn termination(&self) -> &'static str {
+        self.inner.report.termination.as_str()
+    }
+    #[getter]
+    fn completed_time(&self) -> f64 {
+        self.inner.report.completed_time
+    }
+    #[getter]
+    fn samples(&self) -> usize {
+        self.inner.report.samples.len()
+    }
+    fn failure(&self) -> Option<inspection::DiagnosticReport> {
+        self.inner
+            .diagnostic()
+            .as_ref()
+            .map(|e| inspection::DiagnosticReport::observe(e))
+    }
+    fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
+        use pse_relations::generated::runtime::{
+            computation_runs, modeling_checks, modeling_reports, response_sensitivities,
+            simulation_events, simulation_samples,
+        };
+        let id = match name {
+            "runtime.modeling_trajectory_modes" => {
+                pse_relations::generated::runtime::modeling_trajectory_modes::RELATION_ID
+            }
+            "runtime.modeling_findings" => {
+                pse_relations::generated::runtime::modeling_findings::RELATION_ID
+            }
+            "runtime.modeling_checks" => modeling_checks::RELATION_ID,
+            "runtime.modeling_reports" => modeling_reports::RELATION_ID,
+            "runtime.computation_runs" => computation_runs::RELATION_ID,
+            "runtime.simulation_samples" => simulation_samples::RELATION_ID,
+            "runtime.simulation_events" => simulation_events::RELATION_ID,
+            "runtime.response_sensitivities" => response_sensitivities::RELATION_ID,
+            _ => return Err(invalid(py, "unknown modeling trajectory table")),
+        };
+        py.detach(|| {
+            self.inner.tables().and_then(|mut tables| {
+                tables.remove(&id).ok_or_else(|| {
+                    native::WorkflowError::Contract("trajectory table absent".into())
+                })
+            })
+        })
+        .map(inspection::TableStream::from_batch)
+        .map_err(|e| errors::diagnostic(py, &e))
+    }
+}
+
+/// Explicit profile data, with native validation and bounded decoding.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct ModelingDiagnosticSettings {
+    policy: native::ModelingDiagnosticPolicy,
+}
+#[pymethods]
+impl ModelingDiagnosticSettings {
+    #[staticmethod]
+    fn from_json(py: Python<'_>, source: &str) -> PyResult<Self> {
+        if source.len() > 1 << 20 {
+            return Err(invalid(py, "diagnostic profile extent"));
+        }
+        let policy: native::ModelingDiagnosticPolicy =
+            serde_json::from_str(source).map_err(|e| invalid(py, e.to_string()))?;
+        policy.validate().map_err(|e| errors::diagnostic(py, &e))?;
+        Ok(Self { policy })
+    }
+    fn to_json(&self, py: Python<'_>) -> PyResult<String> {
+        serde_json::to_string(&self.policy).map_err(|e| invalid(py, e.to_string()))
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingDiagnostics {
+    inner: Arc<native::ModelingDiagnostics>,
+}
+/// An owned generated diagnostic transport and its unchanged native attempts.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingNativeAnalysis {
+    inner: Arc<native::ModelingNativeAnalysis>,
+}
+#[pymethods]
+impl NativeModelingNativeAnalysis {
+    #[getter]
+    fn relation(&self) -> &str {
+        self.inner.relation
+    }
+    #[getter]
+    fn attempt_count(&self) -> usize {
+        self.inner.attempts.len()
+    }
+    fn attempt(&self, py: Python<'_>, index: usize) -> PyResult<NativeAttempt> {
+        self.inner
+            .attempts
+            .get(index)
+            .cloned()
+            .map(|inner| NativeAttempt { inner })
+            .ok_or_else(|| invalid(py, "native diagnostic attempt index"))
+    }
+    fn table(&self) -> inspection::TableStream {
+        inspection::TableStream::from_batch(self.inner.table.clone())
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingDiagnosticSamples {
+    inner: Arc<native::ModelingDiagnosticSamples>,
+}
+#[pymethods]
+impl NativeModelingDiagnosticSamples {
+    fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.findings_table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+
+    #[getter]
+    fn unattempted(&self) -> usize {
+        self.inner.unattempted
+    }
+    #[getter]
+    fn stop(&self) -> &'static str {
+        use native::DiagnosticSampleStop as S;
+        match self.inner.stop {
+            S::Completed => "completed",
+            S::SampleLimit => "sample_limit",
+            S::FindingLimit => "finding_limit",
+            S::TimeLimit => "time_limit",
+            S::Cancelled => "cancelled",
+        }
+    }
+    fn ids(&self) -> Vec<String> {
+        self.inner
+            .outcomes
+            .iter()
+            .map(|(id, _)| id.to_hex())
+            .collect()
+    }
+    fn result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeModelingDiagnostics>> {
+        let (_, result) = self
+            .inner
+            .outcomes
+            .get(index)
+            .ok_or_else(|| invalid(py, "diagnostic sample index"))?;
+        Ok(result.as_ref().ok().map(|inner| NativeModelingDiagnostics {
+            inner: inner.clone(),
+        }))
+    }
+    fn failure(
+        &self,
+        py: Python<'_>,
+        index: usize,
+    ) -> PyResult<Option<inspection::DiagnosticReport>> {
+        let (_, result) = self
+            .inner
+            .outcomes
+            .get(index)
+            .ok_or_else(|| invalid(py, "diagnostic sample index"))?;
+        Ok(result
+            .as_ref()
+            .err()
+            .map(|error| inspection::DiagnosticReport::observe(error)))
+    }
+}
+#[pymethods]
+impl NativeModelingDiagnostics {
+    fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
+        let id = match name {
+            "runtime.modeling_diagnostics" => {
+                pse_relations::generated::runtime::modeling_diagnostics::RELATION_ID
+            }
+            "runtime.modeling_findings" => {
+                pse_relations::generated::runtime::modeling_findings::RELATION_ID
+            }
+            _ => return Err(invalid(py, "unknown diagnostic table")),
+        };
+        let mut tables = py
+            .detach(|| self.inner.tables())
+            .map_err(|e| errors::diagnostic(py, &e))?;
+        tables
+            .remove(&id)
+            .map(inspection::TableStream::from_batch)
+            .ok_or_else(|| invalid(py, "diagnostic table absent"))
+    }
+
+    #[getter]
+    fn complete(&self) -> bool {
+        self.inner.complete
+    }
+    #[getter]
+    fn profile(&self) -> String {
+        self.inner.profile.clone()
+    }
+    #[getter]
+    fn rank(&self) -> Option<usize> {
+        self.inner.matrix.as_ref().map(|m| m.rank)
+    }
+    #[getter]
+    fn cutoff(&self) -> Option<f64> {
+        self.inner.matrix.as_ref().map(|m| m.cutoff)
+    }
+    fn findings(&self) -> Vec<inspection::DiagnosticReport> {
+        self.inner
+            .findings
+            .iter()
+            .map(|d| inspection::DiagnosticReport::observe(d))
+            .collect()
+    }
+    fn statistics(&self) -> BTreeMap<String, usize> {
+        self.inner.statistics.clone()
+    }
+    fn coordinates(&self) -> (Vec<String>, Vec<String>) {
+        (
+            self.inner.rows.iter().map(|v| v.to_hex()).collect(),
+            self.inner.columns.iter().map(|v| v.to_hex()).collect(),
+        )
+    }
+    fn singular_modes(&self) -> Vec<(f64, Vec<f64>, Vec<f64>)> {
+        self.inner
+            .matrix
+            .iter()
+            .flat_map(|m| &m.modes)
+            .map(|m| (m.value, m.left.clone(), m.right.clone()))
+            .collect()
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingInitialization {
+    inner: Arc<native::ModelingInitializationReport>,
+}
+#[pymethods]
+impl NativeModelingInitialization {
+    fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.findings_table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+
+    #[getter]
+    fn completed(&self) -> bool {
+        self.inner.completed
+    }
+    #[getter]
+    fn failure(&self) -> Option<inspection::DiagnosticReport> {
+        self.inner
+            .failure
+            .as_ref()
+            .map(|e| inspection::DiagnosticReport::observe(e))
+    }
+    fn committed_values(&self) -> Option<BTreeMap<String, f64>> {
+        self.inner
+            .committed
+            .as_ref()
+            .map(|v| v.iter().map(|(id, value)| (id.to_hex(), *value)).collect())
+    }
+    fn attempts(&self) -> Vec<NativeModelingInitializationAttempt> {
+        (0..self.inner.attempts.len())
+            .map(|index| NativeModelingInitializationAttempt {
+                owner: self.inner.clone(),
+                index,
+            })
+            .collect()
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingInitializationAttempt {
+    owner: Arc<native::ModelingInitializationReport>,
+    index: usize,
+}
+#[pymethods]
+impl NativeModelingInitializationAttempt {
+    #[getter]
+    fn kind(&self) -> &'static str {
+        match self.owner.attempts[self.index].step {
+            native::ModelingInitializationStep::Stage(_) => "stage",
+            native::ModelingInitializationStep::Homotopy(_) => "homotopy",
+            native::ModelingInitializationStep::Original => "original",
+        }
+    }
+    #[getter]
+    fn stage(&self) -> Option<String> {
+        match &self.owner.attempts[self.index].step {
+            native::ModelingInitializationStep::Stage(name) => Some(name.clone()),
+            _ => None,
+        }
+    }
+    #[getter]
+    fn fraction(&self) -> Option<f64> {
+        match self.owner.attempts[self.index].step {
+            native::ModelingInitializationStep::Homotopy(value) => Some(value),
+            _ => None,
+        }
+    }
+    #[getter]
+    fn accepted(&self) -> bool {
+        self.owner.attempts[self.index].accepted()
+    }
+    #[getter]
+    fn interruption(&self) -> Option<inspection::DiagnosticReport> {
+        self.owner.attempts[self.index]
+            .interruption
+            .as_ref()
+            .map(|e| inspection::DiagnosticReport::observe(e))
+    }
+    #[getter]
+    fn preparation_error(&self) -> Option<inspection::DiagnosticReport> {
+        self.owner.attempts[self.index]
+            .result
+            .as_ref()
+            .err()
+            .map(|e| inspection::DiagnosticReport::observe(e.as_ref()))
+    }
+    fn result(&self) -> Option<NativeModelingResult> {
+        self.owner.attempts[self.index]
+            .result
+            .as_ref()
+            .ok()
+            .map(|r| NativeModelingResult {
+                inner: Arc::new(r.clone()),
+            })
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingStudy {
+    inner: Arc<native::ModelingStudyReport>,
+}
+#[pymethods]
+impl NativeModelingStudy {
+    fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.findings_table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+
+    #[getter]
+    fn unattempted(&self) -> usize {
+        self.inner.unattempted
+    }
+    #[getter]
+    fn count(&self) -> usize {
+        self.inner.outcomes.len()
+    }
+    fn result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeModelingResult>> {
+        let result = self
+            .inner
+            .outcomes
+            .get(index)
+            .ok_or_else(|| invalid(py, "study point index outside report"))?;
+        Ok(result.as_ref().ok().map(|r| NativeModelingResult {
+            inner: Arc::new(r.clone()),
+        }))
+    }
+    fn failure(
+        &self,
+        py: Python<'_>,
+        index: usize,
+    ) -> PyResult<Option<inspection::DiagnosticReport>> {
+        let result = self
+            .inner
+            .outcomes
+            .get(index)
+            .ok_or_else(|| invalid(py, "study point index outside report"))?;
+        Ok(match result {
+            Err(error) => Some(inspection::DiagnosticReport::observe(error)),
+            Ok(result) => result
+                .diagnostic()
+                .as_ref()
+                .map(|e| inspection::DiagnosticReport::observe(e)),
+        })
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingConformance {
+    inner: Arc<native::ModelingConformanceReport>,
+}
+#[pymethods]
+impl NativeModelingConformance {
+    #[staticmethod]
+    #[pyo3(signature=(documents, physical, settings, *, maximum_fixtures=1024, maximum_checks=16384, limits=None))]
+    fn pure(
+        py: Python<'_>,
+        documents: Vec<BTreeMap<String, String>>,
+        physical: BTreeMap<String, String>,
+        settings: &inspection::EngineSettings,
+        maximum_fixtures: usize,
+        maximum_checks: usize,
+        limits: Option<&ModelingLimits>,
+    ) -> PyResult<Self> {
+        let budget = settings.resource_budget().clone();
+        let executor = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(budget.threads.pool_threads.get())
+            .enable_all()
+            .build()
+            .map_err(|e| invalid(py, e.to_string()))?;
+        let cancel = CancelSource::new();
+        let inner = blocking_on(
+            py,
+            &executor,
+            native::conform_pure_documents(
+                documents,
+                physical,
+                budget,
+                Arc::new(pse_rules::invariants::RegistryRequirementPlanner),
+                maximum_fixtures,
+                maximum_checks,
+                limits.map_or_else(Default::default, |v| v.limits),
+                &cancel,
+            ),
+            || cancel.cancel(),
+        )?;
+        Ok(Self {
+            inner: Arc::new(inner),
+        })
+    }
+    #[getter]
+    fn passed(&self) -> bool {
+        self.inner.passed()
+    }
+    #[getter]
+    fn complete(&self) -> bool {
+        self.inner.complete
+    }
+    fn table(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+    fn findings(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.findings_table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+    fn failure(&self, py: Python<'_>, ordinal: usize) -> PyResult<inspection::DiagnosticReport> {
+        self.inner
+            .failures
+            .get(ordinal)
+            .map(|error| inspection::DiagnosticReport::observe(error))
+            .ok_or_else(|| invalid(py, "conformance failure ordinal outside report"))
+    }
+    fn trajectory(&self, py: Python<'_>, fixture_id: &str) -> PyResult<NativeModelingTrajectory> {
+        self.inner
+            .trajectories
+            .get(&id(py, fixture_id)?)
+            .map(|value| NativeModelingTrajectory {
+                inner: Arc::new(value.clone()),
+            })
+            .ok_or_else(|| invalid(py, "fixture has no integrated trajectory"))
+    }
+    fn initialization(
+        &self,
+        py: Python<'_>,
+        fixture_id: &str,
+    ) -> PyResult<NativeModelingInitialization> {
+        self.inner
+            .initializations
+            .get(&id(py, fixture_id)?)
+            .map(|value| NativeModelingInitialization {
+                inner: Arc::new(value.clone()),
+            })
+            .ok_or_else(|| invalid(py, "fixture has no initialization report"))
+    }
+    fn fixtures(&self) -> Vec<String> {
+        self.inner.fixtures().iter().map(|id| id.to_hex()).collect()
+    }
+    fn fixture_statuses(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
+        py.detach(|| self.inner.fixture_statuses_table())
+            .map(inspection::TableStream::from_batch)
+            .map_err(|e| errors::diagnostic(py, &e))
+    }
+    fn result(&self, py: Python<'_>, fixture_id: &str) -> PyResult<NativeModelingResult> {
+        let identity = id(py, fixture_id)?;
+        let inner = self.inner.results.get(&identity).ok_or_else(|| {
+            invalid(
+                py,
+                "fixture has no completed solve; inspect conformance checks",
+            )
+        })?;
+        Ok(NativeModelingResult {
+            inner: Arc::new(inner.clone()),
+        })
+    }
+}
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeModelingResult {
+    inner: Arc<native::ModelingResult>,
+}
+#[pymethods]
+impl NativeModelingResult {
+    #[getter]
+    fn accepted(&self) -> bool {
+        self.inner.accepted
+    }
+    #[getter]
+    fn run_id(&self) -> String {
+        self.inner.run_id.to_hex()
+    }
+    #[getter]
+    fn validation_error(&self) -> Option<inspection::DiagnosticReport> {
+        self.inner
+            .validation_error
+            .as_ref()
+            .map(|e| inspection::DiagnosticReport::observe(e))
+    }
+    #[getter]
+    fn outcome_kind(&self) -> &'static str {
+        match &self.inner.outcome {
+            pse_runtime::math::solves::Outcome::Native(_) => "native",
+            pse_runtime::math::solves::Outcome::Constant(_) => "constant",
+            pse_runtime::math::solves::Outcome::Rejected(_) => "rejected",
+        }
+    }
+    fn attempt(&self) -> Option<NativeAttempt> {
+        match &self.inner.outcome {
+            pse_runtime::math::solves::Outcome::Native(report) => Some(NativeAttempt {
+                inner: report.as_ref().clone(),
+            }),
+            _ => None,
+        }
+    }
+    fn failure(&self) -> Option<inspection::DiagnosticReport> {
+        self.inner
+            .diagnostic()
+            .as_ref()
+            .map(|e| inspection::DiagnosticReport::observe(e))
+    }
+    fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
+        let relation = match name {
+            "runtime.modeling_findings" => {
+                pse_relations::generated::runtime::modeling_findings::RELATION_ID
+            }
+            "runtime.modeling_checks" => {
+                pse_relations::generated::runtime::modeling_checks::RELATION_ID
+            }
+            "runtime.modeling_reports" => {
+                pse_relations::generated::runtime::modeling_reports::RELATION_ID
+            }
+            _ => return Err(invalid(py, "unknown modeling result relation")),
+        };
+        py.detach(|| {
+            self.inner.tables().and_then(|mut tables| {
+                tables.remove(&relation).ok_or_else(|| {
+                    native::WorkflowError::Contract("modeling result relation absent".into())
+                })
+            })
+        })
+        .map(inspection::TableStream::from_batch)
+        .map_err(|e| errors::diagnostic(py, &e))
+    }
+}

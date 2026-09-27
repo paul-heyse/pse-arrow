@@ -88,7 +88,7 @@ bootstrap when the package loader itself depends on regenerated contracts.
 | `crates/pse-model/src/generated/` | Plain semantic rows, enums and extension values, without Arrow | compiler, workflow, native adapters |
 | `crates/pse-relations/src/generated/` | Relation identities, Arrow views/builders/codecs, enum and algorithm-argument adapters | engine, catalog, runtime, `pse-py` |
 | `crates/pse-authoring/src/generated/`, `crates/pse-runtime/src/generated/` | Strict document structs and document-to-row adapters | document loading ([§22](models-and-composition.md#section-22)) |
-| `crates/pse-quantity/src/generated/`, `crates/pse-material/src/generated/` | Arrow-free physical fixtures projected from admitted reference packages ([§6.15.7](#section-6-15-7)) | tests and fixture registries |
+| `crates/pse-quantity/src/generated/` | Arrow-free physical fixtures projected from admitted reference packages ([§6.15.7](#section-6-15-7)) | tests and fixture registries |
 | `python/pse/contracts/` | Contract classes, enums with IDAES bindings, `pyarrow` extension types, content digest | Python package ([§21](workflows-and-results.md#section-21)) |
 | `docs/generated/` | Relation, enumeration, extension-type, algorithm and invariant reference; authoring JSON Schema | readers and editors |
 
@@ -142,7 +142,7 @@ their storage layouts.
 | `pse.ordinal_ref` | Artifact-local reference; metadata names the target relation |
 | `pse.source_span` | Document identity and checked byte range |
 | `pse.enum` | Closed enumeration member; metadata names the enumeration |
-| `pse.expr_dsl` | Authored expression text, the only authored form of an expression ([§7](mathematics-and-compilation.md#section-7)) |
+| `pse.expr_dsl` | Explicit expression-text boundary; modeling expressions are fields of the generic declaration IR ([§7](mathematics-and-compilation.md#section-7)) |
 | `pse.target_path` | Authored selector path, resolved to identities before use ([§6.10](#section-6-10)) |
 
 Metadata has exactly three shapes: `{"v":1}`, `{"v":1,"enum_id":…}` and
@@ -228,229 +228,118 @@ establish their stated facts, not application correctness. The failure codes bel
 
 ## 6. Relation families
 
-The [generated relation reference](../../generated/relations/authored.md) owns columns.
-Five namespaces carry relations today:
+> Decision: [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md),
+> [ADR-0099](../../adr/0099-modeling-language-and-identities.md) (proposed; implementation authorized).
 
-| Namespace | Holds | Reference |
-|---|---|---|
-| `reference` | Shipped contracts and reference data: registry self-description, physical types, method/law/connection bindings, algorithm signatures, artifact profiles | [reference](../../generated/relations/reference.md) |
-| `authored` | Facts written by people, agents or typed builders: the only writable model namespace | [authored](../../generated/relations/authored.md) |
-| `normalized` | Deterministic projections of authored sources: package graph, source occurrences, instance bindings, units | [normalized](../../generated/relations/normalized.md) |
-| `runtime` | Results, publication control, retention and observations | [runtime](../../generated/relations/runtime.md) |
-| `provenance` | Derivation evidence and authored expected evidence | [provenance](../../generated/relations/provenance.md) |
+The registry declares generic modeling IR, physical quantities, observation inputs and
+execution/publication contracts. Scientific concepts are package declarations in
+`authored.modeling_declarations`. They do not acquire separate registry families.
+The generated reference owns exact fields and versions. Incompatible historical contracts
+require an explicit migration; the runtime retains no legacy scientific reader.
 
-The model vocabulary still names `inferred` and `compiled` namespaces, but no relation
-is declared in either. Compiled mathematics, symbol tables, structure and prepared
-artifacts are non-durable products of the compiler and the runtime
-([§7](mathematics-and-compilation.md#section-7),
-[§14](mathematics-and-compilation.md#section-14)). Stored results record their
-dependencies instead of the compiler's internal state.
-
-**Selected admission.** A family's existence does not make it executable
-([ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)).
-`pse_runtime::workflow::composition` works out the selected model's dependency closure,
-then classifies every stored declaration in one of four ways:
-
-1. It belongs to the executable composition vocabulary (`CompositionDeclarations`).
-2. It belongs to a family that the workflow executes.
-3. It is descriptive, such as packages, entities, documents, display rows and
-   assertions.
-4. It is some other declaration. If it references a selected identity, admission refuses
-   it with those identities. If it does not, admission reports it as nonexecuting.
-
-The public admission report accounts for every relation. The limits stated under each
-family below follow from this rule.
+The section identities below remain stable while the mechanisms they describe change.
 
 ### 6.1 Identity, packages and source edits
 
-`authored.packages` records the version, identity policy and exact dependencies of each
-package. `authored.documents` lists every source document, and every source span points
-into one of them. `authored.entities` holds entities that are declared explicitly;
-registration checks their exact identity, package, kind, name and parent. Names are
-attributes, never identity. `reference.aliases` keeps deprecated qualified names for
-named-policy entities, because under that policy a rename creates a new entity
-([§5.1](identity-and-publication.md#section-5-1)). `normalized.package_graph` holds the
-exact package resolution (`pse_authoring::p0`) in dependency order, including isolates.
-A missing dependency is refused. `authored.document_edits` and
-`authored.rename_requests` are typed requests for native source edits. They bind exact
-before-images and expected names, and the authoring driver owns the resulting writes.
-Composite relationship keys are not entities by implication.
+`authored.packages` records manifest identity, version, policy and exact dependencies.
+`authored.documents` retains exact source bytes. `authored.entities` registers identities
+exposed by the remaining YAML physical and observation documents. Generic modeling
+entities and their kinds are declarations in the modeling IR, with explicit IDs and
+parent identities; they do not extend the platform's closed `EntityKind` dictionary.
+
+`normalized.package_graph` resolves the complete manifest closure in dependency order,
+including isolates. Missing dependencies, duplicate meanings and incompatible versions
+refuse admission. Source editing uses exact document before-images in the authoring driver;
+the retired template rename/binding request relations are gone. Explicit modeling IDs
+survive name edits; names and source byte ranges are separate from identity.
 
 ### 6.2 Physical types
 
-The `reference` relations for dimensions, units, unit sets, quantity kinds, bases,
-reference states, quantity types, conversion rules, quantity operations and constants
-are the persisted physical vocabulary. `reference.quantity_preconditions` and
-`reference.quantity_operation_reductions` declare operation prerequisites. These are
-proved from exact operand contracts at the point of use, never from an invariant ID, and
-a failure never falls back to a shape-only reduction. `reference.math_context` names
-the package's neutral scalar quantity and Boolean kind; neither is guessed from a
-dimension. `authored.package_unit_sets` selects a package's representation units
-explicitly, and absence is not a default.
+The reference relations declare dimensions, units, unit sets, quantity kinds, bases,
+reference states, quantity types, conversions, quantity operations and constants.
+`quantity_preconditions` and `quantity_operation_reductions` carry the prerequisites
+checked against actual operands. `math_context` explicitly names the neutral scalar
+and Boolean kind.
 
-The quantity registry requires an explicit neutral dimensionless type, and equal
-dimensions never select a physical kind. Conversion rules are typed:
-
-- a scale rule has a finite scale and no offset;
-- an affine rule has a finite scale and a finite offset;
-- a kernel rule names a kernel and carries neither coefficient.
-
-`pse-quantity` owns the semantics ([§8](physical-semantics.md#section-8)).
+Quantity axes and subjects name package-declared entity kinds. A reference state's
+optional datum subject points to an actual authored entity; a kind or arbitrary missing
+identity is refused by physical admission. `authored.package_quantity_aliases` scopes
+physical type spellings to manifest-owned modeling packages. These declarations enter
+one immutable physical inventory, retained by checked modeling products (§8).
 
 ### 6.3 Domains and index sets
 
-`authored.domains` declares finite domains and `authored.domain_members` lists their
-members. Member ordinals are unique within a domain, and member identities are
-semantic IDs rather than labels. A domain marked continuous must have exactly one
-`authored.continuous_domains` row, and its unit must equal that row's unit. A discrete
-domain has no continuous detail. The native composition route specializes finite
-domains only. It refuses continuous domains, and it refuses parent-dependent domains
-that lack explicit ragged tuple bindings. Time in dynamic cases is declared separately
-([§6.10](#section-6-10), [§13](workflows-and-results.md#section-13)).
+Finite, ordered, derived and ragged sets and continuous axes are generic declarations.
+Checking resolves their entity kinds, membership, bounds and physical coordinates.
+Specialization expands only demanded finite members within explicit limits. Discretization
+consumes authored stencil or collocation data. The old `domains`, `domain_members` and
+continuous-domain relation families are removed.
 
 ### 6.4 Material systems and reactions
 
-`reference.elements` and the authored relations for species, species elements, phases,
-phase species, material systems, reactions and stoichiometry are the material
-vocabulary. `pse-material` holds their in-memory shape and predicates. For the selected
-case, admission loads the material systems named by reaction applications and native
-providers, together with their species, phases and reactions. Species and phase types
-use the preserved IDAES dictionaries ([§6.14](#section-6-14)).
-
-`authored.reaction_applications` selects a homogeneous molar reaction for a case. The
-authored rate is an extent per unit time. Species source terms come from stoichiometry,
-and an explicit signed heat-rate output supplies the energy term, so nothing is counted
-twice. `authored.native_providers` binds explicit PC-SAFT/DIPPR records to ordered
-species, physical port roles and a selected formulation
-([§9](physical-semantics.md#section-9)).
-
-`henry_declarations`, `reaction_methods`, `reaction_packages` and `parameter_values`
-remain authoring vocabulary with no current execution interpretation. A selected row in
-one of these relations is refused unless the physical inventory itself admits that
-relation as source data.
+Chemistry packages declare entity kinds, entities, attributes, sets, tables and datasets.
+Composition, molecular weights, allowed phases, stoichiometry and elemental closure are
+knowledge expressed through those contracts. The kernel contains no scientific species,
+phase, element or reaction type and no material-specific relational validator.
+The seed's chemistry and reaction fixtures exercise those declarations (§9).
 
 ### 6.5 Property and method declarations
 
-`reference.property_kinds` and `reference.method_specs` form the property capability
-vocabulary, together with the method relations of [§6.15.3](#section-6-15-3).
-`authored.property_packages` and `authored.method_selections` declare package and method
-choices. `authored.state_bounds` and `authored.phase_equilibrium_pairs` record state
-limits and equilibrium pairings. None of these is an execution route.
+Functions declare correlation equations and domains; interfaces declare property contracts
+and defaults; definitions bind methods, parameters and datasets. Dispatch tables select
+implementations for members of declared sets. These are ordinary modeling declarations.
+The old property/method-selection and provider-data relation families are removed.
+Execution follows checked specialization and the shared mathematical path (§9.3, §9.6).
 
-The executable property path is an explicit native provider binding
-([§6.4](#section-6-4)). An instance that names a property or reaction package is
-refused. `authored.default_scaling` is consumed, as the property-default source of
-numerical policy ([§6.11](#section-6-11)).
+### 6.6 Definitions and interfaces
 
-### 6.6 Templates
-
-> Decision: [ADR-0010](../../adr/0010-laws-are-templates-over-contributions.md)
-
-A template is a declarative, reusable model: unit, control volume, state, connection
-rule, law, scaler or initializer. The `authored.templates` family and its companions
-declare typed parameters, features and feature rules, guards, finite domains and
-domain bindings, symbols, equations, ports and port members, contributions, submodels,
-law instances and law contracts. Templates stay compact until a selected instance
-specializes them; each specialization keeps its template, instance and source mapping.
-
-Laws are templates over contributions. A law contract selects exactly one declared
-binding in `reference.law_bindings`; a balance choice without a binding is unsupported.
-A contribution declares its subject as fixed or as a declared axis, never inferred from
-a name. `pse_runtime::workflow::composition::lower` performs the specialization
-([§6.15](#section-6-15), [§11](models-and-composition.md#section-11)).
-
-Scaler, initializer, connection-rule and law templates are not process instances.
-Default scaler and initializer references are refused until a numerical policy admits
-them. The following companions have no current execution interpretation, so a selected
-row is refused:
-
-- requirements and property requirements;
-- symbol contracts, symbol properties and symbol expressions;
-- derivatives;
-- material constraints;
-- contribution contracts.
-
-Display rows are descriptive.
+Reusable definitions and interfaces replace the template relation families. One tagged
+modeling IR carries parameters, variables, functions, equations, children, ports, accumulators,
+contributions, guards, annotations, requirements and fixtures. Payload tags are interpreted
+by the generic modeling kernel; scientific names remain authored data. Parent identities
+retain lexical ownership, and source ranges retain attribution.
 
 ### 6.7 Instances, compositions and connectivity
 
-`authored.instances` records template instances. Containment is expressed through
-`parent_instance_id`. `authored.model_compositions` names the root instance of a
-selected composition. Admission selects the root and all of its descendants, and
-refuses a root that has a parent. `authored.instance_domain_bindings` maps an instance's
-template-local domain name to an actual domain. `authored.connections` joins two ports
-under a connection-rule template, with tear cost and policy
-([§6.15.5](#section-6-15-5)). `authored.flowsheets`, `authored.scopes` and
-`authored.selector_terms` are declared vocabulary without a current execution
-interpretation. Specialized convenience constructors, such as the vessel in
-`pse_runtime::workflow::vessel`, produce ordinary inspectable declarations.
+Child declarations instantiate checked definitions with explicit arguments. Indexed children
+use admitted set membership. Cases select roots and overlays without mutating definitions.
+Connection occurrences retain their source identities and port ownership after equality
+expansion. Selected graph projections include explicit isolates and tear policies (§12).
+The old instance/composition/connection relation families have no remaining production path.
 
 ### 6.8 Symbol declarations and roles
 
-Symbols are authored: `authored.template_symbols` declares each symbol's role, quantity
-type, index axes and guard. The `SolverVariableType` and `VariableSemanticRole`
-vocabularies classify solver and semantic roles. Symbol tables are not stored. A scalar
-occurrence's identity is framed from the instance, the declaration and the ordered index
-members (`pse_runtime::workflow::composition::symbol_id`), so labels never enter it. The
-native route specializes variable and parameter symbols. Reference, derivative and
-expression roles are refused until a declared expression or dynamic binding supplies
-them. Model-level dynamics use `authored.computation_models` and
-`authored.physical_balances` ([§13](workflows-and-results.md#section-13)).
+Variables, parameters and value members are tagged modeling declarations. Specialized
+scalar identities derive from declaration, instance and admitted membership, never display
+labels or native slots. The compiler resolves source paths to these identities and builds
+library-owned mathematical bodies. Symbol tables, derivative layouts and native coordinates
+are preparation products, not independently authored relations.
 
 ### 6.10 Cases, observations, dynamics and fitting
 
-> Decision: [ADR-0016](../../adr/0016-cases-and-results-never-mutate-the-model.md)
+Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
+bounds and analysis choices. Initialized, steady, integrated and simultaneous fixture routes
+share the same definitions. A fixture retains expected outcomes, oracle provenance and
+physical/relative tolerances.
 
-Cases specify and observe a model; they never change it. The native workflow executes
-these declarations:
-
-- the cases carried by `authored.computation_models`;
-- template `case_specs` for the selected cases;
-- `authored.datasets` and `authored.observations`;
-- `authored.dynamic_cases`: semi-explicit dynamics in canonical seconds with an explicit
-  time origin;
-- `authored.fit_cases`: simultaneous fitting with explicit observation time semantics
-  ([§19](workflows-and-results.md#section-19)).
-
-Case specifications, activations and observations target instances through
-`pse.target_path`. The authoring driver (`pse_runtime::authoring_driver::targets`)
-resolves each target, through the explicit instance domain binding, to a complete target
-row: one instance plus exactly one member alternative. The target must name a member ID,
-an unambiguous label or an exact finite coordinate. A missing binding, wrong arity,
-duplicate dimension or unknown or ambiguous member is a typed failure. Labels and
-coordinates are never hashed into an identity. A missing measurement stays a null row
-and never becomes zero.
-
-The rest of the case family is declared vocabulary with no current execution
-interpretation:
-
-- `cases`;
-- `case_activations`, `case_objectives` and `case_policies`;
-- `scenarios`;
-- `case_sets` and `case_set_samples`.
-
-No tabular observation importer exists. Observations enter as authored rows through
-documents or builders.
+`authored.datasets` and `authored.observations` supply measurements. `authored.fit_cases`
+binds authored modeling experiments and source paths to the existing sparse fitting engine.
+Null measurements remain absent. Targets resolve through the admitted model, including
+indexed membership; the legacy template target parser and `dynamic_cases` are removed.
+Studies and sequences keep each requested solve and its observations distinct (§19).
 
 ### 6.11 Numerical requirements and native algorithm signatures
 
-`authored.numerical_requirements` declares numerical meaning: selected targets,
-magnitude units and frozen relative budgets. `authored.provider_scaling_bindings` binds
-a provider output explicitly to a numerical target and a property default. The runtime
-resolves one numerical policy from analysis, case, model, property defaults, quantity
-nominals and a recorded canonical fallback. It records the result in
-`runtime.resolved_numerics` ([§16](numerical-execution.md#section-16)).
+`authored.numerical_requirements` declares selected targets, magnitude units and frozen
+relative budgets. Authored annotations and numerical profiles contribute through the same
+policy resolver. `runtime.resolved_numerics` records actual sources and conversions;
+projection into blocks or recycle coordinates adds no second precedence rule (§16).
 
-Three `reference` relations describe native algorithms:
-
-- `algorithm_specs`, `algorithm_arguments` and `algorithm_results` declare typed ports,
-  determinism, effects and diagnostics. They are listed in the
-  [algorithm reference](../../generated/algorithms.md).
-- `engine_profiles` records engine settings.
-- `function_capabilities` projects the actual typed handler for each authored function
-  name and marks unsupported syntax as unavailable.
-
-The registry holds no rule declarations and no executable strata.
+`reference.algorithm_specs`, `algorithm_arguments` and `algorithm_results` declare native
+ports, determinism, effects and diagnostics. `engine_profiles` records engine settings;
+`function_capabilities` projects the actual built-in handler inventory. External functions
+bind explicit registered capabilities and derivative contracts. Neither registry declarations
+nor capability names alone make an implementation executable.
 
 ### 6.13 Execution results, publication and evidence
 
@@ -459,7 +348,7 @@ owning section:
 
 | Group | Relations | Owner |
 |---|---|---|
-| Runs and results | `computation_runs`, `solve_runs`, `solve_variables`, `solve_constraints`, `solve_metrics`, `candidate_assessments`, `physical_checks`, `simulation_samples`, `simulation_events`, `fit_*`, `response_sensitivities`, `run_lineage`, `resolved_numerics` | [§19](workflows-and-results.md#section-19) |
+| Runs and results | `computation_runs`, `solve_runs`, `solve_variables`, `solve_constraints`, `solve_metrics`, `candidate_assessments`, `modeling_checks`, `modeling_reports`, `modeling_conformance`, `modeling_fixture_status`, `modeling_findings`, `simulation_samples`, `simulation_events`, `fit_*`, `response_sensitivities`, `run_lineage`, `resolved_numerics` | [§19](workflows-and-results.md#section-19) |
 | Capability inventory | `solver_capabilities` | [§18](numerical-execution.md#section-18) |
 | Publication and retention | `publications`, `artifact_descriptors`, `release_checkpoints`, `native_dependencies`, `change_events`, `maintenance_outcomes`, `retained_versions`; `reference.artifact_profiles` | [§20](identity-and-publication.md#section-20) |
 | Observation | `diagnostics_findings`, `validation_findings`, `cache_statistics`, `cache_entry_statistics`, `execution_statistics` | [§23](operations-and-validation.md#section-23) |
@@ -479,10 +368,11 @@ authored expected evidence and is excluded from semantic membership.
 
 > Decision: [ADR-0003](../../adr/0003-clean-room-relationship-and-parity-pin.md)
 
-These closed dictionaries keep IDAES names so that parity can map in both directions.
-They are declared in `pse_schema::catalog::s6_14_idaes_enums`, and each member carries
-its upstream spelling as `idaes_name`. The [enumeration reference](../../generated/enums.md)
-lists the members.
+The compatibility package (`packages/reference/physical/models/compatibility.pse`)
+owns scientific enum names as ordinary modeling data. Only `ConstraintScalingScheme`,
+which selects a numerical algorithm, remains in `s6_14_idaes_enums`. The parity harness's
+`enum-bindings.toml` maps declarations to upstream modules and necessary spelling aliases;
+it does not repeat their member inventories. The sanctioned names are:
 
 | Group | Enumerations (IDAES module) |
 |---|---|
@@ -495,127 +385,68 @@ lists the members.
 | Dynamics | `DaeVarTypes`; `DiscretizationScheme` (Pyomo DAE spellings, such as `LAGRANGE-RADAU`) |
 | Costing | `HXType`, `HXMaterial`, `HXTubeLength`, `VesselMaterial`, `TrayType`, `TrayMaterial`, `HeaterMaterial`, `HeaterSource`, `CompressorType`, `CompressorDriveType`, `CompressorMaterial`, `PumpType`, `PumpMaterial`, `PumpMotorType`, `FanType`, `FanMaterial`, `BlowerType`, `BlowerMaterial` |
 
-`HenryType` preserves the four physical Henry forms and excludes IDAES's test-only
-`Dummy` member. Where IDAES declares a member with no implementation, the platform
-declares it too. Using such a member is unsupported unless a law binding exists. For
-balance types, the shipped stock bindings in `packages/reference/units/laws/balances.yaml`
-define which members execute. `python/pse/parity/tests/test_enum_contracts.py` checks the
-generated names against the pinned parity environment. That check establishes naming
-parity only, not numerical equivalence
-([relationship to IDAES](../../relationship-to-idaes.md)).
+`HenryType` preserves the four physical forms and excludes upstream's test-only `Dummy`.
+An enum's existence makes no execution claim. Package bindings and their conformance
+fixtures establish which formulations have implementations. The parity test admits the
+actual modeling package and compares its names with IDAES 2.13.0; this establishes naming
+parity only, not numerical equivalence.
 
 ### 6.15 Semantic specialization contracts
 
-> Decision: [ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)
+> Decision: [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md),
+> [ADR-0099](../../adr/0099-modeling-language-and-identities.md),
+> [ADR-0100](../../adr/0100-modeling-functions-and-accounting.md) (proposed).
 
-These contracts govern how a selected reusable composition becomes compiler input. The
-work is done by typed Rust over admitted rows, in
-`pse_runtime::workflow::composition::{select, lower}`. It is neither a pass pipeline nor
-a rule engine. Lowering checks every declaration and then hands it on. It produces three
-things for `pse-compiler`:
-
-- inspectable source-to-scalar bindings;
-- balance declarations;
-- a flowsheet projection.
-
-Mathematical typing stays with the compiler.
+`pse-modeling` owns pure checking and specialization over generated declaration values.
+`pse-compiler` owns the single Salsa workspace and mathematical lowering. Runtime package
+admission supplies the immutable dependency closure and physical context. Checking,
+specialization and numerical execution have separate owners and lifetimes.
 
 #### 6.15.1 Typed configuration and finite scopes
 
-Configuration values share one tagged physical shape,
-`catalog::s6_15_semantic::config_value_type`. Its arms are Boolean, signed, unsigned,
-real, text, semantic ID, enumeration, index tuple and quantity, and exactly the selected
-arm is present. Specialization then applies these rules:
-
-- **Parameters.** Each value is checked against its declared logical type, enumeration
-  and domain constraint. Integers must be exact and reals finite. A missing required
-  parameter, an unknown name or a duplicate binding is invalid. A declared default is
-  used only where it is declared.
-- **Features.** A feature is a Boolean or an enumeration. Inheritance requires an
-  explicit resolved binding; a missing value is never read as false. A feature rule must
-  hold, and a feature and a parameter cannot share a name.
-- **Guards.** A guard is evaluated only over resolved compile-time values. An unresolved
-  or null guard is invalid.
-- **Domains.** Each template domain is bound through exactly one arm of
-  `authored.template_domain_bindings`: an explicit domain, a typed domain parameter or a
-  material-derived source. Material-derived domains need an admitted material-system
-  binding.
-- **Size.** Finite specialization refuses expansions beyond its declared member
-  allowance instead of truncating them.
+Checking admits physical and polymorphic signatures, entity/set/table contracts, defaults,
+interface conformance and requirement predicates before instantiation. Visibility follows
+explicit imports, including aliases and generated function spellings. Runtime values cannot
+choose structural guards. Unresolved configuration refuses rather than selecting a default.
+Finite expansion and body construction have explicit resource policies; exhaustion never
+silently truncates a model.
 
 #### 6.15.3 Property demand and method selection
 
-The registry declares a complete method vocabulary in `reference`:
+Demand closure pulls a requested member together with its defining equations and dependencies.
+Effective members follow explicit inheritance, implementation and override rules. Shared
+descendant refinements remain unambiguous; competing sibling defaults require an override.
+Dispatch groups use actual implementation bindings and definition-scoped functions. No
+scientific name selects a special runtime implementation.
 
-- parameters, parameter axes and state parameters;
-- dependencies and precedence;
-- provisions and kernel inputs;
-- element projection contracts.
+#### 6.15.4 Indexed realization of declarations
 
-`authored.method_selections` and `authored.property_packages` declare the choices. No
-general property-demand closure or method-resolution engine runs today. A selected model
-that depends on these declarations is refused, as is an instance bound to a property or
-reaction package ([§6.5](#section-6-5)). Properties execute only through an explicit
-native provider binding with a typed physical contract
-([§9](physical-semantics.md#section-9)). Automatic method selection is not implemented
-and needs its own owner and decision before it is claimed.
-
-#### 6.15.4 Indexed realization of template declarations
-
-An active symbol or equation is realized over the ordered product of its declared finite
-domains, so each scalar has an identity framed from its instance, declaration and member
-tuple ([§6.8](#section-6-8)). Four checks apply:
-
-- The symbol's axes must match the shape of its physical quantity, including the domain
-  kind.
-- Equation text must agree with the declared sense.
-- A case target must resolve to an active scalar in the selected composition.
-- An enabled submodel's children must be authored explicitly. A disabled submodel must
-  have no active children, and submodel multiplicity domains are unsupported.
-
-Law instances expand over their active contributions into balance declarations. A law
-with no active contribution is invalid. `authored.instance_equations` has no current
-execution interpretation. `normalized.instance_bindings` is the document-binding
-projection of prospective roots and children used by source binding
-(`pse_runtime::authoring_driver::document::binding`).
+Specialization binds each indexed occurrence to the admitted ordered membership. Physical
+reductions preserve the contracted kind, including empty-set prototypes. Child instances,
+function slots, continuous coordinates and structural projections use the same checked
+contracts. Source lineage remains attached through lowering and diagnostics. Accumulator
+terms enter the existing sparse assembler as signed contributions, preserving independent
+closure checks (§10).
 
 #### 6.15.5 Connections and flowsheet topology
 
-A connection binds two ports of instances in the selected composition. Its rule template
-must map, through `reference.connection_bindings`, to an admitted expansion; `equality`
-is currently the only one. Port members come from the bound state template's complete
-interface (`authored.template_port_members`). Port identity is framed from the instance
-and the port name. Admission refuses:
-
-- a direction, kind or member mismatch;
-- more than one assignment to an inlet;
-- extensive-flow fan-out without an explicit splitter conservation formulation.
-
-Information (signal) connections stay distinct from physical ones. Tear cost and policy
-are declared per connection, and grouped tear members must agree. Lowering produces a
-`pse_structural::flowsheet` projection that keeps isolates and connection occurrences.
-Tear selection happens later, at preparation time, rather than as a stored fact
-([§12](models-and-composition.md#section-12),
-[§17](numerical-execution.md#section-17)).
+Typed ports and connection declarations are checked and expanded in the modeling kernel.
+Their mathematical equalities and selected flow graph derive from the same occurrences.
+Flow analysis retains explicit node/edge selection and tear policies. Native graph and
+fixed-point libraries own tear selection and recycle iteration; the runtime does not
+reconstruct topology from variable labels (§12, §17).
 
 #### 6.15.7 Shipped reference packages and generated physical fixtures
 
-The packages under `packages/reference` are ordinary authored and reference inputs,
-admitted by the same loader as user packages:
+The [reference package guide](../../../packages/reference/README.md) identifies current
+physical, method, thermodynamic, seed, process and diagnostic bundles. Their `sources.md`
+files distinguish published data, upstream comparison inputs and derived demonstrations.
+Authored fixtures live beside the knowledge and use the common conformance harness.
 
-- elements;
-- physical units, quantities and operations;
-- method, state and unit templates;
-- thermodynamic examples;
-- a synthetic-currency fixture.
-
-Each package's `sources.md` records its references and qualification limits.
-`packages/reference/fixture-projection.toml` selects the packages that code generation
-admits and projects into the Arrow-free `pse-quantity` and `pse-material` fixtures. No
-second hand-written table of the same physical facts exists. The stock templates and
-method declarations serve as source fixtures for loading, binding, inspection and
-conservation tests. Registering them does not make them an executable property route,
-and it does not certify numerics or derivatives.
+`fixture-projection.toml` selects the physical and synthetic-currency bundles for generated
+Arrow-free quantity fixtures. Code generation loads and admits those actual documents.
+Elemental knowledge is authored modeling data; `pse-material` and its generated fixture
+copy have been removed. Independent oracle inputs remain test references.
 
 ## Retired section identities
 

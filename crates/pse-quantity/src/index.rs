@@ -17,7 +17,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::enums::DomainKind;
+use crate::EntityKindId;
 use crate::ids::{BoundIndexId, DomainId};
 
 /// One binder an expression is free in (blueprint §6.9 `bound_index_id`).
@@ -34,12 +34,12 @@ pub struct BoundIndexRef {
     /// The domain the binder ranges over.
     pub domain: DomainId,
     /// What that domain indexes, carried so a check does not need the registry.
-    pub kind: DomainKind,
+    pub kind: EntityKindId,
 }
 
 impl BoundIndexRef {
     /// A reference to one binder over one domain.
-    pub const fn new(bound_index: BoundIndexId, domain: DomainId, kind: DomainKind) -> Self {
+    pub const fn new(bound_index: BoundIndexId, domain: DomainId, kind: EntityKindId) -> Self {
         Self {
             bound_index,
             domain,
@@ -56,12 +56,12 @@ impl BoundIndexRef {
 ///
 /// ```
 /// use pse_ids::SemanticId;
-/// use pse_quantity::{BoundIndexId, BoundIndexRef, DomainId, DomainKind, IndexSet};
+/// use pse_quantity::{BoundIndexId, BoundIndexRef, DomainId, EntityKindId, IndexSet};
 ///
 /// let cell = BoundIndexRef::new(
 ///     BoundIndexId::from_id(SemanticId::from_bytes([1; 16])),
 ///     DomainId::from_id(SemanticId::from_bytes([9; 16])),
-///     DomainKind::Cell,
+///     EntityKindId::from_id(SemanticId::from_bytes([2; 16])),
 /// );
 /// let mut set = IndexSet::new();
 /// assert!(set.insert(cell).is_ok());
@@ -207,10 +207,10 @@ mod tests {
     use pse_ids::SemanticId;
 
     use super::{BoundIndexRef, IndexSet};
-    use crate::enums::DomainKind;
+    use crate::EntityKindId;
     use crate::ids::{BoundIndexId, DomainId};
 
-    fn binder(index: u8, domain: u8, kind: DomainKind) -> BoundIndexRef {
+    fn binder(index: u8, domain: u8, kind: EntityKindId) -> BoundIndexRef {
         BoundIndexRef::new(
             BoundIndexId::from_id(SemanticId::from_bytes([index; 16])),
             DomainId::from_id(SemanticId::from_bytes([domain; 16])),
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn inserting_the_same_entry_twice_is_idempotent() {
-        let entry = binder(1, 9, DomainKind::Species);
+        let entry = binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])));
         let mut set = IndexSet::new();
         assert_eq!(set.insert(entry), Ok(true));
         assert_eq!(set.insert(entry), Ok(false));
@@ -237,8 +237,8 @@ mod tests {
 
     #[test]
     fn one_binder_may_not_range_over_two_domains() {
-        let species = binder(1, 9, DomainKind::Species);
-        let cells = binder(1, 8, DomainKind::Cell);
+        let species = binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])));
+        let cells = binder(1, 8, EntityKindId::from_id(SemanticId::from_bytes([2; 16])));
         let mut set = IndexSet::new();
         assert_eq!(set.insert(species), Ok(true));
         let conflict = set
@@ -250,8 +250,8 @@ mod tests {
 
     #[test]
     fn union_collects_both_sides() {
-        let species = binder(1, 9, DomainKind::Species);
-        let phase = binder(2, 7, DomainKind::Phase);
+        let species = binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])));
+        let phase = binder(2, 7, EntityKindId::from_id(SemanticId::from_bytes([3; 16])));
         let left = IndexSet::try_from_iter([species]).expect("consistent binders");
         let right = IndexSet::try_from_iter([phase]).expect("consistent binders");
         let both = left.union(&right).expect("disjoint binders unite");
@@ -263,21 +263,21 @@ mod tests {
 
     #[test]
     fn union_refuses_a_binder_conflict() {
-        let left = IndexSet::try_from_iter([binder(1, 9, DomainKind::Species)])
+        let left = IndexSet::try_from_iter([binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])))])
             .expect("consistent binders");
         let right =
-            IndexSet::try_from_iter([binder(1, 8, DomainKind::Cell)]).expect("consistent binders");
+            IndexSet::try_from_iter([binder(1, 8, EntityKindId::from_id(SemanticId::from_bytes([2; 16])))]).expect("consistent binders");
         assert!(left.union(&right).is_err());
     }
 
     /// Reducing over a binder removes it from the body's free indices.
     #[test]
     fn difference_removes_by_binder_identity() {
-        let species = binder(1, 9, DomainKind::Species);
-        let phase = binder(2, 7, DomainKind::Phase);
+        let species = binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])));
+        let phase = binder(2, 7, EntityKindId::from_id(SemanticId::from_bytes([3; 16])));
         let body = IndexSet::try_from_iter([species, phase]).expect("consistent binders");
         let bound =
-            IndexSet::try_from_iter([binder(1, 8, DomainKind::Cell)]).expect("consistent binders");
+            IndexSet::try_from_iter([binder(1, 8, EntityKindId::from_id(SemanticId::from_bytes([2; 16])))]).expect("consistent binders");
         let remaining = body.difference(&bound);
         assert_eq!(remaining.len(), 1);
         assert!(remaining.contains(&phase));
@@ -286,8 +286,8 @@ mod tests {
 
     #[test]
     fn subset_compares_complete_entries() {
-        let species = binder(1, 9, DomainKind::Species);
-        let phase = binder(2, 7, DomainKind::Phase);
+        let species = binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])));
+        let phase = binder(2, 7, EntityKindId::from_id(SemanticId::from_bytes([3; 16])));
         let small = IndexSet::try_from_iter([species]).expect("consistent binders");
         let large = IndexSet::try_from_iter([species, phase]).expect("consistent binders");
         assert!(small.is_subset(&large));
@@ -298,8 +298,8 @@ mod tests {
     /// Iteration order is binder-identity order, not insertion order.
     #[test]
     fn iteration_order_is_binder_identity_order() {
-        let first = binder(1, 9, DomainKind::Species);
-        let second = binder(2, 7, DomainKind::Phase);
+        let first = binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])));
+        let second = binder(2, 7, EntityKindId::from_id(SemanticId::from_bytes([3; 16])));
         let forwards = IndexSet::try_from_iter([first, second]).expect("consistent binders");
         let backwards = IndexSet::try_from_iter([second, first]).expect("consistent binders");
         let order: Vec<_> = forwards.iter().copied().collect();
@@ -318,10 +318,10 @@ mod construction_tests {
         let a = BoundIndexRef::new(
             BoundIndexId::from_id(SemanticId::NIL),
             DomainId::from_id(SemanticId::NIL),
-            DomainKind::Species,
+            EntityKindId::from_id(SemanticId::from_bytes([1; 16])),
         );
         let b = BoundIndexRef {
-            kind: DomainKind::Cell,
+            kind: EntityKindId::from_id(SemanticId::from_bytes([2; 16])),
             ..a
         };
         assert!(IndexSet::try_from_iter([a, b]).is_err());

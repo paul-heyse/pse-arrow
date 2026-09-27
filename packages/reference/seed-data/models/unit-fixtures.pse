@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("a1b1595e38404adbb092d6057acb585d") package unit_fixtures {
+@id("d5ce0a3bd28d4860956f050686036169") use mixing @"1.0.0";
+@id("c9889c9339fb4830a9a62f53ce545cf8") use kinds @"1.0.0";
+@id("548bcd39a2a2457e819ef49f20077cf5") entity kinds.port_set first {}
+@id("eefb6d11b2b8486a849e7bef4eefc169") entity kinds.port_set second {}
+@id("f73e44af73174cbdba81aa7e87ff0746") set ports:Set<kinds.port_set>={first,second};
+@id("db444a9883f74a7eb6dd4345f1d457a7") use units @"1.0.0";
+@id("e28b9664b43c49509f3d875c7c706ad0") use equilibrium @"1.0.0";
+@id("f591d98a41124e9f825326d9c1070315") use bt_pr @"1.0.0";
+@id("3becf482fd74475b9dc7e93294d842c8") use saponification @"1.0.0";
+@id("b830019bfa0b4ae4aedc6e65a723ab08") use chem @"1.0.0";
+// Start the bubble estimate away from the fixed inlet temperature: a forward
+// derivative sample must not straddle the 0.0001 K smoothing transition.
+// This changes only the initial iterate, not the equations or oracle conditions.
+@id("ecb5f19e10f948de9aa1215714c8370e") test heater_bt source "IDAES 2.13 test_heater TestBT_Generic.test_solution" revision "2.13.0" fixture {dof 0; run steady; fix root.inlet.flow=5{mol/s}; fix root.inlet.T=365{K}; value root.inlet.bubble=364{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=-5000{W}; value root.inlet.epsilon_bubble=0.0001{K}; value root.inlet.epsilon_dew=0.0001{K}; value root.outlet.epsilon_bubble=0.0001{K}; value root.outlet.epsilon_dew=0.0001{K}; fix root.delta_pressure=0{Pa};} {
+@id("b0311cea4fd24457830509ecb2322ad7") child root:units.Heater=units.Heater(inlet_pkg=bt_pr.BT_PR(defined_state=true),outlet_pkg=bt_pr.BT_PR(defined_state=false));
+@id("b4ce65d7ccea4978b74782655b6d46bb") expect root.outlet.flow==5{mol/s} tolerance 0.001{mol/s};
+@id("65c099908e834fef98f2569479bfd6ab") expect root.outlet.T==358.6{K} tolerance 0.1{K};
+@id("ed4a461b7734425892f818857853f6ac") expect root.outlet.pressure==101325{Pa} tolerance 0.001{Pa};
+}
+@id("86bd99caaf4949e58f0226d0a2d45bdb") test heater_saponification source "IDAES 2.13 test_heater TestSaponification.test_solution" revision "2.13.0" fixture {dof 0; run steady; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.T=320{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.inlet.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet.concentration[chem.ethanol]=1e-8{mol/m3}; fix root.heat=1000{W}; fix root.delta_pressure=0{Pa};} {
+@id("2dbdbea9abbb446993787e263743b508") child root:units.Heater=units.Heater(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false));
+@id("e5a07ae5a2224b3c8af9eda89ab84b97") expect root.outlet.T==320.2{K} tolerance 0.1{K};
+@id("c25fc89472b84a9cadcfec7eaf0bb730") expect root.outlet.pressure==101325{Pa} tolerance 100{Pa};
+@id("c5696c8926044a99b7f0f18a6009ca28") expect root.outlet.component_flow[chem.sodium_hydroxide]==0.1{mol/s} tolerance 1e-6{mol/s};
+@id("42060fb8900d4a0eb5ce50ca4e2930bf") expect root.outlet.flow==55.588{mol/s} tolerance 1e-6{mol/s};
+}
+@id("d5e403f5d176488f8c8838c7abf3cef2") test mixer_saponification source "IDAES 2.13 test_mixer sapon fixture and test_solution_sapon" revision "2.13.0" fixture { dof 0; run steady; fix root.inlet[first].volume_flow=0.001{m3/s}; fix root.inlet[first].T=320{K}; fix root.inlet[first].pressure=101325{Pa}; fix root.inlet[first].concentration[chem.water]=55388{mol/m3}; fix root.inlet[first].concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet[first].concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet[first].concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet[first].concentration[chem.ethanol]=1e-8{mol/m3}; fix root.inlet[second].volume_flow=0.001{m3/s}; fix root.inlet[second].T=300{K}; fix root.inlet[second].pressure=101325{Pa}; fix root.inlet[second].concentration[chem.water]=55388{mol/m3}; fix root.inlet[second].concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet[second].concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet[second].concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet[second].concentration[chem.ethanol]=1e-8{mol/m3}; } {
+@id("9686a04ec3974bd6812566446e724ef3") child root:mixing.Mixer=mixing.Mixer(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),inlets=ports);
+@id("e642b597b6f84295b07d2ea73acdedfe") expect root.outlet.T==310{K} tolerance 0.1{K};
+@id("4f16c6ecc2534f18b671daa7d773d80e") expect root.outlet.pressure==101325{Pa} tolerance 100{Pa};
+@id("b8415b4556d34ba695c20219a266a7ec") expect root.outlet.flow==111.176{mol/s} tolerance 1e-6{mol/s};
+@id("2cdf10e09ab442b3895fdca8c4c61a22") expect root.outlet.component_flow[chem.sodium_hydroxide]==0.2{mol/s} tolerance 1e-6{mol/s};
+}
+@id("c300809b2a0646158b204ebc2158a2a0") test feed_product source "Material stream identity through typed component-flow, temperature and pressure connections" revision "seed-v1" fixture {dof 0; run steady; fix feed.state.volume_flow=0.001{m3/s}; fix feed.state.T=303.15{K}; fix feed.state.pressure=101325{Pa}; fix feed.state.concentration[chem.water]=55388{mol/m3}; fix feed.state.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix feed.state.concentration[chem.ethyl_acetate]=100{mol/m3}; fix feed.state.concentration[chem.sodium_acetate]=0{mol/m3}; fix feed.state.concentration[chem.ethanol]=0{mol/m3};} {
+@id("cc6285e697d34b1eaf6544fc74b8faa2") child feed:units.Feed=units.Feed(pkg=saponification.Saponification(defined_state=true));
+@id("e5383e58311a4fb8b4693e991d741612") child product:units.Product=units.Product(pkg=saponification.Saponification(defined_state=false));
+@id("2a86fc8a32f841f3a692399f295c8b74") connect feed.temperature -> product.temperature;
+@id("2ea26f7b520f4c91be751165d06db940") connect feed.pressure -> product.pressure;
+@id("f4a8e48aa76248a2b5e95bbcc043e9bd") connect feed.component_flow[chem.water] -> product.component_flow[chem.water];
+@id("81a5974dc9664e6c9d63e41e9abee0cb") connect feed.component_flow[chem.sodium_hydroxide] -> product.component_flow[chem.sodium_hydroxide];
+@id("a51c8a668260440aa6f38fc366cbc11a") connect feed.component_flow[chem.ethyl_acetate] -> product.component_flow[chem.ethyl_acetate];
+@id("a85e7afd03d44a9aa595722efcb8ac79") connect feed.component_flow[chem.sodium_acetate] -> product.component_flow[chem.sodium_acetate];
+@id("ccdd3e12a3564208bbb5630fa3b311fd") connect feed.component_flow[chem.ethanol] -> product.component_flow[chem.ethanol];
+@id("5d337425ab94408d85efb526cc1814c5") expect product.state.T==303.15{K} tolerance 1e-8{K};
+@id("4d30d90a53644a1890234081c2ecf60c") expect product.state.pressure==101325{Pa} tolerance 1e-6{Pa};
+@id("a855ee6c4da747299c3374d2e5ac0537") expect product.state.flow==55.588{mol/s} tolerance 1e-6{mol/s};
+@id("22962d8ffeb149308f30e4bf67c1bddd") expect product.state.component_flow[chem.sodium_hydroxide]==0.1{mol/s} tolerance 1e-8{mol/s};
+}
+@id("41f2272385f04597b737e90b1db73987") use flashing @"1.0.0";
+@id("d998f44c862b4eeb8e6173366c0b79e1") use bt_ideal @"1.0.0";
+@id("3ca89c2ae2704e21a11e3512bf3cdb7e") test flash_bt_ideal source "IDAES 2.13 test_flash TestBTIdealModular.test_solution" revision "2.13.0" fixture {dof 0; run steady; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("c73838b59db2498a8dd7cd9ce4ded8d2") child root:flashing.Flash=flashing.Flash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false));
+@id("29199b9e99be42b4a54f1fc4f0931645") expect root.liquid_flow==0.603{mol/s} tolerance 0.001{mol/s};
+@id("cfeae773b75041ed8e147c7108743b3d") expect root.vapor_flow==0.396{mol/s} tolerance 0.001{mol/s};
+@id("9de6ddc0d9064892a4fb5282f1dfed1e") expect root.liquid_temperature==368{K} tolerance 0.001{K};
+@id("d080ae91376a4236af9771f42ec460a9") expect root.liquid_pressure==101325{Pa} tolerance 0.001{Pa};
+@id("ed523b7e01e84ab1bdb59f9cb2703f31") expect root.liquid_composition[chem.benzene]==0.412{1} tolerance 0.001{1};
+@id("b5e8e8cb960c46d3a125fe72e616f7d1") expect root.liquid_composition[chem.toluene]==0.588{1} tolerance 0.001{1};
+@id("93daa83015224279a1faa6cc36798fd2") expect root.vapor_composition[chem.benzene]==0.634{1} tolerance 0.001{1};
+@id("7351446ce08e4eff9593f4aec70bf404") expect root.vapor_composition[chem.toluene]==0.366{1} tolerance 0.001{1};
+}
+@id("c7b882d3054a4bb4bcf677be8a882dca") use separation @"1.0.0";
+@id("a98861053a794de691d3ce49d87eef71") entity kinds.port_set third {}
+@id("e8ffab6e5ec7488cbdda11ce739902f9") set three_ports:Set<kinds.port_set>={first,second,third};
+@id("fc52409793e44e61adb3eff88946fdb6") test separator_saponification source "IDAES 2.13 test_separator TestSaponification.test_solution; volume flows converted using its supplied total molar concentration" revision "2.13.0" fixture {dof 0; run steady; fix root.inlet.volume_flow=1{m3/s}; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.inlet.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet.concentration[chem.ethanol]=1e-8{mol/m3}; fix root.split_total[first]=0.3; fix root.split_total[second]=0.5;} {
+@id("9a9164da263445228ffa82bddc281f01") child root:separation.Separator=separation.Separator(pkg=saponification.Saponification(defined_state=true),outlets=three_ports,component_enthalpy=saponification.component_enthalpy);
+@id("65b1062a82c7428b8c568e6397a40662") expect root.flow[first]==16676.4{mol/s} tolerance 0.1{mol/s};
+@id("dd8ff551197e4b47b48fb2353a509996") expect root.flow[second]==27794{mol/s} tolerance 0.1{mol/s};
+@id("d2a1238ae1b7413e9ac67d7680e46ada") expect root.flow[third]==11117.6{mol/s} tolerance 0.1{mol/s};
+@id("564828f62b20462cb5110085d724a67b") expect root.temperature==303.15{K} tolerance 0.01{K};
+@id("26bb2c7d96d5418d83ae7f0d3a3ec91d") expect root.pressure==101325{Pa} tolerance 0.01{Pa};
+@id("cfd95ed9b76c4841a41dcc698ec14227") expect root.component_flow[first,chem.sodium_hydroxide]==30{mol/s} tolerance 0.001{mol/s};
+@id("9e431e1fec5543d48841eb0d69f5c24c") expect root.composition[third,chem.sodium_hydroxide]==0.001798949413542491{1} tolerance 1e-9{1};
+}
+@id("efcd1d0ad288438daf6764b4ab25a2a6") test separator_componentFlow source "phase-component material partition and additive caloric identity" revision "1" fixture {dof 0; run steady; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.inlet.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet.concentration[chem.ethanol]=1e-8{mol/m3}; fix root.split_component[first,chem.water]=0.3; fix root.split_component[first,chem.sodium_hydroxide]=0.8; fix root.split_component[first,chem.ethyl_acetate]=0.2; fix root.split_component[first,chem.sodium_acetate]=0.5; fix root.split_component[first,chem.ethanol]=0.5; } {
+@id("593b0ccd60f045cfaade30fd8781b43f") child root:separation.Separator=separation.Separator(pkg=saponification.Saponification(defined_state=true),outlets=ports,component_enthalpy=saponification.component_enthalpy,basis=separation.SplitBasis.componentFlow);
+@id("bd30b1b7b3ef4b5e835799d92fba6da6") expect root.outlet_flow[first]==16.7164{mol/s} tolerance 1e-7{mol/s};
+@id("939aeff7952e43bcafe4d1c80e5307f9") expect root.outlet_component_flow[first,chem.sodium_hydroxide]==0.08{mol/s} tolerance 1e-9{mol/s};
+@id("734478b859ad48b58d632849187b950e") expect root.outlet_energy_flow[first]==6258.317814{W} tolerance 0.001{W};
+}
+@id("8c22c4a4f87141b083bfc0d9442d382c") test separator_phaseComponentFlow source "phase-component material partition and additive caloric identity" revision "1" fixture {dof 0; run steady; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.inlet.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet.concentration[chem.ethanol]=1e-8{mol/m3}; fix root.split_phase_component[first,equilibrium.liquid,chem.water]=0.3; fix root.split_phase_component[first,equilibrium.liquid,chem.sodium_hydroxide]=0.8; fix root.split_phase_component[first,equilibrium.liquid,chem.ethyl_acetate]=0.2; fix root.split_phase_component[first,equilibrium.liquid,chem.sodium_acetate]=0.5; fix root.split_phase_component[first,equilibrium.liquid,chem.ethanol]=0.5; } {
+@id("c99c9f8cf3484a42a003ac00ebb86ff6") child root:separation.Separator=separation.Separator(pkg=saponification.Saponification(defined_state=true),outlets=ports,component_enthalpy=saponification.component_enthalpy,basis=separation.SplitBasis.phaseComponentFlow);
+@id("9f29490c42ee44f6b16e0087ac783b32") expect root.outlet_flow[first]==16.7164{mol/s} tolerance 1e-7{mol/s};
+@id("08b7e745271845528247551f1847aaf8") expect root.outlet_component_flow[first,chem.sodium_hydroxide]==0.08{mol/s} tolerance 1e-9{mol/s};
+@id("7a85ff4e895d485d8d3eb217eea95a3d") expect root.outlet_energy_flow[first]==6258.317814{W} tolerance 0.001{W};
+}
+@id("d84e844726e64a2c9b23d96a4039b4f9") test separator_phaseFlow source "phase-component material partition and additive caloric identity" revision "1" fixture {dof 0; run steady; fix root.inlet.flow=1{mol/s}; fix root.inlet.T=368{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.z[chem.benzene]=0.5{1}; fix root.inlet.z[chem.toluene]=0.5{1}; fix root.split_phase[first,equilibrium.liquid]=0.8; fix root.split_phase[first,equilibrium.vapor]=0.2;} {
+@id("deccb59a5b794439a8d88443e7e961dc") child root:separation.Separator=separation.Separator(pkg=bt_ideal.BTIdeal(defined_state=true),outlets=ports,component_enthalpy=bt_ideal.component_enthalpy,basis=separation.SplitBasis.phaseFlow);
+@id("16f9b6bb0a2d4ec0b8890678ab270a53") expect root.outlet_flow[first]==0.562{mol/s} tolerance 0.001{mol/s};
+@id("d54358a7c02e4db6b5dda9f536c24bb4") expect root.outlet_flow[second]==0.438{mol/s} tolerance 0.001{mol/s};
+}
+@id("ccdc8c193e664abb9a6136999644564c") use reactors @"1.0.0";
+@id("0bf29137ce5b43998bb7ce50c3c19e39") test cstr_saponification source "IDAES 2.13 test_cstr TestSaponification.test_solution" revision "2.13.0" fixture {dof 0; run steady; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.inlet.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.inlet.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.inlet.concentration[chem.ethanol]=1e-8{mol/m3}; fix root.volume=0.0015{m3}; fix root.heat=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("8604f4007a1b4c8e9b653ba7811c1cd2") child root:reactors.CSTR=reactors.CSTR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions);
+@id("42e01e5463564e42b50c0f8edde0e8dc") expect root.outlet.T==304.09{K} tolerance 0.01{K};
+@id("794acba40e1d49f2a3502f853d8b14d7") expect root.outlet.pressure==101325{Pa} tolerance 0.01{Pa};
+@id("e8ce5de48c5d441b99fe804b0f1dcd09") expect root.outlet.concentration[chem.ethyl_acetate]==20.32{mol/m3} tolerance 0.01{mol/m3};
+@id("ad4b65287b6e4d53984dc0481347d95c") expect root.outlet.volume_flow==0.001{m3/s} tolerance 1e-8{m3/s};
+}
+@id("a8fad7ef48ac481680f0fcbb879d62db") use temperature_driving_force @"1.0.0";
+@id("beabbeb3cf844f05a7da80554438910f") test driving_forces source "analytic mean-temperature differences; kelvin differences" revision "1" fixture {dof 0; run pure; fix log_mean.first=20{K}; fix log_mean.second=10{K}; fix arithmetic_mean.first=20{K}; fix arithmetic_mean.second=10{K}; fix cube_mean.first=20{K}; fix cube_mean.second=10{K};} {
+@id("62048e3566c1404fa573b26c26e5e57e") child log_mean:temperature_driving_force.DeltaT=temperature_driving_force.LMTD;
+@id("37e07d2cfcae4b928375a4ead7732173") child arithmetic_mean:temperature_driving_force.DeltaT=temperature_driving_force.AMTD;
+@id("e2abe728ddd3447aa8e424be042bda79") child cube_mean:temperature_driving_force.DeltaT=temperature_driving_force.Underwood;
+@id("f60680a0b8874dd4832653a5d175b64b") expect log_mean.mean==14.426950408889635{K} tolerance 1e-10{K};
+@id("48b77e71854e4ae7951377930eb77e1e") expect arithmetic_mean.mean==15{K} tolerance 1e-10{K};
+@id("f50e4b09c90244c1a0ea7505936cf2c4") expect cube_mean.mean==14.427457881985296{K} tolerance 1e-10{K};
+}
+@id("c2e968823f614ca284ee4cba0dcd9181") use heat_exchange @"1.0.0";
+// Use the same off-transition bubble estimate as the PR heater fixture.
+@id("262dd921b1bb4dd992d911cf8dcd3d92") test heat_exchanger_bt_cocurrent source "IDAES 2.13 test_heat_exchanger TestBT_Generic_cocurrent.test_solution; cold-side degrees Rankine converted to kelvin" revision "2.13.0" fixture {dof 0; run steady; fix root.hot.inlet.flow=5{mol/s}; fix root.hot.inlet.T=365{K}; value root.hot.inlet.bubble=364{K}; fix root.hot.inlet.pressure=101325{Pa}; fix root.hot.inlet.z[chem.benzene]=0.5{1}; fix root.hot.inlet.z[chem.toluene]=0.5{1}; fix root.hot.delta_pressure=0{Pa}; value root.hot.inlet.epsilon_bubble=0.0001{K}; value root.hot.inlet.epsilon_dew=0.0001{K}; value root.hot.outlet.epsilon_bubble=0.0001{K}; value root.hot.outlet.epsilon_dew=0.0001{K}; fix root.cold.inlet.flow=1{mol/s}; fix root.cold.inlet.T=300{K}; fix root.cold.inlet.pressure=101325{Pa}; fix root.cold.inlet.z[chem.benzene]=0.5{1}; fix root.cold.inlet.z[chem.toluene]=0.5{1}; fix root.cold.delta_pressure=0{Pa}; value root.cold.inlet.epsilon_bubble=0.0001{K}; value root.cold.inlet.epsilon_dew=0.0001{K}; value root.cold.outlet.epsilon_bubble=0.0001{K}; value root.cold.outlet.epsilon_dew=0.0001{K}; fix root.area=1{m2}; fix root.coefficient=100{W/(m2*K)};} {
+@id("a043e8c6fe1f459fac761c55c499b317") child root:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=bt_pr.BT_PR(defined_state=true),hot_outlet_pkg=bt_pr.BT_PR(defined_state=false),cold_inlet_pkg=bt_pr.BT_PR(defined_state=true,minimum=300{K}),cold_outlet_pkg=bt_pr.BT_PR(defined_state=false,minimum=300{K}),cocurrent=true);
+@id("3a7f7aba89cb47a0b992fb8212833251") expect root.hot.outlet.T==359.4{K} tolerance 0.1{K};
+@id("fa9b11ec6bb54b57b89f5d4b9f395792") expect root.cold.outlet.T==331.6111111111111{K} tolerance 0.1{K};
+@id("4b7434a1b379460d97d1705c139f1612") expect root.hot.outlet.flow==5{mol/s} tolerance 0.001{mol/s};
+@id("2ab4c68307cd4650bf7f8c2a7b13d018") expect root.cold.outlet.flow==1{mol/s} tolerance 0.001{mol/s};
+}
+@id("c5527fa9f70545e18e157ab1c6d272e2") use pressure_change @"1.0.0";
+@id("c1d3c70102a34723811e77c8e7080182") test pressure_changer_saponification source "IDAES 2.13 test_pressure_changer TestSaponification.test_solution" revision "2.13.0" fixture {dof 0; run steady; fix root.control.inlet.volume_flow=0.001{m3/s}; fix root.control.inlet.T=320{K}; fix root.control.inlet.pressure=101325{Pa}; fix root.control.inlet.concentration[chem.water]=55388{mol/m3}; fix root.control.inlet.concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.control.inlet.concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.control.inlet.concentration[chem.sodium_acetate]=1e-8{mol/m3}; fix root.control.inlet.concentration[chem.ethanol]=1e-8{mol/m3}; fix root.control.delta_pressure=-20000{Pa}; fix root.control.efficiency=0.9;} {
+@id("a3b3098b4df743dc8eaacc46ba5a4b98") child root:pressure_change.PressureChanger=pressure_change.PressureChanger(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),assumption=pressure_change.PumpAssumption,compressor=false);
+@id("07399377b67a4d32bb9c695cbeb7bec1") expect root.control.outlet.T==320{K} tolerance 0.1{K};
+@id("4ac4ad0a402b431a9bfa01eac7d0f00b") expect root.control.outlet.pressure==81325{Pa} tolerance 100{Pa};
+@id("79c3cfc20b1943bfb1a18e50c98f7c1f") expect root.control.outlet.flow==55.588{mol/s} tolerance 1e-6{mol/s};
+@id("0cc8abf77e9846949942724361d731ba") expect root.control.work==-18{W} tolerance 0.01{W};
+@id("77fc3b81f304427f936e67fd285ca1b5") expect root.control.work_fluid==-20{W} tolerance 0.01{W};
+}
+@id("5cedb8e3a37b463ab20d70386e91472f") use control_volumes @"1.0.0";
+@id("9adfd09aa49a40458c859d84fcf040ae") fn element_atoms(j:kinds.species,e:kinds.element)->Scalar=chem.atoms[j,e];
+@id("dd9727cad00941acbac7c618b1789736") def WaterVolume(basis:control_volumes.MaterialBalance):control_volumes.ControlVolume0D {
+@id("6fa71b72e81a4d71a92809b7c672e7e0") override child inlet:aqueous.DiluteLiquid=saponification.Saponification(defined_state=true,selected={chem.water});
+@id("04d8fd6181db4178bab96fa0ea6ee7e7") override child outlet:aqueous.DiluteLiquid=saponification.Saponification(defined_state=false,selected={chem.water});
+@id("a0674b9bc4e24ccd93a90a9ffb7886c8") override param inlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=true,selected={chem.water});
+@id("88073401e9a045b1b221b3e27ff27330") override param outlet_package:equilibrium.ThermoPackage=saponification.Saponification(defined_state=false,selected={chem.water});
+@id("e1a2b0f6972a4b0ba96cba5c3e79f80d") override param material_basis:control_volumes.MaterialBalance=basis;
+@id("6f622f45041549e28fc7c480b3667dd2") override param elements:Set<kinds.element>={chem.O};
+@id("3b1e193103fb4e50ac4b01948cc24af6") override param atoms:Fn(j:kinds.species,e:kinds.element)->Scalar=element_atoms;
+@id("64b6e00d894141abb1b2e772987ac900") eq no_heat:heat==0{W};
+@id("2afda9d04c2b46adb64960ed55a9064b") eq no_work:work==0{W};
+}
+@id("9ca14a5d7403406896f85f1694df0b08") test volume_componentTotal source "single-component water material and enthalpy conservation for each selected balance basis" revision "1" fixture {dof 0; run steady; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.delta_pressure=0{Pa};} {
+@id("cf3299e99e614807a013586cf2f93932") child root:WaterVolume=WaterVolume(basis=control_volumes.MaterialBalance.componentTotal);
+@id("90f7e7face064d94b765995fd19ca24a") expect root.outlet.T==303.15{K} tolerance 1e-7{K};
+@id("663d3233043b4fd5af7ade82f94a0d75") expect root.outlet.volume_flow==0.001{m3/s} tolerance 1e-9{m3/s};
+@id("1efe37aa46f846ffab69676a4267ea2d") expect root.outlet.flow==55.388{mol/s} tolerance 1e-6{mol/s};
+}
+@id("bee665b86cf347febbd32eb7c734dc07") test volume_componentPhase source "single-component water material and enthalpy conservation for each selected balance basis" revision "1" fixture {dof 0; run steady; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.delta_pressure=0{Pa};} {
+@id("09fa8361da9c47d3a9a02750c2c1090e") child root:WaterVolume=WaterVolume(basis=control_volumes.MaterialBalance.componentPhase);
+@id("acf6fd7383e642bc835935e6ac106bbe") expect root.outlet.T==303.15{K} tolerance 1e-7{K};
+@id("d867e7b6641b499e93a87dbf827835ef") expect root.outlet.volume_flow==0.001{m3/s} tolerance 1e-9{m3/s};
+@id("f292537f658d4ae9b591b851e563bb44") expect root.outlet.flow==55.388{mol/s} tolerance 1e-6{mol/s};
+}
+@id("3279f425a8344478a9d45e6bb5819b00") test volume_elementTotal source "single-component water material and enthalpy conservation for each selected balance basis" revision "1" fixture {dof 0; run steady; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.delta_pressure=0{Pa};} {
+@id("a162afb02ccc439f922b5f0668712f30") child root:WaterVolume=WaterVolume(basis=control_volumes.MaterialBalance.elementTotal);
+@id("6feb562754054922984a53e036f9b3b5") expect root.outlet.T==303.15{K} tolerance 1e-7{K};
+@id("f09e723e77d440deb2153ca13d792e27") expect root.outlet.volume_flow==0.001{m3/s} tolerance 1e-9{m3/s};
+@id("d7854070ffbb4db4a919343f8ced8d41") expect root.outlet.flow==55.388{mol/s} tolerance 1e-6{mol/s};
+}
+@id("faf8e1f4986f456e8573b8054f029fab") test volume_total source "single-component water material and enthalpy conservation for each selected balance basis" revision "1" fixture {dof 0; run steady; fix root.inlet.T=303.15{K}; fix root.inlet.pressure=101325{Pa}; fix root.inlet.volume_flow=0.001{m3/s}; fix root.inlet.concentration[chem.water]=55388{mol/m3}; fix root.delta_pressure=0{Pa};} {
+@id("cdf82da3a6e74494a710b5e6cc7c7b4b") child root:WaterVolume=WaterVolume(basis=control_volumes.MaterialBalance.total);
+@id("ea4662bb00b643e6bb6077a1ce688342") expect root.outlet.T==303.15{K} tolerance 1e-7{K};
+@id("e3960bc27bab4f18b02b6656476735ba") expect root.outlet.volume_flow==0.001{m3/s} tolerance 1e-9{m3/s};
+@id("17df29528cac40caaa91352651982606") expect root.outlet.flow==55.388{mol/s} tolerance 1e-6{mol/s};
+}
+@id("327db061572a4827854e22afbe82a34f") test pfr_backward source "IDAES 2.13 test_pfr TestSaponification; 20 backward finite elements" revision "1" fixture {dof 0; run steady; fix root.state[0].volume_flow=1{m3/s}; fix root.state[0].T=303.15{K}; fix root.state[0].pressure=101325{Pa}; fix root.state[0].concentration[chem.water]=55388{mol/m3}; fix root.state[0].concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.state[0].concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.state[0].concentration[chem.sodium_acetate]=1e-08{mol/m3}; fix root.state[0].concentration[chem.ethanol]=1e-08{mol/m3}; fix root.length=0.5{m}; fix root.area=0.1{m2}; fix root.heat_duty=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("aaec9a4024024448a4fd008bfbd36c45") child root:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,elements=20,use_radau=false);
+@id("514b5525cbf14010bf2a5db044bee378") expect root.outlet_temperature==303.6{K} tolerance 0.01{K};
+@id("aa7ec4caa0f243dcaa555e2320fafb5b") expect root.outlet_pressure==101325{Pa} tolerance 0.01{Pa};
+@id("b1b3260b1b3043eca30716ea842d203a") expect root.outlet_concentration[chem.ethyl_acetate]==62.29{mol/m3} tolerance 0.01{mol/m3};
+}
+@id("f69eda83804949e8a35e9381e30c3fb9") test pfr_radau source "Independent reduced adiabatic PFR ODE; SciPy 1.18.1 DOP853 and Radau rtol=atol=1e-12; 4 degree-3 Radau elements" revision "1" fixture {dof 0; run steady; fix root.state[0].volume_flow=1{m3/s}; fix root.state[0].T=303.15{K}; fix root.state[0].pressure=101325{Pa}; fix root.state[0].concentration[chem.water]=55388{mol/m3}; fix root.state[0].concentration[chem.sodium_hydroxide]=100{mol/m3}; fix root.state[0].concentration[chem.ethyl_acetate]=100{mol/m3}; fix root.state[0].concentration[chem.sodium_acetate]=1e-08{mol/m3}; fix root.state[0].concentration[chem.ethanol]=1e-08{mol/m3}; fix root.length=0.5{m}; fix root.area=0.1{m2}; fix root.heat_duty=0{W}; fix root.delta_pressure=0{Pa};} {
+@id("150078652361467ba9ddd0ecef349443") child root:reactors.PFR=reactors.PFR(inlet_pkg=saponification.Saponification(defined_state=true),outlet_pkg=saponification.Saponification(defined_state=false),reaction_pkg=saponification.SaponificationReactions,elements=4,use_radau=true);
+@id("466634400fec49858a6472af5013d335") expect root.outlet_temperature==303.599299658173{K} tolerance 0.01{K};
+@id("02d1e3809a67416fb828b811458543cc") expect root.outlet_pressure==101325{Pa} tolerance 0.01{Pa};
+@id("bf9270f9860c4a559219c99e1e6f949b") expect root.outlet_concentration[chem.ethyl_acetate]==61.743400621{mol/m3} tolerance 0.001{mol/m3};
+}
+@id("7dfe8223f3f646ae8dc32056c5b18f02") use aqueous @"1.0.0";
+}

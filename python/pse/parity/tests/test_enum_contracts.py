@@ -1,25 +1,84 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Exercise the generated name bindings against the pinned parity runtime."""
+"""Exercise admitted package vocabularies against the pinned parity runtime."""
 
 from enum import Enum
 from importlib import import_module
+from pathlib import Path
 
+import msgspec
 import pytest
 from pyomo.dae import ContinuousSet, DerivativeVar
 from pyomo.environ import ConcreteModel, TransformationFactory, Var
 
+import pse
+from pse.conformance import _documents
 from pse.contracts import enums
+
+
+class UpstreamBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    module: str
+    aliases: dict[str, str] = msgspec.field(default_factory=dict)
+
+
+class Bindings(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    enums: dict[str, UpstreamBinding]
+
+
+BINDINGS = msgspec.toml.decode(
+    (Path(__file__).parents[1] / "enum-bindings.toml").read_bytes(), type=Bindings
+).enums
+
+
+@pytest.fixture(scope="module")
+def admitted_names(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> dict[str, tuple[str, dict[str, str]]]:
+    root = Path(__file__).resolve().parents[4]
+    documents = _documents(root / "packages/reference/physical")
+    runtime = pse.Runtime(
+        pse.EngineSettings(
+            memory_limit_bytes=8 << 30,
+            threads=1,
+            spill_dir=str(tmp_path_factory.mktemp("enum-parity")),
+            max_spill_bytes=1 << 30,
+            batch_size=1024,
+        )
+    )
+    physical = runtime.physical_from_documents(documents)
+    package = runtime.modeling_from_documents([documents], physical)
+    declared = {
+        row.name: row.value.enumeration.members
+        for row in package.declarations()
+        if row.value.enumeration is not None
+    }
+    assert set(declared) == set(BINDINGS)
+    names = dict(enums.IDAES_NAMES)
+    assert set(names) == {"ConstraintScalingScheme"}
+    for name, binding in BINDINGS.items():
+        members = declared[name]
+        assert set(binding.aliases) <= set(members)
+        names[name] = (
+            binding.module,
+            {member: binding.aliases.get(member, member) for member in members},
+        )
+    return names
 
 
 @pytest.mark.unit
 @pytest.mark.parity
 @pytest.mark.parametrize(
     "name",
-    sorted(set(enums.IDAES_NAMES) - {"ComponentType", "DiscretizationScheme"}),
+    sorted(
+        (set(BINDINGS) | {"ConstraintScalingScheme"})
+        - {"ComponentType", "DiscretizationScheme"}
+    ),
 )
-def test_declared_enum_names_match_upstream(name: str) -> None:
-    module, bindings = enums.IDAES_NAMES[name]
+def test_declared_enum_names_match_upstream(
+    name: str,
+    admitted_names: dict[str, tuple[str, dict[str, str]]],
+) -> None:
+    module, bindings = admitted_names[name]
     upstream = getattr(import_module(module), name)
     assert isinstance(upstream, type), name
     assert issubclass(upstream, Enum), name
@@ -28,20 +87,16 @@ def test_declared_enum_names_match_upstream(name: str) -> None:
     upstream_only = {"HenryType": {"Dummy"}}.get(name, set())
     assert upstream_only <= set(upstream.__members__), name
     assert set(upstream.__members__) - upstream_only == set(bindings.values()), name
-    declared = getattr(enums, name)
-    assert {member.value for member in declared} == set(bindings), name
-    for unsupported in upstream_only:
-        with pytest.raises(ValueError):
-            declared(unsupported)
+    assert not (upstream_only & set(bindings)), name
 
 
 @pytest.mark.unit
 @pytest.mark.parity
-def test_component_type_names_resolve_to_actual_upstream_classes() -> None:
-    # Blueprint section 6.14 preserves these class names as a closed dictionary.
-    module, bindings = enums.IDAES_NAMES["ComponentType"]
+def test_component_type_names_resolve_to_actual_upstream_classes(
+    admitted_names: dict[str, tuple[str, dict[str, str]]],
+) -> None:
+    module, bindings = admitted_names["ComponentType"]
     upstream = import_module(module)
-    assert {member.value for member in enums.ComponentType} == set(bindings)
     for target in bindings.values():
         component = getattr(upstream, target)
         assert isinstance(component, type), target
@@ -50,23 +105,22 @@ def test_component_type_names_resolve_to_actual_upstream_classes() -> None:
 
 @pytest.mark.component
 @pytest.mark.parity
-@pytest.mark.parametrize("scheme", list(enums.DiscretizationScheme))
-def test_discretization_name_is_accepted_by_actual_pyomo_transform(
-    scheme: enums.DiscretizationScheme,
+def test_discretization_names_are_accepted_by_actual_pyomo_transforms(
+    admitted_names: dict[str, tuple[str, dict[str, str]]],
 ) -> None:
-    _, bindings = enums.IDAES_NAMES["DiscretizationScheme"]
-    spelling = bindings[scheme.value]
-    method = (
-        "dae.collocation"
-        if spelling.startswith("LAGRANGE-")
-        else "dae.finite_difference"
-    )
-    model = ConcreteModel()
-    model.time = ContinuousSet(bounds=(0, 1))
-    model.state = Var(model.time)
-    model.rate = DerivativeVar(model.state, wrt=model.time)
-    transform = TransformationFactory(method)
-    transform.apply_to(model, wrt=model.time, nfe=2, scheme=spelling)
-    assert model.rate.is_fully_discretized()
-    assert len(model.rate_disc_eq) > 0
-    assert model.time.get_discretization_info()["scheme"].startswith(spelling)
+    _, bindings = admitted_names["DiscretizationScheme"]
+    for spelling in bindings.values():
+        method = (
+            "dae.collocation"
+            if spelling.startswith("LAGRANGE-")
+            else "dae.finite_difference"
+        )
+        model = ConcreteModel()
+        model.time = ContinuousSet(bounds=(0, 1))
+        model.state = Var(model.time)
+        model.rate = DerivativeVar(model.state, wrt=model.time)
+        transform = TransformationFactory(method)
+        transform.apply_to(model, wrt=model.time, nfe=2, scheme=spelling)
+        assert model.rate.is_fully_discretized()
+        assert len(model.rate_disc_eq) > 0
+        assert model.time.get_discretization_info()["scheme"].startswith(spelling)

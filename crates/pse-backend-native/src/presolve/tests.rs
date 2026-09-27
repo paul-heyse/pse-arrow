@@ -20,6 +20,7 @@ struct Mixed {
     h: AssemblyMatrix,
     bounds: Vec<(f64, f64)>,
     fail: bool,
+    fail_domain: bool,
     sign: f64,
     linear_second: bool,
     normalization: Option<pse_math::normalization::Normalization>,
@@ -83,6 +84,7 @@ impl Mixed {
             h: AssemblyMatrix::new(2, 2, &[(0, 0), (1, 1)], 100).unwrap(),
             bounds: vec![(7.0, 7.0), (0.0, 100.0)],
             fail: false,
+            fail_domain: false,
             sign: 1.0,
             linear_second: false,
             normalization: None,
@@ -112,6 +114,13 @@ impl NlpOracle for Mixed {
         Ok(self.sign * (x[0] * x[0] + x[1] * x[1]))
     }
     fn constraints(&mut self, x: &[f64], g: &mut [f64]) -> Result<(), ProblemError> {
+        if self.fail_domain {
+            return Err(pse_math::MathError::Domain {
+                source_id: id(3),
+                requirement: "synthetic envelope",
+            }
+            .into());
+        }
         if self.fail {
             return Err(ProblemError::Contract("failed observation".into()));
         }
@@ -159,6 +168,29 @@ fn stamp() -> Compatibility {
 }
 fn execution() -> Execution {
     Execution::new(Default::default(), &Controls::default())
+}
+#[test]
+fn kernel_presolve_retains_the_typed_failed_trial_witness() {
+    let mut oracle = Mixed::new();
+    oracle.fail_domain = true;
+    let error = Pipeline::new(
+        Box::new(oracle),
+        &[1., 3.],
+        &Policy::Auto,
+        &tolerances(),
+        None,
+        execution(),
+        None,
+        stamp(),
+        1000,
+    )
+    .unwrap_err();
+    assert!(
+        matches!(error, ProblemError::Math(pse_math::MathError::Domain {
+        source_id, requirement: "synthetic envelope"
+    }) if source_id == id(3)),
+        "{error:?}"
+    );
 }
 #[cfg(all(feature = "ipopt", feature = "pounce"))]
 #[test]
@@ -718,4 +750,49 @@ fn presolve_certificate_respects_each_bound_budget() {
             .category,
         Termination::Infeasible
     );
+}
+
+#[derive(Debug)]
+struct PropagationFixedRow(Mixed);
+impl NlpOracle for PropagationFixedRow {
+    fn contract(&self)->&OracleContract { &self.0.contract }
+    fn presolve_facts(&self)->Option<&Facts> {Some(&self.0.facts)}
+    fn constraint_bounds(&self)->&[(f64,f64)] { &self.0.bounds }
+    fn jacobian_pattern(&self)->faer::sparse::SymbolicSparseColMatRef<'_,usize> {self.0.j.matrix().symbolic()}
+    fn hessian_pattern(&self)->Option<faer::sparse::SymbolicSparseColMatRef<'_,usize>> {Some(self.0.h.matrix().symbolic())}
+    fn objective(&mut self,_:&[f64])->Result<f64,ProblemError> {Ok(0.0)}
+    fn gradient(&mut self,_:&[f64],out:&mut[f64])->Result<(),ProblemError> {out.fill(0.0);Ok(())}
+    fn constraints(&mut self,x:&[f64],out:&mut[f64])->Result<(),ProblemError> {out.copy_from_slice(&[x[0]*x[0],x[1]-x[2],x[1]*x[1]+x[2]*x[2]]);Ok(())}
+    fn jacobian(&mut self,x:&[f64],out:&mut[f64])->Result<(),ProblemError> {out.copy_from_slice(&[2.0*x[0],1.0,2.0*x[1],-1.0,2.0*x[2]]);Ok(())}
+    fn hessian(&mut self,_:&[f64],_:f64,l:&[f64],out:&mut[f64])->Result<(),ProblemError> {out.copy_from_slice(&[2.0*l[0],2.0*l[2],2.0*l[2]]);Ok(())}
+}
+fn propagation_fixed_row()->PropagationFixedRow {
+    let mut m=Mixed::new();
+    m.contract.variables=(0..3).map(|i|Variable{id:id(i+1),lower:1.0,upper:3.0}).collect();
+    m.contract.rows=vec![id(4),id(5),id(6)];
+    m.bounds=vec![(4.0,4.0),(0.0,0.0),(8.0,8.0)];
+    m.j=AssemblyMatrix::new(3,3,&[(0,0),(1,1),(2,1),(1,2),(2,2)],100).unwrap();
+    m.h=AssemblyMatrix::new(3,3,&[(0,0),(1,1),(2,2)],100).unwrap();
+    m.facts.affine=vec![None,Some(AffineRow{entries:BTreeMap::from([(1,1.0),(2,-1.0)]),constant:0.0}),None];
+    m.facts.tapes=vec![FbbtTape{ops:vec![Op::Var(0),Op::PowInt(0,2)]},FbbtTape{ops:vec![Op::Var(1),Op::Var(2),Op::Sub(0,1)]},FbbtTape{ops:vec![Op::Opaque]}];
+    m.facts.complete=vec![true,true,false];
+    m.facts.row_sources=vec![vec![];3];
+    m.facts.objective_linear=vec![true;3];
+    PropagationFixedRow(m)
+}
+#[test]
+fn automatic_presolve_retains_original_when_propagation_leaves_constant_nonlinear_rows() {
+    let tolerance=Tolerances{variables:vec![1e-8;3],rows:vec![1e-8;3],integrality:1e-8};
+    let mut pipeline=Pipeline::new(Box::new(propagation_fixed_row()),&[1.5,1.5,1.5],&Policy::Auto,
+        &tolerance,None,execution(),None,stamp(),1000).unwrap();
+    assert_eq!(pipeline.report().dimensions,(3,3,3,3));
+    assert!(pipeline.report().diagnostics.contains_key("structure.declined"));
+    assert!(pipeline.report().passes.values().all(|p|!p.applied));
+    let mut oracle=pipeline.take_oracle().unwrap();
+    crate::validate_nlp(&oracle,pse_kernels::DerivativeOrder::Second).unwrap();
+    let mut values=vec![0.0;3];oracle.constraints(&[2.0,2.0,2.0],&mut values).unwrap();
+    assert_eq!(values,vec![4.0,0.0,8.0]);
+    let required=Policy::Explicit{options:PresolveOptions{enabled:true,linear_eq_reduction:true,fbbt:true,..PresolveOptions::defaults()},required:BTreeSet::from([Pass::AffineElimination,Pass::Fbbt])};
+    assert!(matches!(Pipeline::new(Box::new(propagation_fixed_row()),&[1.5,1.5,1.5],&required,
+        &tolerance,None,execution(),None,stamp(),1000),Err(ProblemError::Structural{..})));
 }

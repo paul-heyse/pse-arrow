@@ -50,6 +50,9 @@ impl MathService {
         let (prepared, lease) = tokio::select! { result = &mut operation => result?, ()=driver.cancelled()=>{
             control.cancel();return Err(MathRuntimeError::Cancelled);
         }};
+        self.assemble_functions(prepared,lease,driver).await
+    }
+    pub(super) async fn assemble_functions(self:&Arc<Self>,prepared:pse_compiler::workspace::PreparedFunctions,lease:Arc<pse_columnar::AllocationLease>,driver:&crate::CancelSource)->Result<Arc<ExecutableCase>,MathRuntimeError>{
         let owner = self.shared_product(
             vec![1, Arc::as_ptr(&prepared.plan) as usize],
             Arc::new(prepared.clone()),

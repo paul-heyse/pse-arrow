@@ -40,7 +40,7 @@ pub struct Domain {
     /// Actual finite membership in semantic order.
     pub members: pse_math::binding::FiniteDomain,
     /// Physical domain role.
-    pub kind: pse_quantity::DomainKind,
+    pub kind: pse_quantity::EntityKindId,
 }
 /// One finite or ragged group, preserving declared axis order and actual tuples.
 #[derive(Clone, Debug, PartialEq)]
@@ -78,6 +78,13 @@ pub struct ProviderCall {
     pub output: usize,
 }
 
+/// Physical validity attached to a resolved local path, before library normalization.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Validity {
+    pub lower: Expr,
+    pub upper: Expr,
+    pub source: SemanticId,
+}
 /// One authored local body and the exact physical/specialization context it consumes.
 #[derive(Debug)]
 pub struct Request<'a> {
@@ -174,6 +181,59 @@ impl Request<'_> {
         checker: &dyn InvariantChecker,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<AdmittedBody, MathError> {
+        self.admit_functions(registry, checker, cancelled, &BTreeMap::new())
+    }
+    /// Admit a finite body with checked package function declarations.
+    pub fn admit_functions(
+        &self,
+        registry: &QuantityRegistry,
+        checker: &dyn InvariantChecker,
+        cancelled: &Arc<AtomicBool>,
+        functions: &BTreeMap<String, pse_modeling::Function>,
+    ) -> Result<AdmittedBody, MathError> {
+        self.admit_function_outputs(
+            registry,
+            checker,
+            cancelled,
+            functions,
+            &[],
+            &BTreeMap::new(),
+        )
+    }
+    /// Admit output contracts without repurposing source spans as synthetic type keys.
+    pub fn admit_function_outputs(
+        &self,
+        registry: &QuantityRegistry,
+        checker: &dyn InvariantChecker,
+        cancelled: &Arc<AtomicBool>,
+        functions: &BTreeMap<String, pse_modeling::Function>,
+        outputs: &[QuantityTypeId],
+        local_quantities: &BTreeMap<String, QuantityTypeId>,
+    ) -> Result<AdmittedBody, MathError> {
+        self.admit_modeling_outputs(
+            registry,
+            checker,
+            cancelled,
+            functions,
+            outputs,
+            local_quantities,
+            &BTreeMap::new(),
+        )
+    }
+    /// Admit definition-owned range obligations with the same expression and library authority.
+    pub fn admit_modeling_outputs(
+        &self,
+        registry: &QuantityRegistry,
+        checker: &dyn InvariantChecker,
+        cancelled: &Arc<AtomicBool>,
+        functions: &BTreeMap<String, pse_modeling::Function>,
+        outputs: &[QuantityTypeId],
+        local_quantities: &BTreeMap<String, QuantityTypeId>,
+        validity: &BTreeMap<String, Validity>,
+    ) -> Result<AdmittedBody, MathError> {
+        if !outputs.is_empty() && outputs.len() != self.expressions.len() {
+            return Err(MathError::Contract("output physical contract arity".into()));
+        }
         let entries = self
             .domains
             .values()
@@ -216,6 +276,7 @@ impl Request<'_> {
         let mut lower = Lower {
             request: self,
             registry,
+            checker,
             paths,
             locals: BTreeMap::new(),
             occurrences: vec![],
@@ -223,6 +284,11 @@ impl Request<'_> {
             cancelled,
             coordinates: BTreeMap::new(),
             physical_only: false,
+            functions,
+            local_quantities,
+            calls: Vec::new(),
+            validity,
+            validating: Vec::new(),
         };
         if self.expressions.is_empty() {
             return Err(MathError::Contract("empty authored output group".into()));
@@ -231,7 +297,10 @@ impl Request<'_> {
         let values = self
             .expressions
             .iter()
-            .map(|expr| lower.expression(expr, &mut builder, 0))
+            .enumerate()
+            .map(|(i, expr)| {
+                lower.expression_expected(expr, &mut builder, 0, outputs.get(i).copied())
+            })
             .collect::<Result<Vec<_>, _>>()?;
         let quantities = values.iter().map(TypedValue::quantity).collect();
         let math = Arc::new(builder.prepare(&values)?);
@@ -256,6 +325,7 @@ impl Request<'_> {
 }
 
 struct Lower<'a, 'b> {
+    checker: &'a dyn InvariantChecker,
     request: &'a Request<'b>,
     registry: &'a QuantityRegistry,
     paths: BTreeMap<String, usize>,
@@ -265,14 +335,49 @@ struct Lower<'a, 'b> {
     cancelled: &'a Arc<AtomicBool>,
     coordinates: BTreeMap<String, Coordinate>,
     physical_only: bool,
+    functions: &'a BTreeMap<String, pse_modeling::Function>,
+    local_quantities: &'a BTreeMap<String, QuantityTypeId>,
+    calls: Vec<SemanticId>,
+    validity: &'a BTreeMap<String, Validity>,
+    validating: Vec<String>,
 }
 impl Lower<'_, '_> {
+    fn validated(
+        &mut self,
+        name: &str,
+        value: TypedValue,
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+    ) -> Result<TypedValue, MathError> {
+        if !self.calls.is_empty() {
+            return Ok(value);
+        }
+        let Some(range) = self.validity.get(name).cloned() else {
+            return Ok(value);
+        };
+        if self.validating.iter().any(|n| n == name) {
+            return Err(MathError::Contract(
+                "cyclic validity range dependency".into(),
+            ));
+        }
+        self.validating.push(name.into());
+        self.hash.str("validity").id(&range.source);
+        let lower =
+            self.expression_expected(&range.lower, builder, depth + 1, Some(value.quantity()))?;
+        let upper =
+            self.expression_expected(&range.upper, builder, depth + 1, Some(value.quantity()))?;
+        self.validating.pop();
+        builder.within_range(value, lower, upper, range.source)
+    }
     fn source(&mut self, expr: &Expr, depth: usize) -> Result<SemanticId, MathError> {
         if self.cancelled.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
         }
-        if depth > 128 || self.occurrences.len() >= self.request.limits.occurrences {
-            return Err(MathError::Limit("authored syntax depth or occurrences"));
+        if depth > 128 {
+            return Err(MathError::Limit("authored syntax depth"));
+        }
+        if self.occurrences.len() >= self.request.limits.occurrences {
+            return Err(MathError::Limit("authored syntax occurrences"));
         }
         let mut h = FramedHasher::new("pse.math.local-occurrence.v2");
         h.u64(self.occurrences.len() as u64);
@@ -289,6 +394,15 @@ impl Lower<'_, '_> {
         expr: &Expr,
         builder: &mut BodyBuilder<'_>,
         depth: usize,
+    ) -> Result<TypedValue, MathError> {
+        self.expression_expected(expr, builder, depth, None)
+    }
+    fn expression_expected(
+        &mut self,
+        expr: &Expr,
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+        expected: Option<QuantityTypeId>,
     ) -> Result<TypedValue, MathError> {
         let source = self.source(expr, depth)?;
         match &expr.kind {
@@ -324,6 +438,9 @@ impl Lower<'_, '_> {
                     LiteralContext::Explicit {
                         quantity_type: quantity,
                     }
+                } else if let Some(quantity_type) = expected {
+                    self.hash.id(&quantity_type.as_id());
+                    LiteralContext::Explicit { quantity_type }
                 } else {
                     LiteralContext::Free
                 };
@@ -342,28 +459,41 @@ impl Lower<'_, '_> {
                     return self.group(&name, &index_exprs, builder, source);
                 }
                 if let Some(value) = self.locals.get(&name) {
-                    return Ok(value.clone());
+                    let value = value.clone();
+                    return self.validated(&name, value, builder, depth);
                 }
                 let slot = *self
                     .paths
                     .get(&name)
                     .ok_or_else(|| MathError::Contract(format!("unresolved path {name}")))?;
-                builder.input(
+                let value = builder.input(
                     slot,
                     self.request.formals[slot].quantity,
                     IndexSet::new(),
                     source,
-                )
+                )?;
+                self.validated(&name, value, builder, depth)
             }
             ExprKind::Neg(value) => {
                 self.hash.str("neg");
-                let value = self.expression(value, builder, depth + 1)?;
+                let value = self.expression_expected(value, builder, depth + 1, expected)?;
                 builder.negate(value, source)
             }
             ExprKind::Binary { op, lhs, rhs } => {
                 self.hash.str(op.as_str());
-                let left = self.expression(lhs, builder, depth + 1)?;
-                let right = self.expression(rhs, builder, depth + 1)?;
+                let additive = matches!(op, BinaryOp::Add | BinaryOp::Sub);
+                let left = self.expression_expected(
+                    lhs,
+                    builder,
+                    depth + 1,
+                    if additive { expected } else { None },
+                )?;
+                let right = self.expression_expected(
+                    rhs,
+                    builder,
+                    depth + 1,
+                    additive.then_some(left.quantity()),
+                )?;
                 let exponent = if *op == BinaryOp::Pow {
                     literal_exponent(rhs)
                 } else {
@@ -415,16 +545,29 @@ impl Lower<'_, '_> {
                         return Err(MathError::Contract("duplicate local binding".into()));
                     }
                     self.hash.str(name);
-                    let value = self.expression(expr, builder, depth + 1)?;
+                    let value = self.expression_expected(
+                        expr,
+                        builder,
+                        depth + 1,
+                        self.local_quantities.get(name).copied(),
+                    )?;
                     self.locals.insert(name.clone(), builder.bind(value)?);
                 }
-                let result = self.expression(body, builder, depth + 1);
+                let result = self.expression_expected(body, builder, depth + 1, expected);
                 self.locals = saved;
                 result
             }
             ExprKind::Reduce { kind, binder, body } => {
                 self.reduce(*kind, binder, body, builder, depth + 1, source)
             }
+            ExprKind::NamedCall { name, args } => {
+                self.function(name, args, &[], builder, depth + 1, source)
+            }
+            ExprKind::Partial {
+                function,
+                wrt,
+                args,
+            } => self.function(function, args, wrt, builder, depth + 1, source),
             ExprKind::Kernel { name, args } => {
                 let call = self.request.providers.get(name).ok_or_else(|| {
                     MathError::Contract(
@@ -450,7 +593,322 @@ impl Lower<'_, '_> {
             ExprKind::Derivative { .. } => Err(MathError::Contract(
                 "dynamic derivative is outside the algebraic value profile".into(),
             )),
+            ExprKind::Fold { .. } => Err(MathError::Contract(
+                "finite fold must be specialized before mathematical admission".into(),
+            )),
         }
+    }
+    fn function(
+        &mut self,
+        name: &str,
+        args: &[Expr],
+        wrt: &[dsl::Path],
+        builder: &mut BodyBuilder<'_>,
+        depth: usize,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        use pse_modeling::Type;
+        use pse_quantity::scheme::Substitution;
+        let f =
+            self.functions.get(name).cloned().ok_or_else(|| {
+                MathError::Contract(format!("unresolved package function {name}"))
+            })?;
+        if self.calls.contains(&f.id) {
+            return Err(MathError::Contract("recursive package function".into()));
+        }
+        if args.len() != f.arguments.len() {
+            return Err(MathError::Contract(
+                "package function argument count".into(),
+            ));
+        }
+        let mut substitutions = Substitution::new();
+        let mut arguments = Vec::new();
+        for (expr, (_, ty)) in args.iter().zip(&f.arguments) {
+            let Type::Quantity(scheme) = ty else {
+                return Err(MathError::Contract(
+                    "runtime function argument requires a scalar physical type".into(),
+                ));
+            };
+            let expected = scheme
+                .resolve_with_evidence(self.registry, &substitutions, self.checker)
+                .ok();
+            let value = self.expression_expected(expr, builder, depth, expected)?;
+            scheme
+                .bind_with_evidence(
+                    value.quantity(),
+                    self.registry,
+                    &mut substitutions,
+                    self.checker,
+                )
+                .map_err(|e| MathError::Contract(e.to_string()))?;
+            // A specialized finite reduction is an operation, not a source
+            // function argument boundary. Keep its terms in the surrounding
+            // symbolic graph unless an explicit partial needs independent slots.
+            arguments.push(if f.reduction.is_some() && wrt.is_empty() {
+                value
+            } else if !wrt.is_empty() || f.continuity.is_some() {
+                builder.independent(value)?
+            } else {
+                builder.bind(value)?
+            });
+        }
+        if let Some(reduction) = &f.reduction
+            && wrt.is_empty()
+        {
+            self.hash.str("finite-reduction").id(&f.id);
+            let value = builder.finite_reduce(
+                reduction.kind,
+                reduction.domain,
+                reduction.prototype,
+                &arguments,
+                source,
+            )?;
+            let Type::Quantity(result) = &f.result else {
+                return Err(MathError::Contract(
+                    "finite reduction result must be physical".into(),
+                ));
+            };
+            let expected = result
+                .resolve_with_evidence(self.registry, &substitutions, self.checker)
+                .map_err(|e| MathError::Contract(e.to_string()))?;
+            if value.quantity() != expected {
+                return Err(MathError::Contract(
+                    "finite reduction physical result differs".into(),
+                ));
+            }
+            return Ok(value);
+        }
+        let assumption = if let Some(validity) = &f.validity {
+            let saved = std::mem::replace(
+                &mut self.locals,
+                f.arguments
+                    .iter()
+                    .zip(&arguments)
+                    .map(|((name, _), value)| (name.clone(), value.clone()))
+                    .collect(),
+            );
+            self.calls.push(f.id);
+            self.hash
+                .str("function-validity")
+                .str(&dsl::render_predicate(validity));
+            let yes = dsl::parse_expr("1").map_err(|e| MathError::Contract(e.to_string()))?;
+            let no = dsl::parse_expr("0").map_err(|e| MathError::Contract(e.to_string()))?;
+            let predicate = builder.domain(f.id, |builder| {
+                self.conditional(validity, &yes, &no, builder, depth + 1, f.id)
+            });
+            self.calls.pop();
+            self.locals = saved;
+            Some(predicate?)
+        } else {
+            None
+        };
+        if let Some(external) = &f.external {
+            let call = self
+                .request
+                .providers
+                .get(&external.implementation)
+                .ok_or_else(|| {
+                    MathError::Contract(format!(
+                        "unregistered external implementation {}",
+                        external.implementation
+                    ))
+                })?;
+            let spec = call.descriptor.spec();
+            if spec.revision != external.revision
+                || spec.data != external.data
+                || spec.derivative_source != external.derivative_source
+                || spec.derivatives as u8 != external.derivatives
+                || spec.smoothness as u8 != external.smoothness
+            {
+                return Err(MathError::Contract("external implementation differs from its authored revision, data or derivative contract".into()));
+            }
+            if external.shapes.len() != spec.shapes.inputs.len() {
+                return Err(MathError::Contract(
+                    "external logical input shape count".into(),
+                ));
+            }
+            for shape in &external.shapes {
+                let logical = spec
+                    .shapes
+                    .inputs
+                    .iter()
+                    .find(|s| s.id == shape.argument)
+                    .ok_or_else(|| {
+                        MathError::Contract("external logical argument identity".into())
+                    })?;
+                let end = shape
+                    .start
+                    .checked_add(shape.coordinates.len())
+                    .ok_or(MathError::Limit("external logical extent"))?;
+                let ports = spec
+                    .inputs
+                    .get(shape.start..end)
+                    .ok_or_else(|| MathError::Contract("external logical scalar range".into()))?;
+                if logical.axes != shape.axes
+                    || logical.coordinates != shape.coordinates
+                    || logical.cells != ports.iter().map(|p| p.id).collect::<Vec<_>>()
+                {
+                    return Err(MathError::Contract(
+                        "external coordinate order differs from registration".into(),
+                    ));
+                }
+            }
+            let ExprKind::Number(output) = &external.output.kind else {
+                return Err(MathError::Contract(
+                    "external selected output is not static".into(),
+                ));
+            };
+            let output = output
+                .integer()
+                .and_then(|v| usize::try_from(v).ok())
+                .ok_or_else(|| MathError::Contract("external output ordinal".into()))?;
+            let partial = wrt
+                .iter()
+                .map(|path| {
+                    if path.segments.len() != 1 || !path.segments[0].indices.is_empty() {
+                        return Err(MathError::Contract(
+                            "external partial must name a specialized scalar argument".into(),
+                        ));
+                    }
+                    f.arguments
+                        .iter()
+                        .position(|(name, _)| *name == path.segments[0].name)
+                        .ok_or_else(|| {
+                            MathError::Contract("external partial argument absent".into())
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let outputs =
+                builder.provider_partial(&call.descriptor, &arguments, &partial, source)?;
+            let value = outputs.get(output).cloned().ok_or_else(|| {
+                MathError::Contract("external output ordinal outside registration".into())
+            })?;
+            let Type::Quantity(result) = &f.result else {
+                return Err(MathError::Contract(
+                    "external selected cell must have a scalar physical type".into(),
+                ));
+            };
+            let mut result = result.clone();
+            for i in &partial {
+                result = pse_quantity::scheme::Scheme::Quotient(
+                    Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(result))),
+                    Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(
+                        pse_quantity::scheme::Scheme::Concrete(arguments[*i].quantity()),
+                    ))),
+                );
+            }
+            let expected = result
+                .resolve_with_evidence(self.registry, &substitutions, self.checker)
+                .map_err(|e| MathError::Contract(e.to_string()))?;
+            if value.quantity() != expected {
+                return Err(MathError::Contract(
+                    "external output physical contract differs".into(),
+                ));
+            }
+            self.hash
+                .str("external-function")
+                .hash(&spec.identity())
+                .u64(output as u64)
+                .u64(partial.len() as u64);
+            for i in partial {
+                self.hash.u64(i as u64);
+            }
+            let value = if let Some(assumption) = &assumption {
+                builder.with_assumption(value, assumption)
+            } else {
+                value
+            };
+            return builder.bind(value);
+        }
+        let scope = builder.function_scope();
+        let saved = std::mem::replace(
+            &mut self.locals,
+            f.arguments
+                .iter()
+                .zip(&arguments)
+                .map(|((name, _), v)| (name.clone(), v.clone()))
+                .collect(),
+        );
+        self.calls.push(f.id);
+        self.hash
+            .str("package-function")
+            .id(&f.id)
+            .u64(wrt.len() as u64);
+        let Type::Quantity(result) = &f.result else {
+            return Err(MathError::Contract(
+                "runtime function result requires a scalar physical type".into(),
+            ));
+        };
+        let expected = result
+            .resolve_with_evidence(self.registry, &substitutions, self.checker)
+            .map_err(|e| MathError::Contract(e.to_string()))?;
+        let value = if let Some(reduction) = &f.reduction {
+            self.hash
+                .str("finite-reduction")
+                .str(reduction.kind.as_str())
+                .id(&reduction.prototype.as_id())
+                .bool(reduction.domain.is_some());
+            if let Some(domain) = reduction.domain {
+                self.hash.id(&domain.as_id());
+            }
+            builder.finite_reduce(
+                reduction.kind,
+                reduction.domain,
+                reduction.prototype,
+                &arguments,
+                source,
+            )
+        } else {
+            let body = f
+                .body
+                .as_ref()
+                .ok_or_else(|| MathError::Contract("function has no selected body".into()))?;
+            self.expression_expected(body, builder, depth, Some(expected))
+        };
+        self.locals = saved;
+        self.calls.pop();
+        let mut value = value?;
+        if let Some(order) = f.continuity {
+            let order = match order {
+                0 => pse_kernels::DerivativeOrder::Value,
+                1 => pse_kernels::DerivativeOrder::First,
+                2 => pse_kernels::DerivativeOrder::Second,
+                _ => return Err(MathError::Contract("piecewise derivative order".into())),
+            };
+            self.hash.str("verified-piecewise").u64(order as u64);
+            builder.verify_piecewise(scope, &arguments, order)?;
+        }
+        if value.quantity() != expected {
+            return Err(MathError::Contract(
+                "function body differs from instantiated physical result".into(),
+            ));
+        }
+        if !wrt.is_empty() {
+            let variables = wrt
+                .iter()
+                .map(|path| {
+                    if path.segments.len() != 1 || !path.segments[0].indices.is_empty() {
+                        return Err(MathError::Contract(
+                            "partial must select an explicit scalar argument".into(),
+                        ));
+                    }
+                    let index = f
+                        .arguments
+                        .iter()
+                        .position(|(n, _)| n == &path.segments[0].name)
+                        .ok_or_else(|| MathError::Contract("partial argument absent".into()))?;
+                    self.hash.u64(index as u64);
+                    Ok(arguments[index].clone())
+                })
+                .collect::<Result<Vec<_>, MathError>>()?;
+            value = builder.partial(scope, value, &variables, source)?;
+        }
+        let value = if let Some(assumption) = &assumption {
+            builder.with_assumption(value, assumption)
+        } else {
+            value
+        };
+        builder.bind(value)
     }
     fn group(
         &mut self,
@@ -577,6 +1035,7 @@ impl Lower<'_, '_> {
         let mut prototype_lower = Lower {
             request: self.request,
             registry: self.registry,
+            checker: self.checker,
             paths: self.paths.clone(),
             locals: self.locals.clone(),
             occurrences: vec![],
@@ -584,6 +1043,11 @@ impl Lower<'_, '_> {
             cancelled: self.cancelled,
             coordinates: self.coordinates.clone(),
             physical_only: true,
+            functions: self.functions,
+            local_quantities: self.local_quantities,
+            calls: self.calls.clone(),
+            validity: self.validity,
+            validating: self.validating.clone(),
         };
         let mut physical = builder.physical_pass()?;
         let prototype = prototype_lower.expression(body, &mut physical, depth)?;
@@ -725,7 +1189,7 @@ impl Lower<'_, '_> {
                 if matches!(op, CompareOp::Eq | CompareOp::NotEq) =>
             {
                 let coordinate =
-                    |expr: &Expr| -> Result<(String, pse_quantity::DomainKind), MathError> {
+                    |expr: &Expr| -> Result<(String, pse_quantity::EntityKindId), MathError> {
                         let ExprKind::Path(path) = &expr.kind else {
                             return Err(MathError::Contract(
                                 "finite comparison requires lexical members".into(),
@@ -822,7 +1286,7 @@ impl Lower<'_, '_> {
         };
         self.hash.str(op.as_str());
         let left = self.expression(lhs, builder, depth + 1)?;
-        let right = self.expression(rhs, builder, depth + 1)?;
+        let right = self.expression_expected(rhs, builder, depth + 1, Some(left.quantity()))?;
         match op {
             CompareOp::Eq => builder.compare(Comparison::Eq, &left, &right, source),
             CompareOp::NotEq => builder.compare(Comparison::Ne, &left, &right, source),
@@ -1058,7 +1522,12 @@ mod tests {
         let scalar = ids::quantity(physical_name);
         let mut shaped = original.quantity_type(scalar).unwrap().clone();
         shaped.id = QuantityTypeId::from_id(SemanticId::from_bytes([91; 16]));
-        shaped.key.shape = vec![pse_quantity::DomainKind::Species];
+        shaped.key.shape = vec![
+            pse_quantity::standard::standard_registry()
+                .unwrap()
+                .entity_kind_named("species")
+                .unwrap(),
+        ];
         let shaped_id = original.resolve_key(&shaped.key).unwrap_or(shaped.id);
         let mut registry = original.to_builder();
         if shaped_id == shaped.id {
@@ -1073,12 +1542,18 @@ mod tests {
                 100,
             )
             .unwrap(),
-            kind: pse_quantity::DomainKind::Species,
+            kind: pse_quantity::standard::standard_registry()
+                .unwrap()
+                .entity_kind_named("species")
+                .unwrap(),
         };
         let selected = Domain {
             members: pse_math::binding::FiniteDomain::new(member(81), vec![member(2)], 100)
                 .unwrap(),
-            kind: pse_quantity::DomainKind::Species,
+            kind: pse_quantity::standard::standard_registry()
+                .unwrap()
+                .entity_kind_named("species")
+                .unwrap(),
         };
         let domains = BTreeMap::from([("species".into(), domain), ("selected".into(), selected)]);
         let groups = BTreeMap::from([(
@@ -1240,7 +1715,7 @@ mod tests {
                 .values,
             vec![2.0]
         );
-        assert!(dsl::parse_expr("tanh(x)").is_err());
+        assert!(compile("tanh(x)", &formals, DerivativeOrder::Value).is_err());
     }
     #[test]
     fn ordered_outputs_share_semantics_across_artifact_profiles() {
@@ -1328,7 +1803,7 @@ mod tests {
     fn executable_provider_admission_preserves_physics_phase_and_recoverable_errors() {
         pse_math::initialize().unwrap();
         use pse_kernels::{
-            Phase, Port, Provider, ProviderError, ProviderFactory, ProviderSpec, ProviderValues,
+            Port, Provider, ProviderError, ProviderFactory, ProviderSpec, ProviderValues,
             Registration,
         };
         #[derive(Debug, Clone)]
@@ -1374,12 +1849,12 @@ mod tests {
         let port = Port { id, quantity, unit };
         let registration = Registration::new(
             Arc::new(Square(ProviderSpec {
+                shapes: pse_kernels::ProviderShapes::default(),
+                derivative_source: pse_kernels::DerivativeSource::Analytic,
                 id,
                 revision: hash,
                 data: hash,
-                envelope: None,
-                components: vec![],
-                phase: Phase { id, revision: hash },
+
                 inputs: vec![port.clone()],
                 outputs: vec![port],
                 derivatives: DerivativeOrder::Value,
@@ -1466,10 +1941,7 @@ mod tests {
             vec![10.0]
         );
         let other = Square(ProviderSpec {
-            phase: Phase {
-                id,
-                revision: ContentHash::from_bytes([4; 32]),
-            },
+            revision: ContentHash::from_bytes([4; 32]),
             ..registration.spec().clone()
         });
         workers.insert(registration.spec().key(), Box::new(other));

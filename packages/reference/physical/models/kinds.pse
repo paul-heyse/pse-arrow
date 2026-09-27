@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// Kind declarations are ordinary package knowledge, not native enum variants.
+@id("01a0e1461e93764398a669e18bf5e560") package kinds {
+    @id("6f4bef41292d44d5be75f432351c6817") entity kind time {}
+    @id("b51af2741ddc495e81c3e03af443ea4b") entity kind length {}
+    @id("1c998211e5d74955863f377662f56526") entity kind species {}
+    @id("7d986668d824439f9b5828046038365d") entity kind phase {}
+    @id("bd2d6e901e98413d876be9fde749d195") entity kind phase_species {}
+    @id("1fe263f6a81d4a9fb4584520b4dd4a0b") entity kind element {}
+    @id("0d15cb60062d4ee79e10ae2aea8c397e") entity kind reaction {}
+    @id("fae6b3ed73204ee8a0828818614df3b4") entity kind port_set {}
+    @id("d5ad4bc9199e4671a0b7f266c57c5b3a") entity kind stage {}
+    @id("578f1228e99044c7bd5ac4393d7406bc") entity kind cell {}
+    @id("5ac7d61deac848efacc640e846e81d96") entity kind face {}
+    @id("ee351635dee749be8237f4555dd0de3f") entity kind node {}
+    @id("a242acb10cb24e7c981b02d71b13c9a9") entity kind custom {}
+}

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    150u8, 236u8, 122u8, 212u8, 106u8, 215u8, 99u8, 213u8, 69u8, 119u8, 96u8, 94u8, 85u8,
-    203u8, 69u8, 116u8, 92u8, 25u8, 214u8, 227u8, 199u8, 80u8, 176u8, 195u8, 224u8, 50u8,
-    110u8, 6u8, 171u8, 161u8, 94u8, 109u8,
+    77u8, 242u8, 62u8, 231u8, 64u8, 236u8, 250u8, 156u8, 58u8, 28u8, 81u8, 164u8, 169u8,
+    167u8, 234u8, 60u8, 79u8, 47u8, 18u8, 154u8, 172u8, 7u8, 59u8, 107u8, 180u8, 62u8,
+    116u8, 200u8, 74u8, 122u8, 7u8, 172u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceQuantityOperationReductionsRow {
     fn append(
@@ -53,7 +53,7 @@ impl crate::columnar::ArrowValue for ReferenceQuantityOperationReductionsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <crate::generated::enums::DomainKind as crate::columnar::ArrowValue>::append_null(
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         output.append(false);
@@ -70,7 +70,7 @@ impl crate::columnar::ArrowValue for ReferenceQuantityOperationReductionsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#domain_kind: <crate::generated::enums::DomainKind as crate::columnar::ArrowValue>::read(
+            r#domain_kind: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -164,10 +164,10 @@ impl crate::columnar::RelationRow for ReferenceQuantityOperationReductionsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        5_120_usize + size_of::<Self::Builder>()
+        6_144_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        40usize
+        48usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -177,7 +177,7 @@ impl crate::columnar::RelationRow for ReferenceQuantityOperationReductionsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#domain_kind).as_str().len())?,
+            Ok::<usize, crate::RelationError>(16usize)?,
         )?;
         Ok(bytes)
     }
@@ -214,7 +214,7 @@ pub mod columns {
 pub struct ReferenceQuantityOperationReductionsView<'a> {
     batch: &'a crate::RecordBatch,
     operation_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    domain_kind_column: &'a arrow_array::StringArray,
+    domain_kind_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> ReferenceQuantityOperationReductionsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -258,7 +258,7 @@ impl<'a> ReferenceQuantityOperationReductionsView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
             domain_kind_column: crate::columnar::array::<
-                arrow_array::StringArray,
+                arrow_array::FixedSizeBinaryArray,
             >(batch.column(1usize).as_ref())?,
         })
     }
@@ -291,7 +291,7 @@ impl<'a> ReferenceQuantityOperationReductionsView<'a> {
         "domain_kind",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn domain_kind_column(&self) -> &'a arrow_array::StringArray {
+    pub const fn domain_kind_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
         self.domain_kind_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "domain_kind", "`.")]

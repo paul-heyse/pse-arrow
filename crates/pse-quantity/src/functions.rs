@@ -11,8 +11,6 @@ pub enum Function {
     Exp,
     /// Natural logarithm.
     Log,
-    /// Base-ten logarithm.
-    Log10,
     /// Square root.
     Sqrt,
     /// Value-only absolute value.
@@ -21,8 +19,6 @@ pub enum Function {
     Sin,
     /// Cosine.
     Cos,
-    /// Tangent.
-    Tan,
     /// Guarded minimum.
     Min,
     /// Guarded maximum.
@@ -54,8 +50,6 @@ pub enum UnaryFunction {
     Exp,
     /// Natural logarithm.
     Log,
-    /// Base-ten logarithm.
-    Log10,
     /// Real square root.
     Sqrt,
     /// Value-only absolute value.
@@ -64,8 +58,6 @@ pub enum UnaryFunction {
     Sin,
     /// Cosine.
     Cos,
-    /// Guarded tangent.
-    Tan,
 }
 /// Actual exhaustive handler, also projected into generated capability metadata.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,12 +88,10 @@ impl Function {
         match self {
             Self::Exp => Implementation::Unary(UnaryFunction::Exp),
             Self::Log => Implementation::Unary(UnaryFunction::Log),
-            Self::Log10 => Implementation::Unary(UnaryFunction::Log10),
             Self::Sqrt => Implementation::Unary(UnaryFunction::Sqrt),
             Self::Abs => Implementation::Unary(UnaryFunction::Abs),
             Self::Sin => Implementation::Unary(UnaryFunction::Sin),
             Self::Cos => Implementation::Unary(UnaryFunction::Cos),
-            Self::Tan => Implementation::Unary(UnaryFunction::Tan),
             Self::Min => Implementation::Extremum { minimum: true },
             Self::Max => Implementation::Extremum { minimum: false },
             Self::Convert | Self::Broadcast => Implementation::Unavailable,

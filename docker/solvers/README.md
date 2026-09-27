@@ -40,8 +40,8 @@ header of [`build.sh`](./build.sh) and recorded as ADR-0028.
 | `ci` | `solvers` + build-essential, git, curl, pkg-config, `libclang-dev` (bindgen), python3, `uv` 0.12.13 with managed CPython 3.11/3.12/3.13 | every CI job that compiles or solves |
 | `dev` | `ci` + rustup at the pinned toolchain, `cargo-binstall`, `just`, `cargo-nextest`; `UV_PYTHON_DOWNLOADS=automatic` | `.devcontainer`, local shells |
 
-The three CPythons baked into `ci` are the **parity matrix** (3.11-3.13, the
-range `idaes-pse==2.12.0` supports), not the platform interpreter: `.python-version`
+The three CPythons baked into `ci` are the **image parity matrix** (3.11-3.13).
+The current IDAES 2.13.0 preflight uses Python 3.13; the platform interpreter is separate: `.python-version`
 asks for 3.14.7, which nothing in the image provides. CI is hermetic
 (`UV_PYTHON_DOWNLOADS=never`), so a CI job must never need 3.14; the `dev` stage
 flips that one variable to `automatic` so `just bootstrap` inside the

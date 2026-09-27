@@ -1,7 +1,7 @@
 ---
 title: Public native model and result workflow
 status: implemented
-date: 2026-09-24
+date: 2026-09-27
 ---
 
 # Native workflow
@@ -16,6 +16,57 @@ contract tests establish the boundaries below. The architecture owners are
 current qualification basis is
 [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
 
+## Source modeling operations
+
+`Runtime.modeling_from_documents(bundles, physical)` admits an explicit closure of package
+source maps, including `.pse` definitions, cases and tests. Each manifest declares its
+dependencies and package-scoped quantity aliases against the admitted physical context. The resulting `ModelingPackage` uses the same
+compiled definition for steady solving, integrated time simulation and simultaneous
+discretization. Native capabilities are supplied explicitly by the Rust composition root;
+source strings do not instantiate external implementations.
+
+| Operation | Result meaning |
+|---|---|
+| `solve_case` | Original native outcome plus independent source checks, closure and reports |
+| `initialize` | Ordered immutable stage/homotopy attempts; only an accepted final original specification commits values |
+| `study` | Isolated case outcomes and explicit accepted-predecessor dependencies |
+| `simulate` | Native trajectory, actual termination and checks at requested sample times |
+| `diagnose` / `diagnose_samples` | Bounded structural and numerical findings at declared points; missing free values remain missing |
+| `diagnose_linear` | HiGHS IIS, rays, ranging and explicitly penalized relaxation of an affine model |
+| `diagnose_jacobian` | LP/MILP evidence about local scaled-Jacobian dependence |
+| `explain_nonlinear` | Bounded elastic deletion evidence under unchanged bounds; local obstruction and inconclusive outcomes remain distinct |
+| `conform` | Data-authored fixtures receive the shared preparation, DoF, derivative, envelope, start-to-solve, closure and expectation checks |
+
+Result handles and their `table()` exports own their data independently of the source
+package. Generated `runtime.modeling_*` relations retain semantic coordinates and attempt
+identities. Diagnostic Jacobians retain row and variable nominals alongside their scaled
+singular vectors. Nonfinite candidate values retain explicit infinity/indeterminate tags;
+they are never replaced by zero. Diagnostic points cannot change fixed or parameter values consumed by
+compilation; prepare another case for those changes. A sample may supply a previously
+missing free coordinate. Numerical solve admission still requires complete finite starts.
+
+`ModelingEventSettings` selects source guard and reset expressions. `ModelingModeSettings`
+selects Boolean facts, such as an authored stage, while keeping the physical state,
+parameter and output layouts fixed. Event handling belongs to the native integrator.
+The mode recorded at a coincident sample is the mode after the reset. Sampled source
+checks do not certify the intervals between samples; a native completed trajectory can
+still fail a source check. Definite integrals become available only at the declared
+terminal point; future-dependent trial equations require simultaneous realization.
+
+Native diagnostic evidence has narrower scope than a model solve. A discrete model's
+IIS concerns its continuous relaxation. Jacobian dependence is local to the recorded
+point and scaling. Positive slack at a local stationary nonlinear solution does not
+prove global infeasibility. HiGHS feasibility relaxation returns an operation code and
+a separate candidate/weighted penalty; the restored original model status is labelled
+separately. Ranging represents finite, infinite and indeterminate limits explicitly.
+
+Pure local Rust checks use `CompilerWorkspace::check_modeling_expectations` after publishing
+the source declarations into a workspace with the actual physical inputs. This path applies
+authored fixture values and explicit candidate overrides, returns physical comparisons, and
+constructs no runtime or native solver. External and nested capabilities require the workflow
+harness. Python `ModelingPackage.conform` and `python -m pse.conformance` run that full harness;
+their oracle references identify the authored assertion, not a live upstream execution.
+
 ## Declare and prepare
 
 `pse_runtime::workflow::Runtime::from_shared` borrows a deployment's existing
@@ -23,87 +74,53 @@ current qualification basis is
 independent resource budget. Python `pse.Runtime(EngineSettings(...))` shares
 those owners with `pse.open`; settings must agree with the process's first runtime.
 
-`authored.computation_models` is the generated declaration authority. Its model,
-definition, lexical domain/group and selected-case rows retain authored DSL source,
-physical identities, fixed/free declarations, instance bindings, row intervals,
-objective sense and values. Rust aliases and Python `pse.modeling` aliases refer
-to generated DTOs; neither introduces a mathematical intermediate representation.
-Package documents use `computation_models/*.yaml` with a `computation_models`
-section. They pass through the existing native document loader into the same
-builder admission used by typed calls. Legacy template pipelines are not invoked
-implicitly by this frontdoor.
+`authored.modeling_declarations` is the generated generic declaration authority.
+`models/*.pse` is the primary authoring surface. Document loading, direct generated
+rows and immutable edits all reach the same checked package. The old computation-model,
+scientific YAML and template builders have been removed.
 
-Physical contexts come from `PhysicalInventory` or
-`Runtime.physical_from_documents`. The latter takes a complete package-relative
-source mapping including `package.toml`. Production has no implicit test catalog:
-physical meanings, operations, prerequisites and unit conversions come from actual
-admitted rows, retained for publication. The fixture currency catalog is never a
-default. Multi-package Rust callers can assemble an `OwnedDocumentSet` through the
-existing accounted package loader before physical admission.
+Physical contexts come from `PhysicalInventory` or `Runtime.physical_from_documents`.
+Production has no implicit test catalogue: quantities, operations, prerequisites and units
+come from admitted source rows retained for publication. The fixture currency catalogue is
+not a default. Package manifests bind quantity aliases; imports require the declared exact
+package closure. Failed admission leaves earlier package revisions usable.
 
-Rust `ModelBuilder::freeze` and Python `ModelBuilder.freeze()` produce immutable
-revisions. `edit()` creates an independent draft. Failed admission does not mutate
-an earlier revision. Preparation atomically selects a revision's inputs and computes
-its products under the existing compiler lock; revisions share derived Salsa caches,
-not mutable native solver objects.
-
-Python's mechanical sequence is:
+The Python sequence, with application-supplied source maps and a semantic case ID, is:
 
 ```python
-runtime = pse.Runtime(settings)
+runtime = pse.Runtime(engine_settings)
 physical = runtime.physical_from_documents(physical_documents)
-revision = runtime.from_declaration(generated_model_row, physical).freeze()
-prepared = revision.prepare(
+package = runtime.modeling_from_documents(package_bundles, physical)
+prepared = package.prepare_solve(
     case_id,
-    pse.SolveSettings(
-        intent="optimize",
-        backend="auto",
-        variable_tolerances=variable_tolerances,
-        row_tolerances=row_tolerances,
-    ),
-    coefficients=False,
+    pse.SolveSettings(intent="optimize", backend="auto"),
 )
 job = prepared.start()
-result = job.wait()  # alternatively: await job.wait_async()
+result = job.wait()  # or: await job.wait_async()
 ```
 
-Physical tolerance and numerical scaling vectors follow canonical semantic-ID
-order, excluding fixed variables. Row tolerances remain in each row's physical
-quantity. Coefficient projection is explicit; requesting it for an unsupported
-expression fails rather than silently choosing another representation. `route`
-reports the admitted case route. `capabilities()` reports libraries linked into the
-binary; a linked library is not evidence that every model is eligible for it.
+Use `intent="root"` for square equalities without an objective, `"optimize"` for an
+authored objective, or an explicitly selected supported feasibility intent. Physical
+numerical requirements follow the selected semantic coordinate order. Native inventory
+from `capabilities()` does not establish contextual eligibility. Preparation shares
+immutable compiler products, never a mutable solver.
 
-The Python algebraic frontdoor exposes native optimization, square root/initialization
-intent, explicit feasibility, finite sequences, common controls and native options.
-Rust's `Runtime::native()` additionally exposes the existing typed cone, conditional
-block initialization, flow/tear and declared-map services. Rust `ModelBuilder::provider` accepts typed native factories. The generated
-`NativeProviderDeclaration` selects the durable `feos-light-hydrocarbons` factory
-in Rust or Python; Python numerical callbacks are not admitted. Dynamic and fitting
-models use generated declarations through the builder. Arbitrary cone and flowsheet
-construction remains in the typed Rust services.
+`package.with_declarations(...)`, `.with_limits(...)` and `.with_fit_data(...)` create
+independent immutable views. Limits bound expansion and retained work; raising one does
+not change physical admission or truncate a model. External capabilities are registered
+by the Rust composition root, not constructed from source strings or Python callbacks.
 
 ## Dynamics and fitting
 
-`pse.modeling.DynamicDeclaration`, `FitDeclaration` and `NativeProviderDeclaration`
-are aliases of schema-generated contracts. A builder's `dynamics`, `fit`,
-`native_provider`, `dataset` and `observation` methods retain them in its immutable
-source envelope. `edit()` preserves these rows. Package documents use the corresponding
-`dynamic_cases`, `fit_cases`, `native_providers`, `datasets` and `observations`
-sections; ordinary source admission still applies.
-
-A dynamic declaration names an existing case, time parameter, free continuous state
-variables, initial output rows, RHS rows per mode, selected parameter coordinates,
-outputs and optional root/reset declarations. The mass is exactly diag(I,0), fixed
-across all modes. Initial functions depend only on time and parameters. Differential
-RHS quantities must be registered time derivatives of their state quantities.
-Canonical state offsets/scales, algebraic residual scales and elapsed time in seconds
-are distinct from declared port units. Complete algebraic structural matching is
-necessary; numerical consistency still belongs to Diffsol.
+The same source definition selects integrated or simultaneous analysis. Integrated
+preparation derives states, rates, algebraic rows, initial conditions and outputs from
+continuous declarations. Diffsol/IDAS own stepping and consistency for the supported
+fixed `diag(I,0)` ODE/index-1 profile. Authored finite-difference and Radau schemes lower
+to ordinary algebraic cases for simultaneous time or spatial analysis.
 
 ```python
-simulation = revision.prepare_simulation(
-    dynamic_id,
+simulation = package.prepare_simulation(
+    case_id,
     pse.SimulationSettings(
         start=0.0, end=10.0, samples=[0.0, 5.0, 10.0],
         atol=state_tolerances, parameter_scales=parameter_scales,
@@ -113,58 +130,46 @@ simulation = revision.prepare_simulation(
 result = simulation.start().wait()
 ```
 
-`atol` follows normalized state order; `parameter_scales` follows the declaration's
-selected parameter order. Profiles bound steps, events, output cells and wall time.
-`SimulationSettings.to_json()`/`from_json()` retain all pinned native initialization
-and ODE options as well as scheduled parameter changes. Unknown fields and invalid
-controls fail admission. `capabilities()` advertises Diffsol only when linked.
+State tolerances apply to normalized coordinates. Parameters, time origin, horizon,
+quadrature tolerances, events and modes are explicit. Native limits bound steps, output
+cells and time. Unsupported index structure, hybrid IDAS sensitivities or noncausal
+integrated expressions refuse. Completed samples survive a later failure. State/output
+sensitivities may coexist with terminal quadratures; integral sensitivities are unavailable.
+Authored checks apply at the recorded samples and do not establish validity between them.
 
-Diffsol owns BDF, consistent initialization, root location and interpolation. Events
-rewind to the located time, apply reset/mode and coincident input changes, then
-reinitialize before sampling. Simultaneous actionable roots are refused. Smooth
-forward sensitivities include initial and direct output parameter terms; they reject
-roots/resets/input discontinuities. General implicit DAE, hybrid gradients and adjoints
-are outside this profile. Completed output survives a later failed integration.
+A generated `authored.fit_cases` row binds shared parameters and experiment/output
+source paths to admitted observations and datasets. Add them with `with_fit_data` or
+load their document sections. `package.prepare_fit(fit_id, settings, simulations=...)`
+uses the existing sparse fitting owner. Steady experiments retain original equations;
+transient experiments integrate inline under the outer job, using limited-memory Hessians.
+Mixed experiments share the same parameter vector. Included observations need a finite
+physical value, positive uncertainty and importance. The loss is
+`0.5 * sum(importance * ((prediction - observation) / std_dev)**2)`.
 
-Rust's `ModelBuilder::vessel(VesselRecipe)` is a declaration recipe for fixed-composition
-conserved amount/internal energy with algebraic temperature, density and pressure.
-It uses the same FeOS factory and expression compiler. Its documented role map
-requires explicit physical ports, operation contracts, values and positive scales;
-optional valve outflow requires the positive pressure-drop domain. The recipe is
-implemented and exercised by the native conformance process tests.
+Original physical checks, bounds and fixed case values remain active through fitting.
+Response derivatives and bounded faer rank diagnostics are local observations; rank or
+convergence alone does not imply covariance, global identifiability or a qualified estimate.
+The PC-SAFT vessel and its steady/transient/mixed fitting fixtures are authored package data.
 
-A fit declaration binds shared fixed/free parameters, steady or dynamic experiments
-and existing observation IDs. Included observations require finite physical values,
-positive standard deviations and positive dimensionless importance. The loss is
-`0.5 * sum(importance * ((prediction - observation) / std_dev)**2)`. Point unit
-conversion includes offsets; standard-deviation conversion does not. Excluded
-observations retain identity but have no requested prediction/loss. Observation
-`time` is elapsed simulation seconds, separate from acquisition timestamps.
+## Conformance policies
 
-`revision.prepare_fit(fit_id, solve_settings, simulations=...)` accepts ordinary
-native NLP controls and a mapping from dynamic experiment IDs to
-`SimulationSettings`. Use limited-memory Hessians whenever a transient experiment
-is present. Ipopt and POUNCE consume the same oracle/presolve pipeline; integrations
-run inline under the outer job. Exact steady Hessians use compiled local second
-derivatives plus faer products. Shared free parameters appear first in declaration
-order, followed by each steady experiment's canonical free-variable order. Variable
-and row tolerance/scaling vectors follow that assembled layout. Required unsupported
-presolve passes fail; all-fixed fits evaluate directly and cannot apply native passes.
+The shared harness discovers all authored tests and reports coverage, preparation, DoF,
+derivatives, envelopes, native execution, original checks and expectations. Pure fixtures
+can run without solver services through `ModelingConformance.pure`. Oracle text identifies
+the reference supporting the authored expectation; it does not execute an upstream tool.
 
-Reported responses are physical partials. A steady experiment needs a feasible,
-regular square equality closure for an implicit response; otherwise that diagnostic
-is unavailable while the fitting result is retained. faer SVD reports local rank of
-the uncertainty/importance-weighted observation response with declared parameter
-scales. This is not covariance, confidence intervals or global identifiability.
+One run can apply explicit `fixture_policies` keyed by fixture semantic ID. A
+`ModelingFixturePolicy` supplies optional `SolveSettings` and an optional complete derivative
+inspection policy (`derivative_step`, `derivative_tolerance`, `derivative_cells`). Solver
+settings otherwise inherit the run default. If any derivative field is supplied, omitted
+fields use the constructor defaults; omit all three to inherit the run derivative policy.
+Unknown fixture IDs and invalid numerical policies refuse before execution. No policy
+changes scientific declarations or expected outcomes.
 
-Dynamic/fit results use `runtime.computation_runs`, `simulation_samples`,
-`simulation_events`, `response_sensitivities`, `fit_parameters`, `fit_variables`,
-`fit_constraints` and `fit_observations`, plus the existing `runtime.solve_metrics`
-(all result names carry the `runtime.` prefix). Fitting state/constraint rows preserve
-original experiment/source IDs, units, bounds and tolerances. Native termination,
-fresh physical quality and diagnostic availability stay separate. Native options,
-progress and presolve receipts use the ordinary solver encoder. Exact source rows
-and physical declarations are retained for the same publication workflow below.
+The report retains every discovered fixture independently of its detailed row cap.
+`complete=False`, inconclusive, cancelled and unattempted results cannot pass. Results,
+initialization histories, trajectories and structured findings survive parent-handle drops.
+A filtered focused run does not prove complete package coverage.
 
 ## Transformation and result meaning
 
@@ -248,26 +253,17 @@ fixture generation, measurement conditions and the functional-before-performance
 
 ## Physical contracts
 
-A native FeOS provider declaration includes a finite `envelope` for temperature,
-density, pressure and three ordered component fractions plus provenance. Pressure
-is checked from the same state even when it is not an output request. NPT guesses
-also obey the declared window. Outside-window trial failures remain recoverable;
-an operating declaration is not an empirical accuracy certificate.
+Quantity compatibility includes basis, datum, point/difference scale, subject and shape.
+Scientific packages declare phases, components, equations and validity as generic data.
+Original guards survive simplification and differentiation. Nested realizations retain
+branch selection and refuse unproved derivative crossings; local tests do not certify
+global stability or empirical property accuracy.
 
-`ModelBuilder.balance(...)` accepts the generated physical-balance declaration.
-Use typed inlet/outlet/generation/consumption/work/internal-transfer roles over source
-outputs; the compiler derives the equation. Do not author a second balance row.
-Internal transfers require matching opposite contributions. Dynamic declarations
-bind a conserved state to its balance in every mode; optional term mode selectors
-express changed physical fluxes. State reset impulses require explicit event IDs.
-
-`SimulationSettings` requires `out_rtol` and one `out_atol` per conserved balance
-when balances are present. Diffsol controls these integrated physical flux errors
-separately from state tolerances. `runtime.physical_checks` exposes closure, canonical
-unit, tolerance, nullable acceptance, errors and declaration provenance for solves,
-simulation and fitting. Read it alongside native status and mathematical feasibility.
-The same generated sources/results survive exact publication; the native process
-tests exercise publication and reopening.
+Generic accumulators collect signed original contributions. Conservation closure is
+independent of native feasibility, and arbitrary failed authored checks cannot be waived
+by a policy allowing unavailable closure. Read `runtime.modeling_checks`, structured
+findings and candidate assessments alongside solver termination. Publication retains the
+same source documents, generated declarations and result contracts.
 
 Build caching, persistent native prefixes and experimental nightly commands are documented
 in [Rust build reuse](build-performance.md).

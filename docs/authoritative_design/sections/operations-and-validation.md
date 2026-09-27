@@ -154,7 +154,7 @@ design-change tracking are owned by
 | Conformance | `tests/conformance` | `pse.canon.v2` properties (layout, null payload, signed zero, encoding round trips) and generated invariant fixtures |
 | Lifecycle | `tests/lifecycle` | interrupted Delta publication leaves the old or the committed state; canonicalization, query and result memory budgets |
 | Python | `python/pse/tests` | the native Python boundary: generated contracts, extension round trips, extra-key refusal, nullable-array refusal, workflows, publication streams |
-| Parity | `python/pse/parity` | the IDAES 2.12.0 environment and the exercised compatibility names ([ADR-0003](../../adr/0003-clean-room-relationship-and-parity-pin.md)) |
+| Parity | `python/pse/parity` | the IDAES 2.13.0 environment, authored compatibility enumerations and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
 
 `tests/structural` currently contains only a placeholder; structural algorithms are
 tested in their owning crates. Scientific checks compare against analytic, exhaustive or
@@ -191,7 +191,7 @@ and exclusions without executing anything. See the
 
 ### 24.2 Current qualification basis
 
-The current implementation's most recent completed qualification is the local Linux
+The most recent completed qualification covered the preceding implementation: local Linux
 qualification and case measurements of 2026-09-25/26, followed by the maintainer's
 independent review, which confirmed a satisfactory outcome. The retired execution
 record is available at an immutable commit:

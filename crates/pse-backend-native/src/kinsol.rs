@@ -831,19 +831,19 @@ impl Session {
                             match observation {
                                 Ok(o) => report.observation = Some(o),
                                 Err(e) => {
-                                    report.validation_error = Some(e.to_string());
+                                    report.record_validation_failure(e);
                                     report.termination.assurance = Assurance::None;
                                 }
                             }
                         }
                         Err(e) => {
-                            report.validation_error = Some(e.to_string());
+                            report.record_validation_failure(e);
                             report.termination.assurance = Assurance::None;
                         }
                     }
                 }
                 Err(e) => {
-                    report.validation_error = Some(e.to_string());
+                    report.record_validation_failure(e);
                     report.termination.assurance = Assurance::None
                 }
             }

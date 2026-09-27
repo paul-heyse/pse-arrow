@@ -65,6 +65,12 @@ molar basis, cancels that basis in the result, and retains the enthalpy datum.
 
 The extensive component-flow `SumOver` contraction explicitly selects a species axis. A phase reduction is a different structural operation; failed physical preconditions cannot select another operation implicitly.
 
+The stock caloric derivative contracts divide an enthalpy **difference** at the
+declared 1 bar datum by a temperature difference to obtain molar heat capacity.
+The operation checks both complete input contracts before removing the enthalpy
+datum from the result. It does not authorize dividing an enthalpy point or a
+foreign reference by a temperature interval.
+
 Element projection records explicitly distinguish elemental amount flow from
 species amount flow. The coefficient for a molar input is the actual atom count
 (mol of element per mol of species); for a mass input it is that count divided by
@@ -73,3 +79,52 @@ are the elemental conservation identities in blueprint §10, not fitted scientif
 coefficients. The registered multiplication operations check each input's full
 quantity contract and produce the declared Element/molar result. Intermediate
 indexed types preserve every explicit broadcast and Species/Phase reduction.
+
+Caloric normalization is declared explicitly for the stock heat-capacity contract
+and enthalpy/entropy differences. Equal dimensions alone do not authorize
+these ratios. Enthalpy and entropy normalization accept differences with one common admitted
+reference, retaining the prototype's kind, basis and subject constraints; it rejects
+mixed references and points. This is not a datum conversion.
+The enthalpy derivative operation likewise requires the stock enthalpy difference
+and a temperature difference. Point enthalpy and a foreign datum are rejected.
+
+The homogeneous-phase total molar density has no component subject. Component
+amount, total density and absolute-pressure normalization each require their
+selected complete contracts before producing a neutral mathematical coordinate.
+These operations do not grant dimension-based relabeling to other quantities.
+
+Temperature-scale, temperature-difference and mole-fraction ratios likewise require
+their declared contracts. Smoothing normalizes a temperature difference by its
+positive difference width, then restores that width before adding to an affine point.
+It does not require an artificial squared-temperature quantity.
+
+The BTIdeal oracle has a separate formation-inclusive enthalpy datum at 300 K and
+1 bar. Its point and difference types cannot be used as stock sensible enthalpy.
+The seed binding owns the explicit component-dependent reference shift using its
+source formation values and ideal-gas caloric increments.
+
+The BT_PR oracle separately declares formation-inclusive enthalpy and entropy at
+298.15 K and 101325 Pa. Its source values are never labeled as stock sensible
+properties. Authored conversion uses component reference values and the ideal-gas
+entropy pressure correction.
+
+Finite sums retain the consumed entity kind after scalar enumeration. The component
+flow and concentration contractions consume `species` and produce a total with no
+component subject. Their prerequisites compare physical axes independently of the
+enumerated shape; the reduction itself checks the domain and remaining free indices.
+Empty and fully filtered sets retain the same prototype checks.
+
+Registered operations may have disjoint complete-contract prerequisites for the same
+operand kinds. Exactly one proved declaration must apply; overlap and failure of all
+prerequisites are refusals. This admits absolute-pressure and pressure-difference
+normalization separately, and component versus total concentration separately, without
+allowing cross-contract ratios. Reaction coefficients and volumetric rates have explicit
+SI dimensions and reaction subjects. Signed reaction heat has a natural zero independent
+of a species enthalpy datum.
+
+`smooth_min_over` folds the existing two-value smooth minimum over a nonempty set of
+ports in admitted membership order. The smoothing width is a positive difference
+quantity. A singleton returns its value; an empty selection refuses because no physical
+minimum exists. `fold(acc, value; i in members | input[i]; step)` binds `acc` and `value`
+only in the step and checks the step's complete output type. Library differentiation
+operates on the resulting shared expression bindings.

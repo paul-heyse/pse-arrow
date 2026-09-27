@@ -1,98 +1,71 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Consumed semantic compilation contracts (blueprint §6.15, ADR-0062–0064).
+//! Generic physical operation prerequisites and explicit mathematical context.
+use super::declarations::{column,enumeration,relation};
+use crate::{RegistryBuilder,model::{FieldContract as T,Namespace as N,SnapshotClass as S}};
 
-mod configuration;
-pub(super) mod conservation_values;
-mod elements;
-mod kernel_methods;
-mod law_contracts;
-mod material_constraints;
-mod methods;
-mod ports;
-mod source_definitions;
-mod source_occurrences;
-mod symbol_contracts;
-
-use super::declarations::{column, enumeration, relation};
-use crate::RegistryBuilder;
-use crate::model::{
-    ExtensionUse, FieldContract, FieldContract as T, Namespace as N, SnapshotClass as S,
-};
-
-/// Declare contracts before normalized copies, documents, invariants and passes.
-pub fn declare(builder: &mut RegistryBuilder) {
-    configuration::declare(builder);
-    elements::declare(builder);
-    kernel_methods::declare(builder);
-    material_constraints::declare(builder);
-    methods::declare(builder);
-    conservation_values::declare(builder);
-    law_contracts::declare(builder);
-    ports::declare(builder);
-    symbol_contracts::declare(builder);
-    source_occurrences::declare(builder);
-    source_definitions::declare(builder);
-}
-
-/// The one physical shape of a configuration value, admitted by its explicit tag.
-pub fn config_value_type() -> T {
-    let scalar = |name: &str, value: T| {
-        T::structure(vec![value.with_name("value")])
-            .with_name(name)
-            .optional()
-    };
-    let arms = vec![
-        scalar("boolean", T::native(arrow_schema::DataType::Boolean)),
-        scalar("signed", T::native(arrow_schema::DataType::Int64)),
-        scalar("unsigned", T::native(arrow_schema::DataType::UInt64)),
-        scalar("real", T::native(arrow_schema::DataType::Float64)),
-        scalar("text", T::native(arrow_schema::DataType::Utf8)),
-        scalar("semantic_id", T::id()),
-        T::structure(vec![
-            T::id().with_name("enum_id"),
-            T::native(arrow_schema::DataType::Utf8).with_name("member"),
-        ])
-        .with_name("enumeration")
-        .optional(),
-        scalar("index", index()),
-        T::extended(ExtensionUse::QuantityValue)
-            .with_name("quantity")
-            .optional(),
-    ];
-    let alternative = crate::model::TaggedAlternative::new(
-        "kind",
-        arms.iter().map(|arm| {
-            let tag = if arm.name() == "enumeration" {
-                "enum"
-            } else {
-                arm.name()
-            };
-            (tag.to_owned(), arm.name().to_owned())
-        }),
+/// Declare physical prerequisites consumed by quantity checking.
+pub fn declare(builder:&mut RegistryBuilder){
+    relation(
+        builder,
+        N::Reference,
+        "quantity_operation_reductions",
+        S::Model,
+        &["operation_id"],
+        vec![
+            column("operation_id", T::id())
+                .with_fk("reference.quantity_operations", "operation_id"),
+            column("domain_kind", T::id()),
+        ],
+        "Exact structural dispatch domain for a registered reduction; physical precondition failure never permits a fallback.",
     );
-    let mut fields = vec![T::enumeration("ConfigValueKind").with_name("kind")];
-    fields.extend(arms);
-    T::structure(fields).with_alternative(&alternative)
-}
+    enumeration(
+        builder,
+        "QuantityPreconditionKind",
+        [
+            "equal_operand_bases",
+            "operand_quantity_contract",
+            "same_reference_differences",
+        ],
+    );
+    relation(
+        builder,
+        N::Reference,
+        "quantity_preconditions",
+        S::Model,
+        &["invariant_id"],
+        vec![
+            column("invariant_id", T::id()),
+            column("kind", T::enumeration("QuantityPreconditionKind")),
+            column(
+                "operand_positions",
+                T::list(T::nonnegative(i64::from(u16::MAX))),
+            ),
+            column("required_basis_id", T::id())
+                .optional()
+                .with_fk("reference.bases", "basis_id"),
+            column("required_quantity_type_id", T::id())
+                .optional()
+                .with_fk("reference.quantity_types", "quantity_type_id"),
+            column("match_shape", T::native(arrow_schema::DataType::Boolean)).optional(),
+        ],
+        "Operation preconditions proved from exact operand contracts at application time, never by invariant identity alone.",
+    );
 
-fn index() -> T {
-    T::extended(ExtensionUse::IndexTuple)
-}
-
-fn derivation() -> FieldContract {
-    FieldContract::provenance("derivation_id", T::id(), "Exact source derivation.")
-}
-
-fn derived(
-    builder: &mut RegistryBuilder,
-    namespace: N,
-    name: &'static str,
-    keys: &[&'static str],
-    mut columns: Vec<FieldContract>,
-    doc: &'static str,
-) {
-    columns.push(derivation());
-    relation(builder, namespace, name, S::Derived, keys, columns, doc);
+    relation(
+        builder,
+        N::Reference,
+        "math_context",
+        S::Model,
+        &["package_id"],
+        vec![
+            column("package_id", T::id()).with_fk("authored.packages", "package_id"),
+            column("neutral_quantity_type_id", T::id())
+                .with_fk("reference.quantity_types", "quantity_type_id"),
+            column("boolean_kind_id", T::id())
+                .with_fk("reference.quantity_kinds", "quantity_kind_id"),
+        ],
+        "Explicit physical context for canonicalization; no dimensional guessing.",
+    );
 }

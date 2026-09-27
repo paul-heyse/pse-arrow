@@ -8,29 +8,6 @@
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
-pub struct ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem {
-    ///path
-    pub r#path: String,
-    ///syntax
-    pub r#syntax: crate::generated::enums::ExpressionSyntax,
-}
-impl crate::SemanticEq for ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem {
-    fn semantic_eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
-            && crate::SemanticEq::semantic_eq(&self.r#syntax, &other.r#syntax)
-    }
-}
-impl PartialEq for ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem {
-    fn eq(&self, other: &Self) -> bool {
-        crate::SemanticEq::semantic_eq(self, other)
-    }
-}
-/// A row or nested value projected from the registry declaration.
-#[allow(
-    clippy::struct_field_names,
-    reason = "field names are the authoritative relation contract"
-)]
-#[derive(Clone, Debug)]
 pub struct ReferenceSchemaDocumentSectionsRow {
     ///Owning document declaration.
     pub r#document_name: String,
@@ -50,16 +27,8 @@ pub struct ReferenceSchemaDocumentSectionsRow {
     pub r#name_column: Option<String>,
     ///Owning entity foreign key.
     pub r#naming_scope_column: Option<String>,
-    ///Explicit source expression owner.
-    pub r#expression_owner_column: Option<String>,
-    ///Explicit expression ownership alternative.
-    pub r#expression_owner_kind: Option<crate::generated::enums::ExpressionOwnerKind>,
     ///Section meaning.
     pub r#doc: String,
-    ///Complete exact DSL field grammar mapping.
-    pub r#expression_fields: Vec<
-        ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem,
-    >,
 }
 impl crate::SemanticEq for ReferenceSchemaDocumentSectionsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -77,19 +46,7 @@ impl crate::SemanticEq for ReferenceSchemaDocumentSectionsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#naming_scope_column,
                 &other.r#naming_scope_column,
-            )
-            && crate::SemanticEq::semantic_eq(
-                &self.r#expression_owner_column,
-                &other.r#expression_owner_column,
-            )
-            && crate::SemanticEq::semantic_eq(
-                &self.r#expression_owner_kind,
-                &other.r#expression_owner_kind,
             ) && crate::SemanticEq::semantic_eq(&self.r#doc, &other.r#doc)
-            && crate::SemanticEq::semantic_eq(
-                &self.r#expression_fields,
-                &other.r#expression_fields,
-            )
     }
 }
 impl PartialEq for ReferenceSchemaDocumentSectionsRow {
@@ -99,21 +56,6 @@ impl PartialEq for ReferenceSchemaDocumentSectionsRow {
 }
 /// The concrete generated relation row.
 pub type Row = ReferenceSchemaDocumentSectionsRow;
-impl crate::SemanticFrame for ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem {
-    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
-        hash.str(stringify!(r#path));
-        crate::SemanticFrame::frame(&self.r#path, hash);
-        hash.str(stringify!(r#syntax));
-        crate::SemanticFrame::frame(&self.r#syntax, hash);
-    }
-}
-impl crate::HeapUsage for ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem {
-    fn heap_bytes(&self) -> usize {
-        0usize
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#syntax))
-    }
-}
 impl crate::SemanticFrame for ReferenceSchemaDocumentSectionsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#document_name));
@@ -134,14 +76,8 @@ impl crate::SemanticFrame for ReferenceSchemaDocumentSectionsRow {
         crate::SemanticFrame::frame(&self.r#name_column, hash);
         hash.str(stringify!(r#naming_scope_column));
         crate::SemanticFrame::frame(&self.r#naming_scope_column, hash);
-        hash.str(stringify!(r#expression_owner_column));
-        crate::SemanticFrame::frame(&self.r#expression_owner_column, hash);
-        hash.str(stringify!(r#expression_owner_kind));
-        crate::SemanticFrame::frame(&self.r#expression_owner_kind, hash);
         hash.str(stringify!(r#doc));
         crate::SemanticFrame::frame(&self.r#doc, hash);
-        hash.str(stringify!(r#expression_fields));
-        crate::SemanticFrame::frame(&self.r#expression_fields, hash);
     }
 }
 impl crate::HeapUsage for ReferenceSchemaDocumentSectionsRow {
@@ -156,11 +92,6 @@ impl crate::HeapUsage for ReferenceSchemaDocumentSectionsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#entity_kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name_column))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#naming_scope_column))
-            .saturating_add(
-                crate::HeapUsage::heap_bytes(&self.r#expression_owner_column),
-            )
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expression_owner_kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expression_fields))
     }
 }

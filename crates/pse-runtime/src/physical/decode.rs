@@ -8,7 +8,7 @@ use crate::physical::PhysicalError;
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_quantity::{
-    Basis, BasisId, ConversionId, ConversionRule, DimensionVector, InputConversion, InvariantId,
+    EntityKind, EntityKindId, Basis, BasisId, ConversionId, ConversionRule, DimensionVector, InputConversion, InvariantId,
     OperationId, QuantityKind, QuantityKindId, QuantityOperation, QuantityRegistry,
     QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReferenceState,
     ReferenceStateId, Unit, UnitId, UnitSet, UnitSetId,
@@ -18,7 +18,7 @@ use pse_relations::{
     generated::{extension_values, reference as r},
 };
 use pse_schema::{Registry, model::RelationKey};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[expect(
     clippy::too_many_lines,
@@ -31,6 +31,7 @@ pub(super) fn inventory(
     context: Option<(SemanticId, SemanticId)>,
 ) -> Result<(QuantityRegistry, Option<QuantityKindId>), PhysicalError> {
     let mut builder = QuantityRegistryBuilder::new();
+    let mut entities = BTreeSet::new();
     macro_rules! rows {
         ($relation:ident, $row:ident, $body:block) => {
             if let Some(spec) = registry.relation_by_id(r::$relation::RELATION_ID)
@@ -44,6 +45,23 @@ pub(super) fn inventory(
                 }
             }
         };
+    }
+    {
+        use pse_relations::generated::authored::modeling_declarations as declarations;
+        use pse_model::generated::enums::ModelingDeclarationKind;
+        if let Some(spec) = registry.relation_by_id(declarations::RELATION_ID)
+            && let Some(batch) = batches.get(&spec.key)
+        {
+            let view=declarations::View::from_checked(batch)?;
+            for index in 0..view.len() {
+                cancel.checkpoint()?;
+                let row=view.row(index)?;
+                if row.value.kind == ModelingDeclarationKind::Entity { entities.insert(row.declaration_id); }
+                if row.value.kind == ModelingDeclarationKind::EntityKind {
+                    builder.entity_kind(EntityKind{id:EntityKindId::from_id(row.declaration_id),name:row.name});
+                }
+            }
+        }
     }
     rows!(units, row, {
         builder.unit(Unit {
@@ -73,13 +91,17 @@ pub(super) fn inventory(
         });
     });
     rows!(reference_states, row, {
+        if let Some(subject) = row.subject_id
+            && !entities.contains(&subject) {
+            return Err(invalid(format!("reference state {} subject {subject} is not an authored entity", row.reference_state_id)));
+        }
         builder.reference_state(ReferenceState {
             id: ReferenceStateId::from_id(row.reference_state_id),
             kind: row.kind,
             temperature: row.temperature,
             pressure: row.pressure,
             include_enthalpy_of_formation: row.include_enthalpy_of_formation,
-            phase: row.phase_id,
+            subject: row.subject_id,
         });
     });
     rows!(quantity_kinds, row, {
@@ -107,8 +129,8 @@ pub(super) fn inventory(
                 basis: row.basis_id.map(BasisId::from_id),
                 reference_state: row.reference_state_id.map(ReferenceStateId::from_id),
                 scale_kind: row.scale_kind,
-                shape: row.shape,
-                subject_kind: row.subject_kind,
+                shape: row.shape.into_iter().map(EntityKindId::from_id).collect(),
+                subject_kind: row.subject_kind.map(EntityKindId::from_id),
             },
             canonical_unit: UnitId::from_id(row.canonical_unit_id),
             nominal_magnitude: row.nominal_magnitude,
@@ -166,7 +188,7 @@ pub(super) fn inventory(
                 .map(u16::try_from)
                 .transpose()
                 .map_err(|_| invalid("quantity operand ordinal exceeds declared width"))?,
-            result_subject_kind: row.result_subject_kind,
+            result_subject_kind: row.result_subject_kind.map(EntityKindId::from_id),
             result_basis: row.result_basis_id.map(BasisId::from_id),
             result_reference_state: row.result_reference_state_id.map(ReferenceStateId::from_id),
             input_conversions: row
@@ -188,7 +210,7 @@ pub(super) fn inventory(
         });
     });
     rows!(quantity_operation_reductions, row, {
-        builder.reduction_domain(OperationId::from_id(row.operation_id), row.domain_kind);
+        builder.reduction_domain(OperationId::from_id(row.operation_id), EntityKindId::from_id(row.domain_kind));
     });
     let boolean = if let Some((neutral, boolean)) = context {
         builder.neutral_dimensionless(QuantityTypeId::from_id(neutral));

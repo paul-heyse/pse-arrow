@@ -288,7 +288,7 @@ pub(crate) fn number(atom: &Atom, cancel: &Arc<AtomicBool>) -> Result<f64, MathE
         return Err(MathError::Cancelled);
     }
     if !output.is_finite() {
-        return Err(MathError::Contract("nonfinite library coefficient".into()));
+        return Err(MathError::CoefficientRange);
     }
     Ok(output)
 }

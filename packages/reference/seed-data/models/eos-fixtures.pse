@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e169482c760bbd985bb12e7ec576") package eos_fixtures {
+@id("01a0e169482c760bbd985bb2a2768b3e") use helmholtz @"1.0.0";
+@id("01a0e169482c760bbd985bb314878a95") use chem @"1.0.0";
+@id("01a0e16f32a3739a874c127e28095364") use peng_robinson @"1.0.0";
+@id("01a0e16f32a3739a874c127f17013c1b") use pure_properties @"1.0.0";
+@id("01a0e169482c760bbd985bb44116c72e") test ideal_identities fixture {dof 0; run pure; fix root.T=300{K}; fix root.rho=40{mol/m3}; fix root.amount[chem.benzene]=0.3{mol}; fix root.amount[chem.toluene]=0.7{mol};} {
+@id("01a0e169482c760bbd985bb54b0e6ccd") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=chem.aromatics,law=helmholtz.ideal);
+@id("01a0e169482c760bbd985bb618715cb3") expect root.pressure==99773.55141783888{Pa} tolerance 1e-7{Pa};
+@id("01a0e169482c760bbd985bb74a478894") expect root.h_residual==0{J/mol} tolerance 1e-10{J/mol};
+@id("01a0e169482c760bbd985bb89cd1a552") expect root.s_residual==0{J/(mol*K)} tolerance 1e-10{J/(mol*K)};
+@id("01a0e169482c760bbd985bb9d49d3122") expect root.cv_residual==0{J/(mol*K)} tolerance 1e-10{J/(mol*K)};
+@id("01a0e169482c760bbd985bba69cb9f1e") expect root.cp_residual==0{J/(mol*K)} tolerance 1e-10{J/(mol*K)};
+@id("01a0e169482c760bbd985bbb8c4de026") expect root.ln_phi[chem.benzene]==0 tolerance 1e-12;
+@id("01a0e169482c760bbd985bbcf72add50") expect root.ln_phi[chem.toluene]==0 tolerance 1e-12;
+}
+@id("01a0e16f32a3739a874c12801dc82fe8") test bt_pr_vapor source "IDAES 2.13 test_BT_PR: 450 K, 1 bar vapor branch; density reconstructed from printed Z" revision "2.13.0" fixture {dof 0; run pure; fix root.T=450{K}; fix root.rho=27.21330675064276{mol/m3}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol};} {
+@id("01a0e16f32a3739a874c1281ad9b8ddf") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=chem.aromatics,law=peng_robinson.potential);
+@id("01a0e16f32a3739a874c1282fe2e0c2d") expect root.pressure==100000{Pa} tolerance 0.01{Pa} relative 1e-5;
+@id("01a0e16f32a3739a874c1283bcf5c8a3") expect root.Z==0.9821368 tolerance 1e-7 relative 1e-5;
+@id("01a0e16f32a3739a874c12843a5a0624") expect exp(root.ln_phi[chem.benzene])==0.985365 tolerance 1e-6 relative 1e-5;
+@id("01a0e16f32a3739a874c12857f930f02") expect exp(root.ln_phi[chem.toluene])==0.979457 tolerance 1e-6 relative 1e-5;
+@id("01a0e16f32a3739a874c1286f00cb0eb") expect root.pressure==pure_properties.pressure_unit()*peng_robinson.pressure_coordinate(root.t,root.r,root.n,chem.aromatics) tolerance 1e-6{Pa};
+}
+@id("01a0e17a4587742dba3702b20fe8c77f") test density_inline source "IDAES 2.13 BT_PR: vapor at 450 K, 1 bar" revision "2.13.0" fixture {dof 0; run steady; fix root.T=450{K}; fix root.target_pressure=100000{Pa}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;} {
+@id("01a0e17a4587742dba3702b39c65839d") child root:peng_robinson.DensityRoot=peng_robinson.InlineDensity(selected=chem.aromatics);
+@id("01a0e17a4587742dba3702b49aec61ae") expect root.rho==27.21330675064276{mol/m3} tolerance 0.0001{mol/m3} relative 1e-5;
+@id("01a0e17a4587742dba3702b57f80a6b7") expect root.pressure==100000{Pa} tolerance 0.001{Pa};
+}
+@id("01a0e17a4587742dba3702b641de44be") test density_nested source "IDAES 2.13 BT_PR: vapor at 450 K, 1 bar" revision "2.13.0" fixture {dof 0; run steady; fix root.T=450{K}; fix root.target_pressure=100000{Pa}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;} {
+@id("01a0e17a4587742dba3702b76ffa1515") child root:peng_robinson.DensityRoot=peng_robinson.NestedDensity(selected=chem.aromatics);
+@id("01a0e17a4587742dba3702b837039e39") expect root.rho==27.21330675064276{mol/m3} tolerance 0.0001{mol/m3} relative 1e-5;
+@id("01a0e17a4587742dba3702b9459a9d6e") expect root.pressure==100000{Pa} tolerance 0.001{Pa};
+}
+@id("01a0e17a4587742dba3702bab24efca9") test density_accelerated source "IDAES 2.13 BT_PR: vapor at 450 K, 1 bar" revision "2.13.0" fixture {dof 0; run steady; fix root.T=450{K}; fix root.target_pressure=100000{Pa}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;} {
+@id("01a0e17a4587742dba3702bb6e59773e") child root:peng_robinson.DensityRoot=peng_robinson.AcceleratedDensity(selected=chem.aromatics);
+@id("01a0e17a4587742dba3702bc4b1c611c") expect root.rho==27.21330675064276{mol/m3} tolerance 0.0001{mol/m3} relative 1e-5;
+@id("01a0e17a4587742dba3702bd175b88f9") expect root.pressure==100000{Pa} tolerance 0.001{Pa};
+}
+@id("01a0e17fb4307404bb45617561814af2") test bt_pr_delta source "IDAES 2.13 BT_PR vapor fugacity coefficients" revision "2.13.0" fixture {dof 0; run pure; fix root.T=450{K}; fix root.rho=27.21330675064276{mol/m3}; fix root.amount[chem.benzene]=0.5{mol}; fix root.amount[chem.toluene]=0.5{mol};} {
+@id("01a0e17fb4307404bb456176ff9c2858") child root:peng_robinson.IdaesDeltaPhase=peng_robinson.IdaesHomogeneousPhase(selected=chem.aromatics);
+@id("01a0e17fb4307404bb456177c6b466f4") expect exp(root.ln_phi[chem.benzene])==0.985365 tolerance 1e-6 relative 1e-5;
+@id("01a0e17fb4307404bb4561786a752a51") expect exp(root.ln_phi[chem.toluene])==0.979457 tolerance 1e-6 relative 1e-5;
+}
+}

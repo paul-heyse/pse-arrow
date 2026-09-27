@@ -29,21 +29,6 @@ class Authority(StrEnum):
     DERIVED = "derived"
 
 
-class BalanceRole(StrEnum):
-    """The declared BalanceRole enumeration."""
-
-    INLET = "inlet"
-    OUTLET = "outlet"
-    GENERATION = "generation"
-    CONSUMPTION = "consumption"
-    HEAT_IN = "heat_in"
-    HEAT_OUT = "heat_out"
-    WORK_IN = "work_in"
-    WORK_OUT = "work_out"
-    INTERNAL_IN = "internal_in"
-    INTERNAL_OUT = "internal_out"
-
-
 class BasisKind(StrEnum):
     """The declared BasisKind enumeration."""
 
@@ -63,23 +48,6 @@ class BasisRule(StrEnum):
     REGISTERED_CONVERSION = "registered_conversion"
     CANCEL = "cancel"
     DECLARED_RESULT = "declared_result"
-
-
-class BlowerMaterial(StrEnum):
-    """The declared BlowerMaterial enumeration."""
-
-    CARBONSTEEL = "CarbonSteel"
-    ALUMINUM = "Aluminum"
-    FIBERGLASS = "Fiberglass"
-    STAINLESSSTEEL = "StainlessSteel"
-    NICKELALLOY = "NickelAlloy"
-
-
-class BlowerType(StrEnum):
-    """The declared BlowerType enumeration."""
-
-    CENTRIFUGAL = "Centrifugal"
-    ROTARY = "Rotary"
 
 
 class BoundKind(StrEnum):
@@ -104,28 +72,6 @@ class CandidateUse(StrEnum):
     USABLE = "usable"
     QUALIFIED_UNCLOSED = "qualified_unclosed"
     UNUSABLE = "unusable"
-
-
-class CapabilityRequirement(StrEnum):
-    """The declared CapabilityRequirement enumeration."""
-
-    MATERIAL_FLOW_TERMS = "material_flow_terms"
-    ENTHALPY_FLOW_TERMS = "enthalpy_flow_terms"
-    MATERIAL_DENSITY_TERMS = "material_density_terms"
-    ENERGY_DENSITY_TERMS = "energy_density_terms"
-    DIFFUSION_TERMS = "diffusion_terms"
-    REACTION_RATE_BASIS = "reaction_rate_basis"
-    PHASE_EQUILIBRIUM = "phase_equilibrium"
-
-
-class CaseKind(StrEnum):
-    """The declared CaseKind enumeration."""
-
-    BASE = "base"
-    OVERLAY = "overlay"
-    INITIALIZATION_STAGE = "initialization_stage"
-    SCENARIO = "scenario"
-    SWEEP_SAMPLE = "sweep_sample"
 
 
 class ChangeKind(StrEnum):
@@ -164,18 +110,6 @@ class ColumnRole(StrEnum):
     PROVENANCE = "provenance"
 
 
-class ComponentType(StrEnum):
-    """The declared ComponentType enumeration."""
-
-    COMPONENT = "Component"
-    SOLUTE = "Solute"
-    SOLVENT = "Solvent"
-    ION = "Ion"
-    ANION = "Anion"
-    CATION = "Cation"
-    APPARENT = "Apparent"
-
-
 class CompositionBasis(StrEnum):
     """The declared CompositionBasis enumeration."""
 
@@ -186,75 +120,11 @@ class CompositionBasis(StrEnum):
     MOLARITY = "molarity"
 
 
-class CompressorDriveType(StrEnum):
-    """The declared CompressorDriveType enumeration."""
-
-    ELECTRICMOTOR = "ElectricMotor"
-    STEAMTURBINE = "SteamTurbine"
-    GASTURBINE = "gasTurbine"
-
-
-class CompressorMaterial(StrEnum):
-    """The declared CompressorMaterial enumeration."""
-
-    CARBONSTEEL = "CarbonSteel"
-    STAINLESSSTEEL = "StainlessSteel"
-    NICKELALLOY = "NickelAlloy"
-
-
-class CompressorType(StrEnum):
-    """The declared CompressorType enumeration."""
-
-    CENTRIFUGAL = "Centrifugal"
-    RECIPROCATING = "Reciprocating"
-    SCREW = "Screw"
-
-
 class ComputationKind(StrEnum):
     """The declared ComputationKind enumeration."""
 
     SIMULATION = "simulation"
     FIT = "fit"
-
-
-class ConcentrationForm(StrEnum):
-    """The declared ConcentrationForm enumeration."""
-
-    MOLARITY = "molarity"
-    ACTIVITY = "activity"
-    MOLALITY = "molality"
-    MOLEFRACTION = "moleFraction"
-    MASSFRACTION = "massFraction"
-    PARTIALPRESSURE = "partialPressure"
-
-
-class ConfigCategory(StrEnum):
-    """The declared ConfigCategory enumeration."""
-
-    PARAMETER = "parameter"
-    FEATURE = "feature"
-    METHOD_OPTION = "method_option"
-    LAW_OPTION = "law_option"
-
-
-class ConfigValueKind(StrEnum):
-    """The declared ConfigValueKind enumeration."""
-
-    BOOLEAN = "boolean"
-    SIGNED = "signed"
-    UNSIGNED = "unsigned"
-    REAL = "real"
-    TEXT = "text"
-    SEMANTIC_ID = "semantic_id"
-    ENUM = "enum"
-    INDEX = "index"
-    QUANTITY = "quantity"
-
-
-class ConnectionExpansion(StrEnum):
-    """The declared ConnectionExpansion enumeration."""
-
-    EQUALITY = "equality"
 
 
 class ConstraintScalingScheme(StrEnum):
@@ -267,79 +137,12 @@ class ConstraintScalingScheme(StrEnum):
     INVERSEMINIMUM = "inverseMinimum"
 
 
-class ContributionSign(StrEnum):
-    """The declared ContributionSign enumeration."""
-
-    POSITIVE = "positive"
-    NEGATIVE = "negative"
-
-
-class ContributionSubjectKind(StrEnum):
-    """The declared ContributionSubjectKind enumeration."""
-
-    TOTAL = "total"
-    ENERGY = "energy"
-    MOMENTUM = "momentum"
-    SPECIES = "species"
-    ELEMENT = "element"
-    PHASE_SPECIES = "phase_species"
-
-
-class ControllerAntiwindupType(StrEnum):
-    """The declared ControllerAntiwindupType enumeration."""
-
-    NONE = "NONE"
-    CONDITIONAL_INTEGRATION = "CONDITIONAL_INTEGRATION"
-    BACK_CALCULATION = "BACK_CALCULATION"
-
-
-class ControllerMVBoundType(StrEnum):
-    """The declared ControllerMVBoundType enumeration."""
-
-    NONE = "NONE"
-    SMOOTH_BOUND = "SMOOTH_BOUND"
-    LOGISTIC = "LOGISTIC"
-
-
-class ControllerType(StrEnum):
-    """The declared ControllerType enumeration."""
-
-    P = "P"
-    PI = "PI"
-    PD = "PD"
-    PID = "PID"
-
-
 class ConversionKind(StrEnum):
     """The declared ConversionKind enumeration."""
 
     SCALE = "scale"
     AFFINE = "affine"
     KERNEL = "kernel"
-
-
-class CubicType(StrEnum):
-    """The declared CubicType enumeration."""
-
-    PR = "PR"
-    SRK = "SRK"
-
-
-class DaeVarTypes(StrEnum):
-    """The declared DaeVarTypes enumeration."""
-
-    ALGEBRAIC = "ALGEBRAIC"
-    DIFFERENTIAL = "DIFFERENTIAL"
-    DERIVATIVE = "DERIVATIVE"
-    TIME = "TIME"
-
-
-class DefaultScalingRecommendation(StrEnum):
-    """The declared DefaultScalingRecommendation enumeration."""
-
-    USERINPUTRECOMMENDED = "userInputRecommended"
-    USERINPUTREQUIRED = "userInputRequired"
-    USERSETMANUALLY = "userSetManually"
 
 
 class DerivationGranularity(StrEnum):
@@ -430,70 +233,6 @@ class DiagnosticCode(StrEnum):
     VALIDATION_INVARIANT = "validation.invariant"
 
 
-class Direction(StrEnum):
-    """The declared Direction enumeration."""
-
-    INLET = "inlet"
-    OUTLET = "outlet"
-    BIDIRECTIONAL = "bidirectional"
-
-
-class DiscretizationScheme(StrEnum):
-    """The declared DiscretizationScheme enumeration."""
-
-    BACKWARD = "BACKWARD"
-    FORWARD = "FORWARD"
-    CENTRAL = "CENTRAL"
-    LAGRANGE_RADAU = "LAGRANGE_RADAU"
-    LAGRANGE_LEGENDRE = "LAGRANGE_LEGENDRE"
-
-
-class DisplayKind(StrEnum):
-    """The declared DisplayKind enumeration."""
-
-    VARIABLE = "variable"
-    EXPRESSION = "expression"
-    PARAMETER = "parameter"
-    STREAM = "stream"
-    PERFORMANCE = "performance"
-
-
-class DistributedVars(StrEnum):
-    """The declared DistributedVars enumeration."""
-
-    VARIANT = "variant"
-    UNIFORM = "uniform"
-
-
-class DomainBindingSource(StrEnum):
-    """The declared DomainBindingSource enumeration."""
-
-    DOMAIN = "domain"
-    PARAMETER = "parameter"
-    SPECIES = "species"
-    PHASE = "phase"
-    PHASE_SPECIES = "phase_species"
-    ELEMENT = "element"
-
-
-class DomainKind(StrEnum):
-    """The declared DomainKind enumeration."""
-
-    TIME = "time"
-    LENGTH = "length"
-    SPECIES = "species"
-    PHASE = "phase"
-    PHASE_SPECIES = "phase_species"
-    ELEMENT = "element"
-    REACTION = "reaction"
-    PORT_SET = "port_set"
-    STAGE = "stage"
-    CELL = "cell"
-    FACE = "face"
-    NODE = "node"
-    CUSTOM = "custom"
-
-
 class DualQualification(StrEnum):
     """The declared DualQualification enumeration."""
 
@@ -503,75 +242,15 @@ class DualQualification(StrEnum):
     NOT_APPLICABLE_PARAMETER = "not_applicable_parameter"
 
 
-class ElementProjectionFormula(StrEnum):
-    """The declared ElementProjectionFormula enumeration."""
-
-    MOLAR_COUNT = "molar_count"
-    MASS_COUNT_OVER_MW = "mass_count_over_mw"
-
-
-class EnergyBalanceType(StrEnum):
-    """The declared EnergyBalanceType enumeration."""
-
-    USEDEFAULT = "useDefault"
-    NONE = "none"
-    ENTHALPYPHASE = "enthalpyPhase"
-    ENTHALPYTOTAL = "enthalpyTotal"
-    ENERGYPHASE = "energyPhase"
-    ENERGYTOTAL = "energyTotal"
-    ISOTHERMAL = "isothermal"
-
-
-class EnergySplittingType(StrEnum):
-    """The declared EnergySplittingType enumeration."""
-
-    NONE = "none"
-    EQUAL_TEMPERATURE = "equal_temperature"
-    EQUAL_MOLAR_ENTHALPY = "equal_molar_enthalpy"
-    ENTHALPY_SPLIT = "enthalpy_split"
-
-
 class EntityKind(StrEnum):
     """The declared EntityKind enumeration."""
 
     PACKAGE = "package"
-    DIMENSION = "dimension"
-    QUANTITY_TYPE = "quantity_type"
     UNIT = "unit"
     UNIT_SET = "unit_set"
     QUANTITY_KIND = "quantity_kind"
     CONSTANT = "constant"
-    SYMBOL_DECLARATION = "symbol_declaration"
-    EQUATION_DECLARATION = "equation_declaration"
-    CONTRIBUTION_DECLARATION = "contribution_declaration"
-    ELEMENT = "element"
-    DOMAIN = "domain"
-    SPECIES = "species"
-    PHASE = "phase"
-    MATERIAL_SYSTEM = "material_system"
-    REACTION = "reaction"
-    PROPERTY_PACKAGE = "property_package"
-    REACTION_PACKAGE = "reaction_package"
-    METHOD = "method"
-    KERNEL = "kernel"
-    TEMPLATE = "template"
-    INSTANCE = "instance"
-    PORT = "port"
-    FLOWSHEET = "flowsheet"
-    SCOPE = "scope"
-    CONNECTION = "connection"
-    CASE = "case"
     DATASET = "dataset"
-    OBSERVATION = "observation"
-    SOLVER_PROFILE = "solver_profile"
-    DISCRETIZATION_POLICY = "discretization_policy"
-
-
-class EquationSyntax(StrEnum):
-    """The declared EquationSyntax enumeration."""
-
-    RELATION = "relation"
-    CONDITIONAL = "conditional"
 
 
 class EvidenceUnavailableReason(StrEnum):
@@ -586,29 +265,14 @@ class EvidenceUnavailableReason(StrEnum):
     NONFINITE = "nonfinite"
 
 
-class ExpressionFamily(StrEnum):
-    """The declared ExpressionFamily enumeration."""
+class ExternalDerivativeSource(StrEnum):
+    """The declared ExternalDerivativeSource enumeration."""
 
-    TEMPLATE = "template"
-    INSTANCE = "instance"
-    DISPLAY = "display"
-    CONTRIBUTION = "contribution"
-    GUARD = "guard"
-
-
-class ExpressionOwnerKind(StrEnum):
-    """The declared ExpressionOwnerKind enumeration."""
-
-    TEMPLATE = "template"
-    INSTANCE = "instance"
-
-
-class ExpressionSyntax(StrEnum):
-    """The declared ExpressionSyntax enumeration."""
-
-    EXPRESSION = "expression"
-    PREDICATE = "predicate"
-    EQUATION = "equation"
+    ANALYTIC = "analytic"
+    SYMBOLIC = "symbolic"
+    AUTOMATIC = "automatic"
+    SUPPLIED = "supplied"
+    IMPLICIT = "implicit"
 
 
 class FailureClass(StrEnum):
@@ -640,40 +304,6 @@ class FailureClass(StrEnum):
     USER_MODEL = "user.model"
 
 
-class FanMaterial(StrEnum):
-    """The declared FanMaterial enumeration."""
-
-    CARBONSTEEL = "CarbonSteel"
-    FIBERGLASS = "Fiberglass"
-    STAINLESSSTEEL = "StainlessSteel"
-    NICKELALLOY = "NickelAlloy"
-
-
-class FanType(StrEnum):
-    """The declared FanType enumeration."""
-
-    CENTRIFUGALBACKWARD = "CentrifugalBackward"
-    CENTRIFUGALSTRAIGHT = "CentrifugalStraight"
-    VANEAXIAL = "VaneAxial"
-    TUBEAXIAL = "TubeAxial"
-
-
-class FeatureKind(StrEnum):
-    """The declared FeatureKind enumeration."""
-
-    BOOL = "bool"
-    ENUM = "enum"
-    CHOICE = "choice"
-
-
-class FeatureRuleKind(StrEnum):
-    """The declared FeatureRuleKind enumeration."""
-
-    IMPLIES = "implies"
-    EXCLUDES = "excludes"
-    REQUIRES = "requires"
-
-
 class FindingSeverity(StrEnum):
     """The declared FindingSeverity enumeration."""
 
@@ -681,124 +311,11 @@ class FindingSeverity(StrEnum):
     WARNING = "warning"
 
 
-class FlashType(StrEnum):
-    """The declared FlashType enumeration."""
-
-    ISOTHERMAL = "isothermal"
-    ISENTHALPIC = "isenthalpic"
-
-
-class FlowDirection(StrEnum):
-    """The declared FlowDirection enumeration."""
-
-    NOTSET = "notSet"
-    FORWARD = "forward"
-    BACKWARD = "backward"
-
-
-class GeneratorKind(StrEnum):
-    """The declared GeneratorKind enumeration."""
-
-    GRID = "grid"
-    LATIN_HYPERCUBE = "latin_hypercube"
-    UNIFORM_RANDOM = "uniform_random"
-    LIST = "list"
-
-
-class HXMaterial(StrEnum):
-    """The declared HXMaterial enumeration."""
-
-    CARBONSTEELCARBONSTEEL = "CarbonSteelCarbonSteel"
-    CARBONSTEELBRASS = "CarbonSteelBrass"
-    CARBONSTEELSTAINLESSSTEEL = "CarbonSteelStainlessSteel"
-    CARBONSTEELMONEL = "CarbonSteelMonel"
-    CARBONSTEELTITANIUM = "CarbonSteelTitanium"
-    CARBONSTEELCRMOSTEEL = "CarbonSteelCrMoSteel"
-    CRMOSTEELCRMOSTEEL = "CrMoSteelCrMoSteel"
-    STAINLESSSTEELSTAINLESSSTEEL = "StainlessSteelStainlessSteel"
-    MONELMONEL = "MonelMonel"
-    TITANIUMTITANIUM = "TitaniumTitanium"
-
-
-class HXTubeLength(StrEnum):
-    """The declared HXTubeLength enumeration."""
-
-    EIGHTFOOT = "EightFoot"
-    TWELVEFOOT = "TwelveFoot"
-    SIXTEENFOOT = "SixteenFoot"
-    TWENTYFOOT = "TwentyFoot"
-
-
-class HXType(StrEnum):
-    """The declared HXType enumeration."""
-
-    FLOATING_HEAD = "floating_head"
-    FIXED_HEAD = "fixed_head"
-    UTUBE = "Utube"
-    KETTLE_VAP = "kettle_vap"
-
-
-class HeatExchangerFlowPattern(StrEnum):
-    """The declared HeatExchangerFlowPattern enumeration."""
-
-    COUNTERCURRENT = "countercurrent"
-    COCURRENT = "cocurrent"
-    CROSSFLOW = "crossflow"
-
-
-class HeaterMaterial(StrEnum):
-    """The declared HeaterMaterial enumeration."""
-
-    CARBONSTEEL = "CarbonSteel"
-    CRMOSTEEL = "CrMoSteel"
-    STAINLESSSTEEL = "StainlessSteel"
-
-
-class HeaterSource(StrEnum):
-    """The declared HeaterSource enumeration."""
-
-    FUEL = "Fuel"
-    REFORMER = "Reformer"
-    PYROLYSIS = "Pyrolysis"
-    HOTWATER = "HotWater"
-    SALTS = "Salts"
-    DOWTHERMA = "DowthermA"
-    STEAMBOILER = "steamBoiler"
-
-
-class HenryType(StrEnum):
-    """The declared HenryType enumeration."""
-
-    HCP = "Hcp"
-    HXP = "Hxp"
-    KPC = "Kpc"
-    KPX = "Kpx"
-
-
 class IdPolicy(StrEnum):
     """The declared IdPolicy enumeration."""
 
     EXPLICIT = "explicit"
     NAMED = "named"
-
-
-class IndexMapKind(StrEnum):
-    """The declared IndexMapKind enumeration."""
-
-    SOURCE_AXIS = "source_axis"
-    FIXED_MEMBER = "fixed_member"
-    BOUND_DOMAIN = "bound_domain"
-
-
-class InitializationStatus(StrEnum):
-    """The declared InitializationStatus enumeration."""
-
-    OK = "Ok"
-    NONE = "none"
-    FAILED = "Failed"
-    DOF = "DoF"
-    PRECHECKFAILED = "PrecheckFailed"
-    ERROR = "Error"
 
 
 class InputConsumptionKind(StrEnum):
@@ -820,116 +337,11 @@ class InvariantKind(StrEnum):
     ACYCLIC = "acyclic"
 
 
-class LawExpansion(StrEnum):
-    """The declared LawExpansion enumeration."""
-
-    CONSERVATION = "conservation"
-    ISOTHERMAL = "isothermal"
-    PRESSURE_TOTAL = "pressure_total"
-
-
-class LawFamily(StrEnum):
-    """The declared LawFamily enumeration."""
-
-    MATERIAL = "material"
-    ENERGY = "energy"
-    MOMENTUM = "momentum"
-    ELEMENT = "element"
-    CHARGE = "charge"
-    COST = "cost"
-    UTILITY = "utility"
-
-
-class LawSubjectProjection(StrEnum):
-    """The declared LawSubjectProjection enumeration."""
-
-    IDENTITY = "identity"
-    SPECIES_TO_ELEMENT = "species_to_element"
-
-
-class MaterialBalanceType(StrEnum):
-    """The declared MaterialBalanceType enumeration."""
-
-    USEDEFAULT = "useDefault"
-    NONE = "none"
-    COMPONENTPHASE = "componentPhase"
-    COMPONENTTOTAL = "componentTotal"
-    ELEMENTTOTAL = "elementTotal"
-    TOTAL = "total"
-
-
-class MaterialFlowBasis(StrEnum):
-    """The declared MaterialFlowBasis enumeration."""
-
-    MOLAR = "molar"
-    MASS = "mass"
-    OTHER = "other"
-
-
 class MemberSelectionKind(StrEnum):
     """The declared MemberSelectionKind enumeration."""
 
     FULL = "full"
     REVISION = "revision"
-
-
-class MethodCandidateReason(StrEnum):
-    """The declared MethodCandidateReason enumeration."""
-
-    APPLICABLE = "applicable"
-    SCOPE_MISMATCH = "scope_mismatch"
-    FAMILY_MISMATCH = "family_mismatch"
-    MISSING_PROVISION = "missing_provision"
-    INCOMPATIBLE_SIGNATURE = "incompatible_signature"
-    MISSING_PARAMETER = "missing_parameter"
-    SHADOWED = "shadowed"
-
-
-class MethodDependencyTarget(StrEnum):
-    """The declared MethodDependencyTarget enumeration."""
-
-    PROPERTY = "property"
-    STATE_SYMBOL = "state_symbol"
-
-
-class MethodFamily(StrEnum):
-    """The declared MethodFamily enumeration."""
-
-    STATE_DEFINITION = "state_definition"
-    EOS = "eos"
-    PURE_COMPONENT = "pure_component"
-    PHASE_EQUILIBRIUM_FORM = "phase_equilibrium_form"
-    PHASE_EQUILIBRIUM_STATE = "phase_equilibrium_state"
-    BUBBLE_DEW = "bubble_dew"
-    HENRY = "henry"
-    TRANSPORT_MIXING = "transport_mixing"
-    REACTION_RATE_FORM = "reaction_rate_form"
-    RATE_CONSTANT = "rate_constant"
-    EQUILIBRIUM_FORM = "equilibrium_form"
-    EQUILIBRIUM_CONSTANT = "equilibrium_constant"
-    HEAT_OF_REACTION = "heat_of_reaction"
-    ENTHALPY_TRANSPORT = "enthalpy_transport"
-    CUSTOM = "custom"
-
-
-class MethodOutputKind(StrEnum):
-    """The declared MethodOutputKind enumeration."""
-
-    TEMPLATE_SYMBOL = "template_symbol"
-    KERNEL_OUTPUT = "kernel_output"
-
-
-class MethodRealization(StrEnum):
-    """The declared MethodRealization enumeration."""
-
-    EQUATION_TEMPLATE = "equation_template"
-    KERNEL = "kernel"
-
-
-class MethodScopeMap(StrEnum):
-    """The declared MethodScopeMap enumeration."""
-
-    SAME_STATE = "same_state"
 
 
 class MigrationOp(StrEnum):
@@ -941,37 +353,175 @@ class MigrationOp(StrEnum):
     CHANGE_NULLABLE = "change_nullable"
 
 
-class MissingInteractionPolicy(StrEnum):
-    """The declared MissingInteractionPolicy enumeration."""
+class ModelingAccumulatorMode(StrEnum):
+    """The declared ModelingAccumulatorMode enumeration."""
 
-    REQUIRE_EXPLICIT = "require_explicit"
-    ZERO = "zero"
-
-
-class MixingType(StrEnum):
-    """The declared MixingType enumeration."""
-
-    NONE = "none"
-    EXTENSIVE = "extensive"
+    CONSERVATION = "conservation"
+    ACCOUNTING = "accounting"
 
 
-class MomentumBalanceType(StrEnum):
-    """The declared MomentumBalanceType enumeration."""
+class ModelingAnalysisRoute(StrEnum):
+    """The declared ModelingAnalysisRoute enumeration."""
 
-    NONE = "none"
-    PRESSURETOTAL = "pressureTotal"
-    PRESSUREPHASE = "pressurePhase"
-    MOMENTUMTOTAL = "momentumTotal"
-    MOMENTUMPHASE = "momentumPhase"
+    STEADY = "steady"
+    INTEGRATED = "integrated"
+    SIMULTANEOUS = "simultaneous"
 
 
-class MomentumMixingType(StrEnum):
-    """The declared MomentumMixingType enumeration."""
+class ModelingCheckKind(StrEnum):
+    """The declared ModelingCheckKind enumeration."""
 
-    NONE = "none"
-    MINIMIZE = "minimize"
-    EQUALITY = "equality"
-    MINIMIZE_AND_EQUALITY = "minimize_and_equality"
+    EXPECTATION = "expectation"
+    CHECK = "check"
+    ORIGINAL_EQUATION = "original_equation"
+    CLOSURE = "closure"
+    VALIDITY = "validity"
+
+
+class ModelingConformanceKind(StrEnum):
+    """The declared ModelingConformanceKind enumeration."""
+
+    COVERAGE = "coverage"
+    PREPARATION = "preparation"
+    DEGREES_OF_FREEDOM = "degrees_of_freedom"
+    DERIVATIVES = "derivatives"
+    ENVELOPE = "envelope"
+    START_TO_SOLVE = "start_to_solve"
+    CLOSURE = "closure"
+    EXPECTATION = "expectation"
+    CHECK = "check"
+
+
+class ModelingConformanceStatus(StrEnum):
+    """The declared ModelingConformanceStatus enumeration."""
+
+    PASSED = "passed"
+    FAILED = "failed"
+    INCONCLUSIVE = "inconclusive"
+    NOT_APPLICABLE = "not_applicable"
+    CANCELLED = "cancelled"
+    UNATTEMPTED = "unattempted"
+
+
+class ModelingContributionRole(StrEnum):
+    """The declared ModelingContributionRole enumeration."""
+
+    INFLOW = "inflow"
+    OUTFLOW = "outflow"
+    GENERATION = "generation"
+    CONSUMPTION = "consumption"
+    ACCUMULATION = "accumulation"
+    TRANSFER = "transfer"
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+
+
+class ModelingDeclarationKind(StrEnum):
+    """The declared ModelingDeclarationKind enumeration."""
+
+    RELAXATION = "relaxation"
+    CONTINUATION = "continuation"
+    PACKAGE = "package"
+    ENTITY_KIND = "entity_kind"
+    INTERFACE = "interface"
+    DEFINITION = "definition"
+    CASE = "case"
+    TEST = "test"
+    STAGE = "stage"
+    IMPLICIT = "implicit"
+    REGIME = "regime"
+    PARAMETER = "parameter"
+    VARIABLE = "variable"
+    LET = "let"
+    ALIAS = "alias"
+    ATTRIBUTE = "attribute"
+    SET = "set"
+    CHILD = "child"
+    PORT = "port"
+    PRESET = "preset"
+    SCOPE_VALUE = "scope_value"
+    FUNCTION = "function"
+    EQUATION = "equation"
+    TABLE = "table"
+    DATASET = "dataset"
+    ENTITY = "entity"
+    ENUM = "enum"
+    IMPORT = "import"
+    WHEN = "when"
+    ACCUMULATOR = "accumulator"
+    CONTRIBUTION = "contribution"
+    CONNECTION = "connection"
+    ANNOTATION = "annotation"
+    REQUIREMENT = "requirement"
+    EXPECTATION = "expectation"
+    CONTINUOUS = "continuous"
+    DIFFERENCE_SCHEME = "difference_scheme"
+    COLLOCATION_SCHEME = "collocation_scheme"
+    DISCRETIZATION = "discretization"
+    REALIZATION = "realization"
+
+
+class ModelingDiagnosticSampleStop(StrEnum):
+    """The declared ModelingDiagnosticSampleStop enumeration."""
+
+    COMPLETED = "completed"
+    SAMPLE_LIMIT = "sample_limit"
+    FINDING_LIMIT = "finding_limit"
+    TIME_LIMIT = "time_limit"
+    CANCELLED = "cancelled"
+
+
+class ModelingElasticObservation(StrEnum):
+    """The declared ModelingElasticObservation enumeration."""
+
+    FEASIBLE_WITNESS = "feasible_witness"
+    LOCAL_OBSTRUCTION = "local_obstruction"
+    INCONCLUSIVE = "inconclusive"
+
+
+class ModelingFixtureBinding(StrEnum):
+    """The declared ModelingFixtureBinding enumeration."""
+
+    VALUE = "value"
+    FIX = "fix"
+    FREE = "free"
+    LOWER = "lower"
+    UPPER = "upper"
+
+
+class ModelingFixtureExecution(StrEnum):
+    """The declared ModelingFixtureExecution enumeration."""
+
+    PURE = "pure"
+    STEADY = "steady"
+    INITIALIZED = "initialized"
+    INTEGRATED = "integrated"
+    SIMULTANEOUS = "simultaneous"
+
+
+class ModelingInitializationStep(StrEnum):
+    """The declared ModelingInitializationStep enumeration."""
+
+    STAGE = "stage"
+    HOMOTOPY = "homotopy"
+    ORIGINAL = "original"
+
+
+class ModelingRealValueKind(StrEnum):
+    """The declared ModelingRealValueKind enumeration."""
+
+    FINITE = "finite"
+    NEGATIVE_INFINITY = "negative_infinity"
+    POSITIVE_INFINITY = "positive_infinity"
+    INDETERMINATE = "indeterminate"
+
+
+class ModelingRealizationPolicy(StrEnum):
+    """The declared ModelingRealizationPolicy enumeration."""
+
+    INLINE = "inline"
+    NESTED = "nested"
+    ACCELERATED = "accelerated"
 
 
 class Namespace(StrEnum):
@@ -1150,16 +700,6 @@ class NativeTermination(StrEnum):
     INVALID = "invalid"
 
 
-class NativeVariableDomain(StrEnum):
-    """The declared NativeVariableDomain enumeration."""
-
-    CONTINUOUS = "continuous"
-    INTEGER = "integer"
-    BINARY = "binary"
-    SEMI_CONTINUOUS = "semi_continuous"
-    SEMI_INTEGER = "semi_integer"
-
-
 class NativeWarmCapability(StrEnum):
     """The declared NativeWarmCapability enumeration."""
 
@@ -1183,7 +723,9 @@ class NumericalSource(StrEnum):
     ANALYSIS = "analysis"
     CASE = "case"
     MODEL = "model"
+    MODEL_HINT = "model_hint"
     PROPERTY_DEFAULT = "property_default"
+    DERIVED_NOMINAL = "derived_nominal"
     QUANTITY_NOMINAL = "quantity_nominal"
     CANONICAL_FALLBACK = "canonical_fallback"
 
@@ -1264,15 +806,6 @@ class OperationEffect(StrEnum):
     PUBLISH = "publish"
 
 
-class Orientation(StrEnum):
-    """The declared Orientation enumeration."""
-
-    INTO_SCOPE = "into_scope"
-    OUT_OF_SCOPE = "out_of_scope"
-    GENERATION = "generation"
-    ACCUMULATION = "accumulation"
-
-
 class PackageKind(StrEnum):
     """The declared PackageKind enumeration."""
 
@@ -1280,89 +813,6 @@ class PackageKind(StrEnum):
     LIBRARY = "library"
     MODEL = "model"
     CASE = "case"
-
-
-class ParameterSourceCoordinate(StrEnum):
-    """The declared ParameterSourceCoordinate enumeration."""
-
-    MEMBER = "member"
-    REF_ENTITY = "ref_entity"
-    PHASE_SPECIES_PAIR = "phase_species_pair"
-
-
-class ParticipationExclusionReason(StrEnum):
-    """The declared ParticipationExclusionReason enumeration."""
-
-    FAMILY_MISMATCH = "family_mismatch"
-    SUBJECT_MISMATCH = "subject_mismatch"
-    INTERNAL_TRANSFER = "internal_transfer"
-
-
-class PhaseType(StrEnum):
-    """The declared PhaseType enumeration."""
-
-    UNDEFINED = "undefined"
-    LIQUIDPHASE = "liquidPhase"
-    VAPORPHASE = "vaporPhase"
-    SOLIDPHASE = "solidPhase"
-    AQUEOUSPHASE = "aqueousPhase"
-
-
-class PhysicalCoordinateKind(StrEnum):
-    """The declared PhysicalCoordinateKind enumeration."""
-
-    FIXED = "fixed"
-    AXIS = "axis"
-
-
-class PortKind(StrEnum):
-    """The declared PortKind enumeration."""
-
-    MATERIAL = "material"
-    HEAT = "heat"
-    WORK = "work"
-    SIGNAL = "signal"
-
-
-class PredicateComparison(StrEnum):
-    """The declared PredicateComparison enumeration."""
-
-    EQ = "eq"
-    NOT_EQ = "not_eq"
-    LT = "lt"
-    LE = "le"
-    GT = "gt"
-    GE = "ge"
-
-
-class PredicateKind(StrEnum):
-    """The declared PredicateKind enumeration."""
-
-    BOOLEAN = "boolean"
-    NULL = "null"
-    ATOM = "atom"
-    COMPARE = "compare"
-    IN = "in"
-    AND = "and"
-    OR = "or"
-    NOT = "not"
-
-
-class PredicateOperandKind(StrEnum):
-    """The declared PredicateOperandKind enumeration."""
-
-    EXPRESSION = "expression"
-    ENUM_LITERAL = "enum_literal"
-
-
-class PropertyCategory(StrEnum):
-    """The declared PropertyCategory enumeration."""
-
-    STATE = "state"
-    THERMO = "thermo"
-    TRANSPORT = "transport"
-    REACTION = "reaction"
-    DERIVED = "derived"
 
 
 class PublicationKind(StrEnum):
@@ -1378,38 +828,6 @@ class PublicationKind(StrEnum):
     INSPECTION = "inspection"
 
 
-class PumpMaterial(StrEnum):
-    """The declared PumpMaterial enumeration."""
-
-    CASTIRON = "CastIron"
-    DUCTILEIRON = "DuctileIron"
-    CASTSTEEL = "CastSteel"
-    BRONZE = "Bronze"
-    STAINLESSSTEEL = "StainlessSteel"
-    HASTELLOYC = "HastelloyC"
-    MONEL = "Monel"
-    NICKEL = "Nickel"
-    TITANIUM = "Titanium"
-    NIALBRONZE = "NiAlBronze"
-    CARBONSTEEL = "CarbonSteel"
-
-
-class PumpMotorType(StrEnum):
-    """The declared PumpMotorType enumeration."""
-
-    OPEN = "Open"
-    ENCLOSED = "Enclosed"
-    EXPLOSIONPROOF = "ExplosionProof"
-
-
-class PumpType(StrEnum):
-    """The declared PumpType enumeration."""
-
-    CENTRIFUGAL = "Centrifugal"
-    EXTERNALGEAR = "ExternalGear"
-    RECIPROCATING = "Reciprocating"
-
-
 class QuantityAdditionKind(StrEnum):
     """The declared QuantityAdditionKind enumeration."""
 
@@ -1422,6 +840,7 @@ class QuantityPreconditionKind(StrEnum):
 
     EQUAL_OPERAND_BASES = "equal_operand_bases"
     OPERAND_QUANTITY_CONTRACT = "operand_quantity_contract"
+    SAME_REFERENCE_DIFFERENCES = "same_reference_differences"
 
 
 class QuantityScaleRule(StrEnum):
@@ -1452,14 +871,6 @@ class RateBasis(StrEnum):
     PER_AREA = "per_area"
 
 
-class ReactionKind(StrEnum):
-    """The declared ReactionKind enumeration."""
-
-    RATE = "rate"
-    EQUILIBRIUM = "equilibrium"
-    INHERENT = "inherent"
-
-
 class ReductionKind(StrEnum):
     """The declared ReductionKind enumeration."""
 
@@ -1488,13 +899,6 @@ class ReferenceStateKind(StrEnum):
     CUSTOM = "custom"
 
 
-class RequirementSource(StrEnum):
-    """The declared RequirementSource enumeration."""
-
-    SEED = "seed"
-    REQUIREMENT = "requirement"
-
-
 class RetentionReason(StrEnum):
     """The declared RetentionReason enumeration."""
 
@@ -1509,41 +913,6 @@ class ScaleKind(StrEnum):
 
     POINT = "point"
     DIFFERENCE = "difference"
-
-
-class ScopeKind(StrEnum):
-    """The declared ScopeKind enumeration."""
-
-    PACKAGE = "package"
-    PHASE = "phase"
-    SPECIES = "species"
-    PHASE_SPECIES = "phase_species"
-    REACTION = "reaction"
-
-
-class SelectorOp(StrEnum):
-    """The declared SelectorOp enumeration."""
-
-    SELF = "self"
-    INSTANCE_PARAMETER = "instance_parameter"
-    DESCENDANT_OF = "descendant_of"
-    KIND_IS = "kind_is"
-    TAGGED_WITH = "tagged_with"
-    UNION = "union"
-    INTERSECTION = "intersection"
-    DIFFERENCE = "difference"
-    INCLUDE = "include"
-    EXCLUDE = "exclude"
-
-
-class Sense(StrEnum):
-    """The declared Sense enumeration."""
-
-    EQ = "eq"
-    LE = "le"
-    GE = "ge"
-    DEFINITION = "definition"
-    RANGE = "range"
 
 
 class Severity(StrEnum):
@@ -1562,36 +931,6 @@ class SnapshotClass(StrEnum):
     SIDECAR = "sidecar"
 
 
-class SolverVariableType(StrEnum):
-    """The declared SolverVariableType enumeration."""
-
-    CONTINUOUS = "continuous"
-    BINARY = "binary"
-    INTEGER = "integer"
-
-
-class SourceBindingKind(StrEnum):
-    """The declared SourceBindingKind enumeration."""
-
-    SYMBOL = "symbol"
-    EQUATION = "equation"
-    PORT = "port"
-    DOMAIN = "domain"
-    PARAMETER = "parameter"
-    FEATURE = "feature"
-    ENTITY = "entity"
-    UNIT = "unit"
-
-
-class SplittingType(StrEnum):
-    """The declared SplittingType enumeration."""
-
-    TOTALFLOW = "totalFlow"
-    PHASEFLOW = "phaseFlow"
-    COMPONENTFLOW = "componentFlow"
-    PHASECOMPONENTFLOW = "phaseComponentFlow"
-
-
 class Stability(StrEnum):
     """The declared Stability enumeration."""
 
@@ -1600,106 +939,12 @@ class Stability(StrEnum):
     INTERNAL = "internal"
 
 
-class StabilityPolicy(StrEnum):
-    """The declared StabilityPolicy enumeration."""
-
-    UNCHECKED = "unchecked"
-    MECHANICAL = "mechanical"
-    GLOBAL = "global"
-
-
-class StabilityStatus(StrEnum):
-    """The declared StabilityStatus enumeration."""
-
-    NOT_REQUESTED = "not_requested"
-    STABLE = "stable"
-    UNSTABLE = "unstable"
-    FAILED = "failed"
-
-
-class StateIndex(StrEnum):
-    """The declared StateIndex enumeration."""
-
-    TRUE = "true"
-    APPARENT = "apparent"
-
-
-class SubjectKind(StrEnum):
-    """The declared SubjectKind enumeration."""
-
-    SPECIES = "species"
-    PHASE = "phase"
-    ELEMENT = "element"
-    REACTION = "reaction"
-    NONE = "none"
-
-
 class SubjectRule(StrEnum):
     """The declared SubjectRule enumeration."""
 
     PRESERVE = "preserve"
     REQUIRE_EQUAL = "require_equal"
     DECLARED_RESULT = "declared_result"
-
-
-class SymbolRole(StrEnum):
-    """The declared SymbolRole enumeration."""
-
-    VARIABLE = "variable"
-    PARAMETER = "parameter"
-    EXPRESSION = "expression"
-    DERIVATIVE = "derivative"
-    REFERENCE = "reference"
-
-
-class TargetKind(StrEnum):
-    """The declared TargetKind enumeration."""
-
-    SYMBOL = "symbol"
-    PORT = "port"
-    GROUP = "group"
-    EQUATION = "equation"
-    INSTANCE_WILDCARD = "instance_wildcard"
-
-
-class TearPolicy(StrEnum):
-    """The declared TearPolicy enumeration."""
-
-    FREE = "free"
-    MANDATORY = "mandatory"
-    FORBIDDEN = "forbidden"
-
-
-class TemplateKind(StrEnum):
-    """The declared TemplateKind enumeration."""
-
-    UNIT = "unit"
-    CONTROL_VOLUME = "control_volume"
-    STATE_BLOCK = "state_block"
-    REACTION_BLOCK = "reaction_block"
-    CONNECTION_RULE = "connection_rule"
-    COSTING_METHOD = "costing_method"
-    LAW = "law"
-    INITIALIZER = "initializer"
-    SCALER = "scaler"
-    FLOWSHEET = "flowsheet"
-    HELPER = "helper"
-
-
-class ThermodynamicAssumption(StrEnum):
-    """The declared ThermodynamicAssumption enumeration."""
-
-    ISOTHERMAL = "isothermal"
-    ISENTROPIC = "isentropic"
-    PUMP = "pump"
-    ADIABATIC = "adiabatic"
-
-
-class ThermodynamicFormulation(StrEnum):
-    """The declared ThermodynamicFormulation enumeration."""
-
-    HOMOGENEOUS_DENSITY = "homogeneous_density"
-    PHASE_EQUILIBRIUM = "phase_equilibrium"
 
 
 class TimeCoordinateKind(StrEnum):
@@ -1722,40 +967,6 @@ class TrajectoryTermination(StrEnum):
     PANIC = "panic"
 
 
-class TrayMaterial(StrEnum):
-    """The declared TrayMaterial enumeration."""
-
-    CARBONSTEEL = "CarbonSteel"
-    STAINLESSSTEEL303 = "StainlessSteel303"
-    STAINLESSSTEEL316 = "StainlessSteel316"
-    CARPENTER20CB3 = "Carpenter20CB3"
-    MONEL = "Monel"
-
-
-class TrayType(StrEnum):
-    """The declared TrayType enumeration."""
-
-    SIEVE = "Sieve"
-    VALVE = "Valve"
-    BUBBLECAP = "BubbleCap"
-
-
-class Treatment(StrEnum):
-    """The declared Treatment enumeration."""
-
-    FIXED = "fixed"
-    FREE = "free"
-    PARAMETER = "parameter"
-
-
-class TriState(StrEnum):
-    """The declared TriState enumeration."""
-
-    TRUE = "true"
-    FALSE = "false"
-    INHERIT = "inherit"
-
-
 class TruthValue(StrEnum):
     """The declared TruthValue enumeration."""
 
@@ -1763,40 +974,6 @@ class TruthValue(StrEnum):
     FALSE = "false"
     UNKNOWN = "unknown"
     CONFLICT = "conflict"
-
-
-class ValveFunctionType(StrEnum):
-    """The declared ValveFunctionType enumeration."""
-
-    LINEAR = "linear"
-    QUICK_OPENING = "quick_opening"
-    EQUAL_PERCENTAGE = "equal_percentage"
-
-
-class VariableSemanticRole(StrEnum):
-    """The declared VariableSemanticRole enumeration."""
-
-    STATE = "state"
-    DESIGN_CAPACITY = "design_capacity"
-    ALLOCATION = "allocation"
-    SLACK = "slack"
-    AUX_REFORMULATION = "aux_reformulation"
-    REPORTING_ONLY = "reporting_only"
-
-
-class VesselMaterial(StrEnum):
-    """The declared VesselMaterial enumeration."""
-
-    CARBONSTEEL = "CarbonSteel"
-    LOWALLOYSTEEL = "LowAlloySteel"
-    STAINLESSSTEEL304 = "StainlessSteel304"
-    STAINLESSSTEEL316 = "StainlessSteel316"
-    CARPENTER20CB3 = "Carpenter20CB3"
-    NICKEL200 = "Nickel200"
-    MONEL400 = "Monel400"
-    INCONEL600 = "Inconel600"
-    INCOLOY825 = "Incoloy825"
-    TITANIUM = "Titanium"
 
 
 class WeightNormalization(StrEnum):
@@ -1807,50 +984,5 @@ class WeightNormalization(StrEnum):
 
 
 IDAES_NAMES: dict[str, tuple[str, dict[str, str]]] = {
-    "BlowerMaterial": ("idaes.models.costing.SSLW", {"CarbonSteel": "CarbonSteel", "Aluminum": "Aluminum", "Fiberglass": "Fiberglass", "StainlessSteel": "StainlessSteel", "NickelAlloy": "NickelAlloy"}),
-    "BlowerType": ("idaes.models.costing.SSLW", {"Centrifugal": "Centrifugal", "Rotary": "Rotary"}),
-    "ComponentType": ("idaes.core.base.components", {"Component": "Component", "Solute": "Solute", "Solvent": "Solvent", "Ion": "Ion", "Anion": "Anion", "Cation": "Cation", "Apparent": "Apparent"}),
-    "CompressorDriveType": ("idaes.models.costing.SSLW", {"ElectricMotor": "ElectricMotor", "SteamTurbine": "SteamTurbine", "gasTurbine": "gasTurbine"}),
-    "CompressorMaterial": ("idaes.models.costing.SSLW", {"CarbonSteel": "CarbonSteel", "StainlessSteel": "StainlessSteel", "NickelAlloy": "NickelAlloy"}),
-    "CompressorType": ("idaes.models.costing.SSLW", {"Centrifugal": "Centrifugal", "Reciprocating": "Reciprocating", "Screw": "Screw"}),
-    "ConcentrationForm": ("idaes.models.properties.modular_properties.base.utility", {"molarity": "molarity", "activity": "activity", "molality": "molality", "moleFraction": "moleFraction", "massFraction": "massFraction", "partialPressure": "partialPressure"}),
     "ConstraintScalingScheme": ("idaes.core.scaling.custom_scaler_base", {"harmonicMean": "harmonicMean", "inverseSum": "inverseSum", "inverseRSS": "inverseRSS", "inverseMaximum": "inverseMaximum", "inverseMinimum": "inverseMinimum"}),
-    "ControllerAntiwindupType": ("idaes.models.control.controller", {"NONE": "NONE", "CONDITIONAL_INTEGRATION": "CONDITIONAL_INTEGRATION", "BACK_CALCULATION": "BACK_CALCULATION"}),
-    "ControllerMVBoundType": ("idaes.models.control.controller", {"NONE": "NONE", "SMOOTH_BOUND": "SMOOTH_BOUND", "LOGISTIC": "LOGISTIC"}),
-    "ControllerType": ("idaes.models.control.controller", {"P": "P", "PI": "PI", "PD": "PD", "PID": "PID"}),
-    "CubicType": ("idaes.models.properties.modular_properties.eos.ceos_common", {"PR": "PR", "SRK": "SRK"}),
-    "DaeVarTypes": ("idaes.core.solvers.petsc", {"ALGEBRAIC": "ALGEBRAIC", "DIFFERENTIAL": "DIFFERENTIAL", "DERIVATIVE": "DERIVATIVE", "TIME": "TIME"}),
-    "DefaultScalingRecommendation": ("idaes.core.scaling.custom_scaler_base", {"userInputRecommended": "userInputRecommended", "userInputRequired": "userInputRequired", "userSetManually": "userSetManually"}),
-    "DiscretizationScheme": ("pyomo.dae", {"BACKWARD": "BACKWARD", "FORWARD": "FORWARD", "CENTRAL": "CENTRAL", "LAGRANGE_RADAU": "LAGRANGE-RADAU", "LAGRANGE_LEGENDRE": "LAGRANGE-LEGENDRE"}),
-    "DistributedVars": ("idaes.core.base.control_volume1d", {"variant": "variant", "uniform": "uniform"}),
-    "EnergyBalanceType": ("idaes.core.base.control_volume_base", {"useDefault": "useDefault", "none": "none", "enthalpyPhase": "enthalpyPhase", "enthalpyTotal": "enthalpyTotal", "energyPhase": "energyPhase", "energyTotal": "energyTotal", "isothermal": "isothermal"}),
-    "EnergySplittingType": ("idaes.models.unit_models.separator", {"none": "none", "equal_temperature": "equal_temperature", "equal_molar_enthalpy": "equal_molar_enthalpy", "enthalpy_split": "enthalpy_split"}),
-    "FanMaterial": ("idaes.models.costing.SSLW", {"CarbonSteel": "CarbonSteel", "Fiberglass": "Fiberglass", "StainlessSteel": "StainlessSteel", "NickelAlloy": "NickelAlloy"}),
-    "FanType": ("idaes.models.costing.SSLW", {"CentrifugalBackward": "CentrifugalBackward", "CentrifugalStraight": "CentrifugalStraight", "VaneAxial": "VaneAxial", "TubeAxial": "TubeAxial"}),
-    "FlashType": ("idaes.models.unit_models.feed_flash", {"isothermal": "isothermal", "isenthalpic": "isenthalpic"}),
-    "FlowDirection": ("idaes.core.base.control_volume_base", {"notSet": "notSet", "forward": "forward", "backward": "backward"}),
-    "HXMaterial": ("idaes.models.costing.SSLW", {"CarbonSteelCarbonSteel": "CarbonSteelCarbonSteel", "CarbonSteelBrass": "CarbonSteelBrass", "CarbonSteelStainlessSteel": "CarbonSteelStainlessSteel", "CarbonSteelMonel": "CarbonSteelMonel", "CarbonSteelTitanium": "CarbonSteelTitanium", "CarbonSteelCrMoSteel": "CarbonSteelCrMoSteel", "CrMoSteelCrMoSteel": "CrMoSteelCrMoSteel", "StainlessSteelStainlessSteel": "StainlessSteelStainlessSteel", "MonelMonel": "MonelMonel", "TitaniumTitanium": "TitaniumTitanium"}),
-    "HXTubeLength": ("idaes.models.costing.SSLW", {"EightFoot": "EightFoot", "TwelveFoot": "TwelveFoot", "SixteenFoot": "SixteenFoot", "TwentyFoot": "TwentyFoot"}),
-    "HXType": ("idaes.models.costing.SSLW", {"floating_head": "floating_head", "fixed_head": "fixed_head", "Utube": "Utube", "kettle_vap": "kettle_vap"}),
-    "HeatExchangerFlowPattern": ("idaes.models.unit_models.heat_exchanger", {"countercurrent": "countercurrent", "cocurrent": "cocurrent", "crossflow": "crossflow"}),
-    "HeaterMaterial": ("idaes.models.costing.SSLW", {"CarbonSteel": "CarbonSteel", "CrMoSteel": "CrMoSteel", "StainlessSteel": "StainlessSteel"}),
-    "HeaterSource": ("idaes.models.costing.SSLW", {"Fuel": "Fuel", "Reformer": "Reformer", "Pyrolysis": "Pyrolysis", "HotWater": "HotWater", "Salts": "Salts", "DowthermA": "DowthermA", "steamBoiler": "steamBoiler"}),
-    "HenryType": ("idaes.models.properties.modular_properties.phase_equil.henry", {"Hcp": "Hcp", "Hxp": "Hxp", "Kpc": "Kpc", "Kpx": "Kpx"}),
-    "InitializationStatus": ("idaes.core.initialization.initializer_base", {"Ok": "Ok", "none": "none", "Failed": "Failed", "DoF": "DoF", "PrecheckFailed": "PrecheckFailed", "Error": "Error"}),
-    "MaterialBalanceType": ("idaes.core.base.control_volume_base", {"useDefault": "useDefault", "none": "none", "componentPhase": "componentPhase", "componentTotal": "componentTotal", "elementTotal": "elementTotal", "total": "total"}),
-    "MaterialFlowBasis": ("idaes.core.base.process_base", {"molar": "molar", "mass": "mass", "other": "other"}),
-    "MixingType": ("idaes.models.unit_models.mixer", {"none": "none", "extensive": "extensive"}),
-    "MomentumBalanceType": ("idaes.core.base.control_volume_base", {"none": "none", "pressureTotal": "pressureTotal", "pressurePhase": "pressurePhase", "momentumTotal": "momentumTotal", "momentumPhase": "momentumPhase"}),
-    "MomentumMixingType": ("idaes.models.unit_models.mixer", {"none": "none", "minimize": "minimize", "equality": "equality", "minimize_and_equality": "minimize_and_equality"}),
-    "PhaseType": ("idaes.core.base.phases", {"undefined": "undefined", "liquidPhase": "liquidPhase", "vaporPhase": "vaporPhase", "solidPhase": "solidPhase", "aqueousPhase": "aqueousPhase"}),
-    "PumpMaterial": ("idaes.models.costing.SSLW", {"CastIron": "CastIron", "DuctileIron": "DuctileIron", "CastSteel": "CastSteel", "Bronze": "Bronze", "StainlessSteel": "StainlessSteel", "HastelloyC": "HastelloyC", "Monel": "Monel", "Nickel": "Nickel", "Titanium": "Titanium", "NiAlBronze": "NiAlBronze", "CarbonSteel": "CarbonSteel"}),
-    "PumpMotorType": ("idaes.models.costing.SSLW", {"Open": "Open", "Enclosed": "Enclosed", "ExplosionProof": "ExplosionProof"}),
-    "PumpType": ("idaes.models.costing.SSLW", {"Centrifugal": "Centrifugal", "ExternalGear": "ExternalGear", "Reciprocating": "Reciprocating"}),
-    "SplittingType": ("idaes.models.unit_models.separator", {"totalFlow": "totalFlow", "phaseFlow": "phaseFlow", "componentFlow": "componentFlow", "phaseComponentFlow": "phaseComponentFlow"}),
-    "StateIndex": ("idaes.models.properties.modular_properties.base.utility", {"true": "true", "apparent": "apparent"}),
-    "ThermodynamicAssumption": ("idaes.models.unit_models.pressure_changer", {"isothermal": "isothermal", "isentropic": "isentropic", "pump": "pump", "adiabatic": "adiabatic"}),
-    "TrayMaterial": ("idaes.models.costing.SSLW", {"CarbonSteel": "CarbonSteel", "StainlessSteel303": "StainlessSteel303", "StainlessSteel316": "StainlessSteel316", "Carpenter20CB3": "Carpenter20CB3", "Monel": "Monel"}),
-    "TrayType": ("idaes.models.costing.SSLW", {"Sieve": "Sieve", "Valve": "Valve", "BubbleCap": "BubbleCap"}),
-    "ValveFunctionType": ("idaes.models.unit_models.valve", {"linear": "linear", "quick_opening": "quick_opening", "equal_percentage": "equal_percentage"}),
-    "VesselMaterial": ("idaes.models.costing.SSLW", {"CarbonSteel": "CarbonSteel", "LowAlloySteel": "LowAlloySteel", "StainlessSteel304": "StainlessSteel304", "StainlessSteel316": "StainlessSteel316", "Carpenter20CB3": "Carpenter20CB3", "Nickel200": "Nickel200", "Monel400": "Monel400", "Inconel600": "Inconel600", "Incoloy825": "Incoloy825", "Titanium": "Titanium"}),
 }

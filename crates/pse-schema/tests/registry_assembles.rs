@@ -33,7 +33,7 @@ const SCHEMA_RELATIONS: [&str; 7] = [
 ];
 
 #[test]
-fn enumeration_types_supply_unique_targets_for_member_and_law_references() {
+fn enumeration_types_supply_unique_targets_for_member_references() {
     let registry = registry().expect("registry");
     let spec = registry
         .relation("reference.schema_enum_types")
@@ -59,8 +59,6 @@ fn enumeration_types_supply_unique_targets_for_member_and_law_references() {
     }
     for (relation, field) in [
         ("reference.schema_enums", "enum_id"),
-        ("authored.template_law_contracts", "balance_enum_id"),
-        ("reference.law_bindings", "balance_enum_id"),
     ] {
         let relation = registry.relation(relation).expect("declared enum consumer");
         assert_eq!(

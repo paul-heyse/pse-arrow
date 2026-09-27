@@ -106,17 +106,20 @@ impl PreparedBody {
                         Stage::Branch {
                             then, otherwise, ..
                         } => stages(then) + stages(otherwise),
+                        Stage::Domain { stages: local, .. } => stages(local),
                         Stage::Provider {
                             inputs,
                             outputs,
                             spec,
+                            partial,
                             ..
                         } => {
                             size_of_val(inputs.as_slice())
+                                + size_of_val(partial.as_slice())
                                 + size_of_val(outputs.as_slice())
                                 + size_of_val(spec.inputs.as_slice())
                                 + size_of_val(spec.outputs.as_slice())
-                                + size_of_val(spec.components.as_slice())
+                                + spec.shapes.retained_bytes()
                         }
                         Stage::Require { .. } => 0,
                     })
@@ -209,6 +212,7 @@ impl PreparedBody {
             .iter()
             .map(|&i| facts[i].expression.clone())
             .collect();
+        let smooth = smooth.min(crate::typed::proven_branch_order(&stages));
         Ok(Self {
             data: Arc::new(PreparedBodyData {
                 inputs,
@@ -298,6 +302,55 @@ impl PreparedBody {
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<CompiledBody, MathError> {
+        self.compile_scope(
+            outputs,
+            coordinates,
+            order,
+            options,
+            limits,
+            cancelled,
+            false,
+        )
+    }
+    /// Compile derivatives restricted to the strict interior of the selected control path.
+    /// Each trial checks separation from every unproved guard boundary, including domain
+    /// predicates. This establishes only a local neighborhood, never transition smoothness.
+    /// # Errors
+    /// Unsupported provider derivatives, resource limits, or invalid demands. A worker
+    /// additionally refuses a trial on an unproved control boundary.
+    pub fn compile_branch_local(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+        order: DerivativeOrder,
+        options: Optimization,
+        limits: EvaluationLimits,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<CompiledBody, MathError> {
+        self.compile_scope(
+            outputs,
+            coordinates,
+            order,
+            options,
+            limits,
+            cancelled,
+            true,
+        )
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "The local scope is explicit and the public compilation contracts stay unchanged"
+    )]
+    fn compile_scope(
+        &self,
+        outputs: &[usize],
+        coordinates: &[usize],
+        order: DerivativeOrder,
+        options: Optimization,
+        limits: EvaluationLimits,
+        cancelled: &Arc<AtomicBool>,
+        local_branches: bool,
+    ) -> Result<CompiledBody, MathError> {
         limits.check()?;
         if cancelled.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
@@ -312,7 +365,8 @@ impl PreparedBody {
             ));
         }
         if order > self.smooth
-            || (order > DerivativeOrder::Value
+            || (!local_branches
+                && order > DerivativeOrder::Value
                 && coordinates.iter().any(|c| self.switches.contains(c)))
         {
             return Err(MathError::Contract(
@@ -334,6 +388,18 @@ impl PreparedBody {
             &symbols,
             self.output_effects.is_none(),
         );
+        // Conservative coordinate reachability includes every branch alternative. It
+        // selects Taylor coefficients; Symbolica still owns every derivative operation.
+        let support_entries = self
+            .slots
+            .checked_mul(coordinates.len().saturating_add(3))
+            .ok_or(MathError::Limit("coordinate reachability"))?;
+        limits.allocation(support_entries)?;
+        let mut coordinate_support = vec![vec![false; coordinates.len()]; self.slots];
+        for (coordinate, &slot) in coordinates.iter().enumerate() {
+            coordinate_support[slot][coordinate] = true;
+        }
+        coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
         let mut layouts = vec![];
         let mut programs = vec![];
         let mut used = 0usize;
@@ -356,11 +422,17 @@ impl PreparedBody {
                 operations: limits.operations,
                 providers: limits.provider_calls,
                 entries: frame,
+                local_order: if local_branches {
+                    requested
+                } else {
+                    DerivativeOrder::Value
+                },
             };
             let program = compile_stages(
                 &stages,
                 &parameters,
                 &symbols,
+                &coordinate_support,
                 &layout,
                 options,
                 limits,
@@ -428,8 +500,17 @@ impl PreparedBody {
     reason = "Evaluator stages stay inline to avoid an allocation for each compiled stage"
 )]
 enum CompiledStage {
+    Domain {
+        stages: Vec<Self>,
+        frame: Vec<f64>,
+        layout: JetLayout,
+        argument: usize,
+        token: usize,
+        source: SemanticId,
+    },
     Block {
         evaluator: ExpressionEvaluator<f64>,
+        components: Vec<usize>,
         inputs: Vec<usize>,
         outputs: Vec<usize>,
         arguments: Vec<f64>,
@@ -443,6 +524,7 @@ enum CompiledStage {
         source: SemanticId,
     },
     Branch {
+        require_separation: bool,
         comparison: Comparison,
         left: usize,
         right: usize,
@@ -451,6 +533,7 @@ enum CompiledStage {
     },
     Provider {
         spec: ProviderSpec,
+        partial: Vec<usize>,
         inputs: Vec<usize>,
         outputs: Vec<usize>,
         request: ProviderRequest,
@@ -619,7 +702,54 @@ impl Worker {
     }
 }
 
+// Stages are in dependency order and scalar destinations are single assignment.
+// Union, rather than replacement, covers shared destinations of mutually exclusive
+// arms and domain-local slots. Extra reachability is safe; omitted derivatives are not.
+fn coordinate_reachability(
+    stages: &[Stage],
+    symbols: &HashMap<Symbol, usize>,
+    support: &mut [Vec<bool>],
+) -> Result<(), MathError> {
+    for stage in stages {
+        match stage {
+            Stage::Block {
+                expressions,
+                outputs,
+                ..
+            } => {
+                for (expression, &output) in expressions.iter().zip(outputs) {
+                    let inputs = reads(std::slice::from_ref(expression), symbols)?;
+                    for coordinate in 0..support[output].len() {
+                        support[output][coordinate] |=
+                            inputs.iter().any(|&i| support[i][coordinate]);
+                    }
+                }
+            }
+            Stage::Provider {
+                inputs, outputs, ..
+            } => {
+                for &output in outputs.iter().filter(|&&i| i != usize::MAX) {
+                    for coordinate in 0..support[output].len() {
+                        support[output][coordinate] |=
+                            inputs.iter().any(|&i| support[i][coordinate]);
+                    }
+                }
+            }
+            Stage::Branch {
+                then, otherwise, ..
+            } => {
+                coordinate_reachability(then, symbols, support)?;
+                coordinate_reachability(otherwise, symbols, support)?;
+            }
+            // Predicate bodies only request values; they cannot contribute derivatives.
+            Stage::Domain { .. } | Stage::Require { .. } => {}
+        }
+    }
+    Ok(())
+}
+
 struct BuildAllowance {
+    local_order: DerivativeOrder,
     operations: usize,
     providers: usize,
     entries: usize,
@@ -632,6 +762,7 @@ fn compile_stages(
     stages: &[Stage],
     parameters: &[Atom],
     symbols: &HashMap<Symbol, usize>,
+    coordinate_support: &[Vec<bool>],
     layout: &JetLayout,
     options: Optimization,
     limits: EvaluationLimits,
@@ -644,6 +775,37 @@ fn compile_stages(
             return Err(MathError::Cancelled);
         }
         result.push(match stage {
+            Stage::Domain {
+                stages,
+                argument,
+                token,
+                source,
+            } => {
+                let value_layout = JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
+                allowance.entries = allowance
+                    .entries
+                    .checked_add(parameters.len())
+                    .ok_or(MathError::Limit("domain predicate scratch"))?;
+                limits.allocation(allowance.entries)?;
+                CompiledStage::Domain {
+                    stages: compile_stages(
+                        stages,
+                        parameters,
+                        symbols,
+                        coordinate_support,
+                        &value_layout,
+                        options,
+                        limits,
+                        cancelled,
+                        allowance,
+                    )?,
+                    frame: vec![f64::NAN; parameters.len()],
+                    layout: value_layout,
+                    argument: *argument,
+                    token: *token,
+                    source: *source,
+                }
+            }
             Stage::Block {
                 expressions,
                 outputs,
@@ -654,10 +816,41 @@ fn compile_stages(
                     .iter()
                     .map(|&i| parameters[i].clone())
                     .collect::<Vec<_>>();
+                let active: Vec<_> = layout
+                    .coordinates
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, &slot)| {
+                        (layout.order > DerivativeOrder::Value
+                            && inputs.iter().any(|&input| coordinate_support[input][i]))
+                        .then_some((i, slot))
+                    })
+                    .collect();
+                let local = JetLayout::new(
+                    active.iter().map(|&(_, slot)| slot).collect(),
+                    layout.order,
+                    limits,
+                )?;
+                let mut components = vec![0];
+                if layout.order >= DerivativeOrder::First {
+                    components.extend(active.iter().map(|&(i, _)| 1 + i));
+                }
+                if layout.order >= DerivativeOrder::Second {
+                    for &(i, j) in &local.pairs {
+                        let pair = (active[i].0, active[j].0);
+                        let position = layout
+                            .pairs
+                            .iter()
+                            .position(|&p| p == pair)
+                            .ok_or_else(|| MathError::Contract("Taylor subset pair".into()))?;
+                        components.push(1 + layout.coordinates.len() + position);
+                    }
+                }
                 let evaluator = library::bounded_evaluator(
+                    *source,
                     expressions,
                     &params,
-                    layout,
+                    &local,
                     options,
                     cancelled,
                     limits,
@@ -671,18 +864,24 @@ fn compile_stages(
                     .ok_or(MathError::Limit("compiled operations"))?;
                 let input_len = evaluator.get_input_len();
                 let output_len = evaluator.get_output_len();
-                if input_len != inputs.len() * layout.width()
-                    || output_len != outputs.len() * layout.width()
+                if input_len != inputs.len() * local.width()
+                    || output_len != outputs.len() * local.width()
                 {
                     return Err(MathError::Contract("library vectorization layout".into()));
                 }
                 allowance.entries = allowance
                     .entries
-                    .checked_add(input_len + output_len + library::numeric_entries(&evaluator)?)
+                    .checked_add(
+                        input_len
+                            + output_len
+                            + components.len()
+                            + library::numeric_entries(&evaluator)?,
+                    )
                     .ok_or(MathError::Limit("evaluator scratch"))?;
                 limits.allocation(allowance.entries)?;
                 CompiledStage::Block {
                     evaluator,
+                    components,
                     inputs,
                     outputs: outputs.clone(),
                     arguments: vec![0.0; input_len],
@@ -702,24 +901,43 @@ fn compile_stages(
                 source: *source,
             },
             Stage::Branch {
+                continuity,
                 comparison,
                 left,
                 right,
                 then,
                 otherwise,
             } => CompiledStage::Branch {
+                require_separation: allowance.local_order > *continuity && left != right,
                 comparison: *comparison,
                 left: *left,
                 right: *right,
                 then: compile_stages(
-                    then, parameters, symbols, layout, options, limits, cancelled, allowance,
+                    then,
+                    parameters,
+                    symbols,
+                    coordinate_support,
+                    layout,
+                    options,
+                    limits,
+                    cancelled,
+                    allowance,
                 )?,
                 otherwise: compile_stages(
-                    otherwise, parameters, symbols, layout, options, limits, cancelled, allowance,
+                    otherwise,
+                    parameters,
+                    symbols,
+                    coordinate_support,
+                    layout,
+                    options,
+                    limits,
+                    cancelled,
+                    allowance,
                 )?,
             },
             Stage::Provider {
                 spec,
+                partial,
                 inputs,
                 outputs,
                 source,
@@ -734,7 +952,16 @@ fn compile_stages(
                         .enumerate()
                         .filter_map(|(i, &slot)| (slot != usize::MAX).then_some(i))
                         .collect(),
-                    order: layout.order,
+                    order: match layout.order as usize + partial.len() {
+                        0 => DerivativeOrder::Value,
+                        1 => DerivativeOrder::First,
+                        2 => DerivativeOrder::Second,
+                        _ => {
+                            return Err(MathError::Contract(
+                                "external derivative order exhausted by explicit partial".into(),
+                            ));
+                        }
+                    },
                 };
                 let destinations = outputs
                     .iter()
@@ -777,6 +1004,7 @@ fn compile_stages(
                 limits.allocation(allowance.entries)?;
                 CompiledStage::Provider {
                     spec: spec.clone(),
+                    partial: partial.clone(),
                     inputs: inputs.clone(),
                     outputs: destinations,
                     request,
@@ -808,17 +1036,40 @@ fn evaluate_stages(
             return Err(MathError::Cancelled);
         }
         match stage {
+            CompiledStage::Domain {
+                stages,
+                frame: local,
+                layout: value_layout,
+                argument,
+                token,
+                source,
+            } => {
+                for (slot, value) in local.iter_mut().enumerate() {
+                    *value = frame[slot * width];
+                }
+                evaluate_stages(stages, local, value_layout, providers, context)?;
+                if !Condition::Positive.permits(local[*argument]) {
+                    return Err(MathError::Domain {
+                        source_id: *source,
+                        requirement: "authored function validity",
+                    });
+                }
+                frame[*token * width..(*token + 1) * width].fill(0.0);
+            }
             CompiledStage::Block {
                 evaluator,
+                components,
                 inputs,
                 outputs,
                 arguments,
                 values,
                 source,
             } => {
+                let local_width = components.len();
                 for (k, &slot) in inputs.iter().enumerate() {
-                    arguments[k * width..(k + 1) * width]
-                        .copy_from_slice(&frame[slot * width..(slot + 1) * width]);
+                    for (j, &component) in components.iter().enumerate() {
+                        arguments[k * local_width + j] = frame[slot * width + component];
+                    }
                 }
                 evaluator
                     .try_evaluate(arguments, values)
@@ -834,8 +1085,10 @@ fn evaluate_stages(
                     });
                 }
                 for (k, &slot) in outputs.iter().enumerate() {
-                    frame[slot * width..(slot + 1) * width]
-                        .copy_from_slice(&values[k * width..(k + 1) * width]);
+                    frame[slot * width..(slot + 1) * width].fill(0.0);
+                    for (j, &component) in components.iter().enumerate() {
+                        frame[slot * width + component] = values[k * local_width + j];
+                    }
                 }
             }
             CompiledStage::Require {
@@ -852,6 +1105,7 @@ fn evaluate_stages(
                 }
             }
             CompiledStage::Branch {
+                require_separation,
                 comparison,
                 left,
                 right,
@@ -862,6 +1116,12 @@ fn evaluate_stages(
                 let b = frame[*right * width];
                 if !a.is_finite() || !b.is_finite() {
                     return Err(MathError::Contract("unassigned branch input".into()));
+                }
+                if *require_separation && a == b {
+                    return Err(MathError::Domain {
+                        source_id: SemanticId::NIL,
+                        requirement: "branch-local derivative trial is on an unproved control boundary",
+                    });
                 }
                 evaluate_stages(
                     if comparison.select(a, b) {
@@ -877,6 +1137,7 @@ fn evaluate_stages(
             }
             CompiledStage::Provider {
                 spec,
+                partial,
                 inputs,
                 outputs,
                 request,
@@ -906,12 +1167,25 @@ fn evaluate_stages(
                     .map_err(error)?;
                 values.validate(spec, request).map_err(error)?;
                 for (row, &slot) in outputs.iter().enumerate() {
+                    let n = inputs.len();
+                    let selected = match partial.as_slice() {
+                        [] => values.values[row],
+                        [i] => values.jacobian[row * n + i],
+                        [i, j] => values.hessians[(row * n + i) * n + j],
+                        _ => return Err(MathError::Contract("external partial order".into())),
+                    };
                     if let Some(lift) = lift.as_mut() {
                         let n = inputs.len();
                         for (parameter, value) in lift.inputs.iter().zip(&mut lift.scratch) {
                             *value = match *parameter {
-                                LiftInput::Value => values.values[row],
-                                LiftInput::First(i) => values.jacobian[row * n + i],
+                                LiftInput::Value => selected,
+                                LiftInput::First(i) => {
+                                    if let Some(j) = partial.first() {
+                                        values.hessians[(row * n + j) * n + i]
+                                    } else {
+                                        values.jacobian[row * n + i]
+                                    }
+                                }
                                 LiftInput::Second(i, j) => values.hessians[row * n * n + i * n + j],
                                 LiftInput::Argument(i, k) => {
                                     frame[inputs[i] * width + k] * layout.raw_factor(k)
@@ -933,7 +1207,7 @@ fn evaluate_stages(
                         }
                         frame[slot * width..(slot + 1) * width].copy_from_slice(&lift.output);
                     } else {
-                        frame[slot * width] = values.values[row];
+                        frame[slot * width] = selected;
                     }
                 }
             }
@@ -967,7 +1241,10 @@ fn has_obligations(stages: &[Stage]) -> bool {
     stages.iter().any(|s| {
         matches!(
             s,
-            Stage::Require { .. } | Stage::Branch { .. } | Stage::Provider { .. }
+            Stage::Require { .. }
+                | Stage::Branch { .. }
+                | Stage::Provider { .. }
+                | Stage::Domain { .. }
         )
     })
 }
@@ -981,6 +1258,25 @@ fn prune(
     let mut result = vec![];
     for stage in stages.iter().rev() {
         match stage {
+            Stage::Domain {
+                stages,
+                argument,
+                token,
+                source,
+            } => {
+                if !needed.remove(token) && !all_effects {
+                    continue;
+                }
+                let mut local = BTreeSet::from([*argument]);
+                let stages = prune(stages, &mut local, symbols, true);
+                needed.extend(local);
+                result.push(Stage::Domain {
+                    stages,
+                    argument: *argument,
+                    token: *token,
+                    source: *source,
+                });
+            }
             Stage::Block {
                 expressions,
                 outputs,
@@ -1018,6 +1314,7 @@ fn prune(
             }
             Stage::Provider {
                 spec,
+                partial,
                 inputs,
                 outputs,
                 source,
@@ -1040,12 +1337,14 @@ fn prune(
                 needed.extend(inputs);
                 result.push(Stage::Provider {
                     spec: spec.clone(),
+                    partial: partial.clone(),
                     inputs: inputs.clone(),
                     outputs: selected,
                     source: *source,
                 });
             }
             Stage::Branch {
+                continuity,
                 comparison,
                 left,
                 right,
@@ -1063,6 +1362,7 @@ fn prune(
                 needed.insert(*left);
                 needed.insert(*right);
                 result.push(Stage::Branch {
+                    continuity: *continuity,
                     comparison: *comparison,
                     left: *left,
                     right: *right,
@@ -1104,6 +1404,31 @@ fn analyze(
 ) -> Result<(), MathError> {
     for stage in stages {
         match stage {
+            Stage::Domain {
+                stages,
+                argument,
+                token,
+                ..
+            } => {
+                let mut local = facts.to_vec();
+                // Domain boundaries do not constitute branch transitions of a numerical output.
+                analyze(
+                    stages,
+                    parameters,
+                    symbols,
+                    &mut local,
+                    controls,
+                    &mut BTreeSet::new(),
+                    providers,
+                    obligations,
+                )?;
+                controls.extend(&local[*argument].first);
+                obligations.push((local[*argument].expression.clone(), Condition::Positive));
+                facts[*token] = Fact {
+                    expression: Some(Atom::num(0)),
+                    ..Fact::default()
+                };
+            }
             Stage::Block {
                 expressions,
                 outputs,
@@ -1158,7 +1483,27 @@ fn analyze(
                         if fact.first.len() > 256 {
                             return Err(MathError::Limit("opaque derivative support"));
                         }
-                        fact.second = dense_second(&fact.first);
+                        // Compose support through the shared program. Losing the optional
+                        // flattened expression does not make unrelated coordinates nonlinear.
+                        // Symbolica owns each local derivative; only its dependency sets
+                        // are propagated here (the two terms of the Hessian chain rule).
+                        for &i in &inputs {
+                            let derivative = expression.derivative(
+                                Indeterminate::try_from(parameters[i].clone())
+                                    .map_err(|e| MathError::Library(e.clone()))?,
+                            );
+                            if derivative == Atom::num(0) {
+                                continue;
+                            }
+                            fact.second.extend(&facts[i].second);
+                            for j in reads(std::slice::from_ref(&derivative), symbols)? {
+                                for &a in &facts[i].first {
+                                    for &b in &facts[j].first {
+                                        fact.second.insert((a.min(b), a.max(b)));
+                                    }
+                                }
+                            }
+                        }
                     }
                     facts[slot] = fact;
                 }
@@ -1197,6 +1542,7 @@ fn analyze(
                 }
             }
             Stage::Branch {
+                continuity,
                 left,
                 right,
                 then,
@@ -1205,8 +1551,10 @@ fn analyze(
             } => {
                 controls.extend(&facts[*left].first);
                 controls.extend(&facts[*right].first);
-                switches.extend(&facts[*left].first);
-                switches.extend(&facts[*right].first);
+                if *continuity == DerivativeOrder::Value {
+                    switches.extend(&facts[*left].first);
+                    switches.extend(&facts[*right].first);
+                }
                 let mut a = facts.to_vec();
                 let mut b = facts.to_vec();
                 analyze(

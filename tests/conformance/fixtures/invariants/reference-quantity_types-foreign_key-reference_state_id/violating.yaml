@@ -12,7 +12,7 @@
         "reference_state_id": "[\"id\",\"02020202020202020202020202020202\"]",
         "scale_kind": "[\"enum\",\"point\"]",
         "shape": "[\"list\",[]]",
-        "subject_kind": "[\"enum\",\"species\"]"
+        "subject_kind": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ],
     "reference.reference_states": [
@@ -20,9 +20,9 @@
         "doc": "[\"text\",\"value-1\"]",
         "include_enthalpy_of_formation": "[\"bool\",true]",
         "kind": "[\"enum\",\"elemental_at_conditions\"]",
-        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "pressure": "[\"f64\",\"3ff0000000000000\"]",
         "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "subject_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "temperature": "[\"f64\",\"3ff0000000000000\"]"
       }
     ]

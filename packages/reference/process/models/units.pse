@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("c1150e2758234b8cb0e0646e278c5dd0") package units {
+@id("85bc1b4525114d7a899269f39fc90f79") use kinds @"1.0.0";
+@id("c612db9b42fd452785497fd913f591fc") use equilibrium @"1.0.0";
+@id("cca6cbcefee1460e91f59bccc8907f03") use control_volumes @"1.0.0";
+@id("f9ec315980014bbdb2449aeecf62e792") interface Boundary {
+@id("96ee34023dc94bbd8fed955663185725") param state_package:equilibrium.ThermoPackage;
+@id("85422bef68f04a9ca810408143b5d142") param components:Set<kinds.species>=state_package.components;
+@id("4721af98ae2b47fabee646c85d9ff56d") child state:equilibrium.ThermoPackage=state_package;
+@id("7f62d15f44cc4466a7475151dc6a1812") port flow:Flow=state.flow;
+@id("9ec3e03c890f42eda31649aaf6438b67") port temperature:Temperature=state.T;
+@id("1cf8622630074dee94c3f4d64e537c50") port pressure:Pressure=state.pressure;
+@id("b6e9c1a121af4f96a5f412ec9deca776") port composition[j in components]:MoleFraction=state.z[j];
+@id("8436051562a044e881158e9b3f4a7179") port component_flow[j in components]:ComponentFlow=state.component_flow[j];
+}
+@id("07ac3513156d41999af72ce0ca4495b5") def Feed(pkg:equilibrium.ThermoPackage):Boundary {
+@id("29a2194f24c147de960bca25f52ac1ca") override param state_package:equilibrium.ThermoPackage=pkg;
+@id("5ab7a2557b9b42659caf01e3c296b8e8") annotation connectivity flow(0,1);
+@id("685b7fc9fc494c29ada2b06ae0deb131") annotation connectivity temperature(0,1);
+@id("06c32d61e9c3476d8793191cd242c706") annotation connectivity pressure(0,1);
+@id("24439b3361324b43b7afe0d3431377de") annotation connectivity composition(0,1);
+@id("e92bd4a8844d40a6be0abe284fff7f5f") annotation connectivity component_flow(0,1);
+}
+@id("67e58f42ecfc480087bfda41afd5818f") def Product(pkg:equilibrium.ThermoPackage):Boundary {
+@id("bf7493bfa8fc496089dee5d52cf1bfe0") override param state_package:equilibrium.ThermoPackage=pkg;
+@id("3148a38f33d744c5b66ab08b525ff838") annotation connectivity flow(1,0);
+@id("80fb7d77a5744d8dbb91e991c3dd9a18") annotation connectivity temperature(1,0);
+@id("a1b42b77b6af42838af9e4f3ea72a1c6") annotation connectivity pressure(1,0);
+@id("076ee7579ba245a0b95ae17e93def436") annotation connectivity composition(1,0);
+@id("57ec2364bd75467f8efd1e7f3bf41762") annotation connectivity component_flow(1,0);
+}
+@id("e408a2f6223948df842a89580882a20a") def Heater(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage):control_volumes.ControlVolume0D {
+@id("2a6e0f128acc4521b3fe6bc9b7f1aeac") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
+@id("811e72b847d54ba3abc93a272a88d522") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
+@id("6ebf6de2a1684a8db6ef6846deaf1b3d") eq no_work:work==0{W};
+}
+}

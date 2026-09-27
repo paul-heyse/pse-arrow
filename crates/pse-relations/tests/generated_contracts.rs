@@ -14,9 +14,7 @@ use std::sync::Arc;
 use arrow_array::Array;
 use pse_ids::{ContentHash, SemanticId};
 use pse_relations::generated::authored::packages::{self, AuthoredPackagesFieldDependenciesItem};
-use pse_relations::generated::authored::template_symbols;
-use pse_relations::generated::enums::{BoundKind, IdPolicy, PackageKind, SymbolRole};
-use pse_relations::generated::extension_values::Bound;
+use pse_relations::generated::enums::{IdPolicy, PackageKind};
 use pse_relations::generated::reference::units;
 
 fn package_row() -> packages::Row {
@@ -116,18 +114,18 @@ fn generated_nested_rows_round_trip_through_serde_and_direct_arrow_views() {
 
 #[test]
 fn generated_enum_round_trip_preserves_names_and_rejects_unknown_members() {
-    for value in pse_relations::generated::enums::Direction::ALL {
+    for value in IdPolicy::ALL {
         assert_eq!(
             value
                 .as_str()
-                .parse::<pse_relations::generated::enums::Direction>()
+                .parse::<IdPolicy>()
                 .expect("member"),
             value
         );
     }
     assert!(
         "MISCLASSIFIED"
-            .parse::<pse_relations::generated::enums::Direction>()
+            .parse::<IdPolicy>()
             .is_err()
     );
 }
@@ -209,66 +207,6 @@ fn constructed_scope_checks_relation_identity_and_does_not_claim_key_validity() 
         2
     );
     assert!(units::View::from_checked(&constructed).is_err());
-}
-
-fn template_symbol() -> template_symbols::Row {
-    template_symbols::Row {
-        template_id: SemanticId::from_bytes([1; 16]),
-        symbol_decl_id: SemanticId::from_bytes([2; 16]),
-        name: "x".to_owned(),
-        role: SymbolRole::Variable,
-        quantity_type_id: SemanticId::from_bytes([3; 16]),
-        indexed_by: vec![],
-        default_lower: None,
-        default_upper: Some(Bound {
-            kind: BoundKind::Unbounded,
-            value: None,
-        }),
-        default_initial: None,
-        reference_to: None,
-        wrt_domain: None,
-        guard_id: None,
-        idaes_name: None,
-        doc: String::new(),
-    }
-}
-
-#[test]
-fn nullable_nested_bounds_preserve_parent_masks_and_reject_visible_invalid_payloads() {
-    let mut builder = template_symbols::Builder::new().expect("builder");
-    let mut invalid = template_symbol();
-    invalid.default_lower = Some(Bound {
-        kind: BoundKind::Finite,
-        value: None,
-    });
-    assert!(
-        builder
-            .push(invalid)
-            .and_then(|()| builder.finish())
-            .is_err()
-    );
-    let mut builder = template_symbols::Builder::new().expect("fresh builder after refused batch");
-    let first = template_symbol();
-    builder
-        .push(first.clone())
-        .expect("masked lower, unbounded upper");
-    let mut second = template_symbol();
-    second.default_lower = Some(Bound {
-        kind: BoundKind::Finite,
-        value: Some(-1.0),
-    });
-    second.default_upper = None;
-    builder
-        .push(second.clone())
-        .expect("finite lower, masked upper");
-    let owner = builder
-        .finish()
-        .expect("nullable nested physical construction");
-    let view = template_symbols::View::from_checked(&owner).expect("view");
-    assert!(view.default_lower_column().is_null(0));
-    assert!(view.default_lower_column().column(0).is_null(0));
-    assert_eq!(view.rows().expect("masked decode"), vec![first, second]);
-    template_symbols::validate(owner.batch()).expect("raw masked extension admission");
 }
 
 #[test]

@@ -22,6 +22,7 @@ use std::{
 pub struct PreparedInitialization {
     quantities: Arc<pse_quantity::QuantityRegistry>,
     targets: Vec<pse_math::numerics::TargetSpec>,
+    requirements: Arc<Vec<pse_math::numerics::SourcedRequirement>>,
     blocks: Vec<(pse_structural::initialization::Block, Arc<ExecutableCase>)>,
     _owner: Arc<super::products::ProductOwner>,
 }
@@ -88,7 +89,7 @@ impl PreparedInitialization {
         let numerics = Arc::new(pse_math::numerics::resolve(
             &self.quantities,
             &self.targets,
-            &[],
+            &self.requirements,
             &profile.numerics,
         )?);
         let solved: BTreeSet<_> = self
@@ -317,6 +318,37 @@ impl MathService {
                 },
             )
             .await?;
+        self.own_initialization(products,lease,quantities,targets,Vec::new()).await
+    }
+    /// Reuse the same conditional engine with an authored case's selected physical bindings.
+    pub async fn prepare_modeling_initialization(
+        self: &Arc<Self>, workspace: Workspace, case: super::Preparation,
+        profile: Profile, numerical: super::solves::NumericalInputs, driver: &crate::CancelSource,
+    ) -> Result<PreparedInitialization,MathRuntimeError> {
+        let quantities=case.compiled().quantities.clone();
+        let mut targets=case.compiled().plan.structure().numerical_targets(&quantities)?;
+        targets.extend(numerical.targets);
+        use pse_model::HeapUsage;
+        let numerical_bytes=numerical.declarations.iter().map(|r|size_of_val(r)+r.declaration.owned_bytes()).sum::<usize>()+size_of_val(targets.as_slice());
+        let foreign=self.policy.foreign_bytes;
+        let control=FlightCancellation::default();
+        let operation=self.job_retained(1,self.policy.workspace_bytes,control.clone(),move |flag| {
+            let _lease=workspace.lease;
+            let compiler=workspace.compiler.lock().map_err(|_|MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
+            let products=compiler.prepare_bound_initialization(case.compiled(),profile,&flag)?;
+            let bytes=products.iter().try_fold(foreign.checked_add(numerical_bytes).ok_or(MathRuntimeError::Limit("initialization numerical extent"))?,|n,p|n.checked_add(p.plan.retained_bytes())).ok_or(MathRuntimeError::Limit("initialization product extent"))?;
+            Ok((products,bytes))
+        });
+        tokio::pin!(operation);
+        let (products,lease)=tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        self.own_initialization(products,lease,quantities,targets,numerical.declarations).await
+    }
+    async fn own_initialization(
+        self: &Arc<Self>, products: Arc<Vec<pse_compiler::workspace::PreparedBlock>>,
+        lease: Arc<pse_columnar::AllocationLease>, quantities: Arc<pse_quantity::QuantityRegistry>,
+        targets: Vec<pse_math::numerics::TargetSpec>,
+        requirements: Vec<pse_math::numerics::SourcedRequirement>,
+    ) -> Result<PreparedInitialization,MathRuntimeError> {
         let owner = self.shared_product(
             vec![3, Arc::as_ptr(&products) as usize],
             products.clone(),
@@ -343,6 +375,7 @@ impl MathService {
         Ok(PreparedInitialization {
             quantities,
             targets,
+            requirements:Arc::new(requirements),
             blocks,
             _owner: owner,
         })
@@ -466,7 +499,7 @@ impl MathService {
                     let providers = providers
                         .iter()
                         .map(|(k, f)| {
-                            f.worker()
+                            f.worker_scoped(flag.clone())
                                 .map(|v| (*k, v))
                                 .map_err(|e| native::ProblemError::Contract(e.to_string()))
                         })

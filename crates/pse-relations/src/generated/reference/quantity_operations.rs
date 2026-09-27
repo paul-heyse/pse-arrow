@@ -20,9 +20,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    212u8, 219u8, 39u8, 45u8, 60u8, 196u8, 87u8, 22u8, 190u8, 176u8, 44u8, 96u8, 78u8,
-    62u8, 127u8, 97u8, 94u8, 167u8, 56u8, 136u8, 186u8, 61u8, 250u8, 128u8, 30u8, 232u8,
-    218u8, 61u8, 165u8, 171u8, 3u8, 192u8,
+    238u8, 247u8, 126u8, 120u8, 88u8, 116u8, 85u8, 231u8, 201u8, 195u8, 20u8, 235u8,
+    180u8, 17u8, 116u8, 72u8, 180u8, 114u8, 118u8, 185u8, 65u8, 163u8, 76u8, 138u8,
+    220u8, 29u8, 255u8, 230u8, 71u8, 246u8, 234u8, 138u8,
 ]);
 impl crate::columnar::ArrowValue
 for ReferenceQuantityOperationsFieldInputConversionsItem {
@@ -209,7 +209,7 @@ impl crate::columnar::ArrowValue for ReferenceQuantityOperationsRow {
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Option<
-            crate::generated::enums::SubjectKind,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         <Option<
             pse_ids::SemanticId,
@@ -302,7 +302,7 @@ impl crate::columnar::ArrowValue for ReferenceQuantityOperationsRow {
                 index,
             )?,
             r#result_subject_kind: <Option<
-                crate::generated::enums::SubjectKind,
+                pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(14usize).as_ref(),
                 index,
@@ -486,10 +486,10 @@ impl crate::columnar::RelationRow for ReferenceQuantityOperationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        52_224_usize + size_of::<Self::Builder>()
+        53_248_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        408usize
+        416usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -594,10 +594,10 @@ impl crate::columnar::RelationRow for ReferenceQuantityOperationsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if let Some(value) = (self.r#result_subject_kind).as_ref() {
+            if (self.r#result_subject_kind).is_some() {
                 crate::columnar::allocation_add(
                     1,
-                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                    Ok::<usize, crate::RelationError>(16usize)?,
                 )
             } else {
                 Ok::<usize, crate::RelationError>(1)
@@ -827,7 +827,7 @@ pub struct ReferenceQuantityOperationsView<'a> {
     shape_source_column: &'a arrow_array::Int64Array,
     subject_rule_column: &'a arrow_array::StringArray,
     subject_source_column: &'a arrow_array::Int64Array,
-    result_subject_kind_column: &'a arrow_array::StringArray,
+    result_subject_kind_column: &'a arrow_array::FixedSizeBinaryArray,
     result_basis_id_column: &'a arrow_array::FixedSizeBinaryArray,
     result_reference_state_id_column: &'a arrow_array::FixedSizeBinaryArray,
     input_conversions_column: &'a arrow_array::ListArray,
@@ -914,7 +914,7 @@ impl<'a> ReferenceQuantityOperationsView<'a> {
                 arrow_array::Int64Array,
             >(batch.column(13usize).as_ref())?,
             result_subject_kind_column: crate::columnar::array::<
-                arrow_array::StringArray,
+                arrow_array::FixedSizeBinaryArray,
             >(batch.column(14usize).as_ref())?,
             result_basis_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
@@ -1115,7 +1115,9 @@ impl<'a> ReferenceQuantityOperationsView<'a> {
         "result_subject_kind",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn result_subject_kind_column(&self) -> &'a arrow_array::StringArray {
+    pub const fn result_subject_kind_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
         self.result_subject_kind_column
     }
     #[doc = concat!(

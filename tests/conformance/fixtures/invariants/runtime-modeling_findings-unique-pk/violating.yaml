@@ -1,0 +1,33 @@
+{
+  "invariant": "runtime.modeling_findings:unique:pk",
+  "rows": {
+    "runtime.modeling_findings": [
+      {
+        "class": "[\"enum\",\"invalid_model\"]",
+        "locations": "[\"list\",[]]",
+        "observations": "[\"list\",[]]",
+        "ordinal": "[\"i64\",1]",
+        "rule": "[\"text\",\"value-1\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "sources": "[\"list\",[]]",
+        "stage": "[\"text\",\"value-1\"]"
+      },
+      {
+        "class": "[\"enum\",\"invalid_model\"]",
+        "locations": "[\"list\",[]]",
+        "observations": "[\"list\",[]]",
+        "ordinal": "[\"i64\",1]",
+        "rule": "[\"text\",\"value-1\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "sources": "[\"list\",[]]",
+        "stage": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"i64\",1]"
+    ]
+  ]
+}

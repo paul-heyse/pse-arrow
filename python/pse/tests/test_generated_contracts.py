@@ -12,7 +12,7 @@ import pytest
 from pse.codec import converter, structure_rows
 from pse.contracts import values as contract_values
 from pse.contracts.authored import AuthoredPackagesRow
-from pse.contracts.enums import NativeVariableDomain
+from pse.contracts.enums import PackageKind
 from pse.contracts.extension_types import PseEnum, PseOrdinalRef
 from pse.contracts.reference import ReferenceUnitsRow
 from pse.contracts.runtime import RuntimePublicationsFieldMembersItemSelection
@@ -184,11 +184,36 @@ def test_text_hook_preserves_actual_constructor_and_refuses_invalid_enum() -> No
     text = codec.structure("declared", _DeclaredText)
     assert type(text) is _DeclaredText
     assert text == "declared"
-    assert (
-        codec.structure("continuous", NativeVariableDomain)
-        is NativeVariableDomain.CONTINUOUS
-    )
+    assert codec.structure("model", PackageKind) is PackageKind.MODEL
     with pytest.raises(ValueError):
-        codec.structure("undeclared", NativeVariableDomain)
+        codec.structure("undeclared", PackageKind)
     with pytest.raises(ValueError):
         codec.structure(123, _DeclaredText)
+
+
+@pytest.mark.unit
+def test_modeling_declaration_tag_has_one_typed_payload() -> None:
+    from pse.contracts.authored import AuthoredModelingDeclarationsFieldValue
+
+    payload: dict[str, object] = {
+        field.metadata.get(FIELD_NAME_METADATA, field.name): None
+        for field in attrs.fields(AuthoredModelingDeclarationsFieldValue)
+    }
+    payload["kind"] = "variable"
+    payload["binding"] = {
+        "type_name": "Flow",
+        "indices": [],
+        "expression": None,
+        "defined_by": None,
+    }
+    value = converter().structure(payload, AuthoredModelingDeclarationsFieldValue)
+    assert value.binding is not None
+    assert value.binding.type_name == "Flow"
+    assert value.binding.indices == ()
+    for invalid in (
+        payload | {"binding": None},
+        payload | {"scope": {"parameters": [], "bases": [], "type_parameters": []}},
+        payload | {"unchecked": True},
+    ):
+        with pytest.raises((ValueError, cattrs.BaseValidationError)):
+            converter().structure(invalid, AuthoredModelingDeclarationsFieldValue)

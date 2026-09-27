@@ -40,10 +40,10 @@ if TYPE_CHECKING:
 REQUIRED_MARKERS = frozenset({"unit", "component", "integration", "performance"})
 
 #: The parity reference. Moving it is an ADR (plan §7).
-PARITY_IDAES_VERSION = "2.12.0"
+PARITY_IDAES_VERSION = "2.13.0"
 
-#: IDAES 2.12.0 classifies 3.10-3.13; the platform floor is 3.11.
-PARITY_MAX_PYTHON = (3, 14)
+#: IDAES 2.13.0 classifies 3.10-3.14; the platform floor is 3.11.
+PARITY_MAX_PYTHON = (3, 15)
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:

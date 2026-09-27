@@ -21,7 +21,7 @@ from pyomo.environ import SolverFactory
 from pse.parity.host import HostCapabilities, probe_host
 
 #: The parity reference; moving it is an ADR.
-EXPECTED_IDAES_VERSION = "2.12.0"
+EXPECTED_IDAES_VERSION = "2.13.0"
 
 #: Ipopt 3.11 (the common system build) produces different iteration counts.
 EXPECTED_IPOPT_SERIES = "3.14."

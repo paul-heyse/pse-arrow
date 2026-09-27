@@ -10,7 +10,7 @@ use winnow::stream::{LocatingSlice, Location, Stream};
 use super::{DslError, Span};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Kind {
+pub(crate) enum Kind {
     Identifier,
     Quoted,
     Number,
@@ -18,17 +18,17 @@ pub(super) enum Kind {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub(super) struct Token<'a> {
+pub(crate) struct Token<'a> {
     pub text: &'a str,
     pub span: Span,
     pub kind: Kind,
 }
 
-pub(super) fn tokenize(text: &str) -> Result<Vec<Token<'_>>, DslError> {
-    if text.len() > usize::from(u16::MAX) {
+pub(crate) fn tokenize(text: &str) -> Result<Vec<Token<'_>>, DslError> {
+    if text.len() > crate::ParseBudget::DEFAULT_MAX_BYTES as usize {
         return Err(DslError::Budget {
             limit: "bytes",
-            allowed: u64::from(u16::MAX),
+            allowed: crate::ParseBudget::DEFAULT_MAX_BYTES,
             needed: u64::try_from(text.len()).unwrap_or(u64::MAX),
         });
     }
@@ -38,6 +38,11 @@ pub(super) fn tokenize(text: &str) -> Result<Vec<Token<'_>>, DslError> {
         winnow::ascii::multispace0::<_, ContextError>
             .parse_next(&mut input)
             .map_err(|_| syntax(offset(&input), "whitespace", "invalid whitespace"))?;
+        if input.as_ref().starts_with("//") {
+            let width = input.as_ref().find('\n').unwrap_or(input.as_ref().len());
+            input.next_slice(width);
+            continue;
+        }
         let Some(first) = input.peek_token() else {
             break;
         };
@@ -73,12 +78,12 @@ pub(super) fn tokenize(text: &str) -> Result<Vec<Token<'_>>, DslError> {
             }
             (token, Kind::Identifier)
         } else {
-            let width = if ["==", "!=", "<=", ">="]
+            let width = if ["==", "!=", "<=", ">=", "->", "=>", ".."]
                 .iter()
                 .any(|value| input.as_ref().starts_with(value))
             {
                 2
-            } else if "+-*/^()[]{},.|=<>".contains(first) {
+            } else if "+-*/^()[]{},.|=<>:;@?∂".contains(first) {
                 first.len_utf8()
             } else {
                 return Err(syntax(start, "expression token", &first.to_string()));
@@ -101,7 +106,7 @@ fn offset(input: &LocatingSlice<&str>) -> u32 {
     u32::try_from(input.current_token_start()).unwrap_or(u32::MAX)
 }
 
-pub(super) fn syntax(offset: u32, expected: &str, found: &str) -> DslError {
+pub(crate) fn syntax(offset: u32, expected: &str, found: &str) -> DslError {
     DslError::Syntax {
         offset,
         span: Span {

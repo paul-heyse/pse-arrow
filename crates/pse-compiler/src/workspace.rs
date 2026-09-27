@@ -159,6 +159,9 @@ pub enum CompileError {
     /// Physical/math rejection.
     #[error(transparent)]
     Math(Arc<MathError>),
+    /// Generic modeling rejection.
+    #[error(transparent)]
+    Modeling(#[from] pse_modeling::ModelingError),
     /// Structural rejection.
     #[error(transparent)]
     Structure(#[from] pse_structural::projection::ProjectionError),
@@ -172,13 +175,14 @@ pub enum CompileError {
 pse_diagnostics::impl_diagnostic! {
     CompileError,
     code(this) { Some(match this { Self::Cancelled=>pse_diagnostics::DiagnosticCode::RuntimeCancelled,Self::Limit(_)=>pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,_=>pse_diagnostics::DiagnosticCode::CompileMath }) },
-    forward(this) { match this {Self::Math(e)=>Some(e.as_ref()),Self::Syntax{error,..}=>Some(error.as_ref()),Self::Structure(e)=>Some(e),_=>None} },
+    forward(this) { match this {Self::Math(e)=>Some(e.as_ref()),Self::Modeling(e)=>Some(e),Self::Syntax{error,..}=>Some(error.as_ref()),Self::Structure(e)=>Some(e),_=>None} },
     help(_this) { None },related(_this) { None },source(_this) { None }
 }
 impl PartialEq for CompileError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Missing(a), Self::Missing(b)) => a == b,
+            (Self::Modeling(a), Self::Modeling(b)) => a == b,
             (
                 Self::Syntax {
                     definition: a,
@@ -205,6 +209,12 @@ impl From<MathError> for CompileError {
     }
 }
 type Result<T> = std::result::Result<T, CompileError>;
+mod modeling;
+pub use modeling::{
+    AdmittedImplicit, AdmittedModeling, ImplicitAlgorithm, ImplicitScale, ModelingCaseBindings,
+    ModelingExpectationResult, ModelingHint, ModelingOutput, ModelingRevision, ModelingFlowSelection, ModelingTestValue,
+    ModelingVariableState, PreparedModeling,
+};
 #[salsa::db]
 trait CompilerDb: Database {
     fn cancel(&self) -> &Arc<AtomicBool>;
@@ -472,6 +482,16 @@ fn plan(
 #[salsa::tracked(returns(clone), lru=64, heap_size=structure_heap)]
 fn structure(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<StructuralAnalysis>> {
     let p = plan(db, i, id, DerivativeOrder::Value)?.0;
+    checkpoint(db);
+    let result = structural_plan(id, &p, db.cancel());
+    checkpoint(db);
+    result
+}
+fn structural_plan(
+    id: SemanticId,
+    p: &CasePlan,
+    cancel: &Arc<AtomicBool>,
+) -> Result<Arc<StructuralAnalysis>> {
     let _span = tracing::info_span!("pse.case.structural_analysis").entered();
     let rows = p
         .structure()
@@ -518,12 +538,9 @@ fn structure(db: &dyn CompilerDb, i: Inventory, id: SemanticId) -> Result<Arc<St
             edges: 1_000_000,
         },
     )?;
-    checkpoint(db);
-    let result = inc.analyze(db.cancel());
-    checkpoint(db);
-    let result = result?;
-    Ok(Arc::new(result))
+    Ok(Arc::new(inc.analyze(cancel)?))
 }
+
 fn algebraic_partition(
     db: &dyn CompilerDb,
     i: Inventory,
@@ -558,6 +575,18 @@ fn algebraic_partition_query(
         DerivativeOrder::First,
     )?
     .0;
+    checkpoint(db);
+    let result = analyze_partition(id, &p, rows, columns, db.cancel());
+    checkpoint(db);
+    result
+}
+fn analyze_partition(
+    id: SemanticId,
+    p: &CasePlan,
+    rows: &[SemanticId],
+    columns: &[SemanticId],
+    cancel: &Arc<AtomicBool>,
+) -> Result<Arc<StructuralAnalysis>> {
     let matrix = p.jacobian_pattern();
     let mut edges = Vec::new();
     for (col, column) in p.columns().iter().enumerate() {
@@ -591,7 +620,7 @@ fn algebraic_partition_query(
                 upper: Some(0.0),
             })
             .collect(),
-        columns.clone(),
+        columns.to_vec(),
         edges,
         Default::default(),
         GraphLimits {
@@ -599,10 +628,7 @@ fn algebraic_partition_query(
             edges: 1_000_000,
         },
     )?;
-    checkpoint(db);
-    let result = graph.analyze(db.cancel());
-    checkpoint(db);
-    Ok(Arc::new(result?))
+    Ok(Arc::new(graph.analyze(cancel)?))
 }
 fn structure_heap(result: &Result<Arc<StructuralAnalysis>>) -> usize {
     result.as_ref().map_or(0, |a| {
@@ -892,38 +918,30 @@ fn initialization_blocks(
     order: DerivativeOrder,
 ) -> Result<InitializationBlocks> {
     let source = plan(db, i, id, order)?.0;
-    if source
-        .structure()
-        .rows()
-        .iter()
-        .any(|r| !r.lower.is_finite() || r.lower != r.upper)
-    {
-        return Err(CompileError::Missing(
-            "block initialization requires a complete equality selection".into(),
-        ));
-    }
     let schedule = initialization_plan(db, i, id)?;
-    let mut blocks = Vec::new();
-    for b in &schedule.blocks {
-        checkpoint(db);
-        let p = Arc::new(math_result(
-            db,
-            source.conditional(
-                &b.members.rows.iter().copied().collect(),
-                &b.members.columns.iter().copied().collect(),
-                i.quantities(db),
-                db.cancel(),
-            ),
-        )?);
-        let requests = artifact_requests(&p, profile, i.environment(db));
-        blocks.push(PreparedBlock {
-            boundary: b.clone(),
-            plan: p,
-            artifacts: requests,
-        });
-    }
-    Ok(InitializationBlocks(Arc::new(blocks)))
+    Ok(InitializationBlocks(conditional_blocks(&source,&schedule,i.quantities(db),profile,i.environment(db),db.cancel())?))
 }
+fn conditional_blocks(
+    source: &CasePlan,
+    schedule: &pse_structural::initialization::Plan,
+    quantities: &QuantityRegistry,
+    profile: Profile,
+    environment: &ContentHash,
+    cancel: &Arc<AtomicBool>,
+) -> Result<Arc<Vec<PreparedBlock>>> {
+    if source.structure().objective().is_some() || source.structure().rows().iter().any(|r| !r.lower.is_finite() || r.lower!=r.upper) {
+        return Err(CompileError::Missing("block initialization requires a complete equality selection without an objective".into()));
+    }
+    let mut blocks=Vec::new();
+    for b in &schedule.blocks {
+        if cancel.load(Ordering::Acquire) {return Err(CompileError::Cancelled);}
+        let plan=Arc::new(source.conditional(&b.members.rows.iter().copied().collect(),&b.members.columns.iter().copied().collect(),quantities,cancel)?);
+        let artifacts=artifact_requests(&plan,profile,environment);
+        blocks.push(PreparedBlock{boundary:b.clone(),plan,artifacts});
+    }
+    Ok(Arc::new(blocks))
+}
+
 /// Single-writer workspace. Callers serialize access; no database clones or partial batches escape.
 pub struct CompilerWorkspace {
     db: CompilerDatabase,
@@ -932,6 +950,7 @@ pub struct CompilerWorkspace {
     limits: WorkspaceLimits,
 
     generation: usize,
+    modeling: Option<modeling::State>,
 }
 impl std::fmt::Debug for CompilerWorkspace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -979,11 +998,29 @@ impl CompilerWorkspace {
             limits,
 
             generation: 0,
+            modeling: None,
         })
     }
     /// Application-visible atomic publication: validation precedes all setters.
     pub fn publish(&mut self, next: Inputs) -> Result<()> {
-        validate(&next, self.limits)?;
+        let checked_modeling = if self.inputs.quantities != next.quantities
+            || self.inputs.preconditions != next.preconditions
+        {
+            self.recheck_modeling(&next.quantities, &next.preconditions)?
+        } else {
+            None
+        };
+        let modeling_bytes = checked_modeling.as_ref().map_or_else(
+            || self.modeling.as_ref().map_or(0, |s| s.input_bytes),
+            |(_, bytes)| *bytes,
+        );
+        validate(
+            &next,
+            WorkspaceLimits {
+                input_bytes: self.limits.input_bytes.saturating_sub(modeling_bytes),
+                ..self.limits
+            },
+        )?;
         if self.inputs == next {
             return Ok(());
         }
@@ -1028,6 +1065,7 @@ impl CompilerWorkspace {
                 .to(value_bits(&next.values));
         }
         field!(flows, set_flows);
+        self.set_checked_modeling(checked_modeling);
         self.inputs = next;
         self.trim_queries()?;
         Ok(())
@@ -1036,7 +1074,10 @@ impl CompilerWorkspace {
         let cancelled = self.db.cancellation_token().is_cancelled();
         let worker_cancel = self.db.cancel.clone();
         let generation = self.generation + 1;
-        let replacement = Self::new(inputs, self.limits)?;
+        let mut replacement = Self::new(inputs, self.limits)?;
+        if let Some(state) = &self.modeling {
+            replacement.publish_modeling_revision(state.revision.clone())?;
+        }
         *self = replacement;
         self.generation = generation;
         self.db.cancel = worker_cancel;
@@ -1137,6 +1178,13 @@ impl CompilerWorkspace {
         .map_err(|_| CompileError::Cancelled)?;
         self.trim_queries()?;
         result
+    }
+    /// Derive conditional blocks from an immutable prepared case, including its fixed/free selection.
+    pub fn prepare_bound_initialization(
+        &self, case: &PreparedCase, profile: Profile, cancel: &Arc<AtomicBool>,
+    ) -> Result<Arc<Vec<PreparedBlock>>> {
+        let schedule=pse_structural::initialization::Plan::from_analysis(&case.structure)?;
+        conditional_blocks(&case.plan,&schedule,&case.quantities,profile,self.inventory.environment(&self.db),cancel)
     }
     /// Pure tracked flow projection. Runtime callers serialize this workspace lease.
     pub fn prepare_flow(
@@ -1393,6 +1441,15 @@ fn validate(i: &Inputs, l: WorkspaceLimits) -> Result<()> {
     for g in i.groups.values() {
         bytes = bytes.saturating_add(g.slots.len().saturating_mul(128 + g.axes.len() * 32));
     }
+    for provider in i.providers.values() {
+        let spec = provider.descriptor.spec();
+        bytes = bytes
+            .saturating_add(spec.shapes.retained_bytes())
+            .saturating_add(
+                (spec.inputs.len() + spec.outputs.len())
+                    .saturating_mul(size_of::<pse_kernels::Port>()),
+            );
+    }
     for c in i.cases.values() {
         bytes = bytes
             .saturating_add(
@@ -1475,15 +1532,12 @@ fn validate(i: &Inputs, l: WorkspaceLimits) -> Result<()> {
     }
     for (name, p) in &i.providers {
         let p = p.descriptor.spec();
-        bytes = bytes
-            .saturating_add(name.len())
-            .saturating_add(p.components.len().saturating_mul(32))
-            .saturating_add(
-                p.inputs
-                    .len()
-                    .saturating_add(p.outputs.len())
-                    .saturating_mul(128),
-            );
+        bytes = bytes.saturating_add(name.len()).saturating_add(
+            p.inputs
+                .len()
+                .saturating_add(p.outputs.len())
+                .saturating_mul(128),
+        );
     }
     bytes = bytes
         .saturating_add(

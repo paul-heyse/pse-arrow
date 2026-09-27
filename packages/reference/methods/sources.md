@@ -3,11 +3,11 @@
 
 # Stock methods, version 1.0.0
 
-The expression documents are the formula authority. Coefficients are supplied by
-the selected material package through typed parameter rows. They are not embedded
-in these templates. Each coefficient is a dimensionless coordinate in the natural
-unit system written explicitly in the expression. This representation preserves
-the physical output kind, basis, subject, index shape and reference state.
+The modeling documents are the formula authority. Coefficients arrive through typed
+table rows supplied by dataset packages. Dimensionless coordinates and explicit
+physical coefficient scales preserve the output kind, basis, subject, index shape
+and reference state. Functions, interfaces and definition bindings share the generic
+modeling kernel; there is no separate method-selection relation.
 
 NIST Shomate uses `t = T / 1000 K`. Its heat-capacity form is documented by the
 [NIST Chemistry WebBook](https://webbook.nist.gov/cgi/cbook.cgi?ID=C7732185&Mask=1883&Units=SI).
@@ -51,4 +51,6 @@ Implemented source declarations do not establish numerical solver execution,
 derivative accuracy or IDAES equivalence. Formula tests must exercise actual
 parsed expressions and independently sourced values or thermodynamic identities.
 
-Each equation-template correlation explicitly binds its requesting state through `method_state_parameters`; `state` is the authored parameter key in these templates. Realization follows this relation rather than assigning meaning to the parameter spelling.
+Caloric definitions bind temperature and reference temperature explicitly. Interface
+defaults subtract the primitive at the reference temperature and add the supplied
+enthalpy or entropy datum. Their physical contracts are checked before specialization.

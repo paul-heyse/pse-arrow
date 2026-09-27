@@ -37,7 +37,7 @@ package declares its policy (`IdPolicy`, the `id_policy` of `authored.packages`)
   `authoring.parse.missing_id`; the document editor's `assign_ids`
   (`pse-runtime::authoring_driver::document`) inserts missing IDs as source edits.
 - `named`: for reference packages whose qualified names are the public contract (units,
-  elements, constants, standard templates). `pse_ids::named_id` derives the ID from
+  constants and other named physical reference declarations). `pse_ids::named_id` derives the ID from
   package ID and qualified name under the frozen `pse:named:v1` context. A rename is a new
   entity by construction, so renaming such an entity is refused
   (`authoring.reference.rename_named`).
@@ -73,20 +73,20 @@ policy, prepared artifacts, used starts, results and publications have distinct
 identities and lifecycles. Cases and results never mutate the model
 ([ADR-0016](../../adr/0016-cases-and-results-never-mutate-the-model.md)).
 
-**Model revision.** `ModelBuilder::freeze` admits the selected model, its dependencies and
-its cases through the single selected-admission boundary
-([ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)) and returns an
-immutable `ModelRevision`. Editing starts a new builder from a revision; a failed
-admission leaves the original untouched. The revision identity
-(`pse.native.model-revision.v2`) frames the model ID, physical context identity, each
-selected case identity, flowsheet graph identities, resolved balance/numerical/scaling
-declarations, material contract, dynamic/fit/observation/dataset declarations, the
-semantic contract of the consumed source relations and provider registrations.
+**Package revision.** Runtime modeling admission seals the exact package closure,
+visibility, aliases, declarations and physical context into an immutable compiler
+`ModelingRevision`. A checked revision is not interchangeable with arbitrary raw rows or
+a caller-supplied physical context. Immutable edits re-admit the changed revision; failure
+leaves prior packages intact. Selected root/instance, bindings, analysis route and limits
+are explicit tracked requests. Proposed
+[ADR-0099](../../adr/0099-modeling-language-and-identities.md) records this refinement.
 
-**Case.** A case identity (`pse.native.selected-case.v1`) frames the case ID, the
-admitted case structure and its values. Because a revision includes its selected case
-identities, editing a case yields a new revision; compiler reuse is decided by
-dependency, so unchanged definitions and structure are reused
+**Case.** Specialization derives semantic member identities from original declarations,
+instance paths and coordinates. Case bindings supply values, fixed/free status, bounds and
+requests. Native coordinate ordinals remain local to the prepared layout. Body, case,
+request, physical inventory and resolved numerical identities retain their separate named
+projections; compiler reuse depends on admitted meaning, not on an old builder revision
+hash. Diagnostic spans can refresh without changing mathematics
 ([§14](mathematics-and-compilation.md#section-14)).
 
 **Identity scopes.** Each scope has its own versioned projection:

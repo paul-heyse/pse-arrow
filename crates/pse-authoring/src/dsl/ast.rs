@@ -13,17 +13,41 @@ pub struct Span {
 }
 
 /// A numeric token and its optional authored unit expression.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Number {
     /// Finite numeric value. A syntactic minus is represented by `ExprKind::Neg`.
     pub value: f64,
+    /// Exact integral token outside the consecutive IEEE-754 integer range.
+    pub exact_integer: Option<i128>,
     /// The unit syntax, before unit resolution.
     pub unit: Option<String>,
 }
 
 impl PartialEq for Number {
     fn eq(&self, other: &Self) -> bool {
-        self.value.to_bits() == other.value.to_bits() && self.unit == other.unit
+        self.value.to_bits() == other.value.to_bits()
+            && self.unit == other.unit
+            && self.integer() == other.integer()
+    }
+}
+
+impl Number {
+    /// Exact authored integer, or a losslessly represented small integral literal.
+    pub fn integer(&self) -> Option<i128> {
+        self.exact_integer.or_else(|| {
+            (self.value.fract() == 0.0 && self.value.abs() <= 9_007_199_254_740_992.0)
+                .then_some(self.value as i128)
+        })
+    }
+}
+impl std::fmt::Debug for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut d = f.debug_struct("Number");
+        d.field("value", &self.value);
+        if let Some(exact) = self.exact_integer {
+            d.field("exact_integer", &exact);
+        }
+        d.field("unit", &self.unit).finish()
     }
 }
 
@@ -141,6 +165,22 @@ pub enum ExprKind {
         /// Ordered positional arguments.
         args: Vec<Expr>,
     },
+    /// A package-defined function, resolved before mathematical admission.
+    NamedCall {
+        /// Lexically resolved function path.
+        name: String,
+        /// Positional arguments.
+        args: Vec<Expr>,
+    },
+    /// Partial derivatives of an explicit function argument, applied to arguments.
+    Partial {
+        /// Function path.
+        function: String,
+        /// Ordered differentiated formal arguments (repetition denotes higher order).
+        wrt: Vec<Path>,
+        /// Applied arguments.
+        args: Vec<Expr>,
+    },
     /// An explicitly qualified kernel call.
     Kernel {
         /// Kernel path after `kernel.`.
@@ -156,6 +196,19 @@ pub enum ExprKind {
         binder: Box<Binder>,
         /// Reduced expression.
         body: Box<Expr>,
+    },
+    /// A nonempty finite left fold in the admitted set's semantic order.
+    Fold {
+        /// Lexical accumulator name, visible only in the step.
+        accumulator: String,
+        /// Lexical current-value name, visible only in the step.
+        item: String,
+        /// Bound domain and optional membership filter.
+        binder: Box<Binder>,
+        /// Value at each selected coordinate; the first seeds the accumulator.
+        value: Box<Expr>,
+        /// Type-preserving combination of accumulator and current value.
+        step: Box<Expr>,
     },
     /// A derivative in a declared continuous domain.
     Derivative {

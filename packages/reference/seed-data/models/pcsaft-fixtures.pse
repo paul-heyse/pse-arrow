@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e178d29871ca9ccbc72323006155") package pcsaft_fixtures {
+@id("01a0e178d29871ca9ccbc7240c009f3f") use chem @"1.0.0";
+@id("01a0e178d29871ca9ccbc7256b42f968") use pcsaft @"1.0.0";
+@id("01a0e178d29871ca9ccbc726d5316f9f") use helmholtz @"1.0.0";
+@id("01a0e178d29871ca9ccbc727545ef6f6") test homogeneous_0 source "tests/fixtures/plan14/thermo-reference.json; teqp 0.23.1 homogeneous state" revision "0.23.1" fixture {dof 0; run pure; fix root.T=300.0{K}; fix root.rho=10.0{mol/m3}; fix root.amount[chem.methane]=0.2{mol}; fix root.amount[chem.ethane]=0.3{mol}; fix root.amount[chem.propane]=0.5{mol};} {
+@id("01a0e178d29871ca9ccbc7287898c604") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=chem.alkanes,law=pcsaft.potential);
+@id("01a0e178d29871ca9ccbc729394eed86") expect root.pressure==24886.638796033505{Pa} tolerance 0.001{Pa} relative 2e-8;
+@id("01a0e178d29871ca9ccbc72a232fe7e0") expect root.h_residual==-16.173511411750454{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e178d29871ca9ccbc72bef99106a") expect root.ln_phi[chem.methane]==0.00017214852196062024 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc72c892dab04") expect root.ln_phi[chem.ethane]==-0.0018232656698070268 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc72d60604ce0") expect root.ln_phi[chem.propane]==-0.003521693184701986 tolerance 1e-7 relative 2e-8;
+}
+@id("01a0e178d29871ca9ccbc72e4ccb0216") test homogeneous_1 source "tests/fixtures/plan14/thermo-reference.json; teqp 0.23.1 homogeneous state" revision "0.23.1" fixture {dof 0; run pure; fix root.T=350.0{K}; fix root.rho=34.565566349336066{mol/m3}; fix root.amount[chem.methane]=0.2{mol}; fix root.amount[chem.ethane]=0.3{mol}; fix root.amount[chem.propane]=0.5{mol};} {
+@id("01a0e178d29871ca9ccbc72f2e852251") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=chem.alkanes,law=pcsaft.potential);
+@id("01a0e178d29871ca9ccbc7307f217ab6") expect root.pressure==100000.0000000127{Pa} tolerance 0.001{Pa} relative 2e-8;
+@id("01a0e178d29871ca9ccbc731f2ddbb84") expect root.h_residual==-50.81355294719788{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e178d29871ca9ccbc732c42e01da") expect root.ln_phi[chem.methane]==0.0006546331933703176 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc7330242440d") expect root.ln_phi[chem.ethane]==-0.004653606829009484 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc7346ffce7db") expect root.ln_phi[chem.propane]==-0.009141429968786682 tolerance 1e-7 relative 2e-8;
+}
+@id("01a0e178d29871ca9ccbc735641fc245") test homogeneous_2 source "tests/fixtures/plan14/thermo-reference.json; teqp 0.23.1 homogeneous state" revision "0.23.1" fixture {dof 0; run pure; fix root.T=400.0{K}; fix root.rho=1000.0{mol/m3}; fix root.amount[chem.methane]=0.6{mol}; fix root.amount[chem.ethane]=0.25{mol}; fix root.amount[chem.propane]=0.15000000000000002{mol};} {
+@id("01a0e178d29871ca9ccbc736b9b20548") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=chem.alkanes,law=pcsaft.potential);
+@id("01a0e178d29871ca9ccbc737f77a30c9") expect root.pressure==3151387.870362154{Pa} tolerance 0.001{Pa} relative 2e-8;
+@id("01a0e178d29871ca9ccbc7385b7b7eee") expect root.h_residual==-657.542532256859{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e178d29871ca9ccbc7390ac0ca7f") expect root.ln_phi[chem.methane]==-0.009762289167823119 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc73ab2f013ed") expect root.ln_phi[chem.ethane]==-0.09274708515021869 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc73b82d20532") expect root.ln_phi[chem.propane]==-0.1612664696200004 tolerance 1e-7 relative 2e-8;
+}
+@id("01a0e178d29871ca9ccbc73c86ef7b4f") test homogeneous_3 source "tests/fixtures/plan14/thermo-reference.json; teqp 0.23.1 homogeneous state" revision "0.23.1" fixture {dof 0; run pure; fix root.T=300.0{K}; fix root.rho=14000.0{mol/m3}; fix root.amount[chem.methane]=0.1{mol}; fix root.amount[chem.ethane]=0.2{mol}; fix root.amount[chem.propane]=0.7{mol};} {
+@id("01a0e178d29871ca9ccbc73d5bb20307") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=chem.alkanes,law=pcsaft.potential);
+@id("01a0e178d29871ca9ccbc73e2d390acb") expect root.pressure==49018579.341412{Pa} tolerance 0.001{Pa} relative 2e-8;
+@id("01a0e178d29871ca9ccbc73fab1b1b3a") expect root.h_residual==-12542.981831588004{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e178d29871ca9ccbc7404da88341") expect root.ln_phi[chem.methane]==-0.11350385195068836 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc7410b2fbe6f") expect root.ln_phi[chem.ethane]==-1.551883631718336 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc742546141e1") expect root.ln_phi[chem.propane]==-2.470027505921394 tolerance 1e-7 relative 2e-8;
+}
+@id("01a0e178d29871ca9ccbc743cbfe25e3") test homogeneous_4 source "tests/fixtures/plan14/thermo-reference.json; teqp 0.23.1 homogeneous state" revision "0.23.1" fixture {dof 0; run pure; fix root.T=298.15{K}; fix root.rho=10.0{mol/m3}; fix root.amount[chem.methane]=0.2{mol}; fix root.amount[chem.ethane]=0.3{mol}; fix root.amount[chem.propane]=0.5{mol};} {
+@id("01a0e178d29871ca9ccbc7446e84b2a2") child root:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=chem.alkanes,law=pcsaft.potential);
+@id("01a0e178d29871ca9ccbc745253391a1") expect root.pressure==24732.523082085892{Pa} tolerance 0.001{Pa} relative 2e-8;
+@id("01a0e178d29871ca9ccbc74659e641c6") expect root.h_residual==-16.23369961683865{J/mol} tolerance 1e-5{J/mol} relative 2e-8;
+@id("01a0e178d29871ca9ccbc7477fdd2967") expect root.ln_phi[chem.methane]==0.00017165054098159215 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc7486dd6c9b3") expect root.ln_phi[chem.ethane]==-0.0018444988103206628 tolerance 1e-7 relative 2e-8;
+@id("01a0e178d29871ca9ccbc7498de15ef5") expect root.ln_phi[chem.propane]==-0.0035609425323991904 tolerance 1e-7 relative 2e-8;
+}
+}

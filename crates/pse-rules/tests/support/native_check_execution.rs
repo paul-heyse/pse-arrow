@@ -289,7 +289,7 @@ async fn assert_predicate(
 }
 
 #[tokio::test]
-async fn native_physical_predicates_keep_positive_optional_and_ordered_bound_rules() {
+async fn native_physical_predicates_keep_positive_and_optional_rules() {
     use datafusion::arrow::array::Float64Array;
     for (relation, name, column, expected) in [
         (
@@ -321,14 +321,4 @@ async fn native_physical_predicates_keep_positive_optional_and_ordered_bound_rul
         )
         .await;
     }
-    assert_predicate(
-        "authored.continuous_domains",
-        "ordered_bounds",
-        vec![
-            ("lower", Arc::new(Float64Array::from(vec![1.0, 1.0, 2.0]))),
-            ("upper", Arc::new(Float64Array::from(vec![2.0, 1.0, 1.0]))),
-        ],
-        &[true, false, false],
-    )
-    .await;
 }

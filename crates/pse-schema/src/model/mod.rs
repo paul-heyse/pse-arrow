@@ -36,7 +36,7 @@ pub use crate::model::algorithm::{
     AlgorithmDecl, AlgorithmSpec, ArgumentSpec, Determinism, ResultSpec,
 };
 pub use crate::model::document::{
-    DocumentKind, DocumentSection, DocumentSpec, DslSyntax, ExpressionOwnerKind, SourceColumn,
+    DocumentKind, DocumentSection, DocumentSpec, SourceColumn,
 };
 pub use crate::model::enums::{
     Authority, ColumnRole, DerivationGranularity, EnumDecl, EnumMember, EnumSpec, InvariantKind,

@@ -4,7 +4,6 @@
 
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#reference::r#schema_document_sections::{
-    ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem,
     ReferenceSchemaDocumentSectionsRow, Row,
 };
 /// The declared relation identity.
@@ -20,57 +19,10 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    114u8, 58u8, 72u8, 155u8, 64u8, 248u8, 47u8, 200u8, 227u8, 58u8, 17u8, 14u8, 50u8,
-    46u8, 13u8, 31u8, 123u8, 72u8, 12u8, 162u8, 231u8, 181u8, 196u8, 19u8, 73u8, 173u8,
-    148u8, 12u8, 143u8, 196u8, 136u8, 74u8,
+    25u8, 114u8, 186u8, 119u8, 78u8, 217u8, 227u8, 238u8, 11u8, 159u8, 188u8, 132u8,
+    95u8, 69u8, 245u8, 80u8, 18u8, 54u8, 68u8, 37u8, 26u8, 150u8, 209u8, 69u8, 37u8,
+    24u8, 5u8, 180u8, 222u8, 4u8, 242u8, 24u8,
 ]);
-impl crate::columnar::ArrowValue
-for ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#path, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#syntax, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <crate::generated::enums::ExpressionSyntax as crate::columnar::ArrowValue>::append_null(
-            children[1usize].as_mut(),
-        )?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#path: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#syntax: <crate::generated::enums::ExpressionSyntax as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
 impl crate::columnar::ArrowValue for ReferenceSchemaDocumentSectionsRow {
     fn append(
         &self,
@@ -110,19 +62,7 @@ impl crate::columnar::ArrowValue for ReferenceSchemaDocumentSectionsRow {
             &self.r#naming_scope_column,
             children[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expression_owner_column,
-            children[9usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expression_owner_kind,
-            children[10usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#doc, children[11usize].as_mut())?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expression_fields,
-            children[12usize].as_mut(),
-        )?;
+        crate::columnar::ArrowValue::append(&self.r#doc, children[9usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -152,18 +92,7 @@ impl crate::columnar::ArrowValue for ReferenceSchemaDocumentSectionsRow {
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
-        <Option<
-            String,
-        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
-        <Option<
-            crate::generated::enums::ExpressionOwnerKind,
-        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(
-            children[11usize].as_mut(),
-        )?;
-        <Vec<
-            ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem,
-        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -218,26 +147,8 @@ impl crate::columnar::ArrowValue for ReferenceSchemaDocumentSectionsRow {
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#expression_owner_column: <Option<
-                String,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
-                index,
-            )?,
-            r#expression_owner_kind: <Option<
-                crate::generated::enums::ExpressionOwnerKind,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
-                index,
-            )?,
             r#doc: <String as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
-                index,
-            )?,
-            r#expression_fields: <Vec<
-                ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -315,19 +226,7 @@ impl crate::columnar::RelationRow for ReferenceSchemaDocumentSectionsRow {
             &self.r#naming_scope_column,
             columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expression_owner_column,
-            columns[9usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expression_owner_kind,
-            columns[10usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#doc, columns[11usize].as_mut())?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expression_fields,
-            columns[12usize].as_mut(),
-        )?;
+        crate::columnar::ArrowValue::append(&self.r#doc, columns[9usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -362,10 +261,10 @@ impl crate::columnar::RelationRow for ReferenceSchemaDocumentSectionsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        31_744_usize + size_of::<Self::Builder>()
+        21_504_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        248usize
+        168usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -435,55 +334,7 @@ impl crate::columnar::RelationRow for ReferenceSchemaDocumentSectionsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if let Some(value) = (self.r#expression_owner_column).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).len())?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if let Some(value) = (self.r#expression_owner_kind).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).as_str().len())?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
             crate::columnar::allocation_add(8, (self.r#doc).len())?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            (self.r#expression_fields)
-                .iter()
-                .try_fold(
-                    8usize,
-                    |bytes, item| crate::columnar::allocation_add(
-                        bytes,
-                        {
-                            let mut bytes = 1usize;
-                            bytes = crate::columnar::allocation_add(
-                                bytes,
-                                crate::columnar::allocation_add(8, ((item).r#path).len())?,
-                            )?;
-                            bytes = crate::columnar::allocation_add(
-                                bytes,
-                                crate::columnar::allocation_add(
-                                    8,
-                                    ((item).r#syntax).as_str().len(),
-                                )?,
-                            )?;
-                            Ok::<usize, crate::RelationError>(bytes)
-                        }?,
-                    ),
-                )?,
         )?;
         Ok(bytes)
     }
@@ -495,7 +346,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 10usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "document_name",
@@ -543,23 +394,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "expression_owner_column",
-        position: 9usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "expression_owner_kind",
-        position: 10usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
         name: "doc",
-        position: 11usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "expression_fields",
-        position: 12usize,
+        position: 9usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -582,14 +418,8 @@ pub mod columns {
     pub const NAME_COLUMN: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///naming_scope_column
     pub const NAMING_SCOPE_COLUMN: crate::columnar::ColumnReference = super::COLUMNS[8usize];
-    ///expression_owner_column
-    pub const EXPRESSION_OWNER_COLUMN: crate::columnar::ColumnReference = super::COLUMNS[9usize];
-    ///expression_owner_kind
-    pub const EXPRESSION_OWNER_KIND: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///doc
-    pub const DOC: crate::columnar::ColumnReference = super::COLUMNS[11usize];
-    ///expression_fields
-    pub const EXPRESSION_FIELDS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const DOC: crate::columnar::ColumnReference = super::COLUMNS[9usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -605,10 +435,7 @@ pub struct ReferenceSchemaDocumentSectionsView<'a> {
     entity_kind_column: &'a arrow_array::StringArray,
     name_column_column: &'a arrow_array::StringArray,
     naming_scope_column_column: &'a arrow_array::StringArray,
-    expression_owner_column_column: &'a arrow_array::StringArray,
-    expression_owner_kind_column: &'a arrow_array::StringArray,
     doc_column: &'a arrow_array::StringArray,
-    expression_fields_column: &'a arrow_array::ListArray,
 }
 impl<'a> ReferenceSchemaDocumentSectionsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -675,18 +502,9 @@ impl<'a> ReferenceSchemaDocumentSectionsView<'a> {
             naming_scope_column_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(8usize).as_ref())?,
-            expression_owner_column_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(9usize).as_ref())?,
-            expression_owner_kind_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(10usize).as_ref())?,
             doc_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(11usize).as_ref())?,
-            expression_fields_column: crate::columnar::array::<
-                arrow_array::ListArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -815,38 +633,6 @@ impl<'a> ReferenceSchemaDocumentSectionsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "expression_owner_column",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn expression_owner_column_column(&self) -> &'a arrow_array::StringArray {
-        self.expression_owner_column_column
-    }
-    #[doc = concat!(
-        "Borrows the exact declared field for `",
-        "expression_owner_column",
-        "`.",
-    )]
-    pub fn expression_owner_column_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "expression_owner_kind",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn expression_owner_kind_column(&self) -> &'a arrow_array::StringArray {
-        self.expression_owner_kind_column
-    }
-    #[doc = concat!(
-        "Borrows the exact declared field for `",
-        "expression_owner_kind",
-        "`.",
-    )]
-    pub fn expression_owner_kind_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
         "doc",
         "`, including its offsets and validity bitmap.",
     )]
@@ -855,19 +641,7 @@ impl<'a> ReferenceSchemaDocumentSectionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "doc", "`.")]
     pub fn doc_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "expression_fields",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn expression_fields_column(&self) -> &'a arrow_array::ListArray {
-        self.expression_fields_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "expression_fields", "`.")]
-    pub fn expression_fields_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -908,19 +682,7 @@ impl<'a> ReferenceSchemaDocumentSectionsView<'a> {
                 self.naming_scope_column_column,
                 index,
             )?,
-            r#expression_owner_column: crate::columnar::ArrowValue::read(
-                self.expression_owner_column_column,
-                index,
-            )?,
-            r#expression_owner_kind: crate::columnar::ArrowValue::read(
-                self.expression_owner_kind_column,
-                index,
-            )?,
             r#doc: crate::columnar::ArrowValue::read(self.doc_column, index)?,
-            r#expression_fields: crate::columnar::ArrowValue::read(
-                self.expression_fields_column,
-                index,
-            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

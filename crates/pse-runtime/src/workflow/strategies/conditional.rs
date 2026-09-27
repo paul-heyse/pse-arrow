@@ -8,20 +8,22 @@ use crate::math::{
         DeclaredRootReport, InitializationProfile, InitializationReport, PreparedInitialization,
     },
 };
-use crate::workflow::ModelRevision;
+use crate::workflow::{ModelingAnalysis, ModelingPackage};
 use native::{
     kinsol,
     quality::Tolerances,
     recycle::{CausalMap, CausalUnit},
 };
+use pse_compiler::workspace::{ModelingFlowSelection, ModelingOutput};
 use pse_math::binding::CaseValues;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Immutable original bindings plus a finite declared initialization strategy.
 #[derive(Clone, Debug)]
 pub struct PreparedInitializationStrategy {
-    pub(crate) revision: ModelRevision,
-    pub(crate) case: SemanticId,
+    pub(crate) runtime: Runtime,
+    pub(crate) values: CaseValues,
+    pub(crate) providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     pub(crate) prepared: PreparedInitialization,
     pub(crate) profile: InitializationProfile,
 }
@@ -38,20 +40,10 @@ impl PreparedInitializationStrategy {
     }
     /// Execute with this revision's original values and provider bindings.
     pub fn start(&self) -> Result<SolveHandle<InitializationReport>, WorkflowError> {
-        let values = CaseValues {
-            scalars: self.revision.0.cases[&self.case].values.clone(),
-        };
-        let providers = self
-            .revision
-            .0
-            .providers
-            .values()
-            .map(|p| (p.registration.spec().key(), p.registration.clone()))
-            .collect();
-        Ok(self.revision.0.runtime.native().initialize(
+        Ok(self.runtime.native().initialize(
             self.prepared.clone(),
-            values,
-            providers,
+            self.values.clone(),
+            self.providers.clone(),
             self.profile.clone(),
         )?)
     }
@@ -63,21 +55,15 @@ impl PreparedInitializationStrategy {
 pub struct CausalUnitRequest {
     /// Owning selected flow node.
     pub node: SemanticId,
-    /// Selected function case in this revision.
-    pub case: SemanticId,
-    /// Flow input port to authored function coordinate.
-    pub inputs: BTreeMap<SemanticId, SemanticId>,
-    /// Flow output port to authored function row.
-    pub outputs: BTreeMap<SemanticId, SemanticId>,
+    /// Input ports; their coordinates are owned by the authored port declarations.
+    pub inputs: BTreeSet<SemanticId>,
+    /// Output ports; their expressions are owned by the authored port declarations.
+    pub outputs: BTreeSet<SemanticId>,
 }
 /// Concrete tear witness and causal directions; native KINSOL owns all recycle iteration.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RecycleRequest {
-    /// The selected case supplying the flow projection.
-    pub case: SemanticId,
-    /// Selected flow identity.
-    pub flow: SemanticId,
     /// Exact selected tear decision groups, obtainable through select_tears.
     pub tears: BTreeSet<SemanticId>,
     /// Complete explicit causal unit inventory.
@@ -141,7 +127,9 @@ impl CausalUnit for UnitWorker {
 /// Compiled immutable causal functions and the independently checked selected tear graph.
 #[derive(Clone, Debug)]
 pub struct PreparedRecycle {
-    revision: ModelRevision,
+    runtime: Runtime,
+    providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    _source: crate::math::modeling::ModelingCasePreparation,
     request: RecycleRequest,
     graph: Arc<pse_structural::flowsheet::FlowGraph>,
     programs: Vec<UnitProgram>,
@@ -151,8 +139,13 @@ pub struct PreparedRecycle {
     settings: kinsol::Settings,
     controls: Controls,
     tolerances: Tolerances,
+    numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
 }
 impl PreparedRecycle {
+    /// Source-owned numerical magnitudes projected onto selected tear coordinates.
+    pub fn numerics(&self) -> &pse_model::numerics::ResolvedNumericalPolicy {
+        &self.numerics
+    }
     /// Exact causal directions and tear decisions selected by the caller.
     pub fn request(&self) -> &RecycleRequest {
         &self.request
@@ -166,7 +159,7 @@ impl PreparedRecycle {
     /// Execute only the explicitly requested map strategy; no automatic fallback follows failure.
     pub fn start(&self) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
         let prepared = self.clone();
-        Ok(self.revision.0.runtime.native().solve_declared_root(
+        Ok(self.runtime.native().solve_declared_root(
             self.contract.clone(),
             self.initial.clone(),
             self.settings.clone(),
@@ -176,15 +169,9 @@ impl PreparedRecycle {
                 let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
                 for program in prepared.programs {
                     let providers = prepared
-                        .revision
-                        .0
                         .providers
                         .values()
-                        .map(|p| {
-                            p.registration
-                                .worker()
-                                .map(|w| (p.registration.spec().key(), w))
-                        })
+                        .map(|p| p.worker().map(|w| (p.spec().key(), w)))
                         .collect::<Result<_, _>>()
                         .map_err(|e| native::ProblemError::Contract(e.to_string()))?;
                     let worker = program
@@ -211,15 +198,17 @@ impl PreparedRecycle {
         )?)
     }
 }
-impl ModelRevision {
+impl ModelingPackage {
     /// Compile explicitly directed units from this revision, retaining physical port conversions.
     pub async fn prepare_recycle(
         &self,
+        analysis: &ModelingAnalysis,
+        selection: ModelingFlowSelection,
         request: RecycleRequest,
-        mut profile: SolverProfile,
-        compiler: pse_compiler::workspace::Profile,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
+        let mut profile = analysis.solver.clone();
+        let compiler = analysis.compiler;
         if profile.intent != SolveIntent::Root
             || !matches!(
                 profile.selection,
@@ -245,12 +234,38 @@ impl ModelRevision {
             .controls
             .validate()
             .map_err(MathRuntimeError::from)?;
-        let flow = self.prepare_flow(request.case, request.flow).await?;
+        let resolved = self
+            .resolve_case(
+                analysis.root,
+                analysis.instance,
+                analysis.bindings.clone(),
+                analysis.limits,
+                analysis.case.clone(),
+                DerivativeOrder::First,
+                compiler,
+                profile.clone(),
+                analysis.numerical.clone(),
+                BTreeMap::new(),
+                BTreeMap::new(),
+                false,
+                cancel,
+            )
+            .await?;
+        let flow = self
+            .runtime
+            .native()
+            .prepare_modeling_flow(
+                resolved.model.model.clone(),
+                self.quantities.clone(),
+                selection,
+                cancel,
+            )
+            .await?;
         let graph = Arc::new(flow.graph().clone());
         graph
             .witness(&request.tears)
             .map_err(|e| contract(e.to_string()))?;
-        let q = &self.0.physical.quantities;
+        let q = &self.quantities;
         let ports: BTreeMap<_, _> = graph
             .declaration()
             .nodes
@@ -269,8 +284,8 @@ impl ModelRevision {
                 .ok_or_else(|| contract("unknown causal node"))?;
             let inventory: BTreeSet<_> = unit
                 .inputs
-                .keys()
-                .chain(unit.outputs.keys())
+                .iter()
+                .chain(unit.outputs.iter())
                 .copied()
                 .collect();
             if inventory != node.ports.iter().map(|p| p.id).collect()
@@ -283,12 +298,7 @@ impl ModelRevision {
                     "causal direction must cover every port once and every node once",
                 ));
             }
-            let input = self
-                .0
-                .cases
-                .get(&unit.case)
-                .ok_or_else(|| contract("unknown causal function case"))?;
-            let source = &input.cases[&unit.case].structure;
+            let source = resolved.model.case.compiled().plan.structure();
             let symbols: BTreeMap<_, _> = source
                 .variables()
                 .iter()
@@ -296,17 +306,19 @@ impl ModelRevision {
                 .chain(source.parameters().iter().map(|p| (p.id, p)))
                 .collect();
             let mut inputs = Vec::new();
-            for (port, symbol) in &unit.inputs {
+            let source_ports = &resolved.model.model.compiled().model.ports;
+            for port in &unit.inputs {
+                let symbol = &source_ports[port].symbol;
                 let bound = symbols
                     .get(symbol)
                     .ok_or_else(|| contract("unknown causal input symbol"))?;
                 if source
                     .variables()
                     .iter()
-                    .any(|v| v.port.id == *symbol && (v.lower.is_some() || v.upper.is_some()))
+                    .any(|v| v.port.id == *symbol && (v.lower.is_some() || v.upper.is_some() || v.domain.is_integer()))
                 {
                     return Err(contract(
-                        "KINSOL fixed point cannot enforce causal input bounds; request a constrained simultaneous strategy",
+                        "KINSOL fixed point cannot enforce causal input bounds or integrality; request a constrained simultaneous strategy",
                     ));
                 }
                 pse_quantity::admission::require_same_contract(
@@ -327,23 +339,26 @@ impl ModelRevision {
                 if all_inputs
                     .insert(
                         *port,
-                        (input.values[symbol] - conversion.offset) / conversion.scale,
+                        (resolved.model.values.scalars[symbol] - conversion.offset)
+                            / conversion.scale,
                     )
                     .is_some()
                 {
                     return Err(contract("duplicate causal input port"));
                 }
             }
-            let outputs: Vec<_> = unit.outputs.values().copied().collect();
-            let coordinates = unit.inputs.values().copied().collect();
+            let outputs: Vec<_> = unit
+                .outputs
+                .iter()
+                .map(|port| ModelingOutput::Member(source_ports[port].symbol).row_id())
+                .collect();
+            let coordinates = unit.inputs.iter().map(|p| source_ports[p].symbol).collect();
             let program = self
-                .0
                 .runtime
                 .native()
-                .prepare_functions_revision(
-                    self.0.workspace.clone(),
-                    input.as_ref().clone(),
-                    unit.case,
+                .prepare_modeling_functions(
+                    self.workspace.clone(),
+                    resolved.model.model.clone(),
                     outputs,
                     coordinates,
                     DerivativeOrder::First,
@@ -352,7 +367,8 @@ impl ModelRevision {
                 )
                 .await?;
             // Every free dependency of each explicit function must be a declared input.
-            let declared: BTreeSet<_> = unit.inputs.values().copied().collect();
+            let declared: BTreeSet<_> =
+                unit.inputs.iter().map(|p| source_ports[p].symbol).collect();
             let free: BTreeSet<_> = source
                 .variables()
                 .iter()
@@ -372,14 +388,15 @@ impl ModelRevision {
                 ));
             }
             let mut mapped = Vec::new();
-            for (port, row) in &unit.outputs {
+            for port in &unit.outputs {
+                let row = source_ports[port].symbol;
                 let (index, source_row) = program
                     .assembly
                     .structure()
                     .rows()
                     .iter()
                     .enumerate()
-                    .find(|(_, r)| r.id == *row)
+                    .find(|(_, r)| r.id == ModelingOutput::Member(row).row_id())
                     .ok_or_else(|| contract("unknown causal output row"))?;
                 pse_quantity::admission::require_same_contract(
                     source_row.quantity,
@@ -405,9 +422,7 @@ impl ModelRevision {
             programs.push(UnitProgram {
                 declaration: unit.clone(),
                 program,
-                values: CaseValues {
-                    scalars: input.values.clone(),
-                },
+                values: resolved.model.values.clone(),
                 inputs,
                 outputs: mapped,
             });
@@ -438,8 +453,10 @@ impl ModelRevision {
             .map(|(p, v)| (*p, *v))
             .collect();
         let initial = tears.iter().map(|p| all_inputs[p]).collect();
-        let mut h = FramedHasher::new("pse.causal-map.v1");
-        h.hash(&self.identity())
+        let mut h = FramedHasher::new("pse.causal-map.v2");
+        h.hash(&self.revision.identity())
+            .hash(&resolved.model.case.compiled().plan.structure().key())
+            .hash(&resolved.model.values.identity())
             .hash(&graph.key())
             .str(&serde_json::to_string(&request).map_err(|e| contract(e.to_string()))?);
         let contract = native::OracleContract {
@@ -467,18 +484,24 @@ impl ModelRevision {
                     (pse_model::generated::enums::NumericalTarget::Variable, *p),
                     (pse_model::generated::enums::NumericalTarget::Row, *r),
                 ]
-                .map(|(kind, id)| pse_math::numerics::TargetSpec {
-                    id,
-                    kind,
-                    quantity: ports[p].quantity,
-                    unit: ports[p].unit,
-                    integer: false,
-                    declared_tolerance: None,
+                .map(|(kind, id)| pse_math::numerics::TargetProjection {
+                    source: resolved.model.model.compiled().model.ports[p].symbol,
+                    source_kind: pse_model::generated::enums::NumericalTarget::Variable,
+                    target: pse_math::numerics::TargetSpec {
+                        id,
+                        kind,
+                        quantity: ports[p].quantity,
+                        unit: ports[p].unit,
+                        integer: false,
+                        declared_tolerance: None,
+                    },
                 })
             })
             .collect();
-        let numerics = pse_math::numerics::resolve(q, &targets, &[], &profile.numerics)
-            .map_err(crate::workflow::math)?;
+        let numerics = Arc::new(
+            pse_math::numerics::project(q, &resolved.numerics, &targets)
+                .map_err(crate::workflow::math)?,
+        );
         let ids: Vec<_> = tears.into_iter().collect();
         let tolerances = Tolerances::from_policy(&numerics, &ids, &contract.rows)
             .map_err(MathRuntimeError::from)?;
@@ -508,7 +531,9 @@ impl ModelRevision {
             .validate_contract(&contract, kinsol::Strategy::FixedPoint, &BTreeMap::new())
             .map_err(MathRuntimeError::from)?;
         Ok(PreparedRecycle {
-            revision: self.clone(),
+            runtime: self.runtime.clone(),
+            providers: resolved.providers,
+            _source: resolved.model,
             request,
             graph,
             programs,
@@ -518,6 +543,7 @@ impl ModelRevision {
             settings,
             controls: profile.controls,
             tolerances,
+            numerics,
         })
     }
 }

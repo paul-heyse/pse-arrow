@@ -54,6 +54,8 @@ diffsol = { workspace = true, optional = true }
 libtest-mimic.workspace = true
 object_store.workspace = true
 pse-runtime.workspace = true
+pse-modeling.workspace = true
+pse-authoring.workspace = true
 pse-compiler.workspace = true
 pse-structural.workspace = true
 pse-backend-native.workspace = true
@@ -68,7 +70,6 @@ pse-ids.workspace = true
 pse-schema.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }
-pse-material.workspace = true
 parquet.workspace = true
 datafusion.workspace = true
 tokio.workspace = true

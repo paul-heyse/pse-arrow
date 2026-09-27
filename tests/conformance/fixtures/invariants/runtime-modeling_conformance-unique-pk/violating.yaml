@@ -1,0 +1,45 @@
+{
+  "invariant": "runtime.modeling_conformance:unique:pk",
+  "rows": {
+    "runtime.modeling_conformance": [
+      {
+        "failure_ordinal": "[\"i64\",1]",
+        "fixture_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"coverage\"]",
+        "message": "[\"text\",\"value-1\"]",
+        "oracle_reference": "[\"text\",\"value-1\"]",
+        "oracle_revision": "[\"text\",\"value-1\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "sample_index": "[\"i64\",1]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "status": "[\"enum\",\"passed\"]",
+        "target_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "time": "[\"f64\",\"3ff0000000000000\"]"
+      },
+      {
+        "failure_ordinal": "[\"i64\",1]",
+        "fixture_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"coverage\"]",
+        "message": "[\"text\",\"value-1\"]",
+        "oracle_reference": "[\"text\",\"value-1\"]",
+        "oracle_revision": "[\"text\",\"value-1\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "sample_index": "[\"i64\",1]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "status": "[\"enum\",\"passed\"]",
+        "target_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "time": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"i64\",1]",
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"enum\",\"coverage\"]"
+    ]
+  ]
+}

@@ -1311,6 +1311,116 @@ mod tests {
         }
     }
     #[test]
+    fn native_iis_discrete_scope_is_an_explicit_continuous_relaxation() {
+        use std::sync::{Arc, atomic::AtomicBool};
+        let mut p = problem();
+        p.contract.variables[0].lower = -10.;
+        p.contract.variables[0].upper = 10.;
+        p.constraints = faer::sparse::SparseColMat::try_new_from_triplets(
+            1,
+            1,
+            &[faer::sparse::Triplet::new(0, 0, 1.)],
+        )
+        .unwrap();
+        let controls = Controls::default();
+        for (domain, bounds, row, conflict) in [
+            (
+                VariableDomain::Binary,
+                (-10., 10.),
+                (2., f64::INFINITY),
+                true,
+            ),
+            (VariableDomain::Integer, (-10., 10.), (0.5, 0.5), false),
+            (VariableDomain::SemiContinuous, (1., 10.), (0., 0.), false),
+        ] {
+            p.domains[0] = domain;
+            p.contract.variables[0].lower = bounds.0;
+            p.contract.variables[0].upper = bounds.1;
+            p.bounds[0] = row;
+            let mut session =
+                Session::new(&p, None, crate::solver_tests::stamp(Backend::Highs)).unwrap();
+            let evidence = session
+                .diagnose(
+                    &p,
+                    &diagnostics::Request {
+                        iis: true,
+                        ..Default::default()
+                    },
+                    &Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+                )
+                .unwrap();
+            assert_eq!(
+                evidence.iis.is_some(),
+                conflict,
+                "{:?}",
+                evidence.unavailable
+            );
+            if let Some(iis) = evidence.iis {
+                assert!(iis.relaxation_only);
+                assert_eq!(iis.columns[0].0, p.contract.variables[0].id);
+                assert_eq!(iis.rows[0].0, p.contract.rows[0]);
+            }
+            assert_eq!(p.domains[0], domain);
+        }
+    }
+    #[test]
+    fn native_relaxation_preserves_restored_status_and_physical_penalty() {
+        use std::sync::{Arc, atomic::AtomicBool};
+        let mut p = problem();
+        p.domains[0] = VariableDomain::Continuous;
+        p.contract.variables[0].lower = 0.;
+        p.contract.variables[0].upper = 1.;
+        p.bounds[0] = (2., f64::INFINITY);
+        p.constraints = faer::sparse::SparseColMat::try_new_from_triplets(
+            1,
+            1,
+            &[faer::sparse::Triplet::new(0, 0, 1.)],
+        )
+        .unwrap();
+        let n = pse_math::normalization::Normalization {
+            variables: vec![4.],
+            rows: vec![2.],
+            objective: 5.,
+        };
+        let (normalized, _) = crate::transport::coefficients(&p, &n, None).unwrap();
+        let request = crate::transport::diagnostic_request(
+            &diagnostics::Request {
+                relaxation: Some(diagnostics::Penalties {
+                    global: [-1., -1., 1.],
+                    lower: None,
+                    upper: None,
+                    rows: None,
+                }),
+                ..Default::default()
+            },
+            &n,
+        )
+        .unwrap();
+        let mut session = Session::new(
+            &normalized,
+            None,
+            crate::solver_tests::stamp(Backend::Highs),
+        )
+        .unwrap();
+        let controls = Controls::default();
+        let mut evidence = session
+            .diagnose(
+                &normalized,
+                &request,
+                &Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+            )
+            .unwrap();
+        crate::transport::recover_diagnostics(&mut evidence, &n, &[0.]).unwrap();
+        let relaxed = evidence.relaxation.unwrap();
+        assert_eq!(relaxed.operation_status, 0);
+        assert_eq!(relaxed.restored_status.name, "NotSet");
+        assert_eq!(relaxed.restored_status.category, Termination::Inconclusive);
+        assert!((relaxed.penalty.unwrap() - 1.).abs() < 1e-8, "{relaxed:?}");
+        assert!((relaxed.primal.unwrap()[0] - 1.).abs() < 1e-8);
+        assert_eq!(p.contract.variables[0].upper, 1.);
+        assert_eq!(p.bounds[0].0, 2.);
+    }
+    #[test]
     fn checked_upload_clips_binary_bounds_and_preserves_authored_sense_offset() {
         let p = problem();
         let mut s = Session::new(&p, None, crate::solver_tests::stamp(Backend::Highs)).unwrap();

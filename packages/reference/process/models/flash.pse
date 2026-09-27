@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("65729aa4c1204931a1331e7052930be9") package flashing {
+@id("efc7390c98104e5786f3f68afeec0374") use kinds @"1.0.0";
+@id("cd9787611e26439c9125da99c897ab4b") use equilibrium @"1.0.0";
+@id("2d99e2f21b6440c09855786741770a48") use control_volumes @"1.0.0";
+@id("5e3e53b48cd141d382de8ba3f6d94ba0") def Flash(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.EquilibriumThermoPackage):control_volumes.ControlVolume0D {
+@id("1db6c8cd499440e0950f7488254ea97f") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
+@id("8135b961d007412b83d8f5594bdf5a44") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
+@id("1c6e4eaddb90420cb62e23c6af17699a") override child outlet:equilibrium.EquilibriumThermoPackage=outlet_pkg;
+@id("a7a16ca75a1243cea690689a66b48465") eq no_work:work==0{W};
+@id("426f44f03457479baaa3a87a496262f9") port liquid_flow:Flow=outlet.liquid_flow;
+@id("fe014fa010fd444ca0ef504b9fd80f47") port liquid_temperature:Temperature=outlet.T;
+@id("db54896d3e8047bf8acb848069918ed1") port liquid_pressure:Pressure=outlet.pressure;
+@id("79f4b7f307ae42f49f391eb052b162ca") port liquid_composition[j in components]:MoleFraction=outlet.x[j];
+@id("f29b62e0a21a414fa9a5b5140d2abeec") port liquid_component_flow[j in components]:ComponentFlow=outlet.phase_component_flow[equilibrium.liquid,j];
+@id("c402862afb984dd0b7f0defaec410919") port vapor_flow:Flow=outlet.vapor_flow;
+@id("090092554c75405bbca5e209904ece89") port vapor_temperature:Temperature=outlet.T;
+@id("a0972ef32c8b4ca1acc1c5a51fd07a93") port vapor_pressure:Pressure=outlet.pressure;
+@id("ed0119aedc65432a8346999928f6b9fa") port vapor_composition[j in components]:MoleFraction=outlet.y[j];
+@id("413945b85314456caa34c3eace0a4a0f") port vapor_component_flow[j in components]:ComponentFlow=outlet.phase_component_flow[equilibrium.vapor,j];
+}
+}

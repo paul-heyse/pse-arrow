@@ -566,6 +566,50 @@ impl CaseStructure {
         }
         Ok(())
     }
+    /// Admit only the values frozen into compilation: parameters and fixed variables.
+    /// Free coordinates may be absent or outside bounds for structural diagnostics;
+    /// this does not admit a numerical trial or supply an implicit initial guess.
+    pub fn validate_frozen_values(&self, values: &CaseValues) -> Result<(), MathError> {
+        let declared = self
+            .variables
+            .iter()
+            .map(|v| v.port.id)
+            .chain(self.parameters.iter().map(|p| p.id))
+            .collect::<BTreeSet<_>>();
+        if values
+            .scalars
+            .iter()
+            .any(|(id, v)| !declared.contains(id) || !v.is_finite())
+        {
+            return Err(MathError::Contract(
+                "undeclared or nonfinite preparation value".into(),
+            ));
+        }
+        for id in self
+            .parameters
+            .iter()
+            .map(|p| p.id)
+            .chain(self.variables.iter().filter(|v| v.fixed).map(|v| v.port.id))
+        {
+            if !values.scalars.contains_key(&id) {
+                return Err(MathError::Contract(format!(
+                    "missing frozen preparation value {id}"
+                )));
+            }
+        }
+        for variable in self.variables.iter().filter(|v| v.fixed) {
+            if !variable.domain.contains(
+                values.scalars[&variable.port.id],
+                variable.lower.unwrap_or(f64::NEG_INFINITY),
+                variable.upper.unwrap_or(f64::INFINITY),
+            ) {
+                return Err(MathError::Contract(
+                    "fixed value outside declared domain".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
     /// Stable free-variable layout. Body formal layouts do not change with fixed/free edits.
     pub fn free_variables(&self) -> impl Iterator<Item = SemanticId> + '_ {
         self.variables

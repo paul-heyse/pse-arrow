@@ -224,7 +224,15 @@ impl<'a> Cursor<'a> {
             } else {
                 None
             };
-            ExprKind::Number(Number { value, unit })
+            ExprKind::Number(Number {
+                value,
+                unit,
+                exact_integer: token
+                    .text
+                    .parse::<i128>()
+                    .ok()
+                    .filter(|n| n.unsigned_abs() > 9_007_199_254_740_991),
+            })
         } else {
             self.named_primary(start)?
         };
@@ -238,7 +246,11 @@ impl<'a> Cursor<'a> {
     }
     fn named_primary(&mut self, start: u32) -> Result<ExprKind, DslError> {
         let quoted = self.token().is_some_and(|token| token.kind == Kind::Quoted);
-        let name = self.ident()?;
+        let name = if self.eat("∂") {
+            "partial".into()
+        } else {
+            self.ident()?
+        };
         if quoted {
             return Ok(ExprKind::Path(self.path_tail(name)?));
         }
@@ -259,6 +271,36 @@ impl<'a> Cursor<'a> {
             return Ok(ExprKind::Kernel { name, args });
         }
         if self.eat("(") {
+            if name == "fold" {
+                let accumulator = self.ident()?;
+                self.expect(",")?;
+                let item = self.ident()?;
+                self.expect(";")?;
+                let var = self.ident()?;
+                self.expect("in")?;
+                let domain = self.path()?;
+                let filter = if self.eat("where") {
+                    Some(Box::new(self.predicate(0)?))
+                } else {
+                    None
+                };
+                self.expect("|")?;
+                let value = self.expr()?;
+                self.expect(";")?;
+                let step = self.expr()?;
+                self.expect(")")?;
+                return Ok(ExprKind::Fold {
+                    accumulator,
+                    item,
+                    binder: Box::new(Binder {
+                        var,
+                        domain,
+                        filter,
+                    }),
+                    value: Box::new(value),
+                    step: Box::new(step),
+                });
+            }
             if let Some(kind) = match name.as_str() {
                 "sum" => Some(ReduceKind::Sum),
                 "prod" => Some(ReduceKind::Prod),
@@ -286,9 +328,26 @@ impl<'a> Cursor<'a> {
                     wrt,
                 });
             }
-            let function = Function::parse(&name)
-                .ok_or_else(|| syntax(start, "declared function or kernel.name", &name))?;
+            if name == "partial" {
+                let function = super::render_path(&self.path()?);
+                self.expect(",")?;
+                let mut wrt = vec![self.path()?];
+                while self.eat(",") {
+                    wrt.push(self.path()?);
+                }
+                self.expect(")")?;
+                self.expect("(")?;
+                let args = self.arguments()?;
+                return Ok(ExprKind::Partial {
+                    function,
+                    wrt,
+                    args,
+                });
+            }
             let args = self.arguments()?;
+            let Some(function) = Function::parse(&name) else {
+                return Ok(ExprKind::NamedCall { name, args });
+            };
             if function == Function::Broadcast
                 && !matches!(args.as_slice(), [_, Expr { kind: ExprKind::Path(path), .. }]
                     if path.segments.len() == 1 && path.segments[0].indices.is_empty())
@@ -297,7 +356,15 @@ impl<'a> Cursor<'a> {
             }
             return Ok(ExprKind::Call { function, args });
         }
-        Ok(ExprKind::Path(self.path_tail(name)?))
+        let path = self.path_tail(name)?;
+        if self.eat("(") {
+            let name = super::render_path(&path);
+            return Ok(ExprKind::NamedCall {
+                name,
+                args: self.arguments()?,
+            });
+        }
+        Ok(ExprKind::Path(path))
     }
     fn arguments(&mut self) -> Result<Vec<Expr>, DslError> {
         let mut args = Vec::new();

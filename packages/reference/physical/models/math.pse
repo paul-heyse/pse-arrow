@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// Scalar is the manifest-declared neutral dimensionless quantity. Composite functions
+// use ordinary authored mathematics; their domain obligations come from primitives.
+@id("21e6daee693b457bb069e2e9f7036f90") package math {
+@id("01a0e1e80e5b772d9919f9db9afa88c7") use kinds @"1.0.0";
+@id("01a0e1e80e5b772d9919f9dc94382c8b") fn smooth_min_over<Q>(values:Q[kinds.port_set],members:Set<kinds.port_set>,eps:Delta<Q>)->Q valid(eps>eps-eps)=fold(acc,value; i in members | values[i]; smooth_min(acc,value,eps));
+    @id("f7ba679992b34324a041ba4afed1d49f") fn log10(x: Scalar) -> Scalar = log(x)/log(10);
+    @id("5d3e8735896c4e8b999928c9bbf32b29") fn tan(x: Scalar) -> Scalar = sin(x)/cos(x);
+    @id("58d0e815e01544f0a4c402c76903e411") fn sinh(x: Scalar) -> Scalar = (exp(x)-exp(-x))/2;
+    @id("74f52607874249cbb61a66fcbf1a049e") fn cosh(x: Scalar) -> Scalar = (exp(x)+exp(-x))/2;
+    @id("ff7f3dd79ba548a581bb2ecc58b4d38d") fn sigmoid(x: Scalar) -> Scalar piecewise 2 = if x < 0 then (e/(1+e) where e = exp(x)) else (1/(1+e) where e = exp(-x));
+    @id("28fe27c0354a453481dce563439cce50") fn softplus(x: Scalar) -> Scalar piecewise 2 = if x < 0 then log(1+exp(x)) else x+log(1+exp(-x));
+    @id("3c417506b2504e8a8da5865c46a2e1d8") fn tanh(x: Scalar) -> Scalar = 2*sigmoid(2*x)-1;
+
+    @id("01a0e13fab8d7392b52a977d5e3a8560") fn smooth_max<Q>(a:Q,b:Q,eps:Delta<Q>)->Q valid(eps>eps-eps) = b+eps*(d+sqrt(d*d+1))/2 where d=(a-b)/eps;
+    @id("01a0e13fab8d7392b52a977edc11bde4") fn smooth_min<Q>(a:Q,b:Q,eps:Delta<Q>)->Q valid(eps>eps-eps) = a-eps*(d+sqrt(d*d+1))/2 where d=(a-b)/eps;
+    @id("01a0e13fab8d7392b52a977fd39086c9") fn smooth_abs<Q>(x:Q,eps:Q)->Q valid(eps> -eps) = eps*sqrt((x/eps)*(x/eps)+1);
+    @id("01a0e13fab8d7392b52a9780495c369a") fn complementarity(a:Scalar,b:Scalar,eps:Scalar)->Scalar valid(eps>0) = sqrt(a*a+b*b+2*eps*eps)-a-b;
+    @id("01a0e13fab8d7392b52a97815ce2e878") fn safe_log(x:Scalar,eps:Scalar)->Scalar valid(eps>0) = log(smooth_max(x,eps,eps));
+    @id("01a0e13fab8d7392b52a978200f3aa53") fn safe_sqrt(x:Scalar,eps:Scalar)->Scalar valid(eps>0) = sqrt(smooth_max(x,eps,eps));
+    @id("01a0e13fab8d7392b52a978363099efc") fn cbrt(x:Scalar)->Scalar piecewise 0 = if x<0 then -((-x)^(1/3)) else if x<=0 then 0 else x^(1/3);
+    @id("01a0e13fab8d7392b52a97847a649413") fn valve_characteristic(x:Scalar)->Scalar piecewise 2 = if x<0 then 0 else if x<1 then x^3*(63-90*x+35*x*x)/8 else sqrt(x);
+    @id("01a0e13fab8d7392b52a9785890396a6") test scalar_identities fixture {dof 0; run pure;} {
+    @id("01a0e13fab8d7392b52a97863dad6cf7") expect log10(100)==2 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a978766716499") expect tanh(0)==0 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a9788d90028b3") expect sigmoid(0)==0.5 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a9789578c726a") expect smooth_max(2,2,0.1)==2.05 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a978ad8532de6") expect smooth_min(2,2,0.1)==1.95 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a978b1fddf2cc") expect smooth_abs(3,4)==5 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a978c3fe334e6") expect complementarity(2,2,2)==0 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a978d580e5f97") expect safe_log(0,1)==log((1+sqrt(2))/2) tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a978e8a44df0e") expect safe_sqrt(0,1)==sqrt((1+sqrt(2))/2) tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a978f47d9b6ae") expect cbrt(-8)==-2 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a9790f6a77822") expect cbrt(0)==0 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a9791b95fb071") expect cbrt(8)==2 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a979243960eb3") expect valve_characteristic(-1)==0 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a9793d689c006") expect valve_characteristic(0.5)==0.41796875 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a97943c7a69f6") expect valve_characteristic(4)==2 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a979521c1f4b1") expect partial(valve_characteristic,x)(0)==0 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a979694e974bf") expect partial(valve_characteristic,x)(1)==0.5 tolerance 1e-12;
+    @id("01a0e13fab8d7392b52a97971f1be5a6") expect partial(valve_characteristic,x,x)(1)==-0.25 tolerance 1e-12;
+    }
+}

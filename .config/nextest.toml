@@ -31,6 +31,11 @@ filter = 'package(pse-tests-engine) | package(pse-tests-conformance)'
 test-group = "engineering"
 threads-required = 2
 
+[[profile.default.overrides]]
+# These acceptances admit the scientific package closure before native execution.
+filter = 'test(authored_vessel_fitting_preserves_shared_parameters_checks_and_identifiability) | test(authored_physical_nlp_preserves_native_routes_and_original_qualification) | test(acceptance::publication_resource::authored_publication_resource)'
+slow-timeout = { period = "300s", terminate-after = 3 }
+
 # CI: run everything, retry nothing. A flaky test is a red test.
 [profile.ci]
 fail-fast = false

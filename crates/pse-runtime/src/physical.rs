@@ -4,7 +4,7 @@
 //! One invocation-owned projection of actual physical source bindings.
 
 mod decode;
-mod material;
+mod preconditions;
 mod plans;
 
 use datafusion::logical_expr::{Expr, LogicalPlanBuilder, col, lit};
@@ -31,7 +31,6 @@ pub fn input_keys(registry: &Registry) -> Vec<RelationKey> {
 pub struct PhysicalInventory {
     quantities: QuantityRegistry,
     boolean: Option<QuantityKindId>,
-    elements: pse_material::ElementTable,
     preconditions: Arc<pse_quantity::PhysicalPreconditions>,
     batches: BTreeMap<RelationKey, FieldCheckedBatch>,
     _allocation: Arc<AllocationLease>,
@@ -111,11 +110,9 @@ impl PhysicalInventory {
             .map_err(pse_columnar::CanonError::from)?;
         let context = plans::context(session, registry, cancel).await?;
         let (quantities, boolean) = decode::inventory(&batches, registry, cancel, context)?;
-        let elements = material::elements(&batches, registry, cancel)?;
-        let preconditions = material::preconditions(&batches, registry, &quantities, cancel)?;
+        let preconditions = preconditions::preconditions(&batches, registry, &quantities, cancel)?;
         let preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(preconditions)?);
         Ok(Self {
-            elements,
             preconditions,
             quantities,
             boolean,
@@ -165,10 +162,6 @@ impl PhysicalInventory {
     pub const fn boolean(&self) -> Option<QuantityKindId> {
         self.boolean
     }
-    /// Actual declared element masses for composition algorithms.
-    pub const fn elements(&self) -> &pse_material::ElementTable {
-        &self.elements
-    }
     /// Actual selected operand predicates for physical operation algorithms.
     pub fn preconditions(&self) -> &[pse_quantity::PhysicalPrecondition] {
         self.preconditions.declarations()
@@ -192,6 +185,7 @@ impl PhysicalInventory {
 }
 
 const INPUTS: &[&str] = &[
+    "authored.modeling_declarations",
     "reference.units",
     "normalized.units",
     "reference.unit_sets",
@@ -204,7 +198,6 @@ const INPUTS: &[&str] = &[
     "reference.quantity_operation_reductions",
     "reference.quantity_preconditions",
     "reference.math_context",
-    "reference.elements",
 ];
 
 fn invalid(detail: impl Into<String>) -> PhysicalError {
@@ -217,9 +210,6 @@ fn invalid(detail: impl Into<String>) -> PhysicalError {
 /// Physical source admission preserves each originating diagnostic.
 #[derive(Debug, thiserror::Error)]
 pub enum PhysicalError {
-    /// Original material failure.
-    #[error(transparent)]
-    Material(#[from] pse_material::MaterialError),
     /// Original quantity failure.
     #[error(transparent)]
     Quantity(#[from] pse_quantity::QuantityError),
@@ -241,7 +231,7 @@ pse_diagnostics::impl_diagnostic! {
     PhysicalError,
     code(_this){None},
     forward(this){match this {
-        Self::Material(e)=>Some(e),Self::Quantity(e)=>Some(e),Self::Catalog(e)=>Some(e),
+        Self::Quantity(e)=>Some(e),Self::Catalog(e)=>Some(e),
         Self::Relation(e)=>Some(e),Self::Canon(e)=>Some(e),Self::Schema(e)=>Some(e),
     }},
     help(_this){None},related(_this){None},source(_this){None}

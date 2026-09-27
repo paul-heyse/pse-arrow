@@ -8,7 +8,7 @@ use super::*;
 async fn span_projection_does_not_capture_an_unrelated_value_column() {
     let registry = pse_schema::registry().unwrap();
     let context = SessionContext::new();
-    let spec = registry.relation("authored.case_specs").unwrap();
+    let spec = registry.relation("authored.observations").unwrap();
     let schema = pse_schema::arrow::relation_schema(registry, spec).unwrap();
     let input = context
         .read_batch(arrow::record_batch::RecordBatch::new_empty(

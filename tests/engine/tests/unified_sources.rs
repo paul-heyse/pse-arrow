@@ -45,14 +45,11 @@ fn texts() -> BTreeMap<String, String> {
     BTreeMap::from([
         (
             "package.toml".into(),
-            include_str!("../../fixtures/packages/minimal_explicit/package.toml").to_owned(),
+            include_str!("../../fixtures/packages/minimal_named/package.toml").to_owned(),
         ),
         (
-            "materials/species.yaml".into(),
-            format!(
-                "# exact UTF-8 provenance: 水, ΔT\r\n{}",
-                include_str!("../../fixtures/packages/minimal_explicit/materials/species.yaml")
-            ),
+            "models/probe.pse".into(),
+            "// exact UTF-8 provenance: 水, ΔT\r\npackage minimal_named { entity kind sample {} entity sample probe {} }\r\n".into(),
         ),
     ])
 }
@@ -220,7 +217,10 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     assert!(!root.path().join("documents").exists());
     assert_eq!(
         reopened
-            .sql("SELECT name FROM source.authored.species", &cancel)
+            .sql(
+                "SELECT name FROM source.authored.modeling_declarations WHERE name = 'probe'",
+                &cancel
+            )
             .await
             .unwrap()
             .iter()

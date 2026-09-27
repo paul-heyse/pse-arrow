@@ -6,11 +6,11 @@ use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::{QuantityRegistry, QuantityTypeId, UnitId};
 use std::sync::atomic::{AtomicBool, Ordering};
 
-pub mod envelope;
-pub mod feos;
-pub mod valve;
+mod shape;
+pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
+pub use shape::{ProviderShape, ProviderShapes};
 
-/// Complete provider interpretation, including ordered ports, phase and parameter data.
+/// Complete provider interpretation, including ordered ports and explicit parameter data.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProviderKey(pub ContentHash);
 
@@ -116,29 +116,19 @@ pub struct Port {
     /// Actual representation unit.
     pub unit: UnitId,
 }
-/// A selected physical branch.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Phase {
-    /// Physical branch identity.
-    pub id: SemanticId,
-    /// Branch interpretation revision.
-    pub revision: ContentHash,
-}
 /// Immutable registration; a declaration alone is not an executable provider.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProviderSpec {
-    /// Declared physical operating window; absent for non-thermodynamic providers.
-    pub envelope: Option<envelope::StateEnvelope>,
+    /// Explicit logical arrays over scalar ABI cells; empty for all-scalar signatures.
+    pub shapes: ProviderShapes,
+    /// Provenance of local partials, independent of their available order.
+    pub derivative_source: DerivativeSource,
     /// Implementation identity.
     pub id: SemanticId,
     /// Algorithm and physical interpretation revision.
     pub revision: ContentHash,
     /// Exact parameter-data identity.
     pub data: ContentHash,
-    /// Components in provider order.
-    pub components: Vec<SemanticId>,
-    /// Selected branch, fixed within a smooth region.
-    pub phase: Phase,
     /// Ordered scalar inputs.
     pub inputs: Vec<Port>,
     /// Ordered outputs from one coherent state.
@@ -149,13 +139,11 @@ pub struct ProviderSpec {
     pub smoothness: DerivativeOrder,
 }
 impl ProviderSpec {
-    /// Validate actual physical references and unique component/port identities.
+    /// Validate actual physical references and unique port identities.
     /// # Errors
     /// Missing references, duplicates or incompatible scalar ports.
     pub fn validate(&self, registry: &QuantityRegistry) -> Result<(), ProviderError> {
-        if let Some(envelope) = &self.envelope {
-            envelope.validate()?;
-        }
+        self.shapes.validate(&self.inputs, &self.outputs)?;
         let unique = |ids: Vec<SemanticId>| {
             let count = ids.len();
             ids.into_iter()
@@ -163,13 +151,12 @@ impl ProviderSpec {
                 .len()
                 == count
         };
-        if self.inputs.len() > 4096 || self.outputs.len() > 4096 || self.components.len() > 65536 {
+        if self.inputs.len() > 4096 || self.outputs.len() > 4096 {
             return Err(ProviderError::Contract(
                 "provider registration capacity".into(),
             ));
         }
         if self.outputs.is_empty()
-            || !unique(self.components.clone())
             || !unique(self.inputs.iter().map(|p| p.id).collect())
             || !unique(self.outputs.iter().map(|p| p.id).collect())
         {
@@ -313,6 +300,18 @@ pub enum ProviderError {
     #[error("provider failed: {0}")]
     Terminal(String),
 }
+impl ProviderError {
+    /// Owned failure extent for retaining the original typed witness.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(match self {
+            Self::Contract(s) | Self::Trial(s) | Self::Singular(s) | Self::Terminal(s) => {
+                s.capacity()
+            }
+            Self::OutsideEnvelope { axis, .. } => axis.capacity(),
+            Self::Cancelled | Self::Limit(_) => 0,
+        })
+    }
+}
 pse_diagnostics::impl_diagnostic! {
     ProviderError,
     code(this) { Some(match this {
@@ -329,27 +328,17 @@ impl ProviderSpec {
     pub fn key(&self) -> ProviderKey {
         ProviderKey(self.identity())
     }
-    /// Exact physical, algorithm, data and phase identity; no process handles enter this key.
+    /// Exact physical, algorithm and data identity; implementation-specific policy is framed by its owner.
     pub fn identity(&self) -> ContentHash {
-        let mut h = pse_ids::FramedHasher::new("pse.provider.v2");
-        h.id(&self.id)
-            .hash(&self.revision)
-            .hash(&self.data)
-            .id(&self.phase.id)
-            .hash(&self.phase.revision);
-        h.u64(self.components.len() as u64);
-        for id in &self.components {
-            h.id(id);
-        }
+        let mut h = pse_ids::FramedHasher::new("pse.provider.v4");
+        self.shapes.frame(&mut h);
+        h.str(self.derivative_source.as_str());
+        h.id(&self.id).hash(&self.revision).hash(&self.data);
         for ports in [&self.inputs, &self.outputs] {
             h.u64(ports.len() as u64);
             for p in ports {
                 h.id(&p.id).id(&p.quantity.as_id()).id(&p.unit.as_id());
             }
-        }
-        h.u64(u64::from(self.envelope.is_some()));
-        if let Some(envelope) = &self.envelope {
-            envelope.frame(&mut h);
         }
         h.u64(self.derivatives as u64).u64(self.smoothness as u64);
         h.finish_hash()
@@ -359,10 +348,23 @@ impl ProviderSpec {
 pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
     /// Immutable physical and numerical interpretation.
     fn spec(&self) -> &ProviderSpec;
+    /// Immutable attempt configuration beyond the compiler-owned mathematical descriptor.
+    fn configuration_key(&self) -> ContentHash {
+        self.spec().identity()
+    }
     /// Construct fresh scratch; it must return exactly the declared provider contract.
     /// # Errors
     /// Returns the concrete provider construction failure.
     fn create(&self) -> Result<Box<dyn Provider>, ProviderError>;
+    /// Construct state attached to the admitted attempt's cooperative cancellation.
+    /// Ordinary providers receive cancellation on evaluation; nested native solvers
+    /// also need its owned handle while iterating.
+    fn create_scoped(
+        &self,
+        _cancel: std::sync::Arc<AtomicBool>,
+    ) -> Result<Box<dyn Provider>, ProviderError> {
+        self.create()
+    }
 }
 /// Physically admitted registration backed by an executable factory.
 #[derive(Clone, Debug)]
@@ -374,12 +376,34 @@ pub struct Registration {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AdmittedProvider(ProviderSpec);
 impl AdmittedProvider {
+    /// Admit immutable physical meaning without constructing a runtime worker.
+    /// Execution still requires a matching `Registration` at the attempt boundary.
+    pub fn new(spec: ProviderSpec, registry: &QuantityRegistry) -> Result<Self, ProviderError> {
+        spec.validate(registry)?;
+        Ok(Self(spec))
+    }
     /// Complete descriptor, including implementation, phase and data identity.
     pub fn spec(&self) -> &ProviderSpec {
         &self.0
     }
 }
 impl Registration {
+    /// Bind a previously admitted descriptor without constructing mutable native state.
+    /// Every subsequent worker construction checks the factory product again.
+    pub fn bind(
+        descriptor: AdmittedProvider,
+        factory: std::sync::Arc<dyn ProviderFactory>,
+    ) -> Result<Self, ProviderError> {
+        if factory.spec() != descriptor.spec() {
+            return Err(ProviderError::Contract(
+                "factory does not match the admitted descriptor".into(),
+            ));
+        }
+        Ok(Self {
+            factory,
+            descriptor,
+        })
+    }
     /// Validate physical contracts and the concrete factory product before admission.
     /// # Errors
     /// Returns invalid physical contracts, factory failures or descriptor mismatch.
@@ -387,8 +411,7 @@ impl Registration {
         factory: std::sync::Arc<dyn ProviderFactory>,
         registry: &QuantityRegistry,
     ) -> Result<Self, ProviderError> {
-        factory.spec().validate(registry)?;
-        let descriptor = AdmittedProvider(factory.spec().clone());
+        let descriptor = AdmittedProvider::new(factory.spec().clone(), registry)?;
         let value = Self {
             factory,
             descriptor,
@@ -400,6 +423,10 @@ impl Registration {
     pub fn spec(&self) -> &ProviderSpec {
         self.descriptor.spec()
     }
+    /// Identity of starts, bounds and controls carried by this executable capability.
+    pub fn configuration_key(&self) -> ContentHash {
+        self.factory.configuration_key()
+    }
     /// Factory-free immutable compiler input.
     pub fn descriptor(&self) -> AdmittedProvider {
         self.descriptor.clone()
@@ -408,7 +435,14 @@ impl Registration {
     /// # Errors
     /// Returns factory failure or a contract error when its product changes meaning.
     pub fn worker(&self) -> Result<Box<dyn Provider>, ProviderError> {
-        let worker = self.factory.create()?;
+        self.worker_scoped(std::sync::Arc::new(AtomicBool::new(false)))
+    }
+    /// Construct a worker with the enclosing attempt's cancellation owner.
+    pub fn worker_scoped(
+        &self,
+        cancel: std::sync::Arc<AtomicBool>,
+    ) -> Result<Box<dyn Provider>, ProviderError> {
+        let worker = self.factory.create_scoped(cancel)?;
         if worker.spec() != self.spec() {
             return Err(ProviderError::Contract(
                 "factory returned a different provider contract".into(),

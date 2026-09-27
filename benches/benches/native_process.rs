@@ -18,7 +18,7 @@ use fixture::*;
 use pse_backend_native::solve::{Backend, Metric, Termination};
 use pse_runtime::{
     CancelSource,
-    workflow::{ModelRevision, RunReport},
+    workflow::{ModelingPackage, RunReport},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -29,6 +29,21 @@ use std::{
 
 fn mark(phases: &mut BTreeMap<String, f64>, name: &str, started: Instant) {
     *phases.entry(name.into()).or_default() += started.elapsed().as_secs_f64();
+}
+/// Vary instance count by composing the authored unit, without restating its equations.
+fn heater_blocks(package: &ModelingPackage, blocks: usize) -> (ModelingPackage,pse_ids::SemanticId) {
+    let mut fixture=String::new();
+    let mut children=String::new();
+    for i in 0..blocks {
+        fixture.push_str(&format!("fix block{i}.duty=16204.445642740735{{W}};"));
+        children.push_str(&format!("child block{i}:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction); expect block{i}.phase.T==350{{K}} tolerance 0.00001{{K}}; expect block{i}.recycle==5{{mol/s}} tolerance 0.000001{{mol/s}};"));
+    }
+    let source=format!("@id(\"b70ab2554b57594e8d2b75288e80da8e\") package homogeneous_fixtures {{test workload fixture {{dof 0; run steady; {fixture}}} {{{children}}} }}");
+    let extra=pse_authoring::language::parse(&source,pse_ids::named_id(pse_ids::SemanticId::NIL,"process-cost-heaters"),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
+    let case=extra.iter().find(|r|r.name=="workload").unwrap().declaration_id;
+    let mut rows=package.declarations().to_vec();
+    rows.extend(extra.into_iter().filter(|r|r.value.kind.as_str()!="package"));
+    (package.with_declarations(rows).unwrap(),case)
 }
 fn process(c: &mut Criterion) {
     use tracing_subscriber::prelude::*;
@@ -44,7 +59,7 @@ fn process(c: &mut Criterion) {
     let blocks = spec["blocks"].as_u64().unwrap() as usize;
     let threads = spec["threads"].as_u64().unwrap() as usize;
     let output = PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap());
-    if spec["extended"].as_bool() == Some(true) {
+    if spec["extended"].as_bool() == Some(true) || matches!(operation, "vessel" | "fit") {
         extended::measure(c, &spec, &output, &compiler_phases);
         return;
     }
@@ -53,31 +68,14 @@ fn process(c: &mut Criterion) {
         .enable_all()
         .build()
         .unwrap();
-    let bindings = json("bindings.json");
-    let dynamic = sid(&bindings["vessel_id"]);
-    let root = sid(&bindings["root_case"]);
-    let retained = if reuse == "cold" {
-        None
-    } else {
-        let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
-        let mut draft = executor.block_on(builder(&owner));
-        if operation == "heater" && reuse != "structure" {
-            resize(&mut draft, blocks);
-        }
-        let revision = draft.freeze().unwrap();
-        let case = if operation == "flash" {
-            revision
-                .declaration()
-                .cases
-                .iter()
-                .find(|case| case.name == "flash")
-                .unwrap()
-                .case_id
-        } else {
-            root
-        };
-        success(&executor.block_on(solve(&revision, case, Backend::Ipopt, false)));
-        Some((owner, revision))
+    let flash=pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap();
+    let retained = if reuse == "cold" { None } else {
+        let owner=WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
+        let source=executor.block_on(seed_package(&owner));
+        let (package,case)=if operation=="flash" {(source.clone(),flash)} else {heater_blocks(&source,blocks)};
+        let prepared=executor.block_on(seed_prepare(&package,case,profile(Backend::Ipopt,false),&CancelSource::new())).unwrap();
+        authored_success(&executor.block_on(prepared.start().unwrap().wait()).unwrap());
+        Some((owner,source,package,case))
     };
     let mut phases = BTreeMap::new();
     compiler_phases.reset();
@@ -98,44 +96,37 @@ fn process(c: &mut Criterion) {
         let _entered = executor.enter();
         let begin=Instant::now();
         let local=if retained.is_none() {Some(WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap())} else {None};
-        let owner=match &retained {Some((owner,_))=>owner,None=>local.as_ref().unwrap()};
+        let owner=match &retained {Some((owner,_,_,_))=>owner,None=>local.as_ref().unwrap()};
         owner.runtime.reset_observation_peak();
         mark(&mut phases,"runtime_admission",begin);
         let begin=Instant::now();
-        let mut draft=match &retained {Some((_,revision))=>revision.edit(),None=>executor.block_on(builder(owner))};
-        if (operation=="heater" && reuse=="cold") || operation=="cancellation" {resize(&mut draft,blocks);}
-        if reuse=="structure" {resize(&mut draft,blocks+(iterations as usize%2));}
+        let (mut package,case)=if let Some((_,source,package,case))=&retained {
+            if reuse=="structure" {heater_blocks(source,blocks+(iterations as usize%2))} else {(package.clone(),*case)}
+        } else {
+            let source=executor.block_on(seed_package(owner));
+            if operation=="flash" {(source,flash)} else {heater_blocks(&source,blocks)}
+        };
         if reuse=="specialization" {
-            let definition=draft.declaration_mut().definitions.iter_mut().find(|definition|definition.sources.iter().any(|source| source=="fraction * recycle")).unwrap();
-            definition.sources[0]=format!("{} * fraction * recycle",1.+(iterations+1) as f64*1e-10);
+            let mut rows=package.declarations().to_vec();
+            let row=rows.iter_mut().find(|r|r.declaration_id==pse_ids::SemanticId::parse_hex("0ed2b62ea07d570bb1db5f48ec53354e").unwrap()).unwrap();
+            row.value.contribution.as_mut().unwrap().expression=format!("{}*fraction*recycle",1.0+(iterations+1) as f64*1e-10);
+            package=package.with_declarations(rows).unwrap();
         }
-        if reuse=="warm" {
-            let case=draft.declaration_mut().cases.iter_mut().find(|case|if operation=="flash" {case.name=="flash"} else {case.case_id==root}).unwrap();
-            case.values[0].value+=(iterations+1) as f64*1e-9;
-        }
-        if spec["difficult"].as_bool()==Some(true) {
-            let flash=draft.declaration_mut().cases.iter_mut().find(|case|case.name=="flash").unwrap();
-            // Off-reference density guesses; physical acceptance tolerances stay unchanged.
-            for value in flash.values.iter_mut().take(2) {value.value*=1.02;}
-        }
-        if matches!(operation,"vessel"|"fit") {vessel(&mut draft,false);}
-        let fit=if operation=="fit" {Some(heat_fit(&mut draft,"transient"))} else {None};
-        let revision:ModelRevision=draft.freeze().unwrap();
         mark(&mut phases,"source_admission",begin);
         let begin=Instant::now();
-        let case=if operation=="flash" {revision.declaration().cases.iter().find(|case|case.name=="flash").unwrap().case_id} else {root};
-        let handle=if operation=="vessel" {
-            variables.insert(5);
-            revision_prepare_simulation(&executor,&revision,dynamic).start().unwrap()
-        } else if let Some((fit_id,profile))=fit {
-            variables.insert(1);
-            executor.block_on(revision.prepare_fit(fit_id,profile,compiler(),&CancelSource::new())).unwrap().start().unwrap()
-        } else {
-            let declaration=revision.declaration().cases.iter().find(|source|source.case_id==case).unwrap();
-            let n=declaration.variables.iter().filter(|v|!v.fixed).count();
-            variables.insert(n);
-            executor.block_on(revision.prepare(case,profile(Backend::Ipopt,false),compiler(),&CancelSource::new())).unwrap().start().unwrap()
-        };
+        let cancel=CancelSource::new();
+        let mut analysis=executor.block_on(package.declared_analysis(case,pse_relations::generated::enums::ModelingAnalysisRoute::Steady,compiler(),profile(Backend::Ipopt,false),Default::default(),seed_limits(),&cancel)).unwrap();
+        if reuse=="warm" {
+            let path=if operation=="flash" {"root.liquid.T"} else {"block0.phase.T"};
+            analysis.case.values.insert(path.into(),if operation=="flash" {280.0} else {313.15}+(iterations+1) as f64*1e-9);
+        }
+        if spec["difficult"].as_bool()==Some(true) {
+            analysis.case.values.insert("root.liquid.rho".into(),12400.0*1.02);
+            analysis.case.values.insert("root.vapor.rho".into(),1000.0*1.02);
+        }
+        let prepared=executor.block_on(package.prepare_analysis(&analysis,&cancel)).unwrap();
+        variables.insert(prepared.model.case.compiled().plan.structure().free_variables().count());
+        let handle=prepared.start().unwrap();
         mark(&mut phases,"case_preparation_and_start",begin);
         let begin=Instant::now();
         if operation=="cancellation" {
@@ -148,28 +139,20 @@ fn process(c: &mut Criterion) {
             handle.cancel();
             let result=executor.block_on(handle.wait()).unwrap();
             mark(&mut phases,"cancellation_to_join",stop);
-            let RunReport::Solves(report)=result.report().unwrap() else {panic!("wrong report")};
-            assert!(report.outcomes.iter().any(|outcome| matches!(outcome,pse_runtime::math::solves::Outcome::Native(r) if r.termination.category==Termination::Cancelled)),"{report:?}");
+            let RunReport::Modeling(report)=result.report().unwrap() else {panic!("wrong report")};
+            assert!(matches!(&report[0].outcome,pse_runtime::math::solves::Outcome::Native(r) if r.termination.category==Termination::Cancelled),"{report:?}");
             drop(result);
         } else {
             let result=executor.block_on(handle.wait()).unwrap();
             mark(&mut phases,"native_join",begin);
             let begin=Instant::now();
-            match result.report().unwrap() {
-                RunReport::Solves(report)=>{
-                    success(&result);
-                    for outcome in &report.outcomes {
-                        if let pse_runtime::math::solves::Outcome::Native(report)=outcome {
-                            for (name,value) in &report.metrics {
-                                if (name.ends_with(".seconds") || name.starts_with("timing.")) && let Metric::Real(value)=value {
-                                    *native_seconds.entry(name.clone()).or_insert(0.)+=value;
-                                }
-                            }
-                        }
+            let report=authored_success(&result);
+            if let pse_runtime::math::solves::Outcome::Native(report)=&report.outcome {
+                for (name,value) in &report.metrics {
+                    if (name.ends_with(".seconds") || name.starts_with("timing.")) && let Metric::Real(value)=value {
+                        *native_seconds.entry(name.clone()).or_insert(0.0)+=value;
                     }
-                },
-                RunReport::Simulation(report)=>{assert_eq!(report.termination,pse_backend_native::dynamics::Termination::Completed);conservation(&result,report.samples.len()*2);},
-                RunReport::Fit(report)=>{assert!(matches!(report.solve.as_ref().unwrap().termination.category,Termination::Success|Termination::Acceptable));assert!(report.quality.as_ref().unwrap().feasible());near(report.candidate.as_ref().unwrap()[0],10.,2e-3);},
+                }
             }
             std::hint::black_box(result.report().unwrap());
             if !matches!(operation,"vessel"|"fit") {std::hint::black_box(result.table("runtime.solve_variables").unwrap());}
@@ -200,7 +183,8 @@ fn process(c: &mut Criterion) {
         }
         let begin=Instant::now();
         drop(handle);
-        drop(revision);
+        drop(prepared);
+        drop(package);
         peak=peak.max(owner.runtime.observation_peak_bytes());
         rss=rss.max(owner.runtime.report().unwrap().process_peak_rss_bytes.unwrap());
         let pool=owner.runtime.pool();
@@ -213,7 +197,7 @@ fn process(c: &mut Criterion) {
     group.finish();
     // Warm samples deliberately retain their original revision and runtime.
     // Observe that owner's release separately from each sample's case teardown.
-    let retained_pool = retained.as_ref().map(|(owner, _)| owner.runtime.pool());
+    let retained_pool = retained.as_ref().map(|(owner, _, _, _)| owner.runtime.pool());
     drop(retained);
     drop(executor);
     let final_retained_runtime_bytes = retained_pool.map(|pool| pool.reserved());
@@ -237,15 +221,6 @@ fn process(c: &mut Criterion) {
         "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time (extended for slow operations)",
         "memory_scope":"pool observation per operation; case teardown retains the warm runtime until sampling ends; final retained-runtime teardown is null for cold cases; process lifetime VmHWM from the dedicated benchmark process"
     })).unwrap()).unwrap();
-}
-fn revision_prepare_simulation(
-    executor: &tokio::runtime::Runtime,
-    revision: &ModelRevision,
-    id: pse_ids::SemanticId,
-) -> pse_runtime::workflow::PreparedSimulation {
-    executor
-        .block_on(revision.prepare_simulation(id, simulation(), compiler(), &CancelSource::new()))
-        .unwrap()
 }
 fn configuration() -> Criterion {
     Criterion::default().output_directory(

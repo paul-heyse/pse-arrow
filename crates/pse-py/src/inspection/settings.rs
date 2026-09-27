@@ -10,6 +10,9 @@ use pyo3::prelude::*;
 pub(crate) struct EngineSettings {
     pub(super) budget: pse_runtime::ResourceBudget,
 }
+impl EngineSettings {
+    pub(crate) fn resource_budget(&self) -> &pse_runtime::ResourceBudget { &self.budget }
+}
 macro_rules! projection {
     ($budget:ident; $($name:ident: $ty:ty, $hint:literal $(, $default:expr)? => $out:ty, $read:expr;)*) => {
         #[pymethods]

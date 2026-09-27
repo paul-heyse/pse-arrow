@@ -7,6 +7,7 @@ mod functions;
 #[cfg(feature = "solver-kinsol")]
 pub mod initialization;
 mod jobs;
+pub mod modeling;
 mod products;
 pub mod solves;
 pub use artifacts::Artifact;
@@ -215,7 +216,7 @@ impl MathService {
         native.register_component(&component);
         service
     }
-    fn reserve(
+    pub(crate) fn reserve(
         &self,
         name: &str,
         bytes: usize,
@@ -356,6 +357,18 @@ impl MathService {
         driver: &crate::CancelSource,
         work: impl FnOnce(&mut CaseWorker) -> Result<T, MathRuntimeError> + Send + 'static,
     ) -> Result<T, MathRuntimeError> {
+        self.with_owned_worker(case, providers, driver, move |mut worker| work(&mut worker))
+            .await
+    }
+    /// Transfer a worker to a finite native diagnostic on its admitted execution thread.
+    /// The compiled owner remains alive through callback teardown and completion.
+    pub(crate) async fn with_owned_worker<T: Send + 'static>(
+        self: &Arc<Self>,
+        case: Arc<ExecutableCase>,
+        providers: BTreeMap<ProviderKey, pse_kernels::Registration>,
+        driver: &crate::CancelSource,
+        work: impl FnOnce(CaseWorker) -> Result<T, MathRuntimeError> + Send + 'static,
+    ) -> Result<T, MathRuntimeError> {
         let control = FlightCancellation::default();
         let service = self.clone();
         let bytes = case.assembly.numeric_worker_bytes();
@@ -363,16 +376,22 @@ impl MathService {
             let providers = providers
                 .into_iter()
                 .map(|(key, factory)| {
-                    factory.worker().map(|v| (key, v)).map_err(|e| {
-                        MathRuntimeError::Math(pse_math::MathError::Contract(e.to_string()))
-                    })
+                    factory
+                        .worker_scoped(flag.clone())
+                        .map(|v| (key, v))
+                        .map_err(|e| {
+                            MathRuntimeError::Math(pse_math::MathError::Contract(e.to_string()))
+                        })
                 })
                 .collect::<Result<_, _>>()?;
-            let mut worker = service.worker(case, providers, flag)?;
-            work(worker.worker())
+            let worker = service.worker(case, providers, flag)?;
+            let ExecutionWorker { worker, _case } = worker;
+            let result = work(worker);
+            drop(_case);
+            result
         });
         tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
+        tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
     }
     /// Construct mutable workers after admission on their owning execution thread.
     fn worker(

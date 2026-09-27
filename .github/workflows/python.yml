@@ -144,8 +144,8 @@ jobs:
     container:
       image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     env:
-      # A separate environment: the parity group pins idaes-pse==2.12.0, which cannot
-      # coexist with the platform interpreter (< 3.14 marker).
+      # The parity group is isolated from production dependencies. Python 3.13
+      # is supplied by the pinned image; IDAES 2.13.0 is admitted below Python 3.15.
       UV_PROJECT_ENVIRONMENT: .venv-parity
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -163,7 +163,7 @@ jobs:
         run: uv run --no-sync python -c 'import pse; assert pse.build_info().profile == "debug", pse.build_info()'
       - name: parity suite
         # --parity turns the pre-flight from "skip" into "fail": the session fixture
-        # asserts Python < 3.14, idaes 2.12.0, and ipopt 3.14.x on PATH before anything
+        # asserts Python < 3.15, idaes 2.13.0, and ipopt 3.14.x on PATH before anything
         # else runs, and writes artifacts/probe_host.json.
         run: uv run --no-sync pytest --parity
       - name: upload the host probe

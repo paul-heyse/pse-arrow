@@ -5,7 +5,7 @@
 
 use super::*;
 use crate::generated::{
-    enums::{DomainKind, ScaleKind},
+    enums::ScaleKind,
     extension_values::{ExtensionDimensionVectorItem, QuantityValue},
     reference::{quantity_types, units},
 };
@@ -52,7 +52,7 @@ fn quantity(
         reference_state_id: reference.map(id),
         scale_kind: ScaleKind::Point,
         shape: if indexed {
-            vec![DomainKind::Time]
+            vec![id(51)]
         } else {
             vec![]
         },

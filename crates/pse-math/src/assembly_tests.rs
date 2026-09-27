@@ -355,7 +355,8 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
     )
     .unwrap();
     let x = b.input(0, quantity, IndexSet::new(), id(20)).unwrap();
-    let out = b.binary(Binary::Div, x.clone(), x, None, id(22)).unwrap();
+    let squared = b.binary(Binary::Mul, x.clone(), x, None, id(21)).unwrap();
+    let out = b.binary(Binary::Div, squared.clone(), squared, None, id(22)).unwrap();
     let body: Arc<PreparedBody> = Arc::new(b.prepare(&[out]).unwrap());
     let key = ContentHash::from_bytes([2; 32]);
     let prepare = |lower| {
@@ -424,6 +425,11 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
             .obligations[&id(9)],
         crate::presolve::ObligationStatus::Discharged
     );
+    assert_eq!(
+        prepare(1.0).presolve_facts(&values, 1, &cancel).unwrap().obligations[&id(9)],
+        crate::presolve::ObligationStatus::Unestablished
+    );
+    assert!(prepare(1.0).coefficients(&values, 1, &cancel).is_err());
     assert!(prepare(0.0).coefficients(&values, 100, &cancel).is_err());
     assert_eq!(
         prepare(1.0)
@@ -709,4 +715,24 @@ fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
     let interval = pounce_presolve::fbbt::forward_pass(&facts.tapes[1], &[1.0], &[2.0]).unwrap();
     let bound = pounce_presolve::fbbt::forward_result(&interval);
     assert!(bound.lo <= std::f64::consts::E && bound.hi >= 2.0_f64.exp());
+}
+
+#[test]
+fn exhausted_optional_presolve_tapes_preserve_original_evaluation_and_independent_facts() {
+    let (assembly, values) = fixture(true, false);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let limited = assembly.presolve_facts(&values, 2, &cancel).unwrap();
+    assert!(!limited.complete[0]);
+    assert!(limited.complete[1]);
+    assert_eq!(limited.affine[0].as_ref().unwrap().entries, BTreeMap::from([(0, 10.)]));
+    assert_eq!(limited.objective_degree, None);
+    assert!(limited.tapes.iter().all(|t| t.first_invalid_slot().is_none()));
+    let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
+    assert_eq!(worker.constraints(&values).unwrap(), vec![20., 0.]);
+    let complete = assembly.presolve_facts(&values, 1000, &cancel).unwrap();
+    assert!(complete.complete.iter().all(|v| *v));
+    let (fixed, _) = fixture(true, true);
+    assert!(fixed.presolve_facts(&CaseValues::default(), 2, &cancel).is_err());
+    cancel.store(true, std::sync::atomic::Ordering::Release);
+    assert!(matches!(assembly.presolve_facts(&values, 2, &cancel), Err(crate::MathError::Cancelled)));
 }

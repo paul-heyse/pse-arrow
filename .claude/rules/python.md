@@ -45,8 +45,8 @@ instead of editing the stub. The API surface is checked against the loaded exten
 
 ## Parity fails, it never skips
 
-`--parity` runs the suite against `idaes-pse==2.12.0`. A session fixture *fails* — not
-skips — unless the interpreter is < 3.14, `idaes.__version__ == "2.12.0"` and `ipopt` is
+`--parity` runs the suite against `idaes-pse==2.13.0`. A session fixture *fails* — not
+skips — unless the interpreter is < 3.15, `idaes.__version__ == "2.13.0"` and `ipopt` is
 on PATH. `pytest.skip` and `importorskip` are banned under the parity tree by ast-grep.
 A skipped parity test is a parity claim with no evidence behind it.
 

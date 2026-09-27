@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("302c8b46d6a64a3ab66cfba2fe03f39e") package mixing {
+@id("54f5de96e5ec41afac979a2d6a43bd3a") use kinds @"1.0.0";
+@id("4b83b792951d41c1875ddf220e20ae53") use equilibrium @"1.0.0";
+@id("965d150600a14d82ad54a7a98e46c7b1") use math @"1.0.0";
+@id("ad9e7e09fb5e43e29f663be91fb9bd5c") def Mixer(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,inlets:Set<kinds.port_set>) {
+@id("9462bb04f86b48e6a4fd4b357f1b3487") param components:Set<kinds.species>=outlet_pkg.components;
+@id("850888c6170b4fec8ba0d7155da115e0") require inlet_pkg.components==components : "all mixer states use one component membership";
+@id("6c80630f504947349b3980e0ec2c20a3") require inlet_pkg.defined and not outlet_pkg.defined : "specified inlets and normalized outlet are required";
+@id("2cd22b18f8254baca76844727d28f7b3") require not analysis.dynamic : "this mixer has no holdup";
+@id("48e4c60fba3f440480979e5e2f0edd0a") param epsilon:DeltaPressure=0.001{Pa};
+@id("2f6c0c13ea5d4350bf6d0e725f277bc6") child inlet[i in inlets]:equilibrium.ThermoPackage=inlet_pkg;
+@id("e85983a28af44088b84ccc5209a05366") child outlet:equilibrium.ThermoPackage=outlet_pkg;
+@id("6309208e7e5e4ecaaff7a8b806c4ff38") let inlet_pressure[i in inlets]:Pressure=inlet[i].pressure;
+@id("e3d942b4f14d45e9b2f109c173a2dfb7") eq pressure_selection:outlet.pressure==math.smooth_min_over(inlet_pressure,inlets,epsilon);
+@id("793374b8eee3446baef623734362250d") accumulate material[j in components]:ComponentFlow conservation tolerance 1e-7{mol/s};
+@id("0b4f71dde784450584919d66498599a6") contribute [i in inlets,j in components] material[j] role inflow = inlet[i].component_flow[j];
+@id("4b0241ee929f4125b64eb9746d2ca671") contribute [j in components] material[j] role outflow = outlet.component_flow[j];
+@id("466c9cb0ea334e29a29c7da8cb994eed") accumulate energy:Power conservation tolerance 0.001{W};
+@id("4a64db7028f04ebab6131ce95e3d6e15") contribute [i in inlets] energy role inflow = inlet[i].energy_flow;
+@id("e61af0ca30504a5e9d99d343630b64ee") contribute energy role outflow = outlet.energy_flow;
+@id("29e865fb81c6467ea2bc25af3eeded90") annotation report outlet.T("outlet temperature");
+@id("ec83d218ee9442b8904d6b595a1a24d6") annotation report outlet.pressure("outlet pressure");
+@id("e23bb673f2914bd2a231c3b3ccb655b2") annotation report outlet.flow("outlet molar flow");
+}
+}

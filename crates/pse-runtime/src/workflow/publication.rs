@@ -166,26 +166,22 @@ impl RunResult {
         let mut algorithms = FramedHasher::new("pse.run.algorithms.v1");
         let mut target = FramedHasher::new("pse.run.target.v1");
         match &self.request {
-            super::run::RunRequest::Solves(steps) => {
-                for step in steps {
-                    source.hash(&step.revision.identity());
-                    algorithms
-                        .hash(&step.compiled().plan.structure().key())
-                        .hash(&step.compiled().presolve.key);
-                    if let Some(c) = step.solve.compatibility() {
-                        target.hash(&c.layout).hash(&c.data);
-                    }
-                }
+            super::run::RunRequest::Modeling(steps) => {
+              for p in steps {
+                source.hash(&p.source.revision.identity());
+                algorithms.hash(&p.model.case.compiled().plan.structure().key()).hash(&p.model.case.compiled().presolve.key);
+                target.hash(&p.solve.request_identity().map_err(crate::math::MathRuntimeError::from)?);
+              }
             }
             super::run::RunRequest::Fit(f) => {
-                source.hash(&f.problem.revision.identity());
+                source.hash(&f.problem.source_identity);
                 algorithms.hash(&f.problem.profile_key);
                 target.hash(&f.problem.key);
             }
             super::run::RunRequest::Simulation(s) => {
-                source.hash(&s.revision.identity());
-                algorithms.hash(&s.contract.identity);
-                target.hash(&s.key);
+                source.hash(&s.source.revision.identity());
+                algorithms.hash(&s.contract().identity);
+                target.hash(&s.identity());
             }
         }
         let semantic_identity = source.finish_hash();

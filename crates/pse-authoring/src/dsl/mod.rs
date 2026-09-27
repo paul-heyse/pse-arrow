@@ -10,7 +10,7 @@
 mod arbitrary;
 mod ast;
 mod error;
-mod lexer;
+pub(crate) mod lexer;
 mod parser;
 mod render;
 mod walk;

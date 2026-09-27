@@ -4,8 +4,23 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-No plan is active. [Plan 19](19-current-documentation-consolidation.md), the documentation
-consolidation, is done and stays only as the highest-numbered plan. Plans 01–18 are
+[Plan 21](21-modeling-kernel.md) retains the proposed decision-PR route and excluded K9.
+The authorized **K0–K8 implementation is complete**; the
+[K8 packet](21-modeling-kernel-k8-execution.md) owns completion, selected conformance
+and assessment evidence, including the remaining static-quality findings. Its companions
+are `21-modeling-kernel-architecture.md` and `21-knowledge-placement.md`; the earlier
+execution packets retain their original evidence.
+[Plan 22](22-solver-capabilities.md) (draft, 2026-09-27) is **not yet authorized**. It plans:
+- every missing native solver capability, including integer variables, MINLP/GDP and global certification through SCIP;
+- the solver defects and design-principle corrections from the
+  [solver capability review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md);
+- a PostgreSQL 18 operational store and publication catalog.
+
+Its companion is `22-solver-capabilities-architecture.md`. Its kernel packets wait for Plan 21 K8 to close.
+[Plan 20](20-idaes-capability-target.md) and its companions remain capability background;
+Plan 21 supersedes their target decomposition. K9 remains proposed and excluded.
+[Plan 19](19-current-documentation-consolidation.md),
+the documentation consolidation, is done. Plans 01–18 are
 complete or superseded as workstreams; their enduring meaning has moved to the architecture sections and retained
 decisions, and their records are retired to Git history (ADR-0096). A retired plan,
 packet or review is not a backlog and creates no obligation. The most recent completed

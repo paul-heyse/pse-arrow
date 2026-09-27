@@ -208,12 +208,12 @@ pub fn attach_nlp(
             }
             report.quality = Some(q);
             report.observation = Some(o);
-            report.validation_error = None;
+            report.clear_validation_failure();
         }
         Err(e) => {
             report.quality = None;
             report.observation = None;
-            report.validation_error = Some(e.to_string());
+            report.record_validation_failure(e);
             report.termination.assurance = crate::solve::Assurance::None;
         }
     }
@@ -622,6 +622,20 @@ mod qualification_tests {
         r.validation_error = Some("original callback failed".into());
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::Unqualified);
+    }
+    #[test]
+    fn original_validation_keeps_typed_failure_until_a_fresh_observation_succeeds() {
+        let mut r=report(Backend::Ipopt,Termination::Success);
+        let source_id=SemanticId::from_bytes([17;16]);
+        r.record_validation_failure(pse_math::MathError::Domain {source_id,requirement:"positive"}.into());
+        qualify(&mut r,&Accuracy::default());
+        assert_eq!(r.qualification,Qualification::Unqualified);
+        let retained=r.clone();
+        r.clear_validation_failure();
+        assert!(r.validation_failure().is_none());
+        assert!(r.validation_error.is_none());
+        assert!(matches!(retained.validation_failure(),Some(ProblemError::Math(pse_math::MathError::Domain {source_id:id,..})) if *id==source_id));
+        assert!(retained.failure_bytes()>0);
     }
     #[test]
     fn gaps_upload_evidence_and_limits_have_separate_meanings() {

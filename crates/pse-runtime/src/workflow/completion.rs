@@ -40,61 +40,12 @@ impl RunResult {
             .map_err(super::math)?
             .environment
             .identity();
-        let mut lineage =
-            |revision: &super::ModelRevision,
-             case,
-             preparation,
-             selected_request,
-             profile,
-             numerical,
-             native: Option<&pse_backend_native::solve::SolveReport>| {
-                let mut request = FramedHasher::new("pse.completed.request.v1");
-                request
-                    .hash(&revision.identity())
-                    .id(&case)
-                    .hash(&preparation)
-                    .hash(&selected_request)
-                    .hash(&profile)
-                    .hash(&numerical);
-                let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
-                actual_environment
-                    .hash(&environment)
-                    .hash(&pse_buildinfo::BUILD_IDENTITY);
-                if let Some(native) = native {
-                    actual_environment.str(native.backend.as_str());
-                    for (name, value) in &native.provenance {
-                        actual_environment.str(name).str(value);
-                    }
-                }
-                product.lineage.push(run_lineage::Row {
-                    run_id: self.run_id,
-                    step: product.lineage.len() as i64,
-                    model_id: revision.0.row.model_id,
-                    revision: revision.identity(),
-                    case_id: case,
-                    request_identity: request.finish_hash(),
-                    preparation_identity: preparation,
-                    profile_identity: profile,
-                    numerical_identity: numerical,
-                    physical_identity: revision.0.physical.key,
-                    environment_identity: actual_environment.finish_hash(),
-                });
-            };
         match &self.request {
-            RunRequest::Solves(steps) => {
-                for (ordinal, request) in steps.iter().enumerate() {
-                    let declaration = request
-                        .revision
-                        .0
-                        .row
-                        .cases
-                        .iter()
-                        .find(|c| c.case_id == request.case)
-                        .ok_or_else(|| contract("selected declaration missing at completion"))?;
-                    let outcome = match &self.report {
-                        Ok(RunReport::Solves(r)) => r.outcomes.get(ordinal),
-                        _ => None,
-                    };
+            RunRequest::Modeling(requests) => {
+                for (ordinal,request) in requests.iter().enumerate() {
+                    let step=ordinal as i64;
+                let declaration = request.model.case.compiled().plan.structure();
+                let outcome = match &self.report {Ok(RunReport::Modeling(r))=>r.get(ordinal).map(|r|&r.outcome),_=>None};
                     let native = match outcome {
                         Some(Outcome::Native(r)) => Some(r.as_ref()),
                         _ => None,
@@ -117,10 +68,10 @@ impl RunResult {
                     };
                     product.solves.push(solve_runs::Row {
                         run_id: self.run_id,
-                        step: ordinal as i64,
-                        model_id: Some(request.revision.0.row.model_id),
-                        revision: Some(request.revision.identity()),
-                        case_id: Some(request.case),
+                        step,
+                        model_id: Some(request.instance),
+                        revision: Some(request.source.revision.identity()),
+                        case_id: Some(request.instance),
                         backend: native.map(|r| r.backend),
                         native_code: native.map(|r| r.termination.code),
                         native_status: native.map(|r| r.termination.name.clone()),
@@ -153,44 +104,44 @@ impl RunResult {
                         objective: observation
                             .and_then(|o| o.objective)
                             .or_else(|| candidate.and_then(|c| c.objective)),
-                        objective_sense: declaration.objective.as_ref().map(|o| o.sense),
-                        objective_quantity_id: declaration
-                            .objective
-                            .as_ref()
-                            .map(|o| o.quantity_id),
+                        objective_sense: declaration.objective().map(|o|match o.sense {pse_math::binding::ObjectiveSense::Minimize=>NativeObjectiveSense::Minimize,pse_math::binding::ObjectiveSense::Maximize=>NativeObjectiveSense::Maximize}),
+                        objective_quantity_id: declaration.objective().map(|o|o.quantity.as_id()),
                         validation_error: native.and_then(|r| r.validation_error.clone()),
                         error,
                         transformation: native
                             .and_then(|r| r.preprocessing.as_ref().map(|p| p.transformation)),
                     });
-                    lineage(
-                        &request.revision,
-                        request.case,
-                        request
-                            .solve
-                            .preparation_identity()
-                            .map_err(crate::math::MathRuntimeError::from)?,
-                        request
-                            .solve
-                            .request_identity()
-                            .map_err(crate::math::MathRuntimeError::from)?,
-                        crate::math::solves::profile_key(&request.profile)
-                            .map_err(crate::math::MathRuntimeError::from)?,
-                        request.solve.numerics().key,
-                        native,
-                    );
+
+                let preparation = request.solve.preparation_identity().map_err(crate::math::MathRuntimeError::from)?;
+                let selected = request.solve.request_identity().map_err(crate::math::MathRuntimeError::from)?;
+                let profile = crate::math::solves::profile_key(&request.profile).map_err(crate::math::MathRuntimeError::from)?;
+                let mut identity = FramedHasher::new("pse.completed.request.v1");
+                identity.hash(&request.source.revision.identity()).id(&request.instance).hash(&preparation).hash(&selected).hash(&profile).hash(&request.solve.numerics().key);
+                let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
+                actual_environment.hash(&environment).hash(&pse_buildinfo::BUILD_IDENTITY);
+                if let Some(native) = native {
+                    actual_environment.str(native.backend.as_str());
+                    for (name,value) in &native.provenance {actual_environment.str(name).str(value);}
                 }
+                product.lineage.push(run_lineage::Row {
+                    run_id:self.run_id,step,model_id:request.instance,revision:request.source.revision.identity(),case_id:request.instance,
+                    request_identity:identity.finish_hash(),preparation_identity:preparation,profile_identity:profile,
+                    numerical_identity:request.solve.numerics().key,physical_identity:request.source.physical.key,environment_identity:actual_environment.finish_hash(),
+                });
+            }
             }
             RunRequest::Simulation(p) => {
-                let r = match &self.report {
+                let trajectory = match &self.report {
                     Ok(RunReport::Simulation(r)) => Some(r.as_ref()),
                     _ => None,
                 };
+                let r = trajectory.map(|t| t.report.as_ref());
+                let profile = super::dynamics::profile_identity(p.profile());
                 let mut row = header(
                     self,
                     ComputationKind::Simulation,
-                    p.revision.identity(),
-                    p.profile_key,
+                    p.source.revision.identity(),
+                    profile,
                 );
                 row.state = if r.is_some() {
                     NativeRunState::Native
@@ -198,23 +149,50 @@ impl RunResult {
                     NativeRunState::Rejected
                 };
                 row.trajectory_termination = r.map(|r| r.termination);
-                row.backend = r.map(|_| NativeBackend::Diffsol);
+                row.backend = p.profile().resolved_method().ok().map(|m| match m {
+                    pse_backend_native::dynamics::Method::Idas => NativeBackend::Idas,
+                    _ => NativeBackend::Diffsol,
+                });
                 row.candidate_available = r.is_some_and(|r| !r.samples.is_empty());
                 row.completed_time = r.map(|r| r.completed_time).filter(|v| v.is_finite());
                 row.completed_samples = r.map(|r| r.samples.len() as i64);
+                row.feasible = trajectory
+                    .filter(|t| t.checks_complete)
+                    .map(|t| t.checks.iter().all(|c| c.satisfied));
+                row.qualification = if trajectory.is_some_and(|t| t.accepted) {
+                    NativeQualification::Feasible
+                } else {
+                    NativeQualification::Unqualified
+                };
+                row.validation_error =
+                    trajectory.and_then(|t| t.validation_error.as_ref().map(ToString::to_string));
                 row.error = row
                     .error
                     .or_else(|| r.and_then(|r| r.error.as_ref().map(ToString::to_string)));
                 product.computation = Some(row);
-                lineage(
-                    &p.revision,
-                    p.declaration.dynamic_id,
-                    p.key,
-                    p.key,
-                    p.profile_key,
-                    p.numerics.key,
-                    None,
-                );
+                let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
+                actual_environment
+                    .hash(&environment)
+                    .hash(&pse_buildinfo::BUILD_IDENTITY);
+                #[cfg(feature = "solver-diffsol")]
+                if r.is_some() {
+                    actual_environment.str(&pse_backend_native::dynamics::settings_identity(
+                        p.profile(),
+                    ));
+                }
+                product.lineage.push(run_lineage::Row {
+                    run_id: self.run_id,
+                    step: 0,
+                    model_id: p.instance,
+                    revision: p.source.revision.identity(),
+                    case_id: p.instance,
+                    request_identity: p.identity(),
+                    preparation_identity: p.identity(),
+                    profile_identity: profile,
+                    numerical_identity: p.numerics().key,
+                    physical_identity: p.source.physical.key,
+                    environment_identity: actual_environment.finish_hash(),
+                });
             }
             RunRequest::Fit(p) => {
                 let r = match &self.report {
@@ -222,13 +200,9 @@ impl RunResult {
                     _ => None,
                 };
                 let native = r.and_then(|r| r.solve.as_ref());
+                let physical = p.source.physical.key;
                 let p = &p.problem;
-                let mut row = header(
-                    self,
-                    ComputationKind::Fit,
-                    p.revision.identity(),
-                    p.profile_key,
-                );
+                let mut row = header(self, ComputationKind::Fit, p.source_identity, p.profile_key);
                 row.state = if native.is_some() {
                     NativeRunState::Native
                 } else if r.is_some() {
@@ -252,18 +226,34 @@ impl RunResult {
                 row.response_available = r.map(|r| r.responses.is_some());
                 row.response_rank = r.and_then(|r| r.rank.map(|v| v as i64));
                 row.response_condition = r.and_then(super::FitReport::response_condition);
-                row.validation_error = native.and_then(|s| s.validation_error.clone());
+                row.validation_error = native
+                    .and_then(|s| s.validation_error.clone())
+                    .or_else(|| r.and_then(|r| r.validation_error.as_ref().map(|d| d.to_string())));
                 row.error = row.error.or_else(|| r.and_then(|r| r.diagnostic.clone()));
                 product.computation = Some(row);
-                lineage(
-                    &p.revision,
-                    p.declaration.fit_id,
-                    p.key,
-                    p.key,
-                    p.profile_key,
-                    p.numerics.key,
-                    native,
-                );
+                let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
+                actual_environment
+                    .hash(&environment)
+                    .hash(&pse_buildinfo::BUILD_IDENTITY);
+                if let Some(native) = native {
+                    actual_environment.str(native.backend.as_str());
+                    for (name, value) in &native.provenance {
+                        actual_environment.str(name).str(value);
+                    }
+                }
+                product.lineage.push(run_lineage::Row {
+                    run_id: self.run_id,
+                    step: 0,
+                    model_id: p.declaration.fit_id,
+                    revision: p.source_identity,
+                    case_id: p.declaration.fit_id,
+                    request_identity: p.key,
+                    preparation_identity: p.key,
+                    profile_identity: p.profile_key,
+                    numerical_identity: p.numerics.key,
+                    physical_identity: physical,
+                    environment_identity: actual_environment.finish_hash(),
+                });
             }
         }
         Ok(product)

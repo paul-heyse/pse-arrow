@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("0c743f676d4141ceb2f7b2f0a54fb5d9") package vessels {
+@id("bd5d4b36144b4f2d98cd98d4b403e104") use kinds @"1.0.0";
+@id("a69097f8f9404758a9102eecb2c81c16") use helmholtz @"1.0.0";
+@id("97f0c0e572ab4634a4bead052e4b85a4") use caloric @"1.0.0";
+@id("493a4ef6c4d64b1da73ccbfad0889a83") use equilibrium @"1.0.0";
+@id("8ecb40e0ed434f0e813e36f937b48c71") use pure_properties @"1.0.0";
+@id("fb3524e88c784b649eb2ec69c8759454") use math @"1.0.0";
+@id("5ae4821f97574d13a6ccf312208799be") use distributed_volumes @"1.0.0";
+@id("3c3cac1f8d9f48d89043c3665983f067") fn amount_unit()->TotalAmount=1{mol};
+@id("dc2feadd3d654595974ade2ced45cc87") def HomogeneousInventory(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,ideal_h:Fn(T:Temperature,j:kinds.species)->DeltaH,composition:Fn(j:kinds.species)->Scalar,V:Volume=0.1{m3}) {
+@id("1f30d2fff1dc4bcaa50eec59dc02c1bb") param components:Set<kinds.species>=selected;
+@id("6ff9152d6ade4e98af547589b315da58") param volume:Volume=V;
+@id("c2430aba81344a0fa7af49930b3fb097") var amount:TotalAmount;
+@id("56c585b73992411c9a1f9681a9a87d47") var energy:Energy;
+@id("e0ba0aaafe234f4b96d4a311ba185dc5") child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=law);
+@id("914319bb395943818a2d41088e35c17c") eq composition_binding[j in components]:phase.amount[j]==helmholtz.amount_unit()*composition(j);
+@id("92a6ea6bcdcd405cafabd829c2d6cfad") let enthalpy:MolarEnthalpy=equilibrium.enthalpy_datum()+sum(j in components | composition(j)*ideal_h(phase.T,j))+phase.h_residual;
+@id("2453286052414d4a85a522d821531e43") let pressure:Pressure=phase.pressure;
+@id("437a2a4ce3c94cb282675cb8e608c37f") eq amount_closure:amount==amount_unit()*(phase.rho/helmholtz.density_unit())*(volume/1{m3});
+@id("037b6ad5c3254eb58ae2f433dc57240a") eq energy_closure:energy==1{J}*((amount/amount_unit())*((enthalpy-equilibrium.enthalpy_datum())/caloric.h_unit())-(volume/1{m3})*(pressure/pure_properties.pressure_unit()));
+@id("bc0c80f5c44743fe9dd86b7ff0d36a74") annotation start amount(3.456556634933607{mol});
+@id("578177226844485faf741607c680b6e9") annotation nominal amount(3.456556634933607{mol});
+@id("c9575836d3034fab9e9347590517db71") annotation start energy(1202.3168203660216{J});
+@id("60df3bbedefb4e9d97b89c737ab78aaa") annotation nominal energy(1202.3168203660216{J});
+@id("f493bacf930648ec8d38568cc8e84a2c") annotation start phase.T(350{K});
+@id("3b66bb73ddbe41dfb421a543b3aa0cd2") annotation nominal phase.T(350{K});
+@id("f5c226033cae4a3bb078ab58428927e8") annotation start phase.rho(34.565566349336066{mol/m3});
+@id("5b19acd34c194c43ad7243309da6ee5f") annotation nominal phase.rho(34.565566349336066{mol/m3});
+@id("81513b0242bc40e288b72395063fcbc3") annotation start phase.amount(helmholtz.amount_unit()*composition(j));
+@id("2d9f85195bdb476faa1edf78303746be") annotation nominal phase.amount(1{mol});
+@id("b04fe4f2fc36494bb01afd7a763fe0f8") annotation bounds amount(1e-10{mol},1000000{mol});
+@id("9038641c61cf48e79d9e4adc3be39e93") annotation bounds phase.rho(1e-8{mol/m3},25000{mol/m3});
+@id("2b3fd2f02f6244b5b62c6f301f7cd058") annotation check pressure(pressure>0{Pa} and pressure<100000000{Pa});
+@id("df83b8dcf2e14e98ad03e3700fdaafed") annotation scale amount_closure(inverseSum);
+@id("872c7dc0f7354d3aba6c19cacad0373a") annotation scale energy_closure(inverseSum);
+@id("9eb1e54d69f046e2b0d31a4640911c5a") annotation report amount("vessel amount");
+@id("27b6e408cb0a48fb9da085dbbe395d96") annotation report energy("vessel internal energy");
+@id("aa384bd8d0df470e949ddf0c13d747ca") annotation report pressure("vessel pressure");
+@id("bec538d266344adc9f042bfb541208ec") annotation report phase.T("vessel temperature");
+}
+@id("1349887846a543049eaab457f8887a99") def Vessel(selected:Set<kinds.species>,law:Fn(t:Scalar,r:Scalar,n:Scalar[kinds.species],members:Set<kinds.species>)->Scalar,ideal_h:Fn(T:Temperature,j:kinds.species)->DeltaH,composition:Fn(j:kinds.species)->Scalar,horizon:Time=1{s},valve:Boolean=false,V:Volume=0.1{m3},time_elements:Integer=1) {
+@id("334a0cce8ef14f08873530eeb1dbc60a") require analysis.dynamic : "vessel trajectories require dynamic analysis";
+@id("7ed9cf5934764a4f849fc109e2bdb5c8") domain t:Time from 0{s} to horizon;
+@id("886e5d17145c43c0becb9b2a687a9482") when analysis.route==analysis.integrated {
+@id("41ca207dccd24ae7bf66719717aec772") discretize grid on t using integrated(elements=1,order=1);
+}
+@id("cd11b7ab67024d9886203554e549686d") when analysis.route==analysis.simultaneous {
+@id("886e6dfc325e4ad1bd68b9a3465172e0") discretize grid on t using distributed_volumes.radau(elements=time_elements,order=3);
+}
+@id("3f47b13098404e3db286154a882fe81d") param inflow:Flow=0{mol/s};
+@id("0892fc73c7934961bb0166971e04d941") param prescribed_outflow:Flow=0{mol/s};
+@id("b4e504ab53444d048e3cc048d9e33e3b") param inlet_enthalpy:MolarEnthalpy=3240.889128548147{J/mol};
+@id("75c6a54e69ed4be2bb838f6b21fc7cf8") param heat:Power=10{W};
+@id("1f4b44802a754c78aebedb0e387f7acd") param initial_amount:TotalAmount=3.456556634933607{mol};
+@id("ad13064cb9364c688fe1b76c8cd74ded") param initial_energy:Energy=1202.3168203660216{J};
+@id("8f55f3fa4e394d078b4f900cb82a4c1b") param downstream:Pressure=50000{Pa};
+@id("aaa4c1df42284cbc87087e0a8cbd7333") param pressure_width:DeltaPressure=10000{Pa};
+@id("b59e755edaad4c31af02a4b3ee01cab2") param reference_flow:Flow=0.001{mol/s};
+@id("b5caf7376b79437abe0d5560684be36d") child cell[i in t]:HomogeneousInventory=HomogeneousInventory(selected=selected,law=law,ideal_h=ideal_h,composition=composition,V=V);
+@id("a15aaedd439f4aeb92830221be9b337a") let outflow[i in t]:Flow=if valve then reference_flow*math.valve_characteristic((cell[i].pressure-downstream)/pressure_width) else prescribed_outflow;
+@id("b395a4932acf491ca597c851f0afef1f") let amount_rate[i in t]:Flow=inflow-outflow[i];
+@id("543eb78f112a4152befe96da45dc70a7") let energy_rate[i in t]:Power=inflow*inlet_enthalpy-outflow[i]*cell[i].enthalpy+heat;
+@id("88d8f985c7be49988c7612fd0ac051df") eq amount_balance[i in t]:d(cell[i].amount)/di==amount_rate[i];
+@id("1d549832b88f490b8be2c494c7448cad") eq energy_balance[i in t]:d(cell[i].energy)/di==energy_rate[i];
+@id("b940f28b773b4a2d9a8cc69d711ec871") eq amount_initial:cell[0{s}].amount==initial_amount;
+@id("b8985d9cef2942e1b039e67761699e40") eq energy_initial:cell[0{s}].energy==initial_energy;
+@id("848d4d8b34f64405b8d89cca63de00cf") let accumulated_amount:TotalAmount=integral(i in t | amount_rate[i]);
+@id("5ce3aafc64a84e74b62a2121b82ecd68") let accumulated_energy:Energy=integral(i in t | energy_rate[i]);
+@id("f8b3d34398dc49e09f76589d2f5d9b43") let amount_closure[i in t]:TotalAmount=cell[i].amount-initial_amount-accumulated_amount;
+@id("bc786b796fd94bd6a447e73ea7627d0f") let energy_closure[i in t]:Energy=cell[i].energy-initial_energy-accumulated_energy;
+@id("9cfdb87014a144a996f6ea94bb80ca91") annotation check amount_closure(i!=horizon or abs(amount_closure[i])<1e-6{mol});
+@id("ae1839bf78eb480f86d96616dbfe30e6") annotation check energy_closure(i!=horizon or abs(energy_closure[i])<0.001{J});
+@id("e06ff2673faf480c800eb13b545b4605") annotation report amount_closure("integrated amount closure");
+@id("cdf4f89d62ab462ba37a697da4bfde11") annotation report energy_closure("integrated energy closure");
+}
+}

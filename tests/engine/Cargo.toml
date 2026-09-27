@@ -28,7 +28,6 @@ pse-relations = { workspace = true, features = ["test-support"] }
 pse-catalog.workspace = true
 pse-runtime.workspace = true
 pse-authoring.workspace = true
-pse-material.workspace = true
 arrow.workspace = true
 datafusion.workspace = true
 datafusion-proto.workspace = true

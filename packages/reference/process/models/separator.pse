@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("aa27a40dab7e4909ba5f8b561c17fe21") package separation {
+@id("888a35cff66942cd8dcabe4e70966e4c") use kinds @"1.0.0";
+@id("b3e046733e624badab90577f49b10991") use equilibrium @"1.0.0";
+@id("2986feb642324507bed40668b933e2d0") enum SplitBasis {totalFlow,componentFlow,phaseFlow,phaseComponentFlow}
+@id("1a28803f01a340b2bd9417a4c7011b05") def Separator(pkg:equilibrium.ThermoPackage,outlets:Set<kinds.port_set>,component_enthalpy:Fn(T:Temperature,p:kinds.phase,j:kinds.species)->MolarEnthalpy,basis:SplitBasis=SplitBasis.totalFlow) {
+@id("b4821433ccd74fc8b927aed1e79e3d4f") param components:Set<kinds.species>=pkg.components;
+@id("0b31b11e765246b2bee57d7c34f09533") param phases:Set<kinds.phase>=pkg.phases;
+@id("5196ab83b91842c88a135ad704c00277") require pkg.defined : "the separator inlet supplies a defined state";
+@id("a2dc653ba6e540aebb867bcc551dcf56") require not analysis.dynamic : "an instantaneous partition has no dynamic holdup";
+@id("f0bffe824be14ec58d347f0e23f8f047") require sum(o in outlets | 1)>0 : "a separator requires at least one outlet";
+@id("64914107bb764141a646c043638bd53d") child inlet:equilibrium.ThermoPackage=pkg;
+@id("efbdb4959008479596fddefd177f3589") var outlet_phase_component_flow[o in outlets,p in phases,j in components]:ComponentFlow;
+@id("a01e9d4d317e42678582e506e0ae9072") annotation start outlet_phase_component_flow(1{mol/s});
+@id("7795f9ba6058451dab12a55a5454f1ca") annotation nominal outlet_phase_component_flow(100{mol/s});
+@id("f5a927a04f0545309cece21dc5f8a783") when basis==SplitBasis.totalFlow {
+@id("93d797def48d428ea3da9e9f50a54ec5") var split_total[o in outlets]:Scalar;
+@id("870c7681120343c28a20a6002255419e") annotation bounds split_total(0,1);
+@id("94f13085d8374423bbce71cf703aeaf1") annotation start split_total(1/sum(o in outlets | 1));
+@id("7799d80c257e48beba1fc51c48c0e317") eq normalize_total:sum(o in outlets | split_total[o])==1;
+@id("c9192ce56dab4db285e654afed0951bd") eq partition_total[o in outlets,p in phases,j in components]:outlet_phase_component_flow[o,p,j]==inlet.phase_component_flow[p,j]*split_total[o];
+}
+@id("ee50b29b87854e5286f30678d278081c") when basis==SplitBasis.componentFlow {
+@id("022b630cd6a44806bd92803bad9c303b") var split_component[o in outlets,j in components]:Scalar;
+@id("2aaf7a0a50fd455b917dcf654c8cbbb7") annotation bounds split_component(0,1);
+@id("b45eb10394204599a68d2787bce88833") annotation start split_component(1/sum(o in outlets | 1));
+@id("7dd001fc35db407e94aeb48ca1e204b5") eq normalize_component[j in components]:sum(o in outlets | split_component[o,j])==1;
+@id("dd6ac9d0aff9478eb041893a744e7d37") eq partition_component[o in outlets,p in phases,j in components]:outlet_phase_component_flow[o,p,j]==inlet.phase_component_flow[p,j]*split_component[o,j];
+}
+@id("cd176f0951b54541b7a059bdaf5da2ab") when basis==SplitBasis.phaseFlow {
+@id("204e8a0fcf90466bb44c92b951c88cfb") var split_phase[o in outlets,p in phases]:Scalar;
+@id("3810ddc7aa5743f2973a5c96e465cde0") annotation bounds split_phase(0,1);
+@id("8e8af78cdb0544a481327e0d6ecabb98") annotation start split_phase(1/sum(o in outlets | 1));
+@id("be2ed019dba34cc79d97a2ff95d797bc") eq normalize_phase[p in phases]:sum(o in outlets | split_phase[o,p])==1;
+@id("d96464e7e48748fb947be223eb32c911") eq partition_phase[o in outlets,p in phases,j in components]:outlet_phase_component_flow[o,p,j]==inlet.phase_component_flow[p,j]*split_phase[o,p];
+}
+@id("0ef09013bec44d95acc1eedc4dc6e5a7") when basis==SplitBasis.phaseComponentFlow {
+@id("39de6a72d1cb49138bb591f78f6f9b55") var split_phase_component[o in outlets,p in phases,j in components]:Scalar;
+@id("e80cdc66abc541018ea6a624950259ae") annotation bounds split_phase_component(0,1);
+@id("457920ee1c954f33a92367f77b910ee7") annotation start split_phase_component(1/sum(o in outlets | 1));
+@id("d6c76df6c629487abfa6f052e4034d27") eq normalize_phase_component[p in phases,j in components]:sum(o in outlets | split_phase_component[o,p,j])==1;
+@id("1ddfa7ce1eea473d848c630f8d06b5ed") eq partition_phase_component[o in outlets,p in phases,j in components]:outlet_phase_component_flow[o,p,j]==inlet.phase_component_flow[p,j]*split_phase_component[o,p,j];
+}
+@id("c87ea2ee566e4eee86f3e5ba699ab68b") let outlet_phase_flow[o in outlets,p in phases]:Flow=sum(j in components | outlet_phase_component_flow[o,p,j]);
+@id("8890d5ecdc0d43b4882fd02fee133e45") let outlet_flow[o in outlets]:Flow=sum(p in phases | outlet_phase_flow[o,p]);
+@id("d40ad127970e416891e7ad7e59ac94f1") let outlet_component_flow[o in outlets,j in components]:ComponentFlow=sum(p in phases | outlet_phase_component_flow[o,p,j]);
+@id("42767530fa1e4fc8ac5dabc10812fd31") let outlet_composition[o in outlets,j in components]:MoleFraction=equilibrium.fraction_unit()*(outlet_component_flow[o,j]/equilibrium.component_flow_unit())/(outlet_flow[o]/equilibrium.flow_unit());
+@id("dd06b51bee5947158a5b0e69ce991a36") let outlet_energy_flow[o in outlets]:Power=sum(p in phases | sum(j in components | equilibrium.flow_unit()*(outlet_phase_component_flow[o,p,j]/equilibrium.component_flow_unit())*component_enthalpy(inlet.T,p,j)));
+@id("b04c23f792874a16a8b4545adc9a4842") port flow[o in outlets]:Flow=outlet_flow[o];
+@id("795f0e47bb52456e8f6b98bcbfcabf2a") port composition[o in outlets,j in components]:MoleFraction=outlet_composition[o,j];
+@id("a47a68dc0a4d4c1f93c0ef63df5d46bb") port component_flow[o in outlets,j in components]:ComponentFlow=outlet_component_flow[o,j];
+@id("e5f184ca806748eb96a830b9c87b8fdd") port temperature:Temperature=inlet.T;
+@id("5091cde299514a38b2689ee97d1b4921") port pressure:Pressure=inlet.pressure;
+@id("2625b8b1cc244a4f9fdd5b7a94b8bc5c") port energy_flow[o in outlets]:Power=outlet_energy_flow[o];
+@id("c0e7526c46a24880b91af9dfb7486a73") accumulate material_net[j in components]:ComponentFlow accounting tolerance 1e-7{mol/s};
+@id("860b607a17334d1c9bce00b6e8fcbd83") contribute [j in components] material_net[j] role inflow=inlet.component_flow[j];
+@id("218d1405ae2345ccad5bde5eb6b38629") contribute [o in outlets,j in components] material_net[j] role outflow=outlet_component_flow[o,j];
+@id("c963154e04184a22af3c7d1fc32518e3") annotation check material_net(abs(material_net[j])<1e-7{mol/s});
+@id("ad3ea213ea554847bbba56b996a49d6b") accumulate energy_net:Power accounting tolerance 0.001{W};
+@id("ac1dab6112da4c6bad5323cdc7b49293") contribute energy_net role inflow=inlet.energy_flow;
+@id("16353ae6a4b54776b9dbf5af9b00a2fe") contribute [o in outlets] energy_net role outflow=outlet_energy_flow[o];
+@id("b303688fd0d94a14bbcb0bda7faf224b") annotation check energy_net(abs(energy_net)<0.001{W});
+}
+}

@@ -21,7 +21,6 @@ pse-columnar.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true
 pse-quantity.workspace = true
-pse-material.workspace = true
 arrow-schema.workspace = true
 arrow-array.workspace = true
 serde_json.workspace = true

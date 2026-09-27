@@ -1,0 +1,28 @@
+{
+  "profile": "idaes-2.13",
+  "maximum_findings": 256,
+  "near_bound_absolute": 0.0001,
+  "near_bound_relative": 0.0001,
+  "bound_violation": 0.0,
+  "residual": 0.00001,
+  "variable_small": 0.0001,
+  "variable_large": 10000.0,
+  "variable_zero": 0.00000001,
+  "jacobian_small": 0.0001,
+  "jacobian_large": 10000.0,
+  "matrix": {
+    "dense_entries": 65536,
+    "findings": 256,
+    "parallel_tolerance": 0.00000001,
+    "rank_absolute": 0.000001,
+    "rank_relative": 0.0
+  },
+  "terms": {
+    "zero": 0.0000000001,
+    "mismatch": 1000000.0,
+    "cancellation": 0.0001,
+    "maximum_terms": 5,
+    "combinations": 10000,
+    "findings": 256
+  }
+}

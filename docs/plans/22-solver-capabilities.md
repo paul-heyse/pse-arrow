@@ -1,0 +1,337 @@
+---
+title: Complete native solver capability, discrete decisions and the operational store — implementation plan
+status: draft
+date: 2026-09-27
+adrs: [ADR-0097]
+review_sources:
+  - ../design_review/reviews/design_review_solver-capabilities_2026-09-27.md
+scenario_sources:
+  - ../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#s01
+  - 22-solver-capabilities-architecture.md#s10
+---
+
+# Complete native solver capability, discrete decisions and the operational store
+
+**Status: draft, awaiting maintainer authorization.** No packet starts until the maintainer
+authorizes it (AGENTS.md). The ADRs this plan implements are added to `adrs:` as D0 writes them.
+
+**Companion documents:**
+- [Target architecture](22-solver-capabilities-architecture.md): the design argument, the PostgreSQL evaluation, and scenarios S10–S18.
+- [Solver capability review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md): findings F01–F32, capabilities L-N/L-D/L-C and §8.1, scenarios S01–S09, and the P1 factorability census.
+
+**Execution packets.** When a phase is authorized it gets an execution packet
+(`22-solver-capabilities-<phase>-execution.md`), following Plan 21's practice. That packet
+carries step-level tasks with test code and owns step progress. This plan owns packet
+definitions, sequencing and finding dispositions.
+
+## Context
+
+The solver capability review (2026-09-27) found no benefit from SCIP for the problem classes
+the pipeline solves today. It also listed every native capability the pipeline lacks, and 32
+correctness and design-principle defects (F01–F12 in the review, F13–F32 in its addendum).
+
+The maintainer then decided, on 2026-09-27:
+1. **Integer variables will be needed in the solve.** Every functional solver capability the review identified as missing is to be added, including the ones marked "not now". A comprehensive simulator is expected to use them all.
+2. **The plan includes the code changes needed to align with the core design principles**, not only the solver defects.
+3. **PostgreSQL may be added beside Delta Lake** if it suits the target system after these enhancements. The libraries are admissible, and PostgreSQL **18.6** is installed with cluster `18/main` on port 5432.
+
+This plan does all three.
+
+- **Capabilities are excluded only when impossible or duplicate.** A capability is left out only if the pinned library does not implement it, or if it would duplicate one this plan already delivers through another library (DP-01, DP-16). *Excluded capabilities* below lists each one with its revisit trigger.
+- **PostgreSQL is adopted** as the operational store and publication catalog. PostgreSQL owns what changes; Delta owns what is published (architecture §9).
+
+## Decisions
+
+Each row becomes an ADR written in D0 (`just adr-new`; the next number is ADR-0102). Rows
+that need a design review get one before `status: accepted`. No dependent packet starts
+before its decision is accepted.
+
+| ID | Decision | Route | Governs |
+|---|---|---|---|
+| D22-01 | Discrete decisions, MILP/MIQP/MINLP, generalized disjunctive programs and global certification enter the design target | ADR + design review. Amends §25, §18.9, §19.7, §3.3, §9 | All M and G packets |
+| D22-02 | A variable's domain is a declared facet with per-analysis-mode semantics, finite-bound admission and count/indicator typing (architecture §2.1–§2.2) | ADR (kernel contract, with ADR-0101) | M1, M2 |
+| D22-03 | Indicator, SOS, cardinality, piecewise-linear, logic, disjunction and complementarity declarations, lowered by selectable named realizations (architecture §2.3–§2.5) | ADR (kernel transformations) | M3–M5 |
+| D22-04 | SCIP 10.0.2 as a native backend: solver-image build, `scip-sys` binding with pse-owned ABI and status mapping, factorable projection, relaxation-soundness rule | ADR + design review. Supersedes the ADR-0028 image scope; ADR-0083 revisit | G1–G8, C5 |
+| D22-05 | Execution vocabulary: new problem classes, the `Certify` intent, assurances `global_bound`/`proven_infeasible`/`exact_certificate`/`sos_bound_nonrigorous`, one typed `CandidateUse`, diagnostic severity and DP-21 categories | ADR superseding ADR-0090 | A1, G, N5 |
+| D22-06 | Parametric sensitivity, reduced Hessian, covariance, confidence intervals and uncertainty propagation are admitted with PS-12 validity conditions; the mechanism is POUNCE sensitivity and `pounce-sens-core` with FERAL | ADR + design review. Amends §19 and §25; amends Plan 20 §6 | S1–S4 |
+| D22-07 | Ipopt linear solvers MUMPS (with METIS) and HSL MA27/57/77/86/97 are typed and selectable; an absent library is refused, never a fallback | Short ADR superseding ADR-0028's fallback consequence | N1, A7 |
+| D22-08 | POUNCE ℓ1 exact-penalty and POUNCE-convex are explicit native methods | Short ADR (bindings within ADR-0083) | N3, N5 |
+| D22-09 | Dynamics profile extensions: IDAS scheduled inputs, events, constraints and Krylov; Diffsol SDIRK/ERK/KLU; adjoint and second-order sensitivities; Gauss–Newton Hessian; shooting routes | ADR (ADR-0084 and ADR-0093 revisit). Amends §13.6, §18.9 | Y1–Y5 |
+| D22-10 | Multi-objective optimization: objective priority and weight, native lexicographic on HiGHS, staged elsewhere | ADR (amends ADR-0101) | C3 |
+| D22-11 | PostgreSQL 18 operational store and publication catalog, through a new crate `pse-operations`; Delta keeps immutable data; the Delta control table and file leases are removed | ADR + design review. D10 amendment; supersedes the ADR-0091 control-table parts; resolves R-10 | O1–O9, G8 |
+| D22-12 | Python solve-settings and result contract: typed backend settings, registry names, typed eligibility | ADR + design review (Python boundary contract) | A5 |
+
+Packets A1–A4 and A6–A7 are refactors and corrections within existing contracts and need no ADR.
+
+## Architectural drivers and scenarios
+
+The review's scenarios S01–S09 are reused unchanged, and the architecture adds S10–S18:
+- authored MILP;
+- GDP synthesis;
+- global certification;
+- covariance;
+- NMPC;
+- a 10 000-point study across workers;
+- recovery of a crashed long solve;
+- concurrent publication;
+- an additive new backend.
+
+Responsibilities and consumed contracts per packet are in the tables below. The two structural
+seams everything else relies on come first:
+- the backend-execution adapter with a single NLP runner (A2; makes S18 additive; corrects F27 and F28);
+- one staged-sequence primitive (A6; F29).
+
+## Plan
+
+### Sequencing
+
+```
+Phase 0  D0 decisions and reviews ─┬─ A1 → A2 → {A3, A4, A7} → A5
+                                   └─ (A6 after Plan 21 K8 closes)
+Phase 1  O1 → O2 → O3     N1   C1   Y6   N4
+Phase 2  M1 → M2          G1 → G2 → G3   S1 → S2 → S3   N2   N3   Y1   C2   O4 → O5 → O6
+Phase 3  M3 → M4 → M5     G4, G5, G6, G7   Y2 → Y3 → Y4 → Y5   C3   C4 → C5   N5   S4   O7   O8 → O9
+Phase 4  G8   Q1
+```
+
+**Plan 21 coordination:**
+- Plan 21 owns grammar, registry and compiler work until K8 closes. M1–M5 and A6 start after K8 closes, or under an explicit handoff recorded in both plans.
+- M packets follow Plan 21's kernel discipline: synthetic tests, and no special-casing. Its *Kernel gaps* table links here rather than duplicating status.
+
+### D — decisions
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| D0 | Write ADRs D22-01…D22-12. Run the design review (target purpose, process-simulator profile) on the architecture companion. Supersessions: ADR-0028, ADR-0090, ADR-0091 (control-table parts), ADR-0016 (stale `runs.status` confirmation). Amend Plan 20 §4–§6 (sensitivity mechanism, elastic policy, discrete price-taker and MatOpt, DegeneracyHunter). `design:` PRs (`PSE_DESIGN_EDIT=1`) amend §3.3, §9, §13.6, §15.5, §16.6, §18.1, §18.8–§18.10, §19, §20, §25, §26 and D10 as each ADR is accepted | Each ADR is accepted after an Accept or Accept-scoped review where required; `just adr-lint` clean; the Plan 20 texts are amended | — | not started |
+
+### A — alignment and defects (principles first)
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| A1 | **Typed outcomes and failures.** One `CandidateUse` owner (F13). Typed adapter evidence consumed by `quality.rs` (F16). `ProblemError` variants Provider, Unsupported, Numerical, Limit, Cancelled and Internal, keeping causes and structural ids (F17). IDA flags → typed terminations (F06). The transient-fit deadline stays a time limit (F15). One typed validation failure (F18). Diagnostic severity and DP-21 categories in the registry (F19; vocabulary under D22-05). Exhaustive status maps (F10). HiGHS callback interrupt only for kinds 1, 2 and 6 (F05). Owners: `pse-backend-native` `solve.rs`, `quality.rs`, `callback.rs`, `dynamics/idas.rs`, `highs.rs`; `pse-runtime` `workflow/{diagnostics,numerics}.rs`, `workflow/modeling/results.rs`, `math/initialization.rs`, `workflow/fitting/oracle.rs`; `pse-schema` catalog | Tests: `candidate_use_iteration_limited_feasible_is_seed_only_everywhere` (solve, initialization, homotopy, study and the published assessment agree); `idas_conv_fail_is_numerical`; `transient_fit_deadline_is_time_limit`; `adapter_not_linked_is_unsupported`; `structural_failure_keeps_rows_and_columns`; `quality_reads_typed_evidence_only`; `highs_callback_interrupt_kinds` | `accepts_feasible_candidate`, `numerics::permits`, the `results.rs` inline rule, the `commit_block` rule, the `diagnostic_nonlinear` rule, `SolveReport.validation_error`, string-keyed metric reads in qualification and retry, wildcard status arms | not started |
+| A2 | **Backend-execution adapter and one NLP runner** (architecture §4). A `BackendExecution` trait owned by `pse-backend-native`; the Ipopt, POUNCE, KINSOL, HiGHS and Clarabel adapters move onto it. The capability record is the single source for routing and published rows (F21). `Facts::coefficient_eligible()` (F23). `kinsol::Settings::from_policy` (F22). One NLP runner serves solve, initialization and fitting (F28). Settings identity comes from serde (F09 identity part). Depends: A1 | S18. Tests: `stub_backend_routes_through_adapter_table` (a test-only adapter plus capability, with no runtime edit); `published_capabilities_equal_routing_rules`; `nlp_runner_serves_solve_initialize_fit` | Per-backend matches in `solves.rs` (`run_step`, `admit_profile`, `hash_controls`, `with_primal_start`, `Retained`, `ALGEBRAIC_BACKENDS`, the serial set); the duplicate NLP orchestration in `initialization.rs` and `fitting/oracle.rs`; the three coefficient-rule copies; the four KINSOL default builders | not started |
+| A3 | **Native session hygiene and resources.** FERAL runs serial unless every core is admitted, and an upstream pool-injection request is filed (F01). Options are in the reuse key and reset on reuse (F02). POUNCE `mu_strategy_fallback` is pinned, l1 fallbacks are reserved unless a typed method selects them, and effective options are snapshotted (F03). A non-`Choose` HiGHS method is refused for a nonzero Hessian (F04). `worker_scoped` with the attempt's cancel flag, and a reservation per worker (F31). IDAS sensitivity assembly uses faer sparse products (F12). Depends: A2 | Tests: `feral_threads_bounded_by_admission`; `reused_session_does_not_inherit_options` (Ipopt, POUNCE); `pounce_retry_options_reserved_and_snapshotted`; `highs_qp_explicit_method_refused`; `nested_worker_observes_attempt_cancel`; `sequence_reserves_per_worker`; `idas_sensitivity_sparse_products` | Dense (row, col) loops in `idas.rs`; unreserved worker construction | not started |
+| A4 | **Identity, provenance and reuse keys.** Typed `StartSource` (F14). A coordinate-compatibility stamp separate from the profile stamp (F24). Typed transformation records from the pipeline report, with seeds and reused native state in lineage identity (F25). A `ResolvedAccuracy` distinct from user controls (F20). Diffsol, POUNCE and fit identities derived from serde (F09). Depends: A2 | Tests: `start_source_drives_initial_conditions`; `native_option_change_keeps_seed_compatible`; `lineage_identity_changes_with_seed`; `identity_covers_every_settings_field` (serde round trip over all fields); `resolved_accuracy_not_user_input` | String start provenance and `starts_with("annotation:")`; the five `accuracy == default` checks; hand-written `settings_identity`, `profile_json` and fit-mode hashing; the constant "admitted native presolve" label | not started |
+| A5 | **Boundary contracts** (D22-12). pse-owned setting types at the conic and dynamics boundaries, so Clarabel serde is no longer the Python wire format (F09). Registry `as_str` names, typed eligibility rows and no `Debug` strings in contracts (F30). Initialization admission moves into Rust `validate_profile`, with route-typed linear settings (F26). Python projection of every `BackendSettings` variant (L-C1): HiGHS method, diagnostics and sparse start; Clarabel mode and settings; POUNCE method and linear; KINSOL; Ipopt (after N1). Run `just python-stubs` and `just codegen`. Depends: A2, A4 | Tests: `test_solve_settings_backend_projection`; `test_route_and_eligibility_are_typed`; Rust `initialization_admission_in_rust` | Hand-written string↔enum tables in `pse-py` `settings.rs`, `workflow.rs` and `strategies.rs`; the initialization checks in Python; `format!("{:?}")` contract outputs | not started |
+| A6 | **One staged-sequence primitive** (architecture §4). Unify block initialization with staged homotopy, and `study` with `start_modeling`. Value-only rebind without re-preparation: split `presolve.matches` into structure and values (F29; PS-11, DP-10). Split the oversized functions along these responsibilities (F32). Depends: A2, A4; Plan 21 K8 closed (overlaps K8-F03) | S14, S15. Tests: `value_only_study_prepares_once`; `homotopy_steps_reuse_session`; `initialization_restores_overlays_on_failure` (PS-08); `failed_point_isolated_in_study` | The second initialization engine; per-point re-preparation | not started |
+| A7 | **Truthful claims and stale authority.** Solve tests for KINSOL Dense, SPGMR and Picard, and the PDLP time-limit-only statement (F08b, F08c); F08a closes with M1. Metric names separate normalized from physical (F10). The HSL README and ADR-0028 text (with D22-07), and deletion of the dead native `Scaling` path (F11). Depends: A2, D0 | Tests: `kinsol_dense_spgmr_picard_solve`; `metric_names_state_coordinates` | `presolve::Scaling` native path and tests; stale `docker/solvers/README.md` HSL text | not started |
+
+### N — NLP and sparse linear algebra
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| N1 | **Ipopt linear algebra and typed settings** (D22-07). A typed `BackendSettings::Ipopt { linear_solver, ordering, mu_strategy, bound_push, … }`. HSL MA27/57/77/86/97 through Ipopt's linear-solver loader (`hsllib`), with library path and digest in the profile key and refusal when it cannot load. A real host probe (`xtask` `probe_host`). MUMPS rebuilt with METIS in `docker/solvers` (checksummed source). MA86/MA97 threads admitted under §18.8. Depends: A2 | Tests: `ipopt_hsl_refused_when_absent`; `ipopt_linear_solver_in_profile_key`; `ipopt_mumps_metis_selectable`. Measured in Q1: HSL vs MUMPS vs FERAL on a new process case with n_KKT ≥ 10⁴ | Reservation and forcing of `linear_solver` in `ipopt.rs` | not started |
+| N2 | **NLP warm restarts.** A typed interior-point warm-restart profile (`mu_init` from the final barrier value, `warm_start_*_push`) recorded in `StartReceipt` (L-N3). The SQP working set passes through the presolve pipeline, keyed by `report.transformation` (F07, L-N4). POUNCE active-set exposed to Python via A5. Depends: A2, A4 | S14. Tests: `sqp_working_set_restart_reaches_runtime`; `interior_point_warm_profile_recorded`; `warm_restart_reduces_iterations_on_perturbed_case` | The pipeline's refusal of native seeds (`presolve/pipeline.rs:156`) | not started |
+| N3 | **ℓ1 exact-penalty route** (D22-08, L-N5). A typed POUNCE method `L1ExactPenalty`, explicit only. Whole-model infeasibility explanation uses it, and it is the `penalty(l1)` complementarity realization (M5). Depends: A2 | Tests: `l1_route_returns_labelled_least_infeasible_point`; `l1_never_automatic` | The runtime's bespoke whole-model elastic formulation; Plan 20 §5 text amended in D0 | not started |
+| N4 | **Conditioning and inertia diagnostics** (L-N6). A direct `feral =0.18.0` dependency; KKT and Jacobian 1-norm condition estimates and certified inertia; a post-solve second-order check on both NLP routes, feeding S1 validity and the Plan 20 diagnostics | Tests: `kkt_inertia_certifies_second_order`; `jacobian_condition_estimate_matches_dense_reference` | — | not started |
+| N5 | **POUNCE-convex backend** (D22-08, L-N7). `pounce-rs` feature `convex` through an A2 adapter: IPM for LP, QP and cones with warm start; batched parallel QP solves for studies; QP parametric sensitivity; SOS polynomial lower bounds under `sos_bound_nonrigorous`. Depends: A2, D22-05 | Tests: `pounce_convex_qp_matches_highs`; `pounce_convex_batched_study`; `sos_bound_labelled_nonrigorous` | — | not started |
+
+### S — sensitivity, covariance and uncertainty
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| S1 | **Parametric sensitivity and reduced Hessian, POUNCE route** (D22-06, L-N1). Fetch and verify `pounce-sensitivity` 0.12.0 into the skill corpus first; if the API does not fit, use `pounce-sens-core` as in S2. A sensitivity entry beside `pounce::Session`. Presolve column and normalization back-maps. Typed validity: activity class, reduced-Hessian eigenvalues for second-order sufficiency, LICQ, strict complementarity. New registry relations for sensitivities and reduced Hessians. Depends: A2, N4 | S02, S13. Tests: `sensitivity_matches_analytic_nlp`; `sensitivity_withheld_when_sosc_fails`; `sensitivity_agrees_with_ipopt_sens` (parity-container oracle) | — | not started |
+| S2 | **Ipopt-route sensitivity**: `pounce-sens-core` `SensApplication` and `parametric_step` over a barrier-replica KKT with a FERAL LDLᵀ backsolver. Depends: S1 | Tests: `ipopt_route_sensitivity_matches_pounce_route` | Plan 20 §6 "faer sparse LU on the KKT" (plan text, D0) | not started |
+| S3 | **Covariance and confidence intervals**: steady fits from the reduced Hessian; transient fits Gauss–Newton from the response SVD, and exact via Y4; profile-likelihood intervals as a study; relations for covariance and intervals; withheld when validity fails. Depends: S1, A6 | S13. Tests: `linear_regression_covariance_analytic`; `unidentifiable_fit_withholds_covariance` (existing unidentifiable fixture) | §25 "Covariance…" refusal (text, D0) | not started |
+| S4 | **Uncertainty propagation** (the counterpart of IDAES `sens.py`): output covariance through sensitivities. Depends: S3 | Tests: `uncertainty_propagation_linear_exact`; the parity case against `sens.py` in Q1 | — | not started |
+
+### Y — dynamics and roots
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| Y1 | **IDAS profile extensions** (D22-09, L-D1, L-D5): scheduled inputs with recoverable trials (`IDAReInit`, `IDASensReInit`, `IDACalcIC`); events without sensitivities (`IDARootInit`, `IDASetRootDirection`); `IDASetConstraints`; staggered sensitivities; SPGMR and SPFGMR with preconditioner hooks; `IDA_Y_INIT`. Depends: A1, A2 | S09. Tests: a PID fixture with piecewise inputs against the IDAES PETSc example; `idas_events_without_sensitivities`; `idas_constraints_keep_positivity`; `idas_staggered_matches_simultaneous` | The IDAS refusals of events and input changes (`dynamics.rs:268-274`, `idas.rs:622-626`) | not started |
+| Y2 | **Diffsol methods** (L-D5, L-D8): `tr_bdf2`, `esdirk34`, and `tsit45` (mass-free only; refused otherwise); the KLU backend via the `suitesparse` feature; a typed method in the profile | Tests: `sdirk_matches_bdf_on_vessel`; `tsit45_refuses_mass_matrix`; `diffsol_klu_matches_faer_lu` | — | not started |
+| Y3 | **Adjoint sensitivities** (L-D2): Diffsol adjoint with checkpointing (operator adjoint traits over faer); IDAS adjoint (`IDAAdjInit` through `IDASolveB`, `IDAQuadInitB`) for the recoverable-trial profile; a gradient-only fit mode. Depends: Y1 | Tests: `adjoint_gradient_equals_forward_on_transient_fit` (both integrators); `checkpoint_memory_bounded` | — | not started |
+| Y4 | **Transient Hessians** (L-D3): `HessianMode::GaussNewton`; exact second-order sensitivities by IDAS forward-over-adjoint (`IDAInitBS`, `IDAQuadInitBS`). Depends: Y3 | Tests: `gauss_newton_hessian_matches_jtwj`; `second_order_adjoint_matches_finite_difference` | The "limited memory only" refusal for transient fits (`fitting/modeling.rs:237`, `oracle.rs:400`) | not started |
+| Y5 | **Dynamic optimization and rolling horizons** (L-D4): simultaneous dynamic optimization with discrete decisions (after M2); single- and multiple-shooting routes over Diffsol sensitivities; NMPC and MHE on the staged-sequence primitive with N2 warm restarts, S1 advanced-step sensitivity and O5 per-step records. Depends: A6, N2, S1, Y3, M2, O5 | S14. Tests: `nmpc_closed_loop_on_antiwindup`; `shooting_matches_simultaneous_optimum` | — | not started |
+| Y6 | **KINSOL extensions** (L-D6, L-D7): `KINSetMaxNewtonStep`, eta forms, preconditioner hooks, SPFGMR/SPBCGS/SPTFQMR, Anderson orthogonalization and delay; one-sided nonzero bounds shifted to signs; a per-worker KINSOL session cache for nested `InnerSolver` calls. Depends: A2 | Tests: `kinsol_krylov_variants_solve`; `one_sided_bounds_route_to_kinsol`; `nested_inner_solver_reuses_session` | Per-call KINSOL allocation in `implicit.rs` | not started |
+
+### C — coefficient and conic
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| C1 | **HiGHS 1.15.0** (L-C2): bump `highs-sys`; set `qp_allow_hot_start = true`; rerun the HiGHS unit tests. The skill's 1.15 evidence then transfers. Depends: A2 | S03. Tests: `highs_qp_hot_start_consumed`; the existing HiGHS unit tests | — | not started |
+| C2 | **MILP and LP extras** (L-C3, L-C4, L-C8): fixed-integer LP duals (`Highs_getFixedLp`) conditional on the commitment; incumbent capture from callback kinds 3 and 4; presolve/postsolve and basis-inverse diagnostic views; the cut pool; a MIP node budget separate from `iterations` (F10); QP regularization derived from the gap; DegeneracyHunter session reuse. Depends: C1, M1 | S10. Tests: `fixed_lp_duals_conditional_on_commitment`; `incumbents_recorded_in_order`; `degeneracy_hunter_reuses_session`; `mip_node_budget_independent` | Per-pivot `Session` creation in `jacobian_diagnostics.rs` | not started |
+| C3 | **Multi-objective** (D22-10, L-C8): objective priority and weight; native lexicographic for LP and MILP (`Highs_passLinearObjectives`); staged lexicographic for NLP and MINLP; per-objective result relations. Depends: A6, M1 | Tests: `lexicographic_milp_native`; `lexicographic_nlp_staged_matches_weighted_limit` | — | not started |
+| C4 | **Clarabel extensions** (L-C5, L-C7): explicit LP and certified convex-QP eligibility with Farkas certificates; `faer-sparse` and Pardiso backends and threads under §18.8; chordal decomposition when data reuse is not requested. Depends: A2, A5 | Tests: `clarabel_qp_farkas_certificate`; `clarabel_faer_backend_matches_qdldl` | Always-refuse Clarabel eligibility (`routing.rs:155-157`) | not started |
+| C5 | **Automatic cone recognition** (L-C6): SOC from exact Gram certificates; exponential and power cones from `FactorableProgram` patterns; recognized convex problems become automatically eligible for Clarabel (a compiler fact). Depends: C4, G2 | Tests: `gram_certificate_yields_soc`; `recognized_exp_cone_routes_to_clarabel`; `unrecognized_problem_not_routed` | — | not started |
+
+### M — discrete decisions and disjunctive modeling
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| M1 | **Domain facet and authored MILP** (D22-02). Grammar and AST (`pse-authoring` `language/parser.rs`); registry `ModelingVariableDomain` and the declaration arm (`pse-schema` `catalog/modeling.rs`); `just codegen`. Count/indicator typing (`pse-modeling` specialize and typing). `grouped.rs` carries the declared domain. Finite-bound admission. `runtime.solve_variables.domain`. `ProblemFacts`, structural and DoF analysis. The authored `mixed_linear` route to HiGHS. Depends: D0, Plan 21 K8 closed | S06, S10. Tests: `var_domain_parses_and_renders`; `integer_requires_finite_bounds`; `binary_implies_unit_box`; `integer_requires_count_or_indicator_type`; `authored_milp_routes_to_highs`; a price-taker toy fixture as package data | The hard-coded `Continuous` in `grouped.rs:298-304`; the "MILP internal only" gap (F08a) | not started |
+| M2 | **Discrete semantics across analysis modes** (architecture §2.2): a fixed-assignment continuous re-solve stage; typed refusals for fitting, dynamics and roots; duals and sensitivities stated as conditional. Depends: M1, A6 | Tests: `root_refuses_free_integer`; `initialization_fixes_and_restores_integers`; `fit_refuses_free_integer`; `duals_conditional_on_assignment` | `fitting/modeling.rs:566` ad-hoc check, replaced by a typed rule | not started |
+| M3 | **Indicator, SOS1/SOS2, cardinality, piecewise-linear and logic** (D22-03): declarations and lowerings, native or linear over finite bounds; routing refuses native-only realizations on backends without the handler. Depends: M1 | Tests: `indicator_linear_lowering_matches_native`; `piecewise_sos2_matches_incremental`; `logic_propositions_lower_exactly`; `native_only_realization_refused_on_highs` | — | not started |
+| M4 | **Disjunctions (GDP)** (D22-03): `disjunction` declarations generalizing `implicit … regime`; realizations `bigm`, `bigm(derived)` (M from `pounce-presolve` FBBT intervals), `hull` and `indicator`; logic between alternatives; nesting. Depends: M3 | S11. Tests: `gdp_hull_and_bigm_same_optimum`; `bigm_derived_from_bounds`; `hull_requires_finite_bounds`; `indicator_realization_requires_native_backend` | — | not started |
+| M5 | **Complementarity and discrete phase modes** (D22-03): `complements` with `smooth(ε)`, `penalty(l1)` (N3) and `disjunctive` realizations; phase appearance authored as package data in all three forms, with the approximation stated (PS-06). Depends: M4, N3 | Tests: `flash_phase_disappearance_agrees_across_realizations` | — | not started |
+
+### G — SCIP: global certification and mixed-integer nonlinear solving
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| G1 | **SCIP in the solver image and binding** (D22-04): a `docker/solvers` recipe (checksummed scipoptsuite 10.0.2; SoPlex; IPOPT against `/opt/pse-solvers`; PaPILO; GMP/MPFR/Boost); the `scip-sys` pin through `SCIPOPTDIR`; a runtime ABI/version check; a skill runtime receipt in `native-solver-libraries` (link, expression constraint, status, interrupt, `catchctrlc`, memory limit). Depends: D0 | Tests: `scip_abi_matches_image`; the skill receipt recorded | — | not started |
+| G2 | **`FactorableProgram` projection** (architecture §5.1) in `pse-math`: exact and relaxed fidelity; implicit residual export; objective projection; validity-guard `Domain` stages as obligations (the census fix). Depends: D22-04 | Tests: `projection_exact_rows_match_evaluator`; `relaxed_rows_enclose_evaluator` (negative control); `pcsaft_valid_guard_projects_exactly`. Measured: the P1 census rerun shows every non-provider row of the 36 steady cases exact | — | not started |
+| G3 | **SCIP backend adapter** through A2: lifecycle, reserved options, event-handler cancellation, raw status mapping, incumbent injection, export readback, concurrent mode under permits, capability record. Depends: A2, G1, G2 | S01, S18. Tests: `scip_status_map_exhaustive`; `scip_interrupt_via_event_handler`; `scip_export_readback_equivalent` | — | not started |
+| G4 | **Global certification** (`SolveIntent::Certify`) for nonconvex NLP and QP: `GapQualified` with box, tolerances and fidelity; relaxed exports give bounds only. Depends: G3, D22-05 | S12. Tests: `certify_known_global_optimum`; `relaxed_export_bound_only`; `heater_optimization_certified` | — | not started |
+| G5 | **Global infeasibility and IIS**: `proven_infeasible`; `SCIPgenerateIIS` for nonlinear programs and true MIPs; a certified route in `diagnose`. Depends: G3 | Tests: `global_infeasibility_proof`; `nonlinear_iis_irreducible_flag`; `mip_iis_on_true_mip` | — | not started |
+| G6 | **Global phase-stability check**: a tangent-plane-distance `check` in the thermodynamics package over the certify route, for factorable equations of state; lifts the §25 "unproved global stability" limit. Depends: G4 | S12. Tests: `tpd_detects_known_instability` (teqp reference); `tpd_certifies_stable_feed` | — | not started |
+| G7 | **MINLP, MIQP and GDP solving**: routing of the new classes; native indicator, SOS and logic; solution pool; reoptimization for sequences (multiperiod, price-taker); concurrent mode; exact rational MILP (`exact_certificate`). Depends: G3, M4 | S11. Tests: `small_synthesis_minlp_optimal`; `gdp_indicator_matches_hull`; `price_taker_quadratic_cost_miqp`; `exact_mode_on_delicate_milp`; `solution_pool_ranked` | — | not started |
+| G8 | **Durable long solves**: incumbents and bounds stream to O5; resumption re-injects the best stored incumbent; cancellation across processes. Depends: G7, O4–O6 | S16. Tests: `killed_worker_attempt_goes_stale_and_resumes_from_incumbent` | — | not started |
+
+### O — operational store and publication catalog (PostgreSQL 18)
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| O1 | **Deployment and environment** (D22-11, architecture §9.7): `just db-bootstrap` (idempotent; the `pse` role with SCRAM and `CREATEDB`, database `pse`; confirmation like other outward recipes), `db-migrate`, `db-status`, `db-backup`, `db-restore`; a doctor check (server ≥ 18, reachable, migrations current); `PSE_DATABASE_URL` or the libpq service `pse`; `docs/dev/operational-store.md`. Depends: D0 | `just db-status` reports 18.x and no pending migrations; bootstrap run twice is a no-op; no credential in the repository | — | not started |
+| O2 | **The `pse-operations` crate**: `sqlx` 0.8 (postgres, runtime-tokio, tls-rustls, uuid, json, migrate); embedded migrations; typed repositories; runtime-typed queries (no `query!` and no `.sqlx` directory); errors with `thiserror`, `miette` and §23.2 codes; the `#[sqlx::test]` harness; a migration-conformance test against the registry's operational relations; crate registration and pins. Depends: O1 | Tests: `migrations_apply_to_empty_database`; `schema_matches_registry_relations`; governance `every_crate_registered` | — | not started |
+| O3 | **Attempt registry and lifecycle**: attempts, append-only transitions, heartbeat leases, the `Ephemeral` and `Durable` classes, `RunHandle` integration, a startup stale sweep, Python run listing. Depends: O2, A1 | DP-19. Tests: `illegal_transition_rejected`; `lease_expiry_marks_stale`; `ephemeral_cannot_publish`; `durable_run_listed_after_restart` | ADR-0016's stale `runs.status` text (superseded in D0) | not started |
+| O4 | **Durable job queue, workers and cancellation**: jobs claimed with `SKIP LOCKED`; leases, explicit retry policy and idempotency keys; `LISTEN/NOTIFY` cancellation; content-addressed source bundles; a versioned job payload; a `pse-worker` binary target in `pse-runtime`; `MathService` durable admission queues instead of refusing. Depends: O3, A6 | S15, S16. Tests: `two_workers_never_claim_same_job`; `expired_lease_requeues_as_new_attempt`; `cancel_notify_stops_running_job`; `unknown_payload_version_refused` | The refuse-only admission path for durable work | not started |
+| O5 | **Progress, incumbent and bound streams**: batched or `COPY` inserts; `NOTIFY` watchers; retention instead of the 256-event cap; publication snapshots them into Delta as derived rows. Depends: O3 | S14, S16. Tests: `progress_stream_complete_under_volume`; `published_metrics_equal_stream_snapshot` | The 256-event first-N cap for durable attempts | not started |
+| O6 | **Solution and warm-start store**, keyed by compatibility stamp (A4) and preparation identity; `StartSource::Stored`; seed identity in lineage. Depends: O3, A4 | S14, S16. Tests: `stored_seed_reused_across_processes`; `incompatible_seed_refused` | — | not started |
+| O7 | **Study coordination**: studies and points with parallel claims; one batched publication per study; failed points isolated. Depends: O4, A6 | S15. Tests: `study_parallel_workers_publish_once`; `failed_point_does_not_contaminate` | Per-point publication patterns | not started |
+| O8 | **Publication catalog** (architecture §9.5): catalog tables and a compare-and-set commit transaction; readers resolve through the catalog; advisory-lock leases; an idempotent importer for existing Delta control histories with member reopening; an offline export manifest; remote object-store qualification (R-10). Depends: O3 | S17. Tests: `concurrent_publishers_one_winner_no_lost_update` (two processes); `lost_ack_settles_via_catalog`; `maintenance_excludes_readers_via_advisory_lock`; `import_existing_publications_roundtrip`; `exported_publication_opens_offline` | The Delta `runtime.publications` control table and its code; `.pse-retention.lock` leases in `pse-catalog/src/delta/lease.rs`; control-table tests | not started |
+| O9 | **Query surface**: read-only DataFusion providers for operational tables (`datafusion-table-providers` only at exactly `datafusion =55.1.0`, else a thin sqlx-to-Arrow provider; `just family-check`); Python runs, jobs, studies and progress streams. Depends: O5, O8 | Tests: `operational_tables_join_results_in_datafusion`; `test_progress_stream_python` | — | not started |
+
+### Q — qualification and closure
+
+| Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
+|---|---|---|---|---|
+| Q1 | **At maintainer request.** New `.config/process-cases.json` cases: authored MILP, small MINLP and GDP, SCIP certify, TPD check, IDAS PID, large KKT (HSL, MUMPS+METIS, FERAL), a large conic case, sensitivity and covariance, a 10 000-point study on four workers, an NMPC horizon. Parity additions: DegeneracyHunter, PETSc PID, `sens.py`, parmest covariance. The relevant AGENTS.md checks. The Outcome. Move enduring meaning into the architecture sections, then retire this plan and the review (ADR-0096). Depends: all | Reported against the zero baseline with commands and conditions | — | not started |
+
+## Capability coverage
+
+Every capability the review identified as missing, and where this plan delivers it. The review
+identifiers anchor to its slot 8.
+
+| Review capability | Packet(s) |
+|---|---|
+| §8.1 Global bound and gap certification | G2, G3, G4 |
+| §8.1 Global infeasibility proof and nonlinear IIS | G5 |
+| §8.1 Global phase-stability check | G6 |
+| §8.1 MINLP, GDP, explicit discrete modes | M1–M5, G7 |
+| §8.1 Nonconvex QP; MIQP | G4; G7 |
+| §8.1 MIP IIS on the true MIP | G5 |
+| §8.1 Solution pool; reoptimization | G7 |
+| §8.1 Exact rational MILP | G7 |
+| §8.1 Build route | G1 |
+| L-N1 Covariance and parametric sensitivity | S1–S4 |
+| L-N2 HSL (MA27/57/77/86/97), METIS in MUMPS | N1 |
+| L-N3 Interior-point warm-restart profile | N2 |
+| L-N4 SQP working-set restart | N2, A5 |
+| L-N5 ℓ1 exact penalty (explicit route; MPCC) | N3, M5 |
+| L-N6 Conditioning and certified inertia | N4 |
+| L-N7 POUNCE-convex (LP/QP/cones, batched, QP sensitivity, SOS bounds) | N5 |
+| L-N9 Native Ipopt scaling | Not a gap; the dead path is deleted in A7 |
+| L-D1 IDAS scheduled inputs with recoverable trials | Y1 |
+| L-D2 Adjoint sensitivities (Diffsol and IDAS) | Y3 |
+| L-D3 Gauss–Newton and exact transient Hessians | Y4 |
+| L-D4 Shooting dynamic optimization, NMPC, MHE | Y5 |
+| L-D5 IDAS events, constraints, staggered sensitivities, Krylov; Diffsol SDIRK and KLU | Y1, Y2 |
+| L-D6 KINSOL options, Krylov variants, Anderson settings | Y6 |
+| L-D7 Nested-solve setup cost (KINSOL session cache) | Y6 |
+| L-D8 Explicit Runge–Kutta (`tsit45`) | Y2 |
+| L-C1 Python projection of backend settings | A5 |
+| L-C2 HiGHS 1.15 with QP hot start | C1 |
+| L-C3 Fixed-integer LP duals | C2 |
+| L-C4 DegeneracyHunter session reuse | C2 |
+| L-C5 Clarabel for explicit LP and convex QP | C4 |
+| L-C6 Automatic cone recognition | C5 |
+| L-C7 Clarabel faer/Pardiso backends and threads | C4 |
+| L-C8 Multi-objective; presolve/postsolve and basis-inverse views; cut pool; incumbent capture | C3; C2 |
+
+## Excluded capabilities
+
+These are excluded because they are impossible with the pinned libraries, or duplicate a
+capability delivered above. Adding a second mechanism for one capability would break DP-01
+and DP-16.
+
+| Capability | Reason | Revisit trigger |
+|---|---|---|
+| HiGHS lazy constraints (callback kind 8) | Declared but never invoked by HiGHS 1.14.0 or 1.15.0 | An upstream release invokes kind 8 |
+| HiGHS user-solution callback as a MIP seed | Redundant with `setSolution`/`setSparseSolution` before the run | None |
+| Automatic Clarabel routing without recognition | Routing must derive from facts; C5 provides recognition | — |
+| sIPOPT as a production route | C++ only; duplicates S1/S2. Retained as the `ipopt_sens` parity oracle | The POUNCE sensitivity route proves unfit (S1 open item) |
+| Couenne or Bonmin | Duplicate SCIP's MINLP capability. Couenne needs NL/ASL (D12); Bonmin has no C API and is heuristic on nonconvex problems | SCIP is measured unfit on a qualified workload |
+| Bespoke outer approximation over HiGHS and Ipopt | Reimplements solver machinery (DP-13, G8) | — |
+| diffsol-nl as the nested `InnerSolver` | Loses KINSOL's recoverable trials, sign constraints and cancellation | A measured case where the Y6 KINSOL session cache still dominates cost |
+| CVODES, ARKODE | No capability beyond Diffsol and IDAS in the reviewed routes | An authored need for IMEX or multirate integration (ARKODE) |
+| `scip-sys` `bundled` / `from-source`; `russcip` | Unverified downloads, a second Ipopt, missing NLP subsolver and exact mode; panicking conversions | — |
+| Parsing Ipopt's timing journal | Violates PS-10 (status strings are never parsed); POUNCE timings are captured natively | Ipopt exposes timings through its C API |
+| SCIP for DegeneracyHunter and tear selection | No capability gain; HiGHS retains them. SCIP remains an explicit MILP alternative after G7 | — |
+
+## Finding dispositions
+
+This table owns the status of adopted findings. Link packet evidence instead of copying
+execution reports. Anchors point to the
+[review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md).
+
+| Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
+|---|---|---|---|---|
+| [F01](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f01) FERAL pool escapes admission | — | open | A3 | `feral_threads_bounded_by_admission` |
+| [F02](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f02) Options persist across reuse | S07 | open | A3 | `reused_session_does_not_inherit_options` |
+| [F03](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f03) Unrecorded POUNCE retries | — | open | A3 | `pounce_retry_options_reserved_and_snapshotted` |
+| [F04](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f04) HiGHS QP method ignored | — | open | A3 | `highs_qp_explicit_method_refused` |
+| [F05](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f05) HiGHS callback kinds | — | open | A1 | `highs_callback_interrupt_kinds` |
+| [F06](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f06) IDAS failures misclassified | — | open | A1 | `idas_conv_fail_is_numerical` |
+| [F07](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f07) SQP working set unreachable | S14 | open | N2 | `sqp_working_set_restart_reaches_runtime` |
+| [F08](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f08) Claims ahead of routes | S06 | open | M1 (a); A7 (b, c) | `authored_milp_routes_to_highs`; `kinsol_dense_spgmr_picard_solve` |
+| [F09](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f09) Library types as contracts | S04, S05 | open | A4 (identity); A5 (types) | `identity_covers_every_settings_field`; `test_solve_settings_backend_projection` |
+| [F10](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f10) Metric and status naming, node budget | — | open | A1, A7, C2 | `metric_names_state_coordinates`; `mip_node_budget_independent` |
+| [F11](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f11) Stale HSL text; dead `Scaling` | — | open | A7, D0 (D22-07) | Deletion; superseding ADR |
+| [F12](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f12) IDAS dense loops | — | open | A3 | `idas_sensitivity_sparse_products`; Q1 IDAS benchmark |
+| [F13](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f13) Five acceptance rules | — | open | A1 | `candidate_use_iteration_limited_feasible_is_seed_only_everywhere` |
+| [F14](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f14) Parsed start provenance | — | open | A4 | `start_source_drives_initial_conditions` |
+| [F15](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f15) Fit deadline as evaluation failure | — | open | A1 | `transient_fit_deadline_is_time_limit` |
+| [F16](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f16) String-keyed qualification | — | open | A1 | `quality_reads_typed_evidence_only` |
+| [F17](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f17) `Contract(String)` flattening | — | open | A1 | `adapter_not_linked_is_unsupported`; `structural_failure_keeps_rows_and_columns` |
+| [F18](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f18) Duplicate validation fields | — | open | A1 | Deletion of `validation_error` |
+| [F19](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f19) Diagnostic vocabulary | — | open | A1 (D22-05) | Registry severity and category; codegen |
+| [F20](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f20) Accuracy input/output conflation | — | open | A4 | `resolved_accuracy_not_user_input` |
+| [F21](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f21) Capability table vs routing | S18 | open | A2 | `published_capabilities_equal_routing_rules` |
+| [F22](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f22) KINSOL policy ×5 | — | open | A2 | `Settings::from_policy`; deletion of the copies |
+| [F23](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f23) Coefficient rule ×3 | — | open | A2 | `Facts::coefficient_eligible` |
+| [F24](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f24) Layout hash conflation | S14 | open | A4 | `native_option_change_keeps_seed_compatible` |
+| [F25](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f25) Provenance missing from identity | — | open | A4 | `lineage_identity_changes_with_seed` |
+| [F26](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f26) Python-only initialization admission | — | open | A5 | `initialization_admission_in_rust` |
+| [F27](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f27) Backend not additive | S18 | open | A2 | `stub_backend_routes_through_adapter_table` |
+| [F28](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f28) NLP orchestration ×4 | — | open | A2 | `nlp_runner_serves_solve_initialize_fit` |
+| [F29](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f29) Two initialization and multi-case engines | S14, S15 | open | A6 | `value_only_study_prepares_once` |
+| [F30](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f30) `Debug` strings as Python contract | — | open | A5 (D22-12) | `test_route_and_eligibility_are_typed` |
+| [F31](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f31) Cancellation and budget gaps | — | open | A3 | `nested_worker_observes_attempt_cancel`; `sequence_reserves_per_worker` |
+| [F32](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f32) Oversized mixed functions | — | open | A2, A6 | Splits follow the new responsibilities; no split for its own sake |
+
+## Verification
+
+Checks run per packet, following the AGENTS.md execution rhythm:
+- **Rust:** `just check-package <pkg>` or `just check`; the named targeted tests with `just unit-package <pkg> <filter>`.
+- **Registry:** `just codegen` whenever the registry changes (M1, A1, D22-05 vocabulary, new relations).
+- **Python:** `just python-stubs`, `just py-sync` and targeted `just py-test` when the Python surface changes (A5, S1, O3, O9).
+- **Operational-store tests:** they need `PSE_DATABASE_URL` from O1 and run through `just unit-package pse-operations <filter>`; `#[sqlx::test]` creates isolated databases.
+- **SCIP and HSL tests:** they need the solver image and its features, through recipes added with G1 and N1, following the existing `check-solver-contracts` pattern.
+- **Dependency family:** `just family-check` only if a DataFusion-family dependency moves (O9).
+
+Replaced code, callers and tests are deleted in the packet that proves the replacement. There
+are no compatibility paths.
+
+**Comprehensive qualification** (Q1) runs only at the maintainer's request and reports
+commands, conditions and results against the zero baseline. Evidence labels go in the Outcome.
+
+## Open items
+
+- **`pounce-sensitivity` 0.12.0.** Its API is unverified: it is in neither the skill corpus nor the registry. S1 starts by fetching it; the fallback is `pounce-sens-core` on both routes.
+- **HSL.** The maintainer obtains the libraries under their licence (N1). The capability is refused while they are absent.
+- **SCIP.** Solver-image build time and size, and the GMP/MPFR/Boost toolchain (G1).
+- **Plan 21.** K8 must close, or an explicit handoff be recorded, before M1–M5 and A6.
+- **ADR numbering.** Numbers are assigned by `just adr-new` (next: ADR-0102). The front matter `adrs:` is updated as they are written.
+- **Catalog migration (O8).** Which existing workspaces to import is a maintainer choice, made before the Delta control table is deleted.
+- **`pse-worker` placement.** A binary target in `pse-runtime` (preferred; no new crate) or a separate crate. Decided in D22-11.
+- **PostgreSQL 16.** The stopped `16/main` cluster on port 5433 is outside this plan; dropping it is the maintainer's decision.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+### A mistake made and corrected
+
+### Deviations from the plan, deliberate

@@ -4,7 +4,7 @@
 //! Complete physical type keys (blueprint §6.2, §8.1).
 use crate::registry::QuantityRegistry;
 use crate::{
-    BasisId, DomainKind, QuantityKindId, QuantityTypeId, ReferenceStateId, ScaleKind, SubjectKind,
+    BasisId, EntityKindId, QuantityKindId, QuantityTypeId, ReferenceStateId, ScaleKind,
     UnitId,
 };
 /// Components that determine one registered physical type.
@@ -19,9 +19,9 @@ pub struct QuantityTypeKey {
     /// Point or difference semantics.
     pub scale_kind: ScaleKind,
     /// Ordered domain kinds.
-    pub shape: Vec<DomainKind>,
+    pub shape: Vec<EntityKindId>,
     /// Optional subject obligation; absent and explicit `none` stay distinct.
-    pub subject_kind: Option<SubjectKind>,
+    pub subject_kind: Option<EntityKindId>,
 }
 /// A registered physical type and its canonical storage unit.
 #[derive(Clone, Debug)]

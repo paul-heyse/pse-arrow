@@ -9,8 +9,8 @@ This area turns an admitted, physically typed process definition into immutable
 library-owned mathematical programs and a case layout that native solvers can consume.
 Authored definitions and bindings stay the model authority; Symbolica/Numerica own
 arithmetic, normalization and derivatives, and faer owns sparse structure. `pse-math`
-holds the narrow library integration, `pse-compiler` owns finite specialization and pure
-Salsa preparation, and `pse-runtime::math` owns effectful artifact construction, retention
+holds the narrow library integration, `pse-modeling` owns generic checking and
+specialization, and `pse-compiler` owns library lowering and pure Salsa preparation, and `pse-runtime::math` owns effectful artifact construction, retention
 and attempt workers. `pse-authoring::dsl` supplies the authored expression syntax.
 
 ## 7. Library-owned process mathematics
@@ -53,35 +53,31 @@ in the workspace manifest ([§3](workspace-and-dependencies.md#section-3)).
 
 ### 7.2 Function vocabulary and admission
 
-The authored function vocabulary is the `strum`-derived `pse_quantity::functions::Function`
-enum; each spelling maps to exactly one implementation, never a separate support flag.
-Parsing accepts only declared spellings; removed names such as `smooth_max`, `safe_log`,
-`tanh`, `erf` or `weighted_mean` fail as syntax, with no numerical fallback.
+The primitive vocabulary is the `pse_quantity::functions::Function` enum backed by
+library capabilities. Package functions compose those primitives with checked signatures,
+lexical immutable data and explicit runtime arguments. Smoothing, hyperbolic and activation
+functions are package knowledge; they do not require new primitive dispatch. Unknown
+functions or unavailable external capabilities refuse at admission.
 
-| Form | Implementation | Physical rule | Original-domain obligation | Derivatives |
-|---|---|---|---|---|
-| `+`, `-` | library arithmetic | compatible complete types; point minus point yields a difference | — | smooth |
-| `*`, `/` | library arithmetic | registered product/quotient | divisor nonzero unless a nonzero literal | smooth off the obligation |
-| `^` | library power ([§7.4](#section-7-4)) | rational exponent scales dimension; symbolic exponent needs a dimensionless base | integral `n <= 0`: base nonzero; non-integral: base positive | smooth off the obligation |
-| `exp`, `log`, `log10`, `sin`, `cos` | guarded library scalar | dimensionless in and out | `log`, `log10`: argument positive | smooth |
-| `tan` | `sin/cos` | dimensionless | cosine nonzero | smooth off the obligation |
-| `sqrt` | guarded library scalar | half dimension | value: nonnegative; first/second order: positive | `sqrt(0)` is value-valid, derivative-ineligible |
-| `abs`, `min`, `max` | guarded branch selection | same complete type | — | value-only where the switching input is differentiated |
-| `sum`, `prod` over a finite domain | library fold of admitted terms | declared reduction rule | — | as the terms |
-| `if … then … else` | lazy branch regions | branches share one complete type | each branch keeps its own obligations | value-only where the guard input is differentiated |
-| `kernel.<name>(…)` | admitted provider output | provider port contracts ([§9](physical-semantics.md#section-9)) | provider validity/envelope | capped by provider derivatives and smoothness |
-| `convert`, `broadcast` | unavailable | authoring and inspection only | — | refused for execution |
-| `d(…)/dt`, `integral` | not algebraic | — | — | refused by algebraic lowering; dynamics bind time derivatives through dynamic case roles ([§13](workflows-and-results.md#section-13)) |
+| Form | Implementation and physical contract | Original obligations |
+|---|---|---|
+| Arithmetic and powers | Symbolica/Numerica after complete quantity inference; exact rational exponents retained | Division and powers keep nonzero/positive requirements |
+| Library elementary functions | Declared primitive with dimension/scale admission | Logarithm positivity; derivative-order-sensitive square-root validity |
+| Finite sums/products and folds | Bounded lexical expansion; reductions preserve consumed entity kinds and checked prototypes | Empty/filter cases retain physical typing; fold requires nonempty membership |
+| Conditionals and piecewise functions | Guarded branches; authored piecewise continuity checked at the declared order | Original guards survive; unproved switching derivatives refuse |
+| Authored functions and partials | Lexical inlining and Symbolica differentiation, with shared bindings retained | Validity conditions and explicit argument independence survive derivatives |
+| External functions | Explicit registered capability with quantity types, shapes and derivative contract | Typed recoverable/terminal failures and stated validity |
+| Continuous derivatives/integrals | Authored realization to integrated dynamics or simultaneous schemes | Axis, physical derivative, boundary and causality requirements |
+| Implicit blocks | Inline equations, nested library solve or registered acceleration | Branch eligibility/selection, regularity and derivative admissibility |
 
-Comparisons in guards (`==`, `!=`, `<`, `<=`, `>`, `>=`) require the same complete physical
-contract and binders on both sides and select exactly, without tolerance. Finite filters in
-reductions accept only Boolean structure over lexical membership (`in`, member equality).
-The broader operation vocabulary in `pse-quantity` describes physical compatibility; it
-does not advertise evaluator support. A new function is an extension of this enum plus
-its physical rule and `BodyBuilder` constructor, with positive and negative controls.
+Comparisons require complete physical compatibility and select without an invented
+tolerance. Static predicates resolve only admitted lexical data. Package functions are
+checked before instantiation and against concrete physical operations when specialized.
+A generic signature cannot authorize a physical operation absent from the admitted context.
 
-**Source owners:** `crates/pse-quantity/src/functions.rs`,
-`crates/pse-math/src/typed.rs` (`unary`, `binary`, `extremum`, `reduce`, `conditional`).
+**Source owners:** `pse-quantity::functions`, `pse-modeling::{check,specialize}`, compiler
+`workspace::modeling`, and `pse-math::{typed,guarded,execution}`. The authored function and
+realization contract is proposed [ADR-0100](../../adr/0100-modeling-functions-and-accounting.md).
 
 ### 7.3 Operation contracts: physical admission and domain obligations
 
@@ -152,7 +148,7 @@ sources; semantic rows with closed canonical bounds; and an optional objective w
 authored sense. A body output reaches rows or the objective through an explicit
 contribution map with finite nonzero dimensionless weights. Authored `lhs == rhs`,
 `<=` and `>=` equations become residual `lhs - rhs` rows with bounds `[0, 0]`,
-`(-inf, 0]` or `[0, inf)`; a conditional equation selects its branch during template
+`(-inf, 0]` or `[0, inf)`; a conditional equation selects its branch during definition
 specialization ([§10](models-and-composition.md#section-10)).
 
 Mathematical class is established from the admitted program, never from authored hints:
@@ -164,8 +160,8 @@ facts carry the identity of the fixed/parameter values they consumed; free trial
 never establish them.
 
 **Source owners:** `crates/pse-math/src/{binding,facts,coefficients,presolve}.rs`,
-`crates/pse-runtime/src/workflow/composition/lower.rs`. Declaration columns are in the
-generated [`authored.computation_models`](../../generated/relations/authored.md) reference.
+`crates/pse-compiler/src/workspace/modeling/`. The generic declaration contract is
+[`authored.modeling_declarations`](../../generated/relations/authored.md).
 
 ### 7.6 Null, bound, and unknown semantics
 
@@ -173,7 +169,7 @@ generated [`authored.computation_models`](../../generated/relations/authored.md)
 |---|---|
 | Variable to be solved | a free variable in `CaseStructure`; its fixed/free status changes the case layout, not the body |
 | Starting value | every variable and parameter has a finite case value; `validate_values` refuses missing or nonfinite entries. Start selection is owned by strategies ([§17](numerical-execution.md#section-17)) |
-| Unbounded variable or row side | a null bound in the case declaration, or `BoundKind::Unbounded` in template bounds; lowered to `None` or an outward infinity, never NaN |
+| Unbounded variable or row side | an absent authored bound; lowered to `None` or an outward infinity, never NaN |
 | Case value outside declared bounds, or fixed value outside its integer domain | refused at case admission, without solver tolerance; a semi-variable's zero is admitted |
 | Missing measurement | a null observation value; an included observation without a value or standard deviation is refused, and exclusion is the explicit `included` flag ([§19](workflows-and-results.md#section-19)) |
 | Domain or provider failure | a typed `MathError`, never a silent null or a stale value |
@@ -182,47 +178,27 @@ generated [`authored.computation_models`](../../generated/relations/authored.md)
 
 ### 7.7 The expression DSL
 
-Authored text is the expression authority; the AST is transient syntax. The same parser
-serves computation-model definition sources, template equations and guards, document
-editing and inspection. The compiler parses definition sources inside the admission query,
-so parse failures are typed `CompileError::Syntax` diagnostics carrying the definition and
-exact byte range. Parse → render → parse is the identity on the AST structure; spans are
-diagnostic metadata excluded from body identity.
+Modeling documents use `pse-authoring::language`; embedded expressions use
+`pse-authoring::dsl`. The registry-generated declaration IR retains each source occurrence,
+identity and span. The checked package owns resolved types, visibility and physical context;
+consumers cannot mutate a checked product or substitute a foreign physical revision.
 
-```ebnf
-expr       := arith [ "where" ident "=" arith { "," ident "=" arith } ] ;
-arith      := term { ("+" | "-") term } ;
-term       := power { ("*" | "/") power } ;
-power      := unary [ "^" power ] ;                  (* right-associative *)
-unary      := "-" unary | primary ;                  (* "-x^2" is refused as ambiguous *)
-primary    := number [ "{" unit "}" ]                (* 320{K}, 2{bar}, 1{mol/s} *)
-            | "(" expr ")"
-            | "if" predicate "then" expr "else" expr
-            | "kernel" "." ident { "." ident } "(" [ args ] ")"
-            | reduce "(" ident "in" path [ "where" predicate ] "|" expr ")"
-            | "d(" expr ")/d" path
-            | function "(" [ args ] ")"
-            | path ;
-reduce     := "sum" | "prod" | "integral" ;
-path       := segment { "." segment } ;  segment := ident [ "[" expr { "," expr } "]" ] ;
-predicate  := disjunct { "or" disjunct } ;  disjunct := atom { "and" atom } ;
-atom       := "not" atom | "true" | "false" | "null" | "(" predicate ")"
-            | arith ( "in" path | cmp arith )? ;
-cmp        := "==" | "!=" | "<" | "<=" | ">" | ">=" ;
-equation   := "if" predicate "then" equation "else" equation
-            | expr ( "==" | "<=" | ">=" ) expr ;
-function   := (* a spelling of the Function enum, §7.2 *) ;
-```
+The language admits packages, entity kinds/entities, enumerations, sets, tables, functions,
+interfaces, definitions, presets, children, equations, accumulators, contributions, ports,
+connections, annotations, requirements, tests, cases and analyses. Expressions include
+physical literals, lexical bindings, indexed paths, finite reductions/folds, conditionals,
+function calls, partial derivatives and continuous derivatives/integrals. Parse/render/parse
+preserves declaration structure and IDs; diagnostic spans refer to original bytes.
 
-Input is bounded to 65,535 bytes and nesting depth 64 (unit expressions also 64). `where`
-bindings are ordered, distinct and lexically scoped; each binding is materialized once as a
-shared block output instead of being substituted repeatedly. Indexed paths bind lexical
-reduction members to declared group axes; a group's actual tuple must exist, so unknown
-ragged members fail. Grammar forms outside [§7.2](#section-7-2) parse for authoring and
-inspection but are refused by execution admission.
+Parser and specialization limits refuse before uncontrolled expansion. Function names
+resolve in their defining lexical scope, and actual indexed arguments retain the caller's
+scope. Interface defaults and overrides preserve their original declaration identity;
+ambiguous inherited contracts refuse. Shared local bindings are retained in mathematical
+bodies instead of flattened exponentially.
 
-**Source owners:** `crates/pse-authoring/src/dsl/{parser,lexer,ast,render}.rs`; examples
-and round-trip controls in `crates/pse-authoring/tests/dsl_examples.rs`.
+**Source owners:** `crates/pse-authoring/src/{language,dsl}/`, `pse-modeling::{check,types}`,
+and compiler `workspace::modeling`. Generic declaration shape belongs to
+[§6.15](schema-and-relations.md#section-6-15), not a parallel grammar catalogue here.
 
 ## 14. Compilation and preparation
 
@@ -241,9 +217,9 @@ lifetimes, and each has a distinct identity scope
 
 | Stage | Owner | Consumes | Produces | Effects |
 |---|---|---|---|---|
-| Selected admission | `pse-runtime::workflow` ([§22](models-and-composition.md#section-22)) | authored relations or typed builders, physical inventory | immutable `ModelRevision` | none on compiler state |
-| Template specialization (composed models only) | `pse-runtime::workflow::composition` | templates, instances, selected configuration | computation-model definitions and case rows | none |
-| Input publication | `CompilerWorkspace::publish` | complete `Inputs` projected from the revision | Salsa input revisions | validated before any setter |
+| Package admission | runtime modeling admission ([§22](models-and-composition.md#section-22)) | exact package closure, generic declarations, physical inventory and aliases | immutable checked revision | source loading and bounded admission |
+| Generic specialization | `pse-modeling`, tracked by compiler modeling queries | checked package, root/instance, bindings, analysis and limits | demanded members, equations, lineage, checks and reports | none |
+| Input publication | `CompilerWorkspace` | checked package/context and lowered case inputs | Salsa input revisions | validated before setters |
 | Definition admission | `admitted` query → `typed_math::Request::admit` | definition source, formals, domains, groups, providers, units, physical registry | `AdmittedBody`: `BodySpec`, types, occurrences, `PreparedBody` | none |
 | Case planning | `plan` query → `CasePlan::prepare` | case structure, semantic bodies | immutable `CasePlan` with faer patterns and local demands | none; no evaluators |
 | Structure and facts | `structure`, `coefficients`, `presolve_facts`, `problem_facts` queries | plan, consumed fixed/parameter values | `StructuralAnalysis`, coefficient/presolve/class facts | none |
@@ -298,8 +274,8 @@ touch caches, run solvers or write data. Cancellation is checked between steps, 
 (`Missing`, `Syntax`, `Math`, `Structure`, `Limit`, `Cancelled`) with diagnostic codes
 ([§23](operations-and-validation.md#section-23)).
 
-Salsa inputs carry the complete selected inventory: flowsheet declarations, quantity
-registry, physical preconditions, definitions, domains, groups, provider descriptors,
+Salsa inputs carry the complete selected inventory: checked modeling packages and bindings, quantity
+registry, physical preconditions, definitions, domains, groups, external capability descriptors,
 cases, fixed/parameter values (as canonical bits) and the math environment identity.
 Negative lookups are tracked, so creating a previously missing name invalidates its
 readers. Revision preparation publishes selected inputs under the runtime's compiler lock,
@@ -352,8 +328,10 @@ they protect.
 Derivative admission bounds the pinned Numerica Taylor convolution and primitive expansion
 from the source operation counts before vectorization, then reconciles the actual built
 operations. Opaque or provider derivative support wider than 256 local coordinates is
-refused; this is not a global model-size limit. `where` bindings count once, preventing
-exponential growth from repeated substitution.
+refused; this is not a global model-size limit. Shared bindings count once, preventing
+exponential growth from repeated substitution. `ModelingLimits.body_occurrences` may raise
+the default occurrence budget explicitly; the 4,096-slot body bound remains. Limits are
+tracked policy inputs and cannot authorize a differently typed or truncated model.
 
 `MathPolicy` allowances draw from the deployment memory pool, never a second budget.
 Immutable prepared products, artifacts, active worker scratch, foreign allowances and
@@ -417,8 +395,10 @@ implies conservation, which remains an independent physical check
 
 **Limits.** This area supports finite, physically typed scalar and indexed algebra with
 exact first and second derivatives, value-only nonsmooth switching and explicit providers.
-Continuous-domain derivatives and integrals, general implicit or higher-index DAE, global
-MINLP, JIT/SIMD evaluators, GPU and distributed execution are not admitted. Vectorized
+Continuous-axis realizations are described in [§13](workflows-and-results.md#section-13).
+General implicit or higher-index integrated DAEs, global MINLP, JIT/SIMD evaluators, GPU
+and distributed execution are not admitted. Nested branch derivatives are local and
+refuse unproved crossing/selection behavior. Vectorized
 evaluators must not call `optimize_stack()` after vectorization. Qualification basis:
 [§24.2](operations-and-validation.md#section-24-2).
 

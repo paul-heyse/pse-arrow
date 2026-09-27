@@ -13,7 +13,7 @@ pub struct ReferenceQuantityOperationReductionsRow {
     ///operation_id
     pub r#operation_id: pse_ids::SemanticId,
     ///domain_kind
-    pub r#domain_kind: crate::generated::enums::DomainKind,
+    pub r#domain_kind: pse_ids::SemanticId,
 }
 impl crate::SemanticEq for ReferenceQuantityOperationReductionsRow {
     fn semantic_eq(&self, other: &Self) -> bool {

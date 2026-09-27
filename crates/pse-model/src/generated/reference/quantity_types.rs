@@ -21,9 +21,9 @@ pub struct ReferenceQuantityTypesRow {
     ///scale_kind
     pub r#scale_kind: crate::generated::enums::ScaleKind,
     ///shape
-    pub r#shape: Vec<crate::generated::enums::DomainKind>,
+    pub r#shape: Vec<pse_ids::SemanticId>,
     ///subject_kind
-    pub r#subject_kind: Option<crate::generated::enums::SubjectKind>,
+    pub r#subject_kind: Option<pse_ids::SemanticId>,
     ///canonical_unit_id
     pub r#canonical_unit_id: pse_ids::SemanticId,
     ///nominal_magnitude

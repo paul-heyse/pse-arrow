@@ -4,14 +4,12 @@
 //! Bounded package documents retain parser-derived byte spans before typed DTO decoding.
 
 mod allocation;
-pub mod binding;
 mod decode;
 mod edit;
 mod hydrate;
 mod load;
 mod owned;
 mod read;
-mod rename;
 mod spans;
 mod value;
 
@@ -24,7 +22,6 @@ pub use owned::{
 
 pub use edit::{DocumentEdit, apply_edits, assign_ids};
 
-pub use rename::rename_documents;
 
 mod owned_reparse;
 pub use owned_reparse::{load_bundles_owned, workspace_extent};

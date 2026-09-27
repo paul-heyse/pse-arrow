@@ -3,104 +3,74 @@
 use super::tests::profile;
 use super::*;
 use crate::math::solves::Outcome;
-use crate::workflow::{
-    ModelBuilder, RunReport,
-    tests::{compiler_profile, declaration, id, physical, runtime},
-};
+use crate::workflow::{RunReport,tests::{compiler_profile,id,physical,runtime}};
 use std::collections::BTreeMap;
 
 #[tokio::test]
-async fn multi_root_choice_is_explained_by_seed_policy_independently_of_allocation() {
-    let mut d = declaration();
-    d.cases[0].variables[0].fixed = false;
-    d.cases[0].values[0].value = 1.0;
-    let mut second = d.cases[0].clone();
-    second.case_id = id(6);
-    second.values[0].value = -1.0;
-    d.cases.push(second);
-    let runtime = runtime();
-    let revision = ModelBuilder::from_declaration(runtime.clone(), d, physical())
-        .freeze()
-        .unwrap();
-    let cancel = crate::CancelSource::new();
-    let positive = revision
-        .prepare(
-            id(5),
-            profile(SolveIntent::Root),
-            compiler_profile(),
-            &cancel,
-        )
-        .await
-        .unwrap();
-    let negative = revision
-        .prepare(
-            id(6),
-            profile(SolveIntent::Root),
-            compiler_profile(),
-            &cancel,
-        )
-        .await
-        .unwrap();
-    let cold = negative.start().unwrap().wait().await.unwrap();
-    let RunReport::Solves(cold) = cold.report().unwrap() else {
-        panic!()
-    };
-    let Outcome::Native(cold) = &cold.outcomes[0] else {
-        panic!()
-    };
-    assert!((cold.candidate.as_ref().unwrap().primal[0] + 2.0).abs() < 1e-6);
-    assert!(!cold.start_receipt.as_ref().unwrap().submitted);
-    for reuse in [ReusePolicy::Fresh, ReusePolicy::AllowRebuild] {
-        for policy in [StartPolicy::NoPriorStart, StartPolicy::PreviousAccepted] {
-            let mut profile = profile(SolveIntent::Root);
-            profile.controls.start = policy;
-            profile.controls.reuse = reuse;
-            let next = revision
-                .prepare(id(6), profile, compiler_profile(), &cancel)
-                .await
-                .unwrap();
-            let result = runtime
-                .start(vec![positive.clone(), next], false)
-                .unwrap()
-                .wait()
-                .await
-                .unwrap();
-            let RunReport::Solves(report) = result.report().unwrap() else {
-                panic!()
-            };
-            let Outcome::Native(second) = &report.outcomes[1] else {
-                panic!("{:?}", report.outcomes)
-            };
-            let receipt = second.start_receipt.as_ref().unwrap();
-            let expected = if policy == StartPolicy::PreviousAccepted {
-                2.0
-            } else {
-                -2.0
-            };
-            assert!((second.candidate.as_ref().unwrap().primal[0] - expected).abs() < 1e-6);
-            assert_eq!(receipt.submitted, policy == StartPolicy::PreviousAccepted);
-            assert_eq!(
-                receipt.previous_attempt,
-                (policy == StartPolicy::PreviousAccepted).then_some(0)
-            );
-            if let Some(seed) = &receipt.seed {
-                assert_eq!(seed.origin.as_ref().unwrap().attempt, 0);
-            }
-            let output = second.warm_start.as_ref().unwrap().origin.as_ref().unwrap();
-            assert_eq!(output.run, Some(result.run_id));
-            assert_eq!(output.attempt, 1);
+async fn authored_sequence_separates_seed_policy_reuse_and_original_acceptance() {
+    let runtime=runtime();
+    let physical=physical();
+    let neutral=physical.quantities().neutral_dimensionless().unwrap();
+    let rows=pse_authoring::language::parse("package p {def Root {param threshold:Scalar=-3; var x:Scalar; eq square:x*x==4; annotation start x(1); annotation check x(x>threshold);}}",id(90),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
+    let root=rows.iter().find(|r|r.name=="Root").unwrap().declaration_id;
+    let package=runtime.modeling_package(rows,physical,BTreeMap::from([("Scalar".into(),neutral)])).unwrap();
+    let cancel=crate::CancelSource::new();
+    let mut analysis=package.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,compiler_profile(),profile(SolveIntent::Root),Default::default(),Default::default(),&cancel).await.unwrap();
+    let positive=package.prepare_analysis(&analysis,&cancel).await.unwrap();
+    analysis.case.values.insert("x".into(),-1.0);
+    let negative=package.prepare_analysis(&analysis,&cancel).await.unwrap();
+    for reuse in [ReusePolicy::Fresh,ReusePolicy::AllowRebuild,ReusePolicy::RequireReuse] {
+        for policy in [StartPolicy::NoPriorStart,StartPolicy::PreviousAccepted] {
+            analysis.solver.controls.start=policy;
+            analysis.solver.controls.reuse=reuse;
+            let next=package.prepare_analysis(&analysis,&cancel).await.unwrap();
+            let result=runtime.start_modeling(vec![positive.clone(),next],false,&cancel).await.unwrap().wait().await.unwrap();
+            let RunReport::Modeling(report)=result.report().unwrap() else {panic!()};
+            assert_eq!(report.len(),2);
+            assert!(report.iter().all(|r|r.accepted),"{report:?}");
+            let Outcome::Native(second)=&report[1].outcome else {panic!()};
+            let receipt=second.start_receipt.as_ref().unwrap();
+            let expected=if policy==StartPolicy::PreviousAccepted {2.0} else {-2.0};
+            assert!((second.candidate.as_ref().unwrap().primal[0]-expected).abs()<1e-6);
+            assert_eq!(receipt.submitted,policy==StartPolicy::PreviousAccepted);
+            assert_eq!(receipt.previous_attempt,(policy==StartPolicy::PreviousAccepted).then_some(0));
+            let output=second.warm_start.as_ref().unwrap().origin.as_ref().unwrap();
+            assert_eq!(output.run,Some(result.run_id));
+            assert_eq!(output.attempt,1);
+            let table=result.table("runtime.modeling_checks").unwrap();
+            use pse_relations::columnar::RelationRow;
+            let checks=pse_relations::generated::runtime::modeling_checks::Row::rows(&table).unwrap();
+            assert!(checks.iter().any(|r|r.step==0));
+            assert!(checks.iter().any(|r|r.step==1));
+            assert!(checks.iter().all(|r|r.sample_index==0));
         }
     }
-    let explicit = negative
-        .with_primal_start(BTreeMap::from([(id(1), 1.0)]))
-        .unwrap();
-    let result = explicit.start().unwrap().wait().await.unwrap();
-    let RunReport::Solves(report) = result.report().unwrap() else {
-        panic!()
-    };
-    let Outcome::Native(report) = &report.outcomes[0] else {
-        panic!()
-    };
-    assert!((report.candidate.as_ref().unwrap().primal[0] - 2.0).abs() < 1e-6);
-    assert!(report.start_receipt.as_ref().unwrap().submitted);
+    analysis.solver.controls.start=StartPolicy::NoPriorStart;
+    analysis.solver.controls.reuse=ReusePolicy::AllowRebuild;
+    analysis.case.values.insert("threshold".into(),0.0);
+    analysis.solver.numerics.closure=pse_model::generated::enums::ClosurePolicy::AllowUnclosed;
+    let rejected=package.prepare_analysis(&analysis,&cancel).await.unwrap();
+    for independent in [false,true] {
+        analysis.case.values.insert("x".into(),1.0);
+        analysis.solver.controls.start=StartPolicy::PreviousAccepted;
+        let next=package.prepare_analysis(&analysis,&cancel).await.unwrap();
+        let result=runtime.start_modeling(vec![rejected.clone(),next],independent,&cancel).await.unwrap().wait().await.unwrap();
+        let RunReport::Modeling(report)=result.report().unwrap() else {panic!()};
+        assert_eq!(report.len(),if independent {2} else {1});
+        assert!(!report[0].accepted);
+        assert!(matches!(&report[0].outcome,Outcome::Native(r) if r.quality.as_ref().unwrap().feasible()));
+        assert_eq!(result.assessments().len(),2);
+        assert!(!result.usable());
+        if independent {
+            assert!(report[1].accepted);
+            let Outcome::Native(second)=&report[1].outcome else {panic!()};
+            assert!(!second.start_receipt.as_ref().unwrap().submitted);
+            assert!((second.candidate.as_ref().unwrap().primal[0]-2.0).abs()<1e-6);
+        }
+        assert_eq!(result.table("runtime.solve_runs").unwrap().batch().num_rows(),2);
+    }
+    let x=negative.model.case.compiled().plan.columns()[0];
+    let result=negative.with_primal_start(BTreeMap::from([(x,1.0)])).unwrap().start().unwrap().wait().await.unwrap();
+    let RunReport::Modeling(report)=result.report().unwrap() else {panic!()};
+    assert!(matches!(&report[0].outcome,Outcome::Native(r) if (r.candidate.as_ref().unwrap().primal[0]-2.0).abs()<1e-6));
 }

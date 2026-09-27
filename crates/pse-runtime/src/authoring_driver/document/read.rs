@@ -22,7 +22,7 @@ pub(super) fn package_files(
         let Some((directory, pattern)) = document.path_glob.split_once('/') else {
             continue;
         };
-        if pattern != "*.yaml" || directory.contains(['.', '\\']) {
+        if !matches!(pattern,"*.yaml"|"*.pse") || directory.contains(['.', '\\']) {
             return Err(failure(
                 document.path_glob,
                 "unsupported declared document glob",
@@ -50,12 +50,7 @@ pub(super) fn package_files(
                 .file_name()
                 .into_string()
                 .map_err(|_| failure(directory, "non-UTF8 document path"))?;
-            if Path::new(&name).extension() != Some(std::ffi::OsStr::new("yaml")) {
-                return Err(failure(
-                    &name,
-                    "only declared *.yaml package documents are admitted",
-                ));
-            }
+            super::load::select(registry,&format!("{directory}/{name}"))?;
             read_one(
                 root,
                 &format!("{directory}/{name}"),

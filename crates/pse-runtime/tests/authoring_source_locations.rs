@@ -10,7 +10,7 @@ use datafusion::logical_expr::{LogicalPlanBuilder, col, lit};
 use pse_authoring::{ParseBudget, SourceSpan};
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
-use pse_relations::{columnar::FieldCheckedBatch, generated::authored::case_specs};
+use pse_relations::{columnar::FieldCheckedBatch, generated::authored::observations};
 use pse_runtime::authoring_driver::document::load_package_texts;
 use std::{collections::BTreeMap, fmt::Write};
 #[path = "authoring_support/mod.rs"]
@@ -32,7 +32,7 @@ fn texts() -> BTreeMap<String, String> {
         (
             "cases/first.yaml".into(),
             format!(
-                "case_specs:\n- id: '{}'\n  case_id: '{}'\n  target: first.x\n  priority: 1\n",
+                "observations:\n- id: '{}'\n  dataset_id: '{}'\n  target: first.x\n  value: 1\n  unit_id: '00000000000000000000000000000011'\n",
                 id(2),
                 id(4)
             ),
@@ -40,7 +40,7 @@ fn texts() -> BTreeMap<String, String> {
         (
             "cases/second.yaml".into(),
             format!(
-                "case_specs:\n- id: '{}'\n  case_id: '{}'\n  target: second.y\n  priority: 2\n",
+                "observations:\n- id: '{}'\n  dataset_id: '{}'\n  target: second.y\n  value: 2\n  unit_id: '00000000000000000000000000000011'\n",
                 id(3),
                 id(4)
             ),
@@ -57,7 +57,7 @@ async fn target_spans_follow_values_after_sort_filter_union_and_source_release()
         .iter()
         .map(|document| (document.id, document.text.clone()))
         .collect::<BTreeMap<_, _>>();
-    let spec = case_specs::spec(&registry).unwrap();
+    let spec = observations::spec(&registry).unwrap();
     let cancel = CancellationToken::new();
     let session = support::session(
         registry.clone(),
@@ -78,14 +78,14 @@ async fn target_spans_follow_values_after_sort_filter_union_and_source_release()
     .build()
     .unwrap();
     let filtered = LogicalPlanBuilder::from(source.clone())
-        .filter(col("priority").eq(lit(1_i32)))
+        .filter(col("value").eq(lit(1.0_f64)))
         .unwrap()
         .build()
         .unwrap();
     let plan = LogicalPlanBuilder::from(source)
         .union(filtered)
         .unwrap()
-        .sort([col("priority").sort(false, false)])
+        .sort([col("value").sort(false, false)])
         .unwrap()
         .build()
         .unwrap();
@@ -104,7 +104,7 @@ async fn target_spans_follow_values_after_sort_filter_union_and_source_release()
             &(0..spec.columns.len()).collect::<Vec<_>>(),
         )
         .unwrap();
-        for row in case_specs::View::from_checked(&checked)
+        for row in observations::View::from_checked(&checked)
             .unwrap()
             .rows()
             .unwrap()
@@ -112,9 +112,9 @@ async fn target_spans_follow_values_after_sort_filter_union_and_source_release()
             let span = SourceSpan::try_from(row.source_span).unwrap();
             let original = &originals[&span.document_id];
             let excerpt = &original[span.start as usize..span.end as usize];
-            assert!(excerpt.contains(&row.spec_id.to_string()), "{excerpt}");
+            assert!(excerpt.contains(&row.observation_id.to_string()), "{excerpt}");
             assert!(excerpt.contains(&row.target), "{excerpt}");
-            identities.push(row.spec_id);
+            identities.push(row.observation_id);
         }
     }
     assert_eq!(identities, [id(3), id(2), id(2)]);

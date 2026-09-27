@@ -6,7 +6,6 @@ use crate::workflow::{RunReport, RunRequest, RunResult, relation};
 use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{
-        authored::computation_models,
         runtime::{
             computation_runs, fit_constraints, fit_observations, fit_parameters, fit_variables,
             response_sensitivities, solve_metrics,
@@ -20,6 +19,7 @@ impl RunResult {
         let RunRequest::Fit(p) = &self.request else {
             return Err(contract("fit request mismatch"));
         };
+        let source = &p.source;
         let p = &p.problem;
         let report = match &self.report {
             Ok(RunReport::Fit(r)) => Some(r),
@@ -59,7 +59,7 @@ impl RunResult {
         for (ei, e) in p.experiments.iter().enumerate() {
             if let Experiment::Steady(s) = e {
                 let experiment = p.declaration.experiments[ei].experiment_id;
-                for v in s.case.assembly.structure().variables() {
+                for v in &s.variables {
                     let value = if v.fixed {
                         s.values.scalars.get(&v.port.id).copied()
                     } else {
@@ -95,17 +95,14 @@ impl RunResult {
                             row_id: row.id,
                             quantity_id: row.quantity.as_id(),
                             unit_id: p
-                                .revision
-                                .0
-                                .physical
                                 .quantities
                                 .quantity_type(row.quantity)
                                 .map_err(math)?
                                 .canonical_unit
                                 .as_id(),
                             value: report.and_then(|r| r.constraint_values.get(global).copied()),
-                            lower: row.lower.is_finite().then_some(row.lower),
-                            upper: row.upper.is_finite().then_some(row.upper),
+                            lower: p.bounds[global].0.is_finite().then_some(p.bounds[global].0),
+                            upper: p.bounds[global].1.is_finite().then_some(p.bounds[global].1),
                             tolerance: p.tolerances.rows[global],
                         })
                         .map_err(relation)?;
@@ -274,9 +271,6 @@ impl RunResult {
         if let Some(s) = report.and_then(|r| r.solve.as_ref()) {
             crate::workflow::results::push_native_metrics(&mut metrics, self.run_id, 0, s)?;
         }
-        let mut models =
-            computation_models::Builder::with_registry(registry, 1).map_err(relation)?;
-        models.push(p.revision.0.row.clone()).map_err(relation)?;
         let mut batches = BTreeMap::from([
             (
                 fit_variables::RELATION_ID,
@@ -306,12 +300,19 @@ impl RunResult {
                 solve_metrics::RELATION_ID,
                 metrics.finish().map_err(relation)?,
             ),
-            (
-                computation_models::RELATION_ID,
-                models.finish().map_err(relation)?,
-            ),
         ]);
+        batches.extend(source.fit_data.tables(registry)?);
+        use pse_relations::generated::runtime::{modeling_checks,modeling_reports};
+        let mut checks = modeling_checks::Builder::with_registry(registry, 0).map_err(relation)?;
+        let mut reports = modeling_reports::Builder::with_registry(registry, 0).map_err(relation)?;
+        if let Some(report) = report {
+            for row in &report.checks { checks.push(row.clone()).map_err(relation)?; }
+            for row in &report.reports { reports.push(row.clone()).map_err(relation)?; }
+        }
+        batches.insert(modeling_checks::RELATION_ID, checks.finish().map_err(relation)?);
+        batches.insert(modeling_reports::RELATION_ID, reports.finish().map_err(relation)?);
         self.retain_sources(&mut batches)?;
+        batches.extend(source.source_tables()?);
         Ok(batches)
     }
 }

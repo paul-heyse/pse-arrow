@@ -12,6 +12,8 @@ mod tests {
             assert_eq!(Function::parse(function.as_str()), Some(function));
         }
         for name in [
+            "log10",
+            "tan",
             "smooth_max",
             "smooth_min",
             "smooth_abs",

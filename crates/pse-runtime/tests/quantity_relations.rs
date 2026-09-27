@@ -25,7 +25,7 @@ fn inputs(registry: &Registry) -> BTreeMap<RelationKey, FieldCheckedBatch> {
         .unwrap()
         .parent()
         .unwrap();
-    let bundles = ["elements", "physical", "fixture-currency"].map(|name| {
+    let bundles = ["physical", "fixture-currency"].map(|name| {
         pse_runtime::authoring_driver::document::load_package(
             &root.join("packages/reference").join(name),
             registry,
@@ -85,8 +85,61 @@ async fn actual_reference_inventory_retains_explicit_context_and_full_physical_t
         assert_eq!(found.key, quantity.key);
         assert_eq!(found.canonical_unit, quantity.canonical_unit);
     }
-    assert!(actual.elements().elements().len() > 0);
     assert!(!actual.preconditions().is_empty());
+}
+
+#[tokio::test]
+async fn reference_datum_subject_requires_an_actual_authored_entity() {
+    use pse_relations::generated::{
+        authored::modeling_declarations, enums::ModelingDeclarationKind,
+    };
+    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let cancel = CancellationToken::new();
+    let rows = inputs(&registry);
+    let declarations = registry.relation("authored.modeling_declarations").unwrap();
+    let declared = modeling_declarations::View::from_checked(&rows[&declarations.key])
+        .unwrap()
+        .rows()
+        .unwrap();
+    let identity = |kind| {
+        declared
+            .iter()
+            .find(|row| row.value.kind == kind)
+            .unwrap()
+            .declaration_id
+    };
+    let entity = identity(ModelingDeclarationKind::Entity);
+    let kind = identity(ModelingDeclarationKind::EntityKind);
+    let spec = registry.relation("reference.reference_states").unwrap();
+    let references = reference::reference_states::View::from_checked(&rows[&spec.key])
+        .unwrap()
+        .rows()
+        .unwrap();
+    for (subject, accepted) in [
+        (None, true),
+        (Some(entity), true),
+        (Some(kind), false),
+        (Some(SemanticId::from_bytes([254; 16])), false),
+    ] {
+        let mut builder = reference::reference_states::Builder::new().unwrap();
+        for mut row in references.clone() {
+            row.subject_id = subject;
+            builder.push(row).unwrap();
+        }
+        let mut candidate = rows.clone();
+        candidate.insert(spec.key, builder.finish().unwrap());
+        let session = session(&registry, candidate, &cancel);
+        let result = PhysicalInventory::load(&session, &registry, &cancel).await;
+        assert_eq!(result.is_ok(), accepted, "subject {subject:?}: {result:?}");
+        if let Ok(inventory) = result {
+            assert!(
+                inventory
+                    .quantities()
+                    .reference_states()
+                    .all(|row| row.subject == subject)
+            );
+        }
+    }
 }
 
 #[tokio::test]
@@ -286,7 +339,7 @@ async fn energy_density_cancels_molar_basis_and_preserves_thermochemical_datum()
 #[tokio::test]
 async fn inlet_pressure_equality_has_an_indexed_absolute_difference_contract() {
     use pse_quantity::{
-        BoundIndexId, BoundIndexRef, DomainId, DomainKind, IndexSet, QuantityTypeId, ScaleKind,
+        BoundIndexId, BoundIndexRef, DomainId, IndexSet, QuantityTypeId, ScaleKind,
         infer::{OpRequest, Operand, infer},
     };
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
@@ -300,7 +353,7 @@ async fn inlet_pressure_equality_has_an_indexed_absolute_difference_contract() {
     let index = BoundIndexRef::new(
         BoundIndexId::from_id(SemanticId::from_bytes([1; 16])),
         DomainId::from_id(SemanticId::from_bytes([2; 16])),
-        DomainKind::PortSet,
+        physical.quantities().entity_kind_named("port_set").unwrap(),
     );
     let indices = IndexSet::try_from_iter([index]).unwrap();
     let operand = Operand {
@@ -320,7 +373,10 @@ async fn inlet_pressure_equality_has_an_indexed_absolute_difference_contract() {
     assert_eq!(residual.indices, indices);
     assert_eq!(key.reference_state, None);
     assert_eq!(key.scale_kind, ScaleKind::Difference);
-    assert_eq!(key.shape, [DomainKind::PortSet]);
+    assert_eq!(
+        key.shape,
+        [physical.quantities().entity_kind_named("port_set").unwrap()]
+    );
     let other = IndexSet::try_from_iter([BoundIndexRef {
         bound_index: BoundIndexId::from_id(SemanticId::from_bytes([3; 16])),
         ..index

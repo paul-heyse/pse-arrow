@@ -11,150 +11,6 @@ pub fn decode(
     use crate::columnar::RelationRow;
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            229u8, 238u8, 43u8, 208u8, 30u8, 204u8, 249u8, 220u8, 21u8, 245u8, 140u8,
-            203u8, 61u8, 184u8, 17u8, 140u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCaseActivationTargets(
-                super::r#authored::r#case_activation_targets::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            235u8, 80u8, 55u8, 140u8, 157u8, 255u8, 145u8, 253u8, 42u8, 134u8, 0u8, 59u8,
-            246u8, 148u8, 198u8, 95u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCaseActivations(
-                super::r#authored::r#case_activations::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            192u8, 241u8, 118u8, 167u8, 54u8, 126u8, 32u8, 92u8, 1u8, 198u8, 223u8, 42u8,
-            201u8, 103u8, 220u8, 73u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCaseObjectives(
-                super::r#authored::r#case_objectives::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            164u8, 4u8, 106u8, 44u8, 2u8, 164u8, 64u8, 213u8, 219u8, 199u8, 22u8, 154u8,
-            112u8, 236u8, 222u8, 178u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCasePolicies(
-                super::r#authored::r#case_policies::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            7u8, 103u8, 227u8, 27u8, 113u8, 230u8, 84u8, 249u8, 200u8, 133u8, 131u8,
-            76u8, 244u8, 32u8, 187u8, 8u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCaseSetSamples(
-                super::r#authored::r#case_set_samples::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            32u8, 137u8, 28u8, 29u8, 240u8, 102u8, 167u8, 55u8, 250u8, 21u8, 45u8, 155u8,
-            36u8, 102u8, 171u8, 31u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCaseSets(
-                super::r#authored::r#case_sets::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            7u8, 174u8, 120u8, 10u8, 175u8, 9u8, 105u8, 164u8, 229u8, 185u8, 128u8,
-            188u8, 5u8, 76u8, 105u8, 23u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCaseSpecTargets(
-                super::r#authored::r#case_spec_targets::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            138u8, 70u8, 96u8, 52u8, 245u8, 108u8, 11u8, 155u8, 218u8, 251u8, 114u8,
-            241u8, 144u8, 42u8, 132u8, 181u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCaseSpecs(
-                super::r#authored::r#case_specs::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            239u8, 160u8, 102u8, 134u8, 127u8, 156u8, 216u8, 85u8, 134u8, 233u8, 91u8,
-            96u8, 43u8, 82u8, 94u8, 254u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredCases(
-                super::r#authored::r#cases::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            218u8, 56u8, 178u8, 84u8, 40u8, 18u8, 200u8, 80u8, 43u8, 191u8, 158u8, 87u8,
-            134u8, 175u8, 152u8, 113u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredComputationModels(
-                super::r#authored::r#computation_models::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            72u8, 47u8, 11u8, 48u8, 135u8, 197u8, 158u8, 219u8, 30u8, 17u8, 190u8, 90u8,
-            66u8, 117u8, 108u8, 152u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredConnections(
-                super::r#authored::r#connections::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            16u8, 173u8, 25u8, 107u8, 13u8, 92u8, 101u8, 28u8, 89u8, 19u8, 108u8, 12u8,
-            38u8, 98u8, 220u8, 136u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredContinuousDomains(
-                super::r#authored::r#continuous_domains::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             59u8, 236u8, 185u8, 228u8, 41u8, 208u8, 184u8, 126u8, 236u8, 177u8, 250u8,
             248u8, 114u8, 233u8, 153u8, 26u8,
         ])
@@ -162,42 +18,6 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#AuthoredDatasets(
                 super::r#authored::r#datasets::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            180u8, 85u8, 90u8, 243u8, 119u8, 73u8, 183u8, 196u8, 254u8, 81u8, 111u8,
-            244u8, 1u8, 123u8, 149u8, 160u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredDefaultScaling(
-                super::r#authored::r#default_scaling::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            44u8, 170u8, 115u8, 220u8, 75u8, 44u8, 194u8, 13u8, 238u8, 93u8, 163u8,
-            159u8, 29u8, 182u8, 241u8, 213u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredDirectionalValveLaws(
-                super::r#authored::r#directional_valve_laws::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            241u8, 102u8, 5u8, 13u8, 130u8, 174u8, 4u8, 149u8, 90u8, 51u8, 98u8, 140u8,
-            120u8, 174u8, 85u8, 48u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredDocumentEdits(
-                super::r#authored::r#document_edits::Row::rows(batch)?,
             ),
         );
     }
@@ -215,42 +35,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            61u8, 157u8, 88u8, 116u8, 109u8, 234u8, 13u8, 67u8, 114u8, 219u8, 57u8, 29u8,
-            163u8, 109u8, 14u8, 228u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredDomainMembers(
-                super::r#authored::r#domain_members::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            6u8, 119u8, 73u8, 124u8, 214u8, 208u8, 251u8, 9u8, 112u8, 23u8, 161u8, 227u8,
-            130u8, 203u8, 0u8, 130u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredDomains(
-                super::r#authored::r#domains::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            214u8, 251u8, 45u8, 253u8, 216u8, 170u8, 204u8, 220u8, 119u8, 159u8, 15u8,
-            213u8, 244u8, 233u8, 207u8, 186u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredDynamicCases(
-                super::r#authored::r#dynamic_cases::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             40u8, 43u8, 199u8, 195u8, 62u8, 139u8, 102u8, 74u8, 54u8, 237u8, 116u8, 12u8,
             186u8, 55u8, 90u8, 80u8,
         ])
@@ -263,8 +47,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            219u8, 244u8, 5u8, 89u8, 58u8, 96u8, 190u8, 124u8, 237u8, 233u8, 93u8, 57u8,
-            234u8, 223u8, 60u8, 185u8,
+            112u8, 123u8, 225u8, 163u8, 40u8, 77u8, 121u8, 209u8, 186u8, 173u8, 149u8,
+            126u8, 128u8, 1u8, 60u8, 180u8,
         ])
     {
         return Ok(
@@ -275,109 +59,13 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            146u8, 0u8, 17u8, 123u8, 35u8, 133u8, 16u8, 245u8, 12u8, 188u8, 14u8, 85u8,
-            109u8, 114u8, 106u8, 211u8,
+            12u8, 17u8, 84u8, 48u8, 17u8, 44u8, 75u8, 198u8, 44u8, 215u8, 65u8, 3u8,
+            43u8, 250u8, 125u8, 197u8,
         ])
     {
         return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredFlowsheets(
-                super::r#authored::r#flowsheets::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            30u8, 252u8, 53u8, 242u8, 149u8, 230u8, 193u8, 254u8, 123u8, 65u8, 215u8,
-            3u8, 107u8, 218u8, 180u8, 200u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredHenryDeclarations(
-                super::r#authored::r#henry_declarations::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            226u8, 220u8, 139u8, 74u8, 205u8, 244u8, 36u8, 1u8, 164u8, 34u8, 51u8, 58u8,
-            96u8, 73u8, 53u8, 198u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredInstanceDomainBindings(
-                super::r#authored::r#instance_domain_bindings::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            240u8, 194u8, 124u8, 166u8, 222u8, 163u8, 4u8, 32u8, 114u8, 207u8, 128u8,
-            194u8, 3u8, 50u8, 6u8, 246u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredInstanceEquations(
-                super::r#authored::r#instance_equations::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            46u8, 246u8, 191u8, 0u8, 23u8, 176u8, 16u8, 21u8, 87u8, 227u8, 187u8, 109u8,
-            177u8, 179u8, 13u8, 195u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredInstances(
-                super::r#authored::r#instances::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            65u8, 76u8, 157u8, 241u8, 64u8, 98u8, 45u8, 104u8, 45u8, 176u8, 33u8, 123u8,
-            78u8, 124u8, 252u8, 146u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredMaterialSystems(
-                super::r#authored::r#material_systems::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            8u8, 221u8, 182u8, 210u8, 242u8, 211u8, 167u8, 228u8, 44u8, 106u8, 95u8,
-            26u8, 180u8, 24u8, 160u8, 219u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredMethodSelections(
-                super::r#authored::r#method_selections::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            154u8, 5u8, 143u8, 200u8, 110u8, 98u8, 78u8, 159u8, 57u8, 164u8, 252u8,
-            205u8, 171u8, 181u8, 216u8, 149u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredModelCompositions(
-                super::r#authored::r#model_compositions::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            29u8, 157u8, 198u8, 180u8, 213u8, 206u8, 150u8, 73u8, 2u8, 5u8, 207u8, 45u8,
-            74u8, 111u8, 229u8, 223u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredNativeProviders(
-                super::r#authored::r#native_providers::Row::rows(batch)?,
+            pse_model::generated::facts::FactBatch::r#AuthoredModelingDeclarations(
+                super::r#authored::r#modeling_declarations::Row::rows(batch)?,
             ),
         );
     }
@@ -395,18 +83,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            40u8, 168u8, 217u8, 108u8, 72u8, 195u8, 41u8, 23u8, 92u8, 142u8, 192u8, 77u8,
-            25u8, 182u8, 103u8, 156u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredObservationTargets(
-                super::r#authored::r#observation_targets::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             250u8, 146u8, 75u8, 84u8, 139u8, 195u8, 104u8, 203u8, 38u8, 108u8, 18u8,
             169u8, 98u8, 155u8, 27u8, 96u8,
         ])
@@ -414,6 +90,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#AuthoredObservations(
                 super::r#authored::r#observations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            238u8, 181u8, 59u8, 157u8, 219u8, 60u8, 118u8, 16u8, 9u8, 153u8, 81u8, 78u8,
+            148u8, 255u8, 12u8, 172u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#AuthoredPackageQuantityAliases(
+                super::r#authored::r#package_quantity_aliases::Row::rows(batch)?,
             ),
         );
     }
@@ -443,558 +131,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            195u8, 106u8, 246u8, 226u8, 141u8, 75u8, 181u8, 16u8, 183u8, 214u8, 240u8,
-            178u8, 254u8, 127u8, 26u8, 11u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredParameterValues(
-                super::r#authored::r#parameter_values::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            255u8, 45u8, 16u8, 25u8, 47u8, 61u8, 70u8, 242u8, 114u8, 164u8, 68u8, 21u8,
-            31u8, 181u8, 37u8, 62u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredPhaseEquilibriumPairs(
-                super::r#authored::r#phase_equilibrium_pairs::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            12u8, 163u8, 194u8, 110u8, 130u8, 94u8, 81u8, 64u8, 189u8, 175u8, 106u8,
-            105u8, 234u8, 37u8, 225u8, 202u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredPhaseSpecies(
-                super::r#authored::r#phase_species::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            100u8, 101u8, 29u8, 108u8, 198u8, 38u8, 31u8, 21u8, 13u8, 206u8, 116u8,
-            202u8, 216u8, 193u8, 208u8, 96u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredPhases(
-                super::r#authored::r#phases::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            235u8, 209u8, 31u8, 55u8, 38u8, 111u8, 91u8, 183u8, 31u8, 239u8, 133u8,
-            140u8, 114u8, 103u8, 148u8, 134u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredPhysicalBalances(
-                super::r#authored::r#physical_balances::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            52u8, 195u8, 59u8, 7u8, 75u8, 171u8, 222u8, 148u8, 189u8, 16u8, 140u8, 160u8,
-            226u8, 41u8, 21u8, 58u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredPropertyPackages(
-                super::r#authored::r#property_packages::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            185u8, 137u8, 113u8, 218u8, 42u8, 229u8, 62u8, 18u8, 198u8, 74u8, 73u8, 25u8,
-            42u8, 65u8, 243u8, 13u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredProviderScalingBindings(
-                super::r#authored::r#provider_scaling_bindings::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            84u8, 27u8, 22u8, 242u8, 123u8, 102u8, 216u8, 24u8, 204u8, 156u8, 237u8,
-            34u8, 89u8, 36u8, 208u8, 152u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredReactionApplications(
-                super::r#authored::r#reaction_applications::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            73u8, 27u8, 175u8, 160u8, 172u8, 134u8, 233u8, 116u8, 26u8, 3u8, 9u8, 100u8,
-            130u8, 39u8, 78u8, 33u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredReactionMethods(
-                super::r#authored::r#reaction_methods::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            207u8, 117u8, 214u8, 54u8, 19u8, 51u8, 133u8, 79u8, 201u8, 235u8, 54u8,
-            220u8, 212u8, 172u8, 222u8, 216u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredReactionPackages(
-                super::r#authored::r#reaction_packages::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            150u8, 202u8, 173u8, 74u8, 58u8, 227u8, 206u8, 7u8, 138u8, 234u8, 86u8, 46u8,
-            41u8, 76u8, 89u8, 64u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredReactions(
-                super::r#authored::r#reactions::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            206u8, 247u8, 124u8, 169u8, 69u8, 105u8, 99u8, 16u8, 216u8, 156u8, 71u8,
-            27u8, 76u8, 52u8, 56u8, 225u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredRenameRequests(
-                super::r#authored::r#rename_requests::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            105u8, 51u8, 28u8, 13u8, 0u8, 191u8, 61u8, 169u8, 142u8, 204u8, 189u8, 167u8,
-            50u8, 149u8, 250u8, 180u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredScenarios(
-                super::r#authored::r#scenarios::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            142u8, 116u8, 89u8, 244u8, 40u8, 164u8, 14u8, 175u8, 232u8, 241u8, 153u8,
-            218u8, 155u8, 128u8, 78u8, 132u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredScopes(
-                super::r#authored::r#scopes::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            34u8, 233u8, 73u8, 198u8, 10u8, 173u8, 94u8, 98u8, 101u8, 96u8, 78u8, 94u8,
-            124u8, 59u8, 201u8, 172u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredSelectorTerms(
-                super::r#authored::r#selector_terms::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            20u8, 204u8, 2u8, 77u8, 218u8, 66u8, 137u8, 24u8, 20u8, 209u8, 165u8, 84u8,
-            255u8, 8u8, 109u8, 121u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredSpecies(
-                super::r#authored::r#species::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            33u8, 120u8, 227u8, 241u8, 129u8, 3u8, 25u8, 31u8, 214u8, 230u8, 178u8,
-            251u8, 68u8, 72u8, 242u8, 64u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredSpeciesElements(
-                super::r#authored::r#species_elements::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            161u8, 80u8, 126u8, 242u8, 24u8, 108u8, 37u8, 39u8, 91u8, 29u8, 234u8, 83u8,
-            196u8, 88u8, 212u8, 176u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredStateBounds(
-                super::r#authored::r#state_bounds::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            74u8, 240u8, 91u8, 62u8, 101u8, 232u8, 84u8, 165u8, 129u8, 152u8, 119u8,
-            107u8, 60u8, 221u8, 170u8, 141u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredStoichiometry(
-                super::r#authored::r#stoichiometry::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            107u8, 45u8, 42u8, 207u8, 33u8, 79u8, 4u8, 160u8, 168u8, 38u8, 24u8, 51u8,
-            87u8, 96u8, 18u8, 200u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateContributionContracts(
-                super::r#authored::r#template_contribution_contracts::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            171u8, 97u8, 3u8, 156u8, 158u8, 242u8, 19u8, 90u8, 178u8, 207u8, 82u8, 48u8,
-            68u8, 244u8, 182u8, 61u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateContributions(
-                super::r#authored::r#template_contributions::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            130u8, 194u8, 226u8, 166u8, 234u8, 55u8, 86u8, 248u8, 80u8, 242u8, 220u8,
-            115u8, 255u8, 198u8, 176u8, 29u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateDerivatives(
-                super::r#authored::r#template_derivatives::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            46u8, 250u8, 43u8, 129u8, 206u8, 239u8, 102u8, 154u8, 116u8, 50u8, 154u8,
-            112u8, 22u8, 240u8, 115u8, 135u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateDisplay(
-                super::r#authored::r#template_display::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            64u8, 30u8, 44u8, 125u8, 138u8, 50u8, 43u8, 199u8, 84u8, 80u8, 149u8, 164u8,
-            180u8, 246u8, 134u8, 62u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateDisplayIndices(
-                super::r#authored::r#template_display_indices::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            182u8, 0u8, 177u8, 122u8, 211u8, 8u8, 137u8, 75u8, 197u8, 174u8, 132u8,
-            195u8, 240u8, 224u8, 194u8, 2u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateDomainBindings(
-                super::r#authored::r#template_domain_bindings::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            98u8, 98u8, 143u8, 17u8, 35u8, 99u8, 213u8, 141u8, 153u8, 164u8, 221u8, 70u8,
-            162u8, 187u8, 149u8, 148u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateDomains(
-                super::r#authored::r#template_domains::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            134u8, 225u8, 214u8, 26u8, 13u8, 22u8, 6u8, 18u8, 247u8, 108u8, 31u8, 55u8,
-            170u8, 215u8, 176u8, 176u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateEquations(
-                super::r#authored::r#template_equations::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            41u8, 88u8, 81u8, 195u8, 26u8, 147u8, 218u8, 26u8, 249u8, 76u8, 116u8, 169u8,
-            168u8, 223u8, 42u8, 29u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateFeatureRules(
-                super::r#authored::r#template_feature_rules::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            58u8, 126u8, 122u8, 7u8, 152u8, 26u8, 79u8, 210u8, 159u8, 149u8, 4u8, 161u8,
-            75u8, 40u8, 144u8, 192u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateFeatures(
-                super::r#authored::r#template_features::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            148u8, 46u8, 1u8, 164u8, 132u8, 128u8, 204u8, 167u8, 38u8, 89u8, 148u8, 35u8,
-            128u8, 203u8, 130u8, 30u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateGuards(
-                super::r#authored::r#template_guards::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            81u8, 239u8, 198u8, 234u8, 48u8, 233u8, 71u8, 192u8, 24u8, 221u8, 255u8,
-            225u8, 55u8, 206u8, 71u8, 116u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateLawContracts(
-                super::r#authored::r#template_law_contracts::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            138u8, 33u8, 137u8, 105u8, 108u8, 94u8, 128u8, 76u8, 198u8, 26u8, 192u8,
-            157u8, 44u8, 186u8, 11u8, 151u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateLawInstances(
-                super::r#authored::r#template_law_instances::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            247u8, 82u8, 137u8, 16u8, 66u8, 14u8, 200u8, 132u8, 112u8, 111u8, 11u8, 17u8,
-            201u8, 62u8, 250u8, 236u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateMaterialConstraints(
-                super::r#authored::r#template_material_constraints::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            167u8, 222u8, 92u8, 236u8, 180u8, 54u8, 40u8, 131u8, 92u8, 68u8, 120u8,
-            234u8, 44u8, 101u8, 163u8, 234u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateParams(
-                super::r#authored::r#template_params::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            20u8, 99u8, 82u8, 34u8, 244u8, 172u8, 233u8, 126u8, 21u8, 187u8, 241u8,
-            138u8, 77u8, 97u8, 186u8, 70u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplatePortMembers(
-                super::r#authored::r#template_port_members::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            46u8, 222u8, 128u8, 121u8, 83u8, 119u8, 104u8, 3u8, 179u8, 211u8, 11u8,
-            167u8, 222u8, 80u8, 3u8, 245u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplatePorts(
-                super::r#authored::r#template_ports::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            201u8, 14u8, 213u8, 181u8, 51u8, 160u8, 187u8, 64u8, 201u8, 41u8, 36u8,
-            171u8, 44u8, 109u8, 96u8, 165u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplatePropertyRequirements(
-                super::r#authored::r#template_property_requirements::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            170u8, 204u8, 164u8, 163u8, 36u8, 138u8, 233u8, 251u8, 151u8, 64u8, 218u8,
-            44u8, 90u8, 181u8, 225u8, 69u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateRequirements(
-                super::r#authored::r#template_requirements::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            25u8, 184u8, 248u8, 1u8, 59u8, 101u8, 216u8, 215u8, 8u8, 164u8, 33u8, 89u8,
-            198u8, 214u8, 157u8, 228u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateScopes(
-                super::r#authored::r#template_scopes::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            177u8, 130u8, 245u8, 218u8, 65u8, 137u8, 91u8, 233u8, 251u8, 209u8, 237u8,
-            227u8, 10u8, 249u8, 23u8, 151u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateSubmodels(
-                super::r#authored::r#template_submodels::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            213u8, 149u8, 185u8, 152u8, 71u8, 245u8, 50u8, 220u8, 29u8, 212u8, 104u8,
-            146u8, 64u8, 28u8, 148u8, 29u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateSymbolContracts(
-                super::r#authored::r#template_symbol_contracts::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            215u8, 165u8, 162u8, 79u8, 123u8, 52u8, 68u8, 26u8, 94u8, 164u8, 42u8, 235u8,
-            45u8, 144u8, 162u8, 155u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateSymbolExpressions(
-                super::r#authored::r#template_symbol_expressions::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            187u8, 136u8, 199u8, 46u8, 145u8, 182u8, 33u8, 211u8, 24u8, 236u8, 165u8,
-            115u8, 204u8, 44u8, 218u8, 221u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateSymbolProperties(
-                super::r#authored::r#template_symbol_properties::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            17u8, 134u8, 23u8, 165u8, 75u8, 183u8, 186u8, 97u8, 204u8, 123u8, 93u8,
-            151u8, 238u8, 102u8, 239u8, 228u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplateSymbols(
-                super::r#authored::r#template_symbols::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            217u8, 76u8, 0u8, 113u8, 43u8, 63u8, 26u8, 209u8, 150u8, 190u8, 178u8, 249u8,
-            226u8, 4u8, 94u8, 135u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#AuthoredTemplates(
-                super::r#authored::r#templates::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            179u8, 104u8, 88u8, 64u8, 32u8, 58u8, 72u8, 241u8, 20u8, 76u8, 130u8, 155u8,
-            74u8, 124u8, 29u8, 220u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#NormalizedInstanceBindings(
-                super::r#normalized::r#instance_bindings::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             219u8, 27u8, 213u8, 189u8, 204u8, 237u8, 182u8, 92u8, 233u8, 192u8, 66u8,
             95u8, 232u8, 102u8, 216u8, 25u8,
         ])
@@ -1002,30 +138,6 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#NormalizedPackageGraph(
                 super::r#normalized::r#package_graph::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            100u8, 118u8, 12u8, 77u8, 53u8, 249u8, 226u8, 106u8, 115u8, 87u8, 217u8,
-            26u8, 2u8, 97u8, 199u8, 145u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#NormalizedResolvedSourceOccurrences(
-                super::r#normalized::r#resolved_source_occurrences::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            83u8, 159u8, 228u8, 225u8, 230u8, 110u8, 154u8, 230u8, 75u8, 207u8, 255u8,
-            231u8, 158u8, 114u8, 45u8, 44u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#NormalizedSourceOccurrences(
-                super::r#normalized::r#source_occurrences::Row::rows(batch)?,
             ),
         );
     }
@@ -1139,18 +251,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            88u8, 188u8, 171u8, 228u8, 225u8, 25u8, 163u8, 76u8, 194u8, 8u8, 141u8, 44u8,
-            134u8, 224u8, 29u8, 179u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceConnectionBindings(
-                super::r#reference::r#connection_bindings::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             232u8, 57u8, 136u8, 160u8, 238u8, 38u8, 4u8, 120u8, 236u8, 170u8, 148u8,
             142u8, 156u8, 103u8, 219u8, 233u8,
         ])
@@ -1187,30 +287,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            151u8, 38u8, 31u8, 124u8, 251u8, 171u8, 183u8, 81u8, 18u8, 234u8, 15u8, 24u8,
-            205u8, 18u8, 60u8, 93u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceElementProjectionContracts(
-                super::r#reference::r#element_projection_contracts::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            7u8, 150u8, 168u8, 53u8, 75u8, 214u8, 80u8, 204u8, 221u8, 190u8, 186u8,
-            151u8, 97u8, 31u8, 201u8, 124u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceElements(
-                super::r#reference::r#elements::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             232u8, 19u8, 246u8, 116u8, 46u8, 21u8, 132u8, 158u8, 153u8, 19u8, 105u8,
             171u8, 174u8, 113u8, 138u8, 249u8,
         ])
@@ -1235,18 +311,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            146u8, 50u8, 154u8, 53u8, 184u8, 204u8, 63u8, 131u8, 172u8, 14u8, 180u8,
-            14u8, 40u8, 1u8, 192u8, 114u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceLawBindings(
-                super::r#reference::r#law_bindings::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             51u8, 62u8, 13u8, 26u8, 38u8, 20u8, 193u8, 116u8, 155u8, 4u8, 220u8, 214u8,
             126u8, 237u8, 126u8, 211u8,
         ])
@@ -1254,114 +318,6 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#ReferenceMathContext(
                 super::r#reference::r#math_context::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            255u8, 195u8, 255u8, 153u8, 220u8, 16u8, 164u8, 7u8, 58u8, 21u8, 6u8, 178u8,
-            208u8, 155u8, 46u8, 48u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceMethodDependencies(
-                super::r#reference::r#method_dependencies::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            187u8, 229u8, 230u8, 178u8, 92u8, 38u8, 178u8, 120u8, 135u8, 169u8, 47u8,
-            245u8, 119u8, 8u8, 202u8, 240u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceMethodKernelInputs(
-                super::r#reference::r#method_kernel_inputs::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            128u8, 245u8, 219u8, 239u8, 90u8, 160u8, 235u8, 141u8, 136u8, 101u8, 172u8,
-            183u8, 88u8, 102u8, 157u8, 118u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceMethodParameterAxes(
-                super::r#reference::r#method_parameter_axes::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            103u8, 30u8, 191u8, 24u8, 180u8, 72u8, 122u8, 203u8, 223u8, 226u8, 120u8,
-            165u8, 37u8, 25u8, 5u8, 150u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceMethodParameters(
-                super::r#reference::r#method_parameters::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            162u8, 67u8, 113u8, 32u8, 92u8, 208u8, 56u8, 176u8, 21u8, 85u8, 86u8, 103u8,
-            203u8, 138u8, 236u8, 148u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceMethodPrecedence(
-                super::r#reference::r#method_precedence::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            233u8, 25u8, 180u8, 37u8, 45u8, 223u8, 10u8, 45u8, 138u8, 201u8, 204u8,
-            211u8, 91u8, 151u8, 50u8, 159u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceMethodProvisions(
-                super::r#reference::r#method_provisions::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            60u8, 53u8, 179u8, 18u8, 105u8, 91u8, 156u8, 76u8, 192u8, 135u8, 124u8,
-            158u8, 172u8, 252u8, 231u8, 203u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceMethodSpecs(
-                super::r#reference::r#method_specs::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            108u8, 143u8, 88u8, 253u8, 148u8, 217u8, 31u8, 101u8, 183u8, 150u8, 91u8,
-            45u8, 134u8, 48u8, 219u8, 173u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferenceMethodStateParameters(
-                super::r#reference::r#method_state_parameters::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            30u8, 82u8, 216u8, 68u8, 240u8, 251u8, 182u8, 14u8, 178u8, 142u8, 105u8,
-            222u8, 199u8, 169u8, 194u8, 191u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#ReferencePropertyKinds(
-                super::r#reference::r#property_kinds::Row::rows(batch)?,
             ),
         );
     }
@@ -1727,6 +683,162 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            184u8, 36u8, 78u8, 109u8, 81u8, 91u8, 181u8, 9u8, 120u8, 245u8, 1u8, 177u8,
+            172u8, 146u8, 205u8, 120u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingChecks(
+                super::r#runtime::r#modeling_checks::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            84u8, 238u8, 35u8, 87u8, 246u8, 179u8, 107u8, 72u8, 193u8, 87u8, 51u8, 108u8,
+            0u8, 253u8, 184u8, 44u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingConformance(
+                super::r#runtime::r#modeling_conformance::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            29u8, 217u8, 47u8, 6u8, 108u8, 94u8, 89u8, 245u8, 180u8, 211u8, 82u8, 21u8,
+            230u8, 23u8, 109u8, 146u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingDiagnosticSamples(
+                super::r#runtime::r#modeling_diagnostic_samples::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            107u8, 238u8, 141u8, 70u8, 235u8, 237u8, 49u8, 176u8, 30u8, 237u8, 30u8, 8u8,
+            214u8, 93u8, 177u8, 116u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingDiagnostics(
+                super::r#runtime::r#modeling_diagnostics::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            255u8, 115u8, 88u8, 251u8, 54u8, 247u8, 118u8, 33u8, 92u8, 223u8, 166u8,
+            154u8, 225u8, 47u8, 224u8, 76u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingFindings(
+                super::r#runtime::r#modeling_findings::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            97u8, 1u8, 112u8, 183u8, 6u8, 127u8, 10u8, 125u8, 10u8, 1u8, 104u8, 231u8,
+            219u8, 106u8, 81u8, 241u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingFixtureStatus(
+                super::r#runtime::r#modeling_fixture_status::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            55u8, 62u8, 60u8, 179u8, 145u8, 29u8, 42u8, 104u8, 166u8, 15u8, 146u8, 250u8,
+            144u8, 141u8, 112u8, 81u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingInitializations(
+                super::r#runtime::r#modeling_initializations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            67u8, 214u8, 232u8, 97u8, 187u8, 7u8, 242u8, 54u8, 208u8, 27u8, 246u8, 164u8,
+            130u8, 240u8, 62u8, 233u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingJacobianOptimization(
+                super::r#runtime::r#modeling_jacobian_optimization::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            55u8, 153u8, 8u8, 38u8, 12u8, 214u8, 56u8, 26u8, 4u8, 56u8, 154u8, 98u8,
+            167u8, 10u8, 187u8, 20u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingLinearDiagnostics(
+                super::r#runtime::r#modeling_linear_diagnostics::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            169u8, 27u8, 21u8, 156u8, 217u8, 63u8, 27u8, 218u8, 67u8, 162u8, 186u8,
+            251u8, 185u8, 148u8, 53u8, 144u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingNonlinearExplanations(
+                super::r#runtime::r#modeling_nonlinear_explanations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            26u8, 179u8, 96u8, 239u8, 177u8, 140u8, 177u8, 156u8, 92u8, 10u8, 73u8,
+            198u8, 21u8, 12u8, 162u8, 172u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingReports(
+                super::r#runtime::r#modeling_reports::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            114u8, 45u8, 219u8, 252u8, 43u8, 54u8, 157u8, 200u8, 255u8, 101u8, 139u8,
+            171u8, 205u8, 177u8, 213u8, 98u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingStudies(
+                super::r#runtime::r#modeling_studies::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            173u8, 82u8, 11u8, 63u8, 40u8, 18u8, 2u8, 221u8, 187u8, 196u8, 66u8, 124u8,
+            232u8, 103u8, 161u8, 177u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeModelingTrajectoryModes(
+                super::r#runtime::r#modeling_trajectory_modes::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             106u8, 141u8, 117u8, 73u8, 238u8, 52u8, 191u8, 110u8, 88u8, 54u8, 14u8,
             123u8, 67u8, 1u8, 244u8, 89u8,
         ])
@@ -1734,18 +846,6 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeNativeDependencies(
                 super::r#runtime::r#native_dependencies::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
-            119u8, 162u8, 212u8, 3u8, 113u8, 215u8, 150u8, 44u8, 114u8, 189u8, 8u8, 46u8,
-            216u8, 196u8, 60u8, 194u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#RuntimePhysicalChecks(
-                super::r#runtime::r#physical_checks::Row::rows(batch)?,
             ),
         );
     }
@@ -1931,64 +1031,10 @@ pub fn encode(
     cancel: &pse_columnar::CancellationToken,
 ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
     match values {
-        pse_model::generated::facts::FactBatch::r#AuthoredCaseActivationTargets(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredCaseActivations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredCaseObjectives(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredCasePolicies(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredCaseSetSamples(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredCaseSets(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredCaseSpecTargets(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredCaseSpecs(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredCases(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredComputationModels(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredConnections(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredContinuousDomains(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
         pse_model::generated::facts::FactBatch::r#AuthoredDatasets(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#AuthoredDefaultScaling(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredDirectionalValveLaws(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredDocumentEdits(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
         pse_model::generated::facts::FactBatch::r#AuthoredDocuments(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredDomainMembers(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredDomains(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredDynamicCases(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredEntities(rows) => {
@@ -1997,193 +1043,25 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#AuthoredFitCases(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#AuthoredFlowsheets(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredHenryDeclarations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredInstanceDomainBindings(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredInstanceEquations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredInstances(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredMaterialSystems(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredMethodSelections(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredModelCompositions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredNativeProviders(rows) => {
+        pse_model::generated::facts::FactBatch::r#AuthoredModelingDeclarations(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredNumericalRequirements(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#AuthoredObservationTargets(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
         pse_model::generated::facts::FactBatch::r#AuthoredObservations(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#AuthoredPackageQuantityAliases(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#AuthoredPackageUnitSets(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#AuthoredPackages(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#AuthoredParameterValues(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredPhaseEquilibriumPairs(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredPhaseSpecies(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredPhases(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredPhysicalBalances(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredPropertyPackages(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredProviderScalingBindings(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredReactionApplications(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredReactionMethods(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredReactionPackages(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredReactions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredRenameRequests(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredScenarios(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredScopes(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredSelectorTerms(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredSpecies(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredSpeciesElements(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredStateBounds(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredStoichiometry(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateContributionContracts(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateContributions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateDerivatives(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateDisplay(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateDisplayIndices(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateDomainBindings(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateDomains(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateEquations(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateFeatureRules(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateFeatures(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateGuards(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateLawContracts(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateLawInstances(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateMaterialConstraints(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateParams(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplatePortMembers(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplatePorts(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplatePropertyRequirements(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateRequirements(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateScopes(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateSubmodels(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateSymbolContracts(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateSymbolExpressions(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateSymbolProperties(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplateSymbols(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#AuthoredTemplates(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#NormalizedInstanceBindings(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
         pse_model::generated::facts::FactBatch::r#NormalizedPackageGraph(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#NormalizedResolvedSourceOccurrences(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#NormalizedSourceOccurrences(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#NormalizedUnits(rows) => {
@@ -2213,9 +1091,6 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#ReferenceBases(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#ReferenceConnectionBindings(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
         pse_model::generated::facts::FactBatch::r#ReferenceConstants(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
@@ -2225,49 +1100,13 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#ReferenceDimensions(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#ReferenceElementProjectionContracts(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#ReferenceElements(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
         pse_model::generated::facts::FactBatch::r#ReferenceEngineProfiles(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceFunctionCapabilities(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#ReferenceLawBindings(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
         pse_model::generated::facts::FactBatch::r#ReferenceMathContext(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#ReferenceMethodDependencies(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#ReferenceMethodKernelInputs(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#ReferenceMethodParameterAxes(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#ReferenceMethodParameters(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#ReferenceMethodPrecedence(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#ReferenceMethodProvisions(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#ReferenceMethodSpecs(rows) => {
-            crate::columnar::encode_rows(rows, registry, pool, cancel)
-        }
-        pse_model::generated::facts::FactBatch::r#ReferenceMethodStateParameters(
-            rows,
-        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
-        pse_model::generated::facts::FactBatch::r#ReferencePropertyKinds(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#ReferenceQuantityKinds(rows) => {
@@ -2360,10 +1199,46 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeMaintenanceOutcomes(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#RuntimeNativeDependencies(rows) => {
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingChecks(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#RuntimePhysicalChecks(rows) => {
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingConformance(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingDiagnosticSamples(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingDiagnostics(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingFindings(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingFixtureStatus(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingInitializations(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingJacobianOptimization(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingLinearDiagnostics(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingNonlinearExplanations(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingReports(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingStudies(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeModelingTrajectoryModes(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeNativeDependencies(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimePublications(rows) => {

@@ -7,8 +7,8 @@ use pse_columnar::CancellationToken;
 use pse_ids::{ContentHash, SemanticId};
 use pse_relations::columnar::Collection;
 use pse_relations::generated::{
+    authored::package_quantity_aliases as quantity_aliases,
     authored::packages::{self, AuthoredPackagesFieldDependenciesItem},
-    authored::template_symbol_expressions as symbol_expressions,
     enums::{IdPolicy, PackageKind},
     reference::units,
 };
@@ -73,12 +73,12 @@ fn typed_collection_keeps_distinct_schemas_and_explicit_empty_relations()
     let mut collection = Collection::new(registry, &budget, &cancel);
     collection.ensure::<units::Row>()?;
     collection.push(package())?;
-    let expression = symbol_expressions::Row {
-        symbol_decl_id: SemanticId::from_bytes([3; 16]),
-        expression: "x + 1".into(),
-        template_id: SemanticId::from_bytes([4; 16]),
+    let alias = quantity_aliases::Row {
+        package_id: SemanticId::from_bytes([1; 16]),
+        name: "Flow".into(),
+        quantity_type_id: SemanticId::from_bytes([4; 16]),
     };
-    collection.push(expression.clone())?;
+    collection.push(alias.clone())?;
     let batches = collection.finish()?;
     assert_eq!(batches.len(), 3);
     assert_eq!(
@@ -86,9 +86,9 @@ fn typed_collection_keeps_distinct_schemas_and_explicit_empty_relations()
         vec![package()],
     );
     assert_eq!(
-        symbol_expressions::View::from_checked(&batches[&symbol_expressions::spec(registry)?.key])?
+        quantity_aliases::View::from_checked(&batches[&quantity_aliases::spec(registry)?.key])?
             .rows()?,
-        vec![expression],
+        vec![alias],
     );
     assert_eq!(batches[&units::spec(registry)?.key].batch().num_rows(), 0);
     assert!(budget.reserved() > 0);

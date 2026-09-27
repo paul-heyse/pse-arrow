@@ -433,16 +433,7 @@ pub(super) fn registry_extent(registry: &Registry) -> Result<usize, DriverError>
     }
     Ok(bytes)
 }
-fn source_value<'a>(mut value: &'a Value, path: &str) -> Option<&'a Value> {
-    for part in path.split('/').skip(1) {
-        value = match value {
-            Value::List(values) => &values.get(part.parse::<usize>().ok()?)?.value,
-            Value::Map(_) => value.get(&part.replace("~1", "/").replace("~0", "~"))?,
-            _ => return None,
-        };
-    }
-    Some(value)
-}
+
 
 /// Retained-capacity accounting can only shrink the completed preflight; it is
 /// never used to grow after construction. Opaque map allowances remain reserved.
@@ -455,23 +446,6 @@ pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, D
         )?;
         bytes = add(bytes, value_retained(&document.value)?)?;
         bytes = add(bytes, value_retained(&document.syntax)?)?;
-        for path in document.expressions.keys() {
-            let value = source_value(&document.value, path).ok_or_else(|| {
-                super::load::contract(None, "cached expression source path absent")
-            })?;
-            bytes = add(
-                bytes,
-                add(
-                    map_entry::<String, super::binding::ParsedExpression>(),
-                    expression_extent(
-                        value,
-                        &FieldContract::extended(ExtensionUse::ExprDsl),
-                        path.capacity(),
-                    )?,
-                )?,
-            )?;
-        }
-
         bytes = add(bytes, document.spans.retained_extent()?)?;
         bytes = add(
             bytes,

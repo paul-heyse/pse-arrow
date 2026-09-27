@@ -807,6 +807,9 @@ pub struct Certificate {
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
 pub struct SolveReport {
+    pub(crate) callback_failure: Option<Arc<crate::ProblemError>>,
+    validation_failure: Option<Arc<crate::ProblemError>>,
+    failure_owner: Option<Arc<dyn pse_math::AllocationOwner>>,
     /// Fresh original-model values and qualified dual diagnostics.
     pub observation: Option<crate::quality::Observation>,
     /// Effective library transformations, including unavailable passes.
@@ -855,6 +858,36 @@ pub struct SolveReport {
     pub qualification: Qualification,
 }
 impl SolveReport {
+    /// Original typed cause of a failed native evaluation, independent of event retention.
+    pub fn callback_failure(&self) -> Option<&crate::ProblemError> {
+        self.callback_failure.as_deref()
+    }
+    /// Typed failure from independent original-model observation after native exit.
+    pub fn validation_failure(&self) -> Option<&crate::ProblemError> {
+        self.validation_failure.as_deref()
+    }
+    pub(crate) fn record_validation_failure(&mut self, error: crate::ProblemError) {
+        self.validation_error = Some(error.to_string());
+        self.validation_failure = Some(Arc::new(error));
+    }
+    pub(crate) fn clear_validation_failure(&mut self) {
+        self.validation_error = None;
+        self.validation_failure = None;
+    }
+    /// Variable retained failure extent, including shared-pointer allocation overhead.
+    pub fn failure_bytes(&self) -> usize {
+        [self.callback_failure(), self.validation_failure()]
+            .into_iter()
+            .flatten()
+            .fold(0usize, |bytes, e| {
+                bytes.saturating_add(e.retained_bytes()).saturating_add(128)
+            })
+    }
+    /// Attach the runtime reservation to every clone of this owned report.
+    pub fn with_failure_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
+        self.failure_owner = Some(owner);
+        self
+    }
     /// Attach the outer runtime's retained-result admission to this owned envelope.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
         self.owner = Some(owner);
@@ -869,6 +902,9 @@ impl SolveReport {
     ) -> Self {
         let (events, dropped_events) = execution.progress.snapshot();
         Self {
+            callback_failure: None,
+            validation_failure: None,
+            failure_owner: None,
             owner: None,
             observation: None,
             preprocessing: None,

@@ -24,7 +24,7 @@
         "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "scale_kind": "[\"enum\",\"point\"]",
         "shape": "[\"list\",[]]",
-        "subject_kind": "[\"enum\",\"species\"]"
+        "subject_kind": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]
   },

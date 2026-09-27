@@ -127,6 +127,7 @@ fn lazy_branch_and_cloned_workers_do_not_evaluate_inactive_domain() {
         &[
             block(Atom::num(0), 1),
             Stage::Branch {
+                continuity: DerivativeOrder::Value,
                 comparison: Comparison::Lt,
                 left: 1,
                 right: 0,
@@ -300,6 +301,7 @@ fn schedule_refuses_forward_reads_and_partial_branch_outputs() {
     );
     assert!(
         attempt(vec![Stage::Branch {
+                continuity: DerivativeOrder::Value,
             comparison: Comparison::Eq,
             left: 0,
             right: 0,
@@ -353,4 +355,32 @@ fn high_precision_real_values_survive_optimizer_and_jet_profiles() {
             }
         }
     }
+}
+
+#[test]
+fn branch_local_jets_refuse_unproved_boundaries_without_global_smoothness() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let body = PreparedBody::new(1, 3, vec![2], vec![
+        block(Atom::num(0), 1),
+        Stage::Branch {
+            continuity: DerivativeOrder::Value, comparison: Comparison::Lt,
+            left: 0, right: 1,
+            then: vec![block(-x.clone(), 2)], otherwise: vec![block(x, 2)],
+        },
+    ], DerivativeOrder::Second).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let limits = crate::jets::EvaluationLimits::default();
+    assert_eq!(body.available_order(), DerivativeOrder::Value);
+    assert!(body.compile(&[0], &[0], DerivativeOrder::First, Optimization::default(), limits, &cancel).is_err());
+    let mut worker = body.compile_branch_local(&[0], &[0], DerivativeOrder::Second,
+        Optimization::default(), limits, &cancel).unwrap().worker();
+    for (x, slope) in [(-2.0, -1.0), (2.0, 1.0)] {
+        let jet = worker.evaluate(&[x], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel).unwrap();
+        assert_eq!(jet.values, vec![2.0]);
+        assert_eq!(jet.jacobian, vec![slope]);
+        assert_eq!(jet.hessians, vec![0.0]);
+    }
+    assert!(worker.evaluate(&[0.0], DerivativeOrder::First, &mut BTreeMap::new(), &cancel).is_err());
+    assert_eq!(worker.evaluate(&[0.0], DerivativeOrder::Value, &mut BTreeMap::new(), &cancel).unwrap().values, vec![0.0]);
 }

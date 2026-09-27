@@ -682,6 +682,8 @@ pub struct OutputValue {
 }
 impl CaseWorker {
     /// Immutable products shared by the attempt.
+    /// Shared cooperative cancellation owner for bounded library work on this admitted worker.
+    pub fn cancellation(&self)->&Arc<AtomicBool>{&self.cancel}
     pub fn assembly(&self) -> &Arc<CaseAssembly> {
         &self.assembly
     }

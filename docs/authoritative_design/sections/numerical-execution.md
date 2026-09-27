@@ -109,8 +109,13 @@ Each analysis is opt-in or bounded, and none replaces the original candidate:
 | Numerical PSD qualification | Resource-bounded faer eigenanalysis with residual qualification | Explicit opt-in; never repairs the matrix (§18.10) |
 | Fit response rank and conditioning | faer pivoted LU for implicit response, bounded SVD for scaled observation rank | Rank does not imply covariance, estimator sensitivity or global identifiability |
 
-A singular-value toolbox over general Jacobians, degeneracy search, minimal
-infeasible-system explanation and convergence studies over case sets are not present.
+Authored diagnostic profiles also drive bounded faer Jacobian SVD, selected linear and
+Jacobian optimization analyses, and nonlinear elastic/deletion explanations through
+existing native adapters. Reports distinguish observations, candidates, inconclusive
+limits and unattempted work; a deletion heuristic is not a proof of a minimum infeasible
+subsystem. Finite studies retain per-case outcomes and explicit predecessor dependence.
+The generic profile/knowledge contract is proposed
+[ADR-0101](../../adr/0101-modeling-analysis-knowledge.md).
 
 ### 15.6 Reports
 
@@ -180,8 +185,9 @@ requirements naming unselected coordinates, nonpositive or nonfinite magnitudes,
 unit on a normalized-coordinate requirement and a nominal that disagrees with its
 scaling factor all fail resolution. A declaration cannot promote itself to an analysis
 override. With `strict_nominals`, the canonical fallback is refused instead of
-recorded. Scaling or initialization strategies attached to authored templates are
-refused at composition admission; numerical policy is the only scaling authority.
+recorded. Authored nominal, scale and initialization annotations resolve into this same
+policy. Block and causal/recycle projections carry original units, physical bounds,
+integrality and provenance; they cannot manufacture a second default interpretation.
 
 ### 16.5 Identity, provenance and persistence
 
@@ -192,8 +198,8 @@ reuse identity even when a native library fingerprint could not tell the differe
 The resolved interpretation, candidate assessments and physical checks are published
 as `runtime.resolved_numerics`, `runtime.candidate_assessments` and
 `runtime.physical_checks`; public serialization consumes the completed assessment and
-performs no second evaluation. There is no scaling profiler; comparing policies is an
-ordinary sequence of prepared analyses.
+performs no second evaluation. Authored scaling schemes and diagnostics consume the
+same resolved policy; comparing policies is a sequence of explicitly prepared analyses.
 
 ### 16.6 Derived native controls and original-space acceptance
 
@@ -261,9 +267,9 @@ Execution is transactional over immutable case bindings:
   the authoritative specification.
 
 Initialization accuracy comes from the numerical policy; it is serial, uses fresh native
-allocation and admits a bounded finite schedule. The public entry is
-`ModelRevision`'s revision-bound initialization strategy
-(`workflow/strategies/conditional.rs`).
+allocation and admits a bounded finite schedule. The public entry is the package-bound block initialization strategy
+(`workflow/strategies/conditional.rs`). Authored stage and homotopy initialization uses
+`workflow/modeling/initialization.rs` and retains original-specification acceptance.
 
 ### 17.4 Flowsheet recycles and dynamic starts
 
@@ -292,11 +298,13 @@ Consistent initial conditions for dynamics belong to the integrators
 
 ### 17.5 Continuation
 
-Continuation is a finite, supplied list of stages. Each stage replaces declared finite
-fixed/parameter inputs (never solved unknowns) and runs the structural block sequence
-transactionally. Prior values seed a stage only under the `PreviousAccepted` start
-policy. There is no adaptive homotopy step control, step-size acceleration or
-rollback-and-cut schedule; a caller who needs one supplies the stages.
+Finite supplied continuation replaces declared fixed/parameter inputs and executes the
+structural block sequence transactionally. Authored initialization additionally supports
+bounded adaptive homotopy with explicit initial/minimum step, growth, attempt and time
+limits. Failed stages preserve their attempted overlay and reduce the step; only accepted
+points become committed seeds. The final original-specification solve is separately
+validated, including original model obligations. This is local initialization evidence,
+not a convergence guarantee.
 
 ### 17.6 Explicit starts and allocation reuse
 
@@ -350,8 +358,8 @@ by [§13](workflows-and-results.md#section-13).
 ### 18.2 Evaluation programs and callback boundary
 
 Value and derivative programs are Symbolica/Numerica artifacts prepared by the
-compiler ([§7](mathematics-and-compilation.md#section-7)); physical providers are
-FeOS/num-dual workers ([§9](physical-semantics.md#section-9)). Each attempt owns cloned
+compiler ([§7](mathematics-and-compilation.md#section-7)); scientific functions and generic external capabilities are supplied through the
+authored modeling contract ([§9](physical-semantics.md#section-9)). Each attempt owns cloned
 evaluators, provider workers and scratch; shared programs stay immutable.
 
 `pse-backend-native::callback::CallbackState` is the single trial-evaluation boundary
@@ -525,32 +533,34 @@ them to use native data updates. Results are post-processed into source space.
 Every adapter recovers candidates, duals and certificates to original coordinates
 through `transport` before quality is assessed.
 
-## Retired section identities
+## Additional and retired section identities
 
 #### 15.1 Thresholds (defaults preserved from IDAES) — retired
 
 No IDAES diagnostic threshold set exists; acceptance tolerances come from the resolved
 numerical policy in [§16.1](#section-16-1) and [§16.6](#section-16-6).
 
-#### 16.3 Nominal value algebra — retired
+#### 16.3 Nominal value algebra
 
-Nominals are declared and resolved by precedence ([§16.2](#section-16-2)); no
-expression-walking nominal or constraint-scaling scheme exists.
+Authored nominal and scale annotations, including composed scheme defaults, resolve through
+[§16.2](#section-16-2). They do not infer correctness from the current numerical trial.
 
-#### 16.4 Scaler templates — retired
+#### 16.4 Scaling schemes
 
-Template-attached scaling strategies are refused at composition admission; the
-resolved numerical policy ([§16.1](#section-16-1)) is the only scaling authority.
+Scaling is package knowledge interpreted by the generic annotation/compiler mechanism.
+The resulting targets enter the single numerical resolver; see [§16.1](#section-16-1).
 
-#### 17.2 Standard plan templates — retired
+#### 17.2 Authored initialization stages
 
-Per-unit initializer templates were replaced by structure-derived block initialization
-([§17.1](#section-17-1)); template initializers are refused at composition admission.
+Inherited stages and `when` variants specialize the same definition with explicit stage
+bindings. Original model checks remain active, while final fixture expectations apply only
+to the final original specification. See [§17.1](#section-17-1).
 
-#### 17.3 Plug-ins and initialization order — retired
+#### 17.3 Initialization order
 
-Initialization order is the structural predecessor order of [§17.1](#section-17-1);
-there is no plug-in prepare/finalize protocol.
+Demanded children, effective stages and structural blocks determine execution from admitted
+contracts. Failure and cancellation retain attempted/unattempted states; no caller mutation
+or hidden plugin order supplies authority. See [§17.5](#section-17-5).
 
 #### 18.4 NL backend — retired
 

@@ -454,31 +454,7 @@ fn sections(reg: &Registry) -> Result<Vec<ArrayRef>, SchemaError> {
         text(rows.iter().map(|(_, _, s)| s.entity_kind)),
         text(rows.iter().map(|(_, _, s)| s.name_column)),
         text(rows.iter().map(|(_, _, s)| s.naming_scope_column)),
-        text(rows.iter().map(|(_, _, s)| s.expression_owner_column)),
-        text(rows.iter().map(|(_, _, s)| {
-            s.expression_owner_kind
-                .map(super::super::model::document::ExpressionOwnerKind::as_str)
-        })),
         text(rows.iter().map(|(_, _, s)| Some(s.doc))),
-        list(
-            rows.iter().map(|(_, _, s)| s.expression_fields.len()),
-            structure(vec![
-                (
-                    "path",
-                    text(
-                        rows.iter().flat_map(|(_, _, s)| {
-                            s.expression_fields.iter().map(|(p, _)| Some(*p))
-                        }),
-                    ),
-                ),
-                (
-                    "syntax",
-                    text(rows.iter().flat_map(|(_, _, s)| {
-                        s.expression_fields.iter().map(|(_, v)| Some(v.as_str()))
-                    })),
-                ),
-            ])?,
-        )?,
     ])
 }
 

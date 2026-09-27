@@ -5094,12 +5094,12 @@ version = "0.0.1"
 dependencies = [
  "insta",
  "miette",
+ "petgraph",
  "proptest",
  "pse-diagnostics",
  "pse-ids",
  "pse-model",
  "pse-quantity",
- "pse-structural",
  "semver",
  "serde",
  "thiserror 2.0.20",
@@ -5148,6 +5148,7 @@ dependencies = [
  "datafusion",
  "deltalake-core",
  "futures-util",
+ "pse-authoring",
  "pse-backend-native",
  "pse-catalog",
  "pse-codegen",
@@ -5157,6 +5158,7 @@ dependencies = [
  "pse-engine",
  "pse-ids",
  "pse-kernels",
+ "pse-modeling",
  "pse-quantity",
  "pse-relations",
  "pse-rules",
@@ -5220,7 +5222,6 @@ dependencies = [
  "proc-macro2",
  "pse-columnar",
  "pse-ids",
- "pse-material",
  "pse-quantity",
  "pse-schema",
  "quote",
@@ -5259,6 +5260,7 @@ name = "pse-compiler"
 version = "0.0.1"
 dependencies = [
  "miette",
+ "petgraph",
  "pse-authoring",
  "pse-buildinfo",
  "pse-diagnostics",
@@ -5266,6 +5268,7 @@ dependencies = [
  "pse-kernels",
  "pse-math",
  "pse-model",
+ "pse-modeling",
  "pse-quantity",
  "pse-structural",
  "salsa",
@@ -5334,30 +5337,11 @@ dependencies = [
 name = "pse-kernels"
 version = "0.0.1"
 dependencies = [
- "feos",
- "feos-core",
  "miette",
- "nalgebra",
- "num-dual",
  "pse-diagnostics",
  "pse-ids",
  "pse-model",
  "pse-quantity",
- "quantity",
- "serde_json",
- "thiserror 2.0.20",
-]
-
-[[package]]
-name = "pse-material"
-version = "0.0.1"
-dependencies = [
- "miette",
- "pse-diagnostics",
- "pse-ids",
- "pse-quantity",
- "serde",
- "strum",
  "thiserror 2.0.20",
 ]
 
@@ -5375,6 +5359,7 @@ dependencies = [
  "pse-kernels",
  "pse-model",
  "pse-quantity",
+ "serde",
  "serde_json",
  "symbolica",
  "thiserror 2.0.20",
@@ -5393,6 +5378,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pse-modeling"
+version = "0.0.1"
+dependencies = [
+ "miette",
+ "petgraph",
+ "pse-authoring",
+ "pse-diagnostics",
+ "pse-ids",
+ "pse-model",
+ "pse-quantity",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "pse-py"
 version = "0.0.1"
 dependencies = [
@@ -5406,6 +5405,7 @@ dependencies = [
  "pse-engine",
  "pse-ids",
  "pse-model",
+ "pse-modeling",
  "pse-relations",
  "pse-rules",
  "pse-runtime",
@@ -5500,9 +5500,9 @@ dependencies = [
  "pse-engine",
  "pse-ids",
  "pse-kernels",
- "pse-material",
  "pse-math",
  "pse-model",
+ "pse-modeling",
  "pse-quantity",
  "pse-relations",
  "pse-schema",
@@ -5533,7 +5533,6 @@ dependencies = [
  "pse-columnar",
  "pse-diagnostics",
  "pse-ids",
- "pse-material",
  "pse-quantity",
  "serde",
  "serde_json",
@@ -5592,14 +5591,15 @@ dependencies = [
  "object_store",
  "parquet",
  "proptest",
+ "pse-authoring",
  "pse-backend-native",
  "pse-columnar",
  "pse-compiler",
  "pse-engine",
  "pse-ids",
  "pse-kernels",
- "pse-material",
  "pse-math",
+ "pse-modeling",
  "pse-quantity",
  "pse-relations",
  "pse-rules",
@@ -5630,7 +5630,6 @@ dependencies = [
  "pse-columnar",
  "pse-engine",
  "pse-ids",
- "pse-material",
  "pse-relations",
  "pse-runtime",
  "pse-schema",
@@ -8060,7 +8059,6 @@ dependencies = [
  "pse-codegen",
  "pse-columnar",
  "pse-engine",
- "pse-material",
  "pse-quantity",
  "pse-relations",
  "pse-rules",

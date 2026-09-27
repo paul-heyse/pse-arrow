@@ -1,0 +1,59 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// Primitive outputs carry the explicit stock ideal-gas datum; constants cancel at T_ref.
+@id("01a0e1484fb87705b3f22bcc49115347") package caloric {
+@id("01a0e159fa9673b48608c5b407839d6e") entity kind fit {}
+@id("01a0e1484fb87705b3f22bcdb67f6a51") use kinds @"1.0.0";
+@id("01a0e1484fb87705b3f22bcfdf690ead") fn kelvin()->TemperatureScale=1{K};
+@id("01a0e15a835e76d5952a640c8086d9a8") fn absolute_zero()->Temperature=0{K};
+@id("01a0e1484fb87705b3f22bd02c706e6c") fn cp_unit()->MolarCp=1{J/(mol*K)};
+@id("01a0e1484fb87705b3f22bd1c8d58a85") fn h_unit()->DeltaH=1{J/mol};
+@id("01a0e1484fb87705b3f22bd2617a4090") fn s_unit()->DeltaS=1{J/(mol*K)};
+@id("01a0e1484fb87705b3f22bd397b45caf") table shomate[j:kinds.species]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,e:Scalar,minimum:Temperature,maximum:Temperature};
+@id("01a0e1484fb87705b3f22bd556f38474") fn shomate_cp(T:Temperature,p:Row<shomate>)->MolarCp valid(T>=p.minimum and T<=p.maximum) = cp_unit()*(p.a+p.b*t+p.c*t^2+p.d*t^3+p.e/t^2) where t=T/(1000*kelvin());
+@id("01a0e1484fb87705b3f22bd62c1b8f02") fn shomate_h_primitive(T:Temperature,p:Row<shomate>)->DeltaH valid(T>=p.minimum and T<=p.maximum) = 1000*h_unit()*(p.a*t+p.b*t^2/2+p.c*t^3/3+p.d*t^4/4-p.e/t) where t=T/(1000*kelvin());
+@id("01a0e1484fb87705b3f22bd70ea77e09") fn shomate_s_primitive(T:Temperature,p:Row<shomate>)->DeltaS valid(T>=p.minimum and T<=p.maximum) = s_unit()*(p.a*log(t)+p.b*t+p.c*t^2/2+p.d*t^3/3-p.e/(2*t^2)) where t=T/(1000*kelvin());
+
+@id("01a0e1550b117611b1f5a20d9e79aff4") table polynomial[j:fit]:{a:Scalar,b:Scalar,c:Scalar,d:Scalar,e:Scalar,scale:MolarCp,minimum:Temperature,maximum:Temperature};
+@id("01a0e1550b117611b1f5a20e6a105606") fn polynomial_cp(T:Temperature,p:Row<polynomial>)->MolarCp valid(T>=p.minimum and T<=p.maximum) = p.scale*(p.a+t*(p.b+t*(p.c+t*(p.d+t*p.e)))) where t=T/kelvin();
+@id("01a0e1550b117611b1f5a20fab606d81") fn polynomial_h_primitive(T:Temperature,p:Row<polynomial>)->DeltaH valid(T>=p.minimum and T<=p.maximum) = h_unit()*(p.scale/cp_unit())*(p.a*t+p.b*t^2/2+p.c*t^3/3+p.d*t^4/4+p.e*t^5/5) where t=T/kelvin();
+@id("01a0e1550b117611b1f5a2102700711c") fn polynomial_s_primitive(T:Temperature,p:Row<polynomial>)->DeltaS valid(T>=p.minimum and T<=p.maximum) = s_unit()*(p.scale/cp_unit())*(p.a*log(t)+p.b*t+p.c*t^2/2+p.d*t^3/3+p.e*t^4/4) where t=T/kelvin();
+@id("01a0e1550b117611b1f5a211735348ee") fn constant_cp(T:Temperature,cp:MolarCp)->MolarCp valid(T>absolute_zero()) = cp;
+@id("01a0e1550b117611b1f5a21250f6b25d") fn constant_h_primitive(T:Temperature,cp:MolarCp)->DeltaH valid(T>absolute_zero()) = h_unit()*(cp/cp_unit())*(T/kelvin());
+@id("01a0e1550b117611b1f5a2134440d0e8") fn constant_s_primitive(T:Temperature,cp:MolarCp)->DeltaS valid(T>absolute_zero()) = s_unit()*(cp/cp_unit())*log(T/kelvin());
+@id("01a0e1550b117611b1f5a21469a69130") interface CaloricReference {
+@id("01a0e1550b117611b1f5a2150c38ea22") param h_reference:MolarEnthalpy;
+@id("01a0e1550b117611b1f5a216a9e01848") param s_reference:MolarEntropy;
+@id("01a0e1550b117611b1f5a21793945499") let cp:MolarCp;
+@id("01a0e1550b117611b1f5a218ad8ca4b8") let h_primitive:DeltaH;
+@id("01a0e1550b117611b1f5a21947644a86") let h_primitive_reference:DeltaH;
+@id("01a0e1550b117611b1f5a21a563e8132") let s_primitive:DeltaS;
+@id("01a0e1550b117611b1f5a21b169285b1") let s_primitive_reference:DeltaS;
+@id("01a0e1550b117611b1f5a21c9fa08dca") let enthalpy:MolarEnthalpy=h_reference+(h_primitive-h_primitive_reference);
+@id("01a0e1550b117611b1f5a21dae1f6cdc") let entropy:MolarEntropy=s_reference+(s_primitive-s_primitive_reference);
+}
+@id("01a0e1550b117611b1f5a21e68e9844d") interface LiquidCp extends CaloricReference {}
+@id("01a0e1550b117611b1f5a21fcadfd05f") interface IdealGasCp extends CaloricReference {}
+@id("01a0e1550b117611b1f5a220618ce726") def PolynomialLiquid(p:Row<polynomial>):LiquidCp {
+@id("01a0e1550b117611b1f5a221d31050d7") param T:Temperature;
+@id("01a0e1550b117611b1f5a222c916f0c2") param T_reference:Temperature;
+@id("01a0e1550b117611b1f5a2234dcfb37e") override let cp:MolarCp=polynomial_cp(T,p);
+@id("01a0e1550b117611b1f5a224fea2e7ec") override let h_primitive:DeltaH=polynomial_h_primitive(T,p);
+@id("01a0e1550b117611b1f5a22502bb24eb") override let h_primitive_reference:DeltaH=polynomial_h_primitive(T_reference,p);
+@id("01a0e1550b117611b1f5a226195c6b9d") override let s_primitive:DeltaS=polynomial_s_primitive(T,p);
+@id("01a0e1550b117611b1f5a227aedfabdf") override let s_primitive_reference:DeltaS=polynomial_s_primitive(T_reference,p);
+}
+@id("01a0e1550b117611b1f5a2289cf64972") def PolynomialGas(p:Row<polynomial>):IdealGasCp {
+@id("01a0e1550b117611b1f5a229f17ddf62") param T:Temperature;
+@id("01a0e1550b117611b1f5a22ae46e404c") param T_reference:Temperature;
+@id("01a0e1550b117611b1f5a22b4fade425") override let cp:MolarCp=polynomial_cp(T,p);
+@id("01a0e1550b117611b1f5a22c3486eb1f") override let h_primitive:DeltaH=polynomial_h_primitive(T,p);
+@id("01a0e1550b117611b1f5a22dcffcaf48") override let h_primitive_reference:DeltaH=polynomial_h_primitive(T_reference,p);
+@id("01a0e1550b117611b1f5a22ec09bff0d") override let s_primitive:DeltaS=polynomial_s_primitive(T,p);
+@id("01a0e1550b117611b1f5a22fe2576f96") override let s_primitive_reference:DeltaS=polynomial_s_primitive(T_reference,p);
+}
+@id("01a0e15f7bbb70c89c0ffa9d386f7563") fn temperature_unit()->Temperature=1{K};
+@id("01a0e15f7bbb70c89c0ffa9eac357682") fn polynomial_entropy_coordinate(t:Scalar,p:Row<polynomial>)->DeltaS=polynomial_s_primitive(t*temperature_unit(),p);
+@id("01a0e15f7bbb70c89c0ffa9fbac730b1") fn shomate_entropy_coordinate(t:Scalar,p:Row<shomate>)->DeltaS=shomate_s_primitive(t*temperature_unit(),p);
+@id("01a0e15f7bbb70c89c0ffaa01d562d19") fn constant_entropy_coordinate(t:Scalar,cp:MolarCp)->DeltaS=constant_s_primitive(t*temperature_unit(),cp);
+}

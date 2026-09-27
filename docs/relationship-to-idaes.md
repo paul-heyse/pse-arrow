@@ -41,7 +41,7 @@ are fetched, never vendored).
 Parity is measured against exactly one IDAES release:
 
 ```
-idaes-pse == 2.12.0
+idaes-pse == 2.13.0
 ```
 
 It is declared once, in the `parity` dependency group of `pyproject.toml`, and
@@ -50,8 +50,9 @@ it is the version `scripts/fetch-external.sh` checks out. A lint in
 drift from what the tests measure against.
 
 The parity environment is a **separate resolution** (`.venv-parity`, CPython
-3.13) because `idaes-pse` classifies 3.10–3.13 while the platform package
-targets ≥ 3.11 and is verified on 3.14. Keeping them separate is what stops
+3.13, supported by the pinned solver image), while the platform package
+targets ≥ 3.11 and is verified on 3.14. The IDAES 2.13.0 group allows interpreters
+below 3.15. Keeping the environments separate is what stops
 IDAES's transitive dependencies — `pydantic`, `sympy`, `networkx`, `pandas` —
 from becoming platform dependencies. The parity pre-flight **fails rather than
 skips** when the interpreter, the IDAES version or `ipopt` is not what the pin

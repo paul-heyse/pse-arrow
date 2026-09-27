@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+petgraph.workspace = true
 pse-model.workspace = true
 tracing.workspace = true
 salsa.workspace = true
@@ -26,6 +27,7 @@ pse-diagnostics.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 pse-authoring.workspace = true
+pse-modeling.workspace = true
 pse-ids.workspace = true
 pse-math.workspace = true
 pse-kernels.workspace = true

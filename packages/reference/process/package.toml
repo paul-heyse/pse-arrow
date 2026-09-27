@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "12104e13f2494492ba75de08955299a6"
+name = "pse.process"
+version = "1.0.0"
+kind = "library"
+id_policy = "explicit"
+dependencies = [
+ { package_id = "01a0e169482c760bbd985b849a06417d", version_req = "=1.0.0" },
+ { package_id = "b27409be5572b8712e47db271fae28cd", version_req = "=1.0.0" },
+ { package_id = "ce317b088cc74ac89873845b0c086ea8", version_req = "=1.0.0" },
+]
+doc = "Authored control volumes, units and their physical composition contracts."
+
+[[quantity_aliases]]
+name = "Scalar"
+quantity_type_id = "dc255c612cf27e30cb835377c8dafcf4"
+
+[[quantity_aliases]]
+name = "MolarMass"
+quantity_type_id = "5945d169556c4e70bb5d7c4fcd2c2000"
+
+[[quantity_aliases]]
+name = "Temperature"
+quantity_type_id = "c64b96975a4a59755f8711d3bf628bc9"
+
+[[quantity_aliases]]
+name = "TemperatureScale"
+quantity_type_id = "f7915376b5de04f118de80d4b6eba23d"
+
+[[quantity_aliases]]
+name = "MolarCp"
+quantity_type_id = "cd653ba98fa94d16b5d66b363f21c3d6"
+
+[[quantity_aliases]]
+name = "MolarEnthalpy"
+quantity_type_id = "1831d0d72dc74b299ba8ecb6d4da6f53"
+
+[[quantity_aliases]]
+name = "DeltaH"
+quantity_type_id = "d5bb3d48b9804f2f8d5a6f0a7cadaee8"
+
+[[quantity_aliases]]
+name = "MolarEntropy"
+quantity_type_id = "571c90b8909e43c0ae859554cc2e3479"
+
+[[quantity_aliases]]
+name = "DeltaS"
+quantity_type_id = "a9c45d0c2b764f4e87d1b95d5bc15da6"
+
+[[quantity_aliases]]
+name = "Pressure"
+quantity_type_id = "a0fa145fd8b2ecec448c39666960debc"
+
+[[quantity_aliases]]
+name = "MolarDensity"
+quantity_type_id = "39bebc51897c494a9f7f84bf3962cb0e"
+
+[[quantity_aliases]]
+name = "Density"
+quantity_type_id = "b6edcb08fc072d81a9f99b45f7f9c90a"
+
+[[quantity_aliases]]
+name = "Amount"
+quantity_type_id = "12c45d05b6a64dd2ac6eb2f06ec816b1"
+
+[[quantity_aliases]]
+name = "MoleFraction"
+quantity_type_id = "4f842bb63da53a798dca2764c2c64ece"
+
+[[quantity_aliases]]
+name = "Flow"
+quantity_type_id = "6df479e3be3bda77c5938727311f1063"
+
+[[quantity_aliases]]
+name = "ComponentFlow"
+quantity_type_id = "8ce2f0977877ae56c3712f710201be89"
+
+[[quantity_aliases]]
+name = "DeltaTemperature"
+quantity_type_id = "459a933fd00837bbc50372e31ac9801c"
+
+[[quantity_aliases]]
+name = "SecondOrderRateConstant"
+quantity_type_id = "01a0e1d9b0257478868a5b71bfbc9eda"
+
+[[quantity_aliases]]
+name = "VolumetricReactionRate"
+quantity_type_id = "01a0e1d9b0257478868a5b74c6980643"
+
+[[quantity_aliases]]
+name = "ReactionHeat"
+quantity_type_id = "01a0e1d9b0257478868a5b7538f4faa1"
+
+[[quantity_aliases]]
+name = "VolumeFlow"
+quantity_type_id = "3920ffa71353463f9435aa67ac151577"
+
+[[quantity_aliases]]
+name = "Power"
+quantity_type_id = "e1f2106da9eb4fe0aa2749fa5469fa1a"
+
+[[quantity_aliases]]
+name = "ActivationEnergy"
+quantity_type_id = "444b0e3a605868226f322ae3a06f450e"
+
+[[quantity_aliases]]
+name = "DeltaPressure"
+quantity_type_id = "d3e8173d5c454d8b94388323bb7f05c2"
+
+[[quantity_aliases]]
+name = "Volume"
+quantity_type_id = "0a5c3c4563964c8389c72e4344aed80e"
+
+[[quantity_aliases]]
+name = "Area"
+quantity_type_id = "8193343e102747128772c4662d3b8137"
+
+[[quantity_aliases]]
+name = "HeatTransferCoefficient"
+quantity_type_id = "f5f10107ab6f4adcbb9586e169f75400"
+
+[[quantity_aliases]]
+name = "CapitalCost"
+quantity_type_id = "d13792af7b964982a12b451f01d54033"
+
+[[quantity_aliases]]
+name = "ElementFlow"
+quantity_type_id = "dec8e0f2063a46b79e62db4cd1b35714"
+
+[[quantity_aliases]]
+name = "Length"
+quantity_type_id = "ed48fb533422432e9d81340da141da2e"
+
+[[quantity_aliases]]
+name = "Time"
+quantity_type_id = "e2ccf6d0a394403db967f4f35b83cb7c"
+
+[[quantity_aliases]]
+name = "Frequency"
+quantity_type_id = "368c7ebb44ee45318fa572df5fe706b9"
+
+[[quantity_aliases]]
+name = "Energy"
+quantity_type_id = "95a63d951afd459b9af1ef6bc6d53185"
+
+[[quantity_aliases]]
+name = "TotalAmount"
+quantity_type_id = "67cd93d093514a2e9f3f01c7519435d7"

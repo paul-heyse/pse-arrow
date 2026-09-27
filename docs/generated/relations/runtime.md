@@ -267,6 +267,431 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri`.
 | `deleted_files.item` | `Utf8` | false | `payload` | — | — |
 | `deleted_logs` | `Int64` | false | `payload` | — | — |
 
+## `modeling_checks`
+
+Independent model checks supplement native outcomes. Step identifies the requested solve within a finite sequence; standalone analyses use zero. Static checks use sample_index zero without time; trajectory checks identify the requested sample and physical time in seconds. Validity membership and permission to extrapolate remain distinct observations.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, sample_index, target_id, source_id, kind`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `sample_index` | `Int64` | false | `key` | — | — |
+| `time` | `Float64` | true | `payload` | — | — |
+| `target_id` | `semantic_id` | false | `key` | — | — |
+| `source_id` | `semantic_id` | false | `key` | — | — |
+| `kind` | `enum:ModelingCheckKind` | false | `key` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `tolerance` | `Float64` | true | `payload` | — | — |
+| `satisfied` | `Boolean` | false | `payload` | — | — |
+| `within_validity` | `Boolean` | true | `payload` | — | — |
+| `extrapolation_allowed` | `Boolean` | true | `payload` | — | — |
+
+## `modeling_conformance`
+
+Bounded shared checks over authored fixtures. Oracle links identify asserted source values; they do not claim an upstream run. Uncovered concrete definitions and incomplete samples are explicit.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, fixture_id, sample_index, target_id, source_id, kind`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `fixture_id` | `semantic_id` | false | `key` | — | — |
+| `sample_index` | `Int64` | false | `key` | — | — |
+| `time` | `Float64` | true | `payload` | — | — |
+| `target_id` | `semantic_id` | false | `key` | — | — |
+| `source_id` | `semantic_id` | false | `key` | — | — |
+| `kind` | `enum:ModelingConformanceKind` | false | `key` | — | — |
+| `status` | `enum:ModelingConformanceStatus` | false | `payload` | — | — |
+| `message` | `Utf8` | false | `payload` | — | — |
+| `failure_ordinal` | `Int64` | true | `payload` | — | — |
+| `oracle_reference` | `Utf8` | true | `payload` | — | — |
+| `oracle_revision` | `Utf8` | true | `payload` | — | — |
+
+## `modeling_diagnostic_samples`
+
+Named bounded diagnostic samples link to individually owned reports. Evaluation or binding failures retain their sample identity and classification; unattempted samples are not failed attempts.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `unattempted` | `Int64` | false | `payload` | — | — |
+| `stop` | `enum:ModelingDiagnosticSampleStop` | false | `payload` | — | — |
+| `outcomes` | `List` | false | `payload` | — | — |
+| `outcomes.item` | `Struct` | false | `payload` | — | — |
+| `outcomes.item.sample_id` | `semantic_id` | false | `payload` | — | — |
+| `outcomes.item.report_id` | `semantic_id` | true | `payload` | — | — |
+| `outcomes.item.failure_ordinal` | `Int64` | true | `payload` | — | — |
+| `outcomes.item.error_class` | `enum:NativeBoundaryClass` | true | `payload` | — | — |
+| `outcomes.item.error` | `Utf8` | true | `payload` | — | — |
+
+## `modeling_diagnostics`
+
+Numerical diagnostics at an explicit physical point. Matrix vectors name semantic rows and variables, including rectangular null modes. Completeness concerns the requested bounded analyses, not structural rank or feasibility.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `source_identity` | `content_hash` | false | `payload` | — | — |
+| `numerical_identity` | `content_hash` | false | `payload` | — | — |
+| `profile` | `Utf8` | false | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+| `point` | `List` | false | `payload` | — | — |
+| `point.item` | `Struct` | false | `payload` | — | — |
+| `point.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `point.item.kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `point.item.value` | `Float64` | true | `payload` | — | — |
+| `rows` | `List` | false | `payload` | — | — |
+| `rows.item` | `semantic_id` | false | `payload` | — | — |
+| `columns` | `List` | false | `payload` | — | — |
+| `columns.item` | `semantic_id` | false | `payload` | — | — |
+| `row_nominals` | `List` | false | `payload` | — | — |
+| `row_nominals.item` | `Struct` | false | `payload` | — | — |
+| `row_nominals.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `row_nominals.item.value` | `Float64` | false | `payload` | — | — |
+| `variable_nominals` | `List` | false | `payload` | — | — |
+| `variable_nominals.item` | `Struct` | false | `payload` | — | — |
+| `variable_nominals.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `variable_nominals.item.value` | `Float64` | false | `payload` | — | — |
+| `statistics` | `List` | false | `payload` | — | — |
+| `statistics.item` | `Struct` | false | `payload` | — | — |
+| `statistics.item.name` | `Utf8` | false | `payload` | — | — |
+| `statistics.item.count` | `Int64` | false | `payload` | — | — |
+| `matrix` | `Struct` | true | `payload` | — | — |
+| `matrix.rank` | `Int64` | false | `payload` | — | — |
+| `matrix.cutoff` | `Float64` | false | `payload` | — | — |
+| `matrix.row_norms` | `List` | false | `payload` | — | — |
+| `matrix.row_norms.item` | `Struct` | false | `payload` | — | — |
+| `matrix.row_norms.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `matrix.row_norms.item.value` | `Float64` | false | `payload` | — | — |
+| `matrix.column_norms` | `List` | false | `payload` | — | — |
+| `matrix.column_norms.item` | `Struct` | false | `payload` | — | — |
+| `matrix.column_norms.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `matrix.column_norms.item.value` | `Float64` | false | `payload` | — | — |
+| `matrix.parallel_rows` | `List` | false | `payload` | — | — |
+| `matrix.parallel_rows.item` | `Struct` | false | `payload` | — | — |
+| `matrix.parallel_rows.item.first_id` | `semantic_id` | false | `payload` | — | — |
+| `matrix.parallel_rows.item.second_id` | `semantic_id` | false | `payload` | — | — |
+| `matrix.parallel_rows.item.cosine` | `Float64` | false | `payload` | — | — |
+| `matrix.parallel_columns` | `List` | false | `payload` | — | — |
+| `matrix.parallel_columns.item` | `Struct` | false | `payload` | — | — |
+| `matrix.parallel_columns.item.first_id` | `semantic_id` | false | `payload` | — | — |
+| `matrix.parallel_columns.item.second_id` | `semantic_id` | false | `payload` | — | — |
+| `matrix.parallel_columns.item.cosine` | `Float64` | false | `payload` | — | — |
+| `matrix.modes` | `List` | false | `payload` | — | — |
+| `matrix.modes.item` | `Struct` | false | `payload` | — | — |
+| `matrix.modes.item.value` | `Float64` | false | `payload` | — | — |
+| `matrix.modes.item.left` | `List` | false | `payload` | — | — |
+| `matrix.modes.item.left.item` | `Struct` | false | `payload` | — | — |
+| `matrix.modes.item.left.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `matrix.modes.item.left.item.value` | `Float64` | false | `payload` | — | — |
+| `matrix.modes.item.right` | `List` | false | `payload` | — | — |
+| `matrix.modes.item.right.item` | `Struct` | false | `payload` | — | — |
+| `matrix.modes.item.right.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `matrix.modes.item.right.item.value` | `Float64` | false | `payload` | — | — |
+
+## `modeling_findings`
+
+Attributed diagnostic findings. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
+| `stage` | `Utf8` | false | `payload` | — | — |
+| `rule` | `Utf8` | false | `payload` | — | — |
+| `sources` | `List` | false | `payload` | — | — |
+| `sources.item` | `semantic_id` | false | `payload` | — | — |
+| `observations` | `List` | false | `payload` | — | — |
+| `observations.item` | `Struct` | false | `payload` | — | — |
+| `observations.item.name` | `Utf8` | false | `payload` | — | — |
+| `observations.item.kind` | `enum:NativeMetricKind` | false | `payload` | — | — |
+| `observations.item.real` | `Float64` | true | `payload` | — | — |
+| `observations.item.real_kind` | `enum:ModelingRealValueKind` | true | `payload` | — | — |
+| `observations.item.integer` | `Int64` | true | `payload` | — | — |
+| `observations.item.boolean` | `Boolean` | true | `payload` | — | — |
+| `observations.item.text` | `Utf8` | true | `payload` | — | — |
+| `locations` | `List` | false | `payload` | — | — |
+| `locations.item` | `Struct` | false | `payload` | — | — |
+| `locations.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `locations.item.path` | `Utf8` | false | `payload` | — | — |
+| `locations.item.name` | `Utf8` | true | `payload` | — | — |
+| `locations.item.start` | `Int64` | true | `payload` | — | — |
+| `locations.item.end` | `Int64` | true | `payload` | — | — |
+
+## `modeling_fixture_status`
+
+Every discovered fixture retains an aggregate disposition even when the detailed check limit or memory budget prevents further checks. Unattempted identities never disappear from an incomplete report.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, fixture_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `fixture_id` | `semantic_id` | false | `key` | — | — |
+| `status` | `enum:ModelingConformanceStatus` | false | `payload` | — | — |
+
+## `modeling_initializations`
+
+Ordered immutable initialization attempts. Only an accepted original specification supplies committed values. Native result IDs link separately owned original-space result tables.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+| `failure` | `Utf8` | true | `payload` | — | — |
+| `failure_ordinal` | `Int64` | true | `payload` | — | — |
+| `committed` | `List` | true | `payload` | — | — |
+| `committed.item` | `Struct` | false | `payload` | — | — |
+| `committed.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `committed.item.value` | `Float64` | false | `payload` | — | — |
+| `attempts` | `List` | false | `payload` | — | — |
+| `attempts.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.kind` | `enum:ModelingInitializationStep` | false | `payload` | — | — |
+| `attempts.item.stage` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.fraction` | `Float64` | true | `payload` | — | — |
+| `attempts.item.result_id` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.accepted` | `Boolean` | false | `payload` | — | — |
+| `attempts.item.error` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.failure_ordinal` | `Int64` | true | `payload` | — | — |
+| `attempts.item.interruption_class` | `enum:NativeBoundaryClass` | true | `payload` | — | — |
+| `attempts.item.interruption` | `Utf8` | true | `payload` | — | — |
+
+## `modeling_jacobian_optimization`
+
+Bounded LP conditioning and minimum-support MILP evidence about the scaled Jacobian at the recorded physical point. Weights refer to rows scaled by their recorded nominals; columns are scaled by variable nominals. Numerical irreducibility at tolerance does not certify nonlinear infeasibility or symbolic rank. Attempts are ordered by source-row pivot, LP then MILP.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `source_identity` | `content_hash` | false | `payload` | — | — |
+| `numerical_identity` | `content_hash` | false | `payload` | — | — |
+| `point` | `List` | false | `payload` | — | — |
+| `point.item` | `Struct` | false | `payload` | — | — |
+| `point.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `point.item.value` | `Float64` | false | `payload` | — | — |
+| `row_nominals` | `List` | false | `payload` | — | — |
+| `row_nominals.item` | `Struct` | false | `payload` | — | — |
+| `row_nominals.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `row_nominals.item.value` | `Float64` | false | `payload` | — | — |
+| `variable_nominals` | `List` | false | `payload` | — | — |
+| `variable_nominals.item` | `Struct` | false | `payload` | — | — |
+| `variable_nominals.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `variable_nominals.item.value` | `Float64` | false | `payload` | — | — |
+| `tolerance` | `Float64` | false | `payload` | — | — |
+| `rank_relative` | `Float64` | false | `payload` | — | — |
+| `multiplier_bound` | `Float64` | false | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+| `conditioning` | `List` | false | `payload` | — | — |
+| `conditioning.item` | `Struct` | false | `payload` | — | — |
+| `conditioning.item.weights` | `List` | false | `payload` | — | — |
+| `conditioning.item.weights.item` | `Struct` | false | `payload` | — | — |
+| `conditioning.item.weights.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `conditioning.item.weights.item.value` | `Float64` | false | `payload` | — | — |
+| `conditioning.item.residual_maximum` | `Float64` | false | `payload` | — | — |
+| `conditioning.item.pivot` | `semantic_id` | false | `payload` | — | — |
+| `degenerate` | `List` | false | `payload` | — | — |
+| `degenerate.item` | `Struct` | false | `payload` | — | — |
+| `degenerate.item.rows` | `List` | false | `payload` | — | — |
+| `degenerate.item.rows.item` | `semantic_id` | false | `payload` | — | — |
+| `degenerate.item.certificate` | `Struct` | false | `payload` | — | — |
+| `degenerate.item.certificate.weights` | `List` | false | `payload` | — | — |
+| `degenerate.item.certificate.weights.item` | `Struct` | false | `payload` | — | — |
+| `degenerate.item.certificate.weights.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `degenerate.item.certificate.weights.item.value` | `Float64` | false | `payload` | — | — |
+| `degenerate.item.certificate.residual_maximum` | `Float64` | false | `payload` | — | — |
+| `degenerate.item.certificate.pivot` | `semantic_id` | false | `payload` | — | — |
+| `degenerate.item.irreducible_at_tolerance` | `Boolean` | false | `payload` | — | — |
+| `attempts` | `List` | false | `payload` | — | — |
+| `attempts.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.termination` | `Struct` | false | `payload` | — | — |
+| `attempts.item.termination.category` | `enum:NativeTermination` | false | `payload` | — | — |
+| `attempts.item.termination.code` | `Int64` | false | `payload` | — | — |
+| `attempts.item.termination.name` | `Utf8` | false | `payload` | — | — |
+| `attempts.item.qualification` | `enum:NativeQualification` | false | `payload` | — | — |
+| `attempts.item.validation_error` | `Utf8` | true | `payload` | — | — |
+| `unavailable` | `List` | false | `payload` | — | — |
+| `unavailable.item` | `Utf8` | false | `payload` | — | — |
+
+## `modeling_linear_diagnostics`
+
+Independent native affine-model diagnostics in physical source coordinates. IIS for a discrete model concerns its continuous relaxation. A feasibility-relaxation candidate is separate from the original attempt. Basis endpoints identify original variables or row slacks; negative native sentinels remain explicit. Infinite ranging endpoints are meaningful.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `source_identity` | `content_hash` | false | `payload` | — | — |
+| `numerical_identity` | `content_hash` | false | `payload` | — | — |
+| `rows` | `List` | false | `payload` | — | — |
+| `rows.item` | `semantic_id` | false | `payload` | — | — |
+| `columns` | `List` | false | `payload` | — | — |
+| `columns.item` | `semantic_id` | false | `payload` | — | — |
+| `attempt` | `Struct` | false | `payload` | — | — |
+| `attempt.termination` | `Struct` | false | `payload` | — | — |
+| `attempt.termination.category` | `enum:NativeTermination` | false | `payload` | — | — |
+| `attempt.termination.code` | `Int64` | false | `payload` | — | — |
+| `attempt.termination.name` | `Utf8` | false | `payload` | — | — |
+| `attempt.qualification` | `enum:NativeQualification` | false | `payload` | — | — |
+| `attempt.validation_error` | `Utf8` | true | `payload` | — | — |
+| `primal_ray` | `List` | true | `payload` | — | — |
+| `primal_ray.item` | `Struct` | false | `payload` | — | — |
+| `primal_ray.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `primal_ray.item.value` | `Float64` | false | `payload` | — | — |
+| `dual_ray` | `List` | true | `payload` | — | — |
+| `dual_ray.item` | `Struct` | false | `payload` | — | — |
+| `dual_ray.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `dual_ray.item.value` | `Float64` | false | `payload` | — | — |
+| `iis` | `Struct` | true | `payload` | — | — |
+| `iis.columns` | `List` | false | `payload` | — | — |
+| `iis.columns.item` | `Struct` | false | `payload` | — | — |
+| `iis.columns.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `iis.columns.item.code` | `Int64` | false | `payload` | — | — |
+| `iis.rows` | `List` | false | `payload` | — | — |
+| `iis.rows.item` | `Struct` | false | `payload` | — | — |
+| `iis.rows.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `iis.rows.item.code` | `Int64` | false | `payload` | — | — |
+| `iis.column_status` | `List` | false | `payload` | — | — |
+| `iis.column_status.item` | `Struct` | false | `payload` | — | — |
+| `iis.column_status.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `iis.column_status.item.code` | `Int64` | false | `payload` | — | — |
+| `iis.row_status` | `List` | false | `payload` | — | — |
+| `iis.row_status.item` | `Struct` | false | `payload` | — | — |
+| `iis.row_status.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `iis.row_status.item.code` | `Int64` | false | `payload` | — | — |
+| `iis.relaxation_only` | `Boolean` | false | `payload` | — | — |
+| `ranging` | `List` | false | `payload` | — | — |
+| `ranging.item` | `Struct` | false | `payload` | — | — |
+| `ranging.item.family` | `Utf8` | false | `payload` | — | — |
+| `ranging.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `ranging.item.value` | `Struct` | false | `payload` | — | — |
+| `ranging.item.value.kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `ranging.item.value.value` | `Float64` | true | `payload` | — | — |
+| `ranging.item.objective` | `Struct` | false | `payload` | — | — |
+| `ranging.item.objective.kind` | `enum:ModelingRealValueKind` | false | `payload` | — | — |
+| `ranging.item.objective.value` | `Float64` | true | `payload` | — | — |
+| `ranging.item.entering` | `Struct` | false | `payload` | — | — |
+| `ranging.item.entering.source_id` | `semantic_id` | true | `payload` | — | — |
+| `ranging.item.entering.row_slack` | `Boolean` | false | `payload` | — | — |
+| `ranging.item.entering.sentinel` | `Int64` | true | `payload` | — | — |
+| `ranging.item.leaving` | `Struct` | false | `payload` | — | — |
+| `ranging.item.leaving.source_id` | `semantic_id` | true | `payload` | — | — |
+| `ranging.item.leaving.row_slack` | `Boolean` | false | `payload` | — | — |
+| `ranging.item.leaving.sentinel` | `Int64` | true | `payload` | — | — |
+| `relaxation` | `Struct` | true | `payload` | — | — |
+| `relaxation.operation_status` | `Int64` | false | `payload` | — | — |
+| `relaxation.restored_status` | `Struct` | false | `payload` | — | — |
+| `relaxation.restored_status.category` | `enum:NativeTermination` | false | `payload` | — | — |
+| `relaxation.restored_status.code` | `Int64` | false | `payload` | — | — |
+| `relaxation.restored_status.name` | `Utf8` | false | `payload` | — | — |
+| `relaxation.penalty` | `Float64` | true | `payload` | — | — |
+| `relaxation.primal` | `List` | true | `payload` | — | — |
+| `relaxation.primal.item` | `Struct` | false | `payload` | — | — |
+| `relaxation.primal.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `relaxation.primal.item.value` | `Float64` | false | `payload` | — | — |
+| `unavailable` | `List` | false | `payload` | — | — |
+| `unavailable.item` | `Struct` | false | `payload` | — | — |
+| `unavailable.item.analysis` | `Utf8` | false | `payload` | — | — |
+| `unavailable.item.reason` | `Utf8` | false | `payload` | — | — |
+
+## `modeling_nonlinear_explanations`
+
+Bounded elastic deletion evidence at explicit physical weights under unchanged bounds and inner systems. Positive slack at a local stationary solution does not certify infeasibility; complete never asserts global minimality.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `source_identity` | `content_hash` | false | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+| `stop` | `Utf8` | true | `payload` | — | — |
+| `failure_ordinal` | `Int64` | true | `payload` | — | — |
+| `candidate_rows` | `List` | false | `payload` | — | — |
+| `candidate_rows.item` | `semantic_id` | false | `payload` | — | — |
+| `background_variables` | `List` | false | `payload` | — | — |
+| `background_variables.item` | `semantic_id` | false | `payload` | — | — |
+| `nominals` | `List` | false | `payload` | — | — |
+| `nominals.item` | `Struct` | false | `payload` | — | — |
+| `nominals.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `nominals.item.value` | `Float64` | false | `payload` | — | — |
+| `penalty_tolerance` | `Float64` | false | `payload` | — | — |
+| `attempts` | `List` | false | `payload` | — | — |
+| `attempts.item` | `Struct` | false | `payload` | — | — |
+| `attempts.item.omitted` | `List` | false | `payload` | — | — |
+| `attempts.item.omitted.item` | `semantic_id` | false | `payload` | — | — |
+| `attempts.item.observation` | `enum:ModelingElasticObservation` | false | `payload` | — | — |
+| `attempts.item.penalty` | `Float64` | true | `payload` | — | — |
+| `attempts.item.result_id` | `semantic_id` | true | `payload` | — | — |
+| `attempts.item.failure_ordinal` | `Int64` | true | `payload` | — | — |
+| `attempts.item.error` | `Utf8` | true | `payload` | — | — |
+| `attempts.item.interruption_class` | `enum:NativeBoundaryClass` | true | `payload` | — | — |
+| `attempts.item.interruption` | `Utf8` | true | `payload` | — | — |
+
+## `modeling_reports`
+
+Canonical physical observations keyed by source and semantic target. Indexed members may share a presentation label without losing their coordinates.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_id, source_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `target_id` | `semantic_id` | false | `key` | — | — |
+| `source_id` | `semantic_id` | false | `key` | — | — |
+| `label` | `Utf8` | false | `payload` | — | — |
+| `path` | `Utf8` | false | `payload` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+
+## `modeling_studies`
+
+Ordered study outcomes including declaration preparation failures and explicit accepted-predecessor dependencies. Unattempted points remain distinct from failed attempts.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `unattempted` | `Int64` | false | `payload` | — | — |
+| `points` | `List` | false | `payload` | — | — |
+| `points.item` | `Struct` | false | `payload` | — | — |
+| `points.item.root_id` | `semantic_id` | true | `payload` | — | — |
+| `points.item.instance_id` | `semantic_id` | true | `payload` | — | — |
+| `points.item.predecessor` | `Int64` | true | `payload` | — | — |
+| `points.item.result_id` | `semantic_id` | true | `payload` | — | — |
+| `points.item.accepted` | `Boolean` | false | `payload` | — | — |
+| `points.item.error` | `Utf8` | true | `payload` | — | — |
+| `points.item.failure_ordinal` | `Int64` | true | `payload` | — | — |
+
+## `modeling_trajectory_modes`
+
+Authored analysis mode name at each completed trajectory sample, after coincident nonterminal resets. Native mode indices are not persisted.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, sample`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `sample` | `Int64` | false | `key` | — | — |
+| `time` | `Float64` | false | `payload` | — | — |
+| `mode` | `Utf8` | false | `payload` | — | — |
+
 ## `native_dependencies`
 
 Exact native input, implementation generation, policy and observation facts. Names alone never establish implementation equivalence.
@@ -320,27 +745,6 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `kind, scope, name`.
 | `evidence.projection.selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `evidence.projection.columns` | `List` | false | `payload` | — | — |
 | `evidence.projection.columns.item` | `Utf8` | false | `payload` | — | — |
-
-## `physical_checks`
-
-Independent contribution or accumulation-minus-integrated-flux closure, separate from native status and mathematical feasibility. Missing evaluation is not a pass.
-
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, sample, balance_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `run_id` | `semantic_id` | false | `key` | — | — |
-| `step` | `Int64` | false | `key` | — | — |
-| `sample` | `Int64` | false | `key` | — | — |
-| `balance_id` | `semantic_id` | false | `key` | — | — |
-| `quantity_id` | `semantic_id` | false | `payload` | — | — |
-| `unit_id` | `semantic_id` | false | `payload` | — | — |
-| `time` | `Float64` | true | `payload` | — | — |
-| `closure` | `Float64` | true | `payload` | — | — |
-| `tolerance` | `Float64` | false | `payload` | — | — |
-| `accepted` | `Boolean` | true | `payload` | — | — |
-| `error` | `Utf8` | true | `payload` | — | — |
-| `provenance` | `Utf8` | false | `payload` | — | — |
 
 ## `publications`
 

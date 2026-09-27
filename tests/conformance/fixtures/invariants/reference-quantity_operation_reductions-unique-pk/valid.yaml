@@ -3,7 +3,7 @@
   "rows": {
     "reference.quantity_operation_reductions": [
       {
-        "domain_kind": "[\"enum\",\"time\"]",
+        "domain_kind": "[\"id\",\"01010101010101010101010101010101\"]",
         "operation_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]

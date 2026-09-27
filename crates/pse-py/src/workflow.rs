@@ -1,21 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Mechanical public workflow projection; all mathematical policy remains native.
+mod modeling;
 mod settings;
+pub(crate) use modeling::{NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingElasticAttempt, ModelingLimits, ModelingFixturePolicy, ModelingEventSettings, ModelingModeSettings, ModelingDiagnosticSettings, NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingTrajectory, NativeModelingConformance, NativeModelingInitialization, NativeModelingInitializationAttempt, NativeModelingStudy, NativeModelingPackage, NativeModelingResult};
 mod strategies;
 pub(crate) use strategies::{
     NativeAttempt, NativePreparedFlow, NativePreparedStrategy, NativeStrategyResult,
 };
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ModelEnvelope {
-    declaration: native::ModelDeclaration,
-    #[serde(default)]
-    sources: native::SourceDeclarations,
-}
 use crate::inspection::{self, errors, runtime};
 use pse_runtime::{CancelSource, workflow as native};
-use pyo3::{prelude::*, types::PyBytes};
+use pyo3::prelude::*;
 pub(crate) use settings::SolveSettings;
 use std::{
     future::Future,
@@ -37,6 +32,11 @@ fn blocking<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + Send
     future: F,
     cancel: impl Fn(),
 ) -> PyResult<T> {
+    blocking_on(py, runtime.executor, future, cancel)
+}
+fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + Send>(
+    py: Python<'_>, executor: &tokio::runtime::Runtime, future: F, cancel: impl Fn(),
+) -> PyResult<T> {
     if tokio::runtime::Handle::try_current().is_ok() {
         return Err(invalid(
             py,
@@ -47,7 +47,7 @@ fn blocking<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + Send
     let mut signal = None;
     loop {
         let ready = py.detach(|| {
-            runtime.executor.block_on(async {
+            executor.block_on(async {
                 tokio::time::timeout(Duration::from_millis(100), &mut future).await
             })
         });
@@ -74,6 +74,14 @@ pub(crate) struct NativeRuntime {
 }
 #[pymethods]
 impl NativeRuntime {
+    fn modeling_from_documents(
+        &self,
+        py: Python<'_>,
+        documents: Vec<std::collections::BTreeMap<String, String>>,
+        physical: &NativePhysicalContext,
+    ) -> PyResult<NativeModelingPackage> {
+        modeling::from_documents(self, py, documents, physical)
+    }
     fn prepare_conic(
         &self,
         py: Python<'_>,
@@ -168,402 +176,20 @@ impl NativeRuntime {
         )?;
         serde_json::to_vec(&result).map_err(|e| invalid(py, e.to_string()))
     }
-    fn model(
-        &self,
-        py: Python<'_>,
-        declaration: &[u8],
-        physical: &NativePhysicalContext,
-    ) -> PyResult<NativeModelRevision> {
-        if declaration.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
-            return Err(invalid(py, "model input exceeds workspace allowance"));
-        }
-        let inner = py
-            .detach(|| {
-                let wire = serde_json::from_slice::<ModelEnvelope>(declaration)
-                    .map_err(|e| native::WorkflowError::Contract(e.to_string()))?;
-                let mut draft = native::ModelBuilder::from_declaration(
-                    self.inner.clone(),
-                    wire.declaration,
-                    physical.inner.clone(),
-                );
-                *draft.sources_mut() = wire.sources;
-                draft.freeze()
-            })
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        Ok(NativeModelRevision {
-            owner: self.owner.clone(),
-            inner,
-        })
-    }
-    fn models_from_documents(
-        &self,
-        py: Python<'_>,
-        documents: std::collections::BTreeMap<String, String>,
-        physical: &NativePhysicalContext,
-    ) -> PyResult<Vec<NativeModelRevision>> {
-        let rows = py
-            .detach(|| {
-                let cancel = pse_columnar::CancellationToken::new();
-                let pool = self.owner.shared.pool();
-                let bundle = pse_runtime::authoring_driver::document::load_package_texts_owned(
-                    &documents,
-                    &self.owner.registry,
-                    pse_authoring::ParseBudget::default(),
-                    &pool,
-                    &cancel,
-                )?;
-                let documents =
-                    pse_runtime::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-                        vec![bundle],
-                        &pool,
-                        &cancel,
-                    )?;
-                self.inner
-                    .models_from_documents(&documents, physical.inner.clone())?
-                    .into_iter()
-                    .map(native::ModelBuilder::freeze)
-                    .collect::<Result<Vec<_>, native::WorkflowError>>()
-            })
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        Ok(rows
-            .into_iter()
-            .map(|inner| NativeModelRevision {
-                owner: self.owner.clone(),
-                inner,
-            })
-            .collect())
-    }
     #[pyo3(signature=(steps, *, continue_independent=false))]
     fn start(
-        &self,
-        py: Python<'_>,
-        steps: Vec<PyRef<'_, NativePreparedCase>>,
-        continue_independent: bool,
+        &self, py: Python<'_>, steps: Vec<PyRef<'_,NativePreparedOperation>>, continue_independent: bool,
     ) -> PyResult<NativeRunHandle> {
-        let steps = steps.into_iter().map(|p| p.inner.clone()).collect();
-        let inner = py
-            .detach(|| {
-                let _enter = self.owner.executor.enter();
-                self.inner.start(steps, continue_independent)
-            })
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        Ok(NativeRunHandle {
-            owner: self.owner.clone(),
-            inner,
-        })
-    }
-}
-/// Immutable admitted typed declarations.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct NativeModelRevision {
-    owner: Arc<runtime::Runtime>,
-    inner: native::ModelRevision,
-}
-#[pymethods]
-impl NativeModelRevision {
-    fn prepare_flow(
-        &self,
-        py: Python<'_>,
-        case_id: &str,
-        flow_id: &str,
-    ) -> PyResult<NativePreparedFlow> {
-        let (case, flow) = (id(py, case_id)?, id(py, flow_id)?);
-        let inner = blocking(py, &self.owner, self.inner.prepare_flow(case, flow), || {})?;
-        Ok(NativePreparedFlow {
-            owner: self.owner.clone(),
-            math: self.owner.shared.math().clone(),
-            inner,
-        })
-    }
-    fn prepare_recycle(
-        &self,
-        py: Python<'_>,
-        request: &[u8],
-        settings: &SolveSettings,
-    ) -> PyResult<NativePreparedStrategy> {
-        #[cfg(feature = "native-solvers")]
-        {
-            if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
-                return Err(invalid(py, "recycle request exceeds workspace allowance"));
-            }
-            let request = serde_json::from_slice::<
-                strategies::AnalysisDocument<native::RecycleRequest>,
-            >(request)
-            .map_err(|e| invalid(py, e.to_string()))?
-            .payload;
-            let cancel = CancelSource::new();
-            let inner = blocking(
-                py,
-                &self.owner,
-                self.inner.prepare_recycle(
-                    request,
-                    settings.profile.clone(),
-                    Default::default(),
-                    &cancel,
-                ),
-                || cancel.cancel(),
-            )?;
-            Ok(NativePreparedStrategy {
-                owner: self.owner.clone(),
-                inner: strategies::Strategy::Recycle(inner),
-            })
-        }
-        #[cfg(not(feature = "native-solvers"))]
-        {
-            let _ = (request, settings);
-            Err(invalid(py, "KINSOL strategy workflow is not linked"))
-        }
-    }
-    fn prepare_initialization(
-        &self,
-        py: Python<'_>,
-        case_id: &str,
-        settings: &SolveSettings,
-        stages: Vec<std::collections::BTreeMap<String, f64>>,
-    ) -> PyResult<NativePreparedStrategy> {
-        #[cfg(feature = "native-solvers")]
-        {
-            let case = id(py, case_id)?;
-            if !matches!(
-                settings.profile.intent,
-                pse_backend_native::solve::SolveIntent::Initialize
-                    | pse_backend_native::solve::SolveIntent::Root
-            ) || matches!(
-                settings.profile.presolve,
-                pse_backend_native::presolve::Policy::Explicit { .. }
-            ) || !matches!(
-                settings.profile.convexity,
-                pse_runtime::math::solves::ConvexityPolicy::Exact
-            ) || !matches!(
-                settings.profile.backend,
-                pse_runtime::math::solves::BackendSettings::Default
-            ) {
-                return Err(invalid(
-                    py,
-                    "initialization requires root/initialize intent and has no explicit preprocessing or convexity strategy",
-                ));
-            }
-            if stages.len() > 4096 {
-                return Err(invalid(py, "continuation stage allowance"));
-            }
-            let stages = stages
-                .into_iter()
-                .map(|s| {
-                    s.into_iter()
-                        .map(|(k, v)| id(py, &k).map(|k| (k, v)))
-                        .collect::<PyResult<_>>()
-                })
-                .collect::<PyResult<_>>()?;
-            let profile = pse_runtime::math::initialization::InitializationProfile {
-                selection: settings.profile.selection,
-                controls: settings.profile.controls.clone(),
-                linear: pse_backend_native::kinsol::Linear::Klu,
-                numerics: settings.profile.numerics.clone(),
-                stages,
-            };
-            let inner = blocking(
-                py,
-                &self.owner,
-                self.inner
-                    .prepare_initialization(case, profile, Default::default()),
-                || {},
-            )?;
-            Ok(NativePreparedStrategy {
-                owner: self.owner.clone(),
-                inner: strategies::Strategy::Initialization(inner),
-            })
-        }
-        #[cfg(not(feature = "native-solvers"))]
-        {
-            let _ = (case_id, settings, stages);
-            Err(invalid(py, "initialization workflow is not linked"))
-        }
-    }
-    fn prepare_simulation(
-        &self,
-        py: Python<'_>,
-        dynamic_id: &str,
-        settings: &SimulationSettings,
-    ) -> PyResult<NativePreparedOperation> {
-        let id = id(py, dynamic_id)?;
-        let cancel = CancelSource::new();
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner.prepare_simulation(
-                id,
-                settings.profile.clone(),
-                Default::default(),
-                &cancel,
-            ),
-            || cancel.cancel(),
-        )?;
-        Ok(NativePreparedOperation {
-            owner: self.owner.clone(),
-            inner: PreparedOperation::Simulation(Box::new(inner)),
-        })
-    }
-    #[pyo3(signature=(fit_id, settings, simulations, *, rank_tolerance=1e-8, max_cells=1000000))]
-    fn prepare_fit(
-        &self,
-        py: Python<'_>,
-        fit_id: &str,
-        settings: &SolveSettings,
-        simulations: Vec<(String, PyRef<'_, SimulationSettings>)>,
-        rank_tolerance: f64,
-        max_cells: usize,
-    ) -> PyResult<NativePreparedOperation> {
-        let fit = id(py, fit_id)?;
-        let count = simulations.len();
-        let simulations = simulations
-            .into_iter()
-            .map(|(key, v)| id(py, &key).map(|key| (key, v.profile.clone())))
-            .collect::<PyResult<std::collections::BTreeMap<_, _>>>()?;
-        if simulations.len() != count {
-            return Err(invalid(py, "duplicate experiment settings"));
-        }
-        let cancel = CancelSource::new();
-        let profile = native::FitProfile {
-            solver: settings.profile.clone(),
-            simulations,
-            rank_tolerance,
-            max_cells,
-        };
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner
-                .prepare_fit(fit, profile, Default::default(), &cancel),
-            || cancel.cancel(),
-        )?;
-        Ok(NativePreparedOperation {
-            owner: self.owner.clone(),
-            inner: PreparedOperation::Fit(inner),
-        })
+        let steps=steps.into_iter().map(|p|match &p.inner {
+            PreparedOperation::Modeling(step)=>Ok(step.as_ref().clone()),
+            _=>Err(invalid(py,"finite solve sequences require authored algebraic cases")),
+        }).collect::<PyResult<Vec<_>>>()?;
+        let cancel=CancelSource::new();
+        let inner=blocking(py,&self.owner,self.inner.start_modeling(steps,continue_independent,&cancel),||cancel.cancel())?;
+        Ok(NativeRunHandle{owner:self.owner.clone(),inner})
     }
 
-    #[getter]
-    fn identity(&self) -> String {
-        self.inner.identity().to_prefixed()
-    }
-    fn declaration<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        let bytes = py
-            .detach(|| {
-                serde_json::to_vec(&ModelEnvelope {
-                    declaration: self.inner.declaration().clone(),
-                    sources: self.inner.source_declarations().clone(),
-                })
-            })
-            .map_err(|e| invalid(py, e.to_string()))?;
-        Ok(PyBytes::new(py, &bytes))
-    }
-    fn revise(&self, py: Python<'_>, declaration: &[u8]) -> PyResult<Self> {
-        if declaration.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
-            return Err(invalid(py, "model input exceeds workspace allowance"));
-        }
-        let inner = py
-            .detach(|| {
-                let mut draft = self.inner.edit();
-                let wire = serde_json::from_slice::<ModelEnvelope>(declaration)
-                    .map_err(|e| native::WorkflowError::Contract(e.to_string()))?;
-                *draft.declaration_mut() = wire.declaration;
-                *draft.sources_mut() = wire.sources;
-                draft.freeze()
-            })
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        Ok(Self {
-            owner: self.owner.clone(),
-            inner,
-        })
-    }
-    #[pyo3(signature=(case_id, settings))]
-    fn prepare(
-        &self,
-        py: Python<'_>,
-        case_id: &str,
-        settings: &SolveSettings,
-    ) -> PyResult<NativePreparedCase> {
-        let case = id(py, case_id)?;
-        let cancel = CancelSource::new();
-        let inner = blocking(
-            py,
-            &self.owner,
-            self.inner
-                .prepare(case, settings.profile.clone(), Default::default(), &cancel),
-            || cancel.cancel(),
-        )?;
-        Ok(NativePreparedCase {
-            owner: self.owner.clone(),
-            inner,
-        })
-    }
 }
-/// Immutable class-specific admitted preparation.
-#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
-#[derive(Clone, Debug)]
-pub(crate) struct NativePreparedCase {
-    owner: Arc<runtime::Runtime>,
-    inner: native::PreparedCase,
-}
-#[pymethods]
-impl NativePreparedCase {
-    fn with_primal_start(
-        &self,
-        py: Python<'_>,
-        values: std::collections::BTreeMap<String, f64>,
-    ) -> PyResult<Self> {
-        let values = values
-            .into_iter()
-            .map(|(key, v)| id(py, &key).map(|key| (key, v)))
-            .collect::<PyResult<_>>()?;
-        let inner = self
-            .inner
-            .clone()
-            .with_primal_start(values)
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        Ok(Self {
-            owner: self.owner.clone(),
-            inner,
-        })
-    }
-    #[getter]
-    fn eligibility(&self) -> Vec<(String, Vec<String>)> {
-        self.inner
-            .eligibility()
-            .iter()
-            .map(|e| (e.backend.as_str().into(), e.reasons.clone()))
-            .collect()
-    }
-    fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
-        let inner = self
-            .inner
-            .clone()
-            .with_start(seed.inner.clone())
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        Ok(Self {
-            owner: self.owner.clone(),
-            inner,
-        })
-    }
-    #[getter]
-    fn route(&self) -> String {
-        format!("{:?}", self.inner.route())
-    }
-    fn start(&self, py: Python<'_>) -> PyResult<NativeRunHandle> {
-        let inner = py
-            .detach(|| {
-                let _enter = self.owner.executor.enter();
-                self.inner.start()
-            })
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        Ok(NativeRunHandle {
-            owner: self.owner.clone(),
-            inner,
-        })
-    }
-}
-/// Immutable portable numerical seed. Native allocation state never crosses this boundary.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeStart {
@@ -646,11 +272,9 @@ impl NativeRunResult {
     #[pyo3(signature=(step=0))]
     fn available_start(&self, step: usize) -> Option<NativeStart> {
         match self.inner.report().ok()? {
-            native::RunReport::Solves(r) => match r.outcomes.get(step)? {
-                pse_runtime::math::solves::Outcome::Native(r) => {
-                    r.warm_start.clone().map(|inner| NativeStart { inner })
-                }
-                _ => None,
+            native::RunReport::Modeling(r) => match &r.get(step)?.outcome {
+                pse_runtime::math::solves::Outcome::Native(r)=>r.warm_start.clone().map(|inner|NativeStart{inner}),
+                _=>None,
             },
             native::RunReport::Fit(r) if step == 0 => r
                 .solve
@@ -920,7 +544,8 @@ impl SimulationSettings {
 }
 #[derive(Clone, Debug)]
 enum PreparedOperation {
-    Simulation(Box<native::PreparedSimulation>),
+    Modeling(Box<native::ModelingSolvePreparation>),
+    Simulation(Box<native::ModelingSimulation>),
     Fit(native::PreparedFit),
 }
 /// Immutable simulation/fitting view of the same owned job and Arrow result lifecycle.
@@ -933,18 +558,41 @@ pub(crate) struct NativePreparedOperation {
 #[pymethods]
 impl NativePreparedOperation {
     #[getter]
-    fn identity(&self) -> String {
-        match &self.inner {
+    fn route(&self, py: Python<'_>) -> PyResult<String> {
+        let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"algebraic route inspection requires an algebraic solve"));};
+        Ok(format!("{:?}",p.solve.route()))
+    }
+    #[getter]
+    fn eligibility(&self, py: Python<'_>) -> PyResult<Vec<(String,Vec<String>)>> {
+        let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"algebraic eligibility requires an algebraic solve"));};
+        Ok(p.solve.eligibility().iter().map(|e|(e.backend.as_str().into(),e.reasons.clone())).collect())
+    }
+    fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
+        let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"native warm starts require an algebraic solve"));};
+        let inner=p.as_ref().clone().with_start(seed.inner.clone()).map_err(|e|errors::diagnostic(py,&e))?;
+        Ok(Self{owner:self.owner.clone(),inner:PreparedOperation::Modeling(Box::new(inner))})
+    }
+    fn with_primal_start(&self, py: Python<'_>, values: std::collections::BTreeMap<String,f64>) -> PyResult<Self> {
+        let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"native warm starts require an algebraic solve"));};
+        let values=values.into_iter().map(|(key,value)|id(py,&key).map(|id|(id,value))).collect::<PyResult<_>>()?;
+        let inner=p.as_ref().clone().with_primal_start(values).map_err(|e|errors::diagnostic(py,&e))?;
+        Ok(Self{owner:self.owner.clone(),inner:PreparedOperation::Modeling(Box::new(inner))})
+    }
+    #[getter]
+    fn identity(&self, py: Python<'_>) -> PyResult<String> {
+        Ok(match &self.inner {
+            PreparedOperation::Modeling(p) => p.solve.request_identity().map_err(|e|errors::diagnostic(py,&e))?,
             PreparedOperation::Simulation(s) => s.identity(),
             PreparedOperation::Fit(f) => f.identity(),
         }
-        .to_prefixed()
+        .to_prefixed())
     }
     fn start(&self, py: Python<'_>) -> PyResult<NativeRunHandle> {
         let inner = py
             .detach(|| {
                 let _enter = self.owner.executor.enter();
                 match &self.inner {
+                    PreparedOperation::Modeling(p) => p.start(),
                     PreparedOperation::Simulation(s) => s.start(),
                     PreparedOperation::Fit(f) => f.start(),
                 }

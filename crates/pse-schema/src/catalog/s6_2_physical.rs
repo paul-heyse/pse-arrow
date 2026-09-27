@@ -160,9 +160,9 @@ fn declare_reference_reference_states(builder: &mut RegistryBuilder) {
                 "include_enthalpy_of_formation",
                 T::native(arrow_schema::DataType::Boolean),
             ),
-            column("phase_id", T::id())
+            column("subject_id", T::id())
                 .optional()
-                .with_fk("authored.phases", "phase_id"),
+                .with_fk("authored.modeling_declarations", "declaration_id"),
             column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.2 physical type: reference_states.",
@@ -187,8 +187,8 @@ fn declare_reference_quantity_types(builder: &mut RegistryBuilder) {
                 .optional()
                 .with_fk("reference.reference_states", "reference_state_id"),
             column("scale_kind", T::enumeration("ScaleKind")),
-            column("shape", T::list(T::enumeration("DomainKind"))),
-            column("subject_kind", T::enumeration("SubjectKind")).optional(),
+            column("shape", T::list(T::id())),
+            column("subject_kind", T::id()).optional(),
             column("canonical_unit_id", T::id()).with_fk("reference.units", "unit_id"),
             column(
                 "nominal_magnitude",
@@ -250,7 +250,7 @@ fn declare_reference_quantity_operations(builder: &mut RegistryBuilder) {
             column("shape_source", T::nonnegative(i64::from(u16::MAX))).optional(),
             column("subject_rule", T::enumeration("SubjectRule")),
             column("subject_source", T::nonnegative(i64::from(u16::MAX))).optional(),
-            column("result_subject_kind", T::enumeration("SubjectKind")).optional(),
+            column("result_subject_kind", T::id()).optional(),
             column("result_basis_id", T::id()).optional(),
             column("result_reference_state_id", T::id()).optional(),
             column(

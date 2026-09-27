@@ -5,7 +5,7 @@
 
 use crate::literal::{LiteralContext, resolve_literal};
 use crate::{
-    BoundIndexRef, ConversionId, DimensionVector, DomainKind, IncompatibilityReason, IndexSet,
+    BoundIndexRef, ConversionId, DimensionVector, EntityKindId, IncompatibilityReason, IndexSet,
     InvariantId, Opcode, OperationId, QuantityAdditionKind, QuantityError, QuantityOperation,
     QuantityRegistry, QuantityScaleRule, QuantityShapeRule, QuantityType, QuantityTypeId,
     QuantityTypeKey, Ratio, ReductionKind, ScaleKind, UnitConvertSpec, UnitId, WeightNormalization,
@@ -94,6 +94,14 @@ pub enum OpRequest<'a> {
         /// Bound identity and domain.
         bound: BoundIndexRef,
     },
+    /// Reduction after finite membership has been enumerated into scalar cells.
+    /// The prototype remains mandatory even when no cells survive a filter.
+    FiniteReduce {
+        /// Reduction operation.
+        kind: ReductionKind,
+        /// Consumed semantic domain, when the source set has an entity kind.
+        domain: Option<EntityKindId>,
+    },
     /// Add a binder explicitly.
     Broadcast {
         /// Binder to add.
@@ -123,7 +131,7 @@ pub enum OpRequest<'a> {
         /// Coordinate unit.
         domain_unit: UnitId,
         /// Actual domain kind.
-        domain_kind: DomainKind,
+        domain_kind: EntityKindId,
         /// Positive derivative order.
         order: u8,
     },
@@ -407,6 +415,36 @@ pub fn infer_with_evidence(
                 registered(request, operands, registry, checker)
             } else {
                 reduce(operands, *kind, *bound, registry)
+            }
+        }
+        OpRequest::FiniteReduce { kind, .. } => {
+            count(operands, 1)?;
+            let ty = registry.quantity_type(operands[0].quantity_type)?;
+            if !ty.key.shape.is_empty() || !operands[0].indices.is_empty() {
+                return Err(invariant(
+                    "reduction.scalar_cells",
+                    "finite cells must have no remaining free indices",
+                ));
+            }
+            if *kind == ReductionKind::Sum
+                && registry.kind(ty.key.kind)?.addition_kind
+                    == QuantityAdditionKind::OriginSensitive
+                && ty.key.scale_kind == ScaleKind::Point
+            {
+                return Err(incompatible(IncompatibilityReason::SumOfPoints, operands));
+            }
+            if *kind == ReductionKind::Prod && registry.neutral_dimensionless() != Some(ty.id) {
+                return Err(invariant(
+                    "reduction.product",
+                    "finite product requires a neutral scalar element type",
+                ));
+            }
+            if *kind == ReductionKind::Sum
+                && !match_rules(request, operands, registry, false)?.is_empty()
+            {
+                registered(request, operands, registry, checker)
+            } else {
+                Ok(built(ty.id, IndexSet::new(), BuiltInRule::Reduction))
             }
         }
         OpRequest::UnitConvert { spec } => unit_convert(operands, *spec, registry),
@@ -703,7 +741,7 @@ fn request_opcode(request: &OpRequest<'_>) -> Opcode {
         OpRequest::Affine { .. } => Opcode::Affine,
         OpRequest::Gather { .. } => Opcode::Gather,
         OpRequest::WeightedMean { .. } => Opcode::WeightedMean,
-        OpRequest::Reduce { kind, .. } => match kind {
+        OpRequest::Reduce { kind, .. } | OpRequest::FiniteReduce { kind, .. } => match kind {
             ReductionKind::Sum => Opcode::SumOver,
             ReductionKind::Prod => Opcode::ProdOver,
             ReductionKind::Min => Opcode::MinOver,
@@ -737,6 +775,7 @@ fn match_rules<'a>(
                 OpRequest::Reduce { bound, .. } | OpRequest::Integral { bound, .. } => {
                     Some(bound.kind)
                 }
+                OpRequest::FiniteReduce { domain, .. } => *domain,
                 _ => None,
             };
             if actual != Some(required) {
@@ -793,12 +832,50 @@ fn registered(
     checker: &dyn InvariantChecker,
 ) -> Result<Inferred, QuantityError> {
     let opcode = request_opcode(request);
-    let ordered = match_rules(request, operands, registry, false)?;
-    let swapped = if ordered.is_empty() && opcode == Opcode::Mul && operands.len() == 2 {
+    let mut ordered = match_rules(request, operands, registry, false)?;
+    let mut swapped = if ordered.is_empty() && opcode == Opcode::Mul && operands.len() == 2 {
         match_rules(request, operands, registry, true)?
     } else {
         vec![]
     };
+    // Kind dispatch narrows the candidates; actual physical contracts decide which
+    // declarations apply. Failure of every candidate remains a refusal, never a
+    // dimension-only fallback. Overlapping proved contracts remain ambiguous.
+    let mut refusal = None;
+    let mut admitted = |candidate: &Match<'_>| {
+        let aligned: Vec<_> = candidate
+            .permutation
+            .iter()
+            .zip(&candidate.types)
+            .map(|(position, quantity_type)| Operand {
+                quantity_type: *quantity_type,
+                indices: operands[usize::from(*position)].indices,
+            })
+            .collect();
+        for prerequisite in &candidate.rule.precondition_invariants {
+            if let Err(error) = checker.check(
+                *prerequisite,
+                request,
+                Some(candidate.rule),
+                &aligned,
+                registry,
+            ) {
+                if refusal.is_none() {
+                    refusal = Some(error);
+                }
+                return false;
+            }
+        }
+        true
+    };
+    ordered.retain(&mut admitted);
+    swapped.retain(&mut admitted);
+    if ordered.is_empty()
+        && swapped.is_empty()
+        && let Some(error) = refusal
+    {
+        return Err(error);
+    }
     let selected = if ordered.len() == 1 {
         &ordered[0]
     } else if ordered.is_empty() && swapped.len() == 1 {
@@ -840,9 +917,6 @@ fn registered(
             indices: operands[usize::from(*position)].indices,
         })
         .collect();
-    for invariant in &selected.rule.precondition_invariants {
-        checker.check(*invariant, request, Some(selected.rule), &aligned, registry)?;
-    }
     let (key, indices) = compose_key(request, rule, &types, &aligned)?;
     let result = registry
         .resolve_key(&key)
@@ -936,7 +1010,7 @@ fn compose_shape(
     rule: &QuantityOperation,
     types: &[&QuantityType],
     aligned: &[Operand<'_>],
-) -> Result<(Vec<DomainKind>, IndexSet), QuantityError> {
+) -> Result<(Vec<EntityKindId>, IndexSet), QuantityError> {
     Ok(match rule.shape_rule {
         QuantityShapeRule::Preserve => {
             let source = usize::from(rule.shape_source.ok_or_else(|| {
@@ -966,6 +1040,16 @@ fn compose_shape(
             (vec![], IndexSet::new())
         }
         QuantityShapeRule::ReduceBoundIndex => {
+            if let OpRequest::FiniteReduce { .. } = request {
+                count(aligned, 1)?;
+                if !types[0].key.shape.is_empty() || !aligned[0].indices.is_empty() {
+                    return Err(invariant(
+                        "reduction.scalar_cells",
+                        "finite contraction cannot discard free indices",
+                    ));
+                }
+                return Ok((vec![], IndexSet::new()));
+            }
             let (OpRequest::Integral { bound, .. } | OpRequest::Reduce { bound, .. }) = request
             else {
                 return Err(invariant(
@@ -1100,6 +1184,10 @@ fn dimension_for(
         )?),
         (
             OpRequest::Reduce {
+                kind: ReductionKind::Sum,
+                ..
+            }
+            | OpRequest::FiniteReduce {
                 kind: ReductionKind::Sum,
                 ..
             },

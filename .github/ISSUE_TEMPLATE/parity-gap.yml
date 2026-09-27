@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 name: Parity gap
-description: pse-arrow and idaes-pse 2.12.0 disagree — numerically, structurally, or in what they accept.
+description: pse-arrow and idaes-pse 2.13.0 disagree — numerically, structurally, or in what they accept.
 title: "parity: "
 labels: ["kind/parity-gap"]
 body:
@@ -9,7 +9,7 @@ body:
     attributes:
       value: >-
         Parity means: for the models covered by the parity harness, `pse-arrow` and
-        **`idaes-pse==2.12.0`** agree within a declared tolerance, on Linux, with Ipopt
+        **`idaes-pse==2.13.0`** agree within a declared tolerance, on Linux, with Ipopt
         3.14.x + MUMPS from the pinned solver image. A gap is a disagreement inside that
         envelope.
 
@@ -33,7 +33,7 @@ body:
         If there is a parity test for it already, name the test.
       placeholder: |
         idaes.models.unit_models.heat_exchanger.HeatExchanger with
-        idaes.models.properties.modular_properties … , idaes-pse 2.12.0
+        idaes.models.properties.modular_properties … , idaes-pse 2.13.0
         Parity test: python/pse/parity/tests/test_heat_exchanger.py::test_duty_trajectory
     validations:
       required: true
@@ -120,7 +120,7 @@ body:
       label: Before submitting
       options:
         - label: >-
-            The parity pre-flight passed — Python < 3.14, `idaes.__version__ == "2.12.0"`,
+            The parity pre-flight passed — Python < 3.15, `idaes.__version__ == "2.13.0"`,
             and `ipopt` 3.14.x on `PATH` (it fails rather than skips when it is not).
           required: true
         - label: >-

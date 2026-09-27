@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("01a0e1db89d8722baac398ee550708de") package reactions {
+@id("01a0e1db89d8722baac398efec36a3de") use kinds @"1.0.0";
+@id("01a0e1db89d8722baac398f0fcb5c70e") use caloric @"1.0.0";
+@id("01a0e1db89d8722baac398f174bd89ab") use helmholtz @"1.0.0";
+@id("01a0e1db89d8722baac398f231ae9216") use aqueous @"1.0.0";
+@id("01a0e1db89d8722baac398dee47d35cc") fn rate_constant_unit()->SecondOrderRateConstant=1{m^3/(mol*s)};
+@id("01a0e1db89d8722baac398df1319943e") fn activation_unit()->ActivationEnergy=1{J/mol};
+@id("01a0e1db89d8722baac398e0544080af") fn rate_unit()->VolumetricReactionRate=1{mol/(m^3*s)};
+@id("01a0e1db89d8722baac398e1d154a385") fn arrhenius(T:Temperature,k0:SecondOrderRateConstant,E:ActivationEnergy)->SecondOrderRateConstant valid(T>caloric.absolute_zero() and k0>=0{m^3/(mol*s)} and E>=0{J/mol})=k0*exp(-(E/activation_unit())/(helmholtz.reduced_gas_constant()*(T/caloric.kelvin())));
+@id("01a0e1db89d8722baac398e213e1c3fa") fn second_order(T:Temperature,a:MolarDensity,b:MolarDensity,k0:SecondOrderRateConstant,E:ActivationEnergy)->VolumetricReactionRate valid(a>=0{mol/m3} and b>=0{mol/m3})=rate_unit()*(arrhenius(T,k0,E)/rate_constant_unit())*(a/aqueous.concentration_unit())*(b/aqueous.concentration_unit());
+@id("01a0e1db89d8722baac398e3f53e64ef") interface RateLaw {
+@id("01a0e1db89d8722baac398e4e335ce0d") param components:Set<kinds.species>;
+@id("01a0e1db89d8722baac398e5988e7028") param reactions:Set<kinds.reaction>;
+@id("01a0e1db89d8722baac398e63f4d132c") param method:Fn(T:Temperature,c:MolarDensity[kinds.species],r:kinds.reaction)->VolumetricReactionRate;
+@id("01a0e1db89d8722baac398e7ed5792e9") param heat_method:Fn(r:kinds.reaction)->ReactionHeat;
+@id("01a0e1db89d8722baac398e811f7337c") param stoichiometry:Fn(r:kinds.reaction,j:kinds.species)->Scalar;
+@id("01a0e1db89d8722baac398e9bf3e6cde") var T:Temperature;
+@id("01a0e1db89d8722baac398eaea8d4312") var concentration[j in components]:MolarDensity;
+@id("010b2de0f47e4f6599d9f6ca42f5a125") annotation start T(300{K});
+@id("e9193f10a77748f487861127d649502e") annotation nominal T(300{K});
+@id("7cde6cdac75f42b881550ba93316dc85") annotation start concentration(100{mol/m3});
+@id("a9aa15615f3844d7a006e079b6122ece") annotation nominal concentration(100{mol/m3});
+@id("01a0e1db89d8722baac398eb336c849d") let rate[r in reactions]:VolumetricReactionRate=method(T,concentration,r);
+@id("01a0e1db89d8722baac398eca7e9fa1b") let heat[r in reactions]:ReactionHeat=heat_method(r);
+@id("01a0e1db89d8722baac398ede4f70358") let stoich[r in reactions,j in components]:Scalar=stoichiometry(r,j);
+}
+}

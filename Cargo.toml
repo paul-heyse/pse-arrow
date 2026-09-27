@@ -53,12 +53,12 @@ allocation-counter = "=0.8.1"
 # ---- internal (path deps; `version` is added when publish flips to true) ----
 pse-codegen = { path = "crates/pse-codegen" }
 pse-model = { path = "crates/pse-model" }
+pse-modeling = { path = "crates/pse-modeling" }
 pse-columnar = { path = "crates/pse-columnar" }
 pse-schema = { path = "crates/pse-schema" }
 pse-relations = { path = "crates/pse-relations" }
 pse-ids = { path = "crates/pse-ids" }
 pse-quantity = { path = "crates/pse-quantity" }
-pse-material = { path = "crates/pse-material" }
 pse-authoring = { path = "crates/pse-authoring" }
 pse-math = { path = "crates/pse-math" }
 pse-rules = { path = "crates/pse-rules" }
@@ -402,9 +402,9 @@ roots = [
   "pse-ids",
   "pse-diagnostics",
   "pse-model",
+  "pse-modeling",
   "pse-authoring",
   "pse-quantity",
-  "pse-material",
   "pse-structural",
   "pse-compiler",
 ]

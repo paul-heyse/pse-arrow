@@ -34,7 +34,7 @@
   description: "Needs a decision recorded as an ADR before code lands"
 - name: "kind/parity-gap"
   color: "b60205"
-  description: "Disagreement with idaes-pse 2.12.0 inside the parity envelope"
+  description: "Disagreement with idaes-pse 2.13.0 inside the parity envelope"
 - name: "kind/library-upgrade"
   color: "1d76db"
   description: "Move a pinned dependency or a whole dependency family"

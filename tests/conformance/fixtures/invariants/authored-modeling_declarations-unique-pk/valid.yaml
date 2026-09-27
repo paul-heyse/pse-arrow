@@ -1,0 +1,19 @@
+{
+  "invariant": "authored.modeling_declarations:unique:pk",
+  "rows": {
+    "authored.modeling_declarations": [
+      {
+        "declaration_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "document_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "is_override": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"i64\",1]",
+        "parent_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_end": "[\"i64\",1]",
+        "source_start": "[\"i64\",1]",
+        "value": "[\"struct\",[[\"enum\",\"accumulator\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"list\",[]],[\"text\",\"value-1\"],[\"enum\",\"conservation\"],[\"text\",\"value-1\"]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

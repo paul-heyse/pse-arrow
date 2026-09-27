@@ -240,7 +240,7 @@ impl NativeStrategyResult {
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct NativeAttempt {
-    inner: SolveReport,
+    pub(super) inner: SolveReport,
 }
 #[pymethods]
 impl NativeAttempt {

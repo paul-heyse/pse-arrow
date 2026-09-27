@@ -15,6 +15,37 @@ use pse_authoring::dsl::{
 };
 
 #[test]
+fn finite_fold_round_trip_preserves_lexical_value_and_step_scopes() {
+    let text = "fold(acc, value; j in items where j != excluded | data[j]; acc + value*weight[j])";
+    let ast = parse_expr(text).unwrap();
+    assert!(ast.structural_eq(&parse_expr(&render_expr(&ast)).unwrap()));
+    let free = ast
+        .free_paths()
+        .iter()
+        .map(|p| pse_authoring::dsl::render_path(p))
+        .collect::<Vec<_>>();
+    assert!(free.iter().any(|p| p == "items"));
+    assert!(free.iter().any(|p| p == "excluded"));
+    assert!(
+        !free
+            .iter()
+            .any(|p| matches!(p.as_str(), "acc" | "value" | "j"))
+    );
+    let mut rewritten = ast.clone();
+    rewritten
+        .try_walk_mut::<()>(|e| {
+            if let ExprKind::Path(p) = &mut e.kind
+                && p.segments[0].name == "weight"
+            {
+                p.segments[0].name = "factor".into();
+            }
+            Ok(())
+        })
+        .unwrap();
+    assert!(render_expr(&rewritten).contains("factor[j]"));
+}
+
+#[test]
 fn blueprint_expressions_preserve_their_actual_structure() {
     let mut snapshots = Vec::new();
     for text in [
@@ -136,7 +167,6 @@ fn hostile_or_incomplete_forms_fail_with_offsets_without_panicking() {
         "sum(i in phase a)",
         "smooth_min(x for i in phase, eps=1)",
         "a +",
-        "f(a)",
         "safe_log(a, eps=1, x)",
         "1{m/}",
         "x[]",
@@ -144,7 +174,11 @@ fn hostile_or_incomplete_forms_fail_with_offsets_without_panicking() {
         assert!(parse_expr(text).is_err(), "{text}");
     }
     assert!(matches!(
-        parse_expr(&"x".repeat(65_536)),
+        parse_expr(
+            &"x".repeat(
+                usize::try_from(pse_authoring::ParseBudget::DEFAULT_MAX_BYTES).unwrap() + 1
+            )
+        ),
         Err(DslError::Budget { limit: "bytes", .. })
     ));
     assert!(matches!(

@@ -557,3 +557,289 @@ fn shared_let_blocks_bound_repeated_nonlinear_tree_growth() {
     assert!((result.jacobian[0] - first).abs() < 1e-12);
     assert!((result.hessians[0] - second).abs() < 1e-12);
 }
+
+#[test]
+fn body_construction_allowance_can_be_explicitly_larger_than_default() {
+    let registry = standard_registry().unwrap();
+    let q = ids::quantity("neutral");
+    for allowance in [BodyLimits::default().occurrences, 32768] {
+        let mut builder = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            1,
+            BodyLimits {
+                occurrences: allowance,
+                ..BodyLimits::default()
+            },
+        )
+        .unwrap();
+        let x = builder.input(0, q, IndexSet::new(), source()).unwrap();
+        let mut value = x.clone();
+        let mut failure = None;
+        for _ in 0..16385 {
+            match builder.binary(Binary::Add, value.clone(), x.clone(), None, source()) {
+                Ok(next) => value = next,
+                Err(error) => {
+                    failure = Some(error);
+                    break;
+                }
+            }
+        }
+        if allowance == BodyLimits::default().occurrences {
+            assert!(matches!(
+                failure,
+                Some(crate::MathError::Limit("body occurrences"))
+            ));
+        } else {
+            assert!(failure.is_none());
+            let cancel = Arc::new(AtomicBool::new(false));
+            let mut worker = builder
+                .finish(
+                    &[value],
+                    DerivativeOrder::First,
+                    Optimization::default(),
+                    &cancel,
+                )
+                .unwrap()
+                .worker();
+            let jet = worker
+                .evaluate(&[2.], DerivativeOrder::First, &mut BTreeMap::new(), &cancel)
+                .unwrap();
+            assert_eq!(jet.values, vec![32772.]);
+            assert_eq!(jet.jacobian, vec![16386.]);
+        }
+    }
+}
+
+#[test]
+fn shared_nonlinear_coefficients_preserve_affine_rate_support() {
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    for nonlinear_rate in [false, true] {
+        let mut builder = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            2,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let rate = builder
+            .input(0, ids::quantity("neutral"), IndexSet::new(), source())
+            .unwrap();
+        let parameter = builder
+            .input(1, ids::quantity("neutral"), IndexSet::new(), source())
+            .unwrap();
+        let mut coefficient = builder.unary(Function::Log, parameter, source()).unwrap();
+        let mut expected = 0.2_f64;
+        for _ in 0..32 {
+            let sin = builder
+                .unary(Function::Sin, coefficient.clone(), source())
+                .unwrap();
+            let cos = builder.unary(Function::Cos, coefficient, source()).unwrap();
+            coefficient = builder
+                .binary(Binary::Add, sin, cos, None, source())
+                .unwrap();
+            coefficient = builder.bind(coefficient).unwrap();
+            expected = expected.sin() + expected.cos();
+        }
+        let product = builder
+            .binary(Binary::Mul, rate.clone(), coefficient, None, source())
+            .unwrap();
+        let output = if nonlinear_rate {
+            builder
+                .binary(Binary::Mul, product, rate, None, source())
+                .unwrap()
+        } else {
+            product
+        };
+        let body = builder.prepare(&[output]).unwrap();
+        if nonlinear_rate {
+            assert!(body.support().second[0].contains(&(0, 0)));
+            assert!(crate::implicit::Affine::new(&body, 1).is_err());
+            continue;
+        }
+        assert!(body.expression(0).is_none());
+        assert!(!body.support().second[0].contains(&(0, 0)));
+        assert!(body.support().second[0].contains(&(0, 1)));
+        assert!(body.support().second[0].contains(&(1, 1)));
+        crate::implicit::Affine::new(&body, 1).unwrap();
+        let mut worker = body
+            .compile(
+                &[0],
+                &[0, 1],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                crate::jets::EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap()
+            .worker();
+        let jet = worker
+            .evaluate(
+                &[3., 0.2_f64.exp()],
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert!((jet.values[0] - 3. * expected).abs() < 1e-12);
+        assert!((jet.jacobian[0] - expected).abs() < 1e-12);
+        assert_eq!(jet.hessians[0], 0.);
+        assert!(
+            worker
+                .evaluate(
+                    &[3., -1.],
+                    DerivativeOrder::Second,
+                    &mut BTreeMap::new(),
+                    &cancel
+                )
+                .is_err()
+        );
+    }
+}
+
+#[test]
+fn exponential_of_nested_logarithms_preserves_values_and_derivatives() {
+    crate::initialize().unwrap();
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    for fixed in [false, true] {
+        let mut b = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            usize::from(!fixed),
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let literal = |b: &mut BodyBuilder<'_>, value| {
+            b.literal(
+                value,
+                registry
+                    .quantity_type(ids::quantity("neutral"))
+                    .unwrap()
+                    .canonical_unit,
+                pse_quantity::literal::LiteralContext::Explicit {
+                    quantity_type: ids::quantity("neutral"),
+                },
+                source(),
+            )
+            .unwrap()
+        };
+        let x = if fixed {
+            literal(&mut b, 2.)
+        } else {
+            b.input(0, ids::quantity("neutral"), IndexSet::new(), source())
+                .unwrap()
+        };
+        let logarithm = b.unary(Function::Log, x, source()).unwrap();
+        let quarter = literal(&mut b, 0.25);
+        let term = b
+            .binary(Binary::Mul, logarithm.clone(), quarter, None, source())
+            .unwrap();
+        let one = literal(&mut b, 1.);
+        let term = b.binary(Binary::Sub, term, one, None, source()).unwrap();
+        let term = b
+            .binary(Binary::Mul, logarithm, term, None, source())
+            .unwrap();
+        let three = literal(&mut b, 3.);
+        let exponent = b.binary(Binary::Add, three, term, None, source()).unwrap();
+        let exponential = b.unary(Function::Exp, exponent.clone(), source()).unwrap();
+        let mut worker = b
+            .finish(
+                &[exponential, exponent],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                &cancel,
+            )
+            .unwrap()
+            .worker();
+        for x in if fixed {
+            vec![2.0_f64]
+        } else {
+            vec![2.0_f64, 5., 20.]
+        } {
+            let g = 3. + x.ln() * (x.ln() / 4. - 1.);
+            let dg = (x.ln() / 2. - 1.) / x;
+            let ddg = (1.5 - x.ln() / 2.) / (x * x);
+            for order in [
+                DerivativeOrder::Value,
+                DerivativeOrder::First,
+                DerivativeOrder::Second,
+            ] {
+                let result = worker
+                    .evaluate(
+                        &if fixed { vec![] } else { vec![x] },
+                        order,
+                        &mut BTreeMap::new(),
+                        &cancel,
+                    )
+                    .unwrap();
+                assert!((result.values[0] - g.exp()).abs() < 1e-11, "{result:?}");
+                assert!((result.values[1] - g).abs() < 1e-12);
+                if !fixed && order >= DerivativeOrder::First {
+                    assert!((result.jacobian[0] - g.exp() * dg).abs() < 1e-11);
+                    assert!((result.jacobian[1] - dg).abs() < 1e-12);
+                }
+                if !fixed && order >= DerivativeOrder::Second {
+                    assert!((result.hessians[0] - g.exp() * (dg * dg + ddg)).abs() < 1e-11);
+                    assert!((result.hessians[1] - ddg).abs() < 1e-12);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn shared_aliases_reuse_slots_but_partial_arguments_remain_independent() {
+    let registry = standard_registry().unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits {
+            slots: 8,
+            occurrences: 128,
+        },
+    )
+    .unwrap();
+    let mut x = builder
+        .input(0, ids::quantity("neutral"), IndexSet::new(), source())
+        .unwrap();
+    for _ in 0..64 {
+        x = builder.bind(x).unwrap();
+    }
+    let a = builder.independent(x.clone()).unwrap();
+    let b = builder.independent(x).unwrap();
+    let scope = builder.function_scope();
+    let product = builder
+        .binary(Binary::Mul, a.clone(), b, None, source())
+        .unwrap();
+    let derivative = builder.partial(scope, product, &[a], source()).unwrap();
+    let body = builder.prepare(&[derivative]).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let compiled = body
+        .compile(
+            &[0],
+            &[0],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &cancel,
+        )
+        .unwrap();
+    let result = compiled
+        .worker()
+        .evaluate(
+            &[3.],
+            DerivativeOrder::Second,
+            &mut BTreeMap::new(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(result.values, vec![3.]);
+    assert_eq!(result.jacobian, vec![1.]);
+}

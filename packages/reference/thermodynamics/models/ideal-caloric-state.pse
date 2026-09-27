@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("a8cbfb3fbe6241c7bbaa0b1d534a9fac") package ideal_caloric_state {
+@id("681a749c67e0476c98ca3bff7c0b0618") use kinds @"1.0.0";
+@id("f21929aacb324034b3385a220dd1ba81") use equilibrium @"1.0.0";
+@id("0fa5555ad5e9425487ce121716721238") use caloric @"1.0.0";
+@id("98e4077edd1e48ec811f435d314348b8") use helmholtz @"1.0.0";
+@id("0fb5bfea78084dad8cf6d2688e180c3d") interface IdealGasState extends equilibrium.EntropyThermoPackage {
+@id("ab324a958c5e4d3a93acea3c16318088") param component_h:Fn(T:Temperature,j:kinds.species)->MolarEnthalpy;
+@id("1c69744112bc458baf91647a7ccb4207") param component_s:Fn(T:Temperature,j:kinds.species)->MolarEntropy;
+@id("bfc22f31704c4c7a9b164a7bbb9c00cf") param reference_pressure:Pressure;
+@id("48b7742347a04348bff88245ce309554") param minimum_temperature:Temperature;
+@id("306f9ed8081f49c6920df5f98f39958c") param maximum_temperature:Temperature;
+@id("2d2937d6880f42e89a10d3224824b0de") override param phases:Set<kinds.phase>={equilibrium.vapor};
+@id("577ef7dbf6b44a53b57b11af94ec6b53") let phase_enthalpy[p in phases]:MolarEnthalpy=h;
+@id("0c2d3c34495f49a5ad3abdac2a3dbaac") let phase_flow[p in phases]:Flow=flow;
+@id("5b0a96313d054d74ae0e57efe086ff2b") let phase_component_flow[p in phases,j in components]:ComponentFlow=component_flow[j];
+@id("0883bc239db1440ea53d3b81636ff560") eq enthalpy:h==equilibrium.enthalpy_datum()+sum(j in components | (z[j]/equilibrium.fraction_unit())*(component_h(T,j)-equilibrium.enthalpy_datum()));
+@id("7bbafb6b113a4d9aba1f12ec6a224054") let s:MolarEntropy=equilibrium.entropy_datum()+sum(j in components | (z[j]/equilibrium.fraction_unit())*(component_s(T,j)-equilibrium.entropy_datum()))-caloric.s_unit()*helmholtz.reduced_gas_constant()*(log(pressure/reference_pressure)+sum(j in components | (z[j]/equilibrium.fraction_unit())*log(z[j]/equilibrium.fraction_unit())));
+@id("26e64380c8164ae489a3a470e3e91cf1") when not defined {
+@id("db94a8a671cd4275aedfa62a13b221bb") eq normalized:sum(j in components | z[j]/equilibrium.fraction_unit())==1;
+}
+@id("58d8762abce845c599e77ff62445aab0") annotation start flow(1{mol/s});
+@id("955866b85230401b9dedbb7ce848aac4") annotation nominal flow(1{mol/s});
+@id("b956ce97bdb940f78e13aa6e2e08135c") annotation start T(300{K});
+@id("c4a3397319cb427b8a2eea0d8983b3db") annotation nominal T(300{K});
+@id("ca15ae98d10f478681463befcfd42707") annotation bounds T(minimum_temperature,maximum_temperature);
+@id("69a33ee2795e47b5a901d1d90f97175b") annotation valid T(minimum_temperature,maximum_temperature,reject);
+@id("c94c1eaafcc046ffb00554a3b3d6bfe5") annotation start pressure(reference_pressure);
+@id("b83e029554c7428ca61aa8e872f88c2d") annotation nominal pressure(reference_pressure);
+@id("9924e5433ba9432a8f810e7a990765ab") annotation bounds pressure(1{Pa},100000000{Pa});
+@id("55264df2005c496eb2844bda979d837a") annotation start z(equilibrium.fraction_unit()/sum(j in components | 1));
+@id("4ceef21ee3b847b2a83c6db3e3ef50f1") annotation bounds z(1e-12{1},1{1});
+@id("14110a2fca514435ac44c8d0b974d8b5") annotation start h(0{J/mol});
+@id("5c6fabb4ec1f44c198d0220507e83812") annotation nominal h(10000{J/mol});
+}
+}

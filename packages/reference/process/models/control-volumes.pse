@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("35967416f406452a98e2d8798bc7c3eb") package control_volumes {
+@id("fad0df45a05043aab47fa86fb46a06fa") use kinds @"1.0.0";
+@id("06e61a91f30f4151873a54209bd83190") use equilibrium @"1.0.0";
+@id("bee5ac9c31614333966f869cce24e75a") enum MaterialBalance {componentPhase,componentTotal,elementTotal,total}
+@id("38ac5f84712546f29f7e027a8741d512") fn element_flow_unit()->ElementFlow=1{mol/s};
+@id("40f0b54ac58945819315b96a5663bb71") interface ControlVolume0D {
+@id("ed28654dfc04469eb777c6393db2ff5d") param has_holdup:Boolean=false;
+@id("9f92fa22dae34cecb63ad8fc5935cb94") when has_holdup {
+@id("e65add71c52a47af97cfa4115c432f3d") var phase_material_holdup[p in phases,j in components]:Amount;
+@id("866d1dac169543028f4088c7e7fe102f") var phase_energy_holdup[p in phases]:Energy;
+@id("550e486255384be9a1d8ab5ecfee4891") var phase_material_accumulation[p in phases,j in components]:ComponentFlow;
+@id("0b435b7ce157433888ca20f64f2167e4") var phase_energy_accumulation[p in phases]:Power;
+@id("2f839079384d4509980d40ce26a1b8f9") annotation start phase_material_holdup(1{mol});
+@id("23825a758e134c81bc7807fd86c9132b") annotation nominal phase_material_holdup(1{mol});
+@id("c72f2e1a9eb04616a8952fafdf3d099a") annotation start phase_energy_holdup(1000{J});
+@id("6444a049da5e4486bbd1c7bad8a7fbc1") annotation nominal phase_energy_holdup(10000{J});
+@id("1a65b682fce04c9fa8326a410a877c79") annotation start phase_material_accumulation(0{mol/s});
+@id("bdf472b656d048a2a04bbe519c4cb616") annotation nominal phase_material_accumulation(0.1{mol/s});
+@id("eac79aae24f14091bb600ee4903d633f") annotation start phase_energy_accumulation(0{W});
+@id("945d6c66447a4859b1b0258c2439dae7") annotation nominal phase_energy_accumulation(10000{W});
+@id("8a7ca72ddbb44c4b9c5868db50841b3a") when not analysis.dynamic {
+@id("e7f7e38468db4780b678e83341b8e5e4") eq steady_material[p in phases,j in components]:phase_material_accumulation[p,j]==0{mol/s};
+@id("0842a0b5175240339a8fb7d2b6d1c55b") eq steady_energy[p in phases]:phase_energy_accumulation[p]==0{W};
+}
+}
+@id("4fee7b020ea94caaae04d6d470202852") param material_basis:MaterialBalance=MaterialBalance.componentTotal;
+@id("9b5e8a73656444e1b1db2b41a049c162") param phases:Set<kinds.phase>=outlet_package.phases;
+@id("0fecf4a5ef1b476e9d7e154dc118c3bb") param elements:Set<kinds.element>={};
+@id("eb6a112a2c7c426b99ce4d5f023bf714") param atoms:Fn(j:kinds.species,e:kinds.element)->Scalar;
+
+@id("106bd81f5f93497884ab1374afebc60e") param inlet_package:equilibrium.ThermoPackage;
+@id("c3d86eece83048a186ad684765daed71") param outlet_package:equilibrium.ThermoPackage;
+@id("07be8fcd4a814d7d944468c3057ab7a3") param components:Set<kinds.species>=outlet_package.components;
+@id("c6bb619d7e3841e491b89d2573e15323") require inlet_package.components==components : "control-volume states must have identical component membership";
+@id("8a5fc0115d4a45628b40a3c09d63064c") require inlet_package.defined and not outlet_package.defined : "the inlet is specified and the outlet supplies its state normalization";
+@id("ab5f966e34534f86a829c7b70c8aaaf1") require not analysis.dynamic or has_holdup : "dynamic balances require explicit material and energy holdup";
+@id("b2ed414fb8334b78a1e928ccf96399e8") child inlet:equilibrium.ThermoPackage=inlet_package;
+@id("9a74872ba8f44159a5b66eb7cfc55d99") child outlet:equilibrium.ThermoPackage=outlet_package;
+@id("aff464f3bdf54523a91889b498b50b14") var heat:Power;
+@id("f40bcc95de8c466e95c84f27afc9bc7a") var work:Power;
+@id("7ed07f19c8f147d494e8eb642c80b04a") var delta_pressure:DeltaPressure;
+@id("183a20409fa5473ca8132e91cedb238c") when material_basis==MaterialBalance.componentTotal {
+@id("42d4a51a26b7407a98ff3a8504dcaa35") accumulate material[j in components]:ComponentFlow conservation tolerance 1e-7{mol/s};
+@id("7a9f38e7b50644b5925ff3b5e0ec134a") when has_holdup {
+@id("9a52309ab81d49a18075401c6278c28f") contribute [p in phases,j in components] material[j] role outflow=phase_material_accumulation[p,j];
+}
+@id("e39f95988e4e45e3bc78127eb34f7614") contribute [j in components] material[j] role inflow = inlet.component_flow[j];
+@id("c80d735e9b71403581214a35544ca40e") contribute [j in components] material[j] role outflow = outlet.component_flow[j];
+}
+@id("6ece094ef3fb49ceb20580ecd9f431b4") when material_basis==MaterialBalance.componentPhase {
+@id("305af969164a4d188db7975bab081ff3") require inlet_package.phases==phases : "component-phase balances require matching phase membership";
+@id("31135c5338814551b89141333e01115c") accumulate phase_material[p in phases,j in components]:ComponentFlow conservation tolerance 1e-7{mol/s};
+@id("7e2004b8a32b42f5aa06431eed1cf015") when has_holdup {
+@id("b9b3249341b547799224b51bc1a1af11") contribute [p in phases,j in components] phase_material[p,j] role outflow=phase_material_accumulation[p,j];
+}
+@id("d1efaa5ca57f4d76b73d9ccec46110d5") contribute [p in phases,j in components] phase_material[p,j] role inflow=inlet.phase_component_flow[p,j];
+@id("df84432c1f08410db8a856ce8853f6a0") contribute [p in phases,j in components] phase_material[p,j] role outflow=outlet.phase_component_flow[p,j];
+}
+@id("f00f8b3f267147afbba4b8064dc033d9") when material_basis==MaterialBalance.elementTotal {
+@id("9cf52e89c00b46468ef56cb552928ac7") require sum(e in elements | 1)>0 : "element balances require a nonempty declared element set";
+@id("010c7966596a403990e537cea3824add") accumulate element_material[e in elements]:ElementFlow conservation tolerance 1e-7{mol/s};
+@id("35e42d8004514da8856f71ac8f204e38") when has_holdup {
+@id("b92985adc24e41a897333e19d95d6fe5") contribute [e in elements] element_material[e] role outflow=element_flow_unit()*sum(p in phases | sum(j in components | atoms(j,e)*(phase_material_accumulation[p,j]/equilibrium.component_flow_unit())));
+}
+@id("7d548e7975f8416ba6fa490f86cddc2a") contribute [e in elements] element_material[e] role inflow=element_flow_unit()*sum(j in components | atoms(j,e)*(inlet.component_flow[j]/equilibrium.component_flow_unit()));
+@id("fb18326eb2f140129c630d2b613b88da") contribute [e in elements] element_material[e] role outflow=element_flow_unit()*sum(j in components | atoms(j,e)*(outlet.component_flow[j]/equilibrium.component_flow_unit()));
+}
+@id("af4445fa336943a8985c14f63543c81d") when material_basis==MaterialBalance.total {
+@id("b93058539ead4b52a85d7e5ec3d0c884") accumulate total_material:Flow conservation tolerance 1e-7{mol/s};
+@id("c848a28add7046b28243155b54adf6f0") when has_holdup {
+@id("ed82362b90494b58bf8dc24411d5706a") contribute total_material role outflow=equilibrium.flow_unit()*sum(p in phases | sum(j in components | phase_material_accumulation[p,j]/equilibrium.component_flow_unit()));
+}
+@id("8fcfb383c76c4970912ea6576b10c2eb") contribute total_material role inflow=inlet.flow;
+@id("5172cda3618744979c5a906f18189ea4") contribute total_material role outflow=outlet.flow;
+}
+@id("5aa73bb4d74b44a0b3a4f8f6b60fa917") accumulate energy:Power conservation tolerance 0.001{W};
+@id("27e531eb38c043f0afe1ae67077eeb70") when has_holdup {
+@id("08bcf731525149beb87a88dfb82ac510") contribute [p in phases] energy role outflow=phase_energy_accumulation[p];
+}
+@id("4fcc4b7e14694bfb9e96ae569e35679e") contribute energy role inflow = inlet.energy_flow;
+@id("622005f9ccfa4b9384cfdc5a9e65ad9a") contribute energy role outflow = outlet.energy_flow;
+@id("7be2cd18372e48a5adcc862a0325f652") contribute energy role positive = heat;
+@id("b2ff6c6b5d5e487baafb7d165a149172") contribute energy role positive = work;
+@id("92d4872d50f84787885a979b55482615") eq pressure_balance:outlet.pressure==inlet.pressure+delta_pressure;
+@id("5400b7b8f9bb42bba195dbbdbab7027e") annotation start heat(0{W});
+@id("19d1f5157ba94b058f964f7c5e586b44") annotation nominal heat(10000{W});
+@id("bad3cc15f96e41b392b0b7e38afecfb0") annotation start work(0{W});
+@id("bb15ad26d84e4a679cf9f262957165b8") annotation nominal work(10000{W});
+@id("a15e34c13d95457ba2523b75fe7b32c1") annotation start delta_pressure(0{Pa});
+@id("82616445dc76434bb15724ea9fb633c2") annotation nominal delta_pressure(100000{Pa});
+@id("353d84c5d1be4536afa5231ced2471a4") port inlet_flow:Flow=inlet.flow;
+@id("91927eec6c554520b762135b0c487734") annotation connectivity inlet_flow(1,0);
+@id("932b5976d5854c8c9dde1231cfb3cd8e") port inlet_temperature:Temperature=inlet.T;
+@id("5945d252e33244f1a79c49a8a397513b") annotation connectivity inlet_temperature(1,0);
+@id("a918c28e49c646f2a40361dd00899987") port inlet_pressure:Pressure=inlet.pressure;
+@id("3a27bf1c2c294d7f9e2b3c13f3b02417") annotation connectivity inlet_pressure(1,0);
+@id("b1e279694be14601989bfefa0d0b7e17") port inlet_composition[j in components]:MoleFraction=inlet.z[j];
+@id("f44ae1dfe8d94d97a946d30e03cf127f") annotation connectivity inlet_composition(1,0);
+@id("a36e1418b3a944798a8cb1600f8cf069") port outlet_flow:Flow=outlet.flow;
+@id("ee8bf9dc6a5744d09ae6049e7803e3bf") annotation connectivity outlet_flow(0,1);
+@id("12c81e92e97249eaa5799c805c553484") port outlet_temperature:Temperature=outlet.T;
+@id("04e38bd5b7f1431b874702c08cbc7b7f") annotation connectivity outlet_temperature(0,1);
+@id("e7b2a1b1543e49a592f3e766045bbdb3") port outlet_pressure:Pressure=outlet.pressure;
+@id("86a38644462343c18de826e55813324e") annotation connectivity outlet_pressure(0,1);
+@id("9c2b01b5ce274e0784623f82f8463ef0") port outlet_composition[j in components]:MoleFraction=outlet.z[j];
+@id("7a54ed8cb8344b35aaddd9c8f8720bf2") annotation connectivity outlet_composition(0,1);
+@id("c1f94440ae6c4941851e49f36ea25559") annotation report inlet.T("inlet.T");
+@id("67a3cc63b34f4e32a8c2c022e9f8f4e1") annotation report outlet.T("outlet.T");
+@id("e5d7ec3a8d9144a592ebfa44b65f0649") annotation report inlet.h("inlet.h");
+@id("4f21cba145004f03aa1d0ded2c2c6482") annotation report outlet.h("outlet.h");
+@id("088d49042f4f4554a83507dfa54bbf74") annotation report inlet.energy_flow("inlet.energy_flow");
+@id("8714c530434c4ce1a9606eafc36b0e7c") annotation report outlet.energy_flow("outlet.energy_flow");
+@id("1cb0a812d0c5419db809ddc053a3bfe5") annotation report inlet.flow("inlet.flow");
+@id("e5c9d569b2fd4bb5a0a41bff8a503242") annotation report outlet.flow("outlet.flow");
+}
+}

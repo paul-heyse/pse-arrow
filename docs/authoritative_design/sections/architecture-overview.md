@@ -16,13 +16,15 @@ contracts live in the numbered pages it links. Source owners are the workflow in
 
 `pse-arrow` is a clean-room process systems engineering core in Rust with a Python
 authoring and result boundary. It re-implements the modeling capability of IDAES-PSE,
-compared against `idaes-pse==2.12.0` through an isolated parity harness only; see
+compared against `idaes-pse==2.13.0` through an isolated parity harness only; see
 [Relationship to IDAES](../../relationship-to-idaes.md). Routes, authority and notation
 are in the [reading guide](reading-guide.md).
 
 ### 0.2 What "core IDAES-PSE capabilities" means here
 
-The scope is the modeling framework, not the IDAES example libraries. The table names
+The target scope includes the IDAES modeling framework and scientific libraries. K0–K8
+implements the generic mechanisms and selected scientific seed; the remaining Plan 20
+ports are not implied by that seed. The table names
 the capability families the architecture is shaped to express and how each is realized.
 Scope is not a delivery commitment: implemented, partial and absent coverage is recorded
 in the [capability coverage appendix](scope-and-open-design.md#capability-coverage-against-idaes),
@@ -33,20 +35,20 @@ relative to `idaes-pse/idaes/`.
 |---|---|---|---|
 | Process blocks, config, flowsheets | `core/base/process_block.py`, `flowsheet_model.py` | Reusable typed definitions, parameters, finite domains and instance bindings ([§11](models-and-composition.md#section-11), [§22](models-and-composition.md#section-22)) | In scope |
 | Unit model base, ports, arcs | `core/base/unit_model.py`, Pyomo `network` | Typed ports and connections admitted by the selected revision ([§12](models-and-composition.md#section-12)) | In scope |
-| Control volumes and balances | `core/base/control_volume*.py` | Balances generated from declared contributions ([§10](models-and-composition.md#section-10)) | In scope; distributed volumes not implemented |
-| Property and modular property framework | `core/base/property_*.py`, `models/properties/modular_properties/**` | Explicit material bindings and physical providers; authored correlation methods ([§9](physical-semantics.md#section-9)) | In scope |
+| Control volumes and balances | `core/base/control_volume*.py` | Balances generated from declared contributions ([§10](models-and-composition.md#section-10)) | In scope; zero- and one-dimensional seed definitions |
+| Property and modular property framework | `core/base/property_*.py`, `models/properties/modular_properties/**` | Authored interfaces, functions, potentials and binding definitions ([§9](physical-semantics.md#section-9)) | In scope |
 | Reaction framework | `core/base/reaction_base.py`, modular `reactions/**` | Declared stoichiometry, element closure and energy convention ([§9](physical-semantics.md#section-9)) | In scope |
-| Generic unit model library | `models/unit_models/*.py` | Authored templates ([§11](models-and-composition.md#section-11)) | In scope |
+| Generic unit model library | `models/unit_models/*.py` | Authored definitions ([§11](models-and-composition.md#section-11)) | In scope |
 | Initialization, homotopy | `core/initialization/**`, `core/solvers/homotopy.py` | Transactional staged strategies, explicit starts and finite continuation ([§17](numerical-execution.md#section-17)) | In scope |
 | Scaling toolbox | `core/scaling/**` | One resolved numerical policy and coordinate normalization ([§16](numerical-execution.md#section-16)) | In scope |
 | Statistics and diagnostics | `core/util/model_statistics.py`, `diagnostics_tools/**` | Structural analysis and original-space qualification ([§15](numerical-execution.md#section-15)) | In scope |
 | Solver configuration | `core/solvers/**` | Class-specific native adapters and profiles ([§18](numerical-execution.md#section-18)) | In scope |
-| Dynamics | `core/util/dyn_utils.py`, Pyomo `dae` | Native ODE/index-1 integration; no discretization lowering ([§13](workflows-and-results.md#section-13)) | In scope within the dynamic profile |
+| Dynamics | `core/util/dyn_utils.py`, Pyomo `dae` | Native ODE/index-1 integration; authored simultaneous discretization ([§13](workflows-and-results.md#section-13)) | In scope within the dynamic profile |
 | Parameter estimation, sweeps | `core/util/parameter_sweep.py`, `convergence/**` | Native fitting and finite case batches ([§19](workflows-and-results.md#section-19)) | In scope |
-| Costing, utility minimization | `core/base/costing_base.py`, `models/costing/SSLW.py`, `core/util/utility_minimization.py` | Authored templates over the same compiler | In scope; not implemented |
+| Costing, utility minimization | `core/base/costing_base.py`, `models/costing/SSLW.py`, `core/util/utility_minimization.py` | Authored definitions over the same compiler | In scope; SSLW seed implemented |
 | Serialization, tables, tags, units | `core/util/model_serializer.py`, `tables.py`, `tags.py`, `units_of_measurement.py` | Registry relations, Arrow results and exact publication ([§4](schema-and-relations.md#section-4), [§20](identity-and-publication.md#section-20)) | In scope |
 | Helmholtz and CoolProp backends | `models/properties/helmholtz/**`, `general_helmholtz/**`, `coolprop/**` | Physical provider contracts only | In scope as providers; not implemented |
-| Surrogates, DMF, UI, apps, `models_extra` | various | — | Out of scope |
+| Surrogates, DMF, UI, apps, `models_extra` | various | Plan 20 target families; no broad delivery claim from the K8 seed | Target scope; later ports |
 | Pyomo expression, NL and external-function mechanisms | Pyomo, ASL | — | Out of scope; capability is native, parity is isolated |
 
 IDAES names are preserved only where parity needs a two-way mapping; the enumerations are
@@ -85,16 +87,19 @@ candidate availability, original-space numerical qualification, recomputed physi
 and final usability remain separate facts. Library callbacks contain failures, and
 cancellation keeps admission until native threads and thread-local state are destroyed.
 
-**Physical providers.** FeOS supplies explicit-density PC-SAFT with DIPPR ideal-gas
-contributions; num-dual supplies derivatives at the workspace pin. Ports carry quantity,
-basis and reference, component order, data identity and phase. Declared operating envelopes
-are enforced and do not establish empirical accuracy. Derivative availability does not
-imply phase regularity. Balances keep independent conservation checks
+**Scientific knowledge.** Thermodynamics, reactions, units, controllers and costing are
+package data on `pse-modeling`. Functions and interface defaults compose Symbolica-owned
+mathematics; implicit blocks declare their realization and branch assumptions. Ideal, PR
+and PC-SAFT seed potentials, caloric methods and state bindings ship as authored definitions.
+FeOS and num-dual remain independent reference-only dependencies. The generic external
+function host admits explicit capabilities without a built-in science catalogue. Original
+model checks and conservation remain independent of native termination
 ([§9](physical-semantics.md#section-9)).
 
-**Dynamics and fitting.** The dynamic profile is ODE or index-1 DAE with a fixed
+**Dynamics and fitting.** The integrated dynamic profile is ODE or index-1 DAE with a fixed
 diag(I,0) mass matrix, consistent initialization, finite events and resets, and smooth
-forward sensitivities. Steady, transient and mixed fitting reuse the same NLP oracle and
+forward sensitivities. Authored finite-difference and Radau schemes also lower spatial or
+time axes to simultaneous algebraic problems. Steady, transient and mixed fitting reuse the same NLP oracle and
 physical results. General implicit or higher-index DAEs, hybrid IDAS sensitivities, global
 identifiability and uncertainty claims are outside the profile
 ([§13](workflows-and-results.md#section-13), [§19](workflows-and-results.md#section-19)).
@@ -115,15 +120,18 @@ The registry generates every public declaration contract.
 > [ADR-0092](../../adr/0092-ordinary-execution-evidence.md)
 
 The foundation keeps each meaning in one owner and derives every consumer projection
-from it. All rows below are implemented; limits are recorded in
+from it. The implementation below replaces the former selected builder/relationship vocabulary.
+Decision rationale for this change is in proposed ADR-0097–0101; their acceptance and the
+K8 assessment remain separately tracked by [Plan 21](../../plans/21-modeling-kernel.md).
+Limits are recorded in
 [§25](scope-and-open-design.md#section-25).
 
 | Concern | Contract | Owner | Detail |
 |---|---|---|---|
-| Selected admission | Typed builders and documents enter one boundary. Every selected declaration is consumed, retained as explicitly nonexecuting data, or refused with its source identity. Unrelated stored cases are not selected. | `pse-runtime::workflow` (`ModelBuilder`, `AdmissionEntry`), compiler `Inputs` | [§22](models-and-composition.md#section-22) |
-| Separate lifecycles | Definitions, instance bindings, case/analysis requests, resolved numerical policy, prepared products, used starts, results and publications have distinct identities. | workflow model, `pse-compiler::workspace`, `pse-math::assembly` | [§5](identity-and-publication.md#section-5) |
-| Material and provider binding | Declared species map to actual PC-SAFT/DIPPR records in explicit coordinate order; separate enthalpy and entropy references; declared envelope and stability policy. Phase-equilibrium execution is refused. | `pse-kernels::feos`, `pse-material` | [§9](physical-semantics.md#section-9) |
-| Reaction binding | Declared phases and species, element closure and an explicit heat term; the formation-enthalpy convention is not implemented. Equilibrium and multiphase reactions are refused. | `pse-runtime::workflow` reactions | [§9](physical-semantics.md#section-9) |
+| Selected admission | Immutable package closures supply exact dependencies, visibility and physical aliases; selected definitions and cases specialize through one checked path. | `pse-runtime::workflow::modeling`, `pse-modeling`, compiler modeling queries | [§22](models-and-composition.md#section-22) |
+| Separate lifecycles | Package revisions, specialized models, case bindings, resolved numerical policy, prepared products, starts, results and publications have distinct ownership. | modeling runtime, `pse-compiler::workspace`, `pse-math::assembly` | [§5](identity-and-publication.md#section-5) |
+| Scientific binding | Entity kinds, sets, tables, interfaces, functions and definitions carry materials, states and property choices; branch-local closures refuse unproved crossings. | authored reference packages and generic modeling mechanisms | [§9](physical-semantics.md#section-9) |
+| Conservation and reactions | Generic accumulators consume signed contributions with explicit roles, transfer identities and closure checks; science chooses subjects and energy conventions. | `pse-modeling` and authored process/reaction definitions | [§10](models-and-composition.md#section-10) |
 | Shared vocabulary | Registry-owned tags projected into `pse-model`, Arrow codecs and Python contracts. Diagnostics classify the failure kind and keep source identities, stage and observations. | `pse-schema`, `pse-model`, `pse-diagnostics` | [§23](operations-and-validation.md#section-23) |
 | Identity projections | Versioned, named projections per scope. Floating framing preserves signed zero. Semantic contract identity excludes documentation and encoding. | `pse-ids`, `pse-compiler::physical_identity` | [§5](identity-and-publication.md#section-5) |
 | Publication and retention | Immutable attempt members, an expected-parent precondition, a control manifest committed last, read-only settlement and exact reopening under an explicit compatibility and retention contract. | `pse-catalog::delta` | [§20](identity-and-publication.md#section-20) |
@@ -136,7 +144,7 @@ from it. All rows below are implemented; limits are recorded in
 Authored typed definitions carry engineering intent. The runtime admits a selected,
 immutable model, case and analysis into compiler inputs. Checked physical and structural
 preparation derives library-owned mathematical programs and native layouts. Libraries own
-the algorithms: Symbolica/Numerica for arithmetic and derivatives, FeOS for thermodynamics,
+the algorithms: Symbolica/Numerica for arithmetic and derivatives,
 native solvers for iteration and factorization, Salsa for synchronous semantic reuse.
 Arrow and DataFusion serve columnar and relational boundaries; Delta serves exact
 publication. Definitions, policies, attempts and results have separate owners and
@@ -147,10 +155,10 @@ Dependencies point from foundations towards orchestration. Crate roles are owned
 
 | Layer | Crates | Responsibility | Depends on |
 |---|---|---|---|
-| Foundations | `pse-diagnostics`, `pse-ids`, `pse-quantity`, `pse-material`, `pse-columnar` | Diagnostic vocabulary, identity and canonical hashing, physical quantities and functions, material facts, owned Arrow buffers | Nothing above this layer |
+| Foundations | `pse-diagnostics`, `pse-ids`, `pse-quantity`, `pse-columnar` | Diagnostic vocabulary, identity and canonical hashing, physical quantities and functions, owned Arrow buffers | Nothing above this layer |
 | Declaration | `pse-schema`, `pse-model`, `pse-relations` | Registry; generated library-neutral values; typed Arrow views and validators | Foundations |
 | Data | `pse-engine`, `pse-catalog`, `pse-rules` | DataFusion sessions and caches; Delta publication and retention; registry invariant checks | Declaration |
-| Mathematics | `pse-kernels`, `pse-math`, `pse-structural`, `pse-authoring`, `pse-compiler`, `pse-backend-native`, `pse-ipopt-sys` | Providers; library mathematics; graph projections; document parsing; specialization and Salsa preparation; native solver adapters | Foundations, `pse-model`, `pse-buildinfo` |
+| Mathematics | `pse-kernels`, `pse-math`, `pse-structural`, `pse-authoring`, `pse-modeling`, `pse-compiler`, `pse-backend-native`, `pse-ipopt-sys` | External functions; library mathematics; graph projections; syntax; generic checking and specialization; Salsa preparation; native solver adapters | Foundations, `pse-model`, `pse-buildinfo` |
 | Orchestration | `pse-runtime` | Selected admission, workflow jobs, resources, results and publication | All of the above |
 | Boundary | `pse-py` | Python extension over the workflow and inspection | `pse-runtime` and the crates whose types it exposes |
 | Tooling | `pse-codegen`, `pse-buildinfo`, `pse-testkit`, `xtask` | Generation, build provenance, dev fixtures | Declaration; `pse-testkit` is never a production dependency |
@@ -163,7 +171,7 @@ evaluation and native solver state cannot leak into storage.
 
 | Representation | Current forms | Owner | Consumers |
 |---|---|---|---|
-| Authored definitions and the selected revision | Documents and builder declarations, `ModelRevision`, case and analysis declarations; `authored` and `reference` relations | `pse-authoring`, `pse-runtime::workflow::model`, registry | Compiler and inspection |
+| Authored definitions and the selected revision | Modeling documents, checked package revisions, cases and analysis declarations; generic `authored` and physical `reference` relations | `pse-authoring`, `pse-modeling`, runtime modeling admission, registry | Compiler and inspection |
 | Prepared immutable products | Compiler `Inputs`, `CaseStructure`, `PreparedCase`, `BodySpec`, `CasePlan`, compiled bodies, artifact requests, eligibility | `pse-compiler`, `pse-math`, `pse-backend-native::routing` | Attempt workers and native adapters |
 | Attempts and results | Run handles, workers and native adapter state; `RunResult`, `Completion`, Arrow result tables, publication attempts and settlements | `pse-runtime`, `pse-catalog` | Rust, Arrow and Python readers; exact publication |
 
@@ -187,14 +195,16 @@ pins live in `Cargo.toml`, rationale in [§3.3](workspace-and-dependencies.md#se
 | faer | Sparse structure and products; fitting LU/SVD | `pse-math`, `pse-backend-native`, `pse-runtime` |
 | pounce-presolve | Matching, DM/BTF, qualified presolve | `pse-structural`, `pse-math`, `pse-backend-native` |
 | petgraph, rustworkx-core | Flowsheet SCCs, deterministic ordering | `pse-structural` |
-| FeOS, num-dual | PC-SAFT/DIPPR properties and derivatives; valve law derivatives | `pse-kernels` |
+| FeOS, num-dual | Independent thermodynamic reference only; absent from production | conformance test feature |
 | Ipopt, POUNCE, KINSOL, HiGHS, Clarabel, Diffsol, IDAS | Class-specific native solving ([§0.5](#section-0-5)) | `pse-backend-native` |
 | pyo3, pyo3-async-runtimes, tokio | Python extension, async joined jobs | `pse-py`, `pse-runtime` |
 | blake3 | Identity hashing, only through `pse-ids` | `pse-ids` |
 
 ## 2. Architectural decisions
 
-Each decision is binding. Changing one requires an ADR and a design review (AGENTS.md).
+The retained decisions are binding; changing one requires an ADR and design review
+(AGENTS.md). The implemented K0–K8 refinements below are recorded in proposed ADR-0097–0101;
+implementation authorization does not assert decision-PR acceptance.
 The linked section owns the detailed contract.
 
 ### D1. The registry declares each meaning once; authored definitions are the model
@@ -206,7 +216,7 @@ The linked section owns the detailed contract.
 Every durable shape, tag and public declaration contract is declared once in the
 `pse-schema` registry. Rust values, Arrow schemas, Python contracts and reference docs are
 generated from it and checked for regeneration equivalence. Authored definitions, loaded
-from documents or built in Rust or Python, are the model authority; no hand-written
+from modeling documents through Rust or Python, are the model authority; no hand-written
 structure shadows a generated one. *Because* parallel descriptions drift silently.
 See [§4](schema-and-relations.md#section-4).
 
@@ -214,8 +224,8 @@ See [§4](schema-and-relations.md#section-4).
 
 > Decision: [ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)
 
-Authors write reusable definitions, instance bindings, connections, contributions,
-material and provider bindings, and case values. Specialized equations, balances, finite
+Authors write reusable definitions, parameter and interface bindings, connections,
+contributions, scientific functions and case values. Specialized equations, balances, finite
 expansions and structural decisions are derived by the compiler at selected
 specialization. Required meaning is explicit: an implicit property or reaction package is
 refused, not inferred. *Because* imperative build procedures restate consequences and let
@@ -249,8 +259,9 @@ never identity. *Because* each kind answers a different equality question. See
 > Decision: [ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)
 
 Every quantity-bearing value resolves a complete quantity type: kind, dimension, basis,
-reference state, point or difference scale, shape and subject. Ports and provider coordinates
-carry the same contract plus component order and phase. Conversion requires matching
+reference state, point or difference scale, shape and subject. Ports and external-function coordinates
+carry the same contract and declared index shape; scientific phase and component membership
+are authored entities and sets. Conversion requires matching
 meaning, not matching exponents. Absence is explicit; a missing value never means
 "unknown, to be solved". *Because* dimension checks accept torque-for-energy and
 gauge-for-absolute errors. See [§8](physical-semantics.md#section-8).
@@ -267,37 +278,37 @@ and better tested than a bespoke engine, and one authority avoids competing math
 See [§7](mathematics-and-compilation.md#section-7) and
 [§14](mathematics-and-compilation.md#section-14).
 
-### D7. Balances are generated from declared contributions
+### D7. Generic accumulators derive conservation and accounting
 
-> Decision: [ADR-0010](../../adr/0010-laws-are-templates-over-contributions.md),
-> [ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md)
+> Decision: proposed [ADR-0100](../../adr/0100-modeling-functions-and-accounting.md)
 
-Material, element and energy balances are law templates expanded over the contributions a
-definition declares. A transfer has one identity and opposite signs; extensive fanout needs
-declared splitting. Independent physical closure checks read the same source contributions,
-never solver residuals. *Because* a new unit should add contributions, not rewrite
-conservation. See [§10](models-and-composition.md#section-10).
+Packages declare accumulator subjects, signed contributions, roles, transfer identity and
+closure obligations. The kernel has no material, energy or costing enum. Independent
+checks read the original contributions, never a solver's reported residual. Conservation
+and accounting share composition while retaining their distinct closure semantics.
+See [§10](models-and-composition.md#section-10).
 
-### D8. Property and reaction demand is bound explicitly
+### D8. Demand is lazy, explicit and inspectable
 
-> Decision: [ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md)
+> Decision: proposed [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md),
+> [ADR-0099](../../adr/0099-modeling-language-and-identities.md)
 
-Provider calls declare requested outputs and derivative order against an explicit material
-binding. Reactions declare species, phases and energy convention. Missing or unsupported
-physics is refused before solving; inspection never constructs physics. *Because* lazy
-construction hides what a model depends on. See [§9](physical-semantics.md#section-9).
+A demanded member pulls its defining equations and dependencies through one bounded
+closure. Interface defaults, overrides, dispatch groups, presets and constructor arguments
+retain source lineage. Missing bindings or unsupported selected meaning refuse; inspection
+reads the already specialized result. Scientific knowledge introduces package declarations,
+not a second compiler. See [§11](models-and-composition.md#section-11).
 
-### D9. Physical providers have one typed contract
+### D9. Functions and realizations carry explicit contracts
 
-> Decision: [ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md),
-> [ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md),
-> [ADR-0093](../../adr/0093-qualified-native-strategies.md)
+> Decision: proposed [ADR-0100](../../adr/0100-modeling-functions-and-accounting.md)
 
-Provider registration states physical ports, data and component identity, phase, operating
-envelope, implemented derivative order, smoothness and typed recoverable or terminal
-failures. Outside-envelope evaluation is a recoverable trial failure, never silent
-extrapolation or a fabricated value. Only implemented bindings are exposed. *Because* derivative availability does not establish
-validity or regularity. See [§9](physical-semantics.md#section-9).
+Authored functions compose library primitives. Implicit blocks choose inline, nested or
+registered accelerated realization with explicit requirements. External capabilities state
+physical coordinates, data identity, shapes, derivatives, smoothness and typed failures.
+Validity and branch obligations survive simplification and differentiation; local derivative
+evidence never establishes global stability or empirical accuracy. See
+[§9](physical-semantics.md#section-9).
 
 ### D10. Computation placement follows the operation
 
@@ -305,7 +316,7 @@ validity or regularity. See [§9](physical-semantics.md#section-9).
 > [ADR-0066](../../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)
 
 Typed Rust owns physical finite compilation; Salsa owns pure dependency tracking;
-mathematical, thermodynamic and numerical libraries own their algorithms. Arrow and
+mathematical and numerical libraries own their algorithms; packages own scientific equations. Arrow and
 DataFusion own admission, set-oriented model and result work, inspection and storage
 boundaries; Delta owns publication. No layer duplicates another's authority. Hashes never
 substitute for semantic admission. *Because* each mechanism is strongest at its own

@@ -11,7 +11,6 @@
 use super::*;
 use pse_quantity::{BaseDimension, QuantityOperation, QuantityRegistry};
 
-mod formulas;
 
 fn root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -28,11 +27,7 @@ fn standard_fixture_matches_yaml() {
         source.preconditions(),
         pse_quantity::generated::standard_preconditions()
     );
-    let elements = pse_material::generated::standard_elements().expect("generated elements");
-    assert_eq!(
-        source.elements().elements().collect::<Vec<_>>(),
-        elements.elements().collect::<Vec<_>>()
-    );
+
 }
 
 fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
@@ -82,7 +77,7 @@ fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
                     x.temperature.map(f64::to_bits),
                     x.pressure.map(f64::to_bits),
                     x.include_enthalpy_of_formation,
-                    x.phase,
+                    x.subject,
                 )
             })
             .collect::<Vec<_>>()
@@ -186,7 +181,7 @@ fn assert_operation_equal(a: &QuantityOperation, b: &QuantityOperation) {
 }
 
 #[test]
-fn reference_package_admission_scientific_units_and_elements() {
+fn reference_package_admission_scientific_units() {
     let source = load(root(), pse_schema::registry().expect("registry")).expect("package data");
     // BIPM SI bases and NIST SP 811 Appendix B.8; checked independently of generator.
     let units = source.quantities();
@@ -220,35 +215,7 @@ fn reference_package_admission_scientific_units_and_elements() {
         .find(|s| s.base[7].is_none())
         .expect("physical SI");
     unit_set.validate(units).expect("all seven bases valid");
-    // CIAAW abridged 2024: C = 12.011 ± .002 and H = 1.0080 ± .0002 g/mol.
-    let carbon = source
-        .elements()
-        .elements()
-        .find(|e| e.symbol == "C")
-        .expect("carbon");
-    let hydrogen = source
-        .elements()
-        .elements()
-        .find(|e| e.symbol == "H")
-        .expect("hydrogen");
-    assert!((carbon.atomic_mass - 0.012_011).abs() <= 0.012_011 * 1e-15);
-    assert!((hydrogen.atomic_mass - 0.001_008).abs() <= 0.001_008 * 1e-15);
-    let benzene = pse_material::molecular_weight(
-        source.elements(),
-        &[
-            pse_material::ElementCount {
-                element: carbon.id,
-                count: 6.0,
-            },
-            pse_material::ElementCount {
-                element: hydrogen.id,
-                count: 6.0,
-            },
-        ],
-    )
-    .expect("composition")
-    .expect("present");
-    assert!((benzene - 0.078_114).abs() <= 6.0 * (0.000_002 + 0.000_000_2));
+
 }
 
 fn mutated_package(
@@ -263,13 +230,20 @@ fn mutated_package(
         destination.join("fixture-projection.toml"),
     )
     .expect("projection selection");
-    for package in ["physical", "elements", "fixture-currency"] {
+    for package in ["physical", "fixture-currency"] {
         let source = root().join("packages/reference").join(package);
         let target = destination.join(package);
         std::fs::create_dir_all(target.join("materials")).expect("material directory");
         for relative in ["package.toml", "materials/physical.yaml"] {
             std::fs::copy(source.join(relative), target.join(relative)).expect("source copy");
         }
+    }
+    let source_models = root().join("packages/reference/physical/models");
+    let target_models = destination.join("physical/models");
+    std::fs::create_dir_all(&target_models).expect("model directory");
+    for entry in std::fs::read_dir(source_models).expect("models") {
+        let entry = entry.expect("model source");
+        std::fs::copy(entry.path(), target_models.join(entry.file_name())).expect("model copy");
     }
     let path = destination.join(package).join("materials/physical.yaml");
     let text = std::fs::read_to_string(&path).expect("original source");
@@ -293,17 +267,13 @@ fn mutated_package(
 #[test]
 fn altered_physical_facts_are_admitted_from_values_or_refused() {
     let registry = pse_schema::registry().expect("registry");
+    let unchanged = mutated_package("physical", |_| {});
+    load(unchanged.path(), registry).expect("unchanged fixture closure admits");
     for (section, field, value) in [
         ("units", "scale_to_canonical", serde_json::json!(0.0)),
-        ("elements", "atomic_mass", serde_json::json!(-1.0)),
         ("reference_states", "pressure", serde_json::json!(-1.0)),
     ] {
-        let package = if section == "elements" {
-            "elements"
-        } else {
-            "physical"
-        };
-        let scratch = mutated_package(package, |body| body[section][0][field] = value);
+        let scratch = mutated_package("physical", |body| body[section][0][field] = value);
         assert!(load(scratch.path(), registry).is_err(), "{section}.{field}");
     }
     let dimensions = mutated_package("physical", |body| {
@@ -313,29 +283,5 @@ fn altered_physical_facts_are_admitted_from_values_or_refused() {
         load(dimensions.path(), registry).is_err(),
         "kind dimension disagrees with actual quantity canonical unit"
     );
-    let original = load(root(), registry).expect("original");
-    let changed = mutated_package("elements", |body| {
-        let element = body["elements"]
-            .as_array_mut()
-            .expect("elements")
-            .iter_mut()
-            .find(|row| row["symbol"] == "C")
-            .expect("carbon");
-        element["atomic_mass"] = serde_json::json!(0.013);
-    });
-    let altered = load(changed.path(), registry).expect("valid changed declaration");
-    let carbon = original
-        .elements()
-        .elements()
-        .find(|e| e.symbol == "C")
-        .expect("carbon")
-        .id;
-    let composition = [pse_material::ElementCount {
-        element: carbon,
-        count: 6.0,
-    }];
-    assert_ne!(
-        pse_material::molecular_weight(original.elements(), &composition).expect("old result"),
-        pse_material::molecular_weight(altered.elements(), &composition).expect("changed result"),
-    );
+
 }

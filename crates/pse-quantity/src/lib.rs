@@ -59,6 +59,8 @@ pub mod ids;
 pub mod index;
 pub mod infer;
 pub mod kind;
+pub mod entity_kind;
+pub use entity_kind::EntityKind;
 pub mod literal;
 pub mod numeric;
 pub mod operation;
@@ -67,6 +69,7 @@ pub mod quantity_type;
 pub mod reference_state;
 pub mod registry;
 pub mod smoothing;
+pub mod scheme;
 #[cfg(feature = "fixtures")]
 pub mod standard;
 pub mod unit;
@@ -76,13 +79,13 @@ pub use crate::basis::Basis;
 pub use crate::conversion::ConversionRule;
 pub use crate::dimension::{BaseDimension, DimensionVector, Ratio};
 pub use crate::enums::{
-    BasisKind, BasisRule, CompositionBasis, ConversionKind, DomainKind, Opcode,
+    BasisKind, BasisRule, CompositionBasis, ConversionKind, Opcode,
     QuantityAdditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind,
-    ReferenceRule, ReferenceStateKind, ScaleKind, SubjectKind, SubjectRule, WeightNormalization,
+    ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule, WeightNormalization,
 };
 pub use crate::error::{ContractComponent, DimensionError, IncompatibilityReason, QuantityError};
 pub use crate::ids::{
-    BasisId, BoundIndexId, ConstantId, ConversionId, DomainId, InvariantId, OperationId,
+    BasisId, BoundIndexId, ConstantId, ConversionId, DomainId, EntityKindId, InvariantId, OperationId,
     QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
 };
 pub use crate::index::{BinderConflict, BoundIndexRef, IndexSet};

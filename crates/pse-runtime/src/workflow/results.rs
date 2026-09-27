@@ -2,18 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 //! Registry-generated physical observations retain Arrow allocation ownership.
 use super::{RunResult, WorkflowError, contract, relation};
-use crate::math::solves::Outcome;
 use pse_backend_native::solve::{Metric, OptionValue};
 use pse_ids::SemanticId;
-use pse_model::HeapUsage;
 use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{
-        authored::computation_models as models,
-        enums::{DualQualification, NativeMetricKind},
+        enums::NativeMetricKind,
         runtime::{
-            solve_constraints as constraints, solve_metrics as metrics, solve_runs as runs,
-            solve_variables as variables,
+            solve_metrics as metrics,
         },
     },
 };
@@ -39,406 +35,14 @@ impl RunResult {
             .ok_or_else(|| Arc::new(contract("relation is not part of this run")))
     }
     fn encode(&self) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
-        let super::run::RunRequest::Solves(steps) = &self.request else {
-            return match self.request {
-                super::RunRequest::Simulation(_) => self.encode_simulation(),
-                _ => self.encode_fit(),
-            };
-        };
-        // Reserve declaration and bounded report expansion before creating Arrow builders.
-        // Export subsequently transfers buffer ownership into the shared native pool.
-        let bytes = steps
-            .iter()
-            .try_fold(0usize, |sum, step| {
-                let source = step.revision.0.row.owned_bytes();
-                let cells = step
-                    .compiled()
-                    .plan
-                    .columns()
-                    .len()
-                    .checked_add(step.compiled().plan.structure().rows().len())?;
-                sum.checked_add(source.checked_mul(8)?)?
-                    .checked_add(cells.checked_mul(2048)?)?
-                    .checked_add(
-                        step.profile
-                            .controls
-                            .report_allowance()
-                            .ok()?
-                            .checked_mul(8)?,
-                    )?
-                    .checked_add(65536)
-            })
-            .ok_or_else(|| contract("result encoding allocation extent overflow"))?;
-        let staging = pse_columnar::MemoryConsumer::new("workflow:result-encoding")
-            .register(&self.runtime.shared.pool());
-        staging
-            .try_grow(bytes)
-            .map_err(|e| WorkflowError::Math(e.into()))?;
-        let registry = &self.runtime.registry;
-        let mut run_rows = runs::Builder::with_registry(registry, steps.len()).map_err(relation)?;
-        let mut variable_rows = variables::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut constraint_rows =
-            constraints::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut metric_rows = metrics::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut models_rows = models::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut seen = std::collections::BTreeSet::new();
-        for (ordinal, request) in steps.iter().enumerate() {
-            let step = ordinal as i64;
-            let declaration = request
-                .revision
-                .0
-                .row
-                .cases
-                .iter()
-                .find(|c| c.case_id == request.case)
-                .ok_or_else(|| contract("selected declaration missing"))?;
-            if seen.insert(request.revision.0.row.model_id) {
-                models_rows
-                    .push(request.revision.0.row.clone())
-                    .map_err(relation)?;
-            }
-            let outcome = self.report.as_ref().ok().and_then(|r| match r {
-                super::run::RunReport::Solves(r) => r.outcomes.get(ordinal),
-                _ => None,
-            });
-            let native = match outcome {
-                Some(Outcome::Native(r)) => Some(r.as_ref()),
-                _ => None,
-            };
-            let constant = match outcome {
-                Some(Outcome::Constant(r)) => Some(r),
-                _ => None,
-            };
-            let observation = native
-                .and_then(|r| r.observation.as_ref())
-                .or_else(|| constant.map(|r| &r.observation));
-            let candidate = native.and_then(|r| r.candidate.as_ref());
-            run_rows
-                .push(
-                    self.completion()
-                        .map_err(|e| contract(e.to_string()))?
-                        .solves[ordinal]
-                        .clone(),
-                )
-                .map_err(relation)?;
-            let coordinates: BTreeMap<_, _> = native
-                .map(|r| {
-                    r.variables
-                        .iter()
-                        .enumerate()
-                        .map(|(i, id)| (*id, i))
-                        .collect()
-                })
-                .unwrap_or_default();
-            for v in &declaration.variables {
-                let p = &v.port;
-                let ix = coordinates.get(&p.symbol_id).copied();
-                let value = if v.fixed {
-                    declaration
-                        .values
-                        .iter()
-                        .find(|v| v.symbol_id == p.symbol_id)
-                        .map(|v| v.value)
-                } else {
-                    ix.and_then(|i| candidate.and_then(|c| c.primal.get(i).copied()))
-                };
-                let tolerance = if v.fixed {
-                    None
-                } else {
-                    let i = request
-                        .compiled()
-                        .plan
-                        .columns()
-                        .iter()
-                        .position(|id| *id == p.symbol_id);
-                    i.and_then(|i| request.solve.tolerances().variables.get(i).copied())
-                };
-                let dual_status = match observation {
-                    Some(o) if o.dual_error.is_none() => {
-                        DualQualification::EvaluatedKktNotSensitivityCertified
-                    }
-                    Some(o) if o.dual_error.is_some() => DualQualification::UnavailableOrInvalid,
-                    _ => DualQualification::Unavailable,
-                };
-                variable_rows
-                    .push(variables::Row {
-                        run_id: self.run_id,
-                        step,
-                        symbol_id: p.symbol_id,
-                        quantity_id: Some(p.quantity_id),
-                        unit_id: Some(p.unit_id),
-                        fixed: v.fixed,
-                        parameter: false,
-                        value,
-                        lower: v.lower,
-                        upper: v.upper,
-                        lower_violation: value.map(|x| v.lower.map_or(0.0, |l| (l - x).max(0.0))),
-                        upper_violation: value.map(|x| v.upper.map_or(0.0, |u| (x - u).max(0.0))),
-                        tolerance,
-                        lower_dual: ix.and_then(|i| {
-                            candidate.and_then(|c| {
-                                c.bound_dual.as_ref().and_then(|(l, _)| l.get(i).copied())
-                            })
-                        }),
-                        upper_dual: ix.and_then(|i| {
-                            candidate.and_then(|c| {
-                                c.bound_dual.as_ref().and_then(|(_, u)| u.get(i).copied())
-                            })
-                        }),
-                        reduced_cost: ix.and_then(|i| {
-                            candidate.and_then(|c| {
-                                c.reduced_costs.as_ref().and_then(|v| v.get(i).copied())
-                            })
-                        }),
-                        stationarity: ix.and_then(|i| {
-                            observation.and_then(|o| {
-                                o.stationarity.as_ref().and_then(|v| v.get(i).copied())
-                            })
-                        }),
-                        dual_qualification: dual_status,
-                    })
-                    .map_err(relation)?;
-            }
-            for p in &declaration.parameters {
-                variable_rows
-                    .push(variables::Row {
-                        run_id: self.run_id,
-                        step,
-                        symbol_id: p.symbol_id,
-                        quantity_id: Some(p.quantity_id),
-                        unit_id: Some(p.unit_id),
-                        fixed: true,
-                        parameter: true,
-                        value: declaration
-                            .values
-                            .iter()
-                            .find(|v| v.symbol_id == p.symbol_id)
-                            .map(|v| v.value),
-                        lower: None,
-                        upper: None,
-                        lower_violation: None,
-                        upper_violation: None,
-                        tolerance: None,
-                        lower_dual: None,
-                        upper_dual: None,
-                        reduced_cost: None,
-                        stationarity: None,
-                        dual_qualification: DualQualification::NotApplicableParameter,
-                    })
-                    .map_err(relation)?;
-            }
-            let rows = request.compiled().plan.structure().rows();
-            for (i, r) in rows.iter().enumerate() {
-                let unit = request
-                    .revision
-                    .0
-                    .physical
-                    .quantities
-                    .quantity_type(r.quantity)
-                    .map_err(super::math)?
-                    .canonical_unit
-                    .as_id();
-                constraint_rows
-                    .push(constraints::Row {
-                        run_id: self.run_id,
-                        step,
-                        row_id: r.id,
-                        quantity_id: Some(r.quantity.as_id()),
-                        unit_id: Some(unit),
-                        value: observation.and_then(|o| o.values.get(i).copied()),
-                        lower: r.lower.is_finite().then_some(r.lower),
-                        upper: r.upper.is_finite().then_some(r.upper),
-                        equality_residual: observation
-                            .and_then(|o| o.equality_residuals.get(i).copied().flatten()),
-                        lower_violation: observation
-                            .and_then(|o| o.lower_violations.get(i).copied()),
-                        upper_violation: observation
-                            .and_then(|o| o.upper_violations.get(i).copied()),
-                        tolerance: request.solve.tolerances().rows.get(i).copied(),
-                        dual: candidate
-                            .and_then(|c| c.row_dual.as_ref().and_then(|v| v.get(i).copied())),
-                        dual_qualification: observation.map_or(
-                            DualQualification::Unavailable,
-                            |o| {
-                                if o.dual_error.is_none() {
-                                    DualQualification::EvaluatedKktNotSensitivityCertified
-                                } else {
-                                    DualQualification::UnavailableOrInvalid
-                                }
-                            },
-                        ),
-                    })
-                    .map_err(relation)?;
-            }
-            for (name, value) in [
-                (
-                    "physical.origin",
-                    request.revision.0.physical.origin.to_owned(),
-                ),
-                (
-                    "physical.identity",
-                    request.revision.0.physical.key.to_prefixed(),
-                ),
-                ("registry", registry.fingerprint().to_prefixed()),
-                ("build.source", pse_buildinfo::SOURCE_IDENTITY.to_prefixed()),
-                (
-                    "build.identity",
-                    pse_buildinfo::BUILD_IDENTITY.to_prefixed(),
-                ),
-                (
-                    "profile.requested_identity",
-                    crate::math::solves::profile_key(&request.profile)
-                        .map_err(crate::math::MathRuntimeError::from)?
-                        .to_prefixed(),
-                ),
-                (
-                    "compiler.structure",
-                    request.compiled().plan.structure().key().to_prefixed(),
-                ),
-                (
-                    "compiler.presolve_facts",
-                    request.compiled().presolve.key.to_prefixed(),
-                ),
-            ] {
-                push_metric(
-                    &mut metric_rows,
-                    self.run_id,
-                    step,
-                    "provenance",
-                    name,
-                    &Metric::Text(value),
-                )?;
-            }
-            if let Some(proof) = request.solve.quadratic_evidence() {
-                use pse_math::convexity::ConvexityAssessment;
-                let (state, values, reason) = match proof.assessment() {
-                    None | Some(ConvexityAssessment::Exact(_)) => ("exact_gram", vec![], None),
-                    Some(ConvexityAssessment::NumericalPsd {
-                        minimum,
-                        tolerance,
-                        uncertainty,
-                    }) => (
-                        "numerical_psd",
-                        vec![
-                            ("minimum", *minimum),
-                            ("tolerance", *tolerance),
-                            ("uncertainty", *uncertainty),
-                        ],
-                        None,
-                    ),
-                    Some(ConvexityAssessment::Indefinite {
-                        minimum,
-                        uncertainty,
-                    }) => (
-                        "indefinite",
-                        vec![("minimum", *minimum), ("uncertainty", *uncertainty)],
-                        None,
-                    ),
-                    Some(ConvexityAssessment::Inconclusive(reason)) => {
-                        ("inconclusive", vec![], Some(reason.as_str().to_owned()))
-                    }
-                };
-                push_metric(
-                    &mut metric_rows,
-                    self.run_id,
-                    step,
-                    "convexity",
-                    "assessment",
-                    &Metric::Text(state.into()),
-                )?;
-                for (name, value) in values {
-                    push_metric(
-                        &mut metric_rows,
-                        self.run_id,
-                        step,
-                        "convexity",
-                        name,
-                        &Metric::Real(value),
-                    )?;
-                }
-                if let Some(reason) = reason {
-                    push_metric(
-                        &mut metric_rows,
-                        self.run_id,
-                        step,
-                        "convexity",
-                        "reason",
-                        &Metric::Text(reason),
-                    )?;
-                }
-            }
-            for (name, provider) in &request.revision.0.providers {
-                push_metric(
-                    &mut metric_rows,
-                    self.run_id,
-                    step,
-                    "provider",
-                    &format!("{name}.identity"),
-                    &Metric::Text(provider.registration.spec().identity().to_prefixed()),
-                )?;
-                push_metric(
-                    &mut metric_rows,
-                    self.run_id,
-                    step,
-                    "provider",
-                    &format!("{name}.output"),
-                    &Metric::Integer(provider.output as i64),
-                )?;
-            }
-            if let Some(identity) = request.solve.compatibility() {
-                push_metric(
-                    &mut metric_rows,
-                    self.run_id,
-                    step,
-                    "provenance",
-                    "prepared.layout",
-                    &Metric::Text(identity.layout.to_prefixed()),
-                )?;
-                push_metric(
-                    &mut metric_rows,
-                    self.run_id,
-                    step,
-                    "provenance",
-                    "prepared.data",
-                    &Metric::Text(identity.data.to_prefixed()),
-                )?;
-            }
-            if let Some(native) = native {
-                push_native_metrics(&mut metric_rows, self.run_id, step, native)?;
-                if let Some(o) = observation
-                    && let Some(error) = &o.dual_error
-                {
-                    push_metric(
-                        &mut metric_rows,
-                        self.run_id,
-                        step,
-                        "diagnostic",
-                        "dual",
-                        &Metric::Text(error.clone()),
-                    )?;
-                }
-            }
+        match &self.request {
+            super::RunRequest::Simulation(_) => self.encode_simulation(),
+            super::RunRequest::Modeling(_) => self.encode_modeling(),
+            super::RunRequest::Fit(_) => self.encode_fit(),
         }
-        let mut batches = BTreeMap::from([
-            (runs::RELATION_ID, run_rows.finish().map_err(relation)?),
-            (
-                variables::RELATION_ID,
-                variable_rows.finish().map_err(relation)?,
-            ),
-            (
-                constraints::RELATION_ID,
-                constraint_rows.finish().map_err(relation)?,
-            ),
-            (
-                metrics::RELATION_ID,
-                metric_rows.finish().map_err(relation)?,
-            ),
-            (models::RELATION_ID, models_rows.finish().map_err(relation)?),
-        ]);
-        self.retain_sources(&mut batches)?;
-        Ok(batches)
     }
 }
+
 pub(super) fn push_metric(
     builder: &mut metrics::Builder,
     run_id: SemanticId,
@@ -696,17 +300,27 @@ pub(super) fn push_native_metrics(
                 run_id,
                 step,
                 "highs.relaxation",
-                "native_code",
-                &Metric::Integer(r.termination.code),
+                "restored_model_code",
+                &Metric::Integer(r.restored_status.code),
             )?;
             push_metric(
                 builder,
                 run_id,
                 step,
                 "highs.relaxation",
-                "native_status",
-                &Metric::Text(r.termination.name.clone()),
+                "restored_model_status",
+                &Metric::Text(r.restored_status.name.clone()),
             )?;
+            if let Some(penalty) = r.penalty {
+                push_metric(
+                    builder,
+                    run_id,
+                    step,
+                    "highs.relaxation",
+                    "weighted_penalty",
+                    &Metric::Real(penalty),
+                )?;
+            }
             if let Some(primal) = &r.primal {
                 for (i, value) in primal.iter().enumerate() {
                     push_metric(

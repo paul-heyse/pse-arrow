@@ -53,6 +53,7 @@ fn ty(n: u8) -> QuantityType {
 }
 fn builder() -> QuantityRegistryBuilder {
     let mut b = QuantityRegistryBuilder::new();
+    b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(91)),name:"synthetic.item".into()});
     b.unit(unit(1, DimensionVector::DIMENSIONLESS))
         .kind(kind(1))
         .quantity_type(ty(1))
@@ -92,7 +93,7 @@ fn complete_key_lookup_and_neutral_designation_use_actual_components() {
             .is_neutral_scalar(&reg)
     );
     let mut changed = ty(1).key;
-    changed.subject_kind = Some(SubjectKind::Species);
+    changed.subject_kind = Some(EntityKindId::from_id(raw(91)));
     assert!(reg.resolve_key(&changed).is_err());
     assert_eq!(
         reg.unit_by_symbol("u1").expect("symbol").id,
@@ -115,6 +116,7 @@ fn complete_key_lookup_and_neutral_designation_use_actual_components() {
 #[test]
 fn duplicate_identity_symbol_and_semantic_key_are_rejected() {
     let mut b = builder();
+    b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(91)),name:"synthetic.item".into()});
     b.unit(unit(1, DimensionVector::DIMENSIONLESS));
     assert!(b.build().is_err());
     let mut b = builder();
@@ -156,7 +158,8 @@ fn quantity_unit_nominal_and_reference_contracts_are_checked() {
     for change in 0..6 {
         let mut b = QuantityRegistryBuilder::new();
         let mut value = ty(1);
-        b.unit(unit(1, DimensionVector::DIMENSIONLESS))
+        b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(91)),name:"synthetic.item".into()});
+    b.unit(unit(1, DimensionVector::DIMENSIONLESS))
             .kind(kind(1));
         match change {
             0 => value.canonical_unit = UnitId::from_id(raw(99)),
@@ -179,7 +182,8 @@ fn quantity_unit_nominal_and_reference_contracts_are_checked() {
 fn neutral_binding_rejects_composition_obligations() {
     let mut b = QuantityRegistryBuilder::new();
     let mut value = ty(1);
-    value.key.subject_kind = Some(SubjectKind::Species);
+    value.key.subject_kind = Some(EntityKindId::from_id(raw(91)));
+    b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(91)),name:"synthetic.item".into()});
     b.unit(unit(1, DimensionVector::DIMENSIONLESS))
         .kind(kind(1))
         .quantity_type(value)
@@ -194,7 +198,7 @@ fn reference_states_and_standard_volume_bases_are_admitted_together() {
         temperature: Some(298.15),
         pressure: Some(101_325.0),
         include_enthalpy_of_formation: true,
-        phase: None,
+        subject: None,
     };
     let basis = Basis {
         id: BasisId::from_id(raw(1)),

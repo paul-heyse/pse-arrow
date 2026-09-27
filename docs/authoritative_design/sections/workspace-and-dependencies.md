@@ -20,8 +20,8 @@ boundaries are part of the architecture: adding or removing a `pse-*` crate need
 ([§24.4](design-change-workflow.md#section-24-4)). Adding a third-party library does not
 ([§3.3.2](#section-3-3-2)). Library choices follow the responsibilities in
 [§0.5](architecture-overview.md#section-0-5): authored typed relations remain the model
-authority. Libraries own the mathematics, thermodynamics, numerical algorithms, relational
-execution and storage they are good at.
+authority. Authored packages own scientific equations and data. Libraries own mathematics,
+numerical algorithms, relational execution and storage.
 
 ### 3.1 Version authority and pinned families
 
@@ -58,15 +58,15 @@ ceilings:
 
 | Ceiling | Roots | Excluded from the closure |
 |---|---|---|
-| semantic | `pse-ids`, `pse-diagnostics`, `pse-model`, `pse-authoring`, `pse-quantity`, `pse-material`, `pse-structural`, `pse-compiler` | Arrow, Parquet, DataFusion, Delta, `object_store`, Tokio |
+| semantic | `pse-ids`, `pse-diagnostics`, `pse-model`, `pse-authoring`, `pse-quantity`, `pse-modeling`, `pse-structural`, `pse-compiler` | Arrow, Parquet, DataFusion, Delta, `object_store`, Tokio |
 | columnar | `pse-schema`, `pse-relations`, `pse-columnar` | full DataFusion/SQL, Delta, engine, catalog, runtime and codegen crates |
 | generator | `pse-codegen` | DataFusion, Delta and every crate that consumes generated values |
 
 **Versions that are contracts.** A few versions are themselves part of the design. They
 are cited by the decision that owns them rather than by this page:
 
-- Parity is pinned to the isolated `idaes-pse==2.12.0` reference
-  ([ADR-0003](../../adr/0003-clean-room-relationship-and-parity-pin.md)).
+- Parity is pinned to the isolated `idaes-pse==2.13.0` reference
+  ([ADR-0097](../../adr/0097-modeling-scope-and-parity.md), proposed; pin implemented).
 - Ipopt is built from pinned sources in a digest-pinned solver image, and the committed
   bindgen output follows its C ABI
   ([ADR-0028](../../adr/0028-solver-acquisition-source-built-ipopt.md)).
@@ -84,7 +84,8 @@ evidence.
 ### 3.2 Workspace crates and dependency direction
 
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
-> [ADR-0083](../../adr/0083-class-specific-native-execution.md)
+> [ADR-0083](../../adr/0083-class-specific-native-execution.md),
+> [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md) (proposed; implementation authorized).
 
 Cargo metadata owns workspace membership: `members` in the root manifest are `crates/*`,
 the five `tests/*` crates, `xtask` and `benches`. The table explains roles; it does not
@@ -95,13 +96,13 @@ register crates.
 | `pse-diagnostics` | Shared diagnostic vocabulary and lossless native causes; depends only on `thiserror`/`miette` |
 | `pse-ids` | Semantic IDs, content hashes, typed framing; the sole BLAKE3 owner ([§5](identity-and-publication.md#section-5)) |
 | `pse-quantity` | Dimensions, units, quantity kinds/types, bases, reference states, conversions, physical operation and function vocabulary ([§8](physical-semantics.md#section-8)) |
-| `pse-material` | Species, elements, phases, reactions, stoichiometry and material-system predicates |
+| `pse-modeling` | Pure checking and specialization of generic declarations, interfaces, sets, functions, contributions and annotations |
 | `pse-model` | Registry-generated plain semantic values and enums, without Arrow |
-| `pse-authoring` | Expression DSL, spans and parse budgets, target paths, identity assignment, exact package resolution |
-| `pse-kernels` | Physical provider contracts: the FeOS PC-SAFT/DIPPR provider, the directional valve and operating envelopes ([§9](physical-semantics.md#section-9)) |
+| `pse-authoring` | Modeling language and shared expression grammar, spans and parse budgets, identity assignment, exact package resolution |
+| `pse-kernels` | Generic external-function contracts, typed shapes, derivative/smoothness declarations and attempt-local workers ([§9](physical-semantics.md#section-9)) |
 | `pse-structural` | Complete immutable graph projections; incidence, matching/DM/BTF, flowsheet and initialization projections ([§15](numerical-execution.md#section-15)) |
 | `pse-math` | Physically admitted Symbolica bodies, guarded evaluation, coefficients, sparse assembly and library bindings ([§7](mathematics-and-compilation.md#section-7)) |
-| `pse-compiler` | Typed finite specialization, source binding and bounded synchronous Salsa preparation ([§14](mathematics-and-compilation.md#section-14)) |
+| `pse-compiler` | The single Salsa workspace, admitted revision reuse, mathematical lowering and bounded preparation ([§14](mathematics-and-compilation.md#section-14)) |
 | `pse-backend-native` | Class-specific native adapters: Ipopt, POUNCE, KINSOL, HiGHS, Clarabel, Diffsol and IDAS, plus tears, presolve and quality ([§18](numerical-execution.md#section-18)) |
 | `pse-ipopt-sys` | Generated raw Ipopt C bindings; the build script emits link directives only |
 | `pse-columnar` | Arrow canonicalization, owned buffers, reservations, cancellation and native error adapters |
@@ -127,7 +128,7 @@ register crates.
 | `pse-benches` | Criterion groups for canonicalization, native cache, consolidation and process cases |
 
 Dependencies point one way. The semantic foundations (`pse-diagnostics`, `pse-ids`,
-`pse-quantity`, `pse-material`, `pse-model`) sit below `pse-authoring`, `pse-kernels`,
+`pse-quantity`, `pse-model`) sit below `pse-authoring`, `pse-modeling`, `pse-kernels`,
 `pse-structural`, `pse-math`, `pse-compiler` and `pse-backend-native`. None of these
 reaches Arrow, DataFusion, Delta or Tokio. The columnar crates (`pse-columnar`,
 `pse-schema`, `pse-relations`) sit beside them and use Arrow plus the DataFusion leaf
@@ -162,7 +163,7 @@ units, identity, schemas or canonical encoding merely because it is present.
 | Delta Lake (`deltalake-core`), `object_store` | `pse-catalog` | Durable authored/result tables, exact control-last publication and retention | Settlement is PSE-owned ([§20](identity-and-publication.md#section-20)) |
 | Symbolica/Numerica | `pse-math` | Algebra, normalization, differentiation, multi-output evaluators and jets | Starts after physical typing and domain obligations; derived artifacts only |
 | faer | `pse-math`, `pse-backend-native`, `pse-runtime` | Sparse structure, refill maps, products; bounded LU/SVD for implicit responses and rank | Native solver factorizations stay with their solver |
-| FeOS, `feos-core`, num-dual, `quantity`, nalgebra | `pse-kernels` | PC-SAFT/DIPPR thermodynamics and provider derivatives | FeOS's `quantity` is never a unit authority; dual types stay private to the provider |
+| FeOS, `feos-core`, num-dual, `quantity`, nalgebra | optional conformance reference tests | Independent thermodynamic and derivative comparisons | No production property route or physical-type authority |
 | Ipopt (C ABI), POUNCE | `pse-backend-native` | Local NLP through one shared oracle | Separate native routes; no fallback between them |
 | pounce-presolve | `pse-math`, `pse-structural`, `pse-backend-native` | Matching, DM, BTF and qualified presolve/postsolve | Original-coordinate recovery is validated independently |
 | SUNDIALS KINSOL/IDAS (+ KLU) | `pse-backend-native` | Square roots, declared fixed-point iteration; IDAS for a narrow smooth recovery profile | Optional features; arbitrary boxes and unsupported profiles are refused |
@@ -259,10 +260,10 @@ everything.
 |---|---|---|
 | Parsing, identity assignment, target and package resolution | Typed Rust over spans | `pse-authoring`, `pse-runtime::authoring_driver` |
 | Relation admission, invariants, inspection, set-oriented model/result work | Arrow and DataFusion | `pse-schema`, `pse-engine`, `pse-rules` |
-| Selected-model admission and template specialization | Typed Rust over admitted rows | `pse-runtime::workflow::composition` |
-| Physical typing, finite expansion, body preparation | Typed Rust, then Symbolica | `pse-compiler`, `pse-math` |
+| Package admission; pure checking and specialization | Explicit immutable closure; generic typed Rust | `pse-runtime::workflow::modeling`; `pse-modeling` |
+| Physical typing, finite expansion, body preparation | Typed Rust, then Symbolica | `pse-modeling`, `pse-compiler`, `pse-math` |
 | Incremental semantic reuse | Salsa, pure and synchronous | `pse-compiler::workspace` |
-| Thermodynamic properties and provider derivatives | FeOS and num-dual workers | `pse-kernels` |
+| Scientific properties and derivatives | Authored functions and potential identities lowered through Symbolica/Numerica | Packages; `pse-compiler`, `pse-math` |
 | Structural analysis | pounce-presolve, rustworkx-core, petgraph | `pse-structural` |
 | Numerical solution and integration | The class-specific native library | `pse-backend-native` |
 | Sparse numerical linear algebra outside solvers | faer | `pse-math`, `pse-runtime` |

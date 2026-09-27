@@ -45,19 +45,46 @@ impl PartialEq for AuthoredFitCasesFieldParametersItem {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    ///parameter_id
+    pub r#parameter_id: pse_ids::SemanticId,
+    ///path
+    pub r#path: String,
+}
+impl crate::SemanticEq for AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#parameter_id, &other.r#parameter_id)
+            && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+    }
+}
+impl PartialEq for AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredFitCasesFieldExperimentsItem {
     ///experiment_id
     pub r#experiment_id: pse_ids::SemanticId,
     ///case_id
     pub r#case_id: pse_ids::SemanticId,
-    ///dynamic_id
-    pub r#dynamic_id: Option<pse_ids::SemanticId>,
+    ///route
+    pub r#route: crate::generated::enums::ModelingAnalysisRoute,
+    ///bindings
+    pub r#bindings: Vec<AuthoredFitCasesFieldExperimentsItemBindingsItem>,
 }
 impl crate::SemanticEq for AuthoredFitCasesFieldExperimentsItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#experiment_id, &other.r#experiment_id)
             && crate::SemanticEq::semantic_eq(&self.r#case_id, &other.r#case_id)
-            && crate::SemanticEq::semantic_eq(&self.r#dynamic_id, &other.r#dynamic_id)
+            && crate::SemanticEq::semantic_eq(&self.r#route, &other.r#route)
+            && crate::SemanticEq::semantic_eq(&self.r#bindings, &other.r#bindings)
     }
 }
 impl PartialEq for AuthoredFitCasesFieldExperimentsItem {
@@ -77,8 +104,8 @@ pub struct AuthoredFitCasesFieldObservationsItem {
     pub r#observation_id: pse_ids::SemanticId,
     ///experiment_id
     pub r#experiment_id: pse_ids::SemanticId,
-    ///output_id
-    pub r#output_id: pse_ids::SemanticId,
+    ///output_path
+    pub r#output_path: String,
     ///time
     pub r#time: Option<f64>,
     ///time_basis
@@ -96,7 +123,8 @@ impl crate::SemanticEq for AuthoredFitCasesFieldObservationsItem {
             && crate::SemanticEq::semantic_eq(
                 &self.r#experiment_id,
                 &other.r#experiment_id,
-            ) && crate::SemanticEq::semantic_eq(&self.r#output_id, &other.r#output_id)
+            )
+            && crate::SemanticEq::semantic_eq(&self.r#output_path, &other.r#output_path)
             && crate::SemanticEq::semantic_eq(&self.r#time, &other.r#time)
             && crate::SemanticEq::semantic_eq(&self.r#time_basis, &other.r#time_basis)
             && crate::SemanticEq::semantic_eq(
@@ -121,8 +149,6 @@ impl PartialEq for AuthoredFitCasesFieldObservationsItem {
 pub struct AuthoredFitCasesRow {
     ///fit_id
     pub r#fit_id: pse_ids::SemanticId,
-    ///model_id
-    pub r#model_id: pse_ids::SemanticId,
     ///parameters
     pub r#parameters: Vec<AuthoredFitCasesFieldParametersItem>,
     ///experiments
@@ -133,7 +159,6 @@ pub struct AuthoredFitCasesRow {
 impl crate::SemanticEq for AuthoredFitCasesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#fit_id, &other.r#fit_id)
-            && crate::SemanticEq::semantic_eq(&self.r#model_id, &other.r#model_id)
             && crate::SemanticEq::semantic_eq(&self.r#parameters, &other.r#parameters)
             && crate::SemanticEq::semantic_eq(&self.r#experiments, &other.r#experiments)
             && crate::SemanticEq::semantic_eq(
@@ -176,14 +201,31 @@ impl crate::HeapUsage for AuthoredFitCasesFieldParametersItem {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scale))
     }
 }
+impl crate::SemanticFrame for AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#parameter_id));
+        crate::SemanticFrame::frame(&self.r#parameter_id, hash);
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+    }
+}
 impl crate::SemanticFrame for AuthoredFitCasesFieldExperimentsItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#experiment_id));
         crate::SemanticFrame::frame(&self.r#experiment_id, hash);
         hash.str(stringify!(r#case_id));
         crate::SemanticFrame::frame(&self.r#case_id, hash);
-        hash.str(stringify!(r#dynamic_id));
-        crate::SemanticFrame::frame(&self.r#dynamic_id, hash);
+        hash.str(stringify!(r#route));
+        crate::SemanticFrame::frame(&self.r#route, hash);
+        hash.str(stringify!(r#bindings));
+        crate::SemanticFrame::frame(&self.r#bindings, hash);
     }
 }
 impl crate::HeapUsage for AuthoredFitCasesFieldExperimentsItem {
@@ -191,7 +233,8 @@ impl crate::HeapUsage for AuthoredFitCasesFieldExperimentsItem {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#experiment_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#case_id))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dynamic_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#route))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#bindings))
     }
 }
 impl crate::SemanticFrame for AuthoredFitCasesFieldObservationsItem {
@@ -200,8 +243,8 @@ impl crate::SemanticFrame for AuthoredFitCasesFieldObservationsItem {
         crate::SemanticFrame::frame(&self.r#observation_id, hash);
         hash.str(stringify!(r#experiment_id));
         crate::SemanticFrame::frame(&self.r#experiment_id, hash);
-        hash.str(stringify!(r#output_id));
-        crate::SemanticFrame::frame(&self.r#output_id, hash);
+        hash.str(stringify!(r#output_path));
+        crate::SemanticFrame::frame(&self.r#output_path, hash);
         hash.str(stringify!(r#time));
         crate::SemanticFrame::frame(&self.r#time, hash);
         hash.str(stringify!(r#time_basis));
@@ -219,7 +262,7 @@ impl crate::HeapUsage for AuthoredFitCasesFieldObservationsItem {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observation_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#experiment_id))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output_path))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time_basis))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time_unit_id))
@@ -231,8 +274,6 @@ impl crate::SemanticFrame for AuthoredFitCasesRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#fit_id));
         crate::SemanticFrame::frame(&self.r#fit_id, hash);
-        hash.str(stringify!(r#model_id));
-        crate::SemanticFrame::frame(&self.r#model_id, hash);
         hash.str(stringify!(r#parameters));
         crate::SemanticFrame::frame(&self.r#parameters, hash);
         hash.str(stringify!(r#experiments));
@@ -245,7 +286,6 @@ impl crate::HeapUsage for AuthoredFitCasesRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#fit_id))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#model_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameters))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#experiments))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#observations))

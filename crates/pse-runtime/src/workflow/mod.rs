@@ -2,25 +2,17 @@
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
 use pse_backend_native::solve::BackendCapabilities;
-mod balances;
 mod completion;
-mod composition;
 mod diagnostics;
 pub use completion::Completion;
 mod numerics;
-mod reactions;
 mod time;
-pub use composition::{AdmissionEntry, CompositionDeclarations, port_id, symbol_id};
-mod sources;
 mod strategies;
-pub use balances::{BalanceCheck, BalanceDeclaration};
 pub use strategies::{AnalysisPort, ConicRequest, PreparedConic};
 #[cfg(feature = "solver-kinsol")]
 pub use strategies::{
     CausalUnitRequest, PreparedInitializationStrategy, PreparedRecycle, RecycleRequest,
 };
-mod vessel;
-pub use vessel::{VesselPorts, VesselQuantities, VesselRecipe};
 #[cfg_attr(
     not(feature = "solver-diffsol"),
     allow(
@@ -30,26 +22,37 @@ pub use vessel::{VesselPorts, VesselQuantities, VesselRecipe};
 )]
 mod dynamics;
 mod fitting;
-pub use dynamics::{PreparedSimulation, SimulationProfile};
-pub use fitting::{FitProfile, FitReport, PreparedFit};
-pub use sources::{
-    DynamicDeclaration, FitDeclaration, NativeProviderDeclaration, Sources as SourceDeclarations,
+pub use dynamics::SimulationProfile;
+pub use fitting::{FitData, FitDeclaration, FitProfile, FitReport, PreparedFit};
+mod physical;
+pub use physical::PhysicalContext;
+mod modeling;
+pub use modeling::ModelingNativeAnalysis;
+pub use modeling::{
+    DiagnosticSampleStop, ElasticObservation, ModelingAnalysis, ModelingCheck,
+    conform_pure_documents, ModelingConformanceCheck, ModelingConformancePolicy, ModelingFixturePolicy, ModelingConformanceReport,
+    ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
+    ModelingDiagnostics, ModelingDynamicEvent, ModelingDynamicMode, ModelingElasticAttempt,
+    ModelingInitialization, ModelingInitializationAttempt, ModelingInitializationReport,
+    ModelingInitializationStep, ModelingNonlinearExplanation, ModelingNonlinearPolicy,
+    ModelingObservations, ModelingPackage, ModelingReport, ModelingResult, ModelingSimulation,
+    ModelingSolvePreparation, ModelingStudyPoint, ModelingStudyReport, ModelingTrajectory,
 };
-mod model;
+#[cfg(feature = "solver-highs")]
+pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
 mod publication;
 mod results;
 mod run;
 mod simulation_results;
+mod modeling_results;
 #[cfg(test)]
 mod tests;
 use crate::{SharedRuntime, math::MathRuntimeError};
-pub use model::{CaseBuilder, ModelBuilder, ModelRevision, PhysicalContext, ProviderBinding};
-pub use model::{CaseDeclaration, DefinitionDeclaration, ModelDeclaration};
 use pse_engine::{EngineError, session::EngineFactory};
 pub use publication::{
     PublicationAttempt, PublicationRequest, PublicationSettlement, PublicationTicket,
 };
-pub use run::{PreparedCase, RunHandle, RunReport, RunRequest, RunResult};
+pub use run::{RunHandle, RunReport, RunRequest, RunResult};
 use std::sync::Arc;
 
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
@@ -119,15 +122,6 @@ impl Runtime {
             sessions,
         }
     }
-    /// Start a new typed draft with an actual admitted physical context.
-    pub fn model(
-        &self,
-        id: pse_ids::SemanticId,
-        name: String,
-        physical: PhysicalContext,
-    ) -> ModelBuilder {
-        ModelBuilder::new(self.clone(), id, name, physical)
-    }
     /// Whether the native BDF semi-explicit adapter is linked in this deployment.
     pub fn simulation_available(&self) -> bool {
         cfg!(feature = "solver-diffsol")
@@ -165,6 +159,3 @@ impl Runtime {
         &self.registry
     }
 }
-
-/// Source-to-scalar mapping produced by selected template admission.
-pub use composition::lower::Binding as ScalarBinding;

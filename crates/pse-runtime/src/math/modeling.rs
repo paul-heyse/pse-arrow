@@ -1,0 +1,560 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! Finite generic preparation uses the existing worker, cancellation and allocation owner.
+use super::{MathRuntimeError, MathService, Workspace};
+use pse_authoring::language::Declaration;
+use pse_columnar::{AllocationLease, flight::FlightCancellation};
+use pse_compiler::workspace::PreparedModeling;
+use pse_ids::SemanticId;
+use pse_model::HeapUsage;
+use pse_modeling::{Bindings, Limits};
+use pse_quantity::QuantityTypeId;
+use std::{collections::BTreeMap, sync::Arc};
+/// A source revision retains its reservation through all dependent jobs.
+#[derive(Clone, Debug)]
+pub struct ModelingRevision {
+    admitted: Arc<pse_compiler::workspace::ModelingRevision>,
+    identity: pse_ids::ContentHash,
+    _lease: Arc<AllocationLease>,
+}
+impl ModelingRevision {
+    pub(crate) fn quantity_names(&self) -> &BTreeMap<String,QuantityTypeId> { self.admitted.quantity_names() }
+    pub(crate) fn identity(&self) -> pse_ids::ContentHash { self.identity }
+    pub(crate) fn declarations(&self) -> &[Declaration] {
+        self.admitted.declarations()
+    }
+}
+/// Kernel products retain memory after the workspace generation rotates.
+#[derive(Clone, Debug)]
+pub struct ModelingPreparation {
+    product: PreparedModeling,
+    _lease: Arc<AllocationLease>,
+}
+impl ModelingPreparation {
+    /// Source lineage, original values, typed mathematics and structural evidence.
+    pub fn compiled(&self) -> &PreparedModeling {
+        &self.product
+    }
+}
+/// One model view and its solver projection share the admitted product reservation.
+#[derive(Clone, Debug)]
+pub struct ModelingCasePreparation {
+    pub model: ModelingPreparation,
+    pub case: super::Preparation,
+    pub values: pse_math::binding::CaseValues,
+}
+/// Bounded original-term evidence retains the scheduler's allocation allowance.
+#[derive(Clone, Debug)]
+pub struct ModelingTermEvidence {
+    pub results: BTreeMap<SemanticId, pse_math::diagnostics::TermReport>,
+    pub unattempted: usize,
+    _owner: Arc<AllocationLease>,
+}
+/// Fully resolved physical input to a nested provider; iteration never acquires another worker.
+#[derive(Clone, Debug)]
+pub struct ModelingInner {
+    pub admitted: Arc<pse_compiler::workspace::AdmittedImplicit>,
+    pub configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
+}
+#[cfg(not(feature = "solver-kinsol"))]
+#[derive(Debug)]
+struct MissingInnerSolver;
+#[cfg(not(feature = "solver-kinsol"))]
+impl pse_math::implicit::InnerSolver for MissingInnerSolver {
+    fn identity(&self) -> pse_ids::ContentHash { pse_math::implicit::solver_identity("missing.inner-solver.v1") }
+    fn solve(
+        &self,
+        _: Arc<pse_math::implicit::Problem>,
+        _: &[f64],
+        _: &pse_math::implicit::Options,
+        _: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Vec<f64>, pse_math::MathError> {
+        Err(pse_math::MathError::Contract(
+            "nested realization requires the KINSOL capability".into(),
+        ))
+    }
+}
+impl MathService {
+    /// Run authored pure expectations through the compiler without acquiring a solver.
+    pub async fn modeling_expectations(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        revision: ModelingRevision,
+        root: SemanticId,
+        bindings: Bindings,
+        limits: Limits,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<Vec<pse_compiler::workspace::ModelingExpectationResult>, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let operation = self.job(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let mut compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                compiler.publish_modeling_revision(revision.admitted.clone())?;
+                Ok(compiler.check_modeling_expectations(
+                    root,
+                    root,
+                    bindings,
+                    limits,
+                    &pse_math::binding::CaseValues {
+                        scalars: BTreeMap::new(),
+                    },
+                    profile,
+                    flag,
+                )?)
+            },
+        );
+        tokio::pin!(operation);
+        tokio::select! { result = &mut operation => result, () = driver.cancelled() => {
+            control.cancel(); let _ = operation.await; Err(MathRuntimeError::Cancelled)
+        }}
+    }
+    /// Compile immutable inner programs under the same admission and allocation policy as outer artifacts.
+    pub async fn modeling_inner_providers(
+        self: &Arc<Self>,
+        inner: Vec<ModelingInner>,
+        accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
+        external: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, MathRuntimeError>
+    {
+        if inner.is_empty() {
+            return Ok(external);
+        }
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let operation =
+            self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
+                #[cfg(feature = "solver-kinsol")]
+                let solver: Arc<dyn pse_math::implicit::InnerSolver> =
+                    Arc::new(pse_backend_native::implicit::Kinsol);
+                #[cfg(not(feature = "solver-kinsol"))]
+                let solver: Arc<dyn pse_math::implicit::InnerSolver> = Arc::new(MissingInnerSolver);
+                let mut factories = Vec::new();
+                let mut retained = foreign;
+                for item in inner {
+                    #[cfg(not(feature = "solver-kinsol"))]
+                    if item.admitted.algorithm == pse_compiler::workspace::ImplicitAlgorithm::Native
+                    {
+                        return Err(MathRuntimeError::Infrastructure(
+                            "nested realization requires the KINSOL capability".into(),
+                        ));
+                    }
+                    let factory = item.admitted.factory(
+                        item.configurations,
+                        solver.clone(),
+                        &accelerators,
+                        flag.clone(),
+                        profile.evaluation,
+                    )?;
+                    retained = retained
+                        .checked_add(factory.retained_numeric_bytes()?)
+                        .ok_or(MathRuntimeError::Limit("inner program extent"))?;
+                    let dependencies = item
+                        .admitted
+                        .bodies()
+                        .flat_map(|b| b.math.providers())
+                        .map(pse_kernels::ProviderSpec::key)
+                        .collect::<Vec<_>>();
+                    factories.push((item.admitted.descriptor.clone(), factory, dependencies));
+                }
+                Ok((factories, retained))
+            });
+        tokio::pin!(operation);
+        let (factories, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let mut registrations = external;
+        for (descriptor, mut factory, dependencies) in factories {
+            let providers = dependencies
+                .into_iter()
+                .map(|key| {
+                    registrations
+                        .get(&key)
+                        .cloned()
+                        .map(|r| (key, r))
+                        .ok_or_else(|| {
+                            MathRuntimeError::Infrastructure(
+                                "implicit provider dependency is not admitted before its consumer"
+                                    .into(),
+                            )
+                        })
+                })
+                .collect::<Result<_, _>>()?;
+            factory.set_providers(providers);
+            factory.retain(owner.clone());
+            let key = descriptor.spec().key();
+            let registration = pse_kernels::Registration::bind(descriptor, Arc::new(factory))
+                .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+            if registrations.insert(key, registration).is_some() {
+                return Err(MathRuntimeError::Infrastructure(
+                    "duplicate inner provider identity".into(),
+                ));
+            }
+        }
+        Ok(registrations)
+    }
+    /// Execute combinatorial term inspection on an admitted math worker, with a
+    /// single work budget across every row rather than resetting it for each equation.
+    pub async fn modeling_term_diagnostics(
+        self: &Arc<Self>,
+        terms: BTreeMap<SemanticId, Vec<f64>>,
+        policy: pse_math::diagnostics::TermPolicy,
+        driver: &crate::CancelSource,
+    ) -> Result<ModelingTermEvidence, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let bytes = self.policy.worker_bytes;
+        let operation = self.job_retained(1, bytes, control.clone(), move |flag| {
+            let input_bytes = terms
+                .values()
+                .try_fold(0usize, |n, v| n.checked_add(v.len().checked_mul(32)?))
+                .ok_or(MathRuntimeError::Limit("term diagnostic input extent"))?;
+            if input_bytes > bytes / 2 {
+                return Err(MathRuntimeError::Limit("term diagnostic input extent"));
+            }
+            let count = terms.len();
+            let mut remaining = policy.combinations;
+            let mut findings = policy.findings;
+            let mut results = BTreeMap::new();
+            for (id, values) in terms {
+                if remaining == 0 || findings == 0 {
+                    break;
+                }
+                let p = pse_math::diagnostics::TermPolicy {
+                    combinations: remaining,
+                    findings,
+                    ..policy
+                };
+                let report = pse_math::diagnostics::analyze_terms(&values, p, &flag)?;
+                remaining = remaining.saturating_sub(report.examined);
+                findings = findings.saturating_sub(report.cancellations.len());
+                results.insert(id, report);
+            }
+            let retained = results
+                .values()
+                .try_fold(0usize, |n, r| {
+                    n.checked_add(
+                        r.cancellations
+                            .iter()
+                            .map(|v| v.capacity() * size_of::<usize>())
+                            .sum::<usize>()
+                            + r.cancellations.capacity() * size_of::<Vec<usize>>()
+                            + r.mismatched.capacity() * size_of::<usize>()
+                            + 256,
+                    )
+                })
+                .ok_or(MathRuntimeError::Limit("term diagnostic output extent"))?;
+            let unattempted = count - results.len();
+            Ok(((results, unattempted), retained))
+        });
+        tokio::pin!(operation);
+        let ((results, unattempted), owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        Ok(ModelingTermEvidence {
+            results,
+            unattempted,
+            _owner: owner,
+        })
+    }
+    pub(crate) async fn validate_modeling_partition(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: ModelingPreparation,
+        rows: Vec<SemanticId>,
+        columns: Vec<SemanticId>,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<(), MathRuntimeError> {
+        if rows.is_empty() && columns.is_empty() {
+            return Ok(());
+        }
+        let control = FlightCancellation::default();
+        let operation = self.job(
+            1,
+            pse_structural::incidence::MATCHING_STACK,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                let analysis = compiler.analyze_modeling_partition(
+                    model.compiled(),
+                    rows,
+                    columns,
+                    profile,
+                    &flag,
+                )?;
+                pse_backend_native::structural::admit(
+                    &analysis,
+                    pse_backend_native::structural::Mode::Roots,
+                )?;
+                Ok(())
+            },
+        );
+        tokio::pin!(operation);
+        tokio::select! {r=&mut operation=>r,()=driver.cancelled()=>{control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
+    }
+    /// Compile function roles with ordered state/parameter derivatives using the
+    /// ordinary artifact cache; source ownership remains in the modeling revision.
+    pub async fn prepare_modeling_functions(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: ModelingPreparation,
+        rows: Vec<SemanticId>,
+        coordinates: Vec<SemanticId>,
+        order: pse_kernels::DerivativeOrder,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                let prepared = compiler.prepare_modeling_functions(
+                    model.compiled(),
+                    rows,
+                    coordinates,
+                    order,
+                    profile,
+                    &flag,
+                )?;
+                let bytes = prepared
+                    .plan
+                    .retained_bytes()
+                    .checked_add(foreign)
+                    .ok_or(MathRuntimeError::Limit("modeling function extent"))?;
+                Ok((prepared, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        self.assemble_functions(prepared, lease, driver).await
+    }
+    /// Prepare a value-only observation subset through the compiler and artifact cache.
+    pub async fn prepare_modeling_observations(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: ModelingPreparation,
+        rows: std::collections::BTreeSet<SemanticId>,
+        values: pse_math::binding::CaseValues,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<super::Preparation, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                let product = compiler.prepare_modeling_observations(
+                    model.compiled(),
+                    &rows,
+                    &values,
+                    profile,
+                    &flag,
+                )?;
+                let bytes = product
+                    .retained_bytes()
+                    .checked_add(foreign)
+                    .ok_or(MathRuntimeError::Limit("observation extent"))?;
+                Ok((product, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        self.own_preparation(owned)
+    }
+    /// Finalize the immutable solver view after starts and bound hints resolve.
+    pub async fn prepare_modeling_bound_case(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: ModelingPreparation,
+        values: pse_math::binding::CaseValues,
+        case: BTreeMap<SemanticId, pse_compiler::workspace::ModelingVariableState>,
+        order: pse_kernels::DerivativeOrder,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<ModelingCasePreparation, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let retained_model = model.clone();
+        let retained_values = values.clone();
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                let product = compiler.prepare_modeling_bound_case(
+                    model.compiled(),
+                    &values,
+                    &case,
+                    order,
+                    profile,
+                    &flag,
+                )?;
+                let bytes = product
+                    .retained_bytes()
+                    .checked_add(foreign)
+                    .ok_or(MathRuntimeError::Limit("bound case extent"))?;
+                Ok((product, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        Ok(ModelingCasePreparation {
+            model: retained_model,
+            values: retained_values,
+            case: self.own_preparation(owned)?,
+        })
+    }
+    /// Prepare the model and its solver view atomically under the existing compiler writer.
+    pub async fn prepare_modeling_case_revision(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        revision: ModelingRevision,
+        root: SemanticId,
+        instance: SemanticId,
+        bindings: Bindings,
+        limits: Limits,
+        case: pse_compiler::workspace::ModelingCaseBindings,
+        order: pse_kernels::DerivativeOrder,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<ModelingCasePreparation, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let mut compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                compiler.publish_modeling_revision(revision.admitted.clone())?;
+                let (model, case, values) = compiler.prepare_modeling_case_cancellable(
+                    root, instance, bindings, limits, &case, order, profile, flag,
+                )?;
+                let bytes = model
+                    .retained_bytes()
+                    .checked_add(case.retained_bytes())
+                    .and_then(|n| n.checked_add(foreign))
+                    .ok_or(MathRuntimeError::Limit("modeling case product extent"))?;
+                Ok(((model, case, values), bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let ((model, case, values), lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        Ok(ModelingCasePreparation {
+            model: ModelingPreparation {
+                product: model,
+                _lease: lease.clone(),
+            },
+            case: self.own_preparation((case, lease))?,
+            values,
+        })
+    }
+    /// Own immutable generated declarations under the deployment pool.
+    pub fn modeling_revision(
+        &self,
+        workspace: &Workspace,
+        rows: Vec<Declaration>,
+        names: BTreeMap<String, QuantityTypeId>,
+    ) -> Result<ModelingRevision, MathRuntimeError> {
+        let bytes = rows
+            .owned_bytes()
+            .saturating_add(names.iter().map(|(n, _)| n.capacity() + 128).sum::<usize>());
+        if bytes > self.policy.workspace_bytes / 2 {
+            return Err(MathRuntimeError::Limit("modeling source bytes"));
+        }
+        // Reserve the admission's maximum before building checked state; the
+        // retained lease is reduced to the actual immutable revision extent.
+        let reservation =
+            pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
+        reservation.try_grow(self.policy.workspace_bytes / 2)?;
+        use pse_model::SemanticFrame;
+        let mut source = pse_ids::FramedHasher::new("pse.modeling.source-revision.v1");
+        source.u64(rows.len() as u64);
+        for row in &rows { row.frame(&mut source); }
+        source.u64(names.len() as u64);
+        for (name, quantity) in &names { source.str(name).id(&quantity.as_id()); }
+        let admitted = workspace
+            .compiler
+            .lock()
+            .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?
+            .publish_modeling(rows, names)?;
+        if admitted.retained_bytes() > self.policy.workspace_bytes / 2 {
+            return Err(MathRuntimeError::Limit("modeling admitted source bytes"));
+        }
+        reservation.shrink(self.policy.workspace_bytes / 2 - admitted.retained_bytes());
+        Ok(ModelingRevision {
+            identity: source.finish_hash(),
+            admitted,
+            _lease: AllocationLease::new(reservation),
+        })
+    }
+    /// Publish the selected revision and prepare it while holding the single compiler writer.
+    pub async fn prepare_modeling_revision(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        revision: ModelingRevision,
+        root: SemanticId,
+        instance: SemanticId,
+        bindings: Bindings,
+        limits: Limits,
+        driver: &crate::CancelSource,
+    ) -> Result<ModelingPreparation, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _workspace_lease = workspace.lease;
+                let mut compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                if flag.load(std::sync::atomic::Ordering::Acquire) {
+                    return Err(MathRuntimeError::Cancelled);
+                }
+                compiler.publish_modeling_revision(revision.admitted.clone())?;
+                let product = compiler
+                    .prepare_modeling_cancellable(root, instance, bindings, limits, flag)?;
+                let bytes = product
+                    .retained_bytes()
+                    .checked_add(foreign)
+                    .ok_or(MathRuntimeError::Limit("modeling product extent"))?;
+                Ok((product, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        Ok(ModelingPreparation {
+            product,
+            _lease: lease,
+        })
+    }
+}

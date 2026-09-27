@@ -19,7 +19,7 @@ workspace = true
 [dependencies]
 pse-quantity.workspace = true
 pse-model.workspace = true
-pse-structural.workspace = true
+petgraph.workspace = true
 pse-diagnostics.workspace = true
 winnow = { workspace = true, features = ["ascii", "parser"] }
 serde.workspace = true

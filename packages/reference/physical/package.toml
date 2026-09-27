@@ -6,7 +6,17 @@ name = "pse.physical"
 version = "1.0.0"
 kind = "reference"
 id_policy = "explicit"
-dependencies = [
-  { package_id = "13ede9023d9f4dd7ae5caf5e9b319b8c", version_req = "=1.0.0" },
-]
+dependencies = []
 doc = "See sources.md for located definitions and limits."
+
+[[quantity_aliases]]
+name = "Scalar"
+quantity_type_id = "dc255c612cf27e30cb835377c8dafcf4"
+
+[[quantity_aliases]]
+name = "Temperature"
+quantity_type_id = "c64b96975a4a59755f8711d3bf628bc9"
+
+[[quantity_aliases]]
+name = "DeltaTemperature"
+quantity_type_id = "459a933fd00837bbc50372e31ac9801c"

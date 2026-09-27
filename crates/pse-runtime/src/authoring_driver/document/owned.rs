@@ -377,15 +377,15 @@ mod tests {
         assert!(binding.validate(registry).is_err());
     }
     #[test]
-    fn editing_one_document_reuses_other_parser_and_dsl_owners() -> Result<(), DriverError> {
+    fn editing_one_document_reuses_other_parser_owners() -> Result<(), DriverError> {
         let registry =
             pse_engine::validation::registry().map_err(pse_relations::RelationError::from)?;
         let budget: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20));
         let cancel = CancellationToken::new();
         let texts = BTreeMap::from([
             ("package.toml".to_owned(), include_str!("../../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned()),
-            ("materials/species.yaml".to_owned(), include_str!("../../../../../tests/fixtures/packages/minimal_explicit/materials/species.yaml").to_owned()),
-            ("templates/model.yaml".to_owned(), "templates:\n  - id: '00000000000000000000000000000031'\n    name: model\n    version: '1.0.0'\n    kind: unit\n    doc: ''\ntemplate_display:\n  - template_id: '00000000000000000000000000000031'\n    kind: expression\n    label: constant\n    expression: '2 + 3'\n".to_owned()),
+            ("materials/constants.yaml".to_owned(), include_str!("../../../../../tests/fixtures/packages/minimal_explicit/materials/constants.yaml").to_owned()),
+            ("models/library.pse".to_owned(), "@id(\"00000000000000000000000000000031\") package library { @id(\"00000000000000000000000000000032\") enum Choice { one, two } }".to_owned()),
         ]);
         let part =
             load_package_texts_owned(&texts, registry, ParseBudget::default(), &budget, &cancel)?;
@@ -393,14 +393,14 @@ mod tests {
         let source = original.bundles()[0]
             .documents
             .iter()
-            .find(|document| document.path == "materials/species.yaml")
-            .ok_or_else(|| contract(None, "fixture species source absent"))?;
+            .find(|document| document.path == "materials/constants.yaml")
+            .ok_or_else(|| contract(None, "fixture source absent"))?;
         let edited = original.edit(
             &[super::super::DocumentEdit {
                 document_id: source.id,
                 path: source.path.clone(),
                 before: source.text.clone(),
-                after: source.text.replace("name: water", "name: steam"),
+                after: source.text.replace("name: probe", "name: changed"),
             }],
             registry,
             ParseBudget::default(),
@@ -417,29 +417,15 @@ mod tests {
                 .ok_or_else(|| contract(None, "edited fixture document absent"))?;
             assert_eq!(
                 Arc::ptr_eq(&prior.syntax, &next.syntax),
-                prior.path != "materials/species.yaml"
+                prior.path != "materials/constants.yaml"
             );
-            if prior.path == "templates/model.yaml" {
-                assert!(Arc::ptr_eq(&prior.expressions, &next.expressions));
-                let relation = registry
-                    .relation("authored.template_display")
-                    .ok_or_else(|| contract(None, "fixture display relation absent"))?;
-                let (text, parsed) = prior
-                    .parsed_expression(relation, 0, "expression")
-                    .ok_or_else(|| contract(None, "fixture cached expression absent"))?;
-                let (_, reused) = next
-                    .parsed_expression(relation, 0, "expression")
-                    .ok_or_else(|| contract(None, "edited fixture cached expression absent"))?;
-                assert_eq!(text, "2 + 3");
-                assert!(std::ptr::eq(parsed, reused));
-                assert!(prior.parsed_expression(relation, 1, "expression").is_none());
-            }
+
         }
-        let rows = pse_relations::generated::authored::species::View::from_checked(
-            &edited.bundles()[0].batches[&pse_relations::generated::authored::species::RELATION_ID],
+        let rows = pse_relations::generated::reference::constants::View::from_checked(
+            &edited.bundles()[0].batches[&pse_relations::generated::reference::constants::RELATION_ID],
         )?
         .rows()?;
-        assert_eq!(rows[0].name, "steam");
+        assert_eq!(rows[0].name, "changed");
         Ok(())
     }
 }

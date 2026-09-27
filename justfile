@@ -572,6 +572,22 @@ py-unit *args:
     uv run --no-sync pytest --maxfail=0 --continue-on-collection-errors -m unit {{ args }}
 
 [group('local')]
+[doc('Targeted Python functional units with the linked native solver environment')]
+py-unit-native *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    "{{ py }}" -m pytest --maxfail=0 --continue-on-collection-errors -m unit {{ args }}
+
+[group('local')]
+[doc('Run data-authored modeling fixtures and shared conformance checks; accepts Python module CLI arguments')]
+modeling-conformance *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    "{{ py }}" -m pse.conformance {{ args }}
+
+[group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
 lint-repo:
     python3 -m scripts.validation --group lint-repo
@@ -646,7 +662,7 @@ docs-serve:
     python3 -m scripts.docs serve
 
 [group('manual')]
-[doc('Parity suite against IDAES 2.12.0 in the parity environment (fails, never skips, without a solver)')]
+[doc('Parity suite against IDAES 2.13.0 in the parity environment (fails, never skips, without a solver)')]
 parity *args:
     UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --python 3.13
     UV_PROJECT_ENVIRONMENT=.venv-parity uv run --no-sync pytest --maxfail=0 --continue-on-collection-errors --parity -m "unit or component or integration" {{ args }}
@@ -968,21 +984,6 @@ unit-physical-fixture:
     cargo nextest {{ nextest_action }} -p xtask --locked {{ validate }} -E 'test(codegen::physical::tests::standard_fixture_matches_yaml)'
 
 [group('local')]
-[doc('Author shared physical process declarations from explicit SI contracts and frozen independent references')]
-plan14-fixtures:
-    "{{ py }}" scripts/plan14_fixtures.py
-
-[group('local')]
-[doc('Pure shared acceptance source-contract decoding; no runtime or native solve')]
-unit-plan14-sources:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    source scripts/native-solver-env.sh
-    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
-    "{{ py }}" -m pytest python/pse/tests/test_plan14_acceptance.py::test_shared_source_contracts
-
-[group('local')]
 [doc('M21 isolated new physical, structural and library-boundary unit controls')]
 unit-m21:
     #!/usr/bin/env bash
@@ -1047,6 +1048,16 @@ unit-native-selected filter *args:
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo nextest {{ nextest_action }} --workspace --lib --locked --features pse-py/native-solvers,pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
+
+[group('local')]
+[doc('Targeted native package units with explicitly selected adapter features')]
+unit-native-package pkg features filter *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/build-env.sh
+    source scripts/native-solver-env.sh
+    source scripts/native-math-env.sh
+    cargo nextest {{ nextest_action }} -p {{ pkg }} -p pse-relations --lib --locked --features {{ features }},pse-relations/force-validate -E {{ quote(filter) }} {{ args }}
 
 [group('local')]
 [doc('Full workspace native feature graph with Arrow force validation; nextest owns selection')]

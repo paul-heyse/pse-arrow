@@ -113,8 +113,9 @@ impl CasePlan {
     /// Build independently useful affine proofs and native FBBT tapes.
     ///
     /// # Errors
-    /// Rejects missing or nonfinite consumed values, exhausted tape allowance,
-    /// cancellation, or a failed symbolic projection.
+    /// Rejects missing or nonfinite consumed values, insufficient row storage,
+    /// cancellation, or a failed symbolic projection. Exhausted optional tape
+    /// construction leaves an opaque row or an unestablished obligation.
     #[expect(
         clippy::too_many_lines,
         reason = "one bounded traversal accumulates row proofs and native tapes together"
@@ -262,7 +263,10 @@ impl CasePlan {
                     cancel,
                     memo: HashMap::new(),
                 };
-                emitter.atom(expression.as_view(), 0)?;
+                if optional_tape(emitter.atom(expression.as_view(), 0))?.is_none() {
+                    admitted = ObligationStatus::Unestablished;
+                    continue;
+                }
                 let Ok(intervals) =
                     pounce_presolve::fbbt::forward_pass(&FbbtTape { ops }, &lower, &upper)
                 else {
@@ -304,22 +308,36 @@ impl CasePlan {
                     let r = rows[&id];
                     facts.row_sources[r].push((b.instance, c.output));
                     let tape = &mut facts.tapes[r];
-                    let previous = tape.ops.len() - 1;
-                    let mut emitter = Emitter {
-                        ops: &mut tape.ops,
-                        bindings: &bindings,
-                        remaining: &mut remaining,
-                        cancel,
-                        memo: row_memos.remove(&(b.instance, r)).unwrap_or_default(),
-                    };
-                    let v = match &expression {
-                        Some(a) => emitter.atom(a.as_view(), 0)?,
-                        None => emitter.push(Op::Opaque)?,
-                    };
-                    let scale = emitter.push(Op::Const(c.scale))?;
-                    let v = emitter.push(Op::Mul(v, scale))?;
-                    emitter.push(Op::Add(previous, v))?;
-                    row_memos.insert((b.instance, r), std::mem::take(&mut emitter.memo));
+                    if facts.complete[r] {
+                        let previous = tape.ops.len() - 1;
+                        let mut emitter = Emitter {
+                            ops: &mut tape.ops,
+                            bindings: &bindings,
+                            remaining: &mut remaining,
+                            cancel,
+                            memo: row_memos.remove(&(b.instance, r)).unwrap_or_default(),
+                        };
+                        let projection = (|| -> Result<(), MathError> {
+                            let v = match &expression {
+                                Some(a) => emitter.atom(a.as_view(), 0)?,
+                                None => emitter.push(Op::Opaque)?,
+                            };
+                            let scale = emitter.push(Op::Const(c.scale))?;
+                            let v = emitter.push(Op::Mul(v, scale))?;
+                            emitter.push(Op::Add(previous, v))?;
+                            Ok(())
+                        })();
+                        if optional_tape(projection)?.is_some() {
+                            row_memos.insert((b.instance, r), std::mem::take(&mut emitter.memo));
+                        } else {
+                            // The original expression remains executable. A partial
+                            // native tape cannot support any interval conclusion.
+                            tape.ops.clear();
+                            tape.ops.push(Op::Opaque);
+                            facts.complete[r] = false;
+                            row_memos.retain(|(_, row), _| *row != r);
+                        }
+                    }
                     if admitted != ObligationStatus::Discharged || expression.is_none() {
                         facts.affine[r] = None;
                     }
@@ -384,6 +402,12 @@ impl CasePlan {
         Ok(facts)
     }
 }
+fn optional_tape<T>(result: Result<T, MathError>) -> Result<Option<T>, MathError> {
+    match result {
+        Err(MathError::Limit("presolve tape extent")) => Ok(None),
+        other => other.map(Some),
+    }
+}
 /// Symbolica establishes a low-degree bound once for every consumer of the admitted objective.
 fn degree_bound(
     a: &Atom,
@@ -431,6 +455,17 @@ fn number(a: &Atom, c: &Arc<AtomicBool>) -> Result<f64, MathError> {
     crate::coefficients::number(a, c)
 }
 fn affine(
+    a: &Atom,
+    bindings: &[(Atom, Option<usize>, f64, f64)],
+    scale: f64,
+    c: &Arc<AtomicBool>,
+) -> Result<Option<AffineRow>, MathError> {
+    match affine_candidate(a, bindings, scale, c) {
+        Err(MathError::CoefficientRange) => Ok(None),
+        other => other,
+    }
+}
+fn affine_candidate(
     a: &Atom,
     bindings: &[(Atom, Option<usize>, f64, f64)],
     scale: f64,
@@ -505,7 +540,11 @@ impl Emitter<'_> {
             };
         }
         match a {
-            AtomView::Num(_) => self.push(Op::Const(number(&a.to_owned(), self.cancel)?)),
+            AtomView::Num(_) => match number(&a.to_owned(), self.cancel) {
+                Ok(value) => self.push(Op::Const(value)),
+                Err(MathError::CoefficientRange) => self.push(Op::Opaque),
+                Err(error) => Err(error),
+            },
             AtomView::Add(v) => {
                 let mut result = self.push(Op::Const(0.0))?;
                 for x in v {

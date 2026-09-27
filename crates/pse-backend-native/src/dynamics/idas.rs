@@ -44,7 +44,7 @@ impl Context<'_> {
             let e = oracle.evaluate(*mode, f, t, x, parameters, derivatives)?;
             let rows = match f {
                 Function::Output => c.outputs.len(),
-                Function::BalanceFlux => c.balances.len(),
+                Function::QuadratureFlux => c.quadratures.len(),
                 Function::Roots => c.events[*mode].len(),
                 _ => c.states.len(),
             };
@@ -262,7 +262,7 @@ unsafe extern "C" fn quadrature(
     let c = unsafe { &mut *data.cast::<Context<'_>>() };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let x = unsafe { read(y, c.contract.states.len()) };
-        let Some(e) = c.evaluate(Function::BalanceFlux, t, &x, false) else {
+        let Some(e) = c.evaluate(Function::QuadratureFlux, t, &x, false) else {
             return c.failure();
         };
         unsafe {
@@ -482,8 +482,8 @@ impl<'a> Session<'a> {
                 check(ffi::IDASetSensErrCon(s.mem, 1), "sensitivity error control")?;
             }
         }
-        if !s.callback.contract.balances.is_empty() {
-            s.quad = s.vector(&vec![0.0; s.callback.contract.balances.len()])?;
+        if !s.callback.contract.quadratures.is_empty() {
+            s.quad = s.vector(&vec![0.0; s.callback.contract.quadratures.len()])?;
             let atol = s.vector(&p.out_atol)?;
             unsafe {
                 check(
@@ -584,7 +584,7 @@ impl<'a> Session<'a> {
                 }
             }
         }
-        let balance_integrals = if self.quad.is_null() {
+        let integrals = if self.quad.is_null() {
             vec![]
         } else {
             let mut time = t;
@@ -595,16 +595,17 @@ impl<'a> Session<'a> {
                         "quadrature output",
                     )?;
                 }
-                read(self.quad, self.callback.contract.balances.len())
+                read(self.quad, self.callback.contract.quadratures.len())
             }
         };
         Ok(Sample {
+            mode: 0,
             time: t,
             state: x,
             outputs: e.values,
             state_sensitivities,
             output_sensitivities,
-            balance_integrals,
+            integrals,
         })
     }
 }

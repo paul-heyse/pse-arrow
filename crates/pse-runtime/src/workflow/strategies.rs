@@ -13,8 +13,17 @@ use pse_ids::{FramedHasher, SemanticId};
 use pse_kernels::DerivativeOrder;
 use std::sync::Arc;
 
-/// Existing registry-declared scalar coordinate vocabulary.
-pub type AnalysisPort = pse_relations::generated::authored::computation_models::AuthoredComputationModelsFieldCasesItemVariablesItemPort;
+/// Explicit physical coordinate of a native analysis request.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AnalysisPort {
+    /// Stable source identity, never a solver column index.
+    pub symbol_id: SemanticId,
+    /// Admitted physical quantity contract.
+    pub quantity_id: SemanticId,
+    /// Unit of the supplied coordinate.
+    pub unit_id: SemanticId,
+}
 
 /// Explicit continuous cone analysis. The request declares geometry; it is never inferred from NLP rows.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

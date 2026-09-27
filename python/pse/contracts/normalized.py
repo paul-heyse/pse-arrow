@@ -12,24 +12,6 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
-class NormalizedInstanceBindingsRow:
-    """Declared relation row or nested value."""
-
-    instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    parent_instance_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    submodel_template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    submodel_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    property_package_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    reaction_package_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    guard_source_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    guard_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
-    derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
 class NormalizedPackageGraphRow:
     """Declared relation row or nested value."""
 
@@ -39,35 +21,6 @@ class NormalizedPackageGraphRow:
     depth: b.int = attrs.field(validator=v.integer_range(0, 65535))
     dependency_package_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class NormalizedResolvedSourceOccurrencesRow:
-    """Declared relation row or nested value."""
-
-    document_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    field_path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    match_ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    source_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    kind: e.SourceBindingKind = attrs.field(validator=attrs.validators.instance_of(e.SourceBindingKind))
-    owner_template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    semantic_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class NormalizedSourceOccurrencesRow:
-    """Declared relation row or nested value."""
-
-    document_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    field_path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    source_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    owner_kind: e.ExpressionOwnerKind = attrs.field(validator=attrs.validators.instance_of(e.ExpressionOwnerKind))
-    owner_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    lookup_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    source_span: v.SourceSpan = attrs.field(validator=attrs.validators.instance_of(v.SourceSpan))
 
 
 @attrs.frozen(kw_only=True)

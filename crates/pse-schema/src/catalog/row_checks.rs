@@ -8,7 +8,7 @@ use crate::model::Namespace;
 use std::collections::BTreeMap;
 
 pub(super) fn for_relation(namespace: Namespace, name: &str) -> BTreeMap<String, String> {
-    use Namespace::{Authored, Reference, Runtime};
+    use Namespace::{Reference, Runtime};
     let (check, sql) = match (namespace, name) {
         (Runtime, "solve_metrics") => ("one_evidence_value", [
             ("real", "real"), ("integer", "integer"), ("boolean", "boolean"), ("text", "text"), ("unavailable", "unavailable"),
@@ -20,11 +20,6 @@ pub(super) fn for_relation(namespace: Namespace, name: &str) -> BTreeMap<String,
         (Reference, "quantity_types") => (
             "positive_nominal",
             "nominal_magnitude IS NULL OR nominal_magnitude > 0".into(),
-        ),
-        (Authored, "continuous_domains") => ("ordered_bounds", r#""lower" < "upper""#.into()),
-        (Authored, "template_contribution_contracts") => (
-            "distinct_subject_axes",
-            "subject.kind <> 'phase_species' OR subject.phase_species.member.kind <> 'axis' OR subject.phase_species.phase.kind <> 'axis' OR subject.phase_species.member.axis.position <> subject.phase_species.phase.axis.position".into(),
         ),
         _ => return BTreeMap::new(),
     };

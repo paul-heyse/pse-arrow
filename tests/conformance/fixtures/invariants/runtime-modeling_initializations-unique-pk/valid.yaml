@@ -1,0 +1,16 @@
+{
+  "invariant": "runtime.modeling_initializations:unique:pk",
+  "rows": {
+    "runtime.modeling_initializations": [
+      {
+        "attempts": "[\"list\",[]]",
+        "committed": "[\"list\",[]]",
+        "complete": "[\"bool\",true]",
+        "failure": "[\"text\",\"value-1\"]",
+        "failure_ordinal": "[\"i64\",1]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

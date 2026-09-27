@@ -85,8 +85,8 @@ pub enum Function {
     Initial,
     /// User-selected physical outputs.
     Output,
-    /// Signed physical fluxes integrated by Diffsol output quadrature.
-    BalanceFlux,
+    /// Physical integrands evaluated by native output quadrature.
+    QuadratureFlux,
     /// Active guard functions, in stable event order.
     Roots,
     /// Complete post-event state for one event.
@@ -121,7 +121,9 @@ pub struct Balance {
 /// Exact admitted layout. State coordinates are normalized; outputs are physical.
 #[derive(Clone, Debug)]
 pub struct Contract {
-    /// Independently observed conservation contracts.
+    /// Ordered physical quadrature identities, independent of conservation claims.
+    pub quadratures: Vec<SemanticId>,
+    /// Independently observed conservation contracts consuming named quadratures.
     pub balances: Vec<Balance>,
     /// Complete physical/source/profile interpretation.
     pub identity: ContentHash,
@@ -140,9 +142,9 @@ impl Contract {
     /// Validate finite layout and the concrete supported mass/event profile.
     pub fn validate(&self) -> Result<(), ProblemError> {
         let unique = |ids: &[SemanticId]| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
-        if !unique(&self.balances.iter().map(|b| b.id).collect::<Vec<_>>())
+        if !unique(&self.quadratures) || !unique(&self.balances.iter().map(|b| b.id).collect::<Vec<_>>())
             || self.balances.iter().any(|b| {
-                b.state >= self.states.len()
+                !self.quadratures.contains(&b.id) || b.state >= self.states.len()
                     || !self.differential.get(b.state).copied().unwrap_or(false)
                     || !positive(b.scale)
                     || !positive(b.tolerance)
@@ -275,14 +277,14 @@ impl Profile {
                 "terminal-event sensitivities require a declared event-time output contract",
             ));
         }
-        if c.balances.is_empty() {
+        if c.quadratures.is_empty() {
             if self.out_rtol.is_some() || !self.out_atol.is_empty() {
                 return Err(contract(
-                    "output integration tolerance without physical balances",
+                    "output integration tolerance without quadratures",
                 ));
             }
         } else if self.out_rtol.is_none_or(|v| !positive(v))
-            || self.out_atol.len() != c.balances.len()
+            || self.out_atol.len() != c.quadratures.len()
             || self.out_atol.iter().any(|v| !positive(*v))
         {
             return Err(contract(
@@ -363,7 +365,7 @@ impl Profile {
             || self.changes.windows(2).any(|w| w[0].time >= w[1].time)
             || (self.sensitivities && np == 0)
             || (self.sensitivities
-                && !c.balances.is_empty()
+                && !c.quadratures.is_empty()
                 && c.events.iter().any(|e| !e.is_empty()))
         {
             return Err(contract(
@@ -375,7 +377,7 @@ impl Profile {
             .len()
             .checked_mul(
                 m.checked_add(n)
-                    .and_then(|v| v.checked_add(c.balances.len()))
+                    .and_then(|v| v.checked_add(c.quadratures.len()))
                     .ok_or_else(|| contract("dynamic output extent"))?,
             )
             .and_then(|v| {
@@ -426,8 +428,10 @@ pub trait Oracle: std::fmt::Debug {
 /// Successfully completed output point; no preallocated placeholder is observable.
 #[derive(Clone, Debug)]
 pub struct Sample {
-    /// Cumulative signed physical flux, integrated natively across all completed segments.
-    pub balance_integrals: Vec<f64>,
+    /// Actual active mode at this sample, after any coincident nonterminal reset.
+    pub mode: usize,
+    /// Cumulative physical quadratures, integrated natively across completed segments.
+    pub integrals: Vec<f64>,
     /// Physical time in seconds.
     pub time: f64,
     /// Normalized state coordinates; physical conversion belongs to the declared projection.
@@ -489,7 +493,7 @@ impl Report {
                 .samples
                 .iter()
                 .map(|s| {
-                    (s.balance_integrals.capacity()
+                    (s.integrals.capacity()
                         + s.state.capacity()
                         + s.outputs.capacity()
                         + s.state_sensitivities.capacity()

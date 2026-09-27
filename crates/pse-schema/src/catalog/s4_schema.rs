@@ -474,33 +474,9 @@ fn declare_document_sections(builder: &mut RegistryBuilder) {
             )
             .optional(),
             FieldContract::label(
-                "expression_owner_column",
-                FieldContract::native(arrow_schema::DataType::Utf8),
-                "Explicit source expression owner.",
-            )
-            .optional(),
-            FieldContract::payload(
-                "expression_owner_kind",
-                FieldContract::enumeration("ExpressionOwnerKind"),
-                "Explicit expression ownership alternative.",
-            )
-            .optional(),
-            FieldContract::label(
                 "doc",
                 FieldContract::native(arrow_schema::DataType::Utf8),
                 "Section meaning.",
-            ),
-            FieldContract::payload(
-                "expression_fields",
-                FieldContract::list(FieldContract::structure(vec![
-                    FieldContract::native(arrow_schema::DataType::Utf8)
-                        .with_name("path")
-                        .with_nullable(false),
-                    FieldContract::enumeration("ExpressionSyntax")
-                        .with_name("syntax")
-                        .with_nullable(false),
-                ])),
-                "Complete exact DSL field grammar mapping.",
             ),
         ]),
     );

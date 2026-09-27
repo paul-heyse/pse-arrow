@@ -4,65 +4,37 @@
 use super::*;
 use pse_backend_native::{self as native, solve::Controls};
 use pse_ids::{SemanticId, named_id};
-use pse_runtime::workflow::{self, ModelBuilder};
+use pse_runtime::workflow;
 use serde_json::{Value, json};
 
 fn id(n: u32) -> SemanticId {
     named_id(SemanticId::NIL, &format!("process-cost.{n}"))
 }
-fn neutral() -> (SemanticId, SemanticId) {
-    let f = json("bindings.json");
-    (
-        sid(&f["ids"]["quantities"]["neutral"]),
-        sid(&f["ids"]["units"]["neutral"]),
-    )
+fn neutral(physical: &workflow::PhysicalContext) -> (SemanticId, SemanticId) {
+    let q=physical.quantities().neutral_dimensionless().unwrap();
+    (q.as_id(),physical.quantities().quantity_type(q).unwrap().canonical_unit.as_id())
 }
-fn port(symbol: SemanticId) -> Value {
-    let (q, u) = neutral();
+fn port(symbol: SemanticId, physical: &workflow::PhysicalContext) -> Value {
+    let (q,u)=neutral(physical);
     json!({"symbol_id":symbol,"quantity_id":q,"unit_id":u})
 }
-async fn algebraic(owner: &WorkflowRuntime, quadratic: bool, mixed: bool) -> ModelBuilder {
-    let (q, u) = neutral();
-    let targets = if mixed { [1e-6, 1e6] } else { [2., 3.] };
-    let definitions = (0..2)
-        .map(|i| {
-            json!({"definition_id":id(10+i),
-        "sources":[if quadratic {"(x-a)*(x-a)"} else {"x-a"}],
-        "formals":[{"path":"x","quantity_id":q},{"path":"a","quantity_id":q}],
-        "domains":[],"groups":[],"providers":[],"units":[],"literals":[]})
-        })
-        .collect::<Vec<_>>();
-    let row = serde_json::from_value(json!({"model_id":id(1),"name":"analytic two-coordinate case",
-        "definitions":definitions,"domains":[],"groups":[],"cases":[{"case_id":id(2),"name":"selected",
-        "variables":(0..2).map(|i|json!({"port":port(id(20+i)),"fixed":false,"domain":"continuous","lower":null,"upper":null})).collect::<Vec<_>>(),
-        "parameters":[port(id(30)),port(id(31))],
-        "instances":(0..2).map(|i|json!({"instance_id":id(40+i),"definition_id":id(10+i),
-            "slots":[{"source_id":id(20+i),"formal_quantity_id":q,"formal_unit_id":u},{"source_id":id(30+i),"formal_quantity_id":q,"formal_unit_id":u}],
-            "contributions":[{"output":0,"row_id":if quadratic {None} else {Some(id(50+i))},"scale":1.}]})).collect::<Vec<_>>(),
-        "rows":if quadratic {vec![]} else {(0..2).map(|i|json!({"row_id":id(50+i),"quantity_id":q,"lower":0.,"upper":0.})).collect::<Vec<_>>()},
-        "objective":if quadratic {json!({"quantity_id":q,"sense":"minimize"})} else {Value::Null},
-        "values":[{"symbol_id":id(20),"value":targets[0]*0.9},{"symbol_id":id(21),"value":targets[1]*0.9},
-            {"symbol_id":id(30),"value":targets[0]},{"symbol_id":id(31),"value":targets[1]}]}]})).unwrap();
-    let mut builder = ModelBuilder::from_declaration(runtime(owner), row, physical(owner).await);
-    for (i, target) in targets.into_iter().enumerate() {
-        for (symbol, kind) in [(id(20 + i as u32), "variable"), (id(50 + i as u32), "row")] {
-            if quadratic && kind == "row" {
-                continue;
-            }
-            let mut r = requirement(id(1), Some(id(2)), symbol, kind, target * 1e-8);
-            r.nominal = Some(target);
-            r.scaling_factor = Some(1. / target);
-            builder.numerical_requirement(r);
-        }
-    }
-    builder
+async fn algebraic(owner: &WorkflowRuntime, quadratic: bool, mixed: bool) -> (workflow::ModelingPackage,SemanticId) {
+    let physical=physical(owner).await;
+    let (q,_)=neutral(&physical);
+    let (a,b)=if mixed {(1e-6,1e6)} else {(2.0,3.0)};
+    let equations=if quadratic {"let cost:Scalar=(x-a)*(x-a)+(y-b)*(y-b); annotation objective cost(minimize);"} else {"eq first:x==a; eq second:y==b;"};
+    let source=format!("package benchmark {{def Root {{param a:Scalar={a}; param b:Scalar={b}; var x:Scalar; var y:Scalar; annotation start x(a*0.9); annotation start y(b*0.9); annotation nominal x(a); annotation nominal y(b); {equations} annotation check x(abs(x-a)<=a*1e-7); annotation check y(abs(y-b)<=b*1e-7);}} }}");
+    let rows=pse_authoring::language::parse(&source,id(1),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
+    let root=rows.iter().find(|r|r.name=="Root").unwrap().declaration_id;
+    (runtime(owner).modeling_package(rows,physical,BTreeMap::from([("Scalar".into(),q.into())])).unwrap(),root)
 }
 
 async fn cone(owner: &WorkflowRuntime) {
+    let physical=physical(owner).await;
     let request = workflow::ConicRequest {
-        variables: vec![serde_json::from_value(port(id(20))).unwrap()],
-        rows: vec![serde_json::from_value(port(id(50))).unwrap()],
-        objective_port: serde_json::from_value(port(SemanticId::NIL)).unwrap(),
+        variables: vec![serde_json::from_value(port(id(20), &physical)).unwrap()],
+        rows: vec![serde_json::from_value(port(id(50), &physical)).unwrap()],
+        objective_port: serde_json::from_value(port(SemanticId::NIL, &physical)).unwrap(),
         quadratic: native::conic::Matrix::zeros((1, 1)),
         objective: vec![1.],
         constraints: native::conic::Matrix::new(1, 1, vec![0, 1], vec![0], vec![-1.]),
@@ -75,7 +47,7 @@ async fn cone(owner: &WorkflowRuntime) {
     let prepared = runtime(owner)
         .prepare_conic(
             request,
-            &physical(owner).await,
+            &physical,
             profile(Backend::Clarabel, true),
         )
         .await
@@ -94,107 +66,80 @@ async fn cone(owner: &WorkflowRuntime) {
 }
 
 async fn recycle(owner: &WorkflowRuntime) {
-    let mut builder = algebraic(owner, false, false).await;
-    *builder.declaration_mut() = serde_json::from_value(json!({"model_id":id(1),"name":"declared recycle",
-        "definitions":[],"domains":[],"groups":[],"cases":[{"case_id":id(2),"name":"selected","variables":[],"parameters":[],"instances":[],"rows":[],"objective":null,"values":[]}]})).unwrap();
-    *builder.sources_mut() = Default::default();
-    let (q, _) = neutral();
-    let input = workflow::port_id(id(3), "in");
-    let output = workflow::port_id(id(3), "out");
-    builder.sources_mut().composition = serde_json::from_value(json!({
-        "roots":[{"model_id":id(1),"root_instance_id":id(3)}],
-        "templates":[{"template_id":id(4),"package_id":id(5),"name":"unit","version":"1","kind":"unit","default_initializer_template_id":null,"default_scaler_template_id":null,"idaes_class":null,"doc":""}],
-        "instances":[{"instance_id":id(3),"parent_instance_id":null,"template_id":id(4),"name":"unit","param_values":[],"feature_values":[],"property_package_id":null,"reaction_package_id":null,"doc":""}],
-        "symbols":[{"template_id":id(4),"symbol_decl_id":id(6),"name":"x","role":"variable","quantity_type_id":q,"indexed_by":[],"default_lower":null,"default_upper":null,"default_initial":1.,"reference_to":null,"wrt_domain":null,"guard_id":null,"idaes_name":null,"doc":""},
-            {"template_id":id(4),"symbol_decl_id":id(7),"name":"a","role":"parameter","quantity_type_id":q,"indexed_by":[],"default_lower":null,"default_upper":null,"default_initial":2.,"reference_to":null,"wrt_domain":null,"guard_id":null,"idaes_name":null,"doc":""}],
-        "equations":[{"template_id":id(4),"equation_decl_id":id(8),"name":"map","indexed_by":[],"filter":null,"expression":"x/2+a == 0","sense":"eq","guard_id":null,"idaes_name":null,"doc":""}],
-        "ports":[{"template_id":id(4),"name":"out","kind":"material","direction":"outlet","bound_to":"x","guard_id":null,"doc":""},{"template_id":id(4),"name":"in","kind":"material","direction":"inlet","bound_to":"x","guard_id":null,"doc":""}],
-        "connection_rules":[{"rule_template_id":id(60),"expansion":"equality"}],
-        "connections":[{"connection_id":id(61),"from_port_id":output,"to_port_id":input,"rule_template_id":id(60),"tear_cost":2.,"tear_policy":"mandatory","tear_group":null,"doc":""}]})).unwrap();
-    let revision = builder.freeze().unwrap();
-    let flow = revision.prepare_flow(id(2), id(3)).await.unwrap();
-    let selected = owner
-        .runtime
-        .math()
-        .select_tears(
-            flow,
-            pse_runtime::math::flows::TearMethod::UnweightedHeuristic,
-            Controls::default(),
-        )
-        .unwrap()
-        .finish()
-        .await
-        .unwrap()
-        .selected
-        .clone()
-        .unwrap();
-    let x = workflow::symbol_id(id(3), id(6), &[]);
-    let request = workflow::RecycleRequest {
-        case: id(2),
-        flow: id(3),
-        tears: selected.decisions,
-        units: vec![workflow::CausalUnitRequest {
-            node: id(3),
-            case: id(2),
-            inputs: BTreeMap::from([(workflow::symbol_id(input, x, &[]), x)]),
-            outputs: BTreeMap::from([(
-                workflow::symbol_id(output, x, &[]),
-                workflow::symbol_id(id(3), id(8), &[]),
-            )]),
-        }],
-        anderson: 1,
-        damping: 1.,
-    };
-    let prepared = revision
-        .prepare_recycle(
-            request,
-            profile(Backend::Kinsol, false),
-            compiler(),
-            &CancelSource::new(),
-        )
-        .await
-        .unwrap();
-    let result = prepared.start().unwrap().finish().await.unwrap();
-    near(
-        result.report.candidate.as_ref().unwrap().primal[0],
-        4.,
-        1e-6,
-    );
+    let physical=physical(owner).await;
+    let (q, _) = neutral(&physical);
+    let rows=pse_authoring::language::parse("package benchmark {def Root {param a:Scalar=2; var x:Scalar; let result:Scalar=x/2+a; port inlet:Scalar=x; port outlet:Scalar=result; connect outlet -> inlet; annotation start x(1);}}",id(1),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
+    let root=rows.iter().find(|r|r.name=="Root").unwrap().declaration_id;
+    let package=runtime(owner).modeling_package(rows,physical,BTreeMap::from([("Scalar".into(),q.into())])).unwrap();
+    let cancel=CancelSource::new();
+    let analysis=package.declared_analysis(root,pse_relations::generated::enums::ModelingAnalysisRoute::Steady,compiler(),profile(Backend::Kinsol,false),Default::default(),Default::default(),&cancel).await.unwrap();
+    let model=package.prepare(root,root,analysis.bindings.clone(),analysis.limits,&cancel).await.unwrap();
+    let product=&model.compiled().model;
+    let port=|name:&str|product.ports.values().find(|p|p.lineage.path.ends_with(&format!(".{name}"))).unwrap().id;
+    let (input,output)=(port("inlet"),port("outlet"));
+    let selection=pse_compiler::workspace::ModelingFlowSelection{nodes:std::collections::BTreeSet::from([root]),connections:product.connections.keys().map(|id|(*id,pse_runtime::math::flows::Decision{id:*id,cost:2.0,policy:pse_runtime::math::flows::Policy::Mandatory})).collect()};
+    let flow=package.prepare_flow(&analysis,selection.clone(),&cancel).await.unwrap();
+    let selected=owner.runtime.math().select_tears(flow,pse_runtime::math::flows::TearMethod::UnweightedHeuristic,Controls::default()).unwrap().finish().await.unwrap().selected.clone().unwrap();
+    let request=workflow::RecycleRequest{tears:selected.decisions,units:vec![workflow::CausalUnitRequest{node:root,inputs:std::collections::BTreeSet::from([input]),outputs:std::collections::BTreeSet::from([output])}],anderson:1,damping:1.0};
+    let prepared=package.prepare_recycle(&analysis,selection,request,&cancel).await.unwrap();
+    let result=prepared.start().unwrap().finish().await.unwrap();
+    near(result.report.candidate.as_ref().unwrap().primal[0],4.,1e-6);
     assert!(result.report.quality.as_ref().unwrap().feasible());
 }
 
 async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
-    let (q, u) = neutral();
-    let row=serde_json::from_value(json!({"model_id":id(1),"name":"independent observations","domains":[],"groups":[],
-        "definitions":[{"definition_id":id(10),"sources":["a"],"formals":[{"path":"a","quantity_id":q}],"domains":[],"groups":[],"providers":[],"units":[],"literals":[]}],
-        "cases":[{"case_id":id(2),"name":"responses","variables":[],
-            "parameters":(0..n).map(|i|port(id(1000+i as u32))).collect::<Vec<_>>(),
-            "instances":(0..n).map(|i|json!({"instance_id":id(2000+i as u32),"definition_id":id(10),"slots":[{"source_id":id(1000+i as u32),"formal_quantity_id":q,"formal_unit_id":u}],"contributions":[{"output":0,"row_id":id(3000+i as u32),"scale":1.}]})).collect::<Vec<_>>(),
-            "rows":(0..n).map(|i|json!({"row_id":id(3000+i as u32),"quantity_id":q,"lower":null,"upper":null})).collect::<Vec<_>>(),
-            "objective":null,"values":(0..n).map(|i|json!({"symbol_id":id(1000+i as u32),"value":1.})).collect::<Vec<_>>()}]})).unwrap();
-    let mut b = ModelBuilder::from_declaration(runtime(owner), row, physical(owner).await);
-    b.dataset(serde_json::from_value(json!({"dataset_id":id(70),"name":"independent","source":"analytic identity responses","content_hash":pse_ids::ContentHash::from_bytes([1;32])})).unwrap());
+    let physical=physical(owner).await;
+    let (q, u) = neutral(&physical);
+    let source = format!(
+        "package benchmark {{ def Identity {{ {} }} }}",
+        (0..n)
+            .map(|i| format!("param p{i}:Scalar=1; "))
+            .collect::<String>()
+    );
+    let rows = pse_authoring::language::parse(
+        &source,
+        id(1),
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Identity")
+        .unwrap()
+        .declaration_id;
+    let mut data = workflow::FitData::default();
+    data.datasets.push(serde_json::from_value(json!({"dataset_id":id(70),"name":"independent","source":"analytic identity responses","content_hash":pse_ids::ContentHash::from_bytes([1;32])})).unwrap());
     for i in 0..n {
-        b.observation(serde_json::from_value(json!({"observation_id":id(4000+i as u32),"dataset_id":id(70),"target":"identity","value":2.,"unit_id":u,"std_dev":1.,"timestamp":null,"tag":null,"source_span":{"document_id":id(70),"start":0,"end":0}})).unwrap());
+        data.observations.push(serde_json::from_value(json!({"observation_id":id(4000+i as u32),"dataset_id":id(70),"target":"identity","value":2.,"unit_id":u,"std_dev":1.,"timestamp":null,"tag":null,"source_span":{"document_id":id(70),"start":0,"end":0}})).unwrap());
     }
-    b.fit(serde_json::from_value(json!({"fit_id":id(73),"model_id":id(1),
+    data.fits.push(serde_json::from_value(json!({"fit_id":id(73),
         "parameters":(0..n).map(|i|json!({"symbol_id":id(1000+i as u32),"fixed":false,"value":1.,"lower":null,"upper":null,"scale":1.})).collect::<Vec<_>>(),
-        "experiments":[{"experiment_id":id(74),"case_id":id(2),"dynamic_id":null}],
-        "observations":(0..n).map(|i|json!({"observation_id":id(4000+i as u32),"experiment_id":id(74),"output_id":id(3000+i as u32),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>()})).unwrap());
+        "experiments":[{"experiment_id":id(74),"case_id":root,"route":"steady","bindings":(0..n).map(|i|json!({"parameter_id":id(1000+i as u32),"path":format!("p{i}")})).collect::<Vec<_>>()}],
+        "observations":(0..n).map(|i|json!({"observation_id":id(4000+i as u32),"experiment_id":id(74),"output_path":format!("p{i}"),"time":null,"included":true,"importance":1.})).collect::<Vec<_>>()})).unwrap());
+    let package = runtime(owner)
+        .modeling_package(
+            rows,
+            physical,
+            BTreeMap::from([("Scalar".into(), pse_quantity::QuantityTypeId::from_id(q))]),
+        )
+        .unwrap()
+        .with_fit_data(data)
+        .unwrap();
     let mut solver = profile(Backend::Ipopt, true);
     solver.presolve = native::presolve::Policy::Off;
-    let prepared = b
-        .freeze()
-        .unwrap()
+    let prepared = package
         .prepare_fit(
             id(73),
             workflow::FitProfile {
                 solver,
                 simulations: BTreeMap::new(),
+                modes: BTreeMap::new(),
                 rank_tolerance: 1e-8,
                 max_cells: n * 8,
             },
             compiler(),
+            seed_limits(),
             &CancelSource::new(),
         )
         .await
@@ -220,150 +165,65 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
         "sparse-fit" => sparse_fit(owner, size).await,
         "mixed-scale" | "qp" | "value-sweep" => {
             let quadratic = operation == "qp";
-            let mut revision = algebraic(owner, quadratic, operation == "mixed-scale")
-                .await
-                .freeze()
-                .unwrap();
-            let count = if operation == "value-sweep" { 1000 } else { 1 };
+            let mixed=operation=="mixed-scale";
+            let (package,root)=algebraic(owner,quadratic,mixed).await;
+            let cancel=CancelSource::new();
+            let mut selected=profile(if quadratic {Backend::Highs} else {Backend::Kinsol},quadratic);
+            selected.presolve=native::presolve::Policy::Off;
+            let mut analysis=package.declared_analysis(root,pse_relations::generated::enums::ModelingAnalysisRoute::Steady,compiler(),selected,Default::default(),seed_limits(),&cancel).await.unwrap();
+            let count=if operation=="value-sweep" {1000} else {1};
             for point in 0..count {
-                if point > 0 {
-                    let mut edit = revision.edit();
-                    edit.declaration_mut().cases[0]
-                        .values
-                        .iter_mut()
-                        .find(|v| v.symbol_id == id(30))
-                        .unwrap()
-                        .value = 2. + point as f64 / 1000.;
-                    revision = edit.freeze().unwrap();
-                }
-                let mut selected = profile(
-                    if quadratic {
-                        Backend::Highs
-                    } else {
-                        Backend::Kinsol
-                    },
-                    quadratic,
-                );
-                selected.presolve = native::presolve::Policy::Off;
-                let prepared = revision
-                    .prepare(id(2), selected, compiler(), &CancelSource::new())
-                    .await
-                    .unwrap();
-                let result = prepared.start().unwrap().wait().await.unwrap();
-                let RunReport::Solves(reports) = result.report().unwrap() else {
-                    panic!("missing algebraic result")
-                };
-                let pse_runtime::math::solves::Outcome::Native(report) = &reports.outcomes[0]
-                else {
-                    panic!("native solve required")
-                };
-                assert!(report.quality.as_ref().unwrap().feasible());
-                let case = &revision.declaration().cases[0];
-                for i in 0..2 {
-                    let expected = case
-                        .values
-                        .iter()
-                        .find(|v| v.symbol_id == id(30 + i))
-                        .unwrap()
-                        .value;
-                    near(
-                        variable(&result, id(20 + i)),
-                        expected,
-                        expected.abs() * 1e-7,
-                    );
+                let expected=[if mixed {1e-6} else {2.0+point as f64/1000.0},if mixed {1e6} else {3.0}];
+                analysis.case.values.insert("a".into(),expected[0]);
+                let prepared=package.prepare_analysis(&analysis,&cancel).await.unwrap();
+                let symbol=|name:&str|prepared.model.model.compiled().model.symbols.values().find(|s|s.lineage.path.ends_with(&format!(".{name}"))).unwrap().id;
+                let coordinates=[symbol("x"),symbol("y")];
+                let result=prepared.start().unwrap().wait().await.unwrap();
+                authored_success(&result);
+                for (id,expected) in coordinates.into_iter().zip(expected) {
+                    near(variable(&result,id),expected,expected.abs()*1e-7);
                 }
             }
         }
-        "dynamic-rebind" | "evented-fit" => {
-            let mut b = builder(owner).await;
-            vessel(&mut b, false);
-            let f = json("bindings.json");
-            let dynamic = sid(&f["vessel_id"]);
-            if operation == "dynamic-rebind" {
-                let revision = b.freeze().unwrap();
-                let prepared = revision
-                    .prepare_simulation(dynamic, simulation(), compiler(), &CancelSource::new())
-                    .await
-                    .unwrap();
-                for step in 1..=4 {
-                    let mut selected = simulation();
-                    selected.end = step as f64 * 0.25;
-                    selected.samples = vec![0., selected.end];
-                    let rebound = prepared
-                        .rebind(
-                            &BTreeMap::from([(
-                                sid(&f["vessel_ports"]["heat"]["symbol_id"]),
-                                step as f64,
-                            )]),
-                            selected,
-                            compiler(),
-                            &CancelSource::new(),
-                        )
-                        .await
-                        .unwrap();
-                    let result = rebound.start().unwrap().wait().await.unwrap();
-                    let RunReport::Simulation(report) = result.report().unwrap() else {
-                        panic!("missing trajectory")
-                    };
-                    assert_eq!(report.termination, native::dynamics::Termination::Completed);
-                    conservation(&result, report.samples.len() * 2);
-                }
+
+        "vessel" | "dynamic-rebind" => {
+            let package=seed_package(owner).await;
+            let root=SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap();
+            let cancel=CancelSource::new();
+            let prepared=package.declared_simulation(root,compiler(),None,seed_limits(),&cancel).await.unwrap();
+            if operation=="vessel" {
+                let result=prepared.run(&cancel).await.unwrap();
+                assert!(result.accepted,"{result:?}");
+                std::hint::black_box(result.tables().unwrap());
             } else {
-                let (fit, mut selected) = heat_fit(&mut b, "transient");
-                // A scheduled change leaves the first half of the heat parameter
-                // active. U(1)=U(0)+0.5*q+0.5*10 has its unique fit at q=10.
-                let dynamic_row = b
-                    .sources_mut()
-                    .dynamics
-                    .iter()
-                    .find(|d| d.dynamic_id == dynamic)
-                    .unwrap()
-                    .clone();
-                let heat = sid(&f["vessel_ports"]["heat"]["symbol_id"]);
-                let case = b
-                    .declaration_mut()
-                    .cases
-                    .iter()
-                    .find(|c| c.case_id == dynamic_row.case_id)
-                    .unwrap();
-                let parameters = dynamic_row
-                    .parameters
-                    .iter()
-                    .map(|s| {
-                        if *s == heat {
-                            10.
-                        } else {
-                            case.values
-                                .iter()
-                                .find(|v| v.symbol_id == *s)
-                                .unwrap()
-                                .value
-                        }
-                    })
-                    .collect();
-                selected
-                    .simulations
-                    .values_mut()
-                    .next()
-                    .unwrap()
-                    .changes
-                    .push(native::dynamics::InputChange {
-                        time: 0.5,
-                        parameters,
-                    });
-                let prepared = b
-                    .freeze()
-                    .unwrap()
-                    .prepare_fit(fit, selected, compiler(), &CancelSource::new())
-                    .await
-                    .unwrap();
-                let result = prepared.start().unwrap().wait().await.unwrap();
-                let RunReport::Fit(report) = result.report().unwrap() else {
-                    panic!("missing event fit")
-                };
-                near(report.candidate.as_ref().unwrap()[0], 10., 2e-3);
-                assert!(report.estimate_qualified(), "{report:?}");
+                let analysis=package.declared_analysis(root,pse_relations::generated::enums::ModelingAnalysisRoute::Integrated,compiler(),profile(Backend::Ipopt,false),Default::default(),seed_limits(),&cancel).await.unwrap();
+                for step in 1..=4 {
+                    let mut case=analysis.case.clone();
+                    case.values.insert("root.heat".into(),step as f64);
+                    let rebound=package.prepare_simulation(root,root,analysis.bindings.clone(),seed_limits(),case,compiler(),prepared.profile().clone(),&cancel).await.unwrap();
+                    let result=rebound.run(&cancel).await.unwrap();
+                    assert!(result.accepted,"{result:?}");
+                }
             }
+        }
+        "fit" | "evented-fit" => {
+            let package=seed_package(owner).await;
+            let (fit,mut selected)=heat_fit(&package,"transient").await;
+            if operation=="evented-fit" {
+                let root=SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap();
+                let simulation=package.declared_simulation(root,compiler(),None,seed_limits(),&CancelSource::new()).await.unwrap();
+                let mut integration=simulation.profile().clone();
+                integration.method=native::dynamics::Method::Diffsol;
+                integration.rtol=1e-6;
+                integration.atol.fill(1e-8);
+                integration.changes.push(native::dynamics::InputChange{time:0.5,parameters:simulation.parameters().to_vec()});
+                let experiment=SemanticId::parse_hex("b39f24e05b7d5490904f6138b4d7e080").unwrap();
+                selected.simulations.insert(experiment,integration);
+            }
+            let result=package.prepare_fit(fit,selected,compiler(),seed_limits(),&CancelSource::new()).await.unwrap().start().unwrap().wait().await.unwrap();
+            let RunReport::Fit(report)=result.report().unwrap() else {panic!("missing fit")};
+            near(report.candidate.as_ref().unwrap()[0],10.,2e-3);
+            assert!(report.estimate_qualified(),"{report:?}");
         }
         _ => panic!("unknown extended workload {operation}"),
     }

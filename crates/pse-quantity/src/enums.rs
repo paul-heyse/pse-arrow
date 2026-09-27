@@ -265,57 +265,6 @@ crate::closed_enum! {
 }
 
 crate::closed_enum! {
-    /// What a domain indexes (blueprint §6.3, `authored.domains.kind`).
-    pub enum DomainKind {
-        /// A time domain; continuous in dynamic models.
-        Time => "time",
-        /// A spatial length domain.
-        Length => "length",
-        /// The species of a material system.
-        Species => "species",
-        /// The phases of a material system.
-        Phase => "phase",
-        /// Valid phase/species pairs.
-        PhaseSpecies => "phase_species",
-        /// The chemical elements a species is composed of.
-        Element => "element",
-        /// The reactions of a reaction package.
-        Reaction => "reaction",
-        /// A set of ports on an instance.
-        PortSet => "port_set",
-        /// The stages of a staged unit.
-        Stage => "stage",
-        /// Discretization cells.
-        Cell => "cell",
-        /// Discretization faces.
-        Face => "face",
-        /// Mesh nodes.
-        Node => "node",
-        /// A domain a package declares that no other member names.
-        Custom => "custom",
-    }
-}
-
-crate::closed_enum! {
-    /// What a quantity is *about* (blueprint §6.2, `reference.quantity_types.subject_kind`).
-    ///
-    /// The subject is not the shape: a per-phase composition of one species has shape
-    /// `[phase]` and subject `species`.
-    pub enum SubjectKind {
-        /// The quantity is about one species.
-        Species => "species",
-        /// The quantity is about one phase.
-        Phase => "phase",
-        /// The quantity is about one element.
-        Element => "element",
-        /// The quantity is about one reaction.
-        Reaction => "reaction",
-        /// The quantity is about nothing in particular.
-        None => "none",
-    }
-}
-
-crate::closed_enum! {
     /// Whether a quantity is a point on an affine scale or a difference of two points
     /// (blueprint §8.1).
     pub enum ScaleKind {
@@ -537,8 +486,6 @@ pub fn dictionaries() -> Vec<(&'static str, Vec<&'static str>)> {
     }
     dictionaries!(
         Opcode,
-        DomainKind,
-        SubjectKind,
         ScaleKind,
         QuantityAdditionKind,
         BasisKind,
@@ -563,9 +510,9 @@ mod tests {
     use serde::de::value::{Error as ValueError, StrDeserializer};
 
     use super::{
-        BasisKind, BasisRule, CompositionBasis, ConversionKind, DomainKind, Opcode,
+        BasisKind, BasisRule, CompositionBasis, ConversionKind, Opcode,
         QuantityAdditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind,
-        ReferenceRule, ReferenceStateKind, ScaleKind, SubjectKind, SubjectRule,
+        ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule,
         WeightNormalization,
     };
 
@@ -592,8 +539,6 @@ mod tests {
 
     has_text!(
         Opcode,
-        DomainKind,
-        SubjectKind,
         ScaleKind,
         QuantityAdditionKind,
         BasisKind,
@@ -629,8 +574,6 @@ mod tests {
     #[test]
     fn every_enum_round_trips_through_its_registry_spelling() {
         round_trip(Opcode::ALL);
-        round_trip(DomainKind::ALL);
-        round_trip(SubjectKind::ALL);
         round_trip(ScaleKind::ALL);
         round_trip(QuantityAdditionKind::ALL);
         round_trip(BasisKind::ALL);
@@ -647,11 +590,9 @@ mod tests {
         round_trip(ReductionKind::ALL);
     }
 
-    /// §6.3 spells domain kinds in `snake_case`; §7.2 spells opcodes in `PascalCase`.
+    /// Registry operation spellings remain distinct from physical policy names.
     #[test]
     fn spellings_follow_the_section_they_come_from() {
-        assert_eq!(DomainKind::PhaseSpecies.as_str(), "phase_species");
-        assert_eq!(DomainKind::PortSet.as_str(), "port_set");
         assert_eq!(Opcode::WeightedMean.as_str(), "WeightedMean");
         assert_eq!(
             QuantityAdditionKind::OriginSensitive.as_str(),
@@ -663,7 +604,6 @@ mod tests {
     /// `Display` and `Deserialize` read the same spelling `as_str` writes: one authority.
     #[test]
     fn display_and_serde_use_the_registry_spelling() {
-        assert_eq!(DomainKind::Cell.to_string(), "cell");
 
         let de: StrDeserializer<'_, ValueError> = "SumOver".into_deserializer();
         assert_eq!(Opcode::deserialize(de).ok(), Some(Opcode::SumOver));

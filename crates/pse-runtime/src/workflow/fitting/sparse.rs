@@ -92,7 +92,6 @@ impl Layout {
     pub(super) fn new(
         experiments: &[Experiment],
         measurements: &[Measurement],
-        parameters: &[SemanticId],
         parameter_columns: &[Option<usize>],
         rows: usize,
         columns: usize,
@@ -149,10 +148,8 @@ impl Layout {
                     }
                 }
                 Experiment::Transient(s) => {
-                    for (j, id) in s.declaration.parameters.iter().enumerate() {
-                        if let Some(k) = parameters.iter().position(|p| *p == *id)
-                            && let Some(column) = parameter_columns[k]
-                        {
+                    for binding in &s.bindings {
+                        if let Some(column) = parameter_columns[binding.parameter] {
                             for (observation, _) in measurements
                                 .iter()
                                 .enumerate()
@@ -161,7 +158,7 @@ impl Layout {
                                 let c = push(&mut response_pairs, (observation, column), limit)?;
                                 mapping.responses.push(ResponseTerm {
                                     observation,
-                                    local: j,
+                                    local: binding.local,
                                     contribution: c,
                                 });
                             }

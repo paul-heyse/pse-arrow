@@ -6,105 +6,33 @@ import asyncio
 import gc
 import subprocess
 import sys
-import uuid
 from pathlib import Path
+from typing import cast
 
-import msgspec
 import pyarrow as pa
 import pytest
 
 import pse
 from pse import codec
-from pse import modeling as w
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
 from pse.contracts.values import SemanticId
-
-FIXTURE = Path(__file__).resolve().parents[3] / "tests/fixtures/plan14"
-
-
-def numerical_requirement(
-    model: SemanticId,
-    case: SemanticId | None,
-    target: SemanticId,
-    kind: str,
-    tolerance: float,
-) -> dict[str, object]:
-    return {
-        "requirement_id": uuid.uuid5(
-            uuid.NAMESPACE_URL, f"plan14:{model}:{case}:{target}:{kind}"
-        ).hex,
-        "model_id": model.to_hex(),
-        "case_id": None if case is None else case.to_hex(),
-        "target_id": target.to_hex(),
-        "target_kind": kind,
-        "nominal": None,
-        "scaling_factor": None,
-        "absolute_tolerance": tolerance,
-        "relative_tolerance": None,
-        "unit_id": None,
-        "coordinates": "physical",
-        "priority": 0,
-        "required": True,
-        "provenance": "Plan 14 acceptance budget migrated by semantic identity",
-    }
-
 
 @pytest.mark.integration
 def test_public_native_process_and_exact_results(
     inspection_settings: pse.EngineSettings,
 ) -> None:
     runtime = pse.Runtime(inspection_settings)
-    package = FIXTURE / "package"
-    docs = {
-        str(p.relative_to(package)): p.read_text()
-        for p in package.rglob("*")
-        if p.is_file()
-    }
-    physical = runtime.physical_from_documents(docs)
-    declaration = codec.converter().structure(
-        msgspec.json.decode(
-            (FIXTURE / "model.json").read_bytes(), type=dict[str, object]
-        ),
-        w.ModelDeclaration,
-    )
-    draft = runtime.from_declaration(declaration, physical)
-    for row in msgspec.json.decode(
-        (FIXTURE / "providers.json").read_bytes(), type=list[dict[str, object]]
-    ):
-        draft.native_provider(
-            codec.converter().structure(row, authored.AuthoredNativeProvidersRow)
-        )
-    balances: list[authored.AuthoredPhysicalBalancesRow] = []
-    for row in msgspec.json.decode(
-        (FIXTURE / "balances.json").read_bytes(), type=list[dict[str, object]]
-    ):
-        balance = codec.converter().structure(row, authored.AuthoredPhysicalBalancesRow)
-        balances.append(balance)
-        draft.balance(balance)
-    selected = next(c for c in declaration.cases if c.name == "heater-recycle")
-    targets = [(v.port.symbol_id, "variable", 1e-6) for v in selected.variables]
-    targets.extend((r.row_id, "row", 1e-4) for r in selected.rows)
-    targets.extend(
-        (b.balance_id, "row", 1e-4) for b in balances if b.case_id == selected.case_id
-    )
-    for target, kind, tolerance in targets:
-        draft.numerical_requirement(
-            codec.converter().structure(
-                numerical_requirement(
-                    declaration.model_id, selected.case_id, target, kind, tolerance
-                ),
-                authored.AuthoredNumericalRequirementsRow,
-            )
-        )
-    revision = draft.freeze()
-    prepared = revision.prepare(
-        selected.case_id,
-        pse.SolveSettings(
-            backend="ipopt",
-            intent="feasible_point",
-        ),
-    )
+    root = Path(__file__).resolve().parents[3] / "packages/reference"
+    def documents(path: Path) -> dict[str, str]:
+        return {p.relative_to(path).as_posix(): p.read_text() for p in path.rglob("*") if p.is_file() and p.suffix in {".toml", ".yaml", ".yml", ".pse"}}
+    physical = runtime.physical_from_documents(documents(root / "physical"))
+    package = runtime.modeling_from_documents([documents(root / name) for name in ("seed-data", "process", "thermodynamics", "methods", "physical")], physical)
+    case = SemanticId.from_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015")
+    settings = pse.SolveSettings(backend="ipopt", intent="feasible_point")
+    members = cast("list[dict[str, object]]", package.inspect(case, settings)["members"])
+    coordinates = {cast("str", cast("dict[str, object]", m["lineage"])["path"]): SemanticId.from_hex(cast("str", m["id"])) for m in members}
+    prepared = package.prepare_solve(case, settings)
     handle = prepared.start()
 
     async def wait_twice() -> pse.RunResult:
@@ -118,21 +46,16 @@ def test_public_native_process_and_exact_results(
         result.table("runtime.solve_variables")
     ).read_all()
     rows = table.to_pylist()
-    for source, expected in zip(
-        selected.variables, [76.85, 34.565566349336066, 5.0], strict=True
-    ):
-        actual = next(
-            row["value"]
-            for row in rows
-            if SemanticId(row["symbol_id"]) == source.port.symbol_id
-        )
+    for path, expected in [("root.phase.T", 350.0), ("root.phase.rho", 34.565566349336066), ("root.recycle", 5.0)]:
+        actual = next(row["value"] for row in rows if SemanticId(row["symbol_id"]) == coordinates[f"heater_recycle.{path}"])
         assert actual == pytest.approx(expected, abs=1e-5)
-    source = pa.RecordBatchReader.from_stream(
-        result.table("authored.computation_models")
-    ).read_all()
-    assert source.num_rows == 1
+    assert result.usable
+    checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
+    assert checks and all(row["satisfied"] for row in checks)
+    source = pa.table(result.table("authored.modeling_declarations"))
+    assert any(SemanticId(row["declaration_id"]) == case for row in source.to_pylist())
     arrays = table.column("value").chunks
-    del table, result, prepared, revision, draft, runtime
+    del table, result, prepared, package, runtime
     gc.collect()
     assert any(a.null_count < len(a) for a in arrays)
 
@@ -140,129 +63,77 @@ def test_public_native_process_and_exact_results(
 @pytest.mark.integration
 def test_public_dynamic_and_transient_fit(
     inspection_settings: pse.EngineSettings,
+    tmp_path: Path,
 ) -> None:
     runtime = pse.Runtime(inspection_settings)
-    package = FIXTURE / "package"
-    physical = runtime.physical_from_documents(
-        {
-            str(p.relative_to(package)): p.read_text()
-            for p in package.rglob("*")
-            if p.is_file()
-        }
-    )
-    converter = codec.converter()
-    model = converter.structure(
-        msgspec.json.decode(
-            (FIXTURE / "dynamic-model.json").read_bytes(), type=dict[str, object]
-        ),
-        w.ModelDeclaration,
-    )
-    dynamic = converter.structure(
-        msgspec.json.decode(
-            (FIXTURE / "dynamic-source.json").read_bytes(), type=dict[str, object]
-        ),
-        authored.AuthoredDynamicCasesRow,
-    )
-    fit = converter.structure(
-        msgspec.json.decode(
-            (FIXTURE / "fit-source.json").read_bytes(), type=dict[str, object]
-        ),
-        authored.AuthoredFitCasesRow,
-    )
-    draft = runtime.from_declaration(model, physical)
-    draft.dynamics(dynamic)
-    draft.fit(fit)
-    draft.observation(
-        converter.structure(
-            msgspec.json.decode(
-                (FIXTURE / "fit-observation.json").read_bytes(), type=dict[str, object]
-            ),
-            authored.AuthoredObservationsRow,
-        )
-    )
-    draft.dataset(
-        converter.structure(
-            msgspec.json.decode(
-                (FIXTURE / "fit-dataset.json").read_bytes(), type=dict[str, object]
-            ),
-            authored.AuthoredDatasetsRow,
-        )
-    )
-    revision = draft.freeze()
-    settings = pse.SimulationSettings(
-        start=0.0,
-        end=1.0,
-        samples=[0.0, 0.5, 1.0],
-        atol=[1e-8],
-        parameter_scales=[1.0],
-        sensitivities=True,
-    )
-    simulation = (
-        revision.prepare_simulation(dynamic.dynamic_id, settings).start().wait()
-    )
-    run = (
-        pa.RecordBatchReader.from_stream(simulation.table("runtime.computation_runs"))
-        .read_all()
-        .to_pylist()
-    )
-    assert len(run) == 1
-    assert run[0]["trajectory_termination"] == "completed"
-    assert run[0]["error"] is None
-    samples = (
-        pa.RecordBatchReader.from_stream(simulation.table("runtime.simulation_samples"))
-        .read_all()
-        .to_pylist()
-    )
-    assert len(samples) == 6  # State and declared output at each requested time.
-    assert {SemanticId(sample["symbol_id"]) for sample in samples} == {
-        dynamic.states[0].symbol_id,
-        dynamic.outputs[0],
-    }
-    assert {sample["time"] for sample in samples} == {0.0, 0.5, 1.0}
+    root = Path(__file__).resolve().parents[3]
+    primitives = root / "tests/fixtures/packages/physical-primitives"
+    physical = runtime.physical_from_documents({str(p.relative_to(primitives)):p.read_text() for p in primitives.rglob("*") if p.is_file()})
+    identity = lambda n: SemanticId(bytes([n])*16)
+    manifest = (root / "tests/fixtures/packages/minimal_explicit/package.toml").read_text().replace('id_policy = "explicit"','id_policy = "named"')
+    manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{identity(31).to_hex()}"\n'
+    manifest += f'\n[[quantity_aliases]]\nname = "Time"\nquantity_type_id = "{identity(222).to_hex()}"\n'
+    package = runtime.modeling_from_documents([{
+        "package.toml":manifest,
+        "models/accumulation.pse":"""package accumulation { def Experiment {
+          domain t:Time from 0{s} to 1{s};
+          discretize grid on t using integrated(elements=1,order=1);
+          param rate:Scalar=3;
+          var total[i in t]:Time;
+          eq balance[i in t]:d(total[i])/di==rate;
+          eq initial:total[0{s}]==2{s};
+          let observed[i in t]:Time=total[i];
+          annotation report observed("measurement");
+          annotation check total(total[i]>=2{s});
+        } }""",
+    }],physical)
+    case = next(d.declaration_id for d in package.declarations() if d.name=="Experiment")
+    settings = pse.SimulationSettings(start=0.,end=1.,samples=[0.,.5,1.],atol=[1e-10],rtol=1e-9,parameter_scales=[1.],sensitivities=True)
+    simulation = package.simulate(case,settings)
+    assert simulation.accepted and simulation.termination=="completed"
+    samples = pa.table(simulation.table()).to_pylist()
+    assert len(samples)==6
+    assert {sample["time"] for sample in samples}=={0.,.5,1.}
     for sample in samples:
-        assert sample["value"] == pytest.approx(2.0 + 3.0 * sample["time"], abs=1e-6)
-    result = (
-        revision.prepare_fit(
-            fit.fit_id,
-            pse.SolveSettings(
-                backend="ipopt",
-                intent="optimize",
-                hessian="limited_memory",
-                numerics={
-                    "requirements": [
-                        numerical_requirement(
-                            fit.model_id,
-                            None,
-                            fit.parameters[0].symbol_id,
-                            "variable",
-                            1e-6,
-                        )
-                    ]
-                },
-            ),
-            {fit.experiments[0].experiment_id: settings},
-        )
-        .start()
-        .wait()
-    )
-    parameters = (
-        pa.RecordBatchReader.from_stream(result.table("runtime.fit_parameters"))
-        .read_all()
-        .to_pylist()
-    )
-    assert len(parameters) == 1
-    assert parameters[0]["value"] == pytest.approx(3.0, abs=1e-5)
-    run = (
-        pa.RecordBatchReader.from_stream(result.table("runtime.computation_runs"))
-        .read_all()
-        .to_pylist()
-    )
-    assert len(run) == 1
-    assert run[0]["termination"] in {"success", "acceptable"}
-    assert result.completion.computation == converter.structure(
-        run[0], runtime_contracts.RuntimeComputationRunsRow
-    )
-    assert run[0]["error"] is None
+        assert sample["value"]==pytest.approx(2.+3.*sample["time"],abs=1e-6)
+    prepared = package.prepare_simulation(case, settings)
+    handle = prepared.start()
+    joined = handle.wait()
+    assert handle.wait().run_id == joined.run_id
+    assert joined.usable
+    assert joined.completion.computation is not None
+    assert joined.completion.computation.backend == "diffsol"
+    assert pa.table(joined.table("runtime.simulation_samples")).to_pylist() == [
+        {**row, "run_id": bytes.fromhex(joined.run_id.to_hex())} for row in samples
+    ]
+    assert pa.table(joined.table("authored.modeling_declarations")).num_rows > 0
+    command = joined.prepare_publication(tmp_path.as_uri() + "/", identity(110))
+    ticket = command.ticket
+    location, version = command.commit()
+    settled = runtime.settle_publication(ticket)
+    assert isinstance(settled, pse.PublicationCommitted)
+    assert settled.root.location == location and settled.root.version == version
+    converter = codec.converter()
+    fit = converter.structure({
+        "fit_id":identity(101),
+        "parameters":[{"symbol_id":identity(102),"fixed":False,"value":1.,"lower":0.,"upper":10.,"scale":1.}],
+        "experiments":[{"experiment_id":identity(103),"case_id":case,"route":"integrated","bindings":[{"parameter_id":identity(102),"path":"rate"}]}],
+        "observations":[{"observation_id":identity(104),"experiment_id":identity(103),"output_path":"observed[0{s}]","time":1.,"time_basis":None,"time_unit_id":None,"included":True,"importance":1.}],
+    },authored.AuthoredFitCasesRow)
+    observation = converter.structure({"observation_id":identity(104),"dataset_id":identity(105),"target":"analytic total at 1 s","value":5.,"unit_id":identity(3),"std_dev":1.,"timestamp":None,"tag":None,"source_span":{"document_id":identity(105),"start":0,"end":0}},authored.AuthoredObservationsRow)
+    dataset = converter.structure({"dataset_id":identity(105),"name":"analytic accumulation","source":"total(t)=2 s+3*t","content_hash":"blake3:"+"03"*32},authored.AuthoredDatasetsRow)
+    package = package.with_fit_data((fit,),(observation,),(dataset,))
+    result = package.prepare_fit(fit.fit_id,pse.SolveSettings(backend="ipopt",intent="optimize",hessian="limited_memory",presolve="off"),{fit.experiments[0].experiment_id:settings}).start().wait()
+    parameters = pa.table(result.table("runtime.fit_parameters")).to_pylist()
+    assert len(parameters)==1
+    assert parameters[0]["value"]==pytest.approx(3.,abs=1e-5)
+    run = pa.table(result.table("runtime.computation_runs")).to_pylist()
+    assert len(run)==1 and run[0]["termination"] in {"success","acceptable"}
+    assert run[0]["error"] is None and run[0]["estimate_qualified"]
+    assert result.completion.computation==converter.structure(run[0],runtime_contracts.RuntimeComputationRunsRow)
+    assert result.usable
+    checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
+    assert checks and all(check["satisfied"] for check in checks)
 
 
 @pytest.mark.integration
@@ -275,45 +146,10 @@ class NoPyomo(importlib.abc.MetaPathFinder):
             raise AssertionError('production attempted to import Pyomo')
 sys.meta_path.insert(0, NoPyomo())
 import pse
-assert pse.Runtime and pse.ModelBuilder and pse.SolveSettings
+assert pse.Runtime and pse.ModelingPackage and pse.SolveSettings
 assert not any(n == 'pyomo' or n.startswith('pyomo.') for n in sys.modules)
 """
     subprocess.run(
         [sys.executable, "-c", program], check=True, capture_output=True, text=True
     )
 
-
-@pytest.mark.unit
-def test_shared_source_contracts() -> None:
-    """Decode generated declarations without constructing a runtime."""
-    declaration = codec.converter().structure(
-        msgspec.json.decode(
-            (FIXTURE / "model.json").read_bytes(), type=dict[str, object]
-        ),
-        w.ModelDeclaration,
-    )
-    assert {c.name for c in declaration.cases} == {
-        "heater-recycle",
-        "heater-optimization",
-        "flash",
-        "separator-0",
-        "separator-1",
-        "separator-2",
-    }
-    assert declaration.domains
-    assert declaration.groups
-    assert any(c.objective is not None for c in declaration.cases)
-    for row in msgspec.json.decode(
-        (FIXTURE / "providers.json").read_bytes(), type=list[dict[str, object]]
-    ):
-        codec.converter().structure(row, authored.AuthoredNativeProvidersRow)
-    for row in msgspec.json.decode(
-        (FIXTURE / "balances.json").read_bytes(), type=list[dict[str, object]]
-    ):
-        codec.converter().structure(row, authored.AuthoredPhysicalBalancesRow)
-    malformed = msgspec.json.decode(
-        (FIXTURE / "model.json").read_bytes(), type=dict[str, object]
-    )
-    malformed["obsolete_math_ir"] = []
-    with pytest.raises(ExceptionGroup):
-        codec.converter().structure(malformed, w.ModelDeclaration)

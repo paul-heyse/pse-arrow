@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("c112de9cbc964dffae6b378e7dba0e4c") package control {
+@id("e6a8a69b86e34304808d10a44b4be418") use math @"1.0.0";
+@id("29d34f83ce0b4665a9f642649cf8e9f9") interface Controller {
+@id("b4afa89bafa6437d936d4836a0db60e0") param times:Set<Time>;
+@id("367bca81cc0d43999ca4ca3d2a7a62d5") require analysis.dynamic : "a controller requires a dynamic analysis";
+@id("4779f6712eaf48898d5c509479d0406c") var measurement[i in times]:Scalar;
+@id("26dbf96736b240b28d07da360c50ddc2") var setpoint[i in times]:Scalar;
+@id("25b75c6334774c6b9d06eedfe6e788d0") let output[i in times]:Scalar;
+@id("c0ae91fdf782480db9c00d1a70b02633") port measured_signal[i in times]:Scalar=measurement[i];
+@id("33fbaf6f4e314ee3842454aedd30cfc0") annotation connectivity measured_signal(1,0);
+@id("cfec7513f38047a38f443a3a1af9e036") port target_signal[i in times]:Scalar=setpoint[i];
+@id("e49e098c046a4488ab7bf21dc89b0502") annotation connectivity target_signal(1,0);
+@id("f47afbbff295462b98d3df99022962da") port manipulated_signal[i in times]:Scalar=output[i];
+@id("d99e31dc49af4f979d2569bdf11b5c73") annotation connectivity manipulated_signal(0,many);
+}
+@id("b311f7df58674e5b8ee82c295c5e40c6") def PID(timeline:Set<Time>,first:Time,Kp:Scalar=1,Ti:Time=5{s},Td:Time=0.1{s},Tf:Time=0.2{s},Taw:Time=0.5{s},bias:Scalar=0,lower:Scalar=0,upper:Scalar=1,eps:Scalar=1e-6,initial_integral:Time=0{s},initial_filter:Time=0{s}):Controller {
+@id("c41c582689ef480c9747fb2733e5fafa") override param times:Set<Time>=timeline;
+@id("0c1f2f3ac0234f918d2246d345072276") require Kp>0 and Ti>0{s} and Td>=0{s} and Tf>0{s} and Taw>0{s} : "positive controller gains and times, nonnegative derivative time";
+@id("128609315f0d46f48b87103b40d9c156") require lower<upper and eps>0 : "ordered output limits and positive smoothing";
+@id("6a41258d22d7441294811569791c85e6") var integral_state[i in times]:Time;
+@id("427866d1fa3649c38f8c82eccf727b06") var filter_state[i in times]:Time;
+@id("7ee27ce8c91e4f9c8dbb010b5d212065") let error[i in times]:Scalar=setpoint[i]-measurement[i];
+@id("8df4cf6f740243e396068eb977d316b7") let derivative[i in times]:Scalar=-(Td*measurement[i]-filter_state[i])/Tf;
+@id("434572120ff74ef5b7e599ada4c0974c") let raw_output[i in times]:Scalar=bias+Kp*(error[i]+integral_state[i]/Ti+derivative[i]);
+@id("765edf1548354c45af8a737e174822ee") let output[i in times]:Scalar=math.smooth_min(math.smooth_max(raw_output[i],lower,eps),upper,eps);
+@id("281d2d4005af492aa5420b0a6f862607") eq filtered_measurement[i in times]:d(filter_state[i])/di==(Td*measurement[i]-filter_state[i])/Tf;
+@id("13bc344bd74d46cfa3e3941b383d5f19") eq antiwindup[i in times]:d(integral_state[i])/di==error[i]+(output[i]-raw_output[i])/Kp*(Ti/Taw);
+@id("df3847e06f814636a556601e01c43ccf") eq integral_initial:integral_state[first]==initial_integral;
+@id("1e8dee5750804d11b7fa98fa85d78ae3") eq filter_initial:filter_state[first]==initial_filter;
+@id("9f34faeb3b4d4cfc9bbecec4c9ac9049") annotation start integral_state(initial_integral);
+@id("a3e5b5a6506f44288c79d433a688fffe") annotation nominal integral_state(Ti);
+@id("2e1eeda7fff645b8bd0d3f4c88e2040d") annotation start filter_state(initial_filter);
+@id("b1cc9f34a91245629df893047826e72e") annotation nominal filter_state(Tf);
+@id("845805541021436a9a21bc926cb9ee64") annotation start measurement(0);
+@id("8618cba617584a3c86784940fa2ade17") annotation start setpoint(1);
+@id("8e682919dc1e492fbe32143053b86267") annotation check output(output[i]>=lower-eps and output[i]<=upper+eps);
+@id("bbb1ff79015b4d45ac9246e610ef3f77") annotation report output("controller output");
+@id("fea9197f392f4c5c9c993b28ffd0c88d") annotation report integral_state("controller integral");
+}
+}

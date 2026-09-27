@@ -20,7 +20,7 @@ use std::sync::Arc;
 #[test]
 fn selective_binding_preserves_relational_checks_and_still_validates_schema() {
     let registry = pse_schema::catalog::assemble().unwrap();
-    let spec = registry.relation("reference.elements").unwrap();
+    let spec = registry.relation("reference.bases").unwrap();
     let context = SessionContext::new();
     let batch = RecordBatch::new_empty(Arc::new(
         pse_schema::arrow::relation_schema(&registry, spec).unwrap(),

@@ -1,0 +1,20 @@
+{
+  "invariant": "runtime.modeling_nonlinear_explanations:unique:pk",
+  "rows": {
+    "runtime.modeling_nonlinear_explanations": [
+      {
+        "attempts": "[\"list\",[]]",
+        "background_variables": "[\"list\",[]]",
+        "candidate_rows": "[\"list\",[]]",
+        "complete": "[\"bool\",true]",
+        "failure_ordinal": "[\"i64\",1]",
+        "nominals": "[\"list\",[]]",
+        "penalty_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "stop": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

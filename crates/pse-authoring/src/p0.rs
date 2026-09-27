@@ -5,7 +5,16 @@
 use crate::AuthoringError;
 use pse_ids::SemanticId;
 use pse_model::generated::{authored, normalized};
-use pse_structural::projection::{Dependency, GraphLimits, Projection, Scope};
+use petgraph::{graph::DiGraph, algo::toposort};
+
+/// Explicit bounds on the finite package inventory.
+#[derive(Clone, Copy, Debug)]
+pub struct GraphLimits {
+    /// Maximum package count.
+    pub nodes: usize,
+    /// Maximum dependency count.
+    pub edges: usize,
+}
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Resolve selected package values without planning or executing a relation.
@@ -19,9 +28,9 @@ pub fn resolve_rows(
         sum.checked_add(row.dependencies.len())
             .ok_or_else(|| contract("package dependency extent overflow"))
     })?;
-    limits
-        .check(headers.len(), edge_count)
-        .map_err(|error| graph_error(&error))?;
+    if headers.len() > limits.nodes || edge_count > limits.edges {
+        return Err(contract("package graph exceeds declared bounds"));
+    }
     let mut packages = BTreeMap::new();
     for header in headers {
         version(&header.version)?;
@@ -47,26 +56,17 @@ pub fn resolve_rows(
             if required != target.version {
                 return Err(contract("package exact version requirement differs"));
             }
-            let mut hash = pse_ids::FramedHasher::new("pse:package-edge:v1");
-            hash.id(&dependency.package_id)
-                .id(&header.package_id)
-                .str("");
-            edges.push(Dependency {
-                id: hash.finish_id(),
-                from: dependency.package_id,
-                to: header.package_id,
-            });
+            edges.push((dependency.package_id, header.package_id));
         }
     }
-    let graph = Projection::admit(
-        Scope::Whole(SemanticId::NIL),
-        packages.keys().copied().collect(),
-        edges,
-        limits,
-    )
-    .map_err(|error| graph_error(&error))?;
+    let mut graph = DiGraph::<SemanticId, ()>::new();
+    let nodes = packages.keys().map(|id| (*id, graph.add_node(*id))).collect::<BTreeMap<_, _>>();
+    edges.sort_unstable();
+    for (from, to) in edges { graph.add_edge(nodes[&from], nodes[&to], ()); }
+    let order = toposort(&graph, None).map_err(|cycle| contract(&format!("package dependency cycle at {}", graph[cycle.node_id()])))?;
     let mut depths = BTreeMap::<SemanticId, u16>::new();
-    for id in graph.order().map_err(|error| graph_error(&error))? {
+    for node in order {
+        let id = graph[node];
         let depth = packages[&id]
             .dependencies
             .iter()
@@ -102,9 +102,6 @@ pub fn resolve_rows(
         .collect())
 }
 
-fn graph_error(error: &pse_structural::projection::ProjectionError) -> AuthoringError {
-    contract(&error.to_string())
-}
 fn version(text: &str) -> Result<semver::Version, AuthoringError> {
     semver::Version::parse(text)
         .map_err(|error| contract(&format!("exact semantic version required: {error}")))

@@ -32,6 +32,14 @@ pub fn append_quantity_fixture(
         ));
     }
     let mut values = FixtureValues::default();
+    let entity_kinds = registry
+        .entity_kinds()
+        .map(|kind| {
+            let id = values.typed_id("EntityKindId", kind.id.as_id());
+            let name = &kind.name;
+            quote! {b.entity_kind(crate::EntityKind{id:#id,name:#name.to_owned()});}
+        })
+        .collect::<Vec<_>>();
     let units = registry.units().map(|v| values.unit(v)).collect::<Vec<_>>();
     let kinds = registry
         .kinds()
@@ -68,7 +76,7 @@ pub fn append_quantity_fixture(
         .reduction_domains()
         .map(|(operation, domain)| {
             let operation = values.typed_id("OperationId", operation.as_id());
-            let domain = enumeration("DomainKind", domain);
+            let domain = values.typed_id("EntityKindId", domain.as_id());
             quote! { b.reduction_domain(#operation, #domain); }
         })
         .collect::<Vec<_>>();
@@ -93,6 +101,7 @@ pub fn append_quantity_fixture(
     let ids = values.declarations();
     let dimensions = values.dimension_values();
     let records = [
+        entity_kinds,
         units,
         kinds,
         bases,
@@ -142,51 +151,6 @@ pub fn append_quantity_fixture(
     )
 }
 
-/// Add the element-table projection without making the quantity leaf depend on material.
-///
-/// # Errors
-/// Invalid generated syntax or duplicate output ownership.
-pub fn append_element_fixture(
-    tree: &mut GeneratedTree,
-    elements: &pse_material::ElementTable,
-) -> Result<(), SchemaError> {
-    let path = "crates/pse-material/src/generated/mod.rs";
-    if tree.files.contains_key(std::path::Path::new(path)) {
-        return Err(super::error(
-            "element fixture output is duplicated".to_owned(),
-        ));
-    }
-    let mut values = FixtureValues::default();
-    let rows = elements
-        .elements()
-        .map(|element| {
-            let id = values.typed_id("ElementId", element.id.as_id());
-            let symbol = &element.symbol;
-            let name = &element.name;
-            let mass = number(element.atomic_mass);
-            quote! { crate::Element { id: #id, symbol: #symbol.to_owned(),
-            name: #name.to_owned(), atomic_mass: #mass } }
-        })
-        .collect::<Vec<_>>();
-    let ids = values.declarations();
-    super::emit(
-        tree,
-        path,
-        quote! {
-            #![allow(clippy::unreadable_literal, clippy::too_many_lines, reason = "mechanical registry projection with fixed-width source UUIDs")]
-            #(#ids)*
-            /// Admit the complete element projection of the selected physical package.
-            ///
-            /// # Errors
-            /// The ordinary element-table constructor reports invalid declarations.
-            #[allow(clippy::too_many_lines, reason = "mechanical complete package projection")]
-            pub fn standard_elements() -> Result<crate::ElementTable, crate::MaterialError> {
-                crate::ElementTable::new([#(#rows),*])
-            }
-        },
-    )
-}
-
 #[derive(Default)]
 struct FixtureValues {
     ids: BTreeMap<SemanticId, syn::Ident>,
@@ -228,6 +192,15 @@ impl FixtureValues {
             } => {
                 let required = self.typed_id("QuantityTypeId", required.as_id());
                 quote! { crate::PhysicalRequirement::OperandQuantityContract {
+                    required: #required, match_shape: #match_shape,
+                } }
+            }
+            PhysicalRequirement::SameReferenceDifferences {
+                required,
+                match_shape,
+            } => {
+                let required = self.typed_id("QuantityTypeId", required.as_id());
+                quote! { crate::PhysicalRequirement::SameReferenceDifferences {
                     required: #required, match_shape: #match_shape,
                 } }
             }
@@ -299,10 +272,10 @@ impl FixtureValues {
         let temperature = optional_number(value.temperature);
         let pressure = optional_number(value.pressure);
         let formation = value.include_enthalpy_of_formation;
-        let phase = optional(value.phase.map(|value| self.id(value)));
+        let subject = optional(value.subject.map(|value| self.id(value)));
         quote! { b.reference_state(crate::ReferenceState { id: #id, kind: #kind,
         temperature: #temperature, pressure: #pressure,
-        include_enthalpy_of_formation: #formation, phase: #phase }); }
+        include_enthalpy_of_formation: #formation, subject: #subject }); }
     }
     fn quantity(&mut self, value: &pse_quantity::QuantityType) -> TokenStream {
         let id = self.typed_id("QuantityTypeId", value.id.as_id());
@@ -316,8 +289,19 @@ impl FixtureValues {
                 .map(pse_quantity::ReferenceStateId::as_id),
         );
         let scale = enumeration("ScaleKind", value.key.scale_kind);
-        let shape = value.key.shape.iter().map(|x| enumeration("DomainKind", x));
-        let subject = optional_enum("SubjectKind", value.key.subject_kind);
+        let shape = value
+            .key
+            .shape
+            .iter()
+            .map(|x| self.typed_id("EntityKindId", x.as_id()))
+            .collect::<Vec<_>>();
+        let subject = self.optional_id(
+            "EntityKindId",
+            value
+                .key
+                .subject_kind
+                .map(pse_quantity::EntityKindId::as_id),
+        );
         let unit = self.typed_id("UnitId", value.canonical_unit.as_id());
         let nominal = optional_number(value.nominal_magnitude);
         quote! { b.quantity_type(crate::QuantityType { id: #id, key: crate::QuantityTypeKey {
@@ -372,7 +356,12 @@ impl FixtureValues {
             subject_source,
         ] = sources;
         let subject = enumeration("SubjectRule", value.subject_rule);
-        let result_subject = optional_enum("SubjectKind", value.result_subject_kind);
+        let result_subject = self.optional_id(
+            "EntityKindId",
+            value
+                .result_subject_kind
+                .map(pse_quantity::EntityKindId::as_id),
+        );
         let result_basis = self.optional_id(
             "BasisId",
             value.result_basis.map(pse_quantity::BasisId::as_id),

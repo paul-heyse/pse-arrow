@@ -108,7 +108,14 @@ impl PreparedSolve {
         h.hash(&profile_key(&self.profile)?)
             .hash(&self.numerics.key);
         match &self.representation {
-            Representation::Algebraic { prepared, .. } => {
+            Representation::Algebraic {
+                prepared,
+                providers,
+                ..
+            } => {
+                for provider in providers.values() {
+                    h.hash(&provider.configuration_key());
+                }
                 h.str("algebraic")
                     .hash(&prepared.compiled().plan.structure().key());
                 for artifact in prepared.compiled().artifacts.iter() {
@@ -264,7 +271,7 @@ pub enum Outcome {
     Rejected(Arc<MathRuntimeError>),
 }
 impl Outcome {
-    fn accepts_feasible_candidate(&self) -> bool {
+    pub(crate) fn accepts_feasible_candidate(&self) -> bool {
         match self {
             Self::Rejected(_) => false,
             Self::Constant(r) => r.quality.feasible(),
@@ -286,6 +293,12 @@ pub struct SequenceReport {
     // Returned owned vectors retain their allocation allowance through the last reader.
     _owner: Arc<pse_columnar::AllocationLease>,
 }
+impl SequenceReport {
+    /// Transfer the native result allocation to the workflow's retained assessment.
+    pub(crate) fn into_parts(self) -> (Vec<Outcome>, usize, Arc<pse_columnar::AllocationLease>) {
+        (self.outcomes, self.unattempted, self._owner)
+    }
+}
 /// A finite batch and its explicit failure-continuation policy.
 #[derive(Debug)]
 pub struct SolveSequence {
@@ -295,6 +308,11 @@ pub struct SolveSequence {
     pub continue_independent: bool,
     /// Explicit ceiling for retained result entries.
     pub result_limit: usize,
+}
+/// A prepared, bounded original-contract check executed between native attempts.
+/// Implementations consume the current worker's admission and cannot schedule nested work.
+pub(crate) trait SequenceAssessment: Send + std::fmt::Debug {
+    fn accepted(&mut self, attempt: usize, outcome: &Outcome, cancel: &Arc<std::sync::atomic::AtomicBool>) -> bool;
 }
 /// Dropping the handle requests cancellation; awaiting it witnesses native destruction and join.
 pub struct SolveHandle<T = SequenceReport> {
@@ -491,6 +509,7 @@ fn compatibility(
     values: &CaseValues,
     p: &SolverProfile,
     backend: Backend,
+    providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
 ) -> Result<Compatibility, ProblemError> {
     let mut layout = FramedHasher::new("pse.solver.layout.v1");
     layout
@@ -525,6 +544,9 @@ fn compatibility(
     }
     let mut data = FramedHasher::new("pse.solver.data.v1");
     data.hash(&plan.structure().key());
+    for provider in providers.values() {
+        data.hash(&provider.configuration_key());
+    }
     for (id, v) in &values.scalars {
         data.id(id).u64(v.to_bits());
     }
@@ -728,6 +750,7 @@ impl MathService {
                 &values,
                 &profile,
                 backend,
+                &providers,
             )?),
         };
         if let Some(stamp) = &mut stamp {
@@ -916,6 +939,14 @@ impl MathService {
         self: &Arc<Self>,
         sequence: SolveSequence,
     ) -> Result<SolveHandle, MathRuntimeError> {
+        self.solve_assessed(sequence, None)
+    }
+    /// Keep allocation and seed decisions in the sequence owner, after an optional original-contract check.
+    pub(crate) fn solve_assessed(
+        self: &Arc<Self>,
+        sequence: SolveSequence,
+        assessment: Option<Box<dyn SequenceAssessment>>,
+    ) -> Result<SolveHandle, MathRuntimeError> {
         if sequence.steps.is_empty()
             || sequence.steps.len() > sequence.result_limit
             || sequence.result_limit > 4096
@@ -983,7 +1014,7 @@ impl MathService {
             let runner = service.clone();
             let result = service
                 .job(cores, bytes, control, move |flag| {
-                    runner.run_sequence(sequence, flag, events, result_owner)
+                    runner.run_sequence(sequence, flag, events, result_owner, assessment)
                 })
                 .await;
             let _ = receive_tx.send(result);
@@ -1000,6 +1031,7 @@ impl MathService {
         flag: Arc<std::sync::atomic::AtomicBool>,
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
+        mut assessment: Option<Box<dyn SequenceAssessment>>,
     ) -> Result<SequenceReport, MathRuntimeError> {
         #[cfg(feature = "solver-pounce")]
         if sequence
@@ -1014,10 +1046,10 @@ impl MathService {
                 .max()
                 .unwrap_or(1);
             return native::pounce::with_threads(threads, self.policy.stack_bytes, move || {
-                self.run_sequence_inner(sequence, flag, progress, owner)
+                self.run_sequence_inner(sequence, flag, progress, owner, assessment)
             });
         }
-        self.run_sequence_inner(sequence, flag, progress, owner)
+        self.run_sequence_inner(sequence, flag, progress, owner, assessment)
     }
     fn run_sequence_inner(
         self: &Arc<Self>,
@@ -1025,6 +1057,7 @@ impl MathService {
         flag: Arc<std::sync::atomic::AtomicBool>,
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
+        mut assessment: Option<Box<dyn SequenceAssessment>>,
     ) -> Result<SequenceReport, MathRuntimeError> {
         let total = sequence.steps.len();
         let mut outcomes = Vec::new();
@@ -1094,6 +1127,11 @@ impl MathService {
                 .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
             let outcome = match outcome {
                 Outcome::Native(mut r) => {
+                    if r.failure_bytes() > 0 {
+                        let failure_owner =
+                            self.reserve("math:solve-failure", r.failure_bytes())?;
+                        r = Box::new((*r).with_failure_owner(failure_owner));
+                    }
                     if let Some(seed) = &mut r.warm_start {
                         seed.origin = Some(SeedOrigin { run: None, attempt });
                     }
@@ -1109,7 +1147,8 @@ impl MathService {
                 }
                 other => other,
             };
-            let successful = outcome.accepts_feasible_candidate();
+            let original_accepted = assessment.as_mut().is_none_or(|a|a.accepted(attempt,&outcome,&flag));
+            let successful = outcome.accepts_feasible_candidate() && original_accepted;
             warm = match &outcome {
                 Outcome::Native(r) => r.warm_start.clone(),
                 Outcome::Constant(_) | Outcome::Rejected(_) => None,
@@ -1384,7 +1423,7 @@ impl MathService {
                             let providers = providers
                                 .iter()
                                 .map(|(key, f)| {
-                                    f.worker()
+                                    f.worker_scoped(execution.cancel.clone())
                                         .map(|w| (*key, w))
                                         .map_err(|e| ProblemError::Contract(e.to_string()))
                                 })
@@ -1475,7 +1514,7 @@ impl MathService {
                 let providers = providers
                     .into_iter()
                     .map(|(key, f)| {
-                        f.worker()
+                        f.worker_scoped(execution.cancel.clone())
                             .map(|v| (key, v))
                             .map_err(|e| ProblemError::Contract(e.to_string()))
                     })

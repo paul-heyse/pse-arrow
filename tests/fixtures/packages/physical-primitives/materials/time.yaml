@@ -1,0 +1,258 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "units": [
+    {
+      "unit_id": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+      "symbol": "fixture_inv_s",
+      "name": "reciprocal time",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    }
+  ],
+  "quantity_kinds": [
+    {
+      "quantity_kind_id": "dddddddddddddddddddddddddddddddd",
+      "name": "time",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit test kind."
+    },
+    {
+      "quantity_kind_id": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+      "name": "reciprocal time",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit test kind."
+    }
+  ],
+  "quantity_types": [
+    {
+      "quantity_type_id": "dededededededededededededededede",
+      "quantity_kind_id": "dddddddddddddddddddddddddddddddd",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "03030303030303030303030303030303",
+      "nominal_magnitude": null,
+      "doc": "Explicit scalar test type."
+    },
+    {
+      "quantity_type_id": "e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2",
+      "quantity_kind_id": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0",
+      "nominal_magnitude": null,
+      "doc": "Explicit scalar test type."
+    }
+  ],
+  "quantity_operations": [
+    {
+      "operation_id": "dfdfdfdfdfdfdfdfdfdfdfdfdfdfdfdf",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "dddddddddddddddddddddddddddddddd",
+        "dddddddddddddddddddddddddddddddd"
+      ],
+      "result_kind_id": "15151515151515151515151515151515",
+      "basis_rule": "preserve",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": 0,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3",
+      "opcode": "Div",
+      "input_kind_ids": [
+        "15151515151515151515151515151515",
+        "dddddddddddddddddddddddddddddddd"
+      ],
+      "result_kind_id": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+      "basis_rule": "preserve",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": 0,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4",
+      "opcode": "Mul",
+      "input_kind_ids": [
+        "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "dddddddddddddddddddddddddddddddd"
+      ],
+      "result_kind_id": "15151515151515151515151515151515",
+      "basis_rule": "preserve",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": 0,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
+      "opcode": "Log",
+      "input_kind_ids": [
+        "15151515151515151515151515151515"
+      ],
+      "result_kind_id": "15151515151515151515151515151515",
+      "basis_rule": "preserve",
+      "reference_rule": "preserve",
+      "scale_rule": "point",
+      "shape_rule": "scalar",
+      "basis_source": 0,
+      "reference_source": 0,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "preserve",
+      "subject_source": 0,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    }
+  ]
+}

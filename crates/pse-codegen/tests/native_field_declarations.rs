@@ -45,20 +45,20 @@ fn fixture(value: F) -> Result<Registry, SchemaError> {
 }
 
 #[test]
-fn authored_foreign_keys_bind_generated_instances_and_domains() {
+fn authored_foreign_keys_bind_current_declarations_and_packages() {
     let registry = pse_schema::registry().unwrap();
     for (relation, column, target, target_column) in [
         (
-            "authored.instance_domain_bindings",
-            "instance_id",
-            "authored.instances",
-            "instance_id",
+            "reference.reference_states",
+            "subject_id",
+            "authored.modeling_declarations",
+            "declaration_id",
         ),
         (
-            "authored.domain_members",
-            "domain_id",
-            "authored.domains",
-            "domain_id",
+            "authored.package_quantity_aliases",
+            "package_id",
+            "authored.packages",
+            "package_id",
         ),
     ] {
         let field = registry.relation(relation).unwrap().column(column).unwrap();

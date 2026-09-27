@@ -5,7 +5,7 @@
 # pinned `==` (blueprint §3.1) -- a reproducibility rule, not an admission rule: no package
 # and no licence is refused through phases 0-1 (blueprint §3.3.2, ADR-0066,
 # docs/dev/dependency-policy.md). Two interpreter ranges: the platform package targets
-# CPython >= 3.11; the parity environment (idaes-pse 2.12.0) is 3.11-3.13, expressed as a
+# CPython >= 3.11; the parity environment (idaes-pse 2.13.0) is 3.11-3.14, expressed as a
 # dependency group with a marker rather than a second project, so one uv.lock covers both.
 
 [build-system]
@@ -102,15 +102,15 @@ test = [
   "scipy==1.18.1; python_full_version >= '3.12'",
   "scipy==1.17.1; python_full_version < '3.12'",
 ]
-# The parity environment (blueprint §3.1, §24). IDAES 2.12.0 classifies 3.10-3.13 and the
-# platform floor is 3.11, so parity runs on 3.11-3.13. The marker makes
-# `uv sync --group parity` on 3.14 install nothing IDAES-related, and the --parity
+# The parity environment (blueprint §3.1, §24). IDAES 2.13.0 classifies 3.10-3.14 and the
+# platform floor is 3.11, so parity runs on 3.11-3.14. The marker makes
+# `uv sync --group parity` on 3.15 install nothing IDAES-related, and the --parity
 # conftest then FAILS (never skips).
 parity = [
   { include-group = "test" },
-  "idaes-pse==2.12.0; python_full_version < '3.14'",
-  "pyomo==6.10.1; python_full_version < '3.14'",
-  "pint==0.26.1; python_full_version >= '3.12' and python_full_version < '3.14'",
+  "idaes-pse==2.13.0; python_full_version < '3.15'",
+  "pyomo==6.10.1; python_full_version < '3.15'",
+  "pint==0.26.1; python_full_version >= '3.12' and python_full_version < '3.15'",
   "pint==0.25.3; python_full_version < '3.12'",
 ]
 evidence = [
@@ -440,7 +440,7 @@ markers = [
   "component: may need a solver, fresh native inspection stores, or the built extension in release profile",
   "integration: long-running end-to-end",
   "performance: opt-in with --performance; never collected otherwise",
-  "parity: needs the parity environment (IDAES 2.12.0 + ipopt on PATH); deselected without --parity, FAILS (never skips) with it",
+  "parity: needs the parity environment (IDAES 2.13.0 + ipopt on PATH); deselected without --parity, FAILS (never skips) with it",
 ]
 
 [tool.coverage.run]

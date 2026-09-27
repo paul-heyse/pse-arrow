@@ -19,78 +19,59 @@ this page states the contracts and limits that guide relies on.
 > Decision: [ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md),
 > [ADR-0093](../../adr/0093-qualified-native-strategies.md)
 
-Dynamics is a declared analysis over the compiled rows of an admitted computation model,
-integrated by a native library. There is no time discretization, no index reduction and
-no second dynamic compiler: the shared compiler supplies value and derivative programs
-for selected rows, and a library integrator owns stepping, consistency, root location,
-interpolation and sensitivities. Owners: preparation in
-`crates/pse-runtime/src/workflow/dynamics.rs`, clock conversion in `workflow/time.rs`,
-result projection in `workflow/simulation_results.rs`, and the native contract and
-adapters in `crates/pse-backend-native/src/dynamics.rs`, `dynamics/integrator.rs`
-(Diffsol) and `dynamics/idas.rs` (IDAS).
+Dynamics is an analysis of the same authored definitions used for steady and simultaneous
+execution. Continuous axes and physical derivatives are checked by `pse-modeling` and lowered
+by compiler modeling queries. An integrated route supplies native library callbacks; a
+simultaneous route expands an authored discretization scheme into ordinary algebraic rows.
+Neither route owns a second scientific model. Proposed
+[ADR-0099](../../adr/0099-modeling-language-and-identities.md) and
+[ADR-0101](../../adr/0101-modeling-analysis-knowledge.md) record the implemented refinement.
 
 ### 13.1 Time domain and origins
 
-A dynamic declaration (`authored.dynamic_cases`, see the
-[generated reference](../../generated/relations/authored.md)) names a selected case and
-a time parameter of that case. Integration runs on one canonical clock in seconds. Model
-time is `(integration time − time_origin) / time-unit scale`; an absent origin is zero,
-and a nonfinite origin is refused at preparation. Horizon start/end and sample times in
-the simulation profile are integration seconds, strictly increasing within the horizon.
+An authored continuous axis has explicit bounds, physical type, realization and boundary
+conditions. Integrated profiles use a canonical clock in seconds. Model time is
+`(integration time − time_origin) / time-unit scale`; a nonfinite origin refuses. Horizons
+and sample times must be ordered and within the admitted interval.
 
-Fit observations carry an optional time, unit and basis: `elapsed` (default) counts from
-the integration start, `model_clock` from the declared origin. Both are converted once,
-into prepared sample bindings, by one function; a nonfinite result is refused. Measurement
-acquisition timestamps are not integration time. The separation of absolute origin from
-elapsed duration is part of the shared execution vocabulary
-([ADR-0090](../../adr/0090-shared-execution-vocabulary.md)).
-
-`authored.flowsheets` and continuous-domain declarations remain authored document data
-with their declared relational checks. They have no execution interpretation: the IDAES
-flowsheet `dynamic`/`has_holdup` inheritance and default time sets are not reproduced,
-and a selected declaration without an execution interpretation is refused
-([§19.1](#section-19-1)).
+Fit observations carry optional time, unit and basis: elapsed time counts from the
+integration start and model-clock time from the declared origin. One conversion binds
+observations to prepared samples. Acquisition timestamps are not integration time.
 
 ### 13.2 Declared dynamic roles
 
-Roles are explicit per state, never inferred from flowsheet flags. Each declared state
-is a free continuous case variable with a `differential` flag, an initial row, a
-canonical offset and scale, and an algebraic residual scale. The mass matrix is the
-fixed diagonal `diag(I, 0)`: ones for differential states, zeros for algebraic states,
-identical in every mode. The native contract refuses an empty or duplicated layout, a
-system with no differential state, parameters that are also states, and events whose
-target mode is out of range.
+Compiler lowering identifies differential states, rates, algebraic equations, initial
+conditions and outputs from the selected authored analysis. Native integration admits the
+fixed diagonal mass matrix `diag(I,0)` ODE/index-1 profile. The algebraic partition requires
+complete structural matching; the integrator establishes numerical consistency. Rates must
+be affine in derivative coordinates for this lowering; unsupported residual structure refuses.
 
-Each mode lists one RHS row per state (differential rate or algebraic residual) plus
-optional events. Initial rows depend only on time and parameters, never on dynamic
-states. Algebraic rows must admit a complete structural matching of the algebraic
-partition (the index-1 structural condition); numerical consistency is left to the
-integrator. State normalization, algebraic residual scaling and integration tolerances
-are distinct contracts; tolerances apply in normalized state coordinates.
-
-Holdup is expressed physically: an `authored.physical_balances` declaration binds a
-conserved differential state to signed source contributions in every mode
-([§10](models-and-composition.md#section-10)). `ModelBuilder::vessel` (Rust,
-`workflow/vessel.rs`) is a declaration recipe for a fixed-composition vessel with
-conserved amount and internal energy, algebraic temperature/density/pressure, the same
-FeOS provider and optional valve outflow.
+Initial conditions and guesses, normalized-state tolerances and algebraic residual scaling
+remain separate. Integrated contexts retain selected bindings, original quantities and
+source lineage. Dynamic holdup and vessel equations are authored package definitions,
+including PC-SAFT/DIPPR functions and optional directional flow; no Rust vessel builder
+or production FeOS provider remains.
 
 ### 13.3 Time derivatives and accumulation
 
-A differential state's RHS row must have the physically registered time-derivative
-quantity of the state's quantity, inferred by `pse-quantity` from the time parameter's
-unit; reset rows must match the state quantities. Derivative-role, reference or
-domain-indexed template symbols are refused in the selected composition route: time
-derivatives exist only as the RHS rows of a dynamic declaration, not as authored
-template symbols.
+Quantity inference admits each derivative against the actual axis type. Authored integrals
+become native quadratures for causal terminal integrated outputs or scheme-weighted sums
+for simultaneous realization. Integral sensitivities are not exposed; ordinary state/output
+sensitivities may coexist with terminal quadratures. Missing quadrature tolerances refuse.
 
-Accumulation for a conserved balance is observed, not assumed. Diffsol integrates each
-balance's signed flux as an output equation with explicit tolerances (`out_rtol`, one
-`out_atol` per balance, required whenever balances are declared). Dynamic closure is the
-canonical accumulation change minus the natively integrated flux minus declared event
-impulses, carried across event segments; no host quadrature is introduced. A steady
-case has no accumulation term; its balances close over contributions alone. Closure
-results are reported per sample in `runtime.physical_checks` ([§19.2](#section-19-2)).
+Conservation checks consume original contributions or accumulation-minus-integrated-flux
+with declared impulses and tolerances. They remain distinct from numerical feasibility.
+Original authored checks, validity envelopes and sampled expectations survive into retained
+trajectory results. An unavailable or incomplete check cannot become a pass.
+
+### 13.4 Discretization lowering
+
+Difference stencils and Jacobi collocation parameters are authored scheme data. Symbolica
+owns root/polynomial mathematics; the compiler lowers checked scheme coefficients, boundary
+conditions, continuous children and quadratures to ordinary case rows. There is no closed
+scientific scheme enum or independent discretized model. The seed exercises backward finite
+differences and order-three Radau PFR/dynamic cases. Expansion and body limits refuse large
+meshes explicitly; a small successful fixture does not qualify all mesh sizes.
 
 ### 13.5 Dynamic operations over immutable revisions
 
@@ -99,7 +80,7 @@ declared parts of the prepared profile:
 
 | Need | Current operation |
 |---|---|
-| Change parameter values or horizon | `PreparedSimulation::rebind` edits the selected case, freezes a new revision and prepares again; unaffected bodies and artifacts are shared by semantic identity |
+| Change parameter values or horizon | `PreparedSimulation::rebind` prepares new immutable case bindings; unaffected bodies and artifacts are shared by semantic identity |
 | Piecewise-constant inputs | Profile `changes`: fixed-time replacement of the complete selected parameter vector; carried-state sensitivities continue |
 | Mode switches and state jumps | Declared events: guard row, complete reset rows, `terminal`, `next_mode` and a guard tolerance, all within one state/parameter layout |
 | Different initial state | Initial rows evaluated from time and parameters; change the parameters or declaration, not a stored trajectory |
@@ -140,7 +121,7 @@ last completed time and sample count in `runtime.computation_runs`. Integration 
 fitting runs inline under the outer job's admission, without nested executor permits.
 
 **Limits.** Higher-index or general implicit DAEs, variable-layout modes, hybrid IDAS
-sensitivities, adjoint sensitivities and spatial discretization are not supported;
+sensitivities and adjoint sensitivities are not supported by native integration;
 declarations outside the admitted profile are refused before native work. The
 qualification basis for the admitted profiles is
 [§24.2](operations-and-validation.md#section-24-2).
@@ -151,51 +132,31 @@ qualification basis for the admitted profiles is
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0090](../../adr/0090-shared-execution-vocabulary.md)
 
-Every public operation follows one chain: `ModelBuilder::freeze` admits an immutable
-`ModelRevision`; `prepare`, `prepare_simulation`, `prepare_fit`, `prepare_initialization`
-or `prepare_flow` produces an immutable prepared product with its route and identity;
-`start` launches one supervised native job returning a `RunHandle`; its waiters share one
-immutable `RunResult`. Preparation performs no writes and holds no native solver state;
-mutable evaluators, factors and integrators belong to the attempt. Publication of a
-result is a separate explicit step ([§20](identity-and-publication.md#section-20)). Owners:
-`workflow/model.rs`, `workflow/run.rs`, `workflow/completion.rs`, `workflow/results.rs`.
+Public execution begins with an immutable `ModelingPackage` admitted from an explicit
+package closure and physical context. Selected definitions/cases produce immutable prepared
+solves, simulations, fits or strategies. Starting work returns a supervised `RunHandle`;
+waiters share the joined result and cancellation joins native destruction. Preparation does
+not publish or own a mutable solver. Publication remains explicit
+([§20](identity-and-publication.md#section-20)). Owners are `workflow/modeling`,
+`workflow/run`, `workflow/completion`, `workflow/modeling_results` and fitting preparation.
 
 ### 19.1 Cases and overlays
 
-A case is part of the computation-model declaration: its variables with fixed/free
-decision, domain and physical bounds, parameters, instance bindings, row intervals,
-objective and values. The case identity covers selected values and physical structure,
-excluding display names and prose ([§5.2](identity-and-publication.md#section-5-2)).
-Editing a revision yields an independent draft; failed admission leaves the previous
-revision untouched. Cases and results never mutate the model
-([ADR-0016](../../adr/0016-cases-and-results-never-mutate-the-model.md)).
+Authored case and fixture specifications resolve source paths against the selected concrete
+instance. They bind values, fixed/free state and physical bounds without changing symbol
+roles. Every selected scalar requires an admitted finite value; ambiguous, missing or
+incompatible targets refuse. `with_declarations` returns a newly checked package revision;
+failed admission leaves earlier packages usable.
 
-When a model is composed from templates, `authored.case_specs` resolve against the
-selected composition's active scalars: fixed/free and parameter treatment, value or
-initial guess, bounds and scaling, converted from the specification's unit. Overlapping
-specifications apply in priority order; equal priority on one scalar is refused, as is a
-treatment that changes the declared symbol role (an expression cannot be fixed or
-bounded) and a specification with no active target. Every selected scalar needs a
-finite initial or parameter value.
-
-Selection is exhaustive ([ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md),
-proposed): each declaration family is consumed, retained as nonexecuting data, or
-refused with source identities. `ModelRevision::admission` reports the accounting.
-Authored families with no execution interpretation, including case sets, parent-case
-chains, case activations and objectives, scenarios and flowsheets, are refused when
-selected ([§6.10](schema-and-relations.md#section-6-10)).
-
-Initialization stages are overlays over the immutable case bindings: a stage replaces
-fixed/parameter values, failed stages retain their overlay as evidence, and only
-independently accepted solved unknowns are committed
-([§17](numerical-execution.md#section-17)). An algebraic numerical start is selected
-explicitly on the prepared case (`with_start`, `with_primal_start`; Python
-`RunResult.available_start` supplies a compatible seed with its origin), independently
-of native allocation reuse. Neither a stage nor a start updates the case.
+Initialization and continuation apply immutable overlays. Only independently accepted
+solved values become a committed warm start; final acceptance evaluates the original
+specification and original model checks. An algebraic start carries its source identity and
+compatibility independently of native allocation reuse. A stage, start or result never
+mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
 
-`RunResult` holds the typed report, the original request (including unattempted steps)
+`RunResult` retains the authored outcome and the typed report, the original request (including unattempted steps)
 and a `Completion` computed once at join: candidate assessments, source-attributed
 diagnostics, algebraic step records, the dynamic or fitting outcome and full lineage.
 Lineage records model revision, case, request, preparation, profile, numerical policy,
@@ -236,26 +197,26 @@ conflict, incompatible, internal) with source identities, stage and observations
 ([§23.2](operations-and-validation.md#section-23-2)). Diagnostic capture is bounded and
 optional; it reads the executed plan and cannot change a scientific or publication
 outcome. Progress is a bounded event stream with an actual dropped-event count.
-Stream tables, unit report layouts, KPI tables and display tags are not implemented;
-consumers query the result relations directly.
+Authored report annotations project selected scalar/indexed observations into
+`runtime.modeling_reports`; structured findings, original checks and conformance fixture
+dispositions have their own generated relations. Reading a result never reruns a model.
+Clones and exported Arrow buffers share allocation ownership through the last reader.
 
 ### 19.3 Sweeps and reuse
 
-A value sweep is a caller loop over revisions: edit values, freeze, prepare, start.
-There is no sweep runner, sample generator or sweep result relation; `authored.case_sets`
-declarations are not executed. Reuse comes from the compiler: an unchanged shape reuses
-structural analysis and optimized evaluators through Salsa while each point assembles its
-own program, and a changed shape recompiles only affected bodies
-([§14.4](mathematics-and-compilation.md#section-14-4)). Dynamic parameter and horizon
-sweeps use `PreparedSimulation::rebind`. The qualification campaign measured this reuse
-([§24.2](operations-and-validation.md#section-24-2)). `Runtime::clear_program_cache`
-releases retained programs without invalidating active workers.
+Authored studies execute finite case inventories with explicit predecessor relationships,
+point caps and interruption policy. Failures retain structured causes and do not suppress
+independent points; unattempted points remain visible. The compiler reuses equal checked
+structure and library programs while values and requested analyses remain explicit inputs
+([§14.4](mathematics-and-compilation.md#section-14-4)). Dynamic rebinding retains the same
+ownership contract. Runtime cache clearing removes retained programs without invalidating
+active workers; historical campaign measurements do not qualify the new seed.
 
 ### 19.4 Parameter estimation
 
 A fit (`authored.fit_cases`) declares shared parameters (fixed or free, value, optional
-bounds, positive scale), experiments (a case with an optional dynamic declaration) and
-observation bindings (experiment, output, optional time/basis/unit, inclusion,
+bounds, positive scale), experiments (an authored case with an optional integrated analysis) and
+observation bindings (experiment, source output path, optional time/basis/unit, inclusion,
 importance). Measurement values, units and standard deviations stay in
 `authored.observations` with dataset provenance. The loss is fixed:
 `0.5 · Σ importance · ((prediction − observation) / σ)²`; point conversion applies
@@ -275,7 +236,9 @@ declared sparse support; duplicates accumulate before faer's sparse Gram product
 dense support stays dense only where declared. Prepared fit metadata and sparse layouts
 share one admitted immutable product. Seeds for fitting are refused; declared parameter
 values are the start. The IDAS route refuses hybrid fitting sensitivities. Owners:
-`workflow/fitting.rs`, `fitting/oracle.rs`, `fitting/sparse.rs`, `fitting/results.rs`.
+`workflow/fitting.rs`, `fitting/{modeling,preparation,oracle,sparse,results}.rs`. Source paths bind shared
+parameters and outputs through the same checked package; original checks, fixed values
+and bounds are retained. Integration controls are scoped to their experiment instance.
 
 Response derivatives at the candidate are local physical partials
 (`runtime.response_sensitivities`). A steady response needs a feasible, regular square
@@ -292,10 +255,11 @@ is the multi-experiment form.
 
 ### 19.5 Costing
 
-Not implemented: no costing templates, flowsheet cost aggregation, cost indices or SSLW
-methods ship. The surviving pieces are the currency base dimension in `pse-quantity`, the
-`costing_method` template kind and the SSLW enumerations preserved by name
-([§6.14](schema-and-relations.md#section-6-14)).
+The authored SSLW heat-exchanger seed composes design, material and tube-length tables,
+explicit pressure validity, CEPCI currency units and accounting accumulators. The
+low-pressure upstream comparison explicitly selects extrapolation; the default correlation
+refuses it. This is a selected costing method and flowsheet-accounting demonstration, not a
+claim that the full SSLW catalogue has been ported. See `packages/reference/process`.
 
 ### 19.6 Utility minimization
 
@@ -330,21 +294,21 @@ is a durable native factory declaration.
 
 IDAES and Pyomo are isolated reference tools. They appear only in the parity harness
 (`python/pse/parity`, a separate dependency group and environment) and in no production
-path. Parity fails rather than skips and exercises the environment and preserved
-enumeration names, not numerical equivalence
+path. Parity fails rather than skips and exercises the environment, preserved
+enumeration names and explicitly selected reference comparisons; it does not establish
+full numerical equivalence
 ([relationship to IDAES](../../relationship-to-idaes.md)).
 
 ### 21.1 Extension module, jobs and Arrow streams
 
-`pse.Runtime(EngineSettings)` binds the process's single shared runtime and budget,
-also used by `pse.open`; conflicting settings are refused. Its surface mirrors Rust:
-`physical_from_documents`, `model`/`from_declaration`/`models_from_documents`,
-`capabilities` (linked libraries, not model eligibility), `start` for finite sequences,
-`prepare_conic` and publication settlement. `ModelRevision` exposes `prepare`,
-`prepare_simulation`, `prepare_fit`, `prepare_initialization`, `prepare_recycle` and
-`prepare_flow`; cone, causal-map, initialization and tear strategies return owned
-`StrategyResult` reports. Owners: `crates/pse-py/src/workflow.rs` and
-`python/pse/_workflow.py`.
+`pse.Runtime(EngineSettings)` binds the shared runtime and memory budget, also used by
+`pse.open`; conflicting settings refuse. `physical_from_documents` admits physical data;
+`modeling_from_documents` admits the explicit package closure. `ModelingPackage` exposes
+immutable declarations/limits/fit-data views, selected solve/simulation/fitting preparation,
+initialization, flow/recycle and block strategies, studies, diagnostics and conformance.
+`capabilities` reports linked libraries, not model eligibility. Owners are
+`crates/pse-py/src/workflow/`, `python/pse/_modeling.py`, `_runs.py` and `_strategies.py`.
+The removed model builders have no compatibility facade.
 
 `RunHandle.wait()` releases the interpreter while waiting and checks signals; an
 interrupt requests cancellation and joins the native supervisor before the signal
@@ -370,9 +334,8 @@ does not prove the consumer registered the extension types.
 Python contracts are generated from the registry into `python/pse/contracts/`
 ([§4.2](schema-and-relations.md#section-4-2),
 [ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)): frozen attrs
-classes per relation row, enums, value types and Arrow extension types. `pse.modeling`
-aliases the generated computation-model declarations; no hand-written class mirrors a
-relation. The native API stubs (`_native.pyi`) are generated from the compiled
+classes per relation row, enums, value types and Arrow extension types. Generic modeling declarations are generated from the same owner; no hand-written
+class mirrors a relation. The native API stubs (`_native.pyi`) are generated from the compiled
 extension's metadata.
 
 - **Strict structuring.** cattrs converters forbid extra keys and keep detailed
@@ -393,12 +356,6 @@ lazily so `import pse` does not load it; import rules confine numpy/scipy to thi
 the parity harness and tests.
 
 ## Retired section identities
-
-#### 13.4 Discretization lowering pass — retired
-
-Dynamics integrates natively without mesh discretization ([§13.6](#section-13-6)); the
-Pyomo DAE scheme names survive only as preserved IDAES enumerations
-([§6.14](schema-and-relations.md#section-6-14)).
 
 #### 21.2 Pyomo adapter algorithm — retired
 

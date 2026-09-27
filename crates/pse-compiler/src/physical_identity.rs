@@ -22,7 +22,11 @@ fn word(h: &mut FramedHasher, v: Option<&str>) {
     }
 }
 pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> ContentHash {
-    let mut h = FramedHasher::new("pse.math.physical-inventory.v1");
+    let mut h = FramedHasher::new("pse.math.physical-inventory.v2");
+    h.str("entity-kinds").u64(r.entity_kinds().count() as u64);
+    for kind in r.entity_kinds() {
+        h.id(&kind.id.as_id());
+    }
     h.str("units").u64(r.units().len() as u64);
     for v in r.units() {
         h.id(&v.id.as_id())
@@ -65,7 +69,7 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
             .u64(u64::from(v.include_enthalpy_of_formation));
         number(&mut h, v.temperature);
         number(&mut h, v.pressure);
-        id(&mut h, v.phase);
+        id(&mut h, v.subject);
     }
     h.str("quantities").u64(r.quantity_types().count() as u64);
     for v in r.quantity_types() {
@@ -79,14 +83,14 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
             &mut h,
             k.reference_state.map(pse_quantity::ReferenceStateId::as_id),
         );
-        word(
+        id(
             &mut h,
-            k.subject_kind.map(pse_quantity::SubjectKind::as_str),
+            k.subject_kind.map(pse_quantity::EntityKindId::as_id),
         );
         number(&mut h, v.nominal_magnitude);
         h.u64(k.shape.len() as u64);
         for d in &k.shape {
-            h.str(d.as_str());
+            h.id(&d.as_id());
         }
     }
     h.str("conversions").u64(r.conversions().len() as u64);
@@ -128,9 +132,9 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
             v.result_reference_state
                 .map(pse_quantity::ReferenceStateId::as_id),
         );
-        word(
+        id(
             &mut h,
-            v.result_subject_kind.map(pse_quantity::SubjectKind::as_str),
+            v.result_subject_kind.map(pse_quantity::EntityKindId::as_id),
         );
         h.u64(v.input_kinds.len() as u64);
         for n in &v.input_kinds {
@@ -147,7 +151,7 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
     }
     h.str("reductions");
     for (op, d) in r.reduction_domains() {
-        h.id(&op.as_id()).str(d.as_str());
+        h.id(&op.as_id()).id(&d.as_id());
     }
     h.str("unit-sets").u64(r.unit_sets().len() as u64);
     for v in r.unit_sets() {
@@ -177,6 +181,14 @@ pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> Conte
                 match_shape,
             } => {
                 h.str("quantity")
+                    .id(&required.as_id())
+                    .u64(u64::from(match_shape));
+            }
+            pse_quantity::PhysicalRequirement::SameReferenceDifferences {
+                required,
+                match_shape,
+            } => {
+                h.str("same-reference-differences")
                     .id(&required.as_id())
                     .u64(u64::from(match_shape));
             }
