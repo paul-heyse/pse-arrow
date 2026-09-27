@@ -1,31 +1,43 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Bounded elastic explanations. Local obstruction never certifies infeasibility.
+//! Bounded whole-model infeasibility explanations on POUNCE's ℓ1 exact penalty (ADR-0109
+//! item 2a). Local obstruction never certifies infeasibility.
 use super::*;
 use crate::math::solves::Outcome;
-use pse_backend_native::solve::{Qualification, SolveIntent};
-use pse_modeling::specialize::{Formulation, Value};
+use pse_backend_native::solve::{Backend, SolveIntent, SolverSelection};
+use pse_modeling::specialize::Formulation;
 use std::{
     collections::BTreeSet,
     time::{Duration, Instant},
 };
 
-/// Explicit physical row nominals weight the dimensionless L1 elastic objective.
+/// Explicit physical row nominals weight the dimensionless ℓ1 violation that classifies each
+/// attempt.
 #[derive(Clone, Debug)]
 pub struct ModelingNonlinearPolicy {
+    /// Positive physical nominal of every outer equation, by equation id.
     pub nominals: BTreeMap<SemanticId, f64>,
+    /// Nominal-weighted ℓ1 violation at or below which an attempt is a feasible witness.
     pub penalty_tolerance: f64,
+    /// Attempt budget of the deletion filter.
     pub maximum_attempts: usize,
+    /// Joined deadline of every attempt.
     pub time_limit: Duration,
 }
 /// Evidence from one bounded local optimization, not a global verdict.
 pub use pse_model::generated::enums::ModelingElasticObservation as ElasticObservation;
+/// One attempt of the deletion filter: evidence from one bounded local solve.
 #[derive(Clone, Debug)]
 pub struct ModelingElasticAttempt {
+    /// Outer equations removed for this attempt.
     pub omitted: BTreeSet<SemanticId>,
+    /// Local classification of the attempt.
     pub observation: ElasticObservation,
+    /// Nominal-weighted ℓ1 violation of the retained equations at the candidate.
     pub penalty: Option<f64>,
+    /// The attempt's solve, or why it could not run.
     pub result: Result<ModelingResult, Arc<WorkflowError>>,
+    /// Deadline or cancellation that stopped the attempt.
     pub interruption: Option<BoundaryDiagnostic>,
 }
 impl ModelingElasticAttempt {
@@ -41,21 +53,30 @@ impl ModelingElasticAttempt {
 /// Neither `complete` nor the candidate set asserts mathematical infeasibility/minimality.
 #[derive(Clone, Debug)]
 pub struct ModelingNonlinearExplanation {
+    /// Identity of this explanation run.
     pub run_id: SemanticId,
     pub(in crate::workflow::modeling) runtime: Runtime,
     pub(in crate::workflow::modeling) source_identity: pse_ids::ContentHash,
     pub(in crate::workflow::modeling) nominals: BTreeMap<SemanticId, f64>,
     pub(in crate::workflow::modeling) penalty_tolerance: f64,
+    /// Every attempt in order.
     pub attempts: Vec<ModelingElasticAttempt>,
+    /// Outer equations the deletion filter retained as the candidate explanation.
     pub candidate_rows: BTreeSet<SemanticId>,
+    /// Fixed or bounded variables held unchanged by every attempt.
     pub background_variables: Vec<SemanticId>,
+    /// The filter visited every equation within its budgets.
     pub complete: bool,
+    /// The budget or interruption that ended an incomplete filter.
     pub stop: Option<BoundaryDiagnostic>,
     pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl ModelingPackage {
-    /// Reuse the source elastic transformation, common native solver and joined deadline.
-    /// A deletion is a local diagnostic heuristic; every trial and its scope are retained.
+    /// A deletion filter over the outer equations. Every attempt solves the original rows
+    /// that remain with POUNCE's explicit ℓ1 exact-penalty method, which returns either a
+    /// feasible point or a labelled least-infeasible point; no elastic reformulation of the
+    /// model is built. A deletion is a local diagnostic heuristic; every trial and its scope
+    /// are retained.
     pub async fn explain_nonlinear(
         &self,
         analysis: &ModelingAnalysis,
@@ -95,7 +116,7 @@ impl ModelingPackage {
         if !original.model.elastic.is_empty() {
             return Err(contract("explanation requires an unrelaxed source model"));
         }
-        let rows = prepared
+        let all = prepared
             .model
             .case
             .compiled()
@@ -103,9 +124,8 @@ impl ModelingPackage {
             .structure()
             .rows()
             .iter()
-            .map(|r| (r.id, r.quantity))
-            .collect::<BTreeMap<_, _>>();
-        let all = rows.keys().copied().collect::<BTreeSet<_>>();
+            .map(|r| r.id)
+            .collect::<BTreeSet<_>>();
         if all != policy.nominals.keys().copied().collect() {
             return Err(contract(
                 "explanation must declare a physical nominal for every outer equation",
@@ -183,25 +203,9 @@ impl ModelingPackage {
             trial.order = pse_kernels::DerivativeOrder::Second;
             trial.bindings.formulation = Formulation {
                 omitted: trial_omitted.clone(),
-                elastic: rows
-                    .iter()
-                    .filter(|(id, _)| !trial_omitted.contains(id))
-                    .map(|(id, q)| {
-                        (
-                            *id,
-                            Value::Number {
-                                quantity: *q,
-                                bits: policy.nominals[id].to_bits(),
-                            },
-                        )
-                    })
-                    .collect(),
+                ..Formulation::default()
             };
-            trial.solver.intent = if trial.bindings.formulation.elastic.is_empty() {
-                SolveIntent::FeasiblePoint
-            } else {
-                SolveIntent::Optimize
-            };
+            l1_route(&mut trial.solver)?;
             trial.solver.controls.time_limit = trial
                 .solver
                 .controls
@@ -273,56 +277,71 @@ impl ModelingPackage {
         Ok(report)
     }
 }
+/// The explanation's own explicit route: POUNCE's ℓ1 exact penalty minimizes the violation of
+/// every remaining row (ADR-0109 items 1 and 2a), with presolve off because its passes assume
+/// the rows hold. Without POUNCE linked there is no route.
+fn l1_route(solver: &mut crate::math::solves::SolverProfile) -> Result<(), WorkflowError> {
+    solver.intent = SolveIntent::FeasiblePoint;
+    solver.selection = SolverSelection::Explicit(Backend::Pounce);
+    solver.presolve = pse_backend_native::presolve::Policy::Off;
+    #[cfg(feature = "solver-pounce")]
+    {
+        use pse_backend_native::{execution::BackendSettings, pounce};
+        solver.backend = BackendSettings::Pounce(pounce::Settings {
+            method: pounce::Method::L1ExactPenalty,
+            ..pounce::Settings::default()
+        });
+        Ok(())
+    }
+    #[cfg(not(feature = "solver-pounce"))]
+    {
+        Err(crate::math::MathRuntimeError::from(
+            pse_backend_native::ProblemError::Unavailable {
+                backend: Backend::Pounce,
+                alternatives: vec![],
+            },
+        )
+        .into())
+    }
+}
 fn classify(
     result: &ModelingResult,
     policy: &ModelingNonlinearPolicy,
 ) -> (ElasticObservation, Option<f64>) {
-    let model = result.prepared.model.model.compiled();
-    let penalty = model.model.elastic.iter().try_fold(0., |total, (id, row)| {
-        let sum = row.slacks.iter().try_fold(0., |s, id| {
-            result
-                .values
-                .scalars
-                .get(id)
-                .filter(|v| v.is_finite())
-                .map(|v| s + v.max(0.))
-        })?;
-        Some(total + sum / policy.nominals[id])
-    });
+    let Outcome::Native(report) = &result.outcome else {
+        return (ElasticObservation::Inconclusive, None);
+    };
+    // The ℓ1 violation of the retained original rows at the candidate, each divided by its
+    // declared physical nominal.
+    let penalty = report
+        .candidate
+        .as_ref()
+        .and(report.quality.as_ref())
+        .and_then(|q| {
+            q.rows.iter().try_fold(0., |total, v| {
+                policy
+                    .nominals
+                    .get(&v.id)
+                    .map(|nominal| total + v.physical / nominal)
+            })
+        })
+        .filter(|v| v.is_finite());
     // The shared candidate-use decision: a limited or failed stop is never a witness.
     let feasible = result.outcome.candidate_use().permits_use();
-    let stationary = feasible
-        && matches!(
-            &result.outcome,
-            Outcome::Native(r) if matches!(
-                r.qualification,
-                Qualification::Stationary
-                    | Qualification::OptimalWithinTolerance
-                    | Qualification::GapQualified
-            )
-        );
-    let original_ok = model.model.elastic.keys().all(|id| {
-        result.checks.iter().any(|c| {
-            c.target_id == *id
-                && c.kind == pse_model::generated::enums::ModelingCheckKind::OriginalEquation
-                && c.satisfied
-        })
-    });
-    let observation =
-        if feasible && original_ok && penalty.is_some_and(|v| v <= policy.penalty_tolerance) {
-            ElasticObservation::FeasibleWitness
-        } else if feasible
-            && stationary
-            && penalty.is_some_and(|v| v.is_finite() && v > policy.penalty_tolerance)
-        {
-            ElasticObservation::LocalObstruction
-        } else {
-            ElasticObservation::Inconclusive
-        };
+    let observation = if feasible && penalty.is_some_and(|v| v <= policy.penalty_tolerance) {
+        ElasticObservation::FeasibleWitness
+    } else if report.least_infeasible.is_some()
+        && penalty.is_some_and(|v| v > policy.penalty_tolerance)
+    {
+        // The exact penalty stopped at a least-infeasible point: local evidence only.
+        ElasticObservation::LocalObstruction
+    } else {
+        ElasticObservation::Inconclusive
+    };
     (observation, penalty)
 }
 
-#[cfg(all(test, feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt", feature = "solver-pounce"))]
 mod tests {
     use super::*;
     use pse_backend_native::solve::{Backend, SolverSelection};
@@ -413,6 +432,36 @@ mod tests {
             ElasticObservation::LocalObstruction,
             "{}",
             summarize()
+        );
+        // The first attempt ran the explicit ℓ1 route on the unrelaxed rows and stopped at a
+        // labelled least-infeasible point: x² ≥ 4 and x² ≤ 1 leave a least violation of 3.
+        let first = &report.attempts[0];
+        assert!((first.penalty.unwrap() - 3.).abs() < 1e-5, "{}", summarize());
+        let Ok(result) = &first.result else {
+            panic!("{}", summarize())
+        };
+        let Outcome::Native(native) = &result.outcome else {
+            panic!("{}", summarize())
+        };
+        assert_eq!(native.backend, Backend::Pounce);
+        assert_eq!(
+            native.options["l1_exact_penalty_barrier"],
+            pse_backend_native::solve::OptionValue::Bool(true)
+        );
+        assert!(native.least_infeasible.is_some());
+        assert!(
+            result
+                .prepared
+                .model
+                .model
+                .compiled()
+                .model
+                .elastic
+                .is_empty()
+        );
+        assert_eq!(
+            first.diagnostic().unwrap().rule,
+            "modeling.qualification.rejected"
         );
         assert_eq!(report.candidate_rows.len(), 2, "{}", summarize());
         let spare = before

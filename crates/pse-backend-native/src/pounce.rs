@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native POUNCE TNLP adapter sharing the exact NLP oracle and callback failure policy.
+mod equalities;
 use crate::tnlp::{Adapter, finite};
 use crate::{
     NlpOracle, ProblemError,
@@ -101,6 +102,11 @@ pub enum Method {
     InteriorPoint,
     /// Native active-set sequential quadratic programming.
     ActiveSetSqp,
+    /// The Thierry–Biegler ℓ1 exact penalty-barrier method (`pounce-l1penalty`, ADR-0109).
+    /// Explicit only: never selected automatically and never a retry. Every row is relaxed
+    /// (inequalities through bounded slacks), so an infeasible model returns a
+    /// least-infeasible point and a feasible one a point the penalty makes exact.
+    L1ExactPenalty,
 }
 /// Worker count of FERAL's own factorization pool, by the rule feral 0.18 applies when it
 /// builds that pool (`Solver::pool_num_threads`): `RAYON_NUM_THREADS` when it parses as a
@@ -125,8 +131,9 @@ fn feral_threads(admitted: usize, pool: usize) -> usize {
         1
     }
 }
-/// Hidden second solves are pinned off, and the ℓ1 methods stay reserved until a typed
-/// method selects them (packet N3): a result never comes from an undeclared attempt beyond
+/// Hidden second solves are pinned off, and the ℓ1 options are reserved: only the typed
+/// [`Method::L1ExactPenalty`] sets the exact-penalty switch, and the automatic ℓ1 retry after
+/// restoration failure stays off. A result never comes from an undeclared attempt beyond
 /// the admitted iteration budget (F03).
 const PINNED_OFF: [&str; 2] = ["mu_strategy_fallback", "dual_divergence_retry"];
 const RESERVED_METHODS: [&str; 2] = [
@@ -347,7 +354,10 @@ impl Session {
                 (None, None) => None,
                 _ => return Err(ProblemError::Unsupported("partial POUNCE dual seed".into())),
             };
-            if method == Method::ActiveSetSqp {
+            if method == Method::L1ExactPenalty {
+                // The exact-penalty problem has its own slack multipliers; only the primal
+                // seed is portable into it.
+            } else if method == Method::ActiveSetSqp {
                 // The active-set iterate: primal, row and packed bound multipliers, and the
                 // working set when the native transformation retained it (F07).
                 let mut s = pounce_rs::sqp::SqpIterates::cold(n, m);
@@ -423,7 +433,7 @@ impl Session {
                 "algorithm".into(),
                 OptionValue::Text(
                     match method {
-                        Method::InteriorPoint => "interior-point",
+                        Method::InteriorPoint | Method::L1ExactPenalty => "interior-point",
                         Method::ActiveSetSqp => "active-set-sqp",
                     }
                     .into(),
@@ -460,6 +470,16 @@ impl Session {
             ("print_level".into(), OptionValue::Integer(0)),
         ]);
         options.extend(PINNED_OFF.map(|k| (k.to_owned(), OptionValue::Bool(false))));
+        options.extend([
+            (
+                "l1_exact_penalty_barrier".to_owned(),
+                OptionValue::Bool(method == Method::L1ExactPenalty),
+            ),
+            (
+                "l1_fallback_on_restoration_failure".to_owned(),
+                OptionValue::Bool(false),
+            ),
+        ]);
         // A primal-dual seed restarts under the typed profile (L-N3); `mu_init` is read only
         // by the monotone barrier update.
         let restart = duals.is_some().then(|| {
@@ -545,7 +565,14 @@ impl Session {
             duals,
             solution: None,
         }));
-        let native: Rc<RefCell<dyn TNLP>> = adapter.clone();
+        let native: Rc<RefCell<dyn TNLP>> = if method == Method::L1ExactPenalty {
+            let inner: Rc<RefCell<dyn TNLP>> = adapter.clone();
+            Rc::new(RefCell::new(equalities::Equalities::new(inner).ok_or_else(
+                || ProblemError::Internal("POUNCE equality form of the NLP".into()),
+            )?))
+        } else {
+            adapter.clone()
+        };
         let status = app.optimize_tnlp_without_presolve(native);
         let mut a = adapter.borrow_mut();
         let mut report = SolveReport::new(
@@ -569,7 +596,7 @@ impl Session {
         );
         let mut statistics = app.statistics();
         let final_barrier = Some(statistics.final_mu)
-            .filter(|v| method != Method::ActiveSetSqp && v.is_finite() && *v > 0.0);
+            .filter(|v| method == Method::InteriorPoint && v.is_finite() && *v > 0.0);
         if statistics.iterations.len() > controls.history {
             report.dropped_events += (statistics.iterations.len() - controls.history) as u64;
             statistics.iterations.truncate(controls.history);

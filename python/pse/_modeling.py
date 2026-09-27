@@ -525,7 +525,7 @@ class ModelingPackage:
         maximum_attempts: int,
         time_limit: float,
     ) -> ModelingNonlinearExplanation:
-        """Inspect elastic local obstructions with explicit weights and a bounded deletion pass."""
+        """Explain local infeasibility by bounded deletion on the l1 exact penalty."""
         return ModelingNonlinearExplanation(
             self._handle.explain_nonlinear(
                 case_id.to_hex(),

@@ -76,6 +76,14 @@ pub fn nlp(
     retained: &mut Retained,
     run: Nlp<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    // Presolve tightens bounds and removes rows on the premise that every row holds; a
+    // method that relaxes the rows would then minimize violation over a domain those rows
+    // already restricted. Nothing is switched off silently: the caller selects `Off`.
+    if step.settings.relaxes_rows() && !matches!(run.presolve, presolve::Policy::Off) {
+        return Err(ProblemError::Contract(
+            "the ℓ1 exact penalty relaxes every row; its presolve policy must be Off".into(),
+        ));
+    }
     let oracle: Box<dyn NlpOracle> = if matches!(
         run.intent,
         SolveIntent::FeasiblePoint | SolveIntent::Root | SolveIntent::Initialize
@@ -121,6 +129,7 @@ pub fn nlp(
     let mut report = pipeline.finish(report, step.tolerances, run.sense);
     quality::record_kkt(&mut report, step.normalization, step.accuracy);
     quality::qualify(&mut report, step.accuracy);
+    report.least_infeasible = quality::least_infeasible(&report);
     Ok(report)
 }
 

@@ -998,6 +998,15 @@ pub struct Evidence {
     /// Conic residual evidence.
     pub conic: Option<ConicEvidence>,
 }
+/// The label of a candidate that minimizes constraint violation instead of satisfying the
+/// constraints: the point a local infeasibility stop returns, including the ℓ1 exact-penalty
+/// route's (ADR-0109 item 3). It is diagnostic evidence only (ADR-0106 `diagnostic_only`),
+/// never a result, and names the rows it leaves violated.
+#[derive(Clone, Debug)]
+pub struct LeastInfeasible {
+    /// Original rows violated beyond their acceptance budget, with the physical violation.
+    pub violated: Vec<crate::quality::Violation>,
+}
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
 pub struct SolveReport {
@@ -1051,6 +1060,8 @@ pub struct SolveReport {
     pub start_receipt: Option<StartReceipt>,
     /// Original-space numerical qualification, never inferred from a native stop alone.
     pub qualification: Qualification,
+    /// Set when the candidate is a least-infeasible point.
+    pub least_infeasible: Option<LeastInfeasible>,
 }
 impl SolveReport {
     /// Original typed cause of a failed native evaluation, independent of event retention.
@@ -1126,6 +1137,7 @@ impl SolveReport {
             warm_start: None,
             start_receipt: None,
             qualification: Qualification::Unqualified,
+            least_infeasible: None,
         }
     }
 }

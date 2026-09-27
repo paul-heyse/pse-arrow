@@ -810,3 +810,6 @@ mod solver_tests;
 
 #[cfg(test)]
 mod restart_tests;
+
+#[cfg(all(test, feature = "pounce"))]
+mod l1_tests;

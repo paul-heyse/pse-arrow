@@ -402,6 +402,15 @@ impl BackendSettings {
             Self::Clarabel { .. } => Some(Backend::Clarabel),
         }
     }
+    /// The selected method relaxes every constraint row (the ℓ1 exact penalty, ADR-0109), so
+    /// no presolve pass may assume the rows hold.
+    pub fn relaxes_rows(&self) -> bool {
+        match self {
+            #[cfg(feature = "pounce")]
+            Self::Pounce(settings) => settings.method == crate::pounce::Method::L1ExactPenalty,
+            _ => false,
+        }
+    }
     /// The partial explicit start these settings submit, in original coordinates.
     pub fn partial_start(&self) -> Option<&BTreeMap<SemanticId, f64>> {
         match self {
