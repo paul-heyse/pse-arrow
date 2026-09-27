@@ -83,6 +83,8 @@ impl CompilerWorkspace {
             .collect::<Result<BTreeMap<_, _>>>()?;
         let prepared =
             self.prepare_modeling_bound_case(&model, &values, &states, order, profile, &cancel)?;
+        let mut values = values;
+        values.scalars.extend(prepared.derived.iter().map(|(id, v)| (*id, *v)));
         Ok((model, prepared, values))
     }
 }
@@ -116,6 +118,14 @@ impl PreparedModeling {
     /// A minimal value-only observation view. Unselected expressions and absent inputs
     /// are not evaluated and cannot poison a start or check.
     pub fn observation_structure(&self, rows: &BTreeSet<SemanticId>) -> Result<Arc<CaseStructure>> {
+        self.observation_structure_over(rows, self.admitted.case.variables())
+    }
+    /// An observation view over explicitly bound variables (fixed flags and box).
+    fn observation_structure_over(
+        &self,
+        rows: &BTreeSet<SemanticId>,
+        variables: &[Variable],
+    ) -> Result<Arc<CaseStructure>> {
         if rows
             .iter()
             .any(|id| !self.admitted.case.rows().iter().any(|r| r.id == *id))
@@ -139,9 +149,7 @@ impl PreparedModeling {
             .flat_map(|i| i.slots.iter().map(|s| s.source()))
             .collect::<BTreeSet<_>>();
         Ok(Arc::new(CaseStructure::new(
-            self.admitted
-                .case
-                .variables()
+            variables
                 .iter()
                 .filter(|v| needed.contains(&v.port.id))
                 .cloned()
@@ -237,6 +245,7 @@ impl PreparedModeling {
                 }),
             coefficients,
             plan,
+            derived: BTreeMap::new(),
         };
         Ok(prepared)
     }
@@ -292,6 +301,21 @@ impl CompilerWorkspace {
         profile: Profile,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedCase> {
+        let (prepared, _) =
+            self.prepare_modeling_bound_values(model, values, states, order, profile, cancel)?;
+        Ok(prepared)
+    }
+    /// Bind the case, derive the parameters its box determines (ADR-0104) and prepare the
+    /// solver view over the completed values, which are returned.
+    fn prepare_modeling_bound_values(
+        &self,
+        model: &PreparedModeling,
+        values: &CaseValues,
+        states: &BTreeMap<SemanticId, ModelingVariableState>,
+        order: DerivativeOrder,
+        profile: Profile,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<(PreparedCase, CaseValues)> {
         if !model.model.integrated.is_empty() {
             return Err(CompileError::Missing(
                 "integrated time derivatives require the dynamic consumer".into(),
@@ -318,6 +342,11 @@ impl CompilerWorkspace {
             }
         }
         admit_domains(model, &mut variables)?;
+        let derived = self.derived_parameters(model, &variables, values, cancel)?;
+        let mut values = values.clone();
+        values
+            .scalars
+            .extend(derived.iter().map(|(id, v)| (*id, *v)));
         let equations = model
             .admitted
             .outputs
@@ -352,15 +381,18 @@ impl CompilerWorkspace {
                 (!i.contributions.is_empty()).then_some(i)
             })
             .collect::<Vec<_>>();
-        let structure = Arc::new(CaseStructure::new(
-            variables,
-            model.admitted.case.parameters().to_vec(),
-            instances,
-            rows,
-            model.admitted.case.objective().cloned(),
-            CaseLimits::default(),
-        )?);
-        let prepared = model.prepare_view(
+        let structure = Arc::new(
+            CaseStructure::new(
+                variables,
+                model.admitted.case.parameters().to_vec(),
+                instances,
+                rows,
+                model.admitted.case.objective().cloned(),
+                CaseLimits::default(),
+            )?
+            .with_native(model.admitted.case.native().to_vec())?,
+        );
+        let mut prepared = model.prepare_view(
             structure,
             &values,
             self.inputs.quantities.clone(),
@@ -369,7 +401,138 @@ impl CompilerWorkspace {
             self.inventory.environment(&self.db),
             &cancel,
         )?;
-        Ok(prepared)
+        prepared.derived = derived;
+        Ok((prepared, values))
+    }
+    /// Values of the parameters the case box determines (ADR-0104): finite variable bounds
+    /// for hull and linear lowerings, and derived big-Ms from the library's FBBT enclosure
+    /// of each disjunct row over the box, extended to zero and widened outward.
+    fn derived_parameters(
+        &self,
+        model: &PreparedModeling,
+        variables: &[Variable],
+        values: &CaseValues,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<BTreeMap<SemanticId, f64>> {
+        use pse_modeling::{RealizationRefusal, specialize::DerivedRule};
+        let refuse = |parameter, subject, reason| {
+            CompileError::from(model.model.realization_refusal(parameter, subject, reason))
+        };
+        let mut derived = BTreeMap::new();
+        let mut extrema = Vec::new();
+        for (id, parameter) in &model.model.derived {
+            match parameter.rule {
+                DerivedRule::Bound { variable, upper } => {
+                    let value = match variables.iter().find(|v| v.port.id == variable) {
+                        Some(v) if !v.fixed => {
+                            if upper {
+                                v.upper
+                            } else {
+                                v.lower
+                            }
+                        }
+                        _ => values.scalars.get(&variable).copied(),
+                    };
+                    let value = value
+                        .filter(|v| v.is_finite())
+                        .ok_or_else(|| refuse(*id, variable, RealizationRefusal::InfiniteBound))?;
+                    derived.insert(*id, value);
+                }
+                DerivedRule::Extremum {
+                    expression,
+                    upper,
+                    margin,
+                } => extrema.push((*id, expression, upper, margin)),
+            }
+        }
+        if extrema.is_empty() {
+            return Ok(derived);
+        }
+        let rows = extrema
+            .iter()
+            .map(|(_, expression, _, _)| ModelingOutput::Member(*expression).row_id())
+            .collect::<BTreeSet<_>>();
+        let structure = model.observation_structure_over(&rows, variables)?;
+        let ids = structure
+            .parameters()
+            .iter()
+            .map(|p| p.id)
+            .chain(structure.variables().iter().map(|v| v.port.id))
+            .collect::<BTreeSet<_>>();
+        let scoped = CaseValues {
+            scalars: values
+                .scalars
+                .iter()
+                .filter(|(id, _)| ids.contains(id))
+                .map(|(id, v)| (*id, *v))
+                .collect(),
+        };
+        let plan = CasePlan::prepare(
+            structure,
+            model
+                .admitted
+                .bodies
+                .iter()
+                .map(|(k, b)| (*k, b.math.clone()))
+                .collect(),
+            &self.inputs.quantities,
+            DerivativeOrder::Value,
+            AssemblyLimits::default(),
+            cancel,
+        )?;
+        let facts = plan.presolve_facts(&scoped, 100_000, cancel)?;
+        let (lower, upper): (Vec<_>, Vec<_>) = plan
+            .columns()
+            .iter()
+            .map(|id| {
+                let v = plan.structure().variables().iter().find(|v| v.port.id == *id);
+                let l = v.and_then(|v| v.lower).unwrap_or(f64::NEG_INFINITY);
+                let u = v.and_then(|v| v.upper).unwrap_or(f64::INFINITY);
+                // A semi domain's zero branch lies outside its active interval.
+                if v.is_some_and(|v| v.domain.is_semi()) {
+                    (l.min(0.0), u.max(0.0))
+                } else {
+                    (l, u)
+                }
+            })
+            .unzip();
+        for (id, expression, is_upper, margin) in extrema {
+            let row = ModelingOutput::Member(expression).row_id();
+            let index = plan
+                .structure()
+                .rows()
+                .iter()
+                .position(|r| r.id == row)
+                .ok_or_else(|| CompileError::Missing("derived big-M row".into()))?;
+            let (lo, hi) = facts
+                .row_enclosure(index, &lower, &upper)?
+                .ok_or_else(|| refuse(id, expression, RealizationRefusal::IncompleteInterval))?;
+            // The relaxation must admit the zero residual of an inactive row; widening is
+            // outward only, so a derived M never cuts a feasible point (T15). A side within
+            // the enclosure's own rounding resolution of zero is zero, never a subnormal.
+            let value = if is_upper { hi.max(0.0) } else { lo.min(0.0) };
+            if !value.is_finite() {
+                return Err(refuse(id, expression, RealizationRefusal::UnboundedInterval));
+            }
+            let resolution = [lo, hi]
+                .into_iter()
+                .filter(|v| v.is_finite())
+                .fold(0.0_f64, |a, v| a.max(v.abs()))
+                * f64::EPSILON;
+            let value = if value.abs() <= resolution { 0.0 } else { value };
+            // The library enclosure is already outward-rounded; a zero side stays exactly
+            // zero, and any other side is widened by the margin and one more ULP.
+            let widened = value + value.abs() * margin * if is_upper { 1.0 } else { -1.0 };
+            derived.insert(
+                id,
+                match (value == 0.0, is_upper) {
+                    (true, _) => 0.0,
+                    (false, true) => widened.next_up(),
+                    (false, false) => widened.next_down(),
+                },
+            );
+        }
+        Ok(derived)
     }
     /// Compile selected observations under the same library environment and quantity authority.
     pub fn prepare_modeling_observations(

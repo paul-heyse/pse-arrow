@@ -283,6 +283,8 @@ pub struct CaseStructure {
     instances: Vec<InstanceBinding>,
     rows: Vec<Row>,
     objective: Option<Objective>,
+    /// Constraint forms left to native handlers (ADR-0104); empty for linear lowerings.
+    native: Vec<pse_model::forms::NativeConstraint>,
 }
 impl CaseStructure {
     /// Admit identities, closed bounds and resource limits without inspecting values.
@@ -414,7 +416,38 @@ impl CaseStructure {
             instances,
             rows,
             objective,
+            native: Vec::new(),
         })
+    }
+    /// Attach native constraint forms. Every row and variable they name must be selected;
+    /// a backend without the handlers cannot execute the structure (ADR-0104).
+    /// # Errors
+    /// A native constraint naming an identity outside this structure.
+    pub fn with_native(
+        mut self,
+        native: Vec<pse_model::forms::NativeConstraint>,
+    ) -> Result<Self, MathError> {
+        let known = self
+            .variables
+            .iter()
+            .map(|v| v.port.id)
+            .chain(self.rows.iter().map(|r| r.id))
+            .collect::<BTreeSet<_>>();
+        if native
+            .iter()
+            .flat_map(pse_model::forms::NativeConstraint::identities)
+            .any(|id| !known.contains(&id))
+        {
+            return Err(MathError::Contract(
+                "native constraint names an unselected row or variable".into(),
+            ));
+        }
+        self.native = native;
+        Ok(self)
+    }
+    /// Constraint forms that require native handlers.
+    pub fn native(&self) -> &[pse_model::forms::NativeConstraint] {
+        &self.native
     }
     /// Structural identity includes bindings, physical units, selected inventories and class declarations.
     pub fn key(&self) -> ContentHash {
@@ -447,6 +480,10 @@ impl CaseStructure {
         h.bool(self.objective.is_some());
         if let Some(o) = &self.objective {
             h.id(&o.quantity.as_id()).u64(o.sense as u64);
+        }
+        h.u64(self.native.len() as u64);
+        for constraint in &self.native {
+            constraint.frame(&mut h);
         }
         h.u64(self.instances.len() as u64);
         for b in &self.instances {

@@ -422,10 +422,19 @@ impl MathService {
         );
         tokio::pin!(operation);
         let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let case = self.own_preparation(owned)?;
+        // Parameters the case box determined at preparation complete the values (ADR-0104).
+        let mut values = retained_values;
+        values.scalars.extend(
+            case.compiled()
+                .derived
+                .iter()
+                .map(|(id, value)| (*id, *value)),
+        );
         Ok(ModelingCasePreparation {
             model: retained_model,
-            values: retained_values,
-            case: self.own_preparation(owned)?,
+            values,
+            case,
         })
     }
     /// Prepare the model and its solver view atomically under the existing compiler writer.

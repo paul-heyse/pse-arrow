@@ -347,4 +347,6 @@ pub use flow::ModelingFlowSelection;
 #[cfg(test)]
 mod domain_tests;
 #[cfg(test)]
+mod forms_tests;
+#[cfg(test)]
 mod tests;

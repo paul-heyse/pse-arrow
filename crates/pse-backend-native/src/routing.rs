@@ -68,6 +68,7 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         objective_degree: None,
         bound_assumptions: c.identity,
         quadratic: false,
+        native: vec![],
     }
 }
 impl Requirements<'_> {
@@ -119,6 +120,13 @@ impl Requirements<'_> {
             if self.intent == SolveIntent::Optimize {
                 require(f.objective, "optimization requires an authored objective");
             }
+            require(
+                f.native.is_empty(),
+                &format!(
+                    "native {} realization needs constraint handlers this backend lacks",
+                    native_forms(&f.native)
+                ),
+            );
             match backend {
                 Backend::Kinsol => {
                     require(
@@ -174,6 +182,12 @@ impl Requirements<'_> {
             ));
         }
         if self.facts.variables == 0 {
+            if !self.facts.native.is_empty() {
+                return Err(ProblemError::Unsupported(format!(
+                    "native {} realization has no constant evaluation",
+                    native_forms(&self.facts.native)
+                )));
+            }
             return Ok(Route::Constant);
         }
         let choices = self.eligibility();
@@ -221,6 +235,14 @@ impl Requirements<'_> {
                 .available
                 .is_none_or(|routes| routes.contains(&backend))
     }
+}
+/// Diagnostic spelling of the native forms a structure requires.
+fn native_forms(forms: &[pse_model::forms::NativeForm]) -> String {
+    forms
+        .iter()
+        .map(|form| form.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 #[cfg(test)]
 mod tests {
@@ -281,6 +303,7 @@ mod tests {
             objective_degree: Some(0),
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
             quadratic: false,
+            native: vec![],
         }
     }
     #[test]
@@ -366,6 +389,7 @@ mod tests {
             affine_rows: vec![true],
             objective_degree: Some(2),
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
+            native: vec![],
         };
         assert!(select(&f, SolveIntent::Optimize, SolverSelection::Auto, true).is_err());
         assert!(select(&f, SolveIntent::Root, SolverSelection::Auto, true).is_err());

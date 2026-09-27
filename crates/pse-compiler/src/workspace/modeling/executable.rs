@@ -108,6 +108,10 @@ struct Projection {
     inputs: Vec<SemanticId>,
     /// Free variables with their declared domain (ADR-0103); fixed inputs are absent.
     free: BTreeMap<SemanticId, pse_model::generated::enums::ModelingVariableDomain>,
+    /// Kernel-derived continuous variables confined to [0, 1] (ADR-0104).
+    unit_interval: BTreeSet<SemanticId>,
+    /// Constraint forms left to native handlers (ADR-0104).
+    native: Vec<pse_model::forms::NativeConstraint>,
     formals: Vec<Formal>,
     outputs: Vec<ModelingOutput>,
     expressions: Vec<Expr>,
@@ -223,6 +227,8 @@ fn projection(
             .collect(),
         inputs: vec![],
         free: BTreeMap::new(),
+        unit_interval: model.unit_interval.clone(),
+        native: model.native.clone(),
         formals: vec![],
         outputs: vec![],
         expressions: vec![],
@@ -905,6 +911,11 @@ fn projection_heap(value: &Result<Arc<Projection>>) -> usize {
                 .sum::<usize>()
             + p.inputs.capacity() * size_of::<SemanticId>()
             + p.free.len() * (size_of::<SemanticId>() + 64)
+            + p.unit_interval.len() * (size_of::<SemanticId>() + 64)
+            + p.native
+                .iter()
+                .map(|c| 64 + c.identities().len() * (size_of::<SemanticId>() + 16))
+                .sum::<usize>()
             + p.validity
                 .iter()
                 .map(|(name, v)| {

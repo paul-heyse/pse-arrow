@@ -462,7 +462,10 @@ impl ModelingPackage {
                 .admitted
                 .inputs
                 .iter()
-                .find(|id| !values.scalars.contains_key(id))
+                .find(|id| {
+                    // Derived parameters are determined by the case box at preparation.
+                    !values.scalars.contains_key(id) && !product.model.derived.contains_key(id)
+                })
         {
             let path = product
                 .model
@@ -629,7 +632,7 @@ impl ModelingPackage {
                 )
                 .map_err(crate::workflow::modeling_error)?;
         }
-        let mut nominal_point = values.clone();
+        let mut nominal_point = prepared.values.clone();
         // Resolve source precedence before selecting the physical nominal point.
         let physical = prepared.case.compiled().quantities.clone();
         let mut targets = prepared

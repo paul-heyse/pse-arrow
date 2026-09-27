@@ -294,14 +294,16 @@ pub(super) fn admit(
         };
         ports.insert(*id, port.clone());
         if let Some(domain) = p.free.get(id).copied() {
-            // A binary decision implies the unit box; cases may only narrow it.
-            let binary = domain == pse_model::generated::enums::ModelingVariableDomain::Binary;
+            // A binary decision or a lowering's convex weight lives in the unit box;
+            // cases may only narrow it.
+            let unit = domain == pse_model::generated::enums::ModelingVariableDomain::Binary
+                || p.unit_interval.contains(id);
             variables.push(Variable {
                 port,
                 fixed: false,
                 domain,
-                lower: (binary || p.nonnegative.contains(id)).then_some(0.0),
-                upper: binary.then_some(1.0),
+                lower: (unit || p.nonnegative.contains(id)).then_some(0.0),
+                upper: unit.then_some(1.0),
             });
         } else {
             parameters.push(port);
@@ -485,14 +487,17 @@ pub(super) fn admit(
                 .push((output.row_id(), if *negative { -1.0 } else { 1.0 }));
         }
     }
-    let case = Arc::new(CaseStructure::new(
-        variables,
-        parameters,
-        instances,
-        rows,
-        objective,
-        CaseLimits::default(),
-    )?);
+    let case = Arc::new(
+        CaseStructure::new(
+            variables,
+            parameters,
+            instances,
+            rows,
+            objective,
+            CaseLimits::default(),
+        )?
+        .with_native(p.native.clone())?,
+    );
     Ok(Arc::new(AdmittedModeling {
         inputs: p.inputs.clone(),
         outputs: p

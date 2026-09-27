@@ -867,6 +867,8 @@ pub struct PreparedCase {
     pub occurrences: BTreeMap<SemanticId, Vec<Occurrence>>,
     /// Explicit optional coefficient projection; failure is not guessed as another class.
     pub coefficients: Option<Arc<Coefficients>>,
+    /// Parameters the case box determined at preparation (ADR-0104), in canonical units.
+    pub derived: BTreeMap<SemanticId, f64>,
 }
 impl PreparedCase {
     /// Known escaping payload, excluding opaque library/container overhead. This
@@ -885,6 +887,7 @@ impl PreparedCase {
                 .map(|v| v.capacity() * size_of::<Occurrence>())
                 .sum::<usize>()
             + self.coefficients.as_ref().map_or(0, |c| c.retained_bytes())
+            + self.derived.len() * (size_of::<(SemanticId, f64)>() + 32)
     }
 }
 /// Pure conditional block products; runtime attaches boundary values and evaluator owners.
@@ -1326,6 +1329,7 @@ impl CompilerWorkspace {
                 artifacts: requests,
                 occurrences,
                 coefficients,
+                derived: BTreeMap::new(),
             })
         })
         .map_err(|_| CompileError::Cancelled)?;
