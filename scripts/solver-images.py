@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -14,6 +15,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / ".github/setup/solver-images.json"
 PREFIX = "ghcr.io/paul-heyse/pse-solvers:"
+#: Declared local override: an immutable local image instead of the pin.
+OVERRIDE = "PSE_SOLVER_IMAGE"
+_IMMUTABLE = re.compile(
+    r"sha256:[0-9a-f]{64}|[A-Za-z0-9][A-Za-z0-9._/:-]*@sha256:[0-9a-f]{64}"
+)
 
 
 def validate(pins: dict[str, str]) -> None:
@@ -31,6 +37,25 @@ def validate(pins: dict[str, str]) -> None:
         trees.append(match[1])
     if len(set(trees)) != 1:
         raise ValueError("ci and dev must come from the same recipe tree")
+
+
+def runtime(stage: str, pins: dict[str, str], env: dict[str, str]) -> str:
+    """The image native preparation and execution use: the override or the pin.
+
+    The override must name content, not a tag: a local image ID
+    (``sha256:<64 hex>``, from ``docker image inspect --format '{{.Id}}'``) or
+    a digest reference (``name@sha256:<64 hex>``). It replaces the pin for
+    every stage, because a locally built recipe yields one prefix.
+    """
+    override = env.get(OVERRIDE, "")
+    if not override:
+        return pins[stage]
+    if not _IMMUTABLE.fullmatch(override):
+        raise ValueError(
+            f"{OVERRIDE}={override!r} is not immutable; use a local image ID "
+            "(docker image inspect --format '{{.Id}}' <image>) or name@sha256:<digest>"
+        )
+    return override
 
 
 def projections(root: Path, pins: dict[str, str]) -> dict[Path, str]:
@@ -59,6 +84,8 @@ def main() -> int:
     commands.add_parser("sync")
     ref = commands.add_parser("ref")
     ref.add_argument("stage", choices=("ci", "dev"))
+    local = commands.add_parser("runtime")
+    local.add_argument("stage", choices=("ci", "dev"))
     update = commands.add_parser("update")
     update.add_argument("--ci", required=True)
     update.add_argument("--dev", required=True)
@@ -69,6 +96,13 @@ def main() -> int:
     validate(pins)
     if args.command == "ref":
         print(pins[args.stage])
+        return 0
+    if args.command == "runtime":
+        try:
+            print(runtime(args.stage, pins, dict(os.environ)))
+        except ValueError as error:
+            print(f"solver-images: {error}", file=sys.stderr)
+            return 2
         return 0
     changes = projections(ROOT, pins)
     if args.command == "check":

@@ -1,14 +1,29 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# sha256 of every tarball docker/solvers/build.sh downloads, including the two
+# sha256 of every archive docker/solvers/build.sh downloads, including the two
 # that upstream's get.Mumps / get.ASL fetch (build.sh serves those from the
 # verified cache through a `wget` shim, so nothing reaches a compiler unchecked).
 # Regenerate with `PSE_SOLVERS_UPDATE_CHECKSUMS=1 docker/solvers/build.sh`.
 #
-# Ipopt 3.14.20 corroborated against Homebrew and conda-forge.
+# Provenance of the entries added with ADR-0108 / ADR-0105 (checked 2026-09-27):
+#   Ipopt 3.14.20            corroborated against Homebrew and conda-forge.
+#   METIS 5.1.0              matches Homebrew's metis formula and Spack's package.
+#   SPRAL 2025.09.18         matches conda-forge's spral-feedstock recipe.
+#   scipoptsuite 10.0.2      the sha256 digest GitHub publishes for the
+#                            scipopt/scip v10.0.2 release asset.
+#   intel-oneapi-mkl-*.deb   the SHA256 fields of Intel's apt Packages index,
+#                            whose hash is in the InRelease file signed by the
+#                            key E9BF0AFC46D6E8B7DA5882F1BAC6F0C353D04109
+#                            ("Intel(R) Software Development Products").
 43bddd6fa793b1694aa94d6129fe3e4a8d452d97a84ef5f2ff721c8047c75605  Ipopt-3.14.20.tar.gz
+509a3737d8f38339dffa35c26ce8c01857787d0fcadb3daacb188efc2caa3483  intel-oneapi-mkl-classic-include-2026.1-2026.1.0-236_amd64.deb
+3b230c02fc0ac44f8f71062c20cd883b37c6c1e00940dc0a7f13b02d9c47bd93  intel-oneapi-mkl-core-2026.1-2026.1.0-236_amd64.deb
+f748e21ebb3396670085da04375511ade4a372943838ddbf4f770ef65bcb7c43  intel-oneapi-mkl-core-devel-2026.1-2026.1.0-236_amd64.deb
+76faebe03f6c963127dbb73c13eab58c9a3faeae48779f049066a21c087c5db2  metis-5.1.0.tar.gz
 659c9b57646b5a003ac618baa1faf9dd2044e46c732b3daaccbc7158003e1b46  MUMPS_5.9.1.tar.gz
+eecc29f31e8c8a3089c95ef99dd310d05e1546ba40f4ff36551d75a5f5c47073  scipoptsuite-10.0.2.tgz
 7ffe7541a5b1a347124f909a0e260c1784f698b78ff24b145d0b11be635292e5  solvers-20241108.tgz
+1358168ac95297049e4fc810e54a16e0c765796cfbaa156e09979e2620b7dae7  spral-2025.09.18.tar.gz
 633e9d42b015a5a6a9ae324cac5736af1605fb74eb18299a54912b67d1a69be7  ThirdParty-ASL-2.1.0.tar.gz
 49c2773de7b34dea0152b1894da7634cb8319605a9e05b0d9bbc29746acb247c  ThirdParty-Mumps-3.0.14.tar.gz

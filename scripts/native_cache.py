@@ -41,10 +41,27 @@ KLU_FILES = (
     "lib/libcolamd.a",
     "lib/libsuitesparseconfig.a",
 )
+#: The solver image contract (ADR-0108, ADR-0105): Ipopt with MUMPS+METIS,
+#: SPRAL and oneMKL Pardiso, oneMKL as the one BLAS/LAPACK, and SCIP 10.
 SOLVER_FILES = (
     "include/coin-or/IpIpoptApplication.hpp",
+    "include/coin-or/IpStdCInterface.h",
+    "include/coin-or/IpLinearSolvers.h",
     "lib/libipopt.so",
     "lib/libcoinmumps.so.3",
+    "lib/libmetis.so",
+    "include/spral_ssids.h",
+    "lib/libspral.so",
+    "include/mkl.h",
+    "lib/libmkl_intel_lp64.so.3",
+    "lib/libmkl_gnu_thread.so.3",
+    "lib/libmkl_core.so.3",
+    "lib/pkgconfig/mkl-dynamic-lp64-gomp.pc",
+    "include/scip/scip.h",
+    "include/scip/scipdefplugins.h",
+    "include/scip/config.h",
+    "lib/libscip.so",
+    "share/pse-solvers/build-info.txt",
 )
 
 
@@ -98,8 +115,11 @@ def prepare(
             stage = Path(scratch) / "install"
             stage.mkdir()
             builder(stage, Path(scratch) / "build")
-            if not all((stage / name).is_file() for name in required):
-                raise ValueError(f"incomplete {kind} installation")
+            missing = [name for name in required if not (stage / name).is_file()]
+            if missing:
+                raise ValueError(
+                    f"incomplete {kind} installation: missing {', '.join(missing)}"
+                )
             files = {
                 str(path.relative_to(stage)): digest(path)
                 for directory in ("include", "lib")
@@ -249,12 +269,22 @@ def klu(base: Path, env: dict[str, str]) -> Path:
 
 
 def solver(base: Path) -> Path:
-    image = subprocess.check_output(
-        [sys.executable, str(ROOT / "scripts/solver-images.py"), "ref", "dev"],
+    """Extract ``/opt/pse-solvers`` from the solver image into the cache.
+
+    The image is the pinned dev image, or the one ``PSE_SOLVER_IMAGE`` names
+    (a local image ID or a digest reference).
+    """
+    resolved = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/solver-images.py"), "runtime", "dev"],
         text=True,
-    ).strip()
-    if "@sha256:" not in image:
-        raise ValueError("solver extraction requires an immutable image digest")
+        capture_output=True,
+        check=False,
+    )
+    if resolved.returncode:
+        raise ValueError(resolved.stderr.strip() or "cannot resolve the solver image")
+    image = resolved.stdout.strip()
+    if not (image.startswith("sha256:") or "@sha256:" in image):
+        raise ValueError("solver extraction requires an immutable image identity")
 
     def extract(stage: Path, _work: Path) -> None:
         producer = subprocess.Popen(
@@ -282,7 +312,13 @@ def solver(base: Path) -> Path:
         if code:
             raise RuntimeError(f"solver extraction failed: {code}")
 
-    return prepare(base, "solver", {"image": image}, SOLVER_FILES, extract)
+    try:
+        return prepare(base, "solver", {"image": image}, SOLVER_FILES, extract)
+    except ValueError as error:
+        raise ValueError(
+            f"{error} (image {image}); an image built before this contract "
+            "cannot serve it: pin a rebuilt image or set PSE_SOLVER_IMAGE"
+        ) from error
 
 
 def main() -> None:

@@ -206,6 +206,57 @@ print(prepare(base, 'fixture', {'id': 1}, ('lib/a',), builder))
             self.assertIn(f"{build.ROOT}:{build.ROOT}:ro", args)
             self.assertEqual(args[-1], str(target / "test"))
 
+    def test_solver_image_override_must_be_immutable(self) -> None:
+        def runtime(override: str | None) -> subprocess.CompletedProcess[str]:
+            env = {k: v for k, v in os.environ.items() if k != "PSE_SOLVER_IMAGE"}
+            if override is not None:
+                env["PSE_SOLVER_IMAGE"] = override
+            return subprocess.run(
+                [sys.executable, "scripts/solver-images.py", "runtime", "dev"],
+                cwd=build.ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        pinned = json.loads(
+            (build.ROOT / ".github/setup/solver-images.json").read_text()
+        )["dev"]
+        self.assertEqual(runtime(None).stdout.strip(), pinned)
+        self.assertEqual(runtime("").stdout.strip(), pinned)
+        image_id = "sha256:" + "a" * 64
+        digest = "pse-solvers@sha256:" + "b" * 64
+        self.assertEqual(runtime(image_id).stdout.strip(), image_id)
+        self.assertEqual(runtime(digest).stdout.strip(), digest)
+        for mutable in ("pse-solvers:dev-local", "sha256:abc", "latest"):
+            result = runtime(mutable)
+            self.assertEqual(result.returncode, 2, mutable)
+            self.assertIn("not immutable", result.stderr)
+
+    def test_native_runner_uses_the_override_image(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            docker = root / "docker"
+            docker.write_text(
+                f"#!{sys.executable}\nimport json, sys\nprint(json.dumps(sys.argv[1:]))\n"
+            )
+            docker.chmod(0o755)
+            image_id = "sha256:" + "c" * 64
+            args = json.loads(
+                subprocess.check_output(
+                    ["bash", "scripts/native-solver-runner.sh", "true"],
+                    cwd=build.ROOT,
+                    env={
+                        **os.environ,
+                        "PSE_SOLVER_IMAGE": image_id,
+                        "PATH": str(root) + os.pathsep + os.environ["PATH"],
+                    },
+                    text=True,
+                )
+            )
+            self.assertEqual(args[-2:], [image_id, "true"])
+
 
 if __name__ == "__main__":
     unittest.main()
