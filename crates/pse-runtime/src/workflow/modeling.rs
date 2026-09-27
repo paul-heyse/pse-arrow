@@ -13,6 +13,8 @@ pub use dynamics::{
     ModelingDynamicEvent, ModelingDynamicMode, ModelingSimulation, ModelingTrajectory,
 };
 mod diagnostics;
+#[cfg(all(test, feature = "solver-highs"))]
+mod forms_tests;
 mod implicit;
 pub use diagnostics::{
     DiagnosticSampleStop, ElasticObservation, ModelingDiagnosticPolicy,
