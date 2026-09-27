@@ -726,6 +726,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
     );
     use crate::assembly::{AssemblyLimits, CasePlan};
     use crate::binding::*;
+    use pse_model::generated::enums::ModelingVariableDomain;
     let quantity = ids::quantity("neutral");
     let port = Port {
         id: id(1),
@@ -738,7 +739,7 @@ fn typed_output_demand_coalesces_calls_and_keeps_canceled_obligations() {
             vec![Variable {
                 port: port.clone(),
                 fixed: false,
-                domain: VariableDomain::Continuous,
+                domain: ModelingVariableDomain::Continuous,
                 lower: Some(0.1),
                 upper: Some(10.0),
             }],

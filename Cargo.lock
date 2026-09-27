@@ -5767,6 +5767,7 @@ dependencies = [
  "pse-ids",
  "pse-kernels",
  "pse-math",
+ "pse-model",
  "pse-modeling",
  "pse-quantity",
  "pse-relations",

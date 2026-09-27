@@ -162,6 +162,7 @@ impl Engine<'_, '_> {
                     id: nominal_id,
                     ty: ty.clone(),
                     role: Kind::Parameter,
+                    domain: Domain::Continuous,
                     expression: None,
                     initial: Some(nominal),
                     lineage: nominal_lineage,
@@ -184,6 +185,7 @@ impl Engine<'_, '_> {
                         id,
                         ty: ty.clone(),
                         role: Kind::Variable,
+                        domain: Domain::Continuous,
                         expression: None,
                         initial: Some(Value::Number {
                             bits: 0.0f64.to_bits(),

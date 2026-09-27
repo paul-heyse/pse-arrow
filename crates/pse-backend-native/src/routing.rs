@@ -11,8 +11,8 @@ use crate::{
     },
 };
 use pse_kernels::DerivativeOrder;
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_math::{
-    binding::VariableDomain,
     facts::{BoundShape, ProblemFacts},
 };
 /// Selected execution class, including the zero-variable path.
@@ -120,7 +120,7 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         rows: c.rows.len(),
         objective,
         equalities,
-        domains: vec![VariableDomain::Continuous; c.variables.len()],
+        domains: vec![ModelingVariableDomain::Continuous; c.variables.len()],
         derivatives: c.derivatives.min(c.smoothness),
         prepared_derivatives: c.derivatives,
         bounds: c
@@ -144,7 +144,7 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
     }
 }
 fn continuous(f: &ProblemFacts) -> bool {
-    f.domains.iter().all(|d| *d == VariableDomain::Continuous)
+    f.domains.iter().all(|d| *d == ModelingVariableDomain::Continuous)
 }
 fn square_root(f: &ProblemFacts) -> bool {
     f.equalities && f.rows == f.variables && !f.objective && continuous(f)
@@ -348,7 +348,7 @@ mod tests {
             rows: 1,
             objective: false,
             equalities: true,
-            domains: vec![VariableDomain::Continuous],
+            domains: vec![ModelingVariableDomain::Continuous],
             derivatives: DerivativeOrder::Second,
             prepared_derivatives: DerivativeOrder::Second,
             bounds: vec![BoundShape::Free],
@@ -429,7 +429,7 @@ mod tests {
             rows: 1,
             objective: true,
             equalities: true,
-            domains: vec![VariableDomain::Integer; 2],
+            domains: vec![ModelingVariableDomain::Integer; 2],
             derivatives: DerivativeOrder::Second,
             prepared_derivatives: DerivativeOrder::Second,
             bounds: vec![BoundShape::Free; 2],
@@ -454,7 +454,7 @@ mod tests {
             )
             .is_err()
         );
-        f.domains.fill(VariableDomain::Continuous);
+        f.domains.fill(ModelingVariableDomain::Continuous);
         f.coefficients = false;
         assert!(
             select(
@@ -498,7 +498,7 @@ mod tests {
             [ProblemClass::SmoothNlp, ProblemClass::ConvexQuadratic]
         );
         f.quadratic = false;
-        f.domains = vec![VariableDomain::Binary];
+        f.domains = vec![ModelingVariableDomain::Binary];
         assert_eq!(
             problem_classes(&f, SolveIntent::Optimize, false),
             [ProblemClass::MixedLinear]

@@ -643,6 +643,25 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 p.types
                     .insert(id, context.resolve(&v.type_name, &variables, &names, id)?);
             }
+            // ADR-0103: exactly a variable declares a domain, and a discrete one is physical.
+            let variable =
+                row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Variable;
+            match v.domain {
+                None if variable => return Err(invalid(id, "variable declares no domain")),
+                Some(_) if !variable => {
+                    return Err(invalid(id, "only a variable declares a domain"));
+                }
+                Some(domain)
+                    if domain.is_discrete()
+                        && !matches!(p.types.get(&id), Some(Type::Quantity(_))) =>
+                {
+                    return Err(invalid(
+                        id,
+                        "a discrete domain requires a physical quantity type",
+                    ));
+                }
+                _ => {}
+            }
         }
         if let Some(v) = &row.value.accumulator {
             p.types
@@ -839,6 +858,9 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 if let (Some(expected), Some(actual)) =
                     (&base_row.value.binding, &actual_row.value.binding)
                 {
+                    if expected.domain != actual.domain {
+                        return Err(invalid(member, "interface member domain differs"));
+                    }
                     if expected.indices.len() != actual.indices.len() {
                         return Err(invalid(member, "interface member index arity differs"));
                     }

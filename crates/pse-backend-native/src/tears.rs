@@ -7,7 +7,8 @@ use crate::quality::Tolerances;
 use crate::solve::*;
 use crate::{CoefficientProblem, OracleContract, ProblemError, Variable};
 use pse_ids::{FramedHasher, SemanticId};
-use pse_math::binding::{ObjectiveSense, VariableDomain};
+use pse_math::binding::ObjectiveSense;
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_structural::flowsheet::{FlowGraph, Policy};
 use std::collections::{BTreeMap, BTreeSet};
 /// Exact finite MILP projection with stable decision-group/native column maps.
@@ -44,7 +45,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
         .collect();
     let nodes: BTreeMap<_, _> = d.nodes.iter().enumerate().map(|(i, n)| (n.id, i)).collect();
     let mut decisions = BTreeMap::new();
-    let mut domains = vec![VariableDomain::Continuous; n];
+    let mut domains = vec![ModelingVariableDomain::Continuous; n];
     let mut objective = vec![0.0; n];
     for g in &d.decisions {
         decisions.insert(g.id, variables.len());
@@ -61,7 +62,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
                 1.0
             },
         });
-        domains.push(VariableDomain::Binary);
+        domains.push(ModelingVariableDomain::Binary);
         objective.push(g.cost);
     }
     let mut entries = Vec::new();

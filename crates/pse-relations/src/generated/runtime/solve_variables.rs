@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#solve_variables::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    47u8, 227u8, 73u8, 54u8, 210u8, 232u8, 118u8, 142u8, 148u8, 158u8, 221u8, 140u8,
-    88u8, 169u8, 245u8, 41u8,
+    150u8, 121u8, 31u8, 89u8, 86u8, 198u8, 129u8, 141u8, 73u8, 124u8, 125u8, 206u8,
+    153u8, 203u8, 152u8, 115u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "solve_variables";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    241u8, 90u8, 216u8, 107u8, 125u8, 49u8, 219u8, 156u8, 180u8, 223u8, 186u8, 98u8,
-    85u8, 63u8, 216u8, 46u8, 156u8, 224u8, 46u8, 17u8, 82u8, 14u8, 81u8, 247u8, 45u8,
-    187u8, 156u8, 112u8, 126u8, 43u8, 59u8, 215u8,
+    229u8, 5u8, 223u8, 52u8, 133u8, 153u8, 242u8, 107u8, 142u8, 235u8, 196u8, 52u8, 44u8,
+    4u8, 255u8, 152u8, 222u8, 180u8, 92u8, 153u8, 148u8, 68u8, 73u8, 79u8, 174u8, 35u8,
+    208u8, 86u8, 139u8, 202u8, 56u8, 76u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
     fn append(
@@ -48,40 +48,41 @@ impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
             &self.r#parameter,
             children[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#value, children[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#lower, children[8usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#upper, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#lower, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#upper, children[10usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#lower_violation,
-            children[10usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#upper_violation,
             children[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#tolerance,
+            &self.r#upper_violation,
             children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#lower_dual,
+            &self.r#tolerance,
             children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#upper_dual,
+            &self.r#lower_dual,
             children[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#reduced_cost,
+            &self.r#upper_dual,
             children[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#stationarity,
+            &self.r#reduced_cost,
             children[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#dual_qualification,
+            &self.r#stationarity,
             children[17usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dual_qualification,
+            children[18usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -109,7 +110,7 @@ impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
         <bool as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
-            f64,
+            crate::generated::enums::ModelingVariableDomain,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
             f64,
@@ -138,8 +139,11 @@ impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
         <Option<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
         <crate::generated::enums::DualQualification as crate::columnar::ArrowValue>::append_null(
-            children[17usize].as_mut(),
+            children[18usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -183,68 +187,74 @@ impl crate::columnar::ArrowValue for RuntimeSolveVariablesRow {
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#value: <Option<
-                f64,
+            r#domain: <Option<
+                crate::generated::enums::ModelingVariableDomain,
             > as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#lower: <Option<
+            r#value: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#upper: <Option<
+            r#lower: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
                 index,
             )?,
-            r#lower_violation: <Option<
+            r#upper: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
                 index,
             )?,
-            r#upper_violation: <Option<
+            r#lower_violation: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
                 index,
             )?,
-            r#tolerance: <Option<
+            r#upper_violation: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(12usize).as_ref(),
                 index,
             )?,
-            r#lower_dual: <Option<
+            r#tolerance: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(13usize).as_ref(),
                 index,
             )?,
-            r#upper_dual: <Option<
+            r#lower_dual: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(14usize).as_ref(),
                 index,
             )?,
-            r#reduced_cost: <Option<
+            r#upper_dual: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(15usize).as_ref(),
                 index,
             )?,
-            r#stationarity: <Option<
+            r#reduced_cost: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(16usize).as_ref(),
                 index,
             )?,
-            r#dual_qualification: <crate::generated::enums::DualQualification as crate::columnar::ArrowValue>::read(
+            r#stationarity: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(17usize).as_ref(),
+                index,
+            )?,
+            r#dual_qualification: <crate::generated::enums::DualQualification as crate::columnar::ArrowValue>::read(
+                input.column(18usize).as_ref(),
                 index,
             )?,
         })
@@ -311,40 +321,41 @@ impl crate::columnar::RelationRow for RuntimeSolveVariablesRow {
             &self.r#parameter,
             columns[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#value, columns[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#lower, columns[8usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#upper, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#domain, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#lower, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#upper, columns[10usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#lower_violation,
-            columns[10usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#upper_violation,
             columns[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#tolerance,
+            &self.r#upper_violation,
             columns[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#lower_dual,
+            &self.r#tolerance,
             columns[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#upper_dual,
+            &self.r#lower_dual,
             columns[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#reduced_cost,
+            &self.r#upper_dual,
             columns[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#stationarity,
+            &self.r#reduced_cost,
             columns[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#dual_qualification,
+            &self.r#stationarity,
             columns[17usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dual_qualification,
+            columns[18usize].as_mut(),
         )?;
         Ok(())
     }
@@ -380,10 +391,10 @@ impl crate::columnar::RelationRow for RuntimeSolveVariablesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        40_960_usize + size_of::<Self::Builder>()
+        43_008_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        320usize
+        336usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -428,6 +439,17 @@ impl crate::columnar::RelationRow for RuntimeSolveVariablesRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#domain).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -556,7 +578,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 18usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 19usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -594,58 +616,63 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 18usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "value",
+        name: "domain",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "lower",
+        name: "value",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "upper",
+        name: "lower",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "lower_violation",
+        name: "upper",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "upper_violation",
+        name: "lower_violation",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "tolerance",
+        name: "upper_violation",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "lower_dual",
+        name: "tolerance",
         position: 13usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "upper_dual",
+        name: "lower_dual",
         position: 14usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "reduced_cost",
+        name: "upper_dual",
         position: 15usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "stationarity",
+        name: "reduced_cost",
         position: 16usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "dual_qualification",
+        name: "stationarity",
         position: 17usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "dual_qualification",
+        position: 18usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -664,28 +691,30 @@ pub mod columns {
     pub const FIXED: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///parameter
     pub const PARAMETER: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///domain
+    pub const DOMAIN: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///value
-    pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///lower
-    pub const LOWER: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const LOWER: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///upper
-    pub const UPPER: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const UPPER: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///lower_violation
-    pub const LOWER_VIOLATION: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const LOWER_VIOLATION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///upper_violation
-    pub const UPPER_VIOLATION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const UPPER_VIOLATION: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///tolerance
-    pub const TOLERANCE: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const TOLERANCE: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///lower_dual
-    pub const LOWER_DUAL: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const LOWER_DUAL: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///upper_dual
-    pub const UPPER_DUAL: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const UPPER_DUAL: crate::columnar::ColumnReference = super::COLUMNS[15usize];
     ///reduced_cost
-    pub const REDUCED_COST: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    pub const REDUCED_COST: crate::columnar::ColumnReference = super::COLUMNS[16usize];
     ///stationarity
-    pub const STATIONARITY: crate::columnar::ColumnReference = super::COLUMNS[16usize];
+    pub const STATIONARITY: crate::columnar::ColumnReference = super::COLUMNS[17usize];
     ///dual_qualification
-    pub const DUAL_QUALIFICATION: crate::columnar::ColumnReference = super::COLUMNS[17usize];
+    pub const DUAL_QUALIFICATION: crate::columnar::ColumnReference = super::COLUMNS[18usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -699,6 +728,7 @@ pub struct RuntimeSolveVariablesView<'a> {
     unit_id_column: &'a arrow_array::FixedSizeBinaryArray,
     fixed_column: &'a arrow_array::BooleanArray,
     parameter_column: &'a arrow_array::BooleanArray,
+    domain_column: &'a arrow_array::StringArray,
     value_column: &'a arrow_array::Float64Array,
     lower_column: &'a arrow_array::Float64Array,
     upper_column: &'a arrow_array::Float64Array,
@@ -770,39 +800,42 @@ impl<'a> RuntimeSolveVariablesView<'a> {
             parameter_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
             >(batch.column(6usize).as_ref())?,
+            domain_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
             value_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             lower_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             upper_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             lower_violation_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             upper_violation_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             tolerance_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             lower_dual_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
             upper_dual_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
             reduced_cost_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(15usize).as_ref())?,
+            >(batch.column(16usize).as_ref())?,
             stationarity_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(16usize).as_ref())?,
+            >(batch.column(17usize).as_ref())?,
             dual_qualification_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(17usize).as_ref())?,
+            >(batch.column(18usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -903,6 +936,18 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "domain",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn domain_column(&self) -> &'a arrow_array::StringArray {
+        self.domain_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "domain", "`.")]
+    pub fn domain_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "value",
         "`, including its offsets and validity bitmap.",
     )]
@@ -911,7 +956,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "value", "`.")]
     pub fn value_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -923,7 +968,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "lower", "`.")]
     pub fn lower_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -935,7 +980,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "upper", "`.")]
     pub fn upper_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -947,7 +992,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "lower_violation", "`.")]
     pub fn lower_violation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -959,7 +1004,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "upper_violation", "`.")]
     pub fn upper_violation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -971,7 +1016,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "tolerance", "`.")]
     pub fn tolerance_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -983,7 +1028,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "lower_dual", "`.")]
     pub fn lower_dual_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -995,7 +1040,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "upper_dual", "`.")]
     pub fn upper_dual_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1007,7 +1052,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "reduced_cost", "`.")]
     pub fn reduced_cost_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[16usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1019,7 +1064,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "stationarity", "`.")]
     pub fn stationarity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[16usize]
+        &self.batch.schema_ref().fields()[17usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1035,7 +1080,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
         "`.",
     )]
     pub fn dual_qualification_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[17usize]
+        &self.batch.schema_ref().fields()[18usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1065,6 +1110,7 @@ impl<'a> RuntimeSolveVariablesView<'a> {
                 self.parameter_column,
                 index,
             )?,
+            r#domain: crate::columnar::ArrowValue::read(self.domain_column, index)?,
             r#value: crate::columnar::ArrowValue::read(self.value_column, index)?,
             r#lower: crate::columnar::ArrowValue::read(self.lower_column, index)?,
             r#upper: crate::columnar::ArrowValue::read(self.upper_column, index)?,

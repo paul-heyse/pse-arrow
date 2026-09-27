@@ -230,8 +230,8 @@ impl FactBatch {
             }
             Self::r#AuthoredModelingDeclarations(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    12u8, 17u8, 84u8, 48u8, 17u8, 44u8, 75u8, 198u8, 44u8, 215u8, 65u8,
-                    3u8, 43u8, 250u8, 125u8, 197u8,
+                    122u8, 70u8, 41u8, 211u8, 190u8, 249u8, 228u8, 147u8, 150u8, 51u8,
+                    224u8, 130u8, 253u8, 235u8, 53u8, 180u8,
                 ])
             }
             Self::r#AuthoredNumericalRequirements(_) => {
@@ -362,8 +362,8 @@ impl FactBatch {
             }
             Self::r#ReferenceQuantityKinds(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    226u8, 93u8, 225u8, 231u8, 197u8, 70u8, 54u8, 114u8, 56u8, 49u8,
-                    138u8, 34u8, 3u8, 218u8, 77u8, 158u8,
+                    237u8, 135u8, 148u8, 233u8, 20u8, 159u8, 174u8, 145u8, 123u8, 13u8,
+                    252u8, 172u8, 166u8, 107u8, 167u8, 197u8,
                 ])
             }
             Self::r#ReferenceQuantityOperationReductions(_) => {
@@ -692,8 +692,8 @@ impl FactBatch {
             }
             Self::r#RuntimeSolveVariables(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    47u8, 227u8, 73u8, 54u8, 210u8, 232u8, 118u8, 142u8, 148u8, 158u8,
-                    221u8, 140u8, 88u8, 169u8, 245u8, 41u8,
+                    150u8, 121u8, 31u8, 89u8, 86u8, 198u8, 129u8, 141u8, 73u8, 124u8,
+                    125u8, 206u8, 153u8, 203u8, 152u8, 115u8,
                 ])
             }
             Self::r#RuntimeSolverCapabilities(_) => {

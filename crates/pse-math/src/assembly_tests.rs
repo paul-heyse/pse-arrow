@@ -10,6 +10,7 @@ use crate::{
     typed::{Binary, BodyBuilder, BodyLimits},
 };
 use pse_ids::{ContentHash, SemanticId};
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_kernels::{DerivativeOrder, Port};
 use pse_quantity::{
     IndexSet,
@@ -49,7 +50,7 @@ fn fixture(alias: bool, fixed: bool) -> (Arc<CaseAssembly>, CaseValues) {
     let variable = |n| Variable {
         port: port(n),
         fixed,
-        domain: VariableDomain::Continuous,
+        domain: ModelingVariableDomain::Continuous,
         lower: None,
         upper: None,
     };
@@ -365,7 +366,7 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
                 vec![Variable {
                     port: port.clone(),
                     fixed: false,
-                    domain: VariableDomain::Continuous,
+                    domain: ModelingVariableDomain::Continuous,
                     lower: Some(lower),
                     upper: Some(3.0),
                 }],
@@ -495,7 +496,7 @@ fn scaled_gathers_factored_quadratics_and_parameter_class_changes() {
             vec![Variable {
                 port: port.clone(),
                 fixed: false,
-                domain: VariableDomain::Continuous,
+                domain: ModelingVariableDomain::Continuous,
                 lower: Some(-10.0),
                 upper: Some(10.0),
             }],
@@ -632,7 +633,7 @@ fn admitted_transcendentals_and_strict_guards_feed_library_fbbt() {
             vec![Variable {
                 port: port.clone(),
                 fixed: false,
-                domain: VariableDomain::Continuous,
+                domain: ModelingVariableDomain::Continuous,
                 lower: Some(0.0),
                 upper: Some(3.0),
             }],

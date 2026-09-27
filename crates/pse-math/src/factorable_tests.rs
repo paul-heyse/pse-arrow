@@ -12,6 +12,7 @@ use crate::{
     typed::{Binary, BodyBuilder, BodyLimits, TypedValue},
 };
 use pse_ids::{ContentHash, SemanticId};
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_kernels::{
     AdmittedProvider, DerivativeOrder, EvaluationContext, Port, Provider, ProviderError,
     ProviderKey, ProviderRequest, ProviderSpec, ProviderValues,
@@ -86,7 +87,7 @@ fn case(
         .map(|(i, (lower, upper))| Variable {
             port: port(registry, u8::try_from(i + 1).unwrap()),
             fixed: false,
-            domain: VariableDomain::Continuous,
+            domain: ModelingVariableDomain::Continuous,
             lower: Some(*lower),
             upper: Some(*upper),
         })

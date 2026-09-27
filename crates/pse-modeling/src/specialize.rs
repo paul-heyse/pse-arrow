@@ -21,7 +21,7 @@ use pse_authoring::dsl::{
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_model::generated::enums::{
     ModelingAccumulatorMode as Mode, ModelingContributionRole as Role,
-    ModelingDeclarationKind as Kind,
+    ModelingDeclarationKind as Kind, ModelingVariableDomain as Domain,
 };
 use std::collections::{BTreeMap, BTreeSet};
 pub use value::{Environment, Value};
@@ -135,6 +135,8 @@ pub struct Symbol {
     pub ty: Type,
     /// Declared role: variable, parameter, let or alias.
     pub role: Kind,
+    /// Declared decision domain of a variable (ADR-0103); continuous for every other symbol.
+    pub domain: Domain,
     /// Definition for a demanded expression member.
     pub expression: Option<Expr>,
     /// Value binding is kept outside the body identity.
@@ -506,7 +508,9 @@ impl Engine<'_, '_> {
             for coordinates in coordinates {
                 let local = coordinates_env(env, &coordinates);
                 let target = if ports {
-                    if row.value.kind != Kind::Port { return Err(invalid(at, "connectivity target must be a declared port")); }
+                    if row.value.kind != Kind::Port {
+                        return Err(invalid(at, "connectivity target must be a declared port"));
+                    }
                     member_id(owner, member, &coordinates)
                 } else if let Some(e) = &row.value.equation {
                     let equation = dsl::parse_equation(&e.expression)
@@ -523,10 +527,18 @@ impl Engine<'_, '_> {
             return Ok(targets);
         }
         if ports {
-            let ExprKind::Path(path) = &expression.kind else { return Err(invalid(at, "connectivity target must name a port")); };
+            let ExprKind::Path(path) = &expression.kind else {
+                return Err(invalid(at, "connectivity target must name a port"));
+            };
             let (owner, member, coordinates) = self.resolve_path(instance, at, path, env, true)?;
-            if self.p.declarations[&member].value.kind != Kind::Port { return Err(invalid(at, "connectivity target must be a declared port")); }
-            return Ok(vec![(member_id(owner, member, &coordinates), self.p.types[&member].clone(), env.clone())]);
+            if self.p.declarations[&member].value.kind != Kind::Port {
+                return Err(invalid(at, "connectivity target must be a declared port"));
+            }
+            return Ok(vec![(
+                member_id(owner, member, &coordinates),
+                self.p.types[&member].clone(),
+                env.clone(),
+            )]);
         }
         let expression = self.rewrite(instance, &expression, env, &[at])?;
         let target = symbol_reference(&expression)
@@ -1032,8 +1044,15 @@ impl Engine<'_, '_> {
                         if self.model.symbols[&symbol].ty != self.p.types[member] {
                             return Err(invalid(*member, "port physical contract differs"));
                         }
-                        let port=member_id(id,*member,&coordinates);
-                        self.model.ports.insert(port,Port {id:port,symbol,lineage:self.lineage(id,&r,&[*member])});
+                        let port = member_id(id, *member, &coordinates);
+                        self.model.ports.insert(
+                            port,
+                            Port {
+                                id: port,
+                                symbol,
+                                lineage: self.lineage(id, &r, &[*member]),
+                            },
+                        );
                     }
                 }
                 Selected::Contribution(c) => {
@@ -1052,15 +1071,24 @@ impl Engine<'_, '_> {
                         dsl::parse_expr(&c.from).map_err(|e| invalid(*member, e.to_string()))?;
                     let b = dsl::parse_expr(&c.to).map_err(|e| invalid(*member, e.to_string()))?;
                     let endpoint = |e: &Expr| -> Result<SemanticId> {
-                        let ExprKind::Path(path)=&e.kind else {return Err(invalid(*member,"connection endpoint must name a declared port"));};
-                        let (owner,declaration,coordinates)=self.resolve_path(id,*member,path,&env,true)?;
-                        if self.p.declarations[&declaration].value.kind!=Kind::Port {
-                            return Err(invalid(*member,"connection endpoint must name a declared port"));
+                        let ExprKind::Path(path) = &e.kind else {
+                            return Err(invalid(
+                                *member,
+                                "connection endpoint must name a declared port",
+                            ));
+                        };
+                        let (owner, declaration, coordinates) =
+                            self.resolve_path(id, *member, path, &env, true)?;
+                        if self.p.declarations[&declaration].value.kind != Kind::Port {
+                            return Err(invalid(
+                                *member,
+                                "connection endpoint must name a declared port",
+                            ));
                         }
-                        Ok(member_id(owner,declaration,&coordinates))
+                        Ok(member_id(owner, declaration, &coordinates))
                     };
-                    let from=endpoint(&a)?;
-                    let to=endpoint(&b)?;
+                    let from = endpoint(&a)?;
+                    let to = endpoint(&b)?;
                     let a = self.rewrite(id, &a, &env, &[*member])?;
                     let b = self.rewrite(id, &b, &env, &[*member])?;
                     let sa = symbol_reference(&a)
@@ -1070,8 +1098,16 @@ impl Engine<'_, '_> {
                     if self.model.symbols[&sa].ty != self.model.symbols[&sb].ty {
                         return Err(invalid(*member, "connection physical types differ"));
                     }
-                    let connection=member_id(id,*member,&[]);
-                    self.model.connections.insert(connection,Connection {id:connection,from,to,lineage:self.lineage(id,&r,&[*member])});
+                    let connection = member_id(id, *member, &[]);
+                    self.model.connections.insert(
+                        connection,
+                        Connection {
+                            id: connection,
+                            from,
+                            to,
+                            lineage: self.lineage(id, &r, &[*member]),
+                        },
+                    );
                     self.model.equations.push(Row {
                         id: connection,
                         equation: Equation {
@@ -1265,6 +1301,7 @@ impl Engine<'_, '_> {
                 id,
                 ty: closure.ty.clone(),
                 role: Kind::Let,
+                domain: Domain::Continuous,
                 expression: None,
                 initial: None,
                 lineage: closure.lineage.clone(),
@@ -1304,12 +1341,20 @@ impl Engine<'_, '_> {
         let env = coordinates_env(&self.states[&instance].env, coordinates);
         let mut demand = chain.to_vec();
         demand.push(member);
+        // ADR-0103: a variable carries its declared domain; every other symbol is continuous.
+        let domain = if row.value.kind == Kind::Variable {
+            b.domain
+                .ok_or_else(|| invalid(member, "variable declares no domain"))?
+        } else {
+            Domain::Continuous
+        };
         self.model.symbols.insert(
             id,
             Symbol {
                 id,
                 ty: ty.clone(),
                 role: row.value.kind,
+                domain,
                 expression: None,
                 initial: None,
                 lineage: self.lineage(instance, &row, &demand),
@@ -1505,6 +1550,7 @@ impl Engine<'_, '_> {
                         id: closure.id,
                         ty: closure.ty.clone(),
                         role: Kind::Let,
+                        domain: Domain::Continuous,
                         expression: Some(sum),
                         initial: None,
                         lineage: closure.lineage.clone(),
@@ -1614,6 +1660,40 @@ impl Contribution {
     }
 }
 impl SpecializedModel {
+    /// The typed refusal of a variable's declared domain, naming the variable (ADR-0103).
+    pub fn domain_refusal(
+        &self,
+        variable: SemanticId,
+        analysis: crate::DomainAnalysis,
+        reason: crate::DomainRefusal,
+    ) -> ModelingError {
+        let symbol = self.symbols.get(&variable);
+        ModelingError::Domain {
+            variable,
+            declaration: symbol.map_or(variable, |s| s.lineage.declaration),
+            path: symbol.map_or_else(|| variable.to_string(), |s| s.lineage.path.clone()),
+            domain: symbol.map_or(Domain::Continuous, |s| s.domain),
+            analysis,
+            reason,
+        }
+    }
+    /// An analysis that cannot decide discrete variables admits them only when the case
+    /// fixes them (ADR-0103 item 6). Refuses the first free discrete variable.
+    /// # Errors
+    /// [`ModelingError::Domain`] naming the variable and the analysis.
+    pub fn require_fixed_discrete(
+        &self,
+        free: impl IntoIterator<Item = SemanticId>,
+        analysis: crate::DomainAnalysis,
+    ) -> Result<()> {
+        match free
+            .into_iter()
+            .find(|id| self.symbols.get(id).is_some_and(|s| s.domain.is_discrete()))
+        {
+            Some(id) => Err(self.domain_refusal(id, analysis, crate::DomainRefusal::Free)),
+            None => Ok(()),
+        }
+    }
     /// Assess physical closure from evaluated original terms, never optimized residual values.
     /// # Errors
     /// Missing or nonfinite original magnitudes, an invalid tolerance or a nonfinite sum.

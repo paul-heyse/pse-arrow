@@ -232,6 +232,7 @@ class AuthoredModelingDeclarationsFieldValueBinding:
     indices: b.tuple[AuthoredModelingDeclarationsFieldValueBindingIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredModelingDeclarationsFieldValueBindingIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     expression: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     defined_by: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    domain: e.ModelingVariableDomain | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingVariableDomain)))
 
 
 @attrs.frozen(kw_only=True)

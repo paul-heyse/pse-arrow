@@ -172,3 +172,11 @@ quantity_type_id = "95a63d951afd459b9af1ef6bc6d53185"
 [[quantity_aliases]]
 name = "TotalAmount"
 quantity_type_id = "67cd93d093514a2e9f3f01c7519435d7"
+
+[[quantity_aliases]]
+name = "Count"
+quantity_type_id = "3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18"
+
+[[quantity_aliases]]
+name = "Indicator"
+quantity_type_id = "b5d9e1c4a7f2483e9d6c1b0a5e8f3d27"

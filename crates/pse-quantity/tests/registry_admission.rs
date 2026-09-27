@@ -34,6 +34,7 @@ fn kind(n: u8) -> QuantityKind {
         dimension: DimensionVector::DIMENSIONLESS,
         extensive: false,
         addition_kind: QuantityAdditionKind::Additive,
+        category: None,
     }
 }
 fn ty(n: u8) -> QuantityType {

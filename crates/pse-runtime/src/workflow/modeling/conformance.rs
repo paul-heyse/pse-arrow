@@ -147,8 +147,10 @@ impl ModelingConformanceReport {
             );
             return;
         }
-        let bytes = message.as_ref().len().max(128)
-            .checked_add(oracle.map_or(0, |o| o.reference.len().saturating_add(o.revision.len())));
+        let bytes =
+            message.as_ref().len().max(128).checked_add(
+                oracle.map_or(0, |o| o.reference.len().saturating_add(o.revision.len())),
+            );
         if bytes.is_none_or(|bytes| self._owner.try_grow(bytes).is_err()) {
             self.complete = false;
             self.note_status(
@@ -574,18 +576,23 @@ impl ModelingPackage {
             let local = policy.fixture_policies.get(&fixture);
             let policy = ModelingConformancePolicy {
                 compiler: policy.compiler,
-                solver: local.and_then(|p| p.solver.as_ref()).unwrap_or(&policy.solver).clone(),
+                solver: local
+                    .and_then(|p| p.solver.as_ref())
+                    .unwrap_or(&policy.solver)
+                    .clone(),
                 numerical: policy.numerical.clone(),
                 limits: policy.limits,
-                derivatives: local.and_then(|p| p.derivatives).unwrap_or(policy.derivatives),
+                derivatives: local
+                    .and_then(|p| p.derivatives)
+                    .unwrap_or(policy.derivatives),
                 fixture_policies: BTreeMap::new(),
                 maximum_fixtures: policy.maximum_fixtures,
                 maximum_checks: policy.maximum_checks,
             };
-        let solve_order = match policy.solver.controls.hessian {
-            pse_backend_native::solve::HessianMode::Exact => DerivativeOrder::Second,
-            pse_backend_native::solve::HessianMode::LimitedMemory => DerivativeOrder::First,
-        };
+            let solve_order = match policy.solver.controls.hessian {
+                pse_backend_native::solve::HessianMode::Exact => DerivativeOrder::Second,
+                pse_backend_native::solve::HessianMode::LimitedMemory => DerivativeOrder::First,
+            };
 
             let oracle = row.value.scope.as_ref().and_then(|s| s.oracle.as_ref());
             let authored = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
@@ -711,7 +718,12 @@ impl ModelingPackage {
                                         } else {
                                             Status::Failed
                                         },
-                                        format!("step={}; relative_tolerance={}; cells={}; {message}", policy.derivatives.perturbation, policy.derivatives.relative_tolerance, policy.derivatives.maximum_cells),
+                                        format!(
+                                            "step={}; relative_tolerance={}; cells={}; {message}",
+                                            policy.derivatives.perturbation,
+                                            policy.derivatives.relative_tolerance,
+                                            policy.derivatives.maximum_cells
+                                        ),
                                         oracle,
                                         cap,
                                     );
@@ -956,6 +968,23 @@ impl ModelingPackage {
                     oracle,
                     cap,
                 );
+            } else if structure
+                .variables()
+                .iter()
+                .any(|v| !v.fixed && v.domain.is_discrete())
+            {
+                // Sampling perturbs a continuous oracle; integrality is never relaxed
+                // implicitly (ADR-0103), so free discrete columns leave it unsampled.
+                report.record(
+                    fixture,
+                    fixture,
+                    fixture,
+                    Kind::Derivatives,
+                    Status::NotApplicable,
+                    "free discrete coordinates; derivative sampling needs a fixed assignment",
+                    oracle,
+                    cap,
+                );
             } else {
                 match self
                     .conformance_derivatives(&resolution, policy.derivatives, cancel)
@@ -1183,10 +1212,16 @@ impl ModelingPackage {
     ) -> Result<ModelingTrajectory, WorkflowError> {
         let data = data.ok_or_else(|| contract("integrated fixture data absent"))?;
         let profile = self.integration_profile(model, data, &policy.solver.numerics)?;
-        self.declared_simulation(fixture, policy.compiler, Some(profile), policy.limits, cancel)
-            .await?
-            .run(cancel)
-            .await
+        self.declared_simulation(
+            fixture,
+            policy.compiler,
+            Some(profile),
+            policy.limits,
+            cancel,
+        )
+        .await?
+        .run(cancel)
+        .await
     }
     async fn conformance_derivatives(
         &self,
@@ -1243,9 +1278,17 @@ impl ModelingPackage {
                         policy,
                         execution,
                     )?;
-                    let summary = format!("step={}; relative_tolerance={}; cells={}; {}", policy.perturbation, policy.relative_tolerance, policy.maximum_cells, result.summary());
-                    let status=(result.complete,result.passed(),summary);
-                    drop(result);drop(owner);Ok(status)
+                    let summary = format!(
+                        "step={}; relative_tolerance={}; cells={}; {}",
+                        policy.perturbation,
+                        policy.relative_tolerance,
+                        policy.maximum_cells,
+                        result.summary()
+                    );
+                    let status = (result.complete, result.passed(), summary);
+                    drop(result);
+                    drop(owner);
+                    Ok(status)
                 },
             )
             .await?)
@@ -1622,23 +1665,47 @@ mod tests {
     }
     #[tokio::test]
     async fn kernel_conformance_refuses_unused_or_invalid_fixture_policy() {
-        let p = package("package p {test sample fixture {dof 0; run pure;} {expect 1==1 tolerance 0;}}");
-        let fixture = p.declarations().iter().find(|r| r.value.kind == DeclarationKind::Test).unwrap().declaration_id;
+        let p = package(
+            "package p {test sample fixture {dof 0; run pure;} {expect 1==1 tolerance 0;}}",
+        );
+        let fixture = p
+            .declarations()
+            .iter()
+            .find(|r| r.value.kind == DeclarationKind::Test)
+            .unwrap()
+            .declaration_id;
         let mut policy = policy();
-        policy.fixture_policies.insert(SemanticId::NIL, ModelingFixturePolicy::default());
-        assert!(p.conform(policy.clone(), &crate::CancelSource::new()).await.is_err());
+        policy
+            .fixture_policies
+            .insert(SemanticId::NIL, ModelingFixturePolicy::default());
+        assert!(
+            p.conform(policy.clone(), &crate::CancelSource::new())
+                .await
+                .is_err()
+        );
         policy.fixture_policies.clear();
-        policy.fixture_policies.insert(fixture, ModelingFixturePolicy {
-            derivatives: Some(pse_backend_native::derivative_diagnostics::Policy {
-                perturbation: f64::NAN, relative_tolerance: 1e-4, maximum_cells: 100,
-            }), ..Default::default()
-        });
-        assert!(p.conform(policy, &crate::CancelSource::new()).await.is_err());
+        policy.fixture_policies.insert(
+            fixture,
+            ModelingFixturePolicy {
+                derivatives: Some(pse_backend_native::derivative_diagnostics::Policy {
+                    perturbation: f64::NAN,
+                    relative_tolerance: 1e-4,
+                    maximum_cells: 100,
+                }),
+                ..Default::default()
+            },
+        );
+        assert!(
+            p.conform(policy, &crate::CancelSource::new())
+                .await
+                .is_err()
+        );
     }
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn kernel_conformance_mixes_explicit_fixture_solver_and_derivative_policies() {
-        let p = package(r#"package p {
+        let p = package(
+            r#"package p {
             test root fixture {dof 0; run steady;} {
                 var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3);
                 expect x==2 tolerance 1e-6;
@@ -1647,21 +1714,40 @@ mod tests {
                 var x:Scalar; let cost:Scalar=(x-3)^2; annotation objective cost(minimize);
                 annotation start x(1); expect x==3 tolerance 1e-6;
             }
-        }"#);
-        let fixture=p.declarations().iter().find(|r|r.name=="optimization").unwrap().declaration_id;
-        let mut policy=policy();
-        policy.solver.selection=pse_backend_native::solve::SolverSelection::Explicit(pse_backend_native::solve::Backend::Ipopt);
-        let mut optimize=policy.solver.clone();
-        optimize.intent=pse_backend_native::solve::SolveIntent::Optimize;
-        policy.fixture_policies.insert(fixture,ModelingFixturePolicy {
-            solver:Some(optimize), derivatives:Some(pse_backend_native::derivative_diagnostics::Policy {
-                perturbation:1e-7, relative_tolerance:1e-4, maximum_cells:100,
-            }),
-        });
-        let report=p.conform(policy,&crate::CancelSource::new()).await.unwrap();
-        assert!(report.passed(),"{:?}",report.checks);
-        assert_eq!(report.results.len(),2);
-        assert!(report.checks.iter().any(|r|r.fixture_id==fixture && r.kind==Kind::Derivatives && r.message.contains("step=0.0000001")));
+        }"#,
+        );
+        let fixture = p
+            .declarations()
+            .iter()
+            .find(|r| r.name == "optimization")
+            .unwrap()
+            .declaration_id;
+        let mut policy = policy();
+        policy.solver.selection = pse_backend_native::solve::SolverSelection::Explicit(
+            pse_backend_native::solve::Backend::Ipopt,
+        );
+        let mut optimize = policy.solver.clone();
+        optimize.intent = pse_backend_native::solve::SolveIntent::Optimize;
+        policy.fixture_policies.insert(
+            fixture,
+            ModelingFixturePolicy {
+                solver: Some(optimize),
+                derivatives: Some(pse_backend_native::derivative_diagnostics::Policy {
+                    perturbation: 1e-7,
+                    relative_tolerance: 1e-4,
+                    maximum_cells: 100,
+                }),
+            },
+        );
+        let report = p
+            .conform(policy, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(report.passed(), "{:?}", report.checks);
+        assert_eq!(report.results.len(), 2);
+        assert!(report.checks.iter().any(|r| r.fixture_id == fixture
+            && r.kind == Kind::Derivatives
+            && r.message.contains("step=0.0000001")));
     }
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
@@ -1786,6 +1872,99 @@ mod tests {
                 .checks
                 .iter()
                 .all(|c| c.status == Status::Unattempted)
+        );
+    }
+    /// The authored price-taker package fixture runs through admission, routing, HiGHS and
+    /// the original-model checks; its optimum differs from the linear relaxation (85 W).
+    #[cfg(feature = "solver-highs")]
+    #[tokio::test]
+    async fn authored_milp_routes_to_highs() {
+        use crate::math::solves::Outcome;
+        use pse_backend_native::solve::{Backend, SolveIntent};
+        use pse_model::generated::enums::ModelingVariableDomain as Domain;
+        use pse_relations::columnar::RelationRow;
+        let text =
+            include_str!("../../../../../packages/reference/seed-data/models/price-taker.pse");
+        let rows = pse_authoring::language::parse(
+            text,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Explicit,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let fixture = rows
+            .iter()
+            .find(|r| r.name == "price_taker" && r.value.kind == DeclarationKind::Test)
+            .unwrap()
+            .declaration_id;
+        let physical = super::super::super::tests::physical();
+        let mut names = super::super::super::tests::discrete_names();
+        names.insert(
+            "Scalar".into(),
+            physical.quantities.neutral_dimensionless().unwrap(),
+        );
+        let package = super::super::super::tests::runtime()
+            .modeling_package(rows, physical, names)
+            .unwrap();
+        let mut policy = policy();
+        policy.solver.intent = SolveIntent::Optimize;
+        let report = package
+            .conform(policy.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(report.passed(), "{:?}", report.checks);
+        assert!(
+            report
+                .checks
+                .iter()
+                .any(|c| c.kind == Kind::DegreesOfFreedom
+                    && c.status == Status::Passed
+                    && c.message.contains("free variables 6"))
+        );
+        let Outcome::Native(native) = &report.results[&fixture].outcome else {
+            panic!("expected a native MILP outcome");
+        };
+        assert_eq!(native.backend, Backend::Highs);
+        let evidence = native.evidence.coefficient.as_ref().unwrap();
+        assert!(evidence.discrete);
+        assert!((evidence.objective.unwrap().abs() - 70.).abs() < 1e-6);
+        // The published variable rows state each declared domain.
+        let prepared = package
+            .prepare_solve(
+                fixture,
+                fixture,
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                policy.compiler,
+                policy.solver,
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let result = prepared.start().unwrap().wait().await.unwrap();
+        let table = result.table("runtime.solve_variables").unwrap();
+        let rows = pse_relations::generated::runtime::solve_variables::Row::rows(&table).unwrap();
+        let domains = rows
+            .iter()
+            .filter(|r| !r.parameter)
+            .map(|r| r.domain)
+            .collect::<Vec<_>>();
+        assert_eq!(domains.len(), 6);
+        assert_eq!(
+            domains
+                .iter()
+                .filter(|d| **d == Some(Domain::Binary))
+                .count(),
+            3
+        );
+        assert!(domains.iter().all(|d| d.is_some()));
+        assert!(
+            rows.iter()
+                .filter(|r| r.parameter)
+                .all(|r| r.domain.is_none())
         );
     }
 }

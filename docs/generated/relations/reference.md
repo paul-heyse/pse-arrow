@@ -185,9 +185,9 @@ Version: 1. Snapshot class: `model`. Primary key: `package_id`.
 
 ## `quantity_kinds`
 
-blueprint §6.2 physical type: quantity_kinds.
+blueprint §6.2 physical type: quantity_kinds. Version two adds the count or indicator category of a dimensionless pure-number kind (ADR-0103); measured kinds carry none.
 
-Version: 1. Snapshot class: `model`. Primary key: `quantity_kind_id`.
+Version: 2. Snapshot class: `model`. Primary key: `quantity_kind_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -196,6 +196,7 @@ Version: 1. Snapshot class: `model`. Primary key: `quantity_kind_id`.
 | `dimension` | `dimension_vector` | false | `payload` | — | — |
 | `extensive` | `Boolean` | false | `payload` | — | — |
 | `addition_kind` | `enum:QuantityAdditionKind` | false | `payload` | — | — |
+| `category` | `enum:QuantityKindCategory` | true | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `quantity_operation_reductions`

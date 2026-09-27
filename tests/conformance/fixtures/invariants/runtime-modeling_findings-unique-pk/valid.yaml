@@ -9,6 +9,7 @@
         "ordinal": "[\"i64\",1]",
         "rule": "[\"text\",\"value-1\"]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "severity": "[\"enum\",\"error\"]",
         "sources": "[\"list\",[]]",
         "stage": "[\"text\",\"value-1\"]"
       }

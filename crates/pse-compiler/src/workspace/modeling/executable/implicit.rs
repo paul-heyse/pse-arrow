@@ -774,7 +774,12 @@ pub(super) fn project(
         .collect::<Vec<_>>();
     p.inputs = keep.iter().map(|i| p.inputs[*i]).collect();
     p.formals = keep.iter().map(|i| p.formals[*i].clone()).collect();
-    p.free.retain(|id| !unknown_ids.contains(id));
+    // A nested root cannot decide a discrete unknown (ADR-0103 item 6).
+    model.require_fixed_discrete(
+        unknown_ids.iter().copied(),
+        pse_modeling::DomainAnalysis::Root,
+    )?;
+    p.free.retain(|id, _| !unknown_ids.contains(id));
     additions.append(bindings);
     *bindings = ordered_bindings(additions)?;
     Ok(())

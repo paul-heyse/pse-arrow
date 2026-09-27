@@ -109,3 +109,13 @@ changed physical specification. It avoids centering the forward derivative sampl
 on the narrow smoothing transition; reducing the perturbation excessively instead
 introduces floating-point cancellation. The default 1e-6 normalized perturbation and
 1e-4 derivative tolerance remain in use.
+
+`price-taker.pse` is a synthetic mixed-integer demonstration, not market data. A
+generator commits an on/off indicator per period (`var on[t in periods]: Indicator in
+binary`) and dispatches between 40 W and 100 W while on, under a 150 W summed budget;
+each committed period costs 50 W of standby. Dimensionless price weights −0.5, 0.8 and
+1.2 value the dispatched output. Enumerating the eight assignments gives the optimum:
+only the third period runs, at 100 W, for a 70 W margin. The linear relaxation reaches
+85 W with a half-committed second period, so the fixture checks that integrality is
+enforced rather than relaxed. It runs only under an optimization intent; a root solve
+refuses the free indicators (ADR-0103).

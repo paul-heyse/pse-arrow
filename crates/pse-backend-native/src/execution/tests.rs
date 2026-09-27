@@ -11,8 +11,8 @@ use crate::{
     solver_tests::{Polynomial, stamp},
 };
 use pse_kernels::DerivativeOrder;
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_math::{
-    binding::VariableDomain,
     facts::{BoundShape, ProblemFacts},
 };
 
@@ -310,7 +310,7 @@ fn grid() -> Vec<ProblemFacts> {
             DerivativeOrder::First,
             DerivativeOrder::Second,
         ] {
-            for domain in [VariableDomain::Continuous, VariableDomain::Integer] {
+            for domain in [ModelingVariableDomain::Continuous, ModelingVariableDomain::Integer] {
                 for (objective, equalities, rows) in
                     [(false, true, 1), (true, false, 1), (true, true, 2)]
                 {

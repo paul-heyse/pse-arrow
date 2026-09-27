@@ -10,6 +10,8 @@ pub mod generated;
 pub mod artifact;
 /// Source-attributed public failure structure.
 pub mod diagnostic;
+/// Declared variable-domain semantics over the generated registry enum (ADR-0103).
+pub mod domain;
 /// Resolved numerical meaning, independent of native solver implementations.
 pub mod numerics;
 /// An invalid declared semantic enum member.

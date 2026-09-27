@@ -459,7 +459,7 @@ pub struct CoefficientProblem {
     /// Authored objective orientation.
     pub sense: pse_math::binding::ObjectiveSense,
     /// One explicit domain per column; a rounded value never implies integrality.
-    pub domains: Vec<pse_math::binding::VariableDomain>,
+    pub domains: Vec<pse_model::generated::enums::ModelingVariableDomain>,
     /// Fixed/parameter assumptions used during class extraction.
     pub assumptions: ContentHash,
     /// Constraint matrix owned by faer.
@@ -537,7 +537,7 @@ impl CoefficientProblem {
         x: &[f64],
         t: &quality::Tolerances,
     ) -> Result<quality::Quality, ProblemError> {
-        use pse_math::binding::VariableDomain;
+        use pse_model::generated::enums::ModelingVariableDomain;
         use quality::{Violation, interval};
         t.validate(self.contract.variables.len(), self.contract.rows.len())?;
         if x.len() != self.contract.variables.len() || x.iter().any(|v| !v.is_finite()) {
@@ -572,12 +572,12 @@ impl CoefficientProblem {
             } else {
                 interval(
                     x,
-                    if *d == VariableDomain::Binary {
+                    if *d == ModelingVariableDomain::Binary {
                         v.lower.max(0.0)
                     } else {
                         v.lower
                     },
-                    if *d == VariableDomain::Binary {
+                    if *d == ModelingVariableDomain::Binary {
                         v.upper.min(1.0)
                     } else {
                         v.upper
@@ -781,7 +781,7 @@ mod tests {
             bounds: vec![(0.0, 1.0)],
             objective_constant: 0.0,
             sense: pse_math::binding::ObjectiveSense::Minimize,
-            domains: vec![pse_math::binding::VariableDomain::Continuous],
+            domains: vec![pse_model::generated::enums::ModelingVariableDomain::Continuous],
             assumptions: ContentHash::from_bytes([1; 32]),
         };
         p.validate().unwrap();

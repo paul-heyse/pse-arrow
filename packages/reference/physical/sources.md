@@ -49,6 +49,14 @@ are explicit modeling declarations under blueprint §6.2 and §8.3. Matching uni
 or dimensions cannot supply a missing physical kind. Operation preconditions must
 be proved against the actual operands at application time.
 
+Counts and indicators are dimensionless pure numbers with a declared category
+(ADR-0103): `count` types an integer decision (units in operation, trays, modules)
+and `indicator` a zero-or-one state. The category, not the dimension, is what admits
+an integer or binary variable domain; the neutral scalar, mole fractions and other
+dimensionless measured kinds carry none. Multiplying a quantity by a count or an
+indicator keeps the quantity's complete contract (units in operation times a per-unit
+capacity is a capacity), in the same way neutral scaling does.
+
 Mixture normalization is explicit. The enthalpy expression is
 `h0 + sum(x_i * (h_i - h0)) / sum(x_i)`, so only the enthalpy difference is
 divided by the dimensionless mole-fraction weight. Its registered division preserves

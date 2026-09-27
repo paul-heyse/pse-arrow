@@ -96,6 +96,10 @@ fn contract(message: impl Into<String>) -> WorkflowError {
 fn math(error: impl Into<pse_math::MathError>) -> WorkflowError {
     WorkflowError::Math(MathRuntimeError::Math(error.into()))
 }
+/// A typed modeling refusal keeps its class and source through the compiler boundary.
+fn modeling_error(error: pse_modeling::ModelingError) -> WorkflowError {
+    WorkflowError::Math(MathRuntimeError::Compile(error.into()))
+}
 fn relation(error: pse_relations::RelationError) -> WorkflowError {
     WorkflowError::Engine(error.into())
 }

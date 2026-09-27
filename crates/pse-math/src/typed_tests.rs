@@ -8,6 +8,7 @@ use crate::{
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{DerivativeOrder, Port};
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_quantity::{
     IndexSet,
     standard::{StandardInvariantChecker, ids, standard_registry},
@@ -225,7 +226,7 @@ fn aliases_and_affine_unit_bindings_preserve_body_reuse() {
     let mut variable = Variable {
         port: source_port,
         fixed: false,
-        domain: VariableDomain::Continuous,
+        domain: ModelingVariableDomain::Continuous,
         lower: None,
         upper: None,
     };

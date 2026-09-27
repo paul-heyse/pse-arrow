@@ -110,6 +110,7 @@ pub(super) fn inventory(
             dimension: dimension(row.dimension)?,
             extensive: row.extensive,
             addition_kind: row.addition_kind,
+            category: row.category,
         });
     });
     rows!(bases, row, {

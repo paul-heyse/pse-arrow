@@ -12,7 +12,7 @@ use pse_compiler::workspace::{
 use pse_kernels::DerivativeOrder;
 use pse_math::binding::CaseValues;
 use pse_model::generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget};
-use pse_modeling::annotation::AnnotationValue;
+use pse_modeling::{DomainAnalysis, annotation::AnnotationValue};
 use std::collections::BTreeSet;
 
 /// Selected values retain their allocation owner until the last reader drops them.
@@ -641,6 +641,23 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
+        // ADR-0103 item 6: a root or initialization solve cannot decide a discrete variable.
+        let analysis = match solver.intent {
+            pse_backend_native::solve::SolveIntent::Root => Some(DomainAnalysis::Root),
+            pse_backend_native::solve::SolveIntent::Initialize => {
+                Some(DomainAnalysis::Initialization)
+            }
+            _ => None,
+        };
+        if let Some(analysis) = analysis {
+            product
+                .model
+                .require_fixed_discrete(
+                    prepared.case.compiled().plan.columns().iter().copied(),
+                    analysis,
+                )
+                .map_err(crate::workflow::modeling_error)?;
+        }
         let mut nominal_point = values.clone();
         // Resolve source precedence before selecting the physical nominal point.
         let physical = prepared.case.compiled().quantities.clone();
@@ -945,6 +962,72 @@ mod tests {
             .unwrap();
         assert_eq!(p.model.values.scalars[&y], 6.);
         assert_eq!(p.starts[&x], StartSource::Case { path: "x".into() });
+    }
+    #[tokio::test]
+    async fn root_refuses_free_integer() {
+        use super::super::super::tests as fixture;
+        let rows = pse_authoring::language::parse(
+            "package p { def Root { var n: Count in integer; eq e: n == 2{1}; annotation start n(0{1}); annotation bounds n(0{1}, 5{1}); } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime()
+            .modeling_package(rows, fixture::physical(), fixture::discrete_names())
+            .unwrap();
+        let error = package
+            .prepare_solve(
+                root,
+                root,
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(
+            fixture::free_discrete_refusal(&error),
+            ("n".into(), "root".into())
+        );
+        // Fixed by the case, the same model is an admitted continuous square system.
+        let fixed = ModelingCaseBindings {
+            values: BTreeMap::from([("n".into(), 2.)]),
+            variables: BTreeMap::from([(
+                "n".into(),
+                ModelingVariableState {
+                    fixed: Some(true),
+                    ..Default::default()
+                },
+            )]),
+        };
+        let prepared = package
+            .prepare_solve(
+                root,
+                root,
+                Bindings::default(),
+                Limits::default(),
+                fixed,
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(prepared.model.case.compiled().facts.variables, 0);
     }
 }
 

@@ -161,6 +161,8 @@ crate::closed_enum! {
         Unary => "unary",
         /// Explicitly designated neutral scalar scaling.
         NeutralScaling => "neutral_scaling",
+        /// Scaling by a declared count or indicator, a dimensionless pure number (ADR-0103).
+        DiscreteScaling => "discrete_scaling",
         /// Ordered affine type composition.
         Affine => "affine",
         /// Explicit smooth-operator contracts.
@@ -335,6 +337,32 @@ pub fn infer_with_evidence(
                     operands[position].indices.clone(),
                     BuiltInRule::NeutralScaling,
                 ));
+            }
+            // Units in operation times a per-unit capacity is a capacity: a declared count or
+            // indicator scales the other operand without changing its physical contract.
+            if matches!(request, OpRequest::Mul) {
+                let right = registry.discrete_category(operands[1].quantity_type)?;
+                let left = registry.discrete_category(operands[0].quantity_type)?;
+                let kept = if right.is_some() {
+                    Some(0)
+                } else if left.is_some() {
+                    Some(1)
+                } else {
+                    None
+                };
+                if let Some(kept) = kept {
+                    let indices = operands[kept]
+                        .indices
+                        .union(operands[1 - kept].indices)
+                        .map_err(|_| {
+                            invariant("discrete_scaling.binders", "conflicting coordinate binders")
+                        })?;
+                    return Ok(built(
+                        operands[kept].quantity_type,
+                        indices,
+                        BuiltInRule::DiscreteScaling,
+                    ));
+                }
             }
             registered(request, operands, registry, checker)
         }

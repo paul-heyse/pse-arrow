@@ -38,7 +38,9 @@ impl ModelingRevision {
         &self.rows
     }
     /// Admitted physical aliases for immutable source edits.
-    pub fn quantity_names(&self) -> &BTreeMap<String, QuantityTypeId> { &self.names }
+    pub fn quantity_names(&self) -> &BTreeMap<String, QuantityTypeId> {
+        &self.names
+    }
     /// Conservative retained source and checked-state extent.
     pub fn retained_bytes(&self) -> usize {
         self.input_bytes
@@ -335,12 +337,14 @@ impl CompilerWorkspace {
 
 mod executable;
 mod flow;
-pub use flow::ModelingFlowSelection;
 pub use executable::{
     AdmittedImplicit, AdmittedModeling, ImplicitAlgorithm, ImplicitScale, ModelingCaseBindings,
     ModelingExpectationResult, ModelingHint, ModelingOutput, ModelingTestValue,
     ModelingVariableState, PreparedModeling,
 };
+pub use flow::ModelingFlowSelection;
 
+#[cfg(test)]
+mod domain_tests;
 #[cfg(test)]
 mod tests;

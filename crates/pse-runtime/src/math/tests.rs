@@ -9,6 +9,7 @@ use pse_compiler::{
 use pse_ids::ContentHash;
 use pse_kernels::Port;
 use pse_math::{binding::*, typed::BodyLimits};
+use pse_model::generated::enums::ModelingVariableDomain;
 use std::sync::atomic::Ordering;
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
@@ -66,7 +67,7 @@ fn inputs() -> Inputs {
         vec![Variable {
             port: port.clone(),
             fixed: false,
-            domain: VariableDomain::Continuous,
+            domain: ModelingVariableDomain::Continuous,
             lower: None,
             upper: None,
         }],
@@ -457,7 +458,7 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
                     .map(|port| Variable {
                         port,
                         fixed: false,
-                        domain: VariableDomain::Continuous,
+                        domain: ModelingVariableDomain::Continuous,
                         lower: None,
                         upper: None,
                     })
