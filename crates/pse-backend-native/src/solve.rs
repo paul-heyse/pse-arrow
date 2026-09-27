@@ -420,6 +420,9 @@ pub struct Execution {
     pub time_limit: Duration,
     /// Bounded retained progress.
     pub progress: Arc<Progress>,
+    /// Foreign-library allocation allowance the worker admitted for this attempt, for
+    /// adapters whose library enforces its own memory limit; absent when none was admitted.
+    pub memory: Option<usize>,
 }
 impl Execution {
     /// Construct at the admitted worker boundary.
@@ -429,6 +432,7 @@ impl Execution {
             started: Instant::now(),
             time_limit: controls.time_limit,
             progress: Arc::new(Progress::new(controls.history)),
+            memory: None,
         }
     }
     /// Stop reason; cancellation and deadline remain distinguishable.
@@ -700,6 +704,61 @@ pub struct ConicEvidence {
     /// Relative duality gap.
     pub gap_relative: f64,
 }
+/// Where a global dual bound comes from (ADR-0106 §10).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BoundSource {
+    /// The backend's bound over an exact export of the original program.
+    ExactExport,
+    /// The backend's bound over a sound relaxation of the original program: valid for
+    /// bounds and infeasibility conclusions, never for a solution claim (ADR-0105 §2).
+    RelaxedExport,
+}
+/// Where the reported primal candidate comes from (ADR-0105 §2, T07).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PrimalSource {
+    /// The backend's incumbent over an exact export, re-qualified in original coordinates.
+    Backend,
+    /// The backend's incumbent over a relaxed export: an assignment proposal and an
+    /// observation only, never a result or a seed.
+    RelaxedIncumbent,
+    /// The continuous re-solve with the backend's discrete assignment fixed, run through
+    /// the one NLP runner and qualified in original coordinates.
+    FixedAssignment,
+}
+/// Evidence of a certifying adapter over an exported factorable program (ADR-0106 §10).
+/// Bounds are in the authored objective sense and original coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GlobalEvidence {
+    /// Worst fidelity of the exported rows, constraints and objective.
+    pub fidelity: pse_math::factorable::Fidelity,
+    /// Identity of the declared box the backend branched over.
+    pub domain: ContentHash,
+    /// Authored objective orientation of the bounds.
+    pub sense: pse_math::binding::ObjectiveSense,
+    /// Native feasibility tolerance the bounds hold within.
+    pub feasibility: f64,
+    /// Requested relative gap.
+    pub gap_relative: f64,
+    /// Requested absolute gap, in original objective units.
+    pub gap_absolute: f64,
+    /// Native dual bound, when finite.
+    pub dual_bound: Option<f64>,
+    /// Native primal bound, when finite.
+    pub primal_bound: Option<f64>,
+    /// Native relative gap, when finite.
+    pub gap: Option<f64>,
+    /// Branch-and-bound nodes, including restarts.
+    pub nodes: i64,
+    /// The native model was read back and evaluates the exported functions as the neutral
+    /// program does.
+    pub readback: bool,
+    /// Source of the dual bound.
+    pub dual: BoundSource,
+    /// Source of the reported candidate.
+    pub primal: PrimalSource,
+    /// The backend concluded that the exported program is infeasible over the box.
+    pub infeasible: bool,
+}
 /// Typed adapter evidence. Qualification, retry and start receipts read only this;
 /// metrics remain observations and are never an input to a decision.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -714,6 +773,8 @@ pub struct Evidence {
     pub coefficient: Option<CoefficientEvidence>,
     /// Conic residual evidence.
     pub conic: Option<ConicEvidence>,
+    /// Global bound evidence of a certifying adapter.
+    pub global: Option<GlobalEvidence>,
 }
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]

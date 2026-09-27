@@ -18,6 +18,7 @@ static CAPABILITY: Capability = Capability {
     general_bounds: true,
     sign_bounds: true,
     parallel: false,
+    certifies: false,
     reuse: "native data-update eligibility; reusable mode disables preprocessing",
     cancellation: "native iteration termination callback",
     diagnostics: "complete native info/settings, cone slacks/duals and certificates",

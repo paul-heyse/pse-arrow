@@ -34,7 +34,7 @@ pub enum Ineligible {
     NotSquareRoot,
     /// Optimization needs an authored objective.
     NoObjective,
-    /// No linked adapter certifies global bounds yet.
+    /// The certify intent needs an adapter whose record certifies global bounds.
     Certification,
     /// None of the problem's classes is among the adapter's classes.
     Class {
@@ -61,7 +61,7 @@ impl std::fmt::Display for Ineligible {
                 "root analysis requires square continuous equalities without an objective",
             ),
             Self::NoObjective => f.write_str("optimization requires an authored objective"),
-            Self::Certification => f.write_str("no linked backend certifies global bounds"),
+            Self::Certification => f.write_str("adapter does not certify global bounds"),
             Self::Class { problem } => {
                 f.write_str("problem class ")?;
                 if problem.is_empty() {
@@ -152,9 +152,10 @@ fn square_root(f: &ProblemFacts) -> bool {
 const fn root_intent(intent: SolveIntent) -> bool {
     matches!(intent, SolveIntent::Root | SolveIntent::Initialize)
 }
-/// The mathematical classes the facts and intent establish. Root intents make a square
-/// problem a root system; coefficient classes are optimization classes; an explicit cone
-/// or a trajectory is never inferred from algebraic facts.
+/// The mathematical classes the facts and intent establish (ADR-0106 §7). Root intents
+/// make a square problem a root system; coefficient and discrete classes are optimization
+/// classes; a degree-two coefficient problem without a convexity certificate is
+/// nonconvex; an explicit cone or a trajectory is never inferred from algebraic facts.
 pub fn problem_classes(f: &ProblemFacts, intent: SolveIntent, convex: bool) -> Vec<ProblemClass> {
     let mut classes = Vec::new();
     if root_intent(intent) && square_root(f) {
@@ -163,12 +164,15 @@ pub fn problem_classes(f: &ProblemFacts, intent: SolveIntent, convex: bool) -> V
     if continuous(f) {
         classes.push(ProblemClass::SmoothNlp);
     }
-    if !root_intent(intent) && f.coefficients {
-        match (f.quadratic, continuous(f)) {
-            (false, true) => classes.push(ProblemClass::Linear),
-            (false, false) => classes.push(ProblemClass::MixedLinear),
-            (true, true) if convex => classes.push(ProblemClass::ConvexQuadratic),
-            (true, _) => {}
+    if !root_intent(intent) {
+        match (f.coefficients, f.quadratic, continuous(f)) {
+            (true, false, true) => classes.push(ProblemClass::Linear),
+            (true, false, false) => classes.push(ProblemClass::MixedLinear),
+            (true, true, true) if convex => classes.push(ProblemClass::ConvexQuadratic),
+            (true, true, true) => classes.push(ProblemClass::NonconvexQuadratic),
+            (true, true, false) => classes.push(ProblemClass::MixedIntegerQuadratic),
+            (false, _, false) => classes.push(ProblemClass::MixedIntegerNonlinear),
+            (false, _, true) => {}
         }
     }
     classes
@@ -190,8 +194,8 @@ pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec
     if r.intent == SolveIntent::Optimize && !f.objective {
         reasons.push(Ineligible::NoObjective);
     }
-    // Plan 22 G packets add the first certifying adapter; until then routing refuses.
-    if r.intent == SolveIntent::Certify {
+    // Certification is only ever explicit and served only by a certifying record.
+    if r.intent == SolveIntent::Certify && !capability.certifies {
         reasons.push(Ineligible::Certification);
     }
     let classes = problem_classes(f, r.intent, r.convex);
@@ -207,7 +211,7 @@ pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec
         DerivativeCapability::ExactHessianOrLimitedMemory
         | DerivativeCapability::JacobianOrProduct
         | DerivativeCapability::FirstWithSmoothSensitivities => Some(DerivativeOrder::First),
-        DerivativeCapability::Coefficients => None,
+        DerivativeCapability::Coefficients | DerivativeCapability::Factorable => None,
     };
     if let Some(required) = required
         && f.derivatives.min(f.prepared_derivatives) < required
@@ -259,6 +263,13 @@ impl Requirements<'_> {
             ));
         }
         if self.facts.variables == 0 {
+            // Constant evaluation proves nothing global, so certification is not rerouted.
+            if self.intent == SolveIntent::Certify {
+                return Err(ProblemError::Unsupported(
+                    "certification needs free variables; constant evaluation proves no bound"
+                        .into(),
+                ));
+            }
             return Ok(Route::Constant);
         }
         let selected = match selection {
@@ -422,9 +433,8 @@ mod tests {
             .is_err()
         );
     }
-    #[test]
-    fn class_refusals_do_not_relax_discrete_or_square_requirements() {
-        let f = ProblemFacts {
+    fn miqp_facts() -> ProblemFacts {
+        ProblemFacts {
             variables: 2,
             rows: 1,
             objective: true,
@@ -439,9 +449,28 @@ mod tests {
             affine_rows: vec![true],
             objective_degree: Some(2),
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
-        };
-        assert!(select(&f, SolveIntent::Optimize, SolverSelection::Auto, true).is_err());
+        }
+    }
+    #[test]
+    fn class_refusals_do_not_relax_discrete_or_square_requirements() {
+        let f = miqp_facts();
+        // Only a mixed-integer quadratic adapter represents the class.
+        assert_eq!(
+            select(&f, SolveIntent::Optimize, SolverSelection::Auto, true).is_ok(),
+            adapter(Backend::Scip).linked()
+        );
         assert!(select(&f, SolveIntent::Root, SolverSelection::Auto, true).is_err());
+        for local in [Backend::Ipopt, Backend::Pounce, Backend::Highs] {
+            assert!(
+                select(
+                    &f,
+                    SolveIntent::Optimize,
+                    SolverSelection::Explicit(local),
+                    true
+                )
+                .is_err()
+            );
+        }
         let mut f = f;
         // Coefficient MILPs and opaque nonlinear expressions are not conic data.
         f.quadratic = false;
@@ -488,38 +517,132 @@ mod tests {
             problem_classes(&f, SolveIntent::Optimize, false),
             [ProblemClass::SmoothNlp, ProblemClass::Linear]
         );
+        // Degree two over affine rows: nonconvex without a certificate.
         f.quadratic = true;
         assert_eq!(
             problem_classes(&f, SolveIntent::Optimize, false),
-            [ProblemClass::SmoothNlp]
+            [ProblemClass::SmoothNlp, ProblemClass::NonconvexQuadratic]
         );
         assert_eq!(
             problem_classes(&f, SolveIntent::Optimize, true),
             [ProblemClass::SmoothNlp, ProblemClass::ConvexQuadratic]
         );
-        f.quadratic = false;
         f.domains = vec![VariableDomain::Binary];
+        for convex in [false, true] {
+            assert_eq!(
+                problem_classes(&f, SolveIntent::Optimize, convex),
+                [ProblemClass::MixedIntegerQuadratic]
+            );
+        }
+        f.quadratic = false;
         assert_eq!(
             problem_classes(&f, SolveIntent::Optimize, false),
             [ProblemClass::MixedLinear]
         );
+        // Nonlinear rows or objective with a discrete column.
+        f.coefficients = false;
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, false),
+            [ProblemClass::MixedIntegerNonlinear]
+        );
+        // Discrete classes are optimization classes only.
+        assert!(problem_classes(&f, SolveIntent::Root, false).is_empty());
     }
     #[test]
-    fn certify_intent_refused_until_global_backend() {
+    fn miqp_routes_to_scip() {
+        let f = miqp_facts();
+        let assess = |convex| {
+            Requirements {
+                table: &LINKED,
+                facts: &f,
+                intent: SolveIntent::Optimize,
+                convex,
+                controls: &crate::solve::Controls::default(),
+            }
+            .eligibility()
+        };
+        for convex in [false, true] {
+            // Every admitted adapter represents the mixed-integer quadratic class.
+            for e in assess(convex) {
+                if e.reasons.is_empty() {
+                    assert_eq!(e.backend, Backend::Scip);
+                }
+            }
+            let route = select(&f, SolveIntent::Optimize, SolverSelection::Auto, convex);
+            if adapter(Backend::Scip).linked() {
+                assert_eq!(route.unwrap(), Route::Native(Backend::Scip));
+            } else {
+                assert!(route.is_err());
+            }
+        }
+        // A mixed-integer nonlinear program routes the same way.
+        let mut f = f;
+        f.coefficients = false;
+        f.quadratic = false;
+        let route = select(&f, SolveIntent::Optimize, SolverSelection::Auto, false);
+        assert_eq!(route.is_ok(), adapter(Backend::Scip).linked());
+        // A continuous nonconvex quadratic program stays local automatically.
+        f.domains.fill(VariableDomain::Continuous);
+        f.coefficients = true;
+        f.quadratic = true;
+        if adapter(Backend::Ipopt).linked() || adapter(Backend::Pounce).linked() {
+            let route = select(&f, SolveIntent::Optimize, SolverSelection::Auto, false).unwrap();
+            assert_ne!(route, Route::Native(Backend::Scip));
+        }
+        // A linear program keeps HiGHS automatically and admits SCIP explicitly.
+        f.quadratic = false;
+        if adapter(Backend::Highs).linked() {
+            assert_eq!(
+                select(&f, SolveIntent::Optimize, SolverSelection::Auto, false).unwrap(),
+                Route::Native(Backend::Highs)
+            );
+        }
+        if adapter(Backend::Scip).linked() {
+            assert_eq!(
+                select(
+                    &f,
+                    SolveIntent::Optimize,
+                    SolverSelection::Explicit(Backend::Scip),
+                    false
+                )
+                .unwrap(),
+                Route::Native(Backend::Scip)
+            );
+        }
+    }
+    #[test]
+    fn certify_routes_to_scip_when_linked() {
         let mut f = root_facts();
         f.objective = true;
         f.equalities = false;
-        for selection in [
-            SolverSelection::Auto,
-            SolverSelection::Explicit(Backend::Ipopt),
-            SolverSelection::Explicit(Backend::Pounce),
-        ] {
-            let error = select(&f, SolveIntent::Certify, selection, false).unwrap_err();
+        let linked = adapter(Backend::Scip).linked();
+        // Local adapters never certify, even when selected explicitly.
+        for local in [Backend::Ipopt, Backend::Pounce] {
+            let error = select(
+                &f,
+                SolveIntent::Certify,
+                SolverSelection::Explicit(local),
+                false,
+            )
+            .unwrap_err();
+            assert!(matches!(error, ProblemError::Unsupported(_)), "{error:?}");
+        }
+        let route = select(&f, SolveIntent::Certify, SolverSelection::Auto, false);
+        if linked {
+            assert_eq!(route.unwrap(), Route::Native(Backend::Scip));
+        } else {
             assert!(
-                matches!(&error, ProblemError::Unsupported(m) if m == "no linked backend certifies global bounds"),
-                "{error:?}"
+                matches!(&route, Err(ProblemError::Unsupported(m)) if m == "no linked backend certifies global bounds"),
+                "{route:?}"
             );
         }
+        // A nonconvex quadratic program certifies through the same record.
+        f.coefficients = true;
+        f.quadratic = true;
+        assert_eq!(
+            select(&f, SolveIntent::Certify, SolverSelection::Auto, false).is_ok(),
+            linked
+        );
         // Even an all-fixed model is not silently certified by constant evaluation.
         f.variables = 0;
         assert!(matches!(
@@ -533,12 +656,17 @@ mod tests {
             convex: false,
             controls: &crate::solve::Controls::default(),
         };
-        assert!(
-            requirements
-                .eligibility()
-                .iter()
-                .all(|e| e.reasons.contains(&Ineligible::Certification))
-        );
+        // Only a certifying record is eligible; the rule reads the record, not the backend.
+        for e in requirements.eligibility() {
+            let certifies = LINKED
+                .get(e.backend)
+                .is_some_and(|a| a.capability().certifies);
+            assert_eq!(
+                e.reasons.contains(&Ineligible::Certification),
+                !certifies,
+                "{e:?}"
+            );
+        }
         // Certification is a typed intent with a registry name, parsed like every other.
         assert_eq!(
             "certify".parse::<SolveIntent>().unwrap(),

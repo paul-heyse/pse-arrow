@@ -762,6 +762,7 @@ pub(super) fn integrate_with_progress(
         started: Instant::now(),
         time_limit: p.time_limit,
         progress,
+        memory: None,
     };
     let mut r = Report::new(p.start);
     let n = oracle.contract().states.len();

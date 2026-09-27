@@ -36,6 +36,7 @@ solver-pounce = ["pse-runtime/solver-pounce"]
 solver-highs = ["pse-runtime/solver-highs"]
 solver-kinsol = ["pse-runtime/solver-kinsol"]
 solver-diffsol = ["pse-runtime/solver-diffsol"]
+solver-scip = ["pse-runtime/solver-scip"]
 # Validation-only dependency: expose the workspace's Arrow validation feature to
 # maturin, which selects this package without selecting the other workspace members.
 force-validate = ["pse-relations/force-validate"]

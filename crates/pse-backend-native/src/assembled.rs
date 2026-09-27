@@ -56,6 +56,64 @@ impl AlgebraicOracle {
             structure: None,
         })
     }
+    /// The continuous problem of a mixed-integer case with every free discrete column
+    /// fixed (ADR-0105 §2): each fixed column keeps its coordinate with the degenerate box
+    /// `[v, v]`, so candidates, normalization and tolerances keep the original column
+    /// order. Every free discrete column needs an integral value inside its box, and only
+    /// discrete columns may be fixed this way.
+    pub fn with_fixed_assignment(
+        worker: CaseWorker,
+        mut values: CaseValues,
+        assignment: &std::collections::BTreeMap<pse_ids::SemanticId, f64>,
+    ) -> Result<Self, ProblemError> {
+        let assembly = worker.assembly();
+        for v in assembly.structure().variables().iter().filter(|v| !v.fixed) {
+            match (v.domain, assignment.get(&v.port.id)) {
+                (VariableDomain::Continuous, None) => {}
+                (d, Some(x))
+                    if d.is_integer()
+                        && !d.is_semi()
+                        && d.contains(
+                            *x,
+                            v.lower.unwrap_or(f64::NEG_INFINITY),
+                            v.upper.unwrap_or(f64::INFINITY),
+                        ) =>
+                {
+                    values.scalars.insert(v.port.id, *x);
+                }
+                _ => {
+                    return Err(ProblemError::Unsupported(
+                        "a fixed assignment fixes every free integer column at an integral value in its box, and nothing else".into(),
+                    ));
+                }
+            }
+        }
+        assembly.structure().validate_values(&values)?;
+        let mut contract = contract(assembly);
+        for v in &mut contract.variables {
+            if let Some(x) = assignment.get(&v.id) {
+                v.lower = *x;
+                v.upper = *x;
+            }
+        }
+        contract.validate(assembly.order())?;
+        let bounds = assembly
+            .structure()
+            .rows()
+            .iter()
+            .map(|r| (r.lower, r.upper))
+            .collect();
+        Ok(Self {
+            worker,
+            values,
+            contract,
+            bounds,
+            facts: Default::default(),
+            normalization: None,
+            presolve: None,
+            structure: None,
+        })
+    }
     /// Attach a compiler analysis. Native admission checks its complete matching
     /// witness against the current IDs, equality classification and sparse edges.
     pub fn with_structural_analysis(

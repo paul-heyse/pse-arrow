@@ -554,6 +554,10 @@ class NativeAssurance(StrEnum):
     LOCAL_STATIONARY = "local_stationary"
     NATIVE_OPTIMAL = "native_optimal"
     CERTIFICATE = "certificate"
+    GLOBAL_BOUND = "global_bound"
+    PROVEN_INFEASIBLE = "proven_infeasible"
+    EXACT_CERTIFICATE = "exact_certificate"
+    SOS_BOUND_NONRIGOROUS = "sos_bound_nonrigorous"
 
 
 class NativeBackend(StrEnum):
@@ -566,6 +570,7 @@ class NativeBackend(StrEnum):
     CLARABEL = "clarabel"
     DIFFSOL = "diffsol"
     IDAS = "idas"
+    SCIP = "scip"
 
 
 class NativeBoundaryClass(StrEnum):
@@ -629,6 +634,7 @@ class NativeDerivativeCapability(StrEnum):
     JACOBIAN_OR_PRODUCT = "jacobian_or_product"
     COEFFICIENTS = "coefficients"
     FIRST_WITH_SMOOTH_SENSITIVITIES = "first_with_smooth_sensitivities"
+    FACTORABLE = "factorable"
 
 
 class NativeMetricKind(StrEnum):
@@ -660,6 +666,9 @@ class NativeProblemClass(StrEnum):
     CONTINUOUS_CONE = "continuous_cone"
     ODE = "ode"
     SEMI_EXPLICIT_INDEX1 = "semi_explicit_index1"
+    NONCONVEX_QUADRATIC = "nonconvex_quadratic"
+    MIXED_INTEGER_QUADRATIC = "mixed_integer_quadratic"
+    MIXED_INTEGER_NONLINEAR = "mixed_integer_nonlinear"
 
 
 class NativeQualification(StrEnum):

@@ -24,6 +24,7 @@ static CAPABILITY: Capability = Capability {
     general_bounds: true,
     sign_bounds: true,
     parallel: true,
+    certifies: false,
     reuse: "native coefficient/bound updates with compatible layout",
     cancellation: "simplex/IPM/MIP interrupt callbacks; QP native time limit",
     diagnostics: "native information, rays, IIS, ranging and explicit relaxation",

@@ -30,6 +30,8 @@ pub struct RuntimeSolverCapabilitiesRow {
     pub r#sign_bounds: bool,
     ///parallel
     pub r#parallel: bool,
+    ///certifies
+    pub r#certifies: bool,
 }
 impl crate::SemanticEq for RuntimeSolverCapabilitiesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -49,6 +51,7 @@ impl crate::SemanticEq for RuntimeSolverCapabilitiesRow {
             )
             && crate::SemanticEq::semantic_eq(&self.r#sign_bounds, &other.r#sign_bounds)
             && crate::SemanticEq::semantic_eq(&self.r#parallel, &other.r#parallel)
+            && crate::SemanticEq::semantic_eq(&self.r#certifies, &other.r#certifies)
     }
 }
 impl PartialEq for RuntimeSolverCapabilitiesRow {
@@ -80,6 +83,8 @@ impl crate::SemanticFrame for RuntimeSolverCapabilitiesRow {
         crate::SemanticFrame::frame(&self.r#sign_bounds, hash);
         hash.str(stringify!(r#parallel));
         crate::SemanticFrame::frame(&self.r#parallel, hash);
+        hash.str(stringify!(r#certifies));
+        crate::SemanticFrame::frame(&self.r#certifies, hash);
     }
 }
 impl crate::HeapUsage for RuntimeSolverCapabilitiesRow {
@@ -95,5 +100,6 @@ impl crate::HeapUsage for RuntimeSolverCapabilitiesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#general_bounds))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sign_bounds))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parallel))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#certifies))
     }
 }

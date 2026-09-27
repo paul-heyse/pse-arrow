@@ -20,6 +20,7 @@ static CAPABILITY: Capability = Capability {
     general_bounds: true,
     sign_bounds: true,
     parallel: true,
+    certifies: false,
     reuse: "native application and compatible starts; iteration factors are library-owned",
     cancellation: "TNLP intermediate/evaluation checkpoints",
     diagnostics: "complete SolveStatistics, phase timing, FERAL inertia/pivots/fill, restoration and crossover",

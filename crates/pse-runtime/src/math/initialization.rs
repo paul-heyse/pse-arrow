@@ -751,6 +751,7 @@ impl MathService {
             )?,
             execution::Representation::Coefficients
             | execution::Representation::Cone
+            | execution::Representation::Factorable
             | execution::Representation::Trajectory => {
                 return Err(native::ProblemError::Unsupported(
                     "unsupported conditional initialization route".into(),

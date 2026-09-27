@@ -491,6 +491,10 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
     use crate::solve::{Assurance, Qualification, SolutionStatus, Termination};
     report.qualification = Qualification::Unqualified;
     report.termination.assurance = Assurance::None;
+    if let Some(global) = report.evidence.global {
+        qualify_global(report, global);
+        return;
+    }
     if report.validation_failure().is_some()
         || report.candidate.is_none()
         || !report.quality.as_ref().is_some_and(Quality::feasible)
@@ -558,6 +562,57 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
     {
         report.qualification = Qualification::Stationary;
         report.termination.assurance = Assurance::LocalStationary;
+    }
+}
+
+/// Global evidence (ADR-0105 §2, ADR-0106 §9–§10). Bound and infeasibility claims need a
+/// readback-equivalent export and a successful or infeasible stop; they hold within the
+/// recorded tolerances and export fidelity. A gap claim additionally needs an
+/// original-feasible candidate from a result source, whose fresh original objective lies
+/// within the recorded gap of the dual bound. A relaxed incumbent never becomes a
+/// solution claim.
+fn qualify_global(report: &mut crate::solve::SolveReport, g: crate::solve::GlobalEvidence) {
+    use crate::solve::{Assurance, PrimalSource, Qualification, Termination};
+    let feasible = report.validation_failure().is_none()
+        && report.candidate.is_some()
+        && report.quality.as_ref().is_some_and(Quality::feasible);
+    if feasible {
+        report.qualification = Qualification::Feasible;
+        report.termination.assurance = Assurance::Feasible;
+    }
+    if !g.readback {
+        return;
+    }
+    match report.termination.category {
+        Termination::Infeasible if g.infeasible => {
+            report.termination.assurance = Assurance::ProvenInfeasible;
+            return;
+        }
+        Termination::Success => {}
+        _ => return,
+    }
+    let Some(bound) = g.dual_bound.filter(|v| v.is_finite()) else {
+        return;
+    };
+    report.termination.assurance = Assurance::GlobalBound;
+    if !feasible || g.primal == PrimalSource::RelaxedIncumbent {
+        return;
+    }
+    let Some(objective) = report
+        .observation
+        .as_ref()
+        .and_then(|o| o.objective)
+        .filter(|v| v.is_finite())
+    else {
+        return;
+    };
+    // The backend's gap: absolute, or relative to the smaller magnitude when both share
+    // a sign (a sign change makes the relative gap infinite).
+    let absolute = (objective - bound).abs();
+    let relative = objective.signum() == bound.signum()
+        && absolute <= g.gap_relative * objective.abs().min(bound.abs());
+    if absolute <= g.gap_absolute || relative {
+        report.qualification = Qualification::GapQualified;
     }
 }
 

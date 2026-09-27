@@ -5282,6 +5282,7 @@ dependencies = [
  "pse-quantity",
  "pse-structural",
  "rayon",
+ "scip-sys",
  "serde",
  "serde_json",
  "suitesparse_sys",
@@ -6705,6 +6706,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91c1b7e4904c873ef0710c1f407dde2e6287de2bebc1bbbf7d430bb7cbffd939"
 dependencies = [
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "scip-sys"
+version = "0.1.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "475a51f31709c44f2b9c19f7b675d5a7696de4791499869124a23628e6368096"
+dependencies = [
+ "bindgen 0.72.1",
+ "cmake",
+ "glob",
 ]
 
 [[package]]

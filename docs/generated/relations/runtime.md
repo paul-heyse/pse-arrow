@@ -1063,7 +1063,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 ## `solver_capabilities`
 
-Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request.
+Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances.
 
 Version: 1. Snapshot class: `derived`. Primary key: `backend`.
 
@@ -1080,6 +1080,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `backend`.
 | `general_bounds` | `Boolean` | false | `payload` | — | — |
 | `sign_bounds` | `Boolean` | false | `payload` | — | — |
 | `parallel` | `Boolean` | false | `payload` | — | — |
+| `certifies` | `Boolean` | false | `payload` | — | — |
 
 ## `validation_findings`
 

@@ -5032,21 +5032,33 @@ impl core::str::FromStr for Namespace {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum NativeAssurance {
-    ///none
+    ///No claim beyond the native termination.
     #[serde(rename = "none")]
     None,
-    ///feasible
+    ///The candidate meets every original-coordinate tolerance.
     #[serde(rename = "feasible")]
     Feasible,
-    ///local_stationary
+    ///Original-coordinate KKT conditions hold within the resolved budgets; a local claim.
     #[serde(rename = "local_stationary")]
     LocalStationary,
-    ///native_optimal
+    ///The native method's optimality or gap test holds within its tolerances.
     #[serde(rename = "native_optimal")]
     NativeOptimal,
-    ///certificate
+    ///A native infeasibility or unboundedness certificate, qualified by its residuals.
     #[serde(rename = "certificate")]
     Certificate,
+    ///A dual bound on the exported program over the declared box, valid within the backend's recorded feasibility and optimality tolerances and the export fidelity; not interval-rigorous.
+    #[serde(rename = "global_bound")]
+    GlobalBound,
+    ///The backend's global infeasibility conclusion for the exported program over the declared box, under the conditions of global_bound; a relaxed export keeps it sound; not interval-rigorous.
+    #[serde(rename = "proven_infeasible")]
+    ProvenInfeasible,
+    ///Optimality or infeasibility established in rational arithmetic; the only rigorous assurance.
+    #[serde(rename = "exact_certificate")]
+    ExactCertificate,
+    ///A floating-point sum-of-squares polynomial lower bound; never a certificate and never part of a gap claim.
+    #[serde(rename = "sos_bound_nonrigorous")]
+    SosBoundNonrigorous,
 }
 impl crate::SemanticEq for NativeAssurance {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5055,12 +5067,16 @@ impl crate::SemanticEq for NativeAssurance {
 }
 impl NativeAssurance {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
+    pub const ALL: [Self; 9usize] = [
         Self::None,
         Self::Feasible,
         Self::LocalStationary,
         Self::NativeOptimal,
         Self::Certificate,
+        Self::GlobalBound,
+        Self::ProvenInfeasible,
+        Self::ExactCertificate,
+        Self::SosBoundNonrigorous,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -5070,6 +5086,10 @@ impl NativeAssurance {
             Self::LocalStationary => "local_stationary",
             Self::NativeOptimal => "native_optimal",
             Self::Certificate => "certificate",
+            Self::GlobalBound => "global_bound",
+            Self::ProvenInfeasible => "proven_infeasible",
+            Self::ExactCertificate => "exact_certificate",
+            Self::SosBoundNonrigorous => "sos_bound_nonrigorous",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -5080,6 +5100,10 @@ impl NativeAssurance {
             Self::LocalStationary => 2usize,
             Self::NativeOptimal => 3usize,
             Self::Certificate => 4usize,
+            Self::GlobalBound => 5usize,
+            Self::ProvenInfeasible => 6usize,
+            Self::ExactCertificate => 7usize,
+            Self::SosBoundNonrigorous => 8usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -5095,6 +5119,10 @@ impl NativeAssurance {
             Self::LocalStationary => None,
             Self::NativeOptimal => None,
             Self::Certificate => None,
+            Self::GlobalBound => None,
+            Self::ProvenInfeasible => None,
+            Self::ExactCertificate => None,
+            Self::SosBoundNonrigorous => None,
         }
     }
 }
@@ -5107,6 +5135,10 @@ impl core::str::FromStr for NativeAssurance {
             "local_stationary" => Ok(Self::LocalStationary),
             "native_optimal" => Ok(Self::NativeOptimal),
             "certificate" => Ok(Self::Certificate),
+            "global_bound" => Ok(Self::GlobalBound),
+            "proven_infeasible" => Ok(Self::ProvenInfeasible),
+            "exact_certificate" => Ok(Self::ExactCertificate),
+            "sos_bound_nonrigorous" => Ok(Self::SosBoundNonrigorous),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeAssurance).to_owned(),
@@ -5156,6 +5188,9 @@ pub enum NativeBackend {
     ///idas
     #[serde(rename = "idas")]
     Idas,
+    ///scip
+    #[serde(rename = "scip")]
+    Scip,
 }
 impl crate::SemanticEq for NativeBackend {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5164,7 +5199,7 @@ impl crate::SemanticEq for NativeBackend {
 }
 impl NativeBackend {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 7usize] = [
+    pub const ALL: [Self; 8usize] = [
         Self::Ipopt,
         Self::Pounce,
         Self::Kinsol,
@@ -5172,6 +5207,7 @@ impl NativeBackend {
         Self::Clarabel,
         Self::Diffsol,
         Self::Idas,
+        Self::Scip,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -5183,6 +5219,7 @@ impl NativeBackend {
             Self::Clarabel => "clarabel",
             Self::Diffsol => "diffsol",
             Self::Idas => "idas",
+            Self::Scip => "scip",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -5195,6 +5232,7 @@ impl NativeBackend {
             Self::Clarabel => 4usize,
             Self::Diffsol => 5usize,
             Self::Idas => 6usize,
+            Self::Scip => 7usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -5212,6 +5250,7 @@ impl NativeBackend {
             Self::Clarabel => None,
             Self::Diffsol => None,
             Self::Idas => None,
+            Self::Scip => None,
         }
     }
 }
@@ -5226,6 +5265,7 @@ impl core::str::FromStr for NativeBackend {
             "clarabel" => Ok(Self::Clarabel),
             "diffsol" => Ok(Self::Diffsol),
             "idas" => Ok(Self::Idas),
+            "scip" => Ok(Self::Scip),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeBackend).to_owned(),
@@ -5790,6 +5830,9 @@ pub enum NativeDerivativeCapability {
     ///first_with_smooth_sensitivities
     #[serde(rename = "first_with_smooth_sensitivities")]
     FirstWithSmoothSensitivities,
+    ///factorable
+    #[serde(rename = "factorable")]
+    Factorable,
 }
 impl crate::SemanticEq for NativeDerivativeCapability {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5798,11 +5841,12 @@ impl crate::SemanticEq for NativeDerivativeCapability {
 }
 impl NativeDerivativeCapability {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
+    pub const ALL: [Self; 5usize] = [
         Self::ExactHessianOrLimitedMemory,
         Self::JacobianOrProduct,
         Self::Coefficients,
         Self::FirstWithSmoothSensitivities,
+        Self::Factorable,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -5811,6 +5855,7 @@ impl NativeDerivativeCapability {
             Self::JacobianOrProduct => "jacobian_or_product",
             Self::Coefficients => "coefficients",
             Self::FirstWithSmoothSensitivities => "first_with_smooth_sensitivities",
+            Self::Factorable => "factorable",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -5820,6 +5865,7 @@ impl NativeDerivativeCapability {
             Self::JacobianOrProduct => 1usize,
             Self::Coefficients => 2usize,
             Self::FirstWithSmoothSensitivities => 3usize,
+            Self::Factorable => 4usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -5834,6 +5880,7 @@ impl NativeDerivativeCapability {
             Self::JacobianOrProduct => None,
             Self::Coefficients => None,
             Self::FirstWithSmoothSensitivities => None,
+            Self::Factorable => None,
         }
     }
 }
@@ -5845,6 +5892,7 @@ impl core::str::FromStr for NativeDerivativeCapability {
             "jacobian_or_product" => Ok(Self::JacobianOrProduct),
             "coefficients" => Ok(Self::Coefficients),
             "first_with_smooth_sensitivities" => Ok(Self::FirstWithSmoothSensitivities),
+            "factorable" => Ok(Self::Factorable),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeDerivativeCapability).to_owned(),
@@ -6079,6 +6127,15 @@ pub enum NativeProblemClass {
     ///semi_explicit_index1
     #[serde(rename = "semi_explicit_index1")]
     SemiExplicitIndex1,
+    ///nonconvex_quadratic
+    #[serde(rename = "nonconvex_quadratic")]
+    NonconvexQuadratic,
+    ///mixed_integer_quadratic
+    #[serde(rename = "mixed_integer_quadratic")]
+    MixedIntegerQuadratic,
+    ///mixed_integer_nonlinear
+    #[serde(rename = "mixed_integer_nonlinear")]
+    MixedIntegerNonlinear,
 }
 impl crate::SemanticEq for NativeProblemClass {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6087,7 +6144,7 @@ impl crate::SemanticEq for NativeProblemClass {
 }
 impl NativeProblemClass {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 9usize] = [
+    pub const ALL: [Self; 12usize] = [
         Self::SmoothNlp,
         Self::SquareRoot,
         Self::DeclaredFixedPoint,
@@ -6097,6 +6154,9 @@ impl NativeProblemClass {
         Self::ContinuousCone,
         Self::Ode,
         Self::SemiExplicitIndex1,
+        Self::NonconvexQuadratic,
+        Self::MixedIntegerQuadratic,
+        Self::MixedIntegerNonlinear,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -6110,6 +6170,9 @@ impl NativeProblemClass {
             Self::ContinuousCone => "continuous_cone",
             Self::Ode => "ode",
             Self::SemiExplicitIndex1 => "semi_explicit_index1",
+            Self::NonconvexQuadratic => "nonconvex_quadratic",
+            Self::MixedIntegerQuadratic => "mixed_integer_quadratic",
+            Self::MixedIntegerNonlinear => "mixed_integer_nonlinear",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -6124,6 +6187,9 @@ impl NativeProblemClass {
             Self::ContinuousCone => 6usize,
             Self::Ode => 7usize,
             Self::SemiExplicitIndex1 => 8usize,
+            Self::NonconvexQuadratic => 9usize,
+            Self::MixedIntegerQuadratic => 10usize,
+            Self::MixedIntegerNonlinear => 11usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6143,6 +6209,9 @@ impl NativeProblemClass {
             Self::ContinuousCone => None,
             Self::Ode => None,
             Self::SemiExplicitIndex1 => None,
+            Self::NonconvexQuadratic => None,
+            Self::MixedIntegerQuadratic => None,
+            Self::MixedIntegerNonlinear => None,
         }
     }
 }
@@ -6159,6 +6228,9 @@ impl core::str::FromStr for NativeProblemClass {
             "continuous_cone" => Ok(Self::ContinuousCone),
             "ode" => Ok(Self::Ode),
             "semi_explicit_index1" => Ok(Self::SemiExplicitIndex1),
+            "nonconvex_quadratic" => Ok(Self::NonconvexQuadratic),
+            "mixed_integer_quadratic" => Ok(Self::MixedIntegerQuadratic),
+            "mixed_integer_nonlinear" => Ok(Self::MixedIntegerNonlinear),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeProblemClass).to_owned(),
