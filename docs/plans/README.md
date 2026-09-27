@@ -10,13 +10,13 @@ The authorized **K0–K8 implementation is complete**; the
 and assessment evidence, including the remaining static-quality findings. Its companions
 are `21-modeling-kernel-architecture.md` and `21-knowledge-placement.md`; the earlier
 execution packets retain their original evidence.
-[Plan 22](22-solver-capabilities.md) (draft, 2026-09-27) is **not yet authorized**. It plans:
+[Plan 22](22-solver-capabilities.md) is **authorized in full and in progress** (2026-09-27); its [execution packet](22-solver-capabilities-execution.md) owns progress. It covers:
 - every missing native solver capability, including integer variables, MINLP/GDP and global certification through SCIP;
 - the solver defects and design-principle corrections from the
   [solver capability review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md);
 - a PostgreSQL 18 operational store and publication catalog.
 
-Its companion is `22-solver-capabilities-architecture.md`. Its kernel packets wait for Plan 21 K8 to close.
+Its companion is `22-solver-capabilities-architecture.md`.
 [Plan 20](20-idaes-capability-target.md) and its companions remain capability background;
 Plan 21 supersedes their target decomposition. K9 remains proposed and excluded.
 [Plan 19](19-current-documentation-consolidation.md),

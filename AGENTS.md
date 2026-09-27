@@ -36,6 +36,8 @@ packets and reviews are not a backlog and authorize nothing.
 [Current work](docs/plans/README.md) links the owning packet status and remaining decision
 work. Plan 21 K0–K8 implementation is complete; its packet records conformance and the
 assessment's remaining static-quality findings. K9 remains proposed and excluded.
+Plan 22 (solver capabilities, discrete decisions, PostgreSQL operational store) is
+authorized in full; its execution packet owns progress.
 New work starts only when the maintainer authorizes it. Build a target directly and remove replaced
 code/callers/tests without compatibility APIs or a second production path. Correctness
 tests retain explicit force-validation. Full library eligibility remains in force.

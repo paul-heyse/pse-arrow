@@ -1,7 +1,7 @@
 ---
 name: architecture-docs-writer
 description: "Write architecture documentation grounded in repository evidence."
-tools: Read, Grep, Glob, Bash, Write, Edit
+tools: Read, Grep, Glob, Bash, Write, Edit, Skill, ToolSearch, WebFetch, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: opus
 ---
 
@@ -28,3 +28,23 @@ For architecture context, start at docs/authoritative_design/README.md and the r
 current-work owner. Follow stable section identities into focused documents, then inspect
 needed source. Publishing checks establish navigation and identity, not architectural truth.
 Do not require a documentation-specific proof manifest, symbol inventory or source seal.
+
+**Skills and library documentation.** Before working in an area a repository skill covers,
+load that skill: in Claude, use the Skill tool; in Codex, use `.codex/skills/<name>/SKILL.md`.
+
+| Area | Skills |
+|---|---|
+| Native solvers | `native-solver-libraries` |
+| Symbolica, faer, Oximo, FeOS, POUNCE presolve | `symbolica-faer-oximo` |
+| Data, storage and query tracing | `datafusion`, `deltalake`, `datafusion-tracing` |
+| Incremental compilation | `salsa` |
+| Graphs | `rust-graphs` |
+| Symbolic reasoning | `rust-reasoning` |
+| Rust code facts; search and rewrite | `rust-code-model`; `ast-grep-ripgrep` |
+| IDAES behaviour and parity | `pyomo-and-solvers` |
+| Decisions and reviews | `adr`, `design-review`, `design-review-process-simulator` |
+
+For any other library, framework, SDK or tool API (for example sqlx, PostgreSQL, tokio, PyO3,
+maturin, bindgen or SCIP's C API), first load the Context7 tools through ToolSearch
+(`select:mcp__context7__resolve-library-id,mcp__context7__query-docs`). Then query current
+documentation before relying on memory.
