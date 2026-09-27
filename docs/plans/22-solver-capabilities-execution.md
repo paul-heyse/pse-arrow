@@ -27,6 +27,15 @@ dispositions stay in the plan.
    - The pre-Plan-22 state is checkpointed at `85619285`.
 7. **Warnings.** The workspace had 503 `cargo check` warnings on entry (the remaining K8 static-quality findings). A packet must not add warnings in files it touches, and removes those it can in passing.
 
+8. **Local solver image until publication.** Native recipes need `PSE_SOLVER_IMAGE=sha256:0d685e7e7b22e6241e448995c645b9be597ef1d9e0007bb55a33a19e6491ae15` (`pse-solvers:dev-local`) until the rebuilt image is published to GHCR and pinned (`RECIPE_TAG` → `ipopt3.14.20-mumps5.9.1-metis5.1.0-spral2025.09.18-onemkl2026.1.0-scip10.0.2-r1`, then `just solver-pin-update`). Publication is an outward action the coordinator confirms with the maintainer.
+9. **Image run-time environment.** It refines ADR-0108 without changing its decision:
+   - `OMP_PLACES=sockets` is set, because `OMP_PROC_BIND=TRUE` alone pins every process to CPU 0. The pse-worker sets its own places.
+   - `HWLOC_COMPONENTS` excludes device scans; SPRAL's hwloc GPU scan cost about 8 s per solve.
+   - MKL `CBWR=COMPATIBLE` is the only branch honoured on AMD hosts, so admission reads it back.
+   - SCIP exposes no run-time API version, so `SCIP_APIVERSION` is checked at build time (ADR-0105 item 3 is realized that way).
+   - SPRAL without `OMP_CANCELLATION` surfaces from Ipopt as restoration failure (−2), so admission checks the environment before solving.
+   - Netlib BLAS is gone, so the backend `sdp` feature moves from `clarabel/sdp-netlib` to MKL (with N1).
+
 ## Tracks and path ownership
 
 | Track | Packets | Owns (exclusive while active) |
@@ -46,7 +55,7 @@ dispositions stay in the plan.
 | E3 | A2 backend-execution adapter and one NLP runner | Plan 22 A2 tests; deletions | not started |
 | E4 | A3, A4, A7 | Their tests; deletions | not started |
 | E5 | A5 boundary contracts; A6 staged-sequence primitive | Their tests; deletions | not started |
-| E6 | T3: METIS, MUMPS+METIS, SPRAL, oneMKL (Pardiso) and SCIP in the solver image; skill receipts | Image builds; receipts recorded | not started |
+| E6 | T3: METIS, MUMPS+METIS, SPRAL, oneMKL (Pardiso) and SCIP in the solver image; skill receipts | Image built locally in 231 s. `docker/solvers/test/run.sh` passes: Ipopt lists exactly mumps/spral/pardisomkl and HS071 solves with each; `ma57` refused; SPRAL refused without `OMP_CANCELLATION`; the SCIP 10.0.2 MINLP reaches −2√2; one BLAS and one OpenMP runtime; MKL `CBWR=COMPATIBLE` in force. A `--no-cache` rebuild is byte-identical. `just setup-test` 89 passed; `just unit-ipopt-abi` (override) passed. Skill receipts `ipopt-linear-solver-runtime` (7/0) and `scip-native-runtime` (7/0). Commit `7fc817d1` | image complete; **publication pending** |
 | E7 | T4: O1 deployment; O2 `pse-operations` crate | `just db-status`; crate tests | not started |
 | E8 | N1–N5, C1–C2, Y6, N4 | Their tests | not started |
 | E9 | M1–M5 | Their tests | not started |
