@@ -1335,12 +1335,14 @@ impl execution::OriginalModel for OriginalCase<'_> {
 }
 
 /// Complete effective request identity, distinct from native session compatibility: the
-/// session profile, every control through serde (F09) and the selection, whose backend is
-/// named by its registry spelling.
+/// session profile, every control through serde (F09), the selection, whose backend is
+/// named by its registry spelling, and the linked native build (library versions, image
+/// manifest and numerical contract, ADR-0108 item 14).
 pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, ProblemError> {
-    let mut h = FramedHasher::new("pse.solver.profile.v2");
+    let mut h = FramedHasher::new("pse.solver.profile.v3");
     hash_session(&mut h, p)?;
-    h.hash(&p.controls.identity()?);
+    h.hash(&p.controls.identity()?)
+        .hash(&execution::LINKED.build_identity());
     match p.selection {
         SolverSelection::Auto => {
             h.str("auto");

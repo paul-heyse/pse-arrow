@@ -716,9 +716,6 @@ name = "blas-src"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d0100d9f97abc0a589f13eb0ff41500f8d012fb1c3472c0636fa3ed0c61c28b"
-dependencies = [
- "netlib-src",
-]
 
 [[package]]
 name = "blas-sys"
@@ -1099,7 +1096,6 @@ dependencies = [
  "lapack",
  "lapack-src",
  "lazy_static",
- "netlib-src",
  "num-traits",
  "serde",
  "serde-big-array",
@@ -3972,9 +3968,6 @@ name = "lapack-src"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8fbc8828bcc212257a4b1fc5c3c5edb9138168ef54e6edd3d7d0de0a9b5705e"
-dependencies = [
- "netlib-src",
-]
 
 [[package]]
 name = "lapack-sys"
@@ -4442,15 +4435,6 @@ dependencies = [
  "portable-atomic-util",
  "rawpointer",
  "rayon",
-]
-
-[[package]]
-name = "netlib-src"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39f41f36bb4d46906d5a72da5b73a804d9de1a7282eb7c89617201acda7b8212"
-dependencies = [
- "cmake",
 ]
 
 [[package]]
@@ -5268,6 +5252,7 @@ dependencies = [
  "highs",
  "highs-sys",
  "miette",
+ "pkg-config",
  "pounce-common",
  "pounce-feral",
  "pounce-nlp",

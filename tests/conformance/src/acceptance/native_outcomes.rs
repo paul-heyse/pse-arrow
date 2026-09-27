@@ -140,6 +140,7 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
             ObjectiveSense::Minimize,
             controls,
             &accuracy,
+            &Default::default(),
             execution,
             &tolerances,
             None,

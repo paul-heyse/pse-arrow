@@ -224,6 +224,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                 ObjectiveSense::Minimize,
                 &controls,
                 &accuracy,
+                &Default::default(),
                 execution(),
                 &pipeline.tolerances(&tolerances()),
                 pipeline.warm(),

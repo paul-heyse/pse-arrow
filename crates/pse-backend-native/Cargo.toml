@@ -12,6 +12,8 @@ repository.workspace = true
 homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
+# Links the solver image's single BLAS/LAPACK and OpenMP provider (ADR-0108).
+build = "build.rs"
 
 [lints]
 workspace = true
@@ -22,7 +24,11 @@ ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
 highs = ["dep:highs", "dep:highs-sys"]
 pounce = ["dep:pounce-rs", "dep:pounce-feral", "dep:rayon", "pounce-nlp/serde"]
 kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
-sdp = ["clarabel/sdp-netlib"]
+# Clarabel's SDP cones call BLAS/LAPACK through provider-less `blas-src`/`lapack-src`; the
+# build script links the solver image's oneMKL (LP64, GNU threading), the process's one
+# provider (ADR-0108 item 5). `clarabel/sdp-mkl` is not used: its intel-mkl-src pins a static
+# Intel-OpenMP MKL, a second threading runtime the image does not ship.
+sdp = ["clarabel/sdp", "clarabel/blas-src", "clarabel/lapack-src"]
 diffsol = ["dep:diffsol"]
 idas = ["dep:sundials-sys", "sundials-sys/idas", "dep:suitesparse_sys"]
 native-solvers = [
@@ -60,6 +66,9 @@ pounce-feral = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 sundials-sys = { workspace = true, optional = true }
 suitesparse_sys = { workspace = true, optional = true }
+
+[build-dependencies]
+pkg-config.workspace = true
 
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }

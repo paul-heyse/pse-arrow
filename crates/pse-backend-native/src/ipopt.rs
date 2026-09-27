@@ -5,6 +5,8 @@
     reason = "direct pinned Ipopt C boundary with checked buffers and contained callbacks"
 )]
 //! Direct Ipopt 3.14 C adapter; native NLP state stays on its owning worker.
+mod runtime;
+mod settings;
 use crate::{
     NlpOracle, ProblemError,
     callback::CallbackState,
@@ -13,6 +15,11 @@ use crate::{
 };
 use pse_ipopt_sys as ffi;
 use pse_math::binding::ObjectiveSense;
+pub use runtime::{Build, Runtime, build};
+pub use settings::{
+    Linear, LinearSolver, MuStrategy, MumpsOrdering, PardisoMatching, PardisoOrdering, Settings,
+    SpralOrdering, SpralPivot, SpralScaling, admit,
+};
 use std::{
     ffi::{CString, c_void},
     ptr::NonNull,
@@ -532,12 +539,16 @@ impl Session {
         sense: ObjectiveSense,
         controls: &Controls,
         accuracy: &ResolvedAccuracy,
+        settings: &Settings,
         execution: Execution,
         tolerances: &Tolerances,
         warm: Option<&WarmStart>,
         compatibility: Compatibility,
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
+        // Admission on the owning worker: the linked solver, its thread count and the
+        // process environment it needs (ADR-0108 items 11–14).
+        admit(settings, controls.threads, &Runtime::observe())?;
         if oracle.normalization().is_some() {
             return Err(ProblemError::Internal("model normalization must be transported through the shared NLP pipeline before native execution".into()));
         }
@@ -557,11 +568,6 @@ impl Session {
             return Err(ProblemError::Internal("initial point dimensions".into()));
         }
         finite(initial)?;
-        if controls.threads != 1 {
-            return Err(ProblemError::Unsupported(
-                "pinned sequential Ipopt/MUMPS profile requires one core".into(),
-            ));
-        }
         if oracle.constraint_bounds().len() != m {
             return Err(ProblemError::Internal(
                 "constraint bounds dimensions".into(),
@@ -636,11 +642,12 @@ impl Session {
                 "warm_start_init_point",
                 "nlp_scaling_method",
                 "obj_scaling_factor",
-                "linear_solver",
             ],
         )?;
+        reject_reserved(&controls.options, &settings::RESERVED)?;
         let mut options = controls.options.clone();
         options.extend(accuracy.nlp_options());
+        options.extend(settings.options());
         options.extend([
             ("option_file_name".into(), OptionValue::Text(String::new())),
             (
@@ -657,7 +664,6 @@ impl Session {
             ),
             ("nlp_lower_bound_inf".into(), OptionValue::Real(-INFINITY)),
             ("nlp_upper_bound_inf".into(), OptionValue::Real(INFINITY)),
-            ("linear_solver".into(), OptionValue::Text("mumps".into())),
             (
                 "nlp_scaling_method".into(),
                 OptionValue::Text(
@@ -790,6 +796,7 @@ impl Session {
         };
         let mut g = vec![f64::NAN; m];
         let mut objective = f64::NAN;
+        let threads = runtime::Threads::enter(controls.threads)?;
         let code = unsafe {
             ffi::IpoptSolve(
                 handle.0.as_ptr(),
@@ -802,6 +809,7 @@ impl Session {
                 (&raw mut context).cast(),
             )
         };
+        drop(threads);
         let mut report = SolveReport::new(
             Backend::Ipopt,
             context.oracle.contract(),
@@ -817,14 +825,24 @@ impl Session {
         report
             .metrics
             .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
-        let (mut major, mut minor, mut release) = (0, 0, 0);
-        // SAFETY: the linked API writes three caller-owned integers.
-        unsafe {
-            ffi::GetIpoptVersion(&mut major, &mut minor, &mut release);
-        }
+        let build = build();
         report
             .provenance
-            .insert("native".into(), format!("Ipopt {major}.{minor}.{release}"));
+            .insert("native".into(), build.ipopt.clone());
+        report.provenance.insert(
+            "linear".into(),
+            serde_json::to_string(&settings.linear)
+                .map_err(|e| ProblemError::Internal(format!("linear settings record: {e}")))?,
+        );
+        report.provenance.insert("blas".into(), build.mkl.clone());
+        report.provenance.insert(
+            "mkl_cbwr".into(),
+            runtime::cbwr_name(Runtime::observe().cbwr),
+        );
+        report.metrics.insert(
+            "linear.threads".into(),
+            Metric::Integer(i64::try_from(controls.threads).unwrap_or(i64::MAX)),
+        );
         report.provenance.insert(
             "duals".into(),
             "minimization L=f+lambda*g-zL*x+zU*x; authored objective recovered once".into(),
@@ -1005,46 +1023,54 @@ mod tests {
         });
         assert_eq!(rows, [77]);
     }
-    fn run(session: &mut Session, options: Options) -> SolveReport {
+    fn solve_with(
+        session: &mut Session,
+        options: Options,
+        settings: &Settings,
+        threads: usize,
+    ) -> Result<SolveReport, ProblemError> {
         let controls = Controls {
             options,
+            threads,
             reuse: ReusePolicy::AllowRebuild,
             ..Controls::default()
         };
-        session
-            .solve(
-                &mut crate::solver_tests::Polynomial::new(),
-                &[2.0],
-                ObjectiveSense::Minimize,
-                &controls,
-                &ResolvedAccuracy::nominal(),
-                crate::solver_tests::execution(),
-                &Tolerances {
-                    variables: vec![1e-8],
-                    rows: vec![1e-8],
-                    integrality: 1e-8,
-                },
-                None,
-                crate::solver_tests::stamp(Backend::Ipopt),
-            )
-            .unwrap()
+        session.solve(
+            &mut crate::solver_tests::Polynomial::new(),
+            &[2.0],
+            ObjectiveSense::Minimize,
+            &controls,
+            &ResolvedAccuracy::nominal(),
+            settings,
+            crate::solver_tests::execution(),
+            &Tolerances {
+                variables: vec![1e-8],
+                rows: vec![1e-8],
+                integrality: 1e-8,
+            },
+            None,
+            crate::solver_tests::stamp(Backend::Ipopt),
+        )
+    }
+    fn run(session: &mut Session, options: Options) -> SolveReport {
+        solve_with(session, options, &Settings::default(), 1).unwrap()
     }
     #[test]
     fn reused_session_does_not_inherit_options() {
         let mut session = Session::new();
         let adaptive =
-            Options::from([("mu_strategy".into(), OptionValue::Text("adaptive".into()))]);
+            Options::from([("mu_linear_decrease_factor".into(), OptionValue::Real(0.3))]);
         let first = run(&mut session, adaptive.clone());
         assert_eq!(first.metrics["reuse.native_model"], Metric::Bool(false));
         assert_eq!(
-            first.options["mu_strategy"],
-            OptionValue::Text("adaptive".into())
+            first.options["mu_linear_decrease_factor"],
+            OptionValue::Real(0.3)
         );
-        // The C problem keeps every option set on it, so a step without `mu_strategy`
+        // The C problem keeps every option set on it, so a step without the option
         // cannot run on the retained problem: its option key set differs.
         let second = run(&mut session, Options::new());
         assert_eq!(second.metrics["reuse.native_model"], Metric::Bool(false));
-        assert!(!second.options.contains_key("mu_strategy"));
+        assert!(!second.options.contains_key("mu_linear_decrease_factor"));
         let fresh = run(&mut Session::new(), Options::new());
         assert_eq!(second.options, fresh.options);
         assert_eq!(second.termination.category, fresh.termination.category);
@@ -1057,6 +1083,259 @@ mod tests {
         assert_eq!(third.metrics["reuse.native_model"], Metric::Bool(true));
         let fourth = run(&mut session, adaptive);
         assert_eq!(fourth.metrics["reuse.native_model"], Metric::Bool(false));
+    }
+    fn solved(report: &SolveReport) -> bool {
+        report.termination.category == Termination::Success
+            && report
+                .candidate
+                .as_ref()
+                .is_some_and(|c| (c.primal[0] - 1.0).abs() < 1e-6)
+    }
+    fn spral() -> Settings {
+        Settings {
+            linear: Linear::Spral {
+                ordering: SpralOrdering::Metis,
+                scaling: SpralScaling::Matching,
+                pivot: SpralPivot::Block,
+            },
+            ..Settings::default()
+        }
+    }
+    fn pardiso() -> Settings {
+        Settings {
+            linear: Linear::PardisoMkl {
+                ordering: PardisoOrdering::Metis,
+                matching: PardisoMatching::CompletePlus2x2,
+            },
+            ..Settings::default()
+        }
+    }
+    fn text(value: &str) -> OptionValue {
+        OptionValue::Text(value.into())
+    }
+    #[test]
+    fn ipopt_mumps_metis_ordering_selectable() {
+        // METIS is stated, never inherited from MUMPS's automatic choice (T06).
+        assert_eq!(
+            Settings::default().linear,
+            Linear::Mumps {
+                ordering: MumpsOrdering::Metis
+            }
+        );
+        for ordering in [
+            MumpsOrdering::Metis,
+            MumpsOrdering::Amd,
+            MumpsOrdering::Qamd,
+        ] {
+            let settings = Settings {
+                linear: Linear::Mumps { ordering },
+                ..Settings::default()
+            };
+            let report = solve_with(&mut Session::new(), Options::new(), &settings, 1).unwrap();
+            assert!(solved(&report), "{:?}", report.termination);
+            assert_eq!(report.options["linear_solver"], text("mumps"));
+            assert_eq!(
+                report.options["mumps_pivot_order"],
+                OptionValue::Integer(ordering as i32)
+            );
+        }
+        assert_eq!(MumpsOrdering::Metis as i32, 5);
+    }
+    #[test]
+    fn ipopt_spral_selectable_and_recorded() {
+        let settings = spral();
+        for threads in [1, 2] {
+            let report =
+                solve_with(&mut Session::new(), Options::new(), &settings, threads).unwrap();
+            assert!(solved(&report), "{:?}", report.termination);
+            assert_eq!(report.options["linear_solver"], text("spral"));
+            assert_eq!(report.options["spral_order"], text("metis"));
+            assert_eq!(report.options["spral_pivot_method"], text("block"));
+            assert_eq!(
+                report.metrics["linear.threads"],
+                Metric::Integer(i64::try_from(threads).unwrap())
+            );
+            assert!(
+                report.provenance["linear"].contains("Spral"),
+                "{}",
+                report.provenance["linear"]
+            );
+        }
+    }
+    #[test]
+    fn ipopt_pardisomkl_selectable_under_cbwr() {
+        // The image pins MKL_CBWR and admission reads the branch back (T04).
+        let observed = Runtime::observe();
+        assert_eq!(observed.cbwr, runtime::pinned_cbwr());
+        assert!(!observed.mkl_dynamic);
+        let settings = pardiso();
+        for threads in [1, 2] {
+            let report =
+                solve_with(&mut Session::new(), Options::new(), &settings, threads).unwrap();
+            assert!(solved(&report), "{:?}", report.termination);
+            assert_eq!(report.options["linear_solver"], text("pardisomkl"));
+            assert_eq!(report.options["pardisomkl_order"], text("metis"));
+            assert_eq!(report.provenance["mkl_cbwr"], "COMPATIBLE");
+        }
+        // Outside the pinned branch, or with dynamic MKL threads, Pardiso is refused.
+        for runtime in [
+            Runtime {
+                cbwr: 2,
+                ..observed
+            },
+            Runtime {
+                mkl_dynamic: true,
+                ..observed
+            },
+        ] {
+            assert!(
+                matches!(admit(&settings, 1, &runtime), Err(ProblemError::Unsupported(m)) if m.contains("MKL")),
+                "{runtime:?}"
+            );
+        }
+    }
+    #[test]
+    fn ipopt_unavailable_linear_solver_refused() {
+        let observed = Runtime::observe();
+        // The image links exactly MUMPS, SPRAL and oneMKL Pardiso: no HSL, no loaded Pardiso.
+        for solver in LinearSolver::ALL {
+            assert_ne!(observed.linked & solver.mask(), 0, "{solver:?}");
+        }
+        assert_eq!(observed.linked & ffi::IPOPTLINEARSOLVER_ALLHSL, 0);
+        assert_eq!(observed.linked & ffi::IPOPTLINEARSOLVER_PARDISO, 0);
+        for solver in LinearSolver::ALL {
+            let settings = match solver {
+                LinearSolver::Mumps => Settings::default(),
+                LinearSolver::Spral => spral(),
+                LinearSolver::PardisoMkl => pardiso(),
+            };
+            let without = Runtime {
+                linked: observed.linked & !solver.mask(),
+                ..observed
+            };
+            assert!(
+                matches!(admit(&settings, 1, &without), Err(ProblemError::Unsupported(m)) if m.contains("not linked")),
+                "{solver:?}"
+            );
+        }
+        // A raw option cannot select any solver, load an excluded library or change the
+        // typed ordering: the typed settings are the only way in.
+        for (key, value) in [
+            ("linear_solver", "ma57"),
+            ("linear_solver", "mumps"),
+            ("hsllib", "libhsl.so"),
+            ("pardisolib", "libpardiso.so"),
+            ("mumps_pivot_order", "7"),
+        ] {
+            let error = solve_with(
+                &mut Session::new(),
+                Options::from([(key.into(), text(value))]),
+                &Settings::default(),
+                1,
+            )
+            .unwrap_err();
+            assert!(
+                matches!(error, ProblemError::Contract(_)),
+                "{key}: {error:?}"
+            );
+        }
+        // MUMPS is sequential: threads are refused, never silently ignored.
+        assert!(matches!(
+            solve_with(&mut Session::new(), Options::new(), &Settings::default(), 2),
+            Err(ProblemError::Unsupported(_))
+        ));
+    }
+    const SPRAL_CHILD: &str = "PSE_TEST_SPRAL_WITHOUT_CANCELLATION";
+    #[test]
+    fn spral_refused_without_omp_cancellation() {
+        if std::env::var_os(SPRAL_CHILD).is_some() {
+            // A process whose OpenMP runtime started without OMP_CANCELLATION.
+            assert!(!Runtime::observe().cancellation);
+            let error = solve_with(&mut Session::new(), Options::new(), &spral(), 1).unwrap_err();
+            assert!(
+                matches!(&error, ProblemError::Unsupported(m) if m.contains("OMP_CANCELLATION")),
+                "{error:?}"
+            );
+            // MUMPS needs neither setting.
+            assert!(solved(&run(&mut Session::new(), Options::new())));
+            return;
+        }
+        let observed = Runtime::observe();
+        assert!(
+            observed.cancellation,
+            "the solver image sets OMP_CANCELLATION"
+        );
+        assert_ne!(observed.proc_bind, 0, "the solver image sets OMP_PROC_BIND");
+        for (runtime, variable) in [
+            (
+                Runtime {
+                    cancellation: false,
+                    ..observed
+                },
+                "OMP_CANCELLATION",
+            ),
+            (
+                Runtime {
+                    proc_bind: 0,
+                    ..observed
+                },
+                "OMP_PROC_BIND",
+            ),
+        ] {
+            assert!(
+                matches!(admit(&spral(), 1, &runtime), Err(ProblemError::Unsupported(m)) if m.contains(variable))
+            );
+        }
+        // The same refusal in a fresh process without the variable, before any solve.
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "ipopt::tests::spral_refused_without_omp_cancellation",
+                "--test-threads",
+                "1",
+            ])
+            .env(SPRAL_CHILD, "1")
+            .env_remove("OMP_CANCELLATION")
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success() && stdout.contains("1 passed"),
+            "{stdout}\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    #[test]
+    fn single_blas_provider_in_process() {
+        for settings in [Settings::default(), spral(), pardiso()] {
+            assert!(solved(
+                &solve_with(&mut Session::new(), Options::new(), &settings, 1).unwrap()
+            ));
+        }
+        runtime::tests::assert_single_provider();
+    }
+    #[test]
+    fn ipopt_linear_solver_in_profile_key() {
+        use crate::execution::{BackendExecution, BackendSettings, LINKED};
+        let key = |settings: Settings| BackendSettings::Ipopt(settings).identity().unwrap();
+        let mumps = key(Settings::default());
+        for other in [
+            Settings {
+                linear: Linear::Mumps {
+                    ordering: MumpsOrdering::Amd,
+                },
+                ..Settings::default()
+            },
+            spral(),
+            pardiso(),
+        ] {
+            assert_ne!(mumps, key(other));
+        }
+        // Library versions, the image manifest and the CBWR branch enter every profile key
+        // through the linked build identity.
+        let adapter: &dyn BackendExecution = LINKED.get(Backend::Ipopt).unwrap();
+        assert_eq!(adapter.build(), Some(build().identity));
+        assert_eq!(LINKED.build_identity(), LINKED.build_identity());
     }
     #[test]
     fn metric_names_state_coordinates() {

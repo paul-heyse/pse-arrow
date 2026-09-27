@@ -204,6 +204,13 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     /// Automatic-selection preference among eligible adapters (lower first); `None`
     /// is explicit-only. It orders a choice and never grants eligibility.
     fn automatic(&self) -> Option<u8>;
+    /// Identity of the linked native build beyond the pinned crate: library versions and
+    /// the process's numerical contract (ADR-0108 item 14). `None` when the pinned crate
+    /// fully determines the build. Every profile key includes it through
+    /// [`Table::build_identity`].
+    fn build(&self) -> Option<ContentHash> {
+        None
+    }
     /// Contextual eligibility with every typed reason; empty means eligible. It derives
     /// only from the capability record and linkage, so the published row is the routing
     /// rule; adapters do not override it.
@@ -331,6 +338,18 @@ impl Table {
     pub fn adapters(&self) -> impl Iterator<Item = &'static dyn BackendExecution> + '_ {
         self.adapters.iter().copied()
     }
+    /// Identity of every linked adapter's native build, in table order.
+    pub fn build_identity(&self) -> ContentHash {
+        let mut h = pse_ids::FramedHasher::new("pse.native.build.v1");
+        for adapter in self.adapters().filter(|a| a.linked()) {
+            h.str(adapter.backend().as_str());
+            match adapter.build() {
+                Some(build) => h.hash(&build),
+                None => h.u64(0),
+            };
+        }
+        h.finish_hash()
+    }
     /// The published inventory: one row per linked adapter.
     pub fn published(&self) -> Vec<pse_model::generated::runtime::solver_capabilities::Row> {
         self.adapters()
@@ -347,6 +366,9 @@ pub enum BackendSettings {
     /// Native defaults and the common semantic controls on the routed backend.
     #[default]
     Default,
+    /// Ipopt linear solver with its parameters, barrier strategy and initial-point push.
+    #[cfg(feature = "ipopt")]
+    Ipopt(crate::ipopt::Settings),
     /// POUNCE method and complete native FERAL configuration.
     #[cfg(feature = "pounce")]
     Pounce(crate::pounce::Settings),
@@ -369,6 +391,8 @@ impl BackendSettings {
     pub fn backend(&self) -> Option<Backend> {
         match self {
             Self::Default => None,
+            #[cfg(feature = "ipopt")]
+            Self::Ipopt(_) => Some(Backend::Ipopt),
             #[cfg(feature = "pounce")]
             Self::Pounce(_) => Some(Backend::Pounce),
             #[cfg(feature = "kinsol")]
