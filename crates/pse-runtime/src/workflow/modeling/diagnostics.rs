@@ -1243,6 +1243,7 @@ mod tests {
                         multiplier_bound: 10.,
                         tolerance: 1e-7,
                         rank_relative: 1e-8,
+                        maximum_nodes: None,
                     },
                     pse_backend_native::solve::Controls::default(),
                     &cancel,

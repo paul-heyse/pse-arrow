@@ -7,8 +7,11 @@ use pse_backend_native::{CoefficientProblem, highs, quality::Tolerances, solve::
 /// An independent diagnostic attempt; a relaxed candidate is never a model result.
 #[derive(Debug)]
 pub struct ModelingLinearDiagnostics {
+    /// Identity of this diagnostic run.
     pub run_id: SemanticId,
+    /// The diagnostic model's own solve.
     pub attempt: SolveReport,
+    /// Native diagnostics of that solve, in original coordinates.
     pub evidence: highs::diagnostics::Report,
     pub(in crate::workflow::modeling) runtime: Runtime,
     pub(in crate::workflow::modeling) source_identity: pse_ids::ContentHash,
@@ -99,7 +102,7 @@ impl ModelingPackage {
                     &problem,
                     &controls,
                     &accuracy,
-                    highs::Method::Choose,
+                    &highs::Settings::default(),
                     execution.clone(),
                     &tolerances.normalized(&normalization)?,
                     None,
@@ -110,6 +113,7 @@ impl ModelingPackage {
                     &mut evidence,
                     &normalization,
                     &coefficients.row_constants,
+                    &original.contract,
                 )?;
                 Ok((attempt, evidence, retained))
             })

@@ -1046,6 +1046,30 @@ pub struct LeastInfeasible {
     /// Original rows violated beyond their acceptance budget, with the physical violation.
     pub violated: Vec<crate::quality::Violation>,
 }
+/// A feasible MIP solution reported while the search ran (callback kinds 3 and 4), in the
+/// native model's coordinates until transport recovers them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Incumbent {
+    /// It improved the incumbent (kind 4), rather than only being feasible (kind 3).
+    pub improving: bool,
+    /// Native running time when it was reported.
+    pub seconds: f64,
+    /// Its objective value in the native model's sense.
+    pub objective: f64,
+    /// Branch-and-bound nodes explored by then.
+    pub nodes: i64,
+    /// The solution itself.
+    pub primal: Vec<f64>,
+}
+/// Incumbents in the order HiGHS reported them. Retention is bounded by the report
+/// allowance: the most recent are kept and the earlier ones only counted.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Incumbents {
+    /// Retained incumbents, oldest first.
+    pub recorded: std::collections::VecDeque<Incumbent>,
+    /// Earlier incumbents dropped to stay within the retention bound.
+    pub dropped: u64,
+}
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
 pub struct SolveReport {
@@ -1101,6 +1125,8 @@ pub struct SolveReport {
     pub qualification: Qualification,
     /// Set when the candidate is a least-infeasible point.
     pub least_infeasible: Option<LeastInfeasible>,
+    /// MIP incumbents reported during the search, in order.
+    pub incumbents: Incumbents,
 }
 impl SolveReport {
     /// Original typed cause of a failed native evaluation, independent of event retention.
@@ -1177,6 +1203,7 @@ impl SolveReport {
             start_receipt: None,
             qualification: Qualification::Unqualified,
             least_infeasible: None,
+            incumbents: Incumbents::default(),
         }
     }
 }

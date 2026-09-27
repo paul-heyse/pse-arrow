@@ -70,7 +70,7 @@ fn coefficient_conic() {
                 &p,
                 &controls,
                 &accuracy,
-                highs::Method::Choose,
+                &highs::Settings::default(),
                 execution(&controls),
                 &tolerances,
                 None,
@@ -168,7 +168,7 @@ fn coefficient_conic() {
             &p,
             &controls,
             &accuracy,
-            highs::Method::Choose,
+            &highs::Settings::default(),
             execution(&controls),
             &Tolerances {
                 variables: vec![1e-6],
@@ -181,38 +181,38 @@ fn coefficient_conic() {
     assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
     quality::qualify(&mut r, &accuracy);
     assert_eq!(r.termination.category, Termination::Success, "{r:?}");
-    // Native QP regularization can satisfy native stopping while missing the
-    // requested original objective gap. The default candidate is only feasible.
-    assert_eq!(r.qualification, Qualification::Feasible, "{r:?}");
-    assert!(
-        matches!(r.metrics.get("primal_dual_objective_error"), Some(Metric::Real(v)) if *v > accuracy.gap_relative)
-    );
-    near(r.candidate.unwrap().primal[0], 2., 1e-5);
-    let mut precise = controls.clone();
-    precise
-        .options
-        .insert("qp_regularization_value".into(), OptionValue::Real(1e-12));
-    let mut r = highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs))
-        .unwrap()
-        .solve(
-            &p,
-            &precise,
-            &accuracy,
-            highs::Method::Choose,
-            execution(&precise),
-            &Tolerances {
-                variables: vec![1e-6],
-                rows: vec![],
-                integrality: 1e-7,
-            },
-            None,
-        )
-        .unwrap();
-    quality::qualify(&mut r, &accuracy);
+    // The adapter derives HiGHS's QP regularization from the absolute gap budget, so the
+    // default solve meets the requested objective gap (C2); the native default regularized
+    // this QP past it.
     assert_eq!(
         r.qualification,
         Qualification::OptimalWithinTolerance,
         "{r:?}"
+    );
+    assert!(
+        matches!(r.options.get("qp_regularization_value"), Some(OptionValue::Real(v)) if *v <= 2. * accuracy.gap_absolute)
+    );
+    // The regularization is owned by that derivation; a raw option cannot replace it.
+    let mut raw = controls.clone();
+    raw.options
+        .insert("qp_regularization_value".into(), OptionValue::Real(1e-12));
+    assert!(
+        highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs))
+            .unwrap()
+            .solve(
+                &p,
+                &raw,
+                &accuracy,
+                &highs::Settings::default(),
+                execution(&raw),
+                &Tolerances {
+                    variables: vec![1e-6],
+                    rows: vec![],
+                    integrality: 1e-7,
+                },
+                None,
+            )
+            .is_err()
     );
     near(r.candidate.unwrap().primal[0], 2., 1e-8);
     p.domains[0] = ModelingVariableDomain::Integer;

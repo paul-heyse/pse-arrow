@@ -16,6 +16,180 @@ pub struct Request {
     /// Separate feasibility-relaxation solve on a copied LP/MIP. Negative penalties
     /// forbid violation, as in the native API; no penalty is inferred from units.
     pub relaxation: Option<Penalties>,
+    /// Duals of the MIP's LP with its discrete columns fixed at the solution
+    /// (`Highs_getFixedLp`), conditional on that commitment.
+    pub fixed_lp: bool,
+    /// Rows of the basis inverse `B⁻¹` at these basis positions, with the basic variables,
+    /// for an optimal continuous LP with a valid basis.
+    pub basis_inverse: Option<Vec<usize>>,
+    /// Native presolve of a copied model: the presolved LP and, for a continuous LP, the
+    /// postsolved solution of that LP.
+    pub presolve: bool,
+    /// The MIP solver's cut pool after root cut generation (callback kind 7).
+    pub cut_pool: bool,
+}
+impl Request {
+    /// Any diagnostic work was requested.
+    pub fn any(&self) -> bool {
+        self.rays
+            || self.iis
+            || self.ranging
+            || self.relaxation.is_some()
+            || self.fixed_lp
+            || self.basis_inverse.is_some()
+            || self.presolve
+            || self.cut_pool
+    }
+}
+/// The LP of a MIP with its discrete columns fixed at the MIP solution, solved separately.
+/// Its duals price the constraints conditional on that commitment (PS-12); they are not
+/// duals of the MIP, whose discrete decisions have none.
+#[derive(Clone, Debug)]
+pub struct FixedLp {
+    /// Discrete columns and the values they are fixed at: the commitment.
+    pub commitment: Vec<(SemanticId, f64)>,
+    /// Native termination of the fixed LP.
+    pub termination: NativeTermination,
+    /// Objective of the fixed LP, in the authored sense.
+    pub objective: Option<f64>,
+    /// Row multipliers conditional on the commitment, in the authored sense.
+    pub row_dual: Option<Vec<f64>>,
+    /// Reduced costs conditional on the commitment.
+    pub reduced_costs: Option<Vec<f64>>,
+}
+/// The variable basic at one basis position.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Basic {
+    /// A structural column.
+    Column(SemanticId),
+    /// The slack of a row.
+    Row(SemanticId),
+}
+/// Basic variables and rows of `B⁻¹`, in the native (normalized) model's coordinates.
+#[derive(Clone, Debug)]
+pub struct BasisInverse {
+    /// The basic variable at every basis position.
+    pub basic: Vec<Basic>,
+    /// Requested rows of `B⁻¹` by basis position, as `(row index, value)` entries.
+    pub rows: Vec<(usize, Vec<(usize, f64)>)>,
+}
+/// Native presolve of a copied model. The presolved LP is in presolve's own columns and
+/// rows of the native (normalized) model.
+#[derive(Clone, Debug)]
+pub struct Presolved {
+    /// Presolved columns.
+    pub columns: usize,
+    /// Presolved rows.
+    pub rows: usize,
+    /// Presolved nonzeros.
+    pub nonzeros: usize,
+    /// Objective offset of the presolved LP.
+    pub offset: f64,
+    /// Presolved costs.
+    pub cost: Vec<f64>,
+    /// Presolved column bounds.
+    pub column_bounds: Vec<(f64, f64)>,
+    /// Presolved row bounds.
+    pub row_bounds: Vec<(f64, f64)>,
+    /// Column starts of the presolved matrix.
+    pub start: Vec<usize>,
+    /// Row indices of the presolved matrix.
+    pub index: Vec<usize>,
+    /// Values of the presolved matrix.
+    pub value: Vec<f64>,
+    /// The presolved LP's optimal solution mapped back by native postsolve, in the model's
+    /// columns; `None` for a discrete or quadratic model or without an optimal solution.
+    pub postsolved: Option<Vec<f64>>,
+}
+/// One cut `lower ≤ Σ value·x[index] ≤ upper`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Cut {
+    /// Lower side.
+    pub lower: f64,
+    /// Upper side.
+    pub upper: f64,
+    /// `(column, coefficient)` entries.
+    pub entries: Vec<(usize, f64)>,
+}
+/// The MIP solver's cut pool after root cut generation. Its column indices refer to the
+/// MIP solver's presolved LP, not to the model's columns.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CutPool {
+    /// Columns of the presolved LP the cuts are stated in.
+    pub columns: usize,
+    /// Retained cuts, in pool order.
+    pub cuts: Vec<Cut>,
+    /// Cuts beyond the retention bound, counted only.
+    pub dropped: usize,
+}
+impl CutPool {
+    /// Entries retained per pool: 4 MiB of `(index, value)` pairs.
+    const ENTRIES: usize = 1 << 18;
+    /// Copy the callback's pool; `None` when the native arrays are inconsistent.
+    pub(super) fn from_callback(out: &ffi::HighsCallbackDataOut) -> Option<Self> {
+        let cuts = usize::try_from(out.cutpool_num_cut).ok()?;
+        let nonzeros = usize::try_from(out.cutpool_num_nz).ok()?;
+        let columns = usize::try_from(out.cutpool_num_col).ok()?;
+        if cuts == 0 {
+            return Some(Self {
+                columns,
+                cuts: vec![],
+                dropped: 0,
+            });
+        }
+        if out.cutpool_start.is_null()
+            || out.cutpool_lower.is_null()
+            || out.cutpool_upper.is_null()
+            || nonzeros > 0 && (out.cutpool_index.is_null() || out.cutpool_value.is_null())
+        {
+            return None;
+        }
+        let (start, lower, upper) = unsafe {
+            (
+                std::slice::from_raw_parts(out.cutpool_start, cuts + 1),
+                std::slice::from_raw_parts(out.cutpool_lower, cuts),
+                std::slice::from_raw_parts(out.cutpool_upper, cuts),
+            )
+        };
+        let (index, value): (&[i32], &[f64]) = if nonzeros == 0 {
+            (&[], &[])
+        } else {
+            unsafe {
+                (
+                    std::slice::from_raw_parts(out.cutpool_index, nonzeros),
+                    std::slice::from_raw_parts(out.cutpool_value, nonzeros),
+                )
+            }
+        };
+        let mut pool = Self {
+            columns,
+            cuts: vec![],
+            dropped: 0,
+        };
+        let mut retained = 0usize;
+        for k in 0..cuts {
+            let (from, to) = (
+                usize::try_from(start[k]).ok()?,
+                usize::try_from(start[k + 1]).ok()?,
+            );
+            if from > to || to > nonzeros {
+                return None;
+            }
+            if retained + (to - from) > Self::ENTRIES {
+                pool.dropped = cuts - k;
+                break;
+            }
+            retained += to - from;
+            pool.cuts.push(Cut {
+                lower: lower[k],
+                upper: upper[k],
+                entries: (from..to)
+                    .map(|i| Some((usize::try_from(index[i]).ok()?, value[i])))
+                    .collect::<Option<_>>()?,
+            });
+        }
+        Some(pool)
+    }
 }
 /// Complete physical penalty declarations for native feasibility relaxation.
 #[derive(Clone, Debug, serde::Serialize)]
@@ -114,6 +288,14 @@ pub struct Report {
     pub ranging: BTreeMap<String, Range>,
     /// Separate explicitly penalized relaxation attempt.
     pub relaxation: Option<Relaxation>,
+    /// The fixed-commitment LP and its conditional duals.
+    pub fixed_lp: Option<FixedLp>,
+    /// Basic variables and requested rows of the basis inverse.
+    pub basis_inverse: Option<BasisInverse>,
+    /// The presolved model and the postsolved solution of its LP.
+    pub presolved: Option<Presolved>,
+    /// The root cut pool captured during the solve.
+    pub cut_pool: Option<CutPool>,
     /// Unavailable/refused/failed diagnostic reasons; absence never means zero.
     pub unavailable: BTreeMap<String, String>,
 }
@@ -289,6 +471,54 @@ impl Session {
                 }
             }
         }
+        if request.fixed_lp {
+            match fixed_lp(ptr, p, discrete, execution) {
+                Ok(fixed) => report.fixed_lp = Some(fixed),
+                Err(reason) => {
+                    report.unavailable.insert("fixed_lp".into(), reason);
+                }
+            }
+        }
+        if let Some(positions) = &request.basis_inverse {
+            if discrete
+                || quadratic
+                || unsafe { ffi::Highs_getModelStatus(ptr) } != ffi::kHighsModelStatusOptimal
+                || !matches!(info(ptr, "basis_validity")?, Some(Metric::Integer(1)))
+            {
+                report.unavailable.insert(
+                    "basis_inverse".into(),
+                    "requires an optimal continuous LP and native valid basis".into(),
+                );
+            } else {
+                match basis_inverse(ptr, p, positions) {
+                    Ok(view) => report.basis_inverse = Some(view),
+                    Err(reason) => {
+                        report.unavailable.insert("basis_inverse".into(), reason);
+                    }
+                }
+            }
+        }
+        if request.presolve {
+            match presolve(p, discrete || quadratic, execution)? {
+                Ok(view) => report.presolved = Some(view),
+                Err(reason) => {
+                    report.unavailable.insert("presolve".into(), reason);
+                }
+            }
+        }
+        if request.cut_pool {
+            match self.cut_pool.take() {
+                Some(pool) => report.cut_pool = Some(pool),
+                None => {
+                    report.unavailable.insert(
+                        "cut_pool".into(),
+                        "no root cut pool: the model is continuous, the MIP ended before root \
+                         cut generation, or the solve did not request it"
+                            .into(),
+                    );
+                }
+            }
+        }
         if let Some(v) = &request.relaxation {
             if quadratic || execution.stopped().is_some() {
                 report.unavailable.insert(
@@ -411,6 +641,367 @@ impl Session {
     }
 }
 
+/// A copied native model for diagnostic work: silent, and bounded by the attempt's remaining
+/// time.
+fn scratch(execution: &Execution) -> Result<highs::Model, ProblemError> {
+    let mut model = highs::Model::try_new(highs::ColProblem::new())
+        .map_err(|e| ProblemError::memory(format!("HiGHS allocation: {e:?}")))?;
+    model
+        .try_set_option("output_flag", false)
+        .map_err(|_| ProblemError::Internal("diagnostic output option".into()))?;
+    model
+        .try_set_option(
+            "time_limit",
+            execution
+                .time_limit
+                .saturating_sub(execution.started.elapsed())
+                .as_secs_f64(),
+        )
+        .map_err(|_| ProblemError::Internal("diagnostic time limit".into()))?;
+    Ok(model)
+}
+/// Column-wise LP arrays as the C API passes them.
+struct Lp {
+    sense: i32,
+    offset: f64,
+    cost: Vec<f64>,
+    lower: Vec<f64>,
+    upper: Vec<f64>,
+    row_lower: Vec<f64>,
+    row_upper: Vec<f64>,
+    start: Vec<i32>,
+    index: Vec<i32>,
+    value: Vec<f64>,
+}
+impl Lp {
+    fn new(columns: usize, rows: usize, nonzeros: usize) -> Self {
+        Self {
+            sense: 1,
+            offset: 0.0,
+            cost: vec![0.0; columns],
+            lower: vec![0.0; columns],
+            upper: vec![0.0; columns],
+            row_lower: vec![0.0; rows],
+            row_upper: vec![0.0; rows],
+            start: vec![0; columns + 1],
+            index: vec![0; nonzeros],
+            value: vec![0.0; nonzeros],
+        }
+    }
+    /// Solve this LP on a scratch model; the solution `(x, column duals, row duals)` when
+    /// it is optimal with feasible duals, and the termination either way.
+    fn solve(
+        &self,
+        execution: &Execution,
+    ) -> Result<(NativeTermination, Option<(Vec<f64>, Vec<f64>, Vec<f64>)>, Option<f64>), ProblemError>
+    {
+        let (n, m) = (self.cost.len(), self.row_lower.len());
+        let mut model = scratch(execution)?;
+        let ptr = model.as_mut_ptr();
+        check(
+            unsafe {
+                ffi::Highs_passLp(
+                    ptr,
+                    index(n)?,
+                    index(m)?,
+                    index(self.value.len())?,
+                    ffi::kHighsMatrixFormatColwise,
+                    self.sense,
+                    self.offset,
+                    self.cost.as_ptr(),
+                    self.lower.as_ptr(),
+                    self.upper.as_ptr(),
+                    self.row_lower.as_ptr(),
+                    self.row_upper.as_ptr(),
+                    self.start.as_ptr(),
+                    self.index.as_ptr(),
+                    self.value.as_ptr(),
+                )
+            },
+            "diagnostic LP upload",
+        )?;
+        let binding = CallbackBinding::new(ptr, execution.clone())?;
+        let run = unsafe { ffi::Highs_run(ptr) };
+        drop(binding);
+        let status = unsafe { ffi::Highs_getModelStatus(ptr) };
+        let solved = run == ffi::STATUS_OK
+            && status == ffi::kHighsModelStatusOptimal
+            && matches!(
+                info(ptr, "dual_solution_status")?,
+                Some(Metric::Integer(v)) if v == i64::from(ffi::kHighsSolutionStatusFeasible)
+            );
+        let objective = match info(ptr, "objective_function_value")? {
+            Some(Metric::Real(v)) if solved && v.is_finite() => Some(v),
+            _ => None,
+        };
+        let solution = if solved {
+            let (mut x, mut cd, mut rd) = (vec![0.0; n], vec![0.0; n], vec![0.0; m]);
+            check(
+                unsafe {
+                    ffi::Highs_getSolution(
+                        ptr,
+                        x.as_mut_ptr(),
+                        cd.as_mut_ptr(),
+                        std::ptr::null_mut(),
+                        rd.as_mut_ptr(),
+                    )
+                },
+                "diagnostic LP solution",
+            )?;
+            x.iter()
+                .chain(&cd)
+                .chain(&rd)
+                .all(|v| v.is_finite())
+                .then_some((x, cd, rd))
+        } else {
+            None
+        };
+        Ok((termination(status), solution, objective))
+    }
+}
+/// The fixed-commitment LP of the session's MIP solution and its duals. `Err` carries the
+/// reason it is unavailable.
+fn fixed_lp(
+    ptr: *mut c_void,
+    p: &CoefficientProblem,
+    discrete: bool,
+    execution: &Execution,
+) -> Result<FixedLp, String> {
+    if !discrete {
+        return Err("a fixed-commitment LP needs a model with discrete columns".into());
+    }
+    if !matches!(
+        info(ptr, "primal_solution_status").map_err(|e| e.to_string())?,
+        Some(Metric::Integer(v)) if v == i64::from(ffi::kHighsSolutionStatusFeasible)
+    ) {
+        return Err("no feasible MIP solution to commit to".into());
+    }
+    let (n, m) = (p.contract.variables.len(), p.contract.rows.len());
+    let nonzeros = usize::try_from(unsafe { ffi::Highs_getNumNz(ptr) })
+        .map_err(|_| "native nonzero count".to_string())?;
+    let mut lp = Lp::new(n, m, nonzeros);
+    let (mut nc, mut nr, mut nz) = (0, 0, 0);
+    let status = unsafe {
+        ffi::Highs_getFixedLp(
+            ptr,
+            ffi::kHighsMatrixFormatColwise,
+            &raw mut nc,
+            &raw mut nr,
+            &raw mut nz,
+            &raw mut lp.sense,
+            &raw mut lp.offset,
+            lp.cost.as_mut_ptr(),
+            lp.lower.as_mut_ptr(),
+            lp.upper.as_mut_ptr(),
+            lp.row_lower.as_mut_ptr(),
+            lp.row_upper.as_mut_ptr(),
+            lp.start.as_mut_ptr(),
+            lp.index.as_mut_ptr(),
+            lp.value.as_mut_ptr(),
+        )
+    };
+    // HiGHS warns when a discrete value is not integral and fixes it anyway: such a
+    // commitment is not one, so the warning refuses the view.
+    if status == ffi::kHighsStatusWarning {
+        return Err("the MIP solution is not integral on its discrete columns".into());
+    }
+    if status != ffi::STATUS_OK || nc as usize != n || nr as usize != m || nz as usize != nonzeros {
+        return Err(format!("native status={status}, columns={nc}, rows={nr}"));
+    }
+    lp.start[n] = nz;
+    let commitment = p
+        .contract
+        .variables
+        .iter()
+        .zip(&p.domains)
+        .enumerate()
+        .filter(|(_, (_, d))| **d != ModelingVariableDomain::Continuous)
+        .map(|(j, (v, _))| (v.id, lp.lower[j]))
+        .collect();
+    let (termination, solution, objective) = lp.solve(execution).map_err(|e| e.to_string())?;
+    let (row_dual, reduced_costs) = match solution {
+        Some((_, cd, rd)) => (Some(rd), Some(cd)),
+        None => (None, None),
+    };
+    Ok(FixedLp {
+        commitment,
+        termination,
+        objective,
+        row_dual,
+        reduced_costs,
+    })
+}
+/// Basic variables and the requested rows of `B⁻¹`.
+fn basis_inverse(
+    ptr: *mut c_void,
+    p: &CoefficientProblem,
+    positions: &[usize],
+) -> Result<BasisInverse, String> {
+    let m = p.contract.rows.len();
+    if positions.iter().any(|r| *r >= m)
+        || positions.iter().collect::<std::collections::BTreeSet<_>>().len() != positions.len()
+    {
+        return Err(format!("basis positions must be distinct and below {m}"));
+    }
+    let mut basic = vec![0; m];
+    if unsafe { ffi::Highs_getBasicVariables(ptr, basic.as_mut_ptr()) } != ffi::STATUS_OK {
+        return Err("native basic variables".into());
+    }
+    let basic = basic
+        .into_iter()
+        .map(|v| {
+            if v >= 0 {
+                p.contract.variables.get(v as usize).map(|c| Basic::Column(c.id))
+            } else {
+                p.contract.rows.get((-v - 1) as usize).map(|r| Basic::Row(*r))
+            }
+        })
+        .collect::<Option<Vec<_>>>()
+        .ok_or("native basic variable index")?;
+    let mut rows = vec![];
+    for &r in positions {
+        let (mut values, mut indices, mut count) = (vec![0.0; m], vec![0; m], 0);
+        if unsafe {
+            ffi::Highs_getBasisInverseRow(
+                ptr,
+                r as i32,
+                values.as_mut_ptr(),
+                &raw mut count,
+                indices.as_mut_ptr(),
+            )
+        } != ffi::STATUS_OK
+            || count < 0
+            || count as usize > m
+        {
+            return Err(format!("native basis inverse row {r}"));
+        }
+        let entries = (0..count as usize)
+            .map(|k| (indices[k] as usize, values[indices[k] as usize]))
+            .collect();
+        rows.push((r, entries));
+    }
+    Ok(BasisInverse { basic, rows })
+}
+/// Presolve a copied model and, for a continuous LP, postsolve the presolved LP's solution.
+/// The outer `Err` is an adapter failure; the inner one why the view is unavailable.
+fn presolve(
+    p: &CoefficientProblem,
+    no_postsolve: bool,
+    execution: &Execution,
+) -> Result<Result<Presolved, String>, ProblemError> {
+    let mut model = upload(p)?;
+    model
+        .try_set_option("output_flag", false)
+        .map_err(|_| ProblemError::Internal("diagnostic output option".into()))?;
+    model
+        .try_set_option(
+            "time_limit",
+            execution
+                .time_limit
+                .saturating_sub(execution.started.elapsed())
+                .as_secs_f64(),
+        )
+        .map_err(|_| ProblemError::Internal("diagnostic time limit".into()))?;
+    let ptr = model.as_mut_ptr();
+    let binding = CallbackBinding::new(ptr, execution.clone())?;
+    let status = unsafe { ffi::Highs_presolve(ptr) };
+    drop(binding);
+    if status != ffi::STATUS_OK {
+        return Ok(Err(format!("native presolve status={status}")));
+    }
+    let count = |v: i32| usize::try_from(v).map_err(|_| ProblemError::Internal("presolved size".into()));
+    let (pc, pr, pz) = unsafe {
+        (
+            count(ffi::Highs_getPresolvedNumCol(ptr))?,
+            count(ffi::Highs_getPresolvedNumRow(ptr))?,
+            count(ffi::Highs_getPresolvedNumNz(ptr))?,
+        )
+    };
+    let mut lp = Lp::new(pc, pr, pz);
+    let mut integrality = vec![0; pc];
+    let (mut nc, mut nr, mut nz) = (0, 0, 0);
+    check(
+        unsafe {
+            ffi::Highs_getPresolvedLp(
+                ptr,
+                ffi::kHighsMatrixFormatColwise,
+                &raw mut nc,
+                &raw mut nr,
+                &raw mut nz,
+                &raw mut lp.sense,
+                &raw mut lp.offset,
+                lp.cost.as_mut_ptr(),
+                lp.lower.as_mut_ptr(),
+                lp.upper.as_mut_ptr(),
+                lp.row_lower.as_mut_ptr(),
+                lp.row_upper.as_mut_ptr(),
+                lp.start.as_mut_ptr(),
+                lp.index.as_mut_ptr(),
+                lp.value.as_mut_ptr(),
+                integrality.as_mut_ptr(),
+            )
+        },
+        "presolved LP",
+    )?;
+    if (nc as usize, nr as usize, nz as usize) != (pc, pr, pz) {
+        return Err(ProblemError::Internal("presolved LP dimensions".into()));
+    }
+    lp.start[pc] = nz;
+    let postsolved = if no_postsolve {
+        None
+    } else {
+        // A model presolve reduced to nothing has the empty solution; HiGHS refuses to
+        // run an empty LP, so it is postsolved directly.
+        let solved = if pc == 0 && pr == 0 {
+            Some((vec![], vec![], vec![]))
+        } else {
+            lp.solve(execution)?.1
+        };
+        match solved {
+            Some((x, cd, rd)) => {
+                let n = p.contract.variables.len();
+                let mut original = vec![0.0; n];
+                (unsafe { ffi::Highs_postsolve(ptr, x.as_ptr(), cd.as_ptr(), rd.as_ptr()) }
+                    == ffi::STATUS_OK
+                    && unsafe {
+                        ffi::Highs_getSolution(
+                            ptr,
+                            original.as_mut_ptr(),
+                            std::ptr::null_mut(),
+                            std::ptr::null_mut(),
+                            std::ptr::null_mut(),
+                        )
+                    } == ffi::STATUS_OK
+                    && original.iter().all(|v| v.is_finite()))
+                .then_some(original)
+            }
+            None => None,
+        }
+    };
+    let usize_of = |v: &[i32]| -> Result<Vec<usize>, ProblemError> {
+        v.iter()
+            .map(|v| usize::try_from(*v).map_err(|_| ProblemError::Internal("presolved index".into())))
+            .collect()
+    };
+    Ok(Ok(Presolved {
+        columns: pc,
+        rows: pr,
+        nonzeros: pz,
+        offset: lp.offset,
+        column_bounds: lp.lower.iter().copied().zip(lp.upper.iter().copied()).collect(),
+        row_bounds: lp
+            .row_lower
+            .iter()
+            .copied()
+            .zip(lp.row_upper.iter().copied())
+            .collect(),
+        start: usize_of(&lp.start)?,
+        index: usize_of(&lp.index)?,
+        value: lp.value,
+        cost: lp.cost,
+        postsolved,
+    }))
+}
 // The session already owns the native scheduler gate, including separately uploaded models.
 fn collect_iis(
     model: &mut highs::Model,

@@ -114,17 +114,13 @@ impl BackendExecution for Highs {
                 problem,
                 input.controls,
                 input.accuracy,
-                settings.method,
+                settings,
                 input.execution.clone(),
                 input.tolerances,
                 input.warm,
             )?;
             let requested = &settings.diagnostics;
-            if requested.rays
-                || requested.iis
-                || requested.ranging
-                || requested.relaxation.is_some()
-            {
+            if requested.any() {
                 let request = transport::diagnostic_request(requested, normalization)?;
                 let mut diagnostics = session
                     .diagnose(problem, &request, &input.execution)
@@ -132,7 +128,12 @@ impl BackendExecution for Highs {
                         unavailable: BTreeMap::from([("operation".into(), e.to_string())]),
                         ..Default::default()
                     });
-                transport::recover_diagnostics(&mut diagnostics, normalization, row_constants)?;
+                transport::recover_diagnostics(
+                    &mut diagnostics,
+                    normalization,
+                    row_constants,
+                    &problem.contract,
+                )?;
                 report.highs_diagnostics = Some(Box::new(diagnostics));
             }
             report
