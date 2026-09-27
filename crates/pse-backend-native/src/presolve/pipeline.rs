@@ -598,6 +598,7 @@ impl Pipeline {
         mut report: SolveReport,
         tolerance: &Tolerances,
         sense: ObjectiveSense,
+        second_order: Option<crate::conditioning::Check>,
     ) -> SolveReport {
         report.variables = self
             .original
@@ -676,6 +677,16 @@ impl Pipeline {
             match original.state.execution.stopped() {
                 None => {
                     quality::attach_nlp(&mut report, original.oracle.as_mut(), tolerance, sense);
+                    if let Some(check) = second_order {
+                        let original = &mut *original;
+                        crate::conditioning::attach_second_order(
+                            &mut report,
+                            original.oracle.as_mut(),
+                            &original.normalization,
+                            tolerance,
+                            check,
+                        );
+                    }
                 }
                 Some(stop) => {
                     report.quality = None;

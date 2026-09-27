@@ -245,7 +245,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
             _ => panic!("test helper supports only the two shared NLP adapters"),
         }
         .unwrap();
-        let mut report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize);
+        let mut report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize, None);
         crate::quality::record_kkt(
             &mut report,
             &pse_math::normalization::Normalization::identity(2, 2),
@@ -364,7 +364,7 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = p.finish(report, &tolerances(), ObjectiveSense::Minimize);
+    let report = p.finish(report, &tolerances(), ObjectiveSense::Minimize, None);
     assert_eq!(report.candidate.as_ref().unwrap().primal, vec![2.0, 2.0]);
     let observation = report.observation.unwrap();
     assert_eq!(observation.values, vec![7.0, 8.0]);
@@ -553,7 +553,7 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Maximize);
+    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Maximize, None);
     let observed = report.observation.unwrap();
     assert_eq!(observed.objective, Some(8.0));
     assert_eq!(observed.stationarity, Some(vec![0.0, 0.0]));
@@ -672,7 +672,7 @@ fn normalization_callbacks_and_original_duals_round_trip() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize);
+    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize, None);
     let c = report.candidate.unwrap();
     assert_eq!(c.primal, vec![2.0, 2.0]);
     assert_eq!(c.objective, Some(8.0));

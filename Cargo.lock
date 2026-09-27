@@ -5249,6 +5249,7 @@ dependencies = [
  "clarabel",
  "diffsol",
  "faer",
+ "feral",
  "highs",
  "highs-sys",
  "miette",

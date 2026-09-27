@@ -63,6 +63,7 @@ highs = { workspace = true, optional = true }
 highs-sys = { workspace = true, optional = true }
 pounce-rs = { workspace = true, optional = true }
 pounce-feral = { workspace = true, optional = true }
+feral.workspace = true
 rayon = { workspace = true, optional = true }
 sundials-sys = { workspace = true, optional = true }
 suitesparse_sys = { workspace = true, optional = true }

@@ -223,6 +223,8 @@ pounce-nlp = "=0.12.0"
 pounce-common = "=0.12.0"
 pounce-rs = { version = "=0.12.0", features = ["qp"] }
 pounce-feral = "=0.12.0"
+# Direct FERAL for conditioning and certified inertia (Plan 22 N4); the version pounce-feral resolves.
+feral = "=0.18.0"
 rayon = "=1.12.0"
 suitesparse_sys = { version = "=0.1.4", default-features = false, features = [
   "static_libraries",

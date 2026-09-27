@@ -4,6 +4,7 @@
 //! Class-specific native problem contracts. Execution adapters are supplied by Plan 14 M11–M17.
 pub mod assembled;
 pub mod callback;
+pub mod conditioning;
 pub mod conic;
 mod convexity;
 pub mod derivative_diagnostics;
