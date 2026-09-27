@@ -30,7 +30,7 @@ pub enum SolverSelection {
     Explicit(Backend),
 }
 /// Native option type; each adapter validates registration, type and protected controls.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub enum OptionValue {
     /// Native text/enumeration.
     Text(String),
@@ -44,7 +44,7 @@ pub enum OptionValue {
 /// Effective options retain origin, including native defaults when queried.
 pub type Options = BTreeMap<String, OptionValue>;
 /// Derivative policy does not silently enable finite differences.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum HessianMode {
     /// Exact weighted Lagrangian Hessian.
     Exact,
@@ -52,7 +52,7 @@ pub enum HessianMode {
     LimitedMemory,
 }
 /// Compatible native state retention requirement.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum ReusePolicy {
     /// Always construct a fresh native model.
     Fresh,
@@ -61,9 +61,12 @@ pub enum ReusePolicy {
     /// Fail rather than rebuilding incompatible native state.
     RequireReuse,
 }
-/// Independently resolved native stopping controls in normalized coordinates.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Accuracy {
+/// Native stopping budgets in normalized coordinates, resolved from the numerical policy
+/// and the solved function's acceptance budgets (F20). They are never user input: user
+/// [`Controls`] carry no accuracy, and every attempt receives the value its preparation
+/// resolved. Nested library solves resolve their own from their budgets.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+pub struct ResolvedAccuracy {
     /// Conservative scalar projection of comparable normalized feasibility budgets.
     pub feasibility: f64,
     /// Normalized dual stationarity budget.
@@ -85,23 +88,7 @@ pub struct Accuracy {
     /// Native algorithmic scaling, separate from the model coordinate transform.
     pub native_scaling: bool,
 }
-impl Default for Accuracy {
-    fn default() -> Self {
-        Self {
-            feasibility: 1e-8,
-            stationarity: 1e-8,
-            complementarity: 1e-8,
-            integrality: 1e-8,
-            gap_absolute: 1e-8,
-            gap_relative: 1e-8,
-            mip_absolute_gap: 1e-6,
-            mip_relative_gap: 1e-4,
-            acceptable: None,
-            native_scaling: true,
-        }
-    }
-}
-impl Accuracy {
+impl ResolvedAccuracy {
     /// Shared Ipopt-compatible stopping and original-bound contract for both NLP adapters.
     pub fn nlp_options(&self) -> BTreeMap<String, OptionValue> {
         BTreeMap::from([
@@ -147,37 +134,22 @@ impl Accuracy {
             ),
         ])
     }
-    /// Complete native numerical contract identity, including independent stopping budgets.
-    pub fn key(&self) -> ContentHash {
-        let mut h = pse_ids::FramedHasher::new("pse.native.accuracy.v1");
-        for v in [
-            self.feasibility,
-            self.stationarity,
-            self.complementarity,
-            self.integrality,
-            self.gap_absolute,
-            self.gap_relative,
-            self.mip_absolute_gap,
-            self.mip_relative_gap,
-        ] {
-            h.u64(v.to_bits());
-        }
-        h.bool(self.native_scaling).bool(self.acceptable.is_some());
-        if let Some(k) = self.acceptable {
-            h.u64(k.stationarity.to_bits())
-                .u64(k.complementarity.to_bits());
-        }
-        h.finish_hash()
+    /// Complete identity of the resolved budgets, derived from serde (F09).
+    ///
+    /// # Errors
+    /// The identity serializer refused a value.
+    pub fn key(&self) -> Result<ContentHash, ProblemError> {
+        crate::identity::of("pse.native.accuracy.v2", self)
     }
     /// Derive semantic native controls; physical arrays remain the final acceptance authority.
+    ///
+    /// # Errors
+    /// An invalid policy or budget, or budgets that resolve to invalid native controls.
     pub fn resolve(
         policy: &pse_model::numerics::NumericalPolicy,
         tolerance: &crate::quality::Tolerances,
         normalization: &pse_math::normalization::Normalization,
     ) -> Result<Self, ProblemError> {
-        policy
-            .validate()
-            .map_err(|e| ProblemError::Contract(e.to_string()))?;
         let tolerance = tolerance.normalized(normalization)?;
         let feasibility = tolerance
             .variables
@@ -186,7 +158,21 @@ impl Accuracy {
             .copied()
             .reduce(f64::min)
             .unwrap_or(1e-8);
-        Ok(Self {
+        Self::from_policy(policy, feasibility)
+    }
+    /// Resolve the policy's budgets against an already normalized feasibility budget, as
+    /// nested library solves do from their own budgets.
+    ///
+    /// # Errors
+    /// An invalid policy, or budgets that resolve to invalid native controls.
+    pub fn from_policy(
+        policy: &pse_model::numerics::NumericalPolicy,
+        feasibility: f64,
+    ) -> Result<Self, ProblemError> {
+        policy
+            .validate()
+            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        let resolved = Self {
             feasibility,
             stationarity: policy.kkt.stationarity,
             complementarity: policy.kkt.complementarity,
@@ -197,9 +183,28 @@ impl Accuracy {
             mip_relative_gap: policy.mip_relative_gap,
             acceptable: policy.acceptable,
             native_scaling: policy.native_scaling,
-        })
+        };
+        resolved.validate()?;
+        Ok(resolved)
+    }
+    /// The default policy's budgets at a normalized feasibility budget of 1e-8.
+    #[cfg(test)]
+    pub(crate) fn nominal() -> Self {
+        Self::from_policy(&Default::default(), 1e-8).unwrap_or_else(|e| panic!("{e}"))
     }
     /// Native dimensionless controls must remain finite and strictly positive where required.
+    ///
+    /// # Errors
+    /// A nonfinite or nonpositive budget, or acceptable budgets tighter than the KKT ones.
+    pub fn validate(&self) -> Result<(), ProblemError> {
+        if self.valid() {
+            Ok(())
+        } else {
+            Err(ProblemError::Contract(
+                "invalid resolved native accuracy".into(),
+            ))
+        }
+    }
     fn valid(&self) -> bool {
         [
             self.feasibility,
@@ -228,15 +233,15 @@ impl Accuracy {
             .min(self.complementarity)
     }
 }
-/// Finite shared attempt controls; solver-specific settings remain native typed values.
-#[derive(Clone, Debug)]
+/// Finite shared attempt controls chosen by the caller; solver-specific settings remain
+/// native typed values. Accuracy is not among them: it is resolved from the numerical
+/// policy ([`ResolvedAccuracy`]).
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct Controls {
     /// Positive wall-clock allowance, including callbacks.
     pub time_limit: Duration,
     /// Positive native iteration limit.
     pub iterations: u32,
-    /// Independently resolved native accuracy controls.
-    pub accuracy: Accuracy,
     /// Explicit admitted native thread count.
     pub threads: usize,
     /// Bounded retained progress and failure events.
@@ -255,7 +260,6 @@ impl Default for Controls {
         Self {
             time_limit: Duration::from_secs(300),
             iterations: 3000,
-            accuracy: Accuracy::default(),
             threads: 1,
             history: 256,
             hessian: HessianMode::Exact,
@@ -266,6 +270,13 @@ impl Default for Controls {
     }
 }
 impl Controls {
+    /// Complete identity of these controls, derived from serde (F09).
+    ///
+    /// # Errors
+    /// The identity serializer refused a value.
+    pub fn identity(&self) -> Result<ContentHash, ProblemError> {
+        crate::identity::of("pse.native.controls.v1", self)
+    }
     /// Conservative retained reporting allowance, separate from worker/native scratch.
     /// Native option readback, explicit strings and bounded event copies are included.
     pub fn report_allowance(&self) -> Result<usize, ProblemError> {
@@ -293,7 +304,6 @@ impl Controls {
         if self.time_limit.is_zero()
             || self.iterations == 0
             || self.iterations > i32::MAX as u32
-            || !self.accuracy.valid()
             || self.threads == 0
             || self.threads > i32::MAX as usize
             || self.history > 1_000_000
@@ -460,15 +470,30 @@ pub struct Candidate {
     /// Native slack vector, when meaningful.
     pub slacks: Option<Vec<f64>>,
 }
-/// Reuse compatibility separates semantic layout from numeric data.
+/// Reuse compatibility separates seed coordinates, the native profile and numeric data
+/// (F24).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Compatibility {
-    /// Includes source IDs, domains, physical maps, scaling, sparse structure and profile.
+    /// Seed coordinate compatibility: source IDs, domains, physical maps and sparse
+    /// structure. A seed needs only this and the backend to match, so a step that changes
+    /// a native option keeps its predecessor's seed.
     pub layout: ContentHash,
+    /// Native profile and session identity: session-relevant controls, typed settings and
+    /// the numerical policy. Retained native state needs this to match as well.
+    pub profile: ContentHash,
     /// Parameters, fixed values, coefficients and bounds for this attempt.
     pub data: ContentHash,
-    /// Native backend/profile identity.
+    /// Native backend.
     pub backend: Backend,
+}
+impl Compatibility {
+    /// Whether native state retained under `self` may serve an attempt stamped `other`:
+    /// the same coordinates, profile and backend. Numeric data may differ.
+    pub fn same_session(&self, other: &Self) -> bool {
+        self.layout == other.layout
+            && self.profile == other.profile
+            && self.backend == other.backend
+    }
 }
 /// Native basis values retain their original integer codes.
 #[derive(Clone, Debug)]
@@ -602,9 +627,20 @@ impl WarmStart {
                 serde_json::json!({"kind":"pounce_sqp","primal":s.x,"row_duals":s.lambda_g,"packed_bound_duals":s.lambda_x,"working_set":s.working.as_ref().map(|w|serde_json::json!({"bounds":w.bounds.iter().map(|v|format!("{v:?}")).collect::<Vec<_>>(),"constraints":w.constraints.iter().map(|v|format!("{v:?}")).collect::<Vec<_>>()}))})
             }
         };
-        serde_json::json!({"origin":self.origin,"layout":self.compatibility.layout.to_hex(),"data":self.compatibility.data.to_hex(),"backend":self.compatibility.backend.as_str(),"payload":payload})
+        serde_json::json!({"origin":self.origin,"layout":self.compatibility.layout.to_hex(),"profile":self.compatibility.profile.to_hex(),"data":self.compatibility.data.to_hex(),"backend":self.compatibility.backend.as_str(),"payload":payload})
     }
-    /// Numeric data changes may reuse a seed; layout and backend must match exactly.
+    /// Content identity of this seed (coordinates, profile, data, backend and payload)
+    /// without its execution origin, so a lineage identity records what seeded a result
+    /// independently of the run that produced the seed (F25).
+    pub fn content_key(&self) -> ContentHash {
+        let mut detached = self.clone();
+        detached.origin = None;
+        let mut h = pse_ids::FramedHasher::new("pse.native.seed.v1");
+        h.str(&detached.snapshot().to_string());
+        h.finish_hash()
+    }
+    /// Numeric data and native profile changes may reuse a seed; its coordinates and
+    /// backend must match exactly.
     pub fn validate(&self, target: &Compatibility) -> Result<(), ProblemError> {
         if self.compatibility.layout != target.layout
             || self.compatibility.backend != target.backend
@@ -616,6 +652,45 @@ impl WarmStart {
         Ok(())
     }
 }
+/// One transformation a submitted seed passed through between its source coordinates and
+/// the native API, recorded from what actually ran (F25).
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SeedTransformation {
+    /// Model coordinate normalization, by its identity.
+    Normalization(ContentHash),
+    /// Library presolve: its transformation identity and the passes it applied.
+    Presolve {
+        /// Native coordinate identity of the projection.
+        transformation: ContentHash,
+        /// Passes the library actually installed.
+        passes: Vec<crate::presolve::Pass>,
+    },
+}
+impl SeedTransformation {
+    /// The path a seed takes: normalization, then presolve when the library applied a pass.
+    pub fn path(
+        normalization: ContentHash,
+        preprocessing: Option<&crate::presolve::Report>,
+    ) -> Vec<Self> {
+        let mut path = vec![Self::Normalization(normalization)];
+        if let Some(report) = preprocessing {
+            let passes: Vec<_> = report
+                .passes
+                .iter()
+                .filter(|(_, p)| p.applied)
+                .map(|(pass, _)| *pass)
+                .collect();
+            if !passes.is_empty() {
+                path.push(Self::Presolve {
+                    transformation: report.transformation,
+                    passes,
+                });
+            }
+        }
+        path
+    }
+}
 /// Exact owned submitted seed with source-coordinate transformation provenance.
 #[derive(Clone, Debug)]
 pub struct StartReceipt {
@@ -625,10 +700,25 @@ pub struct StartReceipt {
     pub seed: Option<WarmStart>,
     /// Explicit partial MIP seed in original coordinates, if selected.
     pub sparse_seed: Option<BTreeMap<SemanticId, f64>>,
-    /// Transformations subsequently applied by the native transport.
-    pub transformations: Vec<String>,
+    /// Transformations the seed passed through before the native API.
+    pub transformations: Vec<SeedTransformation>,
     /// API submission is observable; native internal consumption may remain unavailable.
     pub submitted: bool,
+}
+impl StartReceipt {
+    /// Owned JSON provenance of this receipt, shared by publication and the Python surface.
+    pub fn snapshot(&self) -> serde_json::Value {
+        serde_json::json!({
+            "previous_attempt": self.previous_attempt,
+            "seed": self.seed.as_ref().map(WarmStart::snapshot),
+            "sparse_seed": self.sparse_seed.as_ref().map(|s| s
+                .iter()
+                .map(|(id, v)| (id.to_hex(), *v))
+                .collect::<BTreeMap<_, _>>()),
+            "transformations": self.transformations,
+            "submitted": self.submitted,
+        })
+    }
 }
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
@@ -708,6 +798,8 @@ pub struct Evidence {
     pub callback: CallbackEvidence,
     /// A start was submitted through the native API.
     pub start_submitted: bool,
+    /// Native state retained from an earlier step was reused by this attempt.
+    pub reused_native_state: bool,
     /// Original-coordinate KKT acceptance, recorded by `quality::record_kkt`.
     pub kkt: Option<KktEvidence>,
     /// Coefficient-model evidence.
@@ -911,12 +1003,148 @@ pub(crate) fn insert_native_metrics(
 mod numerical_tests {
     use super::*;
     #[test]
+    fn identity_covers_every_settings_field() {
+        let base = Controls::default();
+        let key = base.identity().unwrap();
+        // Exhaustive: a new control fails to compile until it is covered here.
+        let Controls {
+            time_limit,
+            iterations,
+            threads,
+            history,
+            hessian: _,
+            reuse: _,
+            start: _,
+            options: _,
+        } = base.clone();
+        let variants = [
+            Controls {
+                time_limit: time_limit + Duration::from_nanos(1),
+                ..base.clone()
+            },
+            Controls {
+                iterations: iterations + 1,
+                ..base.clone()
+            },
+            Controls {
+                threads: threads + 1,
+                ..base.clone()
+            },
+            Controls {
+                history: history + 1,
+                ..base.clone()
+            },
+            Controls {
+                hessian: HessianMode::LimitedMemory,
+                ..base.clone()
+            },
+            Controls {
+                reuse: ReusePolicy::AllowRebuild,
+                ..base.clone()
+            },
+            Controls {
+                start: StartPolicy::PreviousAccepted,
+                ..base.clone()
+            },
+            Controls {
+                options: Options::from([("mu_init".into(), OptionValue::Real(0.1))]),
+                ..base.clone()
+            },
+        ];
+        for variant in &variants {
+            assert_ne!(variant.identity().unwrap(), key, "{variant:?}");
+        }
+        // Option values keep their native type and exact float bits.
+        let option = |v| {
+            Controls {
+                options: Options::from([("x".into(), v)]),
+                ..base.clone()
+            }
+            .identity()
+            .unwrap()
+        };
+        assert_ne!(
+            option(OptionValue::Real(0.0)),
+            option(OptionValue::Real(-0.0))
+        );
+        assert_ne!(
+            option(OptionValue::Integer(1)),
+            option(OptionValue::Real(1.0))
+        );
+        assert_ne!(
+            option(OptionValue::Bool(true)),
+            option(OptionValue::Text("yes".into()))
+        );
+        // Every resolved budget enters its identity as well.
+        let accuracy = ResolvedAccuracy::nominal();
+        let key = accuracy.key().unwrap();
+        let ResolvedAccuracy {
+            feasibility,
+            stationarity,
+            complementarity,
+            integrality,
+            gap_absolute,
+            gap_relative,
+            mip_absolute_gap,
+            mip_relative_gap,
+            acceptable: _,
+            native_scaling,
+        } = accuracy.clone();
+        for variant in [
+            ResolvedAccuracy {
+                feasibility: feasibility * 2.0,
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                stationarity: stationarity * 2.0,
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                complementarity: complementarity * 2.0,
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                integrality: integrality * 2.0,
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                gap_absolute: gap_absolute * 2.0,
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                gap_relative: gap_relative * 2.0,
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                mip_absolute_gap: mip_absolute_gap * 2.0,
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                mip_relative_gap: mip_relative_gap * 2.0,
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                acceptable: Some(pse_model::numerics::KktTolerances {
+                    stationarity: 1e-5,
+                    complementarity: 1e-5,
+                }),
+                ..accuracy.clone()
+            },
+            ResolvedAccuracy {
+                native_scaling: !native_scaling,
+                ..accuracy.clone()
+            },
+        ] {
+            assert_ne!(variant.key().unwrap(), key, "{variant:?}");
+        }
+    }
+    #[test]
     fn numerical_options_keep_feasibility_kkt_and_acceptable_independent() {
-        let mut accuracy = Accuracy {
+        let mut accuracy = ResolvedAccuracy {
             feasibility: 1e-7,
             stationarity: 2e-8,
             complementarity: 3e-9,
-            ..Default::default()
+            ..ResolvedAccuracy::nominal()
         };
         let options = accuracy.nlp_options();
         assert!(matches!(options["constr_viol_tol"],OptionValue::Real(v) if v==1e-7));
@@ -934,12 +1162,12 @@ mod numerical_tests {
             options["honor_original_bounds"],
             OptionValue::Bool(true)
         ));
-        let key = accuracy.key();
+        let key = accuracy.key().unwrap();
         accuracy.acceptable = Some(pse_model::numerics::KktTolerances {
             stationarity: 1e-5,
             complementarity: 1e-6,
         });
-        assert_ne!(key, accuracy.key());
+        assert_ne!(key, accuracy.key().unwrap());
         assert!(matches!(
             accuracy.nlp_options()["acceptable_iter"],
             OptionValue::Integer(15)
@@ -957,7 +1185,7 @@ mod numerical_tests {
             rows: vec![1e2, 1e-7],
             integrality: 1e-8,
         };
-        let resolved = Accuracy::resolve(&Default::default(), &t, &scales).unwrap();
+        let resolved = ResolvedAccuracy::resolve(&Default::default(), &t, &scales).unwrap();
         assert!((resolved.feasibility - 1e-7).abs() < 1e-20);
     }
 }

@@ -162,6 +162,7 @@ fn tolerances() -> Tolerances {
 fn stamp() -> Compatibility {
     Compatibility {
         layout: ContentHash::from_bytes([2; 32]),
+        profile: ContentHash::from_bytes([4; 32]),
         data: ContentHash::from_bytes([3; 32]),
         backend: Backend::Ipopt,
     }
@@ -178,7 +179,6 @@ fn kernel_presolve_retains_the_typed_failed_trial_witness() {
         &[1., 3.],
         &Policy::Auto,
         &tolerances(),
-        None,
         execution(),
         None,
         stamp(),
@@ -203,11 +203,6 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
             &[1., 3.],
             policy,
             &tolerances(),
-            Some(&Scaling {
-                objective: 0.5,
-                variables: vec![2., 3.],
-                constraints: vec![4., 5.],
-            }),
             execution(),
             warm,
             compatibility,
@@ -215,14 +210,12 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
         )
         .unwrap();
         let mut oracle = pipeline.take_oracle().unwrap();
-        let controls = Controls {
-            accuracy: Accuracy {
-                feasibility: 1e-10,
-                stationarity: 1e-10,
-                complementarity: 1e-10,
-                ..Default::default()
-            },
-            ..Default::default()
+        let controls = Controls::default();
+        let accuracy = ResolvedAccuracy {
+            feasibility: 1e-10,
+            stationarity: 1e-10,
+            complementarity: 1e-10,
+            ..ResolvedAccuracy::nominal()
         };
         let report = match backend {
             Backend::Ipopt => crate::ipopt::Session::new().solve(
@@ -230,9 +223,9 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                 pipeline.initial(),
                 ObjectiveSense::Minimize,
                 &controls,
+                &accuracy,
                 execution(),
                 &pipeline.tolerances(&tolerances()),
-                None,
                 pipeline.warm(),
                 pipeline.native_compatibility().clone(),
             ),
@@ -241,6 +234,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                 pipeline.initial(),
                 ObjectiveSense::Minimize,
                 &controls,
+                &accuracy,
                 crate::pounce::Method::InteriorPoint,
                 Default::default(),
                 execution(),
@@ -255,9 +249,9 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
         crate::quality::record_kkt(
             &mut report,
             &pse_math::normalization::Normalization::identity(2, 2),
-            &controls.accuracy,
+            &accuracy,
         );
-        crate::quality::qualify(&mut report, &controls.accuracy);
+        crate::quality::qualify(&mut report, &accuracy);
         report
     }
     for backend in [Backend::Ipopt, Backend::Pounce] {
@@ -318,7 +312,6 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                     &[1., 3.],
                     &policy,
                     &tolerances(),
-                    None,
                     execution(),
                     Some(&incompatible),
                     compatibility,
@@ -336,7 +329,6 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         &[1.0, 3.0],
         &Policy::Auto,
         &tolerances(),
-        None,
         execution(),
         None,
         stamp(),
@@ -427,7 +419,6 @@ fn off_is_identity_and_tape_edits_invalidate_native_reuse() {
         &[1.0, 3.0],
         &Policy::Off,
         &tolerances(),
-        None,
         execution(),
         None,
         stamp(),
@@ -445,7 +436,6 @@ fn off_is_identity_and_tape_edits_invalidate_native_reuse() {
         &[1.0, 3.0],
         &Policy::Off,
         &tolerances(),
-        None,
         execution(),
         None,
         stamp(),
@@ -515,7 +505,7 @@ fn explicit_options_are_library_validated_and_required_passes_are_not_noops() {
     assert!(policy.qualify(&opaque, &tolerances()).is_err());
 }
 #[test]
-fn maximization_scales_and_original_warm_seed_preserve_conventions() {
+fn maximization_and_original_warm_seed_preserve_conventions() {
     let mut source = Mixed::new();
     source.sign = -1.0;
     let warm = WarmStart {
@@ -527,17 +517,11 @@ fn maximization_scales_and_original_warm_seed_preserve_conventions() {
             rows: Some(vec![4.0, 0.0]),
         },
     };
-    let scales = Scaling {
-        objective: 2.0,
-        variables: vec![3.0, 5.0],
-        constraints: vec![7.0, 11.0],
-    };
     let mut pipeline = Pipeline::new(
         Box::new(source),
         &[1.0, 3.0],
         &Policy::Off,
         &tolerances(),
-        Some(&scales),
         execution(),
         Some(&warm),
         stamp(),
@@ -546,7 +530,6 @@ fn maximization_scales_and_original_warm_seed_preserve_conventions() {
     .unwrap();
     assert!(pipeline.warm().is_some());
     let transport = pipeline.take_oracle().unwrap();
-    assert_eq!(transport.scaling().unwrap().objective, 2.0);
     let mut report = SolveReport::new(
         Backend::Ipopt,
         transport.contract(),
@@ -599,7 +582,6 @@ fn fully_determined_library_standdown_preserves_the_original_problem() {
         &[2.0, 2.0],
         &policy,
         &tolerances(),
-        None,
         execution(),
         None,
         stamp(),
@@ -644,7 +626,6 @@ fn normalization_callbacks_and_original_duals_round_trip() {
         &[2.0, 2.0],
         &Policy::Off,
         &tolerances(),
-        None,
         execution(),
         Some(&warm),
         stamp(),
@@ -717,7 +698,6 @@ fn presolve_certificate_respects_each_bound_budget() {
         &[2.0, 2.0],
         &Policy::Auto,
         &allowed,
-        None,
         execution(),
         None,
         stamp(),
@@ -733,7 +713,6 @@ fn presolve_certificate_respects_each_bound_budget() {
         &[2.0, 2.0],
         &Policy::Auto,
         &distinct,
-        None,
         execution(),
         None,
         stamp(),
@@ -784,7 +763,7 @@ fn propagation_fixed_row()->PropagationFixedRow {
 fn automatic_presolve_retains_original_when_propagation_leaves_constant_nonlinear_rows() {
     let tolerance=Tolerances{variables:vec![1e-8;3],rows:vec![1e-8;3],integrality:1e-8};
     let mut pipeline=Pipeline::new(Box::new(propagation_fixed_row()),&[1.5,1.5,1.5],&Policy::Auto,
-        &tolerance,None,execution(),None,stamp(),1000).unwrap();
+        &tolerance,execution(),None,stamp(),1000).unwrap();
     assert_eq!(pipeline.report().dimensions,(3,3,3,3));
     assert!(pipeline.report().diagnostics.contains_key("structure.declined"));
     assert!(pipeline.report().passes.values().all(|p|!p.applied));
@@ -794,5 +773,5 @@ fn automatic_presolve_retains_original_when_propagation_leaves_constant_nonlinea
     assert_eq!(values,vec![4.0,0.0,8.0]);
     let required=Policy::Explicit{options:PresolveOptions{enabled:true,linear_eq_reduction:true,fbbt:true,..PresolveOptions::defaults()},required:BTreeSet::from([Pass::AffineElimination,Pass::Fbbt])};
     assert!(matches!(Pipeline::new(Box::new(propagation_fixed_row()),&[1.5,1.5,1.5],&required,
-        &tolerance,None,execution(),None,stamp(),1000),Err(ProblemError::Structural{..})));
+        &tolerance,execution(),None,stamp(),1000),Err(ProblemError::Structural{..})));
 }

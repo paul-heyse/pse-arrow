@@ -399,7 +399,7 @@ pub fn observed(
 pub fn record_kkt(
     report: &mut crate::solve::SolveReport,
     n: &pse_math::normalization::Normalization,
-    accuracy: &crate::solve::Accuracy,
+    accuracy: &crate::solve::ResolvedAccuracy,
 ) {
     use crate::solve::{KktEvidence, Metric, Termination};
     let Some(o) = &report.observation else { return };
@@ -487,7 +487,7 @@ pub fn record_kkt(
 /// Grant only the numerical claim supported by completed original-space observations.
 /// Native stop categories are retained independently, including limits with feasible candidates.
 /// Only typed adapter evidence is read; metrics never grant a claim.
-pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::Accuracy) {
+pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::ResolvedAccuracy) {
     use crate::solve::{Assurance, Qualification, SolutionStatus, Termination};
     report.qualification = Qualification::Unqualified;
     report.termination.assurance = Assurance::None;
@@ -614,7 +614,7 @@ mod qualification_tests {
         o.complementarity = Some(vec![1e-4]);
         r.observation = Some(o);
         let n = pse_math::normalization::Normalization::identity(1, 0);
-        let mut accuracy = Accuracy::default();
+        let mut accuracy = ResolvedAccuracy::nominal();
         record_kkt(&mut r, &n, &accuracy);
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::Feasible);
@@ -640,7 +640,7 @@ mod qualification_tests {
             }
             .into(),
         );
-        qualify(&mut r, &Accuracy::default());
+        qualify(&mut r, &ResolvedAccuracy::nominal());
         assert_eq!(r.qualification, Qualification::Unqualified);
         let retained = r.clone();
         r.clear_validation_failure();
@@ -665,9 +665,9 @@ mod qualification_tests {
     }
     #[test]
     fn quality_reads_typed_evidence_only() {
-        let accuracy = Accuracy {
+        let accuracy = ResolvedAccuracy {
             mip_relative_gap: 0.03,
-            ..Default::default()
+            ..ResolvedAccuracy::nominal()
         };
         // Observational metrics under the former keys grant nothing.
         let mut r = report(Backend::Highs, Termination::Success);
@@ -749,9 +749,9 @@ mod qualification_tests {
     fn gaps_and_limits_have_separate_meanings() {
         let mut r = report(Backend::Highs, Termination::Success);
         r.evidence.coefficient = Some(coefficient());
-        let accuracy = Accuracy {
+        let accuracy = ResolvedAccuracy {
             mip_relative_gap: 0.03,
-            ..Default::default()
+            ..ResolvedAccuracy::nominal()
         };
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::GapQualified);

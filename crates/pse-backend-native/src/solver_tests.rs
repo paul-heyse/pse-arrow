@@ -26,6 +26,7 @@ pub(crate) fn execution() -> Execution {
 pub(crate) fn stamp(backend: Backend) -> Compatibility {
     Compatibility {
         layout: ContentHash::from_bytes([2; 32]),
+        profile: ContentHash::from_bytes([4; 32]),
         data: ContentHash::from_bytes([3; 32]),
         backend,
     }

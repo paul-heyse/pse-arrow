@@ -384,10 +384,6 @@ pub trait NlpOracle: std::fmt::Debug {
     fn presolve_facts(&self) -> Option<&pse_math::presolve::Facts> {
         None
     }
-    /// Native variable scaling, independent of physical unit conversion.
-    fn scaling(&self) -> Option<&presolve::Scaling> {
-        None
-    }
     /// Proven facts; generic callback oracles conservatively decline.
     fn derivative_facts(&self) -> DerivativeFacts {
         DerivativeFacts::default()

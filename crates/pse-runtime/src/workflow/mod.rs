@@ -38,6 +38,7 @@ pub use modeling::{
     ModelingInitializationStep, ModelingNonlinearExplanation, ModelingNonlinearPolicy,
     ModelingObservations, ModelingPackage, ModelingReport, ModelingResult, ModelingSimulation,
     ModelingSolvePreparation, ModelingStudyPoint, ModelingStudyReport, ModelingTrajectory,
+    StartSource,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};

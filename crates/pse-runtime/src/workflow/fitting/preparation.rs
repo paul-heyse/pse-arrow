@@ -32,7 +32,7 @@ impl PreparedExperiments {
         let Self {
             execution_identity,
             declaration: d,
-            mut profile,
+            profile,
             order,
             variables: vars,
             rows,
@@ -141,13 +141,8 @@ impl PreparedExperiments {
         let normalization = Normalization::from_policy(&numerics, &columns, &rows).map_err(math)?;
         let tolerances = native::quality::Tolerances::from_policy(&numerics, &columns, &rows)
             .map_err(crate::math::MathRuntimeError::from)?;
-        if profile.solver.controls.accuracy != native::solve::Accuracy::default() {
-            return Err(contract(
-                "fitting accuracy is owned by the numerical policy",
-            ));
-        }
-        profile.solver.controls.accuracy =
-            native::solve::Accuracy::resolve(&numerics.policy, &tolerances, &normalization)
+        let accuracy =
+            native::solve::ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)
                 .map_err(crate::math::MathRuntimeError::from)?;
         if vars.is_empty()
             && matches!(&profile.solver.presolve, native::presolve::Policy::Explicit { required, .. } if !required.is_empty())
@@ -210,6 +205,7 @@ impl PreparedExperiments {
             numerics,
             normalization,
             tolerances,
+            accuracy,
             bytes,
             contract,
             layout,

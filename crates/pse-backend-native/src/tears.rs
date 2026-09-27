@@ -173,18 +173,24 @@ pub fn solve(
     let p = compile(graph)?;
     let compatibility = Compatibility {
         layout: graph.key(),
+        profile: graph.key(),
         data: graph.key(),
         backend: Backend::Highs,
     };
     let mut session = crate::highs::Session::new(&p.problem, None, compatibility)?;
+    // The tear MILP is a 0/1 problem of this analysis, not of a model: its feasibility
+    // budget is the default policy's integrality budget.
+    let policy = pse_model::numerics::NumericalPolicy::default();
+    let accuracy = ResolvedAccuracy::from_policy(&policy, policy.integrality)?;
     let t = Tolerances {
-        variables: vec![controls.accuracy.feasibility; p.problem.contract.variables.len()],
-        rows: vec![controls.accuracy.feasibility; p.problem.bounds.len()],
-        integrality: controls.accuracy.integrality,
+        variables: vec![accuracy.feasibility; p.problem.contract.variables.len()],
+        rows: vec![accuracy.feasibility; p.problem.bounds.len()],
+        integrality: accuracy.integrality,
     };
     let report = session.solve(
         &p.problem,
         controls,
+        &accuracy,
         crate::highs::Method::Choose,
         execution,
         &t,

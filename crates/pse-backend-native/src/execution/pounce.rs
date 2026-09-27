@@ -107,6 +107,7 @@ impl BackendExecution for Pounce {
                 initial,
                 sense,
                 input.controls,
+                input.accuracy,
                 settings.method,
                 settings.linear.clone(),
                 input.execution,

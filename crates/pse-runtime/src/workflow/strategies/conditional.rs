@@ -84,7 +84,8 @@ struct UnitProgram {
 #[derive(Debug)]
 struct UnitWorker {
     program: UnitProgram,
-    worker: pse_math::assembly::CaseWorker,
+    /// The unit evaluator with its share of the declared-root job reservation.
+    worker: crate::math::ExecutionWorker,
     input_ids: Vec<SemanticId>,
     output_ids: Vec<SemanticId>,
 }
@@ -115,7 +116,7 @@ impl CausalUnit for UnitWorker {
                 .scalars
                 .insert(*symbol, value * conversion.scale + conversion.offset);
         }
-        let values = self.worker.constraints(&self.program.values)?;
+        let values = self.worker.worker().constraints(&self.program.values)?;
         Ok(self
             .program
             .outputs
@@ -138,6 +139,8 @@ pub struct PreparedRecycle {
     fixed: BTreeMap<SemanticId, f64>,
     settings: kinsol::Settings,
     controls: Controls,
+    /// Stopping budgets resolved from the map's numerical policy.
+    accuracy: ResolvedAccuracy,
     tolerances: Tolerances,
     numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
 }
@@ -164,20 +167,24 @@ impl PreparedRecycle {
             self.initial.clone(),
             self.settings.clone(),
             self.controls.clone(),
+            self.accuracy.clone(),
             self.tolerances.clone(),
-            move |execution| {
+            move |execution, budget| {
                 let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
                 for program in prepared.programs {
-                    let providers = prepared
-                        .providers
-                        .values()
-                        .map(|p| p.worker().map(|w| (p.spec().key(), w)))
-                        .collect::<Result<_, _>>()
-                        .map_err(native::ProblemError::Provider)?;
-                    let worker = program
-                        .program
-                        .assembly
-                        .worker(providers, execution.cancel.clone());
+                    // Every unit evaluator lives for the whole sweep: each is charged to
+                    // the job reservation, and its providers observe the attempt's
+                    // cancellation (F31).
+                    let worker = prepared
+                        .runtime
+                        .native()
+                        .worker(
+                            program.program.clone(),
+                            &prepared.providers,
+                            execution.cancel.clone(),
+                            &budget,
+                        )
+                        .map_err(MathRuntimeError::into_problem)?;
                     let unit = UnitWorker {
                         input_ids: program.inputs.iter().map(|x| x.0).collect(),
                         output_ids: program.outputs.iter().map(|x| x.0).collect(),
@@ -207,7 +214,7 @@ impl ModelingPackage {
         request: RecycleRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
-        let mut profile = analysis.solver.clone();
+        let profile = analysis.solver.clone();
         let compiler = analysis.compiler;
         if profile.intent != SolveIntent::Root
             || !matches!(
@@ -221,9 +228,7 @@ impl ModelingPackage {
                 "causal map requires serial KINSOL root intent and original declared guesses",
             ));
         }
-        if !matches!(profile.backend, native::execution::BackendSettings::Default)
-            || profile.controls.accuracy != Accuracy::default()
-        {
+        if !matches!(profile.backend, native::execution::BackendSettings::Default) {
             return Err(contract(
                 "causal map settings derive from its numerical policy and declared map controls",
             ));
@@ -508,7 +513,7 @@ impl ModelingPackage {
             rows: vec![1.0; ids.len()],
             objective: 1.0,
         };
-        profile.controls.accuracy = Accuracy::resolve(&numerics.policy, &tolerances, &identity)
+        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &identity)
             .map_err(MathRuntimeError::from)?;
         let settings = kinsol::Settings::from_policy(
             kinsol::Method {
@@ -519,7 +524,7 @@ impl ModelingPackage {
             },
             &tolerances,
             &identity,
-            profile.controls.accuracy.feasibility,
+            accuracy.feasibility,
         );
         settings
             .validate_contract(&contract, kinsol::Strategy::FixedPoint, &BTreeMap::new())
@@ -536,6 +541,7 @@ impl ModelingPackage {
             fixed,
             settings,
             controls: profile.controls,
+            accuracy,
             tolerances,
             numerics,
         })

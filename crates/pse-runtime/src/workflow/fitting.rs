@@ -110,6 +110,8 @@ pub(crate) struct FitProblem {
     pub(crate) numerics: Arc<ResolvedNumericalPolicy>,
     pub(crate) normalization: Normalization,
     pub(crate) tolerances: native::quality::Tolerances,
+    /// Stopping budgets resolved from the fit's numerical policy (F20).
+    pub(crate) accuracy: native::solve::ResolvedAccuracy,
     pub(crate) bytes: usize,
     contract: OracleContract,
     layout: Arc<sparse::Layout>,

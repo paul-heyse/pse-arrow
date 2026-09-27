@@ -527,7 +527,7 @@ impl Session {
     }
     /// Check the immutable compiler/backend layout stamp before constructing an update.
     pub fn matches_layout(&self, stamp: &Compatibility) -> bool {
-        self.compatibility.layout == stamp.layout && stamp.backend == Backend::Kinsol
+        self.compatibility.same_session(stamp) && stamp.backend == Backend::Kinsol
     }
     /// Replace compatible numeric equations while retaining native allocation and
     /// symbolic layout. The next solve explicitly refreshes numeric setup.
@@ -539,7 +539,7 @@ impl Session {
     ) -> Result<(), ProblemError> {
         let signs = settings.validate(&function)?;
         if !self.matches_settings(&settings)
-            || compatibility.layout != self.compatibility.layout
+            || !compatibility.same_session(&self.compatibility)
             || compatibility.backend != Backend::Kinsol
             || function.contract().rows != self.callback.function.contract().rows
             || function.contract().variables.iter().map(|v| v.id).ne(self
@@ -739,6 +739,7 @@ impl Session {
         &mut self,
         initial: &[f64],
         controls: &Controls,
+        accuracy: &ResolvedAccuracy,
         execution: Execution,
         tolerances: &Tolerances,
         warm: Option<&WarmStart>,
@@ -776,7 +777,7 @@ impl Session {
                 "iteration limit",
             )?;
             check(
-                ffi::KINSetFuncNormTol(self.mem, controls.accuracy.feasibility),
+                ffi::KINSetFuncNormTol(self.mem, accuracy.feasibility),
                 "residual tolerance",
             )?;
             check(
@@ -1137,6 +1138,92 @@ mod tests {
             s.validate_contract(&c, Strategy::LineSearch, &Default::default())
                 .is_err()
         );
+    }
+    /// Real native solves of `x^3 = 1` through each advertised path other than KLU.
+    #[test]
+    fn kinsol_dense_spgmr_picard_solve() {
+        let solve = |function: Function, settings: Settings, start: f64| {
+            let mut session = Session::new(
+                function,
+                settings,
+                crate::solver_tests::execution(),
+                crate::solver_tests::stamp(Backend::Kinsol),
+            )
+            .unwrap();
+            let report = session
+                .solve(
+                    &[start],
+                    &Controls::default(),
+                    &ResolvedAccuracy::nominal(),
+                    crate::solver_tests::execution(),
+                    &Tolerances {
+                        variables: vec![1e-8],
+                        rows: vec![1e-8],
+                        integrality: 1e-8,
+                    },
+                    None,
+                )
+                .unwrap();
+            assert_eq!(
+                report.termination.category,
+                Termination::Success,
+                "{report:?}"
+            );
+            let x = report.candidate.as_ref().unwrap().primal[0];
+            assert!((x - 1.0).abs() < 1e-7, "{x}");
+            report
+        };
+        let count = |report: &SolveReport, key: &str| match report.metrics.get(key) {
+            Some(Metric::Integer(v)) => *v,
+            other => panic!("{key}: {other:?}"),
+        };
+        for strategy in [Strategy::Newton, Strategy::LineSearch] {
+            // Dense: native dense factorization of the analytic Jacobian.
+            let dense = solve(
+                Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
+                Settings {
+                    strategy,
+                    linear: Linear::Dense { limit: 4 },
+                    ..settings()
+                },
+                2.0,
+            );
+            assert!(count(&dense, "KINGetNumJacEvals") > 0);
+            assert_eq!(count(&dense, "KINGetNumJtimesEvals"), 0);
+            // SPGMR: matrix-free Krylov iterations over the analytic JVP.
+            let spgmr = solve(
+                Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
+                Settings {
+                    strategy,
+                    linear: Linear::Spgmr { dimension: 4 },
+                    ..settings()
+                },
+                2.0,
+            );
+            assert!(count(&spgmr, "KINGetNumLinIters") > 0);
+            assert!(count(&spgmr, "KINGetNumJtimesEvals") > 0);
+        }
+        // Picard: the declared constant splitting L = 3 (the derivative at the root) with
+        // the original equations as the residual authority.
+        let oracle = crate::solver_tests::Polynomial::new();
+        let linear = faer::sparse::SparseColMat::try_new_from_triplets(
+            1,
+            1,
+            &[faer::sparse::Triplet::new(0, 0, 3.0)],
+        )
+        .unwrap();
+        let picard = solve(
+            Function::Picard {
+                oracle: Box::new(oracle),
+                linear,
+            },
+            Settings {
+                strategy: Strategy::Picard,
+                ..settings()
+            },
+            1.2,
+        );
+        assert!(count(&picard, "KINGetNumNonlinSolvIters") > 1);
     }
     #[test]
     fn picard_requires_explicit_splitting_and_forbids_sign_constraints() {

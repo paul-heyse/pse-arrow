@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One completion-owned solve lifecycle; finite batches never create persistent native sessions.
-use super::{ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, Preparation};
+use super::{
+    ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, Preparation, WorkerBudget,
+};
 use pse_backend_native::{
     self as native, ProblemError,
     execution::{self, BackendExecution, BackendSettings, Retained},
@@ -72,6 +74,8 @@ pub struct PreparedSolve {
     numerics: Arc<ResolvedNumericalPolicy>,
     normalization: Normalization,
     tolerances: Tolerances,
+    /// Stopping budgets resolved from `numerics`; never taken from user controls (F20).
+    accuracy: ResolvedAccuracy,
     route: Route,
     compatibility: Option<Compatibility>,
     explicit_start: Option<WarmStart>,
@@ -104,7 +108,10 @@ impl PreparedSolve {
             }
         }
         if let Some(c) = &self.compatibility {
-            h.hash(&c.layout).hash(&c.data).str(c.backend.as_str());
+            h.hash(&c.layout)
+                .hash(&c.profile)
+                .hash(&c.data)
+                .str(c.backend.as_str());
         }
         Ok(h.finish_hash())
     }
@@ -116,6 +123,7 @@ impl PreparedSolve {
         if let Some(compatibility) = &self.compatibility {
             h.bool(true)
                 .hash(&compatibility.layout)
+                .hash(&compatibility.profile)
                 .hash(&compatibility.data)
                 .str(compatibility.backend.as_str());
         } else {
@@ -200,6 +208,10 @@ impl PreparedSolve {
     pub fn tolerances(&self) -> &Tolerances {
         &self.tolerances
     }
+    /// Native stopping budgets resolved from the numerical policy at preparation.
+    pub fn accuracy(&self) -> &ResolvedAccuracy {
+        &self.accuracy
+    }
     /// Deterministic selected route, available for inspection before admission.
     pub fn route(&self) -> Route {
         self.route
@@ -271,11 +283,14 @@ pub struct SolveSequence {
 /// A prepared, bounded original-contract check executed between native attempts.
 /// Implementations consume the current worker's admission and cannot schedule nested work.
 pub(crate) trait SequenceAssessment: Send + std::fmt::Debug {
+    /// Assess one attempt against the original model. Any evaluator it builds observes
+    /// the attempt's `cancel` flag and is charged to the sequence job's `budget`.
     fn accepted(
         &mut self,
         attempt: usize,
         outcome: &Outcome,
         cancel: &Arc<std::sync::atomic::AtomicBool>,
+        budget: &Arc<WorkerBudget>,
     ) -> bool;
 }
 /// Dropping the handle requests cancellation; awaiting it witnesses native destruction and join.
@@ -349,7 +364,11 @@ pub(crate) fn admit_profile(profile: &SolverProfile, route: Route) -> Result<(),
     }
     adapter.admit_settings(&profile.backend, &profile.controls)
 }
-fn hash_controls(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemError> {
+/// The native session profile: every control and setting a retained native session
+/// depends on. Controls and backend settings are identified through serde (F09); only the
+/// per-attempt budgets and the sequencing policies, which every attempt re-applies, are
+/// left out, so a new control field enters the identity without an edit here.
+fn hash_session(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemError> {
     h.hash(&p.presolve.key()).hash(&p.numerics.key());
     match p.convexity {
         ConvexityPolicy::Exact => {
@@ -359,42 +378,32 @@ fn hash_controls(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemE
             h.u64(1).u64(absolute.to_bits()).u64(relative.to_bits());
         }
     }
-    h.hash(&p.controls.accuracy.key());
+    let session = Controls {
+        time_limit: std::time::Duration::ZERO,
+        iterations: 0,
+        history: 0,
+        reuse: ReusePolicy::Fresh,
+        start: StartPolicy::NoPriorStart,
+        ..p.controls.clone()
+    };
     h.str(p.intent.as_str())
-        .u64(p.controls.hessian as u64)
-        .u64(p.controls.threads as u64);
-    h.u64(p.controls.options.len() as u64);
-    for (k, v) in &p.controls.options {
-        h.str(k);
-        match v {
-            OptionValue::Text(v) => {
-                h.u64(0).str(v);
-            }
-            OptionValue::Integer(v) => {
-                h.u64(1).u64(*v as u64);
-            }
-            OptionValue::Real(v) => {
-                h.u64(2).u64(v.to_bits());
-            }
-            OptionValue::Bool(v) => {
-                h.u64(3).bool(*v);
-            }
-        }
-    }
-    // Backend settings identity derives from serde, never from a hand-written list.
-    h.hash(&p.backend.identity()?);
+        .hash(&session.identity()?)
+        .hash(&p.backend.identity()?);
     Ok(())
 }
 fn compatibility(
     plan: &pse_math::assembly::CasePlan,
     values: &CaseValues,
     p: &SolverProfile,
+    numerics: &ResolvedNumericalPolicy,
     backend: Backend,
     providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
 ) -> Result<Compatibility, ProblemError> {
-    let mut layout = FramedHasher::new("pse.solver.layout.v1");
+    // Seed coordinates only: backend, objective sense, free variables, rows and
+    // structure. Controls, settings and the numerical policy form the profile (F24).
+    let mut layout = FramedHasher::new("pse.solver.coordinates.v1");
     layout
-        .u64(backend as u64)
+        .str(backend.as_str())
         .u64(plan.structure().objective().map_or(0, |o| {
             if o.sense == ObjectiveSense::Minimize {
                 1
@@ -402,7 +411,6 @@ fn compatibility(
                 2
             }
         }));
-    hash_controls(&mut layout, p)?;
     for v in plan.structure().variables().iter().filter(|v| !v.fixed) {
         layout
             .id(&v.port.id)
@@ -423,6 +431,9 @@ fn compatibility(
     for pattern in [plan.jacobian_pattern(), plan.hessian_pattern()] {
         layout.hash(&pse_math::sparse::pattern_key(pattern));
     }
+    let mut profile = FramedHasher::new("pse.solver.session.v1");
+    hash_session(&mut profile, p)?;
+    profile.hash(&numerics.key);
     let mut data = FramedHasher::new("pse.solver.data.v1");
     data.hash(&plan.structure().key());
     for provider in providers.values() {
@@ -433,6 +444,7 @@ fn compatibility(
     }
     Ok(Compatibility {
         layout: layout.finish_hash(),
+        profile: profile.finish_hash(),
         data: data.finish_hash(),
         backend,
     })
@@ -444,7 +456,7 @@ impl MathService {
         prepared: Preparation,
         values: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        mut profile: SolverProfile,
+        profile: SolverProfile,
         mut certificate: Option<Arc<dyn QuadraticEvidence>>,
         numerical: NumericalInputs,
     ) -> Result<PreparedSolve, MathRuntimeError> {
@@ -479,12 +491,6 @@ impl MathService {
             return Err(ProblemError::Contract("fixed/parameter values differ from compiler assumptions; prepare the selected revision again".into()).into());
         }
         let f = &prepared.prepared.facts;
-        if profile.controls.accuracy != Accuracy::default() {
-            return Err(ProblemError::Contract(
-                "analysis accuracy is owned by the ID-keyed numerical policy".into(),
-            )
-            .into());
-        }
         let plan = &prepared.prepared.plan;
         let mut targets = plan.numerical_targets(&prepared.prepared.quantities)?;
         targets.extend(numerical.targets);
@@ -497,8 +503,7 @@ impl MathService {
         let rows: Vec<_> = plan.structure().rows().iter().map(|r| r.id).collect();
         let normalization = Normalization::from_policy(&numerics, plan.columns(), &rows)?;
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
-        profile.controls.accuracy =
-            Accuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
 
         let mut convex = false;
         if let Some(c) = &prepared.prepared.coefficients {
@@ -592,25 +597,21 @@ impl MathService {
                 execution::Budgets {
                     tolerances: &tolerances,
                     normalization: &normalization,
-                    feasibility: profile.controls.accuracy.feasibility,
+                    feasibility: accuracy.feasibility,
                 },
             )?;
         }
-        let mut stamp = match route {
+        let stamp = match route {
             Route::Constant => None,
             Route::Native(backend) => Some(compatibility(
                 &prepared.prepared.plan,
                 &values,
                 &profile,
+                &numerics,
                 backend,
                 &providers,
             )?),
         };
-        if let Some(stamp) = &mut stamp {
-            let mut h = FramedHasher::new("pse.solver.resolved-layout.v1");
-            h.hash(&stamp.layout).hash(&numerics.key);
-            stamp.layout = h.finish_hash();
-        }
         let case = Some(self.assemble(prepared.clone()).await?);
         Ok(PreparedSolve {
             representation: Representation::Algebraic(AlgebraicCase {
@@ -624,6 +625,7 @@ impl MathService {
             numerics,
             normalization,
             tolerances,
+            accuracy,
             route,
             compatibility: stamp,
             explicit_start: None,
@@ -636,13 +638,11 @@ impl MathService {
         self: &Arc<Self>,
         problem: Arc<native::ConicProblem>,
         certificate: Arc<dyn QuadraticEvidence>,
-        mut profile: SolverProfile,
+        profile: SolverProfile,
         numerics: Arc<ResolvedNumericalPolicy>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
-        if profile.controls.accuracy != Accuracy::default()
-            || profile.numerics.key() != numerics.policy.key()
-        {
+        if profile.numerics.key() != numerics.policy.key() {
             return Err(ProblemError::Contract(
                 "conic numerical policy differs from its resolved authority".into(),
             )
@@ -711,8 +711,7 @@ impl MathService {
         resolved.key = identity.finish_hash();
         let numerics = Arc::new(resolved);
         let tolerances = Tolerances::from_policy(&numerics, &ids, &problem.contract.rows)?;
-        profile.controls.accuracy =
-            Accuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
         // A cone request routes to a cone adapter: the explicit one, or the preferred linked one.
         let adapter = match profile.selection {
             SolverSelection::Explicit(backend) => Some(execution::adapter(backend)),
@@ -736,10 +735,13 @@ impl MathService {
             native::transport::conic(&problem, &normalization, certificate.as_ref())?;
         let problem = Arc::new(normalized);
         let certificate: Arc<dyn QuadraticEvidence> = Arc::new(transported);
-        let mut h = FramedHasher::new("pse.solver.conic-layout.v2");
+        // Cone coordinates are normalized at preparation, so the numerical policy belongs to
+        // them; controls and settings form the profile (F24).
+        let mut h = FramedHasher::new("pse.solver.conic-layout.v3");
         h.hash(&numerics.key).hash(&normalization.key());
         h.hash(&problem.contract.identity);
-        hash_controls(&mut h, &profile)?;
+        let mut session = FramedHasher::new("pse.solver.conic-session.v1");
+        hash_session(&mut session, &profile)?;
         h.hash(&native::conic::cone_key(&problem.cones));
         for v in &problem.contract.variables {
             h.id(&v.id);
@@ -774,6 +776,7 @@ impl MathService {
         }
         let stamp = Compatibility {
             layout: h.finish_hash(),
+            profile: session.finish_hash(),
             data: d.finish_hash(),
             backend: adapter.backend(),
         };
@@ -786,6 +789,7 @@ impl MathService {
             numerics,
             normalization,
             tolerances,
+            accuracy,
             route,
             compatibility: Some(stamp),
             explicit_start: None,
@@ -874,11 +878,14 @@ impl MathService {
         let service = self.clone();
         let (receive_tx, receiver) = tokio::sync::oneshot::channel();
         let bytes = self.policy.worker_bytes;
+        // Every evaluator the sequence builds (steps, original re-checks and assessments)
+        // is charged to this job's reservation (F31).
+        let budget = WorkerBudget::new(bytes);
         tokio::spawn(async move {
             let runner = service.clone();
             let result = service
                 .job(cores, bytes, control, move |flag| {
-                    runner.run_sequence(sequence, flag, events, result_owner, assessment)
+                    runner.run_sequence(sequence, flag, events, result_owner, assessment, budget)
                 })
                 .await;
             let _ = receive_tx.send(result);
@@ -896,6 +903,7 @@ impl MathService {
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
         assessment: Option<Box<dyn SequenceAssessment>>,
+        budget: Arc<WorkerBudget>,
     ) -> Result<SequenceReport, MathRuntimeError> {
         // Every adapter the sequence executes provides its scope (for example an admitted
         // local pool) around the whole sequence, so retained sessions live inside it.
@@ -914,7 +922,7 @@ impl MathService {
             .max()
             .unwrap_or(1);
         execution::scoped(&adapters, threads, self.policy.stack_bytes, move || {
-            self.run_sequence_inner(sequence, flag, progress, owner, assessment)
+            self.run_sequence_inner(sequence, flag, progress, owner, assessment, &budget)
         })
     }
     fn run_sequence_inner(
@@ -924,6 +932,7 @@ impl MathService {
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
         mut assessment: Option<Box<dyn SequenceAssessment>>,
+        budget: &Arc<WorkerBudget>,
     ) -> Result<SequenceReport, MathRuntimeError> {
         let total = sequence.steps.len();
         let mut outcomes = Vec::new();
@@ -970,13 +979,12 @@ impl MathService {
                 .then(|| attempt.saturating_sub(1)),
                 seed: chosen.clone(),
                 sparse_seed: step.profile.backend.partial_start().cloned(),
-                transformations: vec![
-                    "original -> model normalization -> admitted native presolve".into(),
-                ],
+                transformations: vec![],
                 submitted: chosen.is_some(),
             };
+            let normalization = step.normalization.key();
             let outcome = self
-                .run_step(step, execution, chosen.as_ref(), &mut retained)
+                .run_step(step, execution, chosen.as_ref(), &mut retained, budget)
                 .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
             let outcome = match outcome {
                 Outcome::Native(mut r) => {
@@ -990,6 +998,12 @@ impl MathService {
                     }
                     let mut receipt = receipt;
                     receipt.submitted = r.evidence.start_submitted;
+                    // The recorded path is what this step's transport and library presolve
+                    // actually applied, never a constant label (F25).
+                    if receipt.seed.is_some() || receipt.sparse_seed.is_some() {
+                        receipt.transformations =
+                            SeedTransformation::path(normalization, r.preprocessing.as_ref());
+                    }
                     r.start_receipt = Some(receipt);
                     Outcome::Native(Box::new((*r).with_owner(owner.clone())))
                 }
@@ -1001,7 +1015,7 @@ impl MathService {
             };
             let original_accepted = assessment
                 .as_mut()
-                .is_none_or(|a| a.accepted(attempt, &outcome, &flag));
+                .is_none_or(|a| a.accepted(attempt, &outcome, &flag, budget));
             // `PreviousAccepted` seeds only from a result; a seed-only candidate is
             // offered to explicit consumers such as a study's dependent point.
             let successful = outcome.candidate_use().permits_use() && original_accepted;
@@ -1034,18 +1048,20 @@ impl MathService {
         execution: Execution,
         warm: Option<&WarmStart>,
         retained: &mut Retained,
+        budget: &Arc<WorkerBudget>,
     ) -> Result<Outcome, MathRuntimeError> {
         let PreparedSolve {
             representation,
             profile,
             normalization,
             tolerances,
+            accuracy,
             route,
             compatibility,
             ..
         } = step;
         let Route::Native(backend) = route else {
-            return self.constant(representation, &tolerances, &execution.cancel);
+            return self.constant(representation, &tolerances, &execution.cancel, budget);
         };
         let adapter = execution::adapter(backend);
         let stamp = compatibility
@@ -1054,6 +1070,7 @@ impl MathService {
             adapter,
             settings: &profile.backend,
             controls: &profile.controls,
+            accuracy: &accuracy,
             execution,
             tolerances: &tolerances,
             normalization: &normalization,
@@ -1069,12 +1086,12 @@ impl MathService {
                 execution::Representation::Cone,
             ) => execution::cone(run, retained, &problem, certificate.as_ref())?,
             (Representation::Algebraic(case), execution::Representation::Coefficients) => {
-                self.coefficient_step(run, retained, case)?
+                self.coefficient_step(run, retained, case, budget)?
             }
             (
                 Representation::Algebraic(case),
                 kind @ (execution::Representation::Nlp | execution::Representation::Roots),
-            ) => self.callback_step(run, retained, case, kind, &profile)?,
+            ) => self.callback_step(run, retained, case, kind, &profile, budget)?,
             _ => {
                 return Err(ProblemError::Internal(
                     "prepared representation differs from the selected adapter".into(),
@@ -1090,6 +1107,7 @@ impl MathService {
         run: execution::Step<'_>,
         retained: &mut Retained,
         case: AlgebraicCase,
+        budget: &Arc<WorkerBudget>,
     ) -> Result<SolveReport, MathRuntimeError> {
         let AlgebraicCase {
             prepared,
@@ -1112,6 +1130,7 @@ impl MathService {
             values: &values,
             plan,
             cancel: run.execution.cancel.clone(),
+            budget,
         };
         Ok(execution::coefficients(
             run,
@@ -1138,6 +1157,7 @@ impl MathService {
         case: AlgebraicCase,
         kind: execution::Representation,
         profile: &SolverProfile,
+        budget: &Arc<WorkerBudget>,
     ) -> Result<SolveReport, MathRuntimeError> {
         let AlgebraicCase {
             prepared,
@@ -1146,8 +1166,11 @@ impl MathService {
             providers,
             ..
         } = case;
-        let ExecutionWorker { worker, _case } =
-            self.case_worker(case, providers, &run.execution.cancel)?;
+        let ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = self.case_worker(case, providers, &run.execution.cancel, budget)?;
         let plan = &prepared.prepared.plan;
         let initial: Vec<_> = plan.columns().iter().map(|id| values.scalars[id]).collect();
         let mut oracle = native::assembled::AlgebraicOracle::new(worker, values)?
@@ -1159,14 +1182,15 @@ impl MathService {
         }
         if kind == execution::Representation::Roots {
             oracle.admit_nle()?;
-            // A retained root session keeps the evaluators' owner alive with it.
+            // A retained root session keeps the evaluators' owner, and the evaluator's
+            // share of the job reservation, alive with it.
             return Ok(execution::roots(
                 run,
                 retained,
                 execution::Roots {
                     oracle: Box::new(oracle),
                     initial: &initial,
-                    owner: Some(Box::new(_case)),
+                    owner: Some(Box::new((_case, _charge))),
                 },
             )?);
         }
@@ -1188,6 +1212,7 @@ impl MathService {
         )?;
         // The case owner and enclosing job reservation outlive every native callback.
         drop(_case);
+        drop(_charge);
         Ok(report)
     }
     /// Worker-scoped providers and one attempt-local evaluator on this thread.
@@ -1196,18 +1221,11 @@ impl MathService {
         case: Option<Arc<ExecutableCase>>,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &Arc<std::sync::atomic::AtomicBool>,
+        budget: &Arc<WorkerBudget>,
     ) -> Result<ExecutionWorker, MathRuntimeError> {
         let case =
             case.ok_or_else(|| ProblemError::Internal("missing executable representation".into()))?;
-        let providers = providers
-            .into_iter()
-            .map(|(key, f)| {
-                f.worker_scoped(cancel.clone())
-                    .map(|v| (key, v))
-                    .map_err(ProblemError::Provider)
-            })
-            .collect::<Result<_, _>>()?;
-        self.worker(case, providers, cancel.clone())
+        self.worker(case, &providers, cancel.clone(), budget)
     }
     /// All-fixed original evaluation without a native attempt.
     fn constant(
@@ -1215,6 +1233,7 @@ impl MathService {
         representation: Representation,
         tolerances: &Tolerances,
         cancel: &Arc<std::sync::atomic::AtomicBool>,
+        budget: &Arc<WorkerBudget>,
     ) -> Result<Outcome, MathRuntimeError> {
         let Representation::Algebraic(AlgebraicCase {
             prepared,
@@ -1228,7 +1247,11 @@ impl MathService {
                 ProblemError::Internal("constant route needs an algebraic case".into()).into(),
             );
         };
-        let ExecutionWorker { mut worker, _case } = self.case_worker(case, providers, cancel)?;
+        let ExecutionWorker {
+            mut worker,
+            _case,
+            _charge,
+        } = self.case_worker(case, providers, cancel, budget)?;
         let structure = prepared.prepared.plan.structure();
         let objective = structure
             .objective()
@@ -1273,6 +1296,7 @@ struct OriginalCase<'a> {
     values: &'a CaseValues,
     plan: &'a pse_math::assembly::CasePlan,
     cancel: Arc<std::sync::atomic::AtomicBool>,
+    budget: &'a Arc<WorkerBudget>,
 }
 impl execution::OriginalModel for OriginalCase<'_> {
     fn evaluate(&mut self, primal: &[f64]) -> Result<execution::Evaluation, ProblemError> {
@@ -1280,16 +1304,9 @@ impl execution::OriginalModel for OriginalCase<'_> {
             let case = self.case.clone().ok_or_else(|| {
                 ProblemError::Internal("missing original coefficient evaluator".into())
             })?;
-            let providers = self
-                .providers
-                .iter()
-                .map(|(key, f)| {
-                    f.worker_scoped(self.cancel.clone())
-                        .map(|w| (*key, w))
-                        .map_err(ProblemError::Provider)
-                })
-                .collect::<Result<_, _>>()?;
-            let mut original = self.service.worker(case, providers, self.cancel.clone())?;
+            let mut original =
+                self.service
+                    .worker(case, self.providers, self.cancel.clone(), self.budget)?;
             let mut trial = self.values.clone();
             for (id, value) in self.plan.columns().iter().zip(primal) {
                 trial.scalars.insert(*id, *value);
@@ -1317,23 +1334,19 @@ impl execution::OriginalModel for OriginalCase<'_> {
     }
 }
 
-/// Complete effective request identity, distinct from native session compatibility.
+/// Complete effective request identity, distinct from native session compatibility: the
+/// session profile, every control through serde (F09) and the selection, whose backend is
+/// named by its registry spelling.
 pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, ProblemError> {
-    let mut h = FramedHasher::new("pse.solver.profile.v1");
-    hash_controls(&mut h, p)?;
-    h.u64(p.controls.time_limit.as_secs())
-        .u64(u64::from(p.controls.time_limit.subsec_nanos()))
-        .u64(u64::from(p.controls.iterations))
-        .u64(p.controls.accuracy.feasibility.to_bits())
-        .u64(p.controls.history as u64)
-        .u64(p.controls.reuse as u64)
-        .u64(p.controls.start as u64);
+    let mut h = FramedHasher::new("pse.solver.profile.v2");
+    hash_session(&mut h, p)?;
+    h.hash(&p.controls.identity()?);
     match p.selection {
         SolverSelection::Auto => {
-            h.u64(0);
+            h.str("auto");
         }
         SolverSelection::Explicit(b) => {
-            h.u64(1).u64(b as u64);
+            h.str(b.as_str());
         }
     }
     Ok(h.finish_hash())

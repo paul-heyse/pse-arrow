@@ -630,6 +630,7 @@ mod tests {
             origin: None,
             compatibility: Compatibility {
                 layout: p.contract.identity,
+                profile: p.contract.identity,
                 data: p.assumptions,
                 backend: Backend::Highs,
             },

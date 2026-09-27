@@ -131,6 +131,7 @@ impl BackendExecution for Stub {
         report
             .metrics
             .insert("reuse.native_model".into(), Metric::Bool(reused));
+        report.evidence.reused_native_state = reused;
         Ok(report)
     }
 }
@@ -193,6 +194,7 @@ fn stub_backend_routes_through_adapter_table() {
                 adapter,
                 settings: &BackendSettings::Default,
                 controls: &controls,
+                accuracy: &ResolvedAccuracy::nominal(),
                 execution: Execution::new(
                     std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                     &controls,

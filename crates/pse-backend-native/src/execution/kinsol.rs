@@ -140,6 +140,7 @@ impl BackendExecution for Kinsol {
             let mut report = state.0.solve(
                 initial,
                 input.controls,
+                input.accuracy,
                 input.execution,
                 input.tolerances,
                 input.warm,
@@ -148,6 +149,7 @@ impl BackendExecution for Kinsol {
                 "reuse.native_model".into(),
                 crate::solve::Metric::Bool(reused),
             );
+            report.evidence.reused_native_state = reused;
             Ok(report)
         }
         #[cfg(not(feature = "kinsol"))]

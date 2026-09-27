@@ -10,7 +10,7 @@ use crate::{
     assembled::FeasibilityOracle,
     presolve::{self, Pipeline},
     quality::{self, Observation, Quality, Tolerances},
-    solve::{Compatibility, Controls, SolveIntent, SolveReport, WarmStart},
+    solve::{Compatibility, Controls, ResolvedAccuracy, SolveIntent, SolveReport, WarmStart},
     transport,
 };
 use pse_math::{
@@ -25,8 +25,10 @@ pub struct Step<'a> {
     pub adapter: &'a dyn BackendExecution,
     /// Typed settings admitted for `adapter`.
     pub settings: &'a BackendSettings,
-    /// Finite shared controls, including resolved accuracy.
+    /// Finite shared controls chosen by the caller.
     pub controls: &'a Controls,
+    /// Stopping budgets resolved from the numerical policy for this step.
+    pub accuracy: &'a ResolvedAccuracy,
     /// Cancellation, deadline and bounded progress of this attempt.
     pub execution: crate::solve::Execution,
     /// Original physical acceptance budgets.
@@ -87,7 +89,6 @@ pub fn nlp(
         run.initial,
         run.presolve,
         step.tolerances,
-        None,
         step.execution.clone(),
         step.warm,
         step.compatibility,
@@ -107,6 +108,7 @@ pub fn nlp(
                         sense: run.sense,
                     },
                     controls: step.controls,
+                    accuracy: step.accuracy,
                     settings: step.settings,
                     execution: step.execution,
                     tolerances: &tolerances,
@@ -117,8 +119,8 @@ pub fn nlp(
         }
     };
     let mut report = pipeline.finish(report, step.tolerances, run.sense);
-    quality::record_kkt(&mut report, step.normalization, &step.controls.accuracy);
-    quality::qualify(&mut report, &step.controls.accuracy);
+    quality::record_kkt(&mut report, step.normalization, step.accuracy);
+    quality::qualify(&mut report, step.accuracy);
     Ok(report)
 }
 
@@ -172,11 +174,12 @@ pub fn roots(
                 budgets: Budgets {
                     tolerances: step.tolerances,
                     normalization: step.normalization,
-                    feasibility: step.controls.accuracy.feasibility,
+                    feasibility: step.accuracy.feasibility,
                 },
                 owner: run.owner,
             },
             controls: step.controls,
+            accuracy: step.accuracy,
             settings: step.settings,
             execution: step.execution,
             tolerances: &tolerances,
@@ -185,8 +188,8 @@ pub fn roots(
         },
     )?;
     transport::recover(&mut report, step.normalization, &contract)?;
-    quality::record_kkt(&mut report, step.normalization, &step.controls.accuracy);
-    quality::qualify(&mut report, &step.controls.accuracy);
+    quality::record_kkt(&mut report, step.normalization, step.accuracy);
+    quality::qualify(&mut report, step.accuracy);
     Ok(report)
 }
 
@@ -258,6 +261,7 @@ pub fn coefficients(
                 row_constants: run.row_constants,
             },
             controls: step.controls,
+            accuracy: step.accuracy,
             settings: step.settings,
             execution: step.execution.clone(),
             tolerances: &tolerances,
@@ -276,7 +280,7 @@ pub fn coefficients(
         }
     }
     reobserve(&mut report, run.problem, run.original, &step)?;
-    quality::qualify(&mut report, &step.controls.accuracy);
+    quality::qualify(&mut report, step.accuracy);
     Ok(report)
 }
 /// The coefficient projection must reproduce the original model's rows and objective at
@@ -302,8 +306,7 @@ fn reobserve(
                 .objective
                 .zip(candidate.objective)
                 .is_some_and(|(a, b)| {
-                    (a - b).abs()
-                        > step.normalization.objective * step.controls.accuracy.gap_absolute
+                    (a - b).abs() > step.normalization.objective * step.accuracy.gap_absolute
                 })
         {
             return Err(ProblemError::numerical(
@@ -364,6 +367,7 @@ pub fn cone(
                 certificate,
             },
             controls: step.controls,
+            accuracy: step.accuracy,
             settings: step.settings,
             execution: step.execution,
             tolerances: &tolerances,
@@ -372,6 +376,6 @@ pub fn cone(
         },
     )?;
     transport::recover(&mut report, step.normalization, &problem.contract)?;
-    quality::qualify(&mut report, &step.controls.accuracy);
+    quality::qualify(&mut report, step.accuracy);
     Ok(report)
 }

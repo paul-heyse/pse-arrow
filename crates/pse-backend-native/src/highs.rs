@@ -433,7 +433,7 @@ impl Session {
         compatibility: Compatibility,
     ) -> Result<(), ProblemError> {
         admit(p, certificate)?;
-        if compatibility.layout != self.compatibility.layout
+        if !compatibility.same_session(&self.compatibility)
             || compatibility.backend != Backend::Highs
             || self.structure
                 != (
@@ -506,6 +506,7 @@ impl Session {
         &mut self,
         p: &CoefficientProblem,
         controls: &Controls,
+        accuracy: &ResolvedAccuracy,
         method: Method,
         execution: Execution,
         tolerances: &Tolerances,
@@ -581,19 +582,31 @@ impl Session {
             ("log_file".into(), OptionValue::Text(String::new())),
             ("output_flag".into(), OptionValue::Bool(false)),
         ]);
+        // HiGHS 1.15 makes the active-set QP hot start opt-in; a submitted QP start would
+        // otherwise be silently ignored (PS-11). An explicit native option still wins, and
+        // the option snapshot records what ran.
+        options
+            .entry("qp_allow_hot_start".into())
+            .or_insert(OptionValue::Bool(true));
         let discrete = p.domains.iter().any(|d| *d != VariableDomain::Continuous);
-        if !controls.accuracy.native_scaling
-            && (method != Method::Simplex
-                || discrete
-                || p.hessian
-                    .as_ref()
-                    .is_some_and(|q| q.val().iter().any(|v| *v != 0.0)))
-        {
+        let quadratic = p
+            .hessian
+            .as_ref()
+            .is_some_and(|q| q.val().iter().any(|v| *v != 0.0));
+        if !accuracy.native_scaling && (method != Method::Simplex || discrete || quadratic) {
             return Err(ProblemError::Unsupported("disabling all HiGHS algorithmic scaling is qualified only for explicit continuous simplex LP".into()));
         }
         if discrete && method != Method::Choose {
             return Err(ProblemError::Unsupported(
                 "explicit LP method cannot relax a mixed-integer model".into(),
+            ));
+        }
+        // HiGHS solves a continuous QP with its active-set QP solver whatever `solver`
+        // says, and HiPO (the QP interior point) is not built: an explicit LP method on a
+        // quadratic objective would be ignored or refused natively (F04).
+        if quadratic && method != Method::Choose {
+            return Err(ProblemError::Unsupported(
+                "explicit LP method cannot solve a quadratic objective".into(),
             ));
         }
         for key in [
@@ -606,25 +619,19 @@ impl Session {
             options.insert(key.into(), OptionValue::Integer(controls.iterations as i32));
         }
         for (key, value) in [
-            (
-                "primal_feasibility_tolerance",
-                controls.accuracy.feasibility,
-            ),
-            ("dual_feasibility_tolerance", controls.accuracy.stationarity),
+            ("primal_feasibility_tolerance", accuracy.feasibility),
+            ("dual_feasibility_tolerance", accuracy.stationarity),
             // HiGHS also uses its MIP feasibility tolerance in subproblems.
             (
                 "mip_feasibility_tolerance",
-                controls
-                    .accuracy
-                    .integrality
-                    .min(controls.accuracy.feasibility),
+                accuracy.integrality.min(accuracy.feasibility),
             ),
-            ("mip_abs_gap", controls.accuracy.mip_absolute_gap),
-            ("mip_rel_gap", controls.accuracy.mip_relative_gap),
+            ("mip_abs_gap", accuracy.mip_absolute_gap),
+            ("mip_rel_gap", accuracy.mip_relative_gap),
         ] {
             options.insert(key.into(), OptionValue::Real(value));
         }
-        if !controls.accuracy.native_scaling {
+        if !accuracy.native_scaling {
             options.insert("simplex_scale_strategy".into(), OptionValue::Integer(0));
         }
         if let Some(stop) = execution.stopped() {
@@ -841,7 +848,7 @@ impl Session {
         );
         report.provenance.insert(
             "interrupt".into(),
-            "simplex/IPM/MIP callbacks; QP native time limit only".into(),
+            "simplex/IPM/MIP callbacks; QP and PDLP native time limit only".into(),
         );
         report.provenance.insert("duals".into(),"native authored-sense row multipliers and reduced costs; no split bound-dual fabrication".into());
         let primal = evidence.primal != SolutionStatus::Unavailable;
@@ -879,10 +886,15 @@ impl Session {
                     report.termination.assurance = Assurance::None
                 }
                 report.quality = Some(quality);
-                let basis = if matches!(
-                    report.metrics.get("basis_validity"),
-                    Some(Metric::Integer(1))
-                ) {
+                // HiGHS reports `basis_validity` only after simplex. Its active-set QP
+                // solver writes a valid basis with every solution it returns
+                // (`quass2highs`, 1.15), and a QP hot start needs that basis as well as
+                // the primal (`computeStartingPointHighs`).
+                let basis = if quadratic
+                    || matches!(
+                        report.metrics.get("basis_validity"),
+                        Some(Metric::Integer(1))
+                    ) {
                     let mut b = Basis {
                         columns: vec![0; n],
                         rows: vec![0; m],
@@ -1256,6 +1268,129 @@ mod tests {
             bounds: vec![(0.0, 3.0)],
         }
     }
+    /// minimize (x-1)^2 + (y-2)^2 subject to x + y <= 1: optimum (0, 1).
+    fn quadratic() -> (CoefficientProblem, crate::GramCertificate) {
+        use faer::sparse::{SparseColMat, Triplet};
+        let mut contract = crate::solver_tests::contract();
+        contract.variables = [1, 2]
+            .map(|i| crate::Variable {
+                id: crate::solver_tests::id(i),
+                lower: -10.,
+                upper: 10.,
+            })
+            .into();
+        contract.rows = vec![crate::solver_tests::id(3)];
+        let hessian = SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[Triplet::new(0, 0, 2.), Triplet::new(1, 1, 2.)],
+        )
+        .unwrap();
+        let certificate =
+            crate::GramCertificate::new(&hessian, 1.0, &faer::Mat::identity(2, 2), &[2., 2.], 64)
+                .unwrap();
+        let problem = CoefficientProblem {
+            contract,
+            objective: vec![-2., -4.],
+            objective_constant: 5.,
+            sense: ObjectiveSense::Minimize,
+            domains: vec![VariableDomain::Continuous; 2],
+            assumptions: crate::solver_tests::stamp(Backend::Highs).data,
+            constraints: SparseColMat::try_new_from_triplets(
+                1,
+                2,
+                &[Triplet::new(0, 0, 1.), Triplet::new(0, 1, 1.)],
+            )
+            .unwrap(),
+            hessian: Some(hessian),
+            bounds: vec![(f64::NEG_INFINITY, 1.)],
+        };
+        (problem, certificate)
+    }
+    fn solve_quadratic(
+        session: &mut Session,
+        p: &CoefficientProblem,
+        method: Method,
+        options: Options,
+        warm: Option<&WarmStart>,
+    ) -> Result<SolveReport, ProblemError> {
+        let controls = Controls {
+            options,
+            ..Controls::default()
+        };
+        session.solve(
+            p,
+            &controls,
+            &ResolvedAccuracy::nominal(),
+            method,
+            Execution::new(Default::default(), &controls),
+            &Tolerances {
+                variables: vec![1e-8; 2],
+                rows: vec![1e-8],
+                integrality: 1e-8,
+            },
+            warm,
+        )
+    }
+    #[test]
+    fn highs_qp_explicit_method_refused() {
+        let (p, certificate) = quadratic();
+        let stamp = crate::solver_tests::stamp(Backend::Highs);
+        let mut session = Session::new(&p, Some(&certificate), stamp).unwrap();
+        for method in [Method::Simplex, Method::Ipm, Method::Pdlp] {
+            let error =
+                solve_quadratic(&mut session, &p, method, Options::new(), None).unwrap_err();
+            assert!(matches!(error, ProblemError::Unsupported(_)), "{error:?}");
+        }
+        let report =
+            solve_quadratic(&mut session, &p, Method::Choose, Options::new(), None).unwrap();
+        assert_eq!(report.termination.category, Termination::Success);
+        assert_eq!(report.options["solver"], OptionValue::Text("choose".into()));
+    }
+    #[test]
+    fn highs_qp_hot_start_consumed() {
+        let (p, certificate) = quadratic();
+        let stamp = crate::solver_tests::stamp(Backend::Highs);
+        let mut session = Session::new(&p, Some(&certificate), stamp).unwrap();
+        let iterations = |r: &SolveReport| match r.metrics.get("qp_iteration_count") {
+            Some(Metric::Integer(k)) => *k,
+            other => panic!("{other:?}"),
+        };
+        let cold = solve_quadratic(&mut session, &p, Method::Choose, Options::new(), None).unwrap();
+        assert_eq!(cold.options["qp_allow_hot_start"], OptionValue::Bool(true));
+        let primal = &cold.candidate.as_ref().unwrap().primal;
+        assert!((primal[0] - 0.).abs() < 1e-7 && (primal[1] - 1.).abs() < 1e-7);
+        let seed = cold.warm_start.clone().unwrap();
+        assert!(matches!(
+            &seed.payload,
+            WarmPayload::Highs { basis: Some(_), .. }
+        ));
+        let hot = solve_quadratic(
+            &mut session,
+            &p,
+            Method::Choose,
+            Options::new(),
+            Some(&seed),
+        )
+        .unwrap();
+        assert!(hot.evidence.start_submitted);
+        assert_eq!(hot.termination.category, Termination::Success);
+        // With hot start disabled the same seed is ignored and the cold path reruns.
+        let off = Options::from([("qp_allow_hot_start".into(), OptionValue::Bool(false))]);
+        let ignored = solve_quadratic(&mut session, &p, Method::Choose, off, Some(&seed)).unwrap();
+        assert_eq!(
+            ignored.options["qp_allow_hot_start"],
+            OptionValue::Bool(false)
+        );
+        assert!(iterations(&cold) > 0, "{:?}", cold.metrics);
+        assert_eq!(iterations(&ignored), iterations(&cold));
+        assert!(
+            iterations(&hot) < iterations(&cold),
+            "hot {} cold {}",
+            iterations(&hot),
+            iterations(&cold)
+        );
+    }
     #[test]
     fn native_iis_discrete_scope_is_an_explicit_continuous_relaxation() {
         use std::sync::{Arc, atomic::AtomicBool};
@@ -1447,6 +1582,7 @@ mod tests {
         let p = problem();
         let stamp = Compatibility {
             layout: p.contract.identity,
+            profile: p.contract.identity,
             data: p.contract.identity,
             backend: Backend::Highs,
         };

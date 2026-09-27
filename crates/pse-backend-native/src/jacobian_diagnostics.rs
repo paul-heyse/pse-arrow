@@ -286,14 +286,17 @@ pub fn analyze(matrix:SparseColMatRef<'_,usize,f64>,rows:&[SemanticId],policy:Po
         return Err(ProblemError::Contract("invalid bounded Jacobian diagnostic request".into()));
     }
     let mut report=Report{conditioning:vec![],degenerate:vec![],attempts:vec![],complete:true,unavailable:vec![]};
+    // The diagnostic LP/MILPs are this analysis's own problems: their budgets derive from
+    // its tolerance, not from any model's numerical policy.
+    let accuracy=ResolvedAccuracy::from_policy(&Default::default(),policy.tolerance)?;
     for pivot in 0..rows.len(){
         for milp in [false,true]{
             if report.attempts.len()>=policy.maximum_attempts||execution.stopped().is_some(){report.complete=false;report.unavailable.push("diagnostic attempt budget or deadline exhausted".into());return Ok(report);}
             let p=problem(matrix,rows,pivot,milp,policy)?;
-            let stamp=Compatibility{layout:p.contract.identity,data:p.assumptions,backend:Backend::Highs};
+            let stamp=Compatibility{layout:p.contract.identity,profile:p.contract.identity,data:p.assumptions,backend:Backend::Highs};
             let mut session=highs::Session::new(&p,None,stamp)?;
             let t=Tolerances{variables:vec![policy.tolerance;p.contract.variables.len()],rows:vec![policy.tolerance;p.contract.rows.len()],integrality:policy.tolerance};
-            let outcome=session.solve(&p,controls,highs::Method::Choose,execution.clone(),&t,None)?;
+            let outcome=session.solve(&p,controls,&accuracy,highs::Method::Choose,execution.clone(),&t,None)?;
             drop(session);
             let optimal=outcome.termination.category==Termination::Success && outcome.quality.as_ref().is_some_and(crate::quality::Quality::feasible);
             if optimal && let Some(point)=outcome.candidate.as_ref().map(|c|&c.primal) {

@@ -16,6 +16,7 @@ use datafusion::execution::{
     cache::default_cache::DefaultCache,
     memory_pool::{MemoryConsumer, MemoryPool},
 };
+pub use jobs::{WorkerBudget, WorkerCharge};
 use pse_columnar::flight::{FlightCancellation, Flights};
 use pse_compiler::workspace::{
     CompileError, CompilerWorkspace, Inputs, PreparedCase, Profile, WorkspaceLimits,
@@ -205,11 +206,28 @@ pub struct ExecutableCase {
     _artifacts: Vec<Arc<Artifact>>,
     _owner: Arc<dyn pse_math::AllocationOwner>,
 }
+/// Provider workers for one attempt, each attached to the attempt's cooperative
+/// cancellation. Nested native providers (implicit inner solves) poll it while iterating,
+/// so cancelling an attempt reaches every evaluator it builds (F31).
+pub(crate) fn attempt_providers(
+    registrations: &BTreeMap<ProviderKey, pse_kernels::Registration>,
+    cancel: &Arc<AtomicBool>,
+) -> Result<BTreeMap<ProviderKey, Box<dyn Provider>>, pse_kernels::ProviderError> {
+    registrations
+        .iter()
+        .map(|(key, registration)| {
+            registration
+                .worker_scoped(cancel.clone())
+                .map(|worker| (*key, worker))
+        })
+        .collect()
+}
 /// Attempt-local mutable state and its reservation; never retained in Salsa or a cache.
 #[derive(Debug)]
 pub struct ExecutionWorker {
     worker: CaseWorker,
     _case: Arc<ExecutableCase>,
+    _charge: WorkerCharge,
 }
 impl ExecutionWorker {
     /// Access attempt-local numeric operations.
@@ -392,42 +410,44 @@ impl MathService {
         let control = FlightCancellation::default();
         let service = self.clone();
         let bytes = case.assembly.numeric_worker_bytes();
+        let budget = WorkerBudget::new(bytes);
         let operation = self.job(1, bytes, control.clone(), move |flag| {
-            let providers = providers
-                .into_iter()
-                .map(|(key, factory)| {
-                    factory
-                        .worker_scoped(flag.clone())
-                        .map(|v| (key, v))
-                        .map_err(|e| {
-                            MathRuntimeError::Math(pse_math::MathError::Contract(e.to_string()))
-                        })
-                })
-                .collect::<Result<_, _>>()?;
-            let worker = service.worker(case, providers, flag)?;
-            let ExecutionWorker { worker, _case } = worker;
+            let ExecutionWorker {
+                worker,
+                _case,
+                _charge,
+            } = service.worker(case, &providers, flag, &budget)?;
             let result = work(worker);
             drop(_case);
+            drop(_charge);
             result
         });
         tokio::pin!(operation);
         tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
     }
-    /// Construct mutable workers after admission on their owning execution thread.
-    fn worker(
+    /// Construct a mutable attempt evaluator after admission on its owning execution
+    /// thread. It is the one construction path: its providers observe the attempt's
+    /// cancellation, and its numeric storage is charged to the job's budget for as long as
+    /// it lives (F31).
+    pub(crate) fn worker(
         &self,
         case: Arc<ExecutableCase>,
-        providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
+        registrations: &BTreeMap<ProviderKey, pse_kernels::Registration>,
         cancel: Arc<AtomicBool>,
+        budget: &Arc<WorkerBudget>,
     ) -> Result<ExecutionWorker, MathRuntimeError> {
         let bytes = case.assembly.numeric_worker_bytes();
         if bytes > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit("worker storage"));
         }
+        let charge = budget.charge(bytes)?;
+        let providers = attempt_providers(registrations, &cancel)
+            .map_err(pse_backend_native::ProblemError::Provider)?;
         let worker = case.assembly.worker(providers, cancel);
         Ok(ExecutionWorker {
             worker,
             _case: case,
+            _charge: charge,
         })
     }
 }

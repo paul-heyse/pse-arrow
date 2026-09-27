@@ -109,7 +109,6 @@ impl SolveSettings {
         let controls = Controls {
             time_limit,
             iterations,
-            accuracy: Default::default(),
             threads,
             history,
             hessian,

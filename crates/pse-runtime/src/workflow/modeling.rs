@@ -36,7 +36,7 @@ use crate::math::{
     modeling::{ModelingPreparation, ModelingRevision},
 };
 pub use analysis_tables::ModelingNativeAnalysis;
-pub use cases::{ModelingObservations, ModelingSolvePreparation};
+pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
 use pse_authoring::language::Declaration;
 use pse_compiler::workspace::{Inputs, WorkspaceLimits};
 use pse_ids::SemanticId;

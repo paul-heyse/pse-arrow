@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Coordinate transport only: reductions, derivative transforms and recovery belong to POUNCE.
-use super::{Policy, Report, Scaling};
+use super::{Policy, Report};
 use crate::{
     NlpOracle, OracleContract, ProblemError,
     callback::CallbackState,
@@ -104,14 +104,13 @@ impl Pipeline {
     /// Qualify, build and project one source start using native wrapper interfaces.
     #[allow(
         clippy::too_many_arguments,
-        reason = "Presolve admission needs the independent solver, scaling, warm-start, and resource contracts"
+        reason = "Presolve admission needs the independent solver, warm-start, and resource contracts"
     )]
     pub fn new(
         oracle: Box<dyn NlpOracle>,
         initial: &[f64],
         policy: &Policy,
         tolerance: &Tolerances,
-        scaling: Option<&Scaling>,
         execution: Execution,
         warm: Option<&WarmStart>,
         compatibility: Compatibility,
@@ -134,9 +133,6 @@ impl Pipeline {
             return Err(ProblemError::Contract(
                 "presolve dimensions/start/cap".into(),
             ));
-        }
-        if let Some(s) = scaling {
-            s.validate(n, m)?;
         }
         let mut start = initial.to_vec();
         let mut duals = None;
@@ -299,7 +295,6 @@ impl Pipeline {
                     initial,
                     &Policy::Off,
                     tolerance,
-                    scaling,
                     execution,
                     warm,
                     compatibility,
@@ -398,11 +393,6 @@ impl Pipeline {
                 format!("{:?}", p.borrow().starting_point_projection_report()),
             );
         }
-        let projected_scaling = scaling.map(|s| Scaling {
-            objective: s.objective,
-            variables: report.columns.iter().map(|i| s.variables[*i]).collect(),
-            constraints: report.rows.iter().map(|i| s.constraints[*i]).collect(),
-        });
         let mut h = pse_ids::FramedHasher::new("pse.presolve.transformation.v2");
         h.hash(&original.borrow().normalization.key());
         h.hash(&compatibility.layout)
@@ -448,12 +438,10 @@ impl Pipeline {
                 h.u64(*i as u64);
             }
         }
-        if let Some(s) = &projected_scaling {
-            h.hash(&s.key());
-        }
         report.transformation = h.finish_hash();
         let native = Compatibility {
             layout: report.transformation,
+            profile: compatibility.profile,
             data: compatibility.data,
             backend: compatibility.backend,
         };
@@ -491,7 +479,6 @@ impl Pipeline {
             hess,
             nj,
             nh,
-            scaling: projected_scaling,
         };
         // Propagation may fix a nonlinear row's last variable while retaining
         // that row. Such a projection can be valid but is not admissible to an
@@ -522,7 +509,7 @@ impl Pipeline {
                 // The original start and supplied original-space warm start remain
                 // the authorities; the declined wrapper's projected start is discarded.
                 let mut fallback = Self::new(adapter.oracle, initial, &Policy::Off,
-                    tolerance, scaling, execution, source_warm, compatibility, limit)?;
+                    tolerance, execution, source_warm, compatibility, limit)?;
                 fallback.report.requested = policy.clone();
                 for (pass, mut decision) in report.passes {
                     if decision.applied {
@@ -753,7 +740,6 @@ pub struct Transport {
     hess: AssemblyMatrix,
     nj: usize,
     nh: usize,
-    scaling: Option<Scaling>,
 }
 impl std::fmt::Debug for Transport {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -765,9 +751,6 @@ impl std::fmt::Debug for Transport {
 impl NlpOracle for Transport {
     fn contract(&self) -> &OracleContract {
         &self.contract
-    }
-    fn scaling(&self) -> Option<&Scaling> {
-        self.scaling.as_ref()
     }
     fn constraint_bounds(&self) -> &[(f64, f64)] {
         &self.bounds

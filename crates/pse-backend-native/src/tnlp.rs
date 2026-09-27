@@ -59,20 +59,6 @@ fn point(x: Option<&[f64]>) -> Result<&[f64], ProblemError> {
     x.ok_or_else(|| ProblemError::Internal("missing POUNCE trial".into()))
 }
 impl TNLP for Adapter {
-    fn get_scaling_parameters(&mut self, r: pounce_nlp::tnlp::ScalingRequest<'_>) -> bool {
-        let Some(s) = self.oracle.scaling() else {
-            return false;
-        };
-        if s.validate(r.x_scaling.len(), r.g_scaling.len()).is_err() {
-            return false;
-        }
-        *r.obj_scaling = s.objective;
-        *r.use_x_scaling = true;
-        *r.use_g_scaling = true;
-        r.x_scaling.copy_from_slice(&s.variables);
-        r.g_scaling.copy_from_slice(&s.constraints);
-        true
-    }
     fn get_variables_linearity(&mut self, types: &mut [pounce_nlp::tnlp::Linearity]) -> bool {
         let Some(f) = self.oracle.presolve_facts() else {
             return false;

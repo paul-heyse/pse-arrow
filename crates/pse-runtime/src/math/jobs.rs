@@ -3,7 +3,62 @@
 //! Native ownership ends after join, including thread-local foreign destructors.
 use super::{MathRuntimeError, MathService};
 use pse_columnar::flight::FlightCancellation;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
+/// The worker capacity of one admitted job, carved from the job's reservation. Every
+/// evaluator the job builds charges its numeric storage here and releases the charge when
+/// it is dropped, so the reservation covers all of the job's live workers together, never
+/// only the first; a worker that does not fit is refused (F31).
+#[derive(Debug)]
+pub struct WorkerBudget {
+    capacity: usize,
+    used: AtomicUsize,
+}
+impl WorkerBudget {
+    /// A budget of `capacity` bytes, the worker share of the job's reservation.
+    pub(crate) fn new(capacity: usize) -> Arc<Self> {
+        Arc::new(Self {
+            capacity,
+            used: AtomicUsize::new(0),
+        })
+    }
+    /// Reserve `bytes` for one worker until the returned charge is dropped.
+    ///
+    /// # Errors
+    /// The job's live workers and this one exceed its worker capacity.
+    pub fn charge(self: &Arc<Self>, bytes: usize) -> Result<WorkerCharge, MathRuntimeError> {
+        self.used
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |used| {
+                used.checked_add(bytes).filter(|n| *n <= self.capacity)
+            })
+            .map_err(|_| MathRuntimeError::Limit("worker storage"))?;
+        Ok(WorkerCharge {
+            budget: self.clone(),
+            bytes,
+        })
+    }
+    /// The worker share of the job's reservation.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+    /// Bytes charged by the job's live workers.
+    pub fn used(&self) -> usize {
+        self.used.load(Ordering::Acquire)
+    }
+}
+/// One live worker's share of its job's reservation.
+#[derive(Debug)]
+pub struct WorkerCharge {
+    budget: Arc<WorkerBudget>,
+    bytes: usize,
+}
+impl Drop for WorkerCharge {
+    fn drop(&mut self) {
+        self.budget.used.fetch_sub(self.bytes, Ordering::AcqRel);
+    }
+}
 /// Cancels on future abandonment while the detached supervisor retains all resource owners.
 struct Caller(Option<FlightCancellation>);
 impl Drop for Caller {
@@ -91,7 +146,7 @@ impl MathService {
                     .and_then(|n|n.checked_add(bytes)).and_then(|n|n.checked_add(service.policy.foreign_bytes)).ok_or(MathRuntimeError::Limit("native allowance overflow"))?;
                 let lease=datafusion::execution::memory_pool::MemoryConsumer::new("math:native-job").register(&service.pool);
                 lease.try_grow(bytes)?;
-                if cancel.flag().load(std::sync::atomic::Ordering::Acquire){return Err(MathRuntimeError::Cancelled);}
+                if cancel.flag().load(Ordering::Acquire){return Err(MathRuntimeError::Cancelled);}
                 let flag=cancel.flag();
                 let handle=std::thread::Builder::new().name("pse-math".into()).stack_size(service.policy.stack_bytes).spawn(move||work(flag)).map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?;
                 // Joining, not receipt of an early result, witnesses TLS destruction.

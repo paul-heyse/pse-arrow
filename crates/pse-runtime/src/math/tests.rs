@@ -777,3 +777,297 @@ async fn parallel_jobs_admit_library_team_stacks_and_release_them_after_join() {
     assert_eq!(service.pool.reserved(), 0);
     assert_eq!(service.cpu.available_permits(), 2);
 }
+
+/// A provider factory recording every cancellation handle it is constructed with.
+#[derive(Debug)]
+struct Recording {
+    spec: pse_kernels::ProviderSpec,
+    scoped: Mutex<Vec<Arc<AtomicBool>>>,
+}
+#[derive(Debug)]
+struct Inert(pse_kernels::ProviderSpec);
+impl Provider for Inert {
+    fn spec(&self) -> &pse_kernels::ProviderSpec {
+        &self.0
+    }
+    fn evaluate(
+        &mut self,
+        _: &[f64],
+        _: &pse_kernels::ProviderRequest,
+        _: &pse_kernels::EvaluationContext<'_>,
+    ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+        Err(pse_kernels::ProviderError::Trial("not evaluated".into()))
+    }
+}
+impl pse_kernels::ProviderFactory for Recording {
+    fn spec(&self) -> &pse_kernels::ProviderSpec {
+        &self.spec
+    }
+    fn create(&self) -> Result<Box<dyn Provider>, pse_kernels::ProviderError> {
+        Ok(Box::new(Inert(self.spec.clone())))
+    }
+    fn create_scoped(
+        &self,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Box<dyn Provider>, pse_kernels::ProviderError> {
+        self.scoped.lock().unwrap().push(cancel);
+        Ok(Box::new(Inert(self.spec.clone())))
+    }
+}
+fn recording() -> (
+    Arc<Recording>,
+    BTreeMap<ProviderKey, pse_kernels::Registration>,
+) {
+    let i = inputs();
+    let port = i.cases[&id(5)].structure.variables()[0].port.clone();
+    let hash = ContentHash::from_bytes([0; 32]);
+    let factory = Arc::new(Recording {
+        spec: pse_kernels::ProviderSpec {
+            shapes: pse_kernels::ProviderShapes::default(),
+            derivative_source: pse_kernels::DerivativeSource::Analytic,
+            id: id(80),
+            revision: hash,
+            data: hash,
+            inputs: vec![port.clone()],
+            outputs: vec![port],
+            derivatives: DerivativeOrder::Second,
+            smoothness: DerivativeOrder::Second,
+        },
+        scoped: Default::default(),
+    });
+    let registration = pse_kernels::Registration::new(factory.clone(), &i.quantities).unwrap();
+    let registrations = BTreeMap::from([(registration.spec().key(), registration)]);
+    (factory, registrations)
+}
+
+#[tokio::test]
+async fn nested_worker_observes_attempt_cancel() {
+    let s = service();
+    let case = s.assemble(prepared(&s).await).await.unwrap();
+    let (factory, registrations) = recording();
+    // Admission constructs one worker, on a private flag, to check the factory product.
+    let admitted = factory.scoped.lock().unwrap().len();
+    let flag = Arc::new(AtomicBool::new(false));
+    let budget = WorkerBudget::new(s.policy.worker_bytes);
+    let worker = s
+        .worker(case.clone(), &registrations, flag.clone(), &budget)
+        .unwrap();
+    // The evaluator's providers are attached to the attempt's cancellation, never a
+    // private flag of their own.
+    let scoped = factory.scoped.lock().unwrap()[admitted..].to_vec();
+    assert_eq!(scoped.len(), 1);
+    assert!(Arc::ptr_eq(&scoped[0], &flag));
+    flag.store(true, Ordering::Release);
+    assert!(scoped[0].load(Ordering::Acquire));
+    assert_eq!(budget.used(), case.assembly.numeric_worker_bytes());
+    drop(worker);
+    assert_eq!(budget.used(), 0);
+}
+
+/// A sequence assessment that builds two evaluators at once on the sequence job.
+#[derive(Debug)]
+struct TwoEvaluators {
+    service: Arc<MathService>,
+    case: Arc<ExecutableCase>,
+    registrations: BTreeMap<ProviderKey, pse_kernels::Registration>,
+    seen: Arc<Mutex<Vec<(usize, usize, usize, bool)>>>,
+}
+impl solves::SequenceAssessment for TwoEvaluators {
+    fn accepted(
+        &mut self,
+        _: usize,
+        _: &solves::Outcome,
+        cancel: &Arc<AtomicBool>,
+        budget: &Arc<WorkerBudget>,
+    ) -> bool {
+        let first = self
+            .service
+            .worker(
+                self.case.clone(),
+                &self.registrations,
+                cancel.clone(),
+                budget,
+            )
+            .unwrap();
+        let second = self
+            .service
+            .worker(
+                self.case.clone(),
+                &self.registrations,
+                cancel.clone(),
+                budget,
+            )
+            .unwrap();
+        let both = budget.used();
+        // No further evaluator fits once the job's worker share is spent.
+        let overflow = budget.charge(budget.capacity() - both + 1).is_err();
+        self.seen.lock().unwrap().push((
+            budget.capacity(),
+            both,
+            self.service.pool.reserved(),
+            overflow,
+        ));
+        drop((first, second));
+        true
+    }
+}
+
+#[tokio::test]
+async fn sequence_reserves_per_worker() {
+    use super::solves::*;
+    use pse_backend_native::{execution::BackendSettings, solve::*};
+    // The budget refuses a worker beyond its capacity and releases a dropped one.
+    let budget = WorkerBudget::new(100);
+    let a = budget.charge(60).unwrap();
+    assert!(matches!(
+        budget.charge(60),
+        Err(MathRuntimeError::Limit("worker storage"))
+    ));
+    drop(a);
+    let b = budget.charge(60).unwrap();
+    assert_eq!(budget.used(), 60);
+    drop(b);
+    assert_eq!(budget.used(), 0);
+
+    let s = service();
+    let case = s.assemble(prepared(&s).await).await.unwrap();
+    let (_, registrations) = recording();
+    let mut i = inputs();
+    i.values.insert(id(1), 0.0);
+    let c = i.cases.get_mut(&id(5)).unwrap();
+    let mut variables = c.structure.variables().to_vec();
+    variables[0].fixed = true;
+    c.structure = Arc::new(
+        CaseStructure::new(
+            variables,
+            c.structure.parameters().to_vec(),
+            c.structure.instances().to_vec(),
+            c.structure.rows().to_vec(),
+            c.structure.objective().cloned(),
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let w = s.workspace(i, WorkspaceLimits::default()).unwrap();
+    let p = s
+        .prepare(
+            w,
+            id(5),
+            DerivativeOrder::First,
+            profile(),
+            false,
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let step = s
+        .prepare_solve(
+            p,
+            CaseValues {
+                scalars: BTreeMap::from([(id(1), 0.0)]),
+            },
+            BTreeMap::new(),
+            SolverProfile {
+                presolve: Default::default(),
+                numerics: Default::default(),
+                convexity: Default::default(),
+                intent: SolveIntent::Root,
+                selection: SolverSelection::Auto,
+                controls: Controls::default(),
+                backend: BackendSettings::Default,
+            },
+            None,
+            NumericalInputs::default(),
+        )
+        .await
+        .unwrap();
+    let seen = Arc::new(Mutex::new(vec![]));
+    let report = s
+        .solve_assessed(
+            SolveSequence {
+                steps: vec![step],
+                continue_independent: false,
+                result_limit: 1,
+            },
+            Some(Box::new(TwoEvaluators {
+                service: s.clone(),
+                case: case.clone(),
+                registrations,
+                seen: seen.clone(),
+            })),
+        )
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    assert_eq!(report.unattempted, 0);
+    let seen = seen.lock().unwrap().clone();
+    assert_eq!(seen.len(), 1);
+    let (capacity, both, reserved, overflow) = seen[0];
+    // Every evaluator the sequence builds is charged to the job's worker share, and the
+    // job's pool reservation covers that whole share.
+    assert_eq!(capacity, s.policy.worker_bytes);
+    assert_eq!(both, 2 * case.assembly.numeric_worker_bytes());
+    assert!(reserved >= capacity + s.policy.stack_bytes + s.policy.foreign_bytes);
+    assert!(overflow);
+}
+
+#[tokio::test]
+async fn resolved_accuracy_not_user_input() {
+    use super::solves::*;
+    use pse_backend_native::{execution::BackendSettings, solve::*};
+    // User controls carry no accuracy, so nothing a caller supplies can stand in for the
+    // resolved value or be mistaken for an explicit default.
+    let fields = serde_json::to_value(Controls::default()).unwrap();
+    assert!(fields.get("accuracy").is_none(), "{fields}");
+    let s = service();
+    let prepare = |numerics: pse_model::numerics::NumericalPolicy| {
+        let s = s.clone();
+        async move {
+            let p = prepared(&s).await;
+            s.prepare_solve(
+                p,
+                CaseValues {
+                    scalars: BTreeMap::from([(id(1), 1.0)]),
+                },
+                BTreeMap::new(),
+                SolverProfile {
+                    presolve: Default::default(),
+                    numerics,
+                    convexity: Default::default(),
+                    intent: SolveIntent::Root,
+                    selection: SolverSelection::Auto,
+                    controls: Controls::default(),
+                    backend: BackendSettings::Default,
+                },
+                None,
+                NumericalInputs::default(),
+            )
+            .await
+            .unwrap()
+        }
+    };
+    let default = prepare(Default::default()).await;
+    let mut policy = pse_model::numerics::NumericalPolicy::default();
+    policy.kkt.stationarity = 1e-6;
+    policy.kkt.complementarity = 1e-6;
+    let loose = prepare(policy.clone()).await;
+    // The budgets are the numerical policy's, resolved at preparation.
+    let nominal = pse_model::numerics::NumericalPolicy::default();
+    assert_eq!(default.accuracy().stationarity, nominal.kkt.stationarity);
+    assert_eq!(loose.accuracy().stationarity, policy.kkt.stationarity);
+    assert_eq!(loose.accuracy().complementarity, policy.kkt.complementarity);
+    assert_eq!(loose.accuracy().feasibility, default.accuracy().feasibility);
+    let expected = ResolvedAccuracy::resolve(
+        &nominal,
+        default.tolerances(),
+        &pse_math::normalization::Normalization::from_policy(
+            default.numerics(),
+            &[id(1)],
+            &[id(4)],
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(default.accuracy(), &expected);
+}

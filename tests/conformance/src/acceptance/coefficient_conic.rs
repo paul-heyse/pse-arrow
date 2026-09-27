@@ -23,9 +23,14 @@ fn contract(rows: usize) -> OracleContract {
 fn stamp(backend: Backend) -> Compatibility {
     Compatibility {
         layout: ContentHash::from_bytes([1; 32]),
+        profile: ContentHash::from_bytes([3; 32]),
         data: ContentHash::from_bytes([2; 32]),
         backend,
     }
+}
+/// The default numerical policy's budgets at a normalized feasibility budget of 1e-8.
+fn accuracy() -> ResolvedAccuracy {
+    ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap()
 }
 fn execution(c: &Controls) -> Execution {
     Execution::new(Arc::new(AtomicBool::new(false)), c)
@@ -35,6 +40,7 @@ fn coefficient_conic() {
     use faer::sparse::{SparseColMat, Triplet};
     use pse_math::binding::{ObjectiveSense, VariableDomain};
     let controls = Controls::default();
+    let accuracy = accuracy();
     for domain in [
         VariableDomain::Continuous,
         VariableDomain::Integer,
@@ -62,6 +68,7 @@ fn coefficient_conic() {
             .solve(
                 &p,
                 &controls,
+                &accuracy,
                 highs::Method::Choose,
                 execution(&controls),
                 &tolerances,
@@ -69,7 +76,7 @@ fn coefficient_conic() {
             )
             .unwrap();
         assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
-        quality::qualify(&mut r, &controls.accuracy);
+        quality::qualify(&mut r, &accuracy);
         assert_eq!(r.termination.category, Termination::Success, "{r:?}");
         assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible());
@@ -112,6 +119,7 @@ fn coefficient_conic() {
             &p,
             &certificate,
             &controls,
+            &accuracy,
             Default::default(),
             conic::Mode::ReusableData,
             stamp(Backend::Clarabel),
@@ -121,6 +129,7 @@ fn coefficient_conic() {
             .solve(
                 &p,
                 &controls,
+                &accuracy,
                 Default::default(),
                 execution(&controls),
                 &Tolerances {
@@ -131,7 +140,7 @@ fn coefficient_conic() {
             )
             .unwrap();
         assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
-        quality::qualify(&mut r, &controls.accuracy);
+        quality::qualify(&mut r, &accuracy);
         assert_eq!(r.termination.category, Termination::Success, "{r:?}");
         assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible(), "{r:?}");
@@ -157,6 +166,7 @@ fn coefficient_conic() {
         .solve(
             &p,
             &controls,
+            &accuracy,
             highs::Method::Choose,
             execution(&controls),
             &Tolerances {
@@ -168,13 +178,13 @@ fn coefficient_conic() {
         )
         .unwrap();
     assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
-    quality::qualify(&mut r, &controls.accuracy);
+    quality::qualify(&mut r, &accuracy);
     assert_eq!(r.termination.category, Termination::Success, "{r:?}");
     // Native QP regularization can satisfy native stopping while missing the
     // requested original objective gap. The default candidate is only feasible.
     assert_eq!(r.qualification, Qualification::Feasible, "{r:?}");
     assert!(
-        matches!(r.metrics.get("primal_dual_objective_error"), Some(Metric::Real(v)) if *v > controls.accuracy.gap_relative)
+        matches!(r.metrics.get("primal_dual_objective_error"), Some(Metric::Real(v)) if *v > accuracy.gap_relative)
     );
     near(r.candidate.unwrap().primal[0], 2., 1e-5);
     let mut precise = controls.clone();
@@ -186,6 +196,7 @@ fn coefficient_conic() {
         .solve(
             &p,
             &precise,
+            &accuracy,
             highs::Method::Choose,
             execution(&precise),
             &Tolerances {
@@ -196,7 +207,7 @@ fn coefficient_conic() {
             None,
         )
         .unwrap();
-    quality::qualify(&mut r, &precise.accuracy);
+    quality::qualify(&mut r, &accuracy);
     assert_eq!(
         r.qualification,
         Qualification::OptimalWithinTolerance,

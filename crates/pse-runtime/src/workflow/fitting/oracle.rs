@@ -508,11 +508,13 @@ impl FitProblem {
                     adapter: native::execution::adapter(backend),
                     settings: &self.profile.solver.backend,
                     controls: &self.profile.solver.controls,
+                    accuracy: &self.accuracy,
                     execution: execution.clone(),
                     tolerances: &self.tolerances,
                     normalization: &self.normalization,
                     compatibility: Compatibility {
                         layout: self.key,
+                        profile: self.profile_key,
                         data: self.source_identity,
                         backend,
                     },

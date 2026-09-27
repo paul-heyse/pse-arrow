@@ -20,7 +20,6 @@ use std::{
 
 const INFINITY: f64 = 1e19;
 use crate::nlp_pattern::Pattern;
-pub use crate::presolve::Scaling;
 fn index(n: usize) -> Result<i32, ProblemError> {
     i32::try_from(n).map_err(|_| ProblemError::Unsupported("Ipopt index overflow".into()))
 }
@@ -346,7 +345,7 @@ unsafe extern "C" fn intermediate(
                 }
             {
                 values.insert(
-                    "stationarity.unscaled".into(),
+                    "stationarity.normalized".into(),
                     Metric::Real(lagrangian.iter().map(|v| v.abs()).fold(0.0, f64::max)),
                 );
             }
@@ -367,7 +366,7 @@ unsafe extern "C" fn intermediate(
                 }
             {
                 values.insert(
-                    "iterate.unscaled.infinity_norm".into(),
+                    "iterate.normalized.infinity_norm".into(),
                     Metric::Real(x.iter().map(|v| v.abs()).fold(0.0, f64::max)),
                 );
             }
@@ -500,8 +499,18 @@ pub fn termination(code: i32) -> NativeTermination {
 #[derive(Default)]
 pub struct Session {
     handle: Option<Handle>,
-    signature: Option<(pse_ids::ContentHash, Pattern, Pattern, Vec<u64>)>,
+    signature: Option<Signature>,
 }
+/// Everything a retained C problem keeps: its coordinates and profile, sparsity, bounds and
+/// the set of option keys set on it. Every solve re-applies all of its option values, so equal key
+/// sets mean no option of an earlier step survives into this one (F02).
+type Signature = (
+    (pse_ids::ContentHash, pse_ids::ContentHash),
+    Pattern,
+    Pattern,
+    Vec<u64>,
+    Vec<String>,
+);
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("IpoptSession")
@@ -522,9 +531,9 @@ impl Session {
         initial: &[f64],
         sense: ObjectiveSense,
         controls: &Controls,
+        accuracy: &ResolvedAccuracy,
         execution: Execution,
         tolerances: &Tolerances,
-        scaling: Option<&Scaling>,
         warm: Option<&WarmStart>,
         compatibility: Compatibility,
     ) -> Result<SolveReport, ProblemError> {
@@ -597,8 +606,85 @@ impl Session {
         if gl.iter().zip(&gu).any(|(l, u)| l > u) {
             return Err(ProblemError::Contract("invalid row bounds".into()));
         }
+        reject_reserved(
+            &controls.options,
+            &[
+                "option_file_name",
+                "hessian_approximation",
+                "gradient_approximation",
+                "jacobian_approximation",
+                "grad_f_constant",
+                "jac_c_constant",
+                "jac_d_constant",
+                "hessian_constant",
+                "nlp_lower_bound_inf",
+                "nlp_upper_bound_inf",
+                "max_iter",
+                "max_wall_time",
+                "max_cpu_time",
+                "tol",
+                "constr_viol_tol",
+                "dual_inf_tol",
+                "compl_inf_tol",
+                "acceptable_tol",
+                "acceptable_iter",
+                "acceptable_constr_viol_tol",
+                "acceptable_dual_inf_tol",
+                "acceptable_compl_inf_tol",
+                "bound_relax_factor",
+                "honor_original_bounds",
+                "warm_start_init_point",
+                "nlp_scaling_method",
+                "obj_scaling_factor",
+                "linear_solver",
+            ],
+        )?;
+        let mut options = controls.options.clone();
+        options.extend(accuracy.nlp_options());
+        options.extend([
+            ("option_file_name".into(), OptionValue::Text(String::new())),
+            (
+                "max_iter".into(),
+                OptionValue::Integer(controls.iterations as i32),
+            ),
+            (
+                "max_wall_time".into(),
+                OptionValue::Real(controls.time_limit.as_secs_f64()),
+            ),
+            (
+                "hessian_approximation".into(),
+                OptionValue::Text(if exact { "exact" } else { "limited-memory" }.into()),
+            ),
+            ("nlp_lower_bound_inf".into(), OptionValue::Real(-INFINITY)),
+            ("nlp_upper_bound_inf".into(), OptionValue::Real(INFINITY)),
+            ("linear_solver".into(), OptionValue::Text("mumps".into())),
+            (
+                "nlp_scaling_method".into(),
+                OptionValue::Text(
+                    if accuracy.native_scaling {
+                        "gradient-based"
+                    } else {
+                        "none"
+                    }
+                    .into(),
+                ),
+            ),
+        ]);
+        let facts = oracle.derivative_facts();
+        for (k, v) in [
+            ("grad_f_constant", facts.gradient_constant),
+            ("jac_c_constant", facts.jacobian_constant),
+            ("jac_d_constant", facts.jacobian_constant),
+            ("hessian_constant", exact && facts.hessian_constant),
+        ] {
+            options.insert(k.into(), OptionValue::Bool(v));
+        }
+        options
+            .entry("print_level".into())
+            .or_insert(OptionValue::Integer(0));
+        options.insert("warm_start_init_point".into(), OptionValue::Bool(false));
         let signature = (
-            compatibility.layout,
+            (compatibility.layout, compatibility.profile),
             jac.clone(),
             hess.clone(),
             xl.iter()
@@ -607,6 +693,7 @@ impl Session {
                 .chain(&gu)
                 .map(|v| v.to_bits())
                 .collect(),
+            options.keys().cloned().collect(),
         );
         let reused = self.signature.as_ref() == Some(&signature)
             && self.handle.is_some()
@@ -646,85 +733,6 @@ impl Session {
             .handle
             .as_ref()
             .ok_or_else(|| ProblemError::Internal("lost Ipopt native owner".into()))?;
-        reject_reserved(
-            &controls.options,
-            &[
-                "option_file_name",
-                "hessian_approximation",
-                "gradient_approximation",
-                "jacobian_approximation",
-                "grad_f_constant",
-                "jac_c_constant",
-                "jac_d_constant",
-                "hessian_constant",
-                "nlp_lower_bound_inf",
-                "nlp_upper_bound_inf",
-                "max_iter",
-                "max_wall_time",
-                "max_cpu_time",
-                "tol",
-                "constr_viol_tol",
-                "dual_inf_tol",
-                "compl_inf_tol",
-                "acceptable_tol",
-                "acceptable_iter",
-                "acceptable_constr_viol_tol",
-                "acceptable_dual_inf_tol",
-                "acceptable_compl_inf_tol",
-                "bound_relax_factor",
-                "honor_original_bounds",
-                "warm_start_init_point",
-                "nlp_scaling_method",
-                "obj_scaling_factor",
-                "linear_solver",
-            ],
-        )?;
-        let mut options = controls.options.clone();
-        options.extend(controls.accuracy.nlp_options());
-        options.extend([
-            ("option_file_name".into(), OptionValue::Text(String::new())),
-            (
-                "max_iter".into(),
-                OptionValue::Integer(controls.iterations as i32),
-            ),
-            (
-                "max_wall_time".into(),
-                OptionValue::Real(controls.time_limit.as_secs_f64()),
-            ),
-            (
-                "hessian_approximation".into(),
-                OptionValue::Text(if exact { "exact" } else { "limited-memory" }.into()),
-            ),
-            ("nlp_lower_bound_inf".into(), OptionValue::Real(-INFINITY)),
-            ("nlp_upper_bound_inf".into(), OptionValue::Real(INFINITY)),
-            ("linear_solver".into(), OptionValue::Text("mumps".into())),
-            (
-                "nlp_scaling_method".into(),
-                OptionValue::Text(
-                    if scaling.is_some() {
-                        "user-scaling"
-                    } else if controls.accuracy.native_scaling {
-                        "gradient-based"
-                    } else {
-                        "none"
-                    }
-                    .into(),
-                ),
-            ),
-        ]);
-        let facts = oracle.derivative_facts();
-        for (k, v) in [
-            ("grad_f_constant", facts.gradient_constant),
-            ("jac_c_constant", facts.jacobian_constant),
-            ("jac_d_constant", facts.jacobian_constant),
-            ("hessian_constant", exact && facts.hessian_constant),
-        ] {
-            options.insert(k.into(), OptionValue::Bool(v));
-        }
-        options
-            .entry("print_level".into())
-            .or_insert(OptionValue::Integer(0));
-        options.insert("warm_start_init_point".into(), OptionValue::Bool(false));
         let mut x = initial.to_vec();
         let mut lower = vec![0.0; n];
         let mut upper = vec![0.0; n];
@@ -766,31 +774,6 @@ impl Session {
         for (key, value) in &options {
             handle.option(key, value)?
         }
-        if let Some(s) = scaling {
-            if s.variables.len() != n
-                || s.constraints.len() != m
-                || std::iter::once(&s.objective)
-                    .chain(&s.variables)
-                    .chain(&s.constraints)
-                    .any(|v| !v.is_finite() || *v <= 0.0)
-            {
-                return Err(ProblemError::Contract(
-                    "positive native scaling dimensions/values".into(),
-                ));
-            }
-            let mut variables = s.variables.clone();
-            let mut rows = s.constraints.clone();
-            if !unsafe {
-                ffi::SetIpoptProblemScaling(
-                    handle.0.as_ptr(),
-                    s.objective,
-                    variables.as_mut_ptr(),
-                    rows.as_mut_ptr(),
-                )
-            } {
-                return Err(ProblemError::Internal("Ipopt rejected scaling".into()));
-            }
-        }
         if !unsafe { ffi::SetIntermediateCallback(handle.0.as_ptr(), Some(intermediate)) } {
             return Err(ProblemError::Internal(
                 "Ipopt intermediate callback registration".into(),
@@ -829,6 +812,7 @@ impl Session {
         report
             .metrics
             .insert("reuse.native_model".into(), Metric::Bool(reused));
+        report.evidence.reused_native_state = reused;
         report.evidence.start_submitted = warm.is_some();
         report
             .metrics
@@ -1020,6 +1004,85 @@ mod tests {
             )
         });
         assert_eq!(rows, [77]);
+    }
+    fn run(session: &mut Session, options: Options) -> SolveReport {
+        let controls = Controls {
+            options,
+            reuse: ReusePolicy::AllowRebuild,
+            ..Controls::default()
+        };
+        session
+            .solve(
+                &mut crate::solver_tests::Polynomial::new(),
+                &[2.0],
+                ObjectiveSense::Minimize,
+                &controls,
+                &ResolvedAccuracy::nominal(),
+                crate::solver_tests::execution(),
+                &Tolerances {
+                    variables: vec![1e-8],
+                    rows: vec![1e-8],
+                    integrality: 1e-8,
+                },
+                None,
+                crate::solver_tests::stamp(Backend::Ipopt),
+            )
+            .unwrap()
+    }
+    #[test]
+    fn reused_session_does_not_inherit_options() {
+        let mut session = Session::new();
+        let adaptive =
+            Options::from([("mu_strategy".into(), OptionValue::Text("adaptive".into()))]);
+        let first = run(&mut session, adaptive.clone());
+        assert_eq!(first.metrics["reuse.native_model"], Metric::Bool(false));
+        assert_eq!(
+            first.options["mu_strategy"],
+            OptionValue::Text("adaptive".into())
+        );
+        // The C problem keeps every option set on it, so a step without `mu_strategy`
+        // cannot run on the retained problem: its option key set differs.
+        let second = run(&mut session, Options::new());
+        assert_eq!(second.metrics["reuse.native_model"], Metric::Bool(false));
+        assert!(!second.options.contains_key("mu_strategy"));
+        let fresh = run(&mut Session::new(), Options::new());
+        assert_eq!(second.options, fresh.options);
+        assert_eq!(second.termination.category, fresh.termination.category);
+        assert_eq!(
+            second.candidate.as_ref().map(|c| c.primal.clone()),
+            fresh.candidate.as_ref().map(|c| c.primal.clone())
+        );
+        // The same option keys re-apply every value, so the problem is reused.
+        let third = run(&mut session, Options::new());
+        assert_eq!(third.metrics["reuse.native_model"], Metric::Bool(true));
+        let fourth = run(&mut session, adaptive);
+        assert_eq!(fourth.metrics["reuse.native_model"], Metric::Bool(false));
+    }
+    #[test]
+    fn metric_names_state_coordinates() {
+        // Ipopt sees the normalized model: its `unscaled` readbacks undo only Ipopt's own
+        // scaling, so they are normalized-coordinate values, never physical ones (F10).
+        let report = run(&mut Session::new(), Options::new());
+        let events = report
+            .events
+            .iter()
+            .filter(|e| e.phase == "ipopt.iteration")
+            .collect::<Vec<_>>();
+        assert!(!events.is_empty());
+        for event in events {
+            for key in event.values.keys() {
+                assert!(!key.contains("unscaled"), "{key}");
+            }
+            for key in [
+                "objective.normalized",
+                "stationarity.normalized",
+                "iterate.normalized.infinity_norm",
+                "primal.native",
+                "dual.native",
+            ] {
+                assert!(event.values.contains_key(key), "{key}");
+            }
+        }
     }
     #[test]
     fn exact_hessian_uses_native_objective_and_row_weights_once() {

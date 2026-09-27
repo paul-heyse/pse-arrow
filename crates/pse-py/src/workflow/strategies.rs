@@ -315,9 +315,9 @@ impl NativeAttempt {
     }
     /// Actual input seed receipt, distinct from available output starts.
     fn start_json(&self) -> Option<String> {
-        self.inner.start_receipt.as_ref().map(|s| document(serde_json::json!({
-            "previous_attempt":s.previous_attempt,"seed":s.seed.as_ref().map(|s|s.snapshot()),
-            "sparse_seed":s.sparse_seed,"transformations":s.transformations,"submitted":s.submitted,
-        })))
+        self.inner
+            .start_receipt
+            .as_ref()
+            .map(|s| document(s.snapshot()))
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     quality::{Quality, Tolerances, Violation, interval},
     solve::{
         Assurance, Backend, Candidate, Certificate, Compatibility, ConicEvidence, Controls, Event,
-        Execution, Metric, NativeTermination, SolveReport, Termination,
+        Execution, Metric, NativeTermination, ResolvedAccuracy, SolveReport, Termination,
     },
 };
 /// Pinned native CSC request storage; no parallel sparse matrix wire contract.
@@ -136,6 +136,7 @@ fn data(p: &ConicProblem) -> Data {
 fn settings(
     mut settings: DefaultSettings<f64>,
     controls: &Controls,
+    accuracy: &ResolvedAccuracy,
     mode: Mode,
 ) -> Result<DefaultSettings<f64>, ProblemError> {
     controls.validate()?;
@@ -166,19 +167,17 @@ fn settings(
     settings.max_iter = controls.iterations;
     settings.time_limit = controls.time_limit.as_secs_f64();
     settings.max_threads = 1;
-    settings.tol_gap_abs = controls.accuracy.gap_absolute;
-    settings.tol_gap_rel = controls.accuracy.gap_relative;
-    settings.tol_feas = controls.accuracy.feasibility;
-    settings.reduced_tol_gap_abs = controls
-        .accuracy
+    settings.tol_gap_abs = accuracy.gap_absolute;
+    settings.tol_gap_rel = accuracy.gap_relative;
+    settings.tol_feas = accuracy.feasibility;
+    settings.reduced_tol_gap_abs = accuracy
         .acceptable
         .map_or(settings.tol_gap_abs, |k| k.complementarity);
-    settings.reduced_tol_gap_rel = controls
-        .accuracy
+    settings.reduced_tol_gap_rel = accuracy
         .acceptable
         .map_or(settings.tol_gap_rel, |k| k.complementarity);
     settings.reduced_tol_feas = settings.tol_feas;
-    settings.equilibrate_enable = controls.accuracy.native_scaling;
+    settings.equilibrate_enable = accuracy.native_scaling;
     settings.verbose = false;
     if mode == Mode::ReusableData {
         settings.presolve_enable = false;
@@ -199,12 +198,13 @@ impl Session {
         p: &ConicProblem,
         certificate: &dyn pse_math::convexity::QuadraticEvidence,
         controls: &Controls,
+        accuracy: &ResolvedAccuracy,
         native: DefaultSettings<f64>,
         mode: Mode,
         compatibility: Compatibility,
     ) -> Result<Self, ProblemError> {
         p.validate(certificate)?;
-        let settings = settings(native, controls, mode)?;
+        let settings = settings(native, controls, accuracy, mode)?;
         let d = data(p);
         let solver =
             DefaultSolver::new(&p.quadratic, &p.objective, &d.a, &d.rhs, &d.cones, settings)
@@ -231,7 +231,7 @@ impl Session {
         let d = data(p);
         if self.mode != Mode::ReusableData
             || !self.solver.is_data_update_allowed()
-            || self.compatibility.layout != compatibility.layout
+            || !self.compatibility.same_session(&compatibility)
             || compatibility.backend != Backend::Clarabel
             || self.signature != d.cones
             || self.bounds != d.bounds
@@ -253,12 +253,13 @@ impl Session {
         &mut self,
         p: &ConicProblem,
         controls: &Controls,
+        accuracy: &ResolvedAccuracy,
         native: DefaultSettings<f64>,
         execution: Execution,
         tolerances: &Tolerances,
     ) -> Result<SolveReport, ProblemError> {
         tolerances.validate(p.contract.variables.len(), p.contract.rows.len())?;
-        let settings = settings(native, controls, self.mode)?;
+        let settings = settings(native, controls, accuracy, self.mode)?;
         let settings_json =
             serde_json::to_string(&settings).map_err(|e| ProblemError::Internal(e.to_string()))?;
         self.solver
@@ -694,6 +695,7 @@ mod tests {
             &p,
             &certificate,
             &Controls::default(),
+            &ResolvedAccuracy::nominal(),
             Settings::default(),
             Mode::ReusableData,
             stamp.clone(),

@@ -13,7 +13,7 @@ use crate::{
     routing::{Ineligible, Requirements},
     solve::{
         Backend, Compatibility, Controls, DerivativeCapability, Execution, ProblemClass,
-        SolveReport, WarmCapability, WarmPayload, WarmStart,
+        ResolvedAccuracy, SolveReport, WarmCapability, WarmPayload, WarmStart,
     },
 };
 use pse_ids::{ContentHash, SemanticId};
@@ -106,7 +106,7 @@ pub struct Budgets<'a> {
     pub tolerances: &'a Tolerances,
     /// Coordinate transport of the function the adapter evaluates.
     pub normalization: &'a Normalization,
-    /// Normalized feasibility budget (`Accuracy::feasibility`).
+    /// Normalized feasibility budget (`ResolvedAccuracy::feasibility`).
     pub feasibility: f64,
 }
 
@@ -116,6 +116,8 @@ pub struct Input<'a> {
     pub problem: Problem<'a>,
     /// Finite shared controls.
     pub controls: &'a Controls,
+    /// Stopping budgets resolved for this attempt.
+    pub accuracy: &'a ResolvedAccuracy,
     /// Typed settings, admitted for this adapter.
     pub settings: &'a BackendSettings,
     /// Cancellation, deadline and bounded progress.
