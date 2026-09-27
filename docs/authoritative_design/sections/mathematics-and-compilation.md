@@ -81,6 +81,10 @@ realization contract is proposed [ADR-0100](../../adr/0100-modeling-functions-an
 
 ### 7.3 Operation contracts: physical admission and domain obligations
 
+> Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — obligations project as
+> closed constraints of the library-neutral factorable program, never as value dependencies
+> (Plan 22 G2, implemented; [§7.5](#section-7-5)).
+
 Every constructor of `BodyBuilder` first asks `pse-quantity` inference for the complete
 result type (kind, basis, reference, scale, shape, canonical unit), including registered
 physical preconditions checked against the actual operands. Only an admitted operation
@@ -95,6 +99,16 @@ dependencies are recorded per output and survive simplification, cancellation an
 selection. The resulting `PreparedBody` is a sequence of stages: Symbolica blocks, guard
 checks, branch regions and provider calls. Only the stages are project control flow; each
 block is a library evaluator.
+
+`PreparedBody::demanded_stages` is the stage program an evaluation of selected outputs
+executes: the obligations those outputs and their recorded effects need, and only the
+arithmetic they read. Evaluator compilation and every projection of a body
+([§7.5](#section-7-5)) read this one program, so a projection carries exactly the
+obligations the evaluator enforces. The flattened library expression of an output
+(`PreparedBody::expression`) is optional: it is absent when a provider or branch prevents
+flattening, and also when substituting shared stage results would exceed the flattening
+bound of 16,384 operations or 1 MB, which large but factorable bodies such as Helmholtz
+derivatives reach. A consumer that must not lose such outputs reads the stage program.
 
 Branches are lazy: the unselected branch is never evaluated, so its failing obligations
 cannot fire. Both branches are physically checked at construction, and a separate
@@ -111,7 +125,7 @@ evaluation publishes nothing and never returns a previous trial's outputs. The c
 owns the guarded-real interpretation; `guarded_real_policy()` is a compiler constant, and
 no caller-supplied policy hash can select numerical behavior.
 
-**Source owners:** `crates/pse-math/src/{typed,guarded,execution,error}.rs`;
+**Source owners:** `crates/pse-math/src/{typed,guarded,execution,factorable,error}.rs`;
 physical inference in `crates/pse-quantity/src/{infer,preconditions}.rs`.
 
 ### 7.4 Normalization and exact literals
@@ -141,7 +155,11 @@ as constants, not model inputs.
 
 ### 7.5 Rows, contributions and established facts
 
-> Decision: [ADR-0111](../../adr/0111-multi-objective-optimization.md) — several
+> Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — `FactorableProgram`,
+> the library-neutral factorable projection with per-row fidelity, from which presolve
+> derives its tapes and obligation admission (Plan 22 G2, implemented; its SCIP binding,
+> Plan 22 G1 and G3, is not yet implemented);
+> [ADR-0111](../../adr/0111-multi-objective-optimization.md) — several
 > objectives with priority, weight and degradation tolerances (Plan 22 C3; not yet
 > implemented).
 
@@ -161,10 +179,66 @@ affine rows, objective degree and the bound/value assumptions that established t
 Polynomial degree two does not establish convexity; exact or explicitly qualified
 convexity evidence is separate ([§18](numerical-execution.md#section-18)). Value-dependent
 facts carry the identity of the fixed/parameter values they consumed; free trial values
-never establish them.
+never establish them. `presolve::Facts::coefficient_eligible` is the one coefficient-class
+rule: every row proved affine, an objective degree of at most two and every retained
+obligation discharged. Preparation, routing facts and the coefficient projection all
+consume it.
 
-**Source owners:** `crates/pse-math/src/{binding,facts,coefficients,presolve}.rs`,
-`crates/pse-compiler/src/workspace/modeling/`. The generic declaration contract is
+**Factorable projection.** `CasePlan::factorable_program` projects each instance's demanded
+stage program ([§7.3](#section-7-3)) into one shared, library-neutral DAG under fixed
+consumed values. A stage result stays one node however often it is read, so the projection
+never depends on the optional flattened expression. It is never an evaluator: the evaluator
+and original-coordinate qualification remain the authority for every candidate.
+
+- Nodes are `Var`, `Const`, n-ary `Sum` and `Product`, `Pow` with a constant exponent,
+  `Exp`, `Log`, `Abs`, `Sin`, `Cos` and `Aux`. A constant is an exact rational when the
+  library atom is rational, and otherwise a finite binary64 value, which is itself an exact
+  dyadic rational. A variable exponent is exported as `exp(e * log b)`, defined on the
+  positive base the evaluator requires.
+- Every row and the objective carry a `Fidelity`: `Exact`; `Relaxed`, a sound relaxation
+  through an auxiliary that supports bounds and infeasibility conclusions only; or
+  `Unavailable`, not projected, or an objective that depends on an auxiliary without a
+  finite box.
+- A branch whose regions are pure arithmetic is exported exactly as
+  `(X + Y)/2 - (α/2)|L - R|` when `X - Y = α(L - R)` is proved by symbolic expansion for α
+  in {±1, ±2, ±½}: minimum, maximum and absolute value in either guard orientation. Any
+  other branch follows the declared `BranchPolicy`. The default, `Auxiliary`, makes its
+  result an auxiliary, bounded by the branch values when all of them are constant.
+  `Disjunctive` is a typed refusal (`FactorableError::DisjunctiveBranch`) until the
+  discrete-decision packets land. A guard that is constant under the consumed values
+  selects its region statically.
+- `Require` and `Domain` stages are obligations, never value dependencies. Each becomes a
+  conjunction of closed constraints, marked `strict` where the original condition excludes
+  the finite bound; the conjunction is the obligation's closure. A part without a closed
+  conjunctive form, such as a disjunction of branch outcomes, is dropped soundly and the
+  obligation is marked unrepresented. An obligation inside a branch region is
+  `Conditional`: recorded for domain analysis, never a constraint of the exported program.
+- Implicit blocks export their original residual equations and declared bounds whatever
+  their realization, from owner-supplied definitions
+  (`AdmittedImplicit::factorable_definition`); a regime selection stays a provider output.
+  Other provider outputs become auxiliaries within the envelope their evaluation enforces,
+  which makes the dependent rows `Relaxed`. An exhausted node budget leaves the affected
+  rows `Unavailable` and records the instance as incomplete.
+
+**Presolve facts.** `CasePlan::presolve_facts` derives FBBT tapes and obligation admission
+from this projection, under the default request (no implicit definitions or envelopes;
+auxiliary branches). Affine proofs and the objective degree still use the optional
+flattened expressions. A large factorable body therefore keeps a complete tape, a
+requirement is admitted through its exact condition on its argument, and a validity
+predicate through its closed conjunction, which must be complete, over the selected
+variable box. Admission follows the evaluator's obligations:
+
+- obligations that guard only outputs no row or objective evaluates do not count;
+- an obligation inside a branch region can make its instance unestablished, never
+  violated;
+- hard sign domains come only from obligations enforced on every evaluation: an
+  unconditional requirement on a single scaled column;
+- an instance whose projection hit the node budget is unestablished when its body retains
+  any obligation.
+
+**Source owners:** `crates/pse-math/src/{binding,facts,coefficients,presolve,factorable}.rs`,
+`crates/pse-compiler/src/workspace/modeling/` (implicit residual definitions in
+`executable/factorable.rs`). The generic declaration contract is
 [`authored.modeling_declarations`](../../generated/relations/authored.md).
 
 ### 7.6 Null, bound, and unknown semantics

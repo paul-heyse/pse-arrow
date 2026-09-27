@@ -275,30 +275,30 @@ execution reports. Anchors point to the
 | [F02](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f02) Options persist across reuse | S07 | open | A3 | `reused_session_does_not_inherit_options` |
 | [F03](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f03) Unrecorded POUNCE retries | — | open | A3 | `pounce_retry_options_reserved_and_snapshotted` |
 | [F04](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f04) HiGHS QP method ignored | — | open | A3 | `highs_qp_explicit_method_refused` |
-| [F05](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f05) HiGHS callback kinds | — | open | A1 | `highs_callback_interrupt_kinds` |
-| [F06](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f06) IDAS failures misclassified | — | open | A1 | `idas_conv_fail_is_numerical` |
+| [F05](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f05) HiGHS callback kinds | — | resolved | A1 | Resolved: `highs_callback_interrupt_kinds` (A1, `59249b06`) |
+| [F06](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f06) IDAS failures misclassified | — | resolved | A1 | Resolved: `idas_conv_fail_is_numerical` (A1, `59249b06`) |
 | [F07](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f07) SQP working set unreachable | S14 | open | N2 | `sqp_working_set_restart_reaches_runtime` |
 | [F08](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f08) Claims ahead of routes | S06 | open | M1 (a); A7 (b, c) | `authored_milp_routes_to_highs`; `kinsol_dense_spgmr_picard_solve` |
 | [F09](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f09) Library types as contracts | S04, S05 | open | A4 (identity); A5 (types) | `identity_covers_every_settings_field`; `test_solve_settings_backend_projection` |
 | [F10](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f10) Metric and status naming, node budget | — | open | A1, A7, C2 | `metric_names_state_coordinates`; `mip_node_budget_independent` |
 | [F11](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f11) Stale HSL text; dead `Scaling` | — | open | A7, D0 (D22-07) | Deletion; superseding ADR |
 | [F12](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f12) IDAS dense loops | — | open | A3 | `idas_sensitivity_sparse_products`; Q1 IDAS benchmark |
-| [F13](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f13) Five acceptance rules | — | open | A1 | `candidate_use_iteration_limited_feasible_is_seed_only_everywhere` |
+| [F13](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f13) Five acceptance rules | — | resolved | A1 | Resolved: `candidate_use_iteration_limited_feasible_is_seed_only_everywhere`, `native_stops_map_to_one_candidate_use` (A1, `59249b06`) |
 | [F14](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f14) Parsed start provenance | — | open | A4 | `start_source_drives_initial_conditions` |
-| [F15](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f15) Fit deadline as evaluation failure | — | open | A1 | `transient_fit_deadline_is_time_limit` |
-| [F16](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f16) String-keyed qualification | — | open | A1 | `quality_reads_typed_evidence_only` |
-| [F17](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f17) `Contract(String)` flattening | — | open | A1 | `adapter_not_linked_is_unsupported`; `structural_failure_keeps_rows_and_columns` |
-| [F18](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f18) Duplicate validation fields | — | open | A1 | Deletion of `validation_error` |
-| [F19](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f19) Diagnostic vocabulary | — | open | A1 (D22-05) | Registry severity and category; codegen |
+| [F15](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f15) Fit deadline as evaluation failure | — | resolved | A1 | Resolved: `transient_fit_deadline_is_time_limit`, `stopped_failures_keep_time_limit_and_cancellation` (A1, `59249b06`) |
+| [F16](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f16) String-keyed qualification | — | resolved | A1 | Resolved: `quality_reads_typed_evidence_only` (A1, `59249b06`) |
+| [F17](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f17) `Contract(String)` flattening | — | resolved | A1 | Resolved: `adapter_not_linked_is_unsupported`, `structural_failure_keeps_rows_and_columns` (A1, `59249b06`); 186 sites retyped |
+| [F18](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f18) Duplicate validation fields | — | resolved | A1 | Resolved: `SolveReport.validation_error` deleted; `FitRule` codes (A1, `59249b06`) |
+| [F19](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f19) Diagnostic vocabulary | — | resolved | A1 (D22-05) | Resolved: `DiagnosticSeverity`, numerical/inconclusive classes; registry + codegen (A1, `59249b06`) |
 | [F20](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f20) Accuracy input/output conflation | — | open | A4 | `resolved_accuracy_not_user_input` |
-| [F21](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f21) Capability table vs routing | S18 | open | A2 | `published_capabilities_equal_routing_rules` |
-| [F22](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f22) KINSOL policy ×5 | — | open | A2 | `Settings::from_policy`; deletion of the copies |
-| [F23](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f23) Coefficient rule ×3 | — | open | A2 | `Facts::coefficient_eligible` |
+| [F21](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f21) Capability table vs routing | S18 | resolved | A2 | Resolved: `published_capabilities_equal_routing_rules` (A2, `18182734`) |
+| [F22](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f22) KINSOL policy ×5 | — | resolved | A2 | Resolved: `settings_from_policy_reduce_native_tests_to_original_budgets`; copies deleted (A2, `18182734`) |
+| [F23](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f23) Coefficient rule ×3 | — | resolved | A2 | Resolved: `coefficient_eligible_requires_affine_rows_quadratic_degree_and_discharged_obligations` (A2, `18182734`) |
 | [F24](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f24) Layout hash conflation | S14 | open | A4 | `native_option_change_keeps_seed_compatible` |
 | [F25](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f25) Provenance missing from identity | — | open | A4 | `lineage_identity_changes_with_seed` |
 | [F26](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f26) Python-only initialization admission | — | open | A5 | `initialization_admission_in_rust` |
-| [F27](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f27) Backend not additive | S18 | open | A2 | `stub_backend_routes_through_adapter_table` |
-| [F28](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f28) NLP orchestration ×4 | — | open | A2 | `nlp_runner_serves_solve_initialize_fit` |
+| [F27](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f27) Backend not additive | S18 | resolved | A2 | Resolved: `stub_backend_routes_through_adapter_table` (A2, `18182734`) |
+| [F28](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f28) NLP orchestration ×4 | — | resolved | A2 | Resolved: `nlp_runner_serves_solve_initialize_fit` (A2, `18182734`) |
 | [F29](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f29) Two initialization and multi-case engines | S14, S15 | open | A6 | `value_only_study_prepares_once` |
 | [F30](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f30) `Debug` strings as Python contract | — | open | A5 (D22-12) | `test_route_and_eligibility_are_typed` |
 | [F31](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f31) Cancellation and budget gaps | — | open | A3 | `nested_worker_observes_attempt_cancel`; `sequence_reserves_per_worker` |
@@ -308,7 +308,7 @@ execution reports. Anchors point to the
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
-| [T01](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t01) One `CandidateUse` vocabulary | — | open | A1 | `candidate_use_iteration_limited_feasible_is_seed_only_everywhere` |
+| [T01](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t01) One `CandidateUse` vocabulary | — | resolved | A1 | Resolved: A1 extended the existing `CandidateUse` (`59249b06`) |
 | [T02](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t02) Reader leases instead of advisory locks held by readers | — | open | O8 | `maintenance_waits_for_reader_leases` |
 | [T03](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t03) Durable cancellation column; re-read after listener loss | — | open | O4 | `cancel_notify_stops_running_job`; `cancel_survives_listener_reconnect` |
 | [T04](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t04) One MKL/OpenMP runtime per process; `MKL_CBWR` pinned | — | open | N1 | `single_blas_provider_in_process`; `ipopt_pardisomkl_selectable_under_cbwr` |
