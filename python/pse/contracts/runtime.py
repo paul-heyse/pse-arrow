@@ -1406,6 +1406,7 @@ class RuntimeSolveVariablesRow:
     unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     fixed: b.bool = attrs.field(validator=v.exact_type(b.bool))
     parameter: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    domain: e.ModelingVariableDomain | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ModelingVariableDomain)))
     value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     lower: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     upper: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))

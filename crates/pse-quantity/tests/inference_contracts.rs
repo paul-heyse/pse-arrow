@@ -52,18 +52,21 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
         dimension: temperature,
         extensive: false,
         addition_kind: QuantityAdditionKind::OriginSensitive,
+        category: None,
     });
     b.kind(QuantityKind {
         id: QuantityKindId::from_id(raw(2)),
         dimension: DimensionVector::DIMENSIONLESS,
         extensive: false,
         addition_kind: QuantityAdditionKind::Additive,
+        category: None,
     });
     b.kind(QuantityKind {
         id: QuantityKindId::from_id(raw(3)),
         dimension: squared,
         extensive: false,
         addition_kind: QuantityAdditionKind::Additive,
+        category: None,
     });
     b.unit(Unit {
         id: UnitId::from_id(raw(3)),

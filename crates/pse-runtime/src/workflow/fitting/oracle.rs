@@ -1017,12 +1017,10 @@ mod tests {
         data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(30),"name":"synthetic","source":"unit","content_hash":ContentHash::from_bytes([1;32])})).unwrap());
         data.observations.push(serde_json::from_value(serde_json::json!({"observation_id":id(31),"dataset_id":id(30),"target":"x squared","value":3.0,"unit_id":unit,"std_dev":2.0,"timestamp":null,"tag":null,"source_span":{"document_id":id(30),"start":0,"end":0}})).unwrap());
         data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":[{"symbol_id":id(1),"fixed":fixed,"value":2.0,"lower":0.1,"upper":10.0,"scale":2.0}],"experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":[{"parameter_id":id(1),"path":"p"}]}],"observations":[{"observation_id":id(31),"experiment_id":id(33),"output_path":"y","time":null,"included":true,"importance":4.0}]})).unwrap());
+        let mut names = crate::workflow::tests::discrete_names();
+        names.insert("Scalar".into(), quantity);
         runtime()
-            .modeling_package(
-                rows,
-                physical,
-                BTreeMap::from([("Scalar".into(), quantity)]),
-            )
+            .modeling_package(rows, physical, names)
             .unwrap()
             .with_fit_data(data)
             .unwrap()
@@ -1421,6 +1419,25 @@ mod tests {
         assert!(o.response_rank(&[2.0, 3.0]).is_err());
     }
 
+    #[tokio::test]
+    async fn fit_refuses_free_integer() {
+        let body = "param p: Scalar = 2; var n: Count in integer; annotation start n(1{1}); annotation bounds n(0{1}, 5{1}); eq e: n >= 1{1}; let y: Scalar = p*p;";
+        let error = source_body(false, body)
+            .prepare_fit_problem(
+                id(32),
+                profile(false),
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(
+            crate::workflow::tests::free_discrete_refusal(&error),
+            ("n".into(), "fitting".into())
+        );
+    }
     #[tokio::test]
     async fn authored_fit_retains_fixed_case_values_and_physical_bounds() {
         use pse_relations::columnar::RelationRow;

@@ -372,6 +372,14 @@ pub(super) fn dynamic_ports(
         .map(|v| v.port.clone())
         .collect::<Vec<_>>();
     let states = state.iter().map(|p| p.id).collect::<Vec<_>>();
+    // ADR-0103 item 6: integration holds discrete variables fixed per segment.
+    product
+        .model
+        .require_fixed_discrete(
+            states.iter().copied(),
+            pse_modeling::DomainAnalysis::IntegratedDynamics,
+        )
+        .map_err(crate::workflow::modeling_error)?;
     if product
         .model
         .derivatives
@@ -2045,6 +2053,66 @@ mod tests {
                 assert!((sample.output_sensitivities[yi] - sample.time / 9.).abs() < 1e-6);
             }
         }
+    }
+    #[tokio::test]
+    async fn dynamics_refuses_free_integer() {
+        let runtime = super::super::super::tests::runtime();
+        let (physical, mut names) = physical();
+        names.extend(super::super::super::tests::discrete_names());
+        let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); var x[i in t]: Time; var units: Count in integer; eq ode[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation start x(0{s}); annotation start units(1{1}); annotation bounds units(0{1}, 3{1}); } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let profile = native::Profile {
+            end: 1.,
+            samples: vec![0., 1.],
+            parameter_scales: vec![1.],
+            ..Default::default()
+        };
+        let cancel = crate::CancelSource::new();
+        let simulate = |case| {
+            package.prepare_simulation(
+                root,
+                root,
+                Bindings::default(),
+                Limits::default(),
+                case,
+                super::super::super::tests::compiler_profile(),
+                profile.clone(),
+                &cancel,
+            )
+        };
+        let error = simulate(ModelingCaseBindings::default())
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(
+            super::super::super::tests::free_discrete_refusal(&error),
+            ("units".into(), "integrated_dynamics".into())
+        );
+        // Fixed for the segment, the discrete input is an ordinary parameter of integration.
+        let fixed = ModelingCaseBindings {
+            values: BTreeMap::from([("units".into(), 1.)]),
+            variables: BTreeMap::from([(
+                "units".into(),
+                pse_compiler::workspace::ModelingVariableState {
+                    fixed: Some(true),
+                    ..Default::default()
+                },
+            )]),
+        };
+        let prepared = simulate(fixed).await.unwrap();
+        assert_eq!(prepared.contract.states.len(), 1);
     }
     #[tokio::test]
     async fn kernel_integrated_time_uses_generated_rates_native_solver_and_initial_sensitivities() {

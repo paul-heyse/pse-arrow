@@ -154,7 +154,10 @@ impl Session {
             "remaining diagnostic time",
         )?;
         let _callbacks = CallbackBinding::new(ptr, execution.clone())?;
-        let discrete = p.domains.iter().any(|d| *d != VariableDomain::Continuous);
+        let discrete = p
+            .domains
+            .iter()
+            .any(|d| *d != ModelingVariableDomain::Continuous);
         let quadratic = p
             .hessian
             .as_ref()
@@ -197,7 +200,7 @@ impl Session {
             // explicitly continuous copy instead of labelling a mixed-integer IIS as one.
             let mut relaxation = p.clone();
             for (variable, domain) in relaxation.contract.variables.iter_mut().zip(&p.domains) {
-                if *domain == VariableDomain::Binary {
+                if *domain == ModelingVariableDomain::Binary {
                     variable.lower = variable.lower.max(0.);
                     variable.upper = variable.upper.min(1.);
                 } else if domain.is_semi() {
@@ -205,7 +208,7 @@ impl Session {
                     variable.upper = variable.upper.max(0.);
                 }
             }
-            relaxation.domains.fill(VariableDomain::Continuous);
+            relaxation.domains.fill(ModelingVariableDomain::Continuous);
             let mut hash = pse_ids::FramedHasher::new("pse.highs.iis-relaxation.v1");
             hash.hash(&p.contract.identity).hash(&p.assumptions);
             relaxation.contract.identity = hash.finish_hash();
@@ -375,7 +378,11 @@ impl Session {
         p: &CoefficientProblem,
         values: &BTreeMap<SemanticId, f64>,
     ) -> Result<(), ProblemError> {
-        if !p.domains.iter().any(|d| *d != VariableDomain::Continuous) {
+        if !p
+            .domains
+            .iter()
+            .any(|d| *d != ModelingVariableDomain::Continuous)
+        {
             return Err(ProblemError::Unsupported(
                 "sparse start requires mixed-linear model".into(),
             ));

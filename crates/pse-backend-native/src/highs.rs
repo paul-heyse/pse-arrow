@@ -11,7 +11,8 @@ use crate::{
     solve::*,
 };
 use highs_sys as ffi;
-use pse_math::binding::{ObjectiveSense, VariableDomain};
+use pse_math::binding::ObjectiveSense;
+use pse_model::generated::enums::ModelingVariableDomain;
 use std::{
     collections::BTreeMap,
     ffi::{CString, c_char, c_void},
@@ -62,7 +63,7 @@ pub struct Session {
     model: Option<highs::Model>,
     gate: Option<RwLockReadGuard<'static, ()>>,
     compatibility: Compatibility,
-    structure: (Vec<usize>, Vec<usize>, Vec<VariableDomain>),
+    structure: (Vec<usize>, Vec<usize>, Vec<ModelingVariableDomain>),
     pending_sparse: Option<BTreeMap<pse_ids::SemanticId, f64>>,
     _local: PhantomData<Rc<()>>,
 }
@@ -119,7 +120,11 @@ fn admit(
         .hessian
         .as_ref()
         .is_some_and(|q| q.val().iter().any(|v| *v != 0.0));
-    if quadratic && p.domains.iter().any(|d| *d != VariableDomain::Continuous) {
+    if quadratic
+        && p.domains
+            .iter()
+            .any(|d| *d != ModelingVariableDomain::Continuous)
+    {
         return Err(ProblemError::Unsupported(
             "HiGHS MIQP is unsupported".into(),
         ));
@@ -130,7 +135,9 @@ fn admit(
     for (v, d) in p.contract.variables.iter().zip(&p.domains) {
         bounds(v.lower)?;
         bounds(v.upper)?;
-        if *d == VariableDomain::Binary && v.lower.max(0.0).ceil() > v.upper.min(1.0).floor() {
+        if *d == ModelingVariableDomain::Binary
+            && v.lower.max(0.0).ceil() > v.upper.min(1.0).floor()
+        {
             return Err(ProblemError::Contract("empty binary domain".into()));
         }
         if d.is_semi()
@@ -151,7 +158,7 @@ fn admit(
 }
 fn domain_bounds(p: &CoefficientProblem, c: usize) -> (f64, f64) {
     let v = &p.contract.variables[c];
-    if p.domains[c] == VariableDomain::Binary {
+    if p.domains[c] == ModelingVariableDomain::Binary {
         (v.lower.max(0.0), v.upper.min(1.0))
     } else {
         (v.lower, v.upper)
@@ -186,10 +193,10 @@ fn upload(p: &CoefficientProblem) -> Result<highs::Model, ProblemError> {
         .domains
         .iter()
         .map(|v| match v {
-            VariableDomain::Continuous => 0,
-            VariableDomain::Integer | VariableDomain::Binary => 1,
-            VariableDomain::SemiContinuous => 2,
-            VariableDomain::SemiInteger => 3,
+            ModelingVariableDomain::Continuous => 0,
+            ModelingVariableDomain::Integer | ModelingVariableDomain::Binary => 1,
+            ModelingVariableDomain::Semicontinuous => 2,
+            ModelingVariableDomain::Semiinteger => 3,
         })
         .collect();
     check(
@@ -332,10 +339,10 @@ fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), Pro
         equal &= same_bound(lo[c], l) && same_bound(hi[c], u);
         equal &= domains[c]
             == match p.domains[c] {
-                VariableDomain::Continuous => 0,
-                VariableDomain::Integer | VariableDomain::Binary => 1,
-                VariableDomain::SemiContinuous => 2,
-                VariableDomain::SemiInteger => 3,
+                ModelingVariableDomain::Continuous => 0,
+                ModelingVariableDomain::Integer | ModelingVariableDomain::Binary => 1,
+                ModelingVariableDomain::Semicontinuous => 2,
+                ModelingVariableDomain::Semiinteger => 3,
             };
     }
     equal &= p
@@ -585,7 +592,10 @@ impl Session {
             ("log_file".into(), OptionValue::Text(String::new())),
             ("output_flag".into(), OptionValue::Bool(false)),
         ]);
-        let discrete = p.domains.iter().any(|d| *d != VariableDomain::Continuous);
+        let discrete = p
+            .domains
+            .iter()
+            .any(|d| *d != ModelingVariableDomain::Continuous);
         if !controls.accuracy.native_scaling
             && (method != Method::Simplex
                 || discrete
@@ -1298,12 +1308,12 @@ pub fn coefficient_quality(
         } else {
             interval(
                 x,
-                if *d == VariableDomain::Binary {
+                if *d == ModelingVariableDomain::Binary {
                     v.lower.max(0.0)
                 } else {
                     v.lower
                 },
-                if *d == VariableDomain::Binary {
+                if *d == ModelingVariableDomain::Binary {
                     v.upper.min(1.0)
                 } else {
                     v.upper
@@ -1369,7 +1379,7 @@ mod tests {
             objective: vec![2.0],
             objective_constant: 7.0,
             sense: ObjectiveSense::Maximize,
-            domains: vec![VariableDomain::Binary],
+            domains: vec![ModelingVariableDomain::Binary],
             assumptions: crate::solver_tests::stamp(Backend::Highs).data,
             constraints: o.matrix,
             hessian: None,
@@ -1391,13 +1401,23 @@ mod tests {
         let controls = Controls::default();
         for (domain, bounds, row, conflict) in [
             (
-                VariableDomain::Binary,
+                ModelingVariableDomain::Binary,
                 (-10., 10.),
                 (2., f64::INFINITY),
                 true,
             ),
-            (VariableDomain::Integer, (-10., 10.), (0.5, 0.5), false),
-            (VariableDomain::SemiContinuous, (1., 10.), (0., 0.), false),
+            (
+                ModelingVariableDomain::Integer,
+                (-10., 10.),
+                (0.5, 0.5),
+                false,
+            ),
+            (
+                ModelingVariableDomain::Semicontinuous,
+                (1., 10.),
+                (0., 0.),
+                false,
+            ),
         ] {
             p.domains[0] = domain;
             p.contract.variables[0].lower = bounds.0;
@@ -1433,7 +1453,7 @@ mod tests {
     fn native_relaxation_preserves_restored_status_and_physical_penalty() {
         use std::sync::{Arc, atomic::AtomicBool};
         let mut p = problem();
-        p.domains[0] = VariableDomain::Continuous;
+        p.domains[0] = ModelingVariableDomain::Continuous;
         p.contract.variables[0].lower = 0.;
         p.contract.variables[0].upper = 1.;
         p.bounds[0] = (2., f64::INFINITY);
@@ -1595,7 +1615,7 @@ mod tests {
         p.constraints.val_mut()[0] = 1e-12;
         assert!(Session::new(&p, None, crate::solver_tests::stamp(Backend::Highs)).is_err());
         p.constraints.val_mut()[0] = 1.0;
-        p.domains[0] = VariableDomain::SemiContinuous;
+        p.domains[0] = ModelingVariableDomain::Semicontinuous;
         p.contract.variables[0].lower = 2.0;
         p.contract.variables[0].upper = 3.0;
         let t = Tolerances {

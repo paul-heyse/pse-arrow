@@ -6,9 +6,10 @@ use crate::{CoefficientProblem, NleOracle, NlpOracle, OracleContract, ProblemErr
 use pse_kernels::DerivativeOrder;
 use pse_math::{
     assembly::{CasePlan, CaseWorker},
-    binding::{CaseValues, VariableDomain},
+    binding::CaseValues,
     coefficients::Coefficients,
 };
+use pse_model::generated::enums::ModelingVariableDomain;
 
 /// Attempt-owned algebraic oracle; fixed values and parameters cannot change structure.
 #[derive(Debug)]
@@ -31,7 +32,7 @@ impl AlgebraicOracle {
             .structure()
             .variables()
             .iter()
-            .any(|v| !v.fixed && v.domain != VariableDomain::Continuous)
+            .any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous)
         {
             return Err(ProblemError::Unsupported(
                 "continuous oracle cannot admit integer variables".into(),
@@ -271,12 +272,12 @@ pub fn contract(assembly: &CasePlan) -> OracleContract {
             .filter(|v| !v.fixed)
             .map(|v| Variable {
                 id: v.port.id,
-                lower: if v.domain == VariableDomain::Binary {
+                lower: if v.domain == ModelingVariableDomain::Binary {
                     v.lower.unwrap_or(0.0).max(0.0)
                 } else {
                     v.lower.unwrap_or(f64::NEG_INFINITY)
                 },
-                upper: if v.domain == VariableDomain::Binary {
+                upper: if v.domain == ModelingVariableDomain::Binary {
                     v.upper.unwrap_or(1.0).min(1.0)
                 } else {
                     v.upper.unwrap_or(f64::INFINITY)

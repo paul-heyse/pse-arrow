@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Generic modeling-language declarations; the sole durable kernel IR schema.
-use super::declarations::{column, enumeration, relation};
+use super::declarations::{column, enumeration, relation, relation_version};
 use crate::builder::RegistryBuilder;
 use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S, TaggedAlternative};
 use arrow_schema::DataType as D;
@@ -135,6 +135,10 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 indices(),
                 text("expression").optional(),
                 text("defined_by").optional(),
+                // ADR-0103: present exactly on a variable; continuous is the default spelling.
+                T::enumeration("ModelingVariableDomain")
+                    .with_name("domain")
+                    .optional(),
             ],
         ),
         (
@@ -299,6 +303,17 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     );
     enumeration(
         builder,
+        "ModelingVariableDomain",
+        [
+            "continuous",
+            "integer",
+            "binary",
+            "semicontinuous",
+            "semiinteger",
+        ],
+    );
+    enumeration(
+        builder,
         "ModelingAccumulatorMode",
         ["conservation", "accounting"],
     );
@@ -357,10 +372,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         arms.into_iter()
             .map(|(name, _, fields)| T::structure(fields).with_name(name).optional()),
     );
-    relation(
+    relation_version(
         builder,
         N::Authored,
         "modeling_declarations",
+        2,
         S::Model,
         &["declaration_id"],
         vec![
@@ -377,7 +393,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Version-one generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR.",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none.",
     );
     enumeration(
         builder,

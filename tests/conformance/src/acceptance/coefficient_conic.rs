@@ -33,12 +33,13 @@ fn execution(c: &Controls) -> Execution {
 #[test]
 fn coefficient_conic() {
     use faer::sparse::{SparseColMat, Triplet};
-    use pse_math::binding::{ObjectiveSense, VariableDomain};
+    use pse_math::binding::ObjectiveSense;
+    use pse_model::generated::enums::ModelingVariableDomain;
     let controls = Controls::default();
     for domain in [
-        VariableDomain::Continuous,
-        VariableDomain::Integer,
-        VariableDomain::Binary,
+        ModelingVariableDomain::Continuous,
+        ModelingVariableDomain::Integer,
+        ModelingVariableDomain::Binary,
     ] {
         let p = CoefficientProblem {
             contract: contract(1),
@@ -76,8 +77,8 @@ fn coefficient_conic() {
         near(
             r.candidate.as_ref().unwrap().primal[0],
             match domain {
-                VariableDomain::Continuous => 2.5,
-                VariableDomain::Integer => 2.,
+                ModelingVariableDomain::Continuous => 2.5,
+                ModelingVariableDomain::Integer => 2.,
                 _ => 1.,
             },
             1e-7,
@@ -146,7 +147,7 @@ fn coefficient_conic() {
         objective: vec![-4.],
         objective_constant: 4.,
         sense: ObjectiveSense::Minimize,
-        domains: vec![VariableDomain::Continuous],
+        domains: vec![ModelingVariableDomain::Continuous],
         assumptions: stamp(Backend::Highs).data,
         constraints: SparseColMat::try_new_from_triplets(0, 1, &[]).unwrap(),
         hessian: Some(q),
@@ -203,9 +204,9 @@ fn coefficient_conic() {
         "{r:?}"
     );
     near(r.candidate.unwrap().primal[0], 2., 1e-8);
-    p.domains[0] = VariableDomain::Integer;
+    p.domains[0] = ModelingVariableDomain::Integer;
     assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());
-    p.domains[0] = VariableDomain::Continuous;
+    p.domains[0] = ModelingVariableDomain::Continuous;
     p.hessian.as_mut().unwrap().val_mut()[0] = -2.;
     assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());
 }

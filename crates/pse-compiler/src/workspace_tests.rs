@@ -4,8 +4,8 @@ use super::*;
 use pse_kernels::Port;
 use pse_math::binding::{
     Contribution, InstanceBinding, Objective, ObjectiveSense, Row, SlotBinding, Variable,
-    VariableDomain,
 };
+use pse_model::generated::enums::ModelingVariableDomain;
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
@@ -42,7 +42,7 @@ pub(super) fn inputs() -> Inputs {
         vec![Variable {
             port: port(1),
             fixed: false,
-            domain: VariableDomain::Continuous,
+            domain: ModelingVariableDomain::Continuous,
             lower: None,
             upper: None,
         }],

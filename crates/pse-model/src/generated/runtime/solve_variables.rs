@@ -23,6 +23,8 @@ pub struct RuntimeSolveVariablesRow {
     pub r#fixed: bool,
     ///parameter
     pub r#parameter: bool,
+    ///domain
+    pub r#domain: Option<crate::generated::enums::ModelingVariableDomain>,
     ///value
     pub r#value: Option<f64>,
     ///lower
@@ -55,6 +57,7 @@ impl crate::SemanticEq for RuntimeSolveVariablesRow {
             && crate::SemanticEq::semantic_eq(&self.r#unit_id, &other.r#unit_id)
             && crate::SemanticEq::semantic_eq(&self.r#fixed, &other.r#fixed)
             && crate::SemanticEq::semantic_eq(&self.r#parameter, &other.r#parameter)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
             && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
             && crate::SemanticEq::semantic_eq(&self.r#lower, &other.r#lower)
             && crate::SemanticEq::semantic_eq(&self.r#upper, &other.r#upper)
@@ -105,6 +108,8 @@ impl crate::SemanticFrame for RuntimeSolveVariablesRow {
         crate::SemanticFrame::frame(&self.r#fixed, hash);
         hash.str(stringify!(r#parameter));
         crate::SemanticFrame::frame(&self.r#parameter, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
         hash.str(stringify!(r#value));
         crate::SemanticFrame::frame(&self.r#value, hash);
         hash.str(stringify!(r#lower));
@@ -139,6 +144,7 @@ impl crate::HeapUsage for RuntimeSolveVariablesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#fixed))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lower))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#upper))

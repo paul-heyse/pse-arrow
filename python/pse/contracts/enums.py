@@ -534,6 +534,16 @@ class ModelingRealizationPolicy(StrEnum):
     ACCELERATED = "accelerated"
 
 
+class ModelingVariableDomain(StrEnum):
+    """The declared ModelingVariableDomain enumeration."""
+
+    CONTINUOUS = "continuous"
+    INTEGER = "integer"
+    BINARY = "binary"
+    SEMICONTINUOUS = "semicontinuous"
+    SEMIINTEGER = "semiinteger"
+
+
 class Namespace(StrEnum):
     """The declared Namespace enumeration."""
 
@@ -845,6 +855,13 @@ class QuantityAdditionKind(StrEnum):
 
     ADDITIVE = "additive"
     ORIGIN_SENSITIVE = "origin_sensitive"
+
+
+class QuantityKindCategory(StrEnum):
+    """The declared QuantityKindCategory enumeration."""
+
+    COUNT = "count"
+    INDICATOR = "indicator"
 
 
 class QuantityPreconditionKind(StrEnum):

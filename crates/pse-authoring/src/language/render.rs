@@ -201,7 +201,7 @@ fn print_block(
                     _ => "scope",
                 };
                 format!(
-                    "{keyword} {n}{}{}{}{};",
+                    "{keyword} {n}{}{}{}{}{};",
                     indices(
                         v.indices
                             .iter()
@@ -212,6 +212,10 @@ fn print_block(
                     } else {
                         format!(": {}", v.type_name)
                     },
+                    // Continuous is the default and prints without a facet.
+                    v.domain
+                        .filter(|d| d.is_discrete())
+                        .map_or(String::new(), |d| format!(" in {}", d.as_str())),
                     v.expression
                         .as_ref()
                         .map_or(String::new(), |e| format!(" = {e}")),

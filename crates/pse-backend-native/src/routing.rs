@@ -6,7 +6,8 @@ use crate::{
     ProblemError,
     solve::{Backend, SolveIntent, SolverSelection},
 };
-use pse_math::{binding::VariableDomain, facts::ProblemFacts};
+use pse_math::facts::ProblemFacts;
+use pse_model::generated::enums::ModelingVariableDomain;
 /// Selected execution class, including the zero-variable path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {
@@ -46,7 +47,7 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         rows: c.rows.len(),
         objective,
         equalities,
-        domains: vec![VariableDomain::Continuous; c.variables.len()],
+        domains: vec![ModelingVariableDomain::Continuous; c.variables.len()],
         derivatives: c.derivatives.min(c.smoothness),
         prepared_derivatives: c.derivatives,
         bounds: c
@@ -76,7 +77,10 @@ impl Requirements<'_> {
         use pse_kernels::DerivativeOrder;
         use pse_math::facts::BoundShape;
         let f = self.facts;
-        let continuous = f.domains.iter().all(|d| *d == VariableDomain::Continuous);
+        let continuous = f
+            .domains
+            .iter()
+            .all(|d| *d == ModelingVariableDomain::Continuous);
         let first = f.derivatives.min(f.prepared_derivatives) >= DerivativeOrder::First;
         let root = f.equalities && f.rows == f.variables && !f.objective && continuous;
         let root_intent = matches!(self.intent, SolveIntent::Root | SolveIntent::Initialize);
@@ -267,7 +271,7 @@ mod tests {
             rows: 1,
             objective: false,
             equalities: true,
-            domains: vec![VariableDomain::Continuous],
+            domains: vec![ModelingVariableDomain::Continuous],
             derivatives: pse_kernels::DerivativeOrder::Second,
             prepared_derivatives: pse_kernels::DerivativeOrder::Second,
             bounds: vec![pse_math::facts::BoundShape::Free],
@@ -352,7 +356,7 @@ mod tests {
             rows: 1,
             objective: true,
             equalities: true,
-            domains: vec![VariableDomain::Integer; 2],
+            domains: vec![ModelingVariableDomain::Integer; 2],
             derivatives: pse_kernels::DerivativeOrder::Second,
             prepared_derivatives: pse_kernels::DerivativeOrder::Second,
             bounds: vec![pse_math::facts::BoundShape::Free; 2],
@@ -377,7 +381,7 @@ mod tests {
             )
             .is_err()
         );
-        f.domains.fill(VariableDomain::Continuous);
+        f.domains.fill(ModelingVariableDomain::Continuous);
         f.coefficients = false;
         assert!(
             select(

@@ -289,6 +289,18 @@ crate::closed_enum! {
 }
 
 crate::closed_enum! {
+    /// The discrete category of a dimensionless kind whose values are pure numbers
+    /// (ADR-0103, PS-01). An integer or binary decision is typed by one of these kinds;
+    /// a measured kind carries no category.
+    pub enum QuantityKindCategory {
+        /// A number of discrete things: units in operation, trays, modules.
+        Count => "count",
+        /// A zero-or-one state: on/off, selected/not selected.
+        Indicator => "indicator",
+    }
+}
+
+crate::closed_enum! {
     /// The amount a specific quantity is specific *to* (blueprint §6.2, `reference.bases.kind`).
     pub enum BasisKind {
         /// Per mole.
@@ -488,6 +500,7 @@ pub fn dictionaries() -> Vec<(&'static str, Vec<&'static str>)> {
         Opcode,
         ScaleKind,
         QuantityAdditionKind,
+        QuantityKindCategory,
         BasisKind,
         CompositionBasis,
         RateBasis,
@@ -511,8 +524,8 @@ mod tests {
 
     use super::{
         BasisKind, BasisRule, CompositionBasis, ConversionKind, Opcode,
-        QuantityAdditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind,
-        ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule,
+        QuantityAdditionKind, QuantityKindCategory, QuantityScaleRule, QuantityShapeRule,
+        RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule,
         WeightNormalization,
     };
 
@@ -541,6 +554,7 @@ mod tests {
         Opcode,
         ScaleKind,
         QuantityAdditionKind,
+        QuantityKindCategory,
         BasisKind,
         CompositionBasis,
         RateBasis,
@@ -576,6 +590,7 @@ mod tests {
         round_trip(Opcode::ALL);
         round_trip(ScaleKind::ALL);
         round_trip(QuantityAdditionKind::ALL);
+        round_trip(QuantityKindCategory::ALL);
         round_trip(BasisKind::ALL);
         round_trip(CompositionBasis::ALL);
         round_trip(RateBasis::ALL);

@@ -50,6 +50,27 @@ pub enum ModelingError {
         /// Missing capability, never silently ignored.
         capability: String,
     },
+    /// A declared variable domain the requested analysis cannot admit (ADR-0103).
+    #[error(
+        "variable {path} in {}: {} for {}",
+        .domain.as_str(),
+        .reason.as_str(),
+        .analysis.as_str()
+    )]
+    Domain {
+        /// Instantiated variable identity.
+        variable: SemanticId,
+        /// Declaring source identity.
+        declaration: SemanticId,
+        /// Authored instance path of the variable.
+        path: String,
+        /// Declared domain.
+        domain: pse_model::generated::enums::ModelingVariableDomain,
+        /// Analysis whose admission refused the variable.
+        analysis: DomainAnalysis,
+        /// Violated admission rule.
+        reason: DomainRefusal,
+    },
     /// The caller withdrew this computation; never a cached semantic diagnostic.
     #[error("modeling cancelled")]
     Cancelled,
@@ -62,6 +83,11 @@ pse_diagnostics::impl_diagnostic! {
         ModelingError::Located { .. } => return None,
         ModelingError::Contract { .. } => pse_diagnostics::DiagnosticCode::ValidationInvariant,
         ModelingError::Unsupported { .. } => pse_diagnostics::DiagnosticCode::CapabilityBackend,
+        ModelingError::Domain { reason, .. } => if reason.is_unsupported() {
+            pse_diagnostics::DiagnosticCode::CapabilityBackend
+        } else {
+            pse_diagnostics::DiagnosticCode::ValidationInvariant
+        },
         ModelingError::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         ModelingError::Budget(_) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
     }) },
@@ -70,9 +96,9 @@ pse_diagnostics::impl_diagnostic! {
 impl ModelingError {
     pub(crate) fn located(self, rows: &[Declaration]) -> Self {
         let id = match &self {
-            Self::Contract { declaration, .. } | Self::Unsupported { declaration, .. } => {
-                *declaration
-            }
+            Self::Contract { declaration, .. }
+            | Self::Unsupported { declaration, .. }
+            | Self::Domain { declaration, .. } => *declaration,
             _ => return self,
         };
         let mut matches = rows.iter().filter(|row| row.declaration_id == id);
@@ -132,6 +158,37 @@ impl ModelingError {
                 Some(*declaration),
                 Some(capability),
             ),
+            Self::Domain {
+                variable,
+                declaration,
+                path,
+                domain,
+                analysis,
+                reason,
+            } => {
+                let class = if reason.is_unsupported() {
+                    Class::Unsupported
+                } else {
+                    Class::InvalidModel
+                };
+                let mut diagnostic = BoundaryDiagnostic::new(
+                    class,
+                    "modeling",
+                    [*declaration, *variable],
+                    "modeling.domain",
+                );
+                for (name, value) in [
+                    ("variable", path.as_str()),
+                    ("domain", domain.as_str()),
+                    ("analysis", analysis.as_str()),
+                    ("reason", reason.as_str()),
+                ] {
+                    diagnostic
+                        .observations
+                        .insert(name.into(), Observation::Text(value.into()));
+                }
+                return diagnostic;
+            }
             Self::Cancelled => (Class::Cancelled, "modeling.cancelled", None, None),
             Self::Budget(reason) => (Class::ResourceLimit, "modeling.budget", None, Some(reason)),
         };
@@ -142,6 +199,60 @@ impl ModelingError {
                 .insert("detail".into(), Observation::Text(detail.clone()));
         }
         diagnostic
+    }
+}
+/// The analysis whose admission refused a declared discrete domain (ADR-0103 item 6).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DomainAnalysis {
+    /// Case preparation, which every analysis passes: typing and finite bounds.
+    Preparation,
+    /// A square root solve; discrete variables are admitted only when fixed.
+    Root,
+    /// Initialization; discrete variables are admitted only when fixed.
+    Initialization,
+    /// Parameter estimation; refused unless the case fixes every discrete variable.
+    Fitting,
+    /// Integrated dynamics; discrete variables are fixed per segment.
+    IntegratedDynamics,
+}
+impl DomainAnalysis {
+    /// Stable diagnostic spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Preparation => "preparation",
+            Self::Root => "root",
+            Self::Initialization => "initialization",
+            Self::Fitting => "fitting",
+            Self::IntegratedDynamics => "integrated_dynamics",
+        }
+    }
+}
+/// The admission rule a declared discrete domain violated (ADR-0103 items 3, 4 and 6).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DomainRefusal {
+    /// Integer and binary require a dimensionless count or indicator quantity kind.
+    QuantityKind,
+    /// Integer and semi domains require finite case bounds.
+    InfiniteBound,
+    /// The bounds leave no admissible value: binary outside [0, 1], an empty integer
+    /// range, or a semi interval that is not positive.
+    EmptyDomain,
+    /// The analysis admits a discrete variable only when the case fixes it.
+    Free,
+}
+impl DomainRefusal {
+    /// Stable diagnostic spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::QuantityKind => "requires a dimensionless count or indicator quantity",
+            Self::InfiniteBound => "requires finite case bounds",
+            Self::EmptyDomain => "bounds admit no value of the domain",
+            Self::Free => "must be fixed by the case",
+        }
+    }
+    /// A missing capability of the analysis, as opposed to an invalid model.
+    pub const fn is_unsupported(self) -> bool {
+        matches!(self, Self::InfiniteBound | Self::Free)
     }
 }
 pub(crate) type Result<T> = std::result::Result<T, ModelingError>;

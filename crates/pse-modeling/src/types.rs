@@ -189,7 +189,8 @@ impl TypeContext<'_> {
         }
         match text {
             "Boolean" => return Ok(Type::Boolean),
-            "Integer" | "Count" => return Ok(Type::Integer),
+            // `Count` names the physical count kind of an integer decision (ADR-0103).
+            "Integer" => return Ok(Type::Integer),
             "Text" => return Ok(Type::Text),
             _ => {}
         }

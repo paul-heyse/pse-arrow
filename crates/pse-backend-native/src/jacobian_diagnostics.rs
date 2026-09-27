@@ -5,7 +5,8 @@ use crate::{CoefficientProblem,OracleContract,ProblemError,Variable,highs,qualit
 use faer::sparse::{SparseColMat,SparseColMatRef,Triplet};
 use pse_ids::{FramedHasher,SemanticId};
 use pse_kernels::DerivativeOrder;
-use pse_math::binding::{ObjectiveSense,VariableDomain};
+use pse_math::binding::ObjectiveSense;
+use pse_model::generated::enums::ModelingVariableDomain;
 use std::collections::BTreeSet;
 
 /// Finite search over anchored left-null vectors.
@@ -43,7 +44,7 @@ pub struct Report {
 struct Builder {
     id: SemanticId,
     variables: Vec<Variable>,
-    domains: Vec<VariableDomain>,
+    domains: Vec<ModelingVariableDomain>,
     objective: Vec<f64>,
     rows: Vec<SemanticId>,
     bounds: Vec<(f64, f64)>,
@@ -55,7 +56,7 @@ impl Builder {
         name: &str,
         lower: f64,
         upper: f64,
-        domain: VariableDomain,
+        domain: ModelingVariableDomain,
         cost: f64,
     ) -> usize {
         let i = self.variables.len();
@@ -160,7 +161,7 @@ fn problem(
             &format!("multiplier-{id}"),
             if i == pivot { 1. } else { -bound },
             if i == pivot { 1. } else { bound },
-            VariableDomain::Continuous,
+            ModelingVariableDomain::Continuous,
             0.,
         );
     }
@@ -170,7 +171,7 @@ fn problem(
                 &format!("selected-{id}"),
                 0.,
                 1.,
-                VariableDomain::Binary,
+                ModelingVariableDomain::Binary,
                 1.,
             );
         }
@@ -193,7 +194,7 @@ fn problem(
             "residual-infinity-norm",
             0.,
             f64::INFINITY,
-            VariableDomain::Continuous,
+            ModelingVariableDomain::Continuous,
             1.,
         );
         for col in 0..matrix.ncols() {

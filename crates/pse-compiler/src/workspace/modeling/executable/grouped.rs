@@ -5,7 +5,6 @@ use super::*;
 use pse_kernels::Port;
 use pse_math::binding::{
     CaseLimits, CaseStructure, Contribution, InstanceBinding, Row, SlotBinding, Target, Variable,
-    VariableDomain,
 };
 
 impl ModelingOutput {
@@ -294,13 +293,15 @@ pub(super) fn admit(
                 .canonical_unit,
         };
         ports.insert(*id, port.clone());
-        if p.free.contains(id) {
+        if let Some(domain) = p.free.get(id).copied() {
+            // A binary decision implies the unit box; cases may only narrow it.
+            let binary = domain == pse_model::generated::enums::ModelingVariableDomain::Binary;
             variables.push(Variable {
                 port,
                 fixed: false,
-                domain: VariableDomain::Continuous,
-                lower: p.nonnegative.contains(id).then_some(0.0),
-                upper: None,
+                domain,
+                lower: (binary || p.nonnegative.contains(id)).then_some(0.0),
+                upper: binary.then_some(1.0),
             });
         } else {
             parameters.push(port);

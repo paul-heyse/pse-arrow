@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Compiler-established mathematical facts, independent of any solver library.
-use crate::{MathError, assembly::CasePlan, binding::VariableDomain, coefficients::Coefficients};
+use crate::{MathError, assembly::CasePlan, coefficients::Coefficients};
+use pse_model::generated::enums::ModelingVariableDomain;
 /// Admitted interval shape; values remain owned by the original case structure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BoundShape {
@@ -30,7 +31,7 @@ pub struct ProblemFacts {
     /// Every row is a finite equality.
     pub equalities: bool,
     /// One source-declared domain per free variable.
-    pub domains: Vec<VariableDomain>,
+    pub domains: Vec<ModelingVariableDomain>,
     /// Exact available and admitted smooth derivative order.
     pub derivatives: pse_kernels::DerivativeOrder,
     /// Order in the prepared artifact requests; independent of mathematical availability.
@@ -89,8 +90,8 @@ impl ProblemFacts {
                 .filter(|v| !v.fixed)
                 .map(|v| {
                     match (
-                        v.lower.is_some() || v.domain == VariableDomain::Binary,
-                        v.upper.is_some() || v.domain == VariableDomain::Binary,
+                        v.lower.is_some() || v.domain == ModelingVariableDomain::Binary,
+                        v.upper.is_some() || v.domain == ModelingVariableDomain::Binary,
                     ) {
                         (false, false) => BoundShape::Free,
                         (true, false) if v.lower == Some(0.0) => BoundShape::Nonnegative,

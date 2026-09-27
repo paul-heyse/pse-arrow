@@ -4912,6 +4912,109 @@ impl core::str::FromStr for ModelingRealizationPolicy {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ModelingVariableDomain {
+    ///continuous
+    #[serde(rename = "continuous")]
+    Continuous,
+    ///integer
+    #[serde(rename = "integer")]
+    Integer,
+    ///binary
+    #[serde(rename = "binary")]
+    Binary,
+    ///semicontinuous
+    #[serde(rename = "semicontinuous")]
+    Semicontinuous,
+    ///semiinteger
+    #[serde(rename = "semiinteger")]
+    Semiinteger,
+}
+impl crate::SemanticEq for ModelingVariableDomain {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ModelingVariableDomain {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Continuous,
+        Self::Integer,
+        Self::Binary,
+        Self::Semicontinuous,
+        Self::Semiinteger,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Continuous => "continuous",
+            Self::Integer => "integer",
+            Self::Binary => "binary",
+            Self::Semicontinuous => "semicontinuous",
+            Self::Semiinteger => "semiinteger",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Continuous => 0usize,
+            Self::Integer => 1usize,
+            Self::Binary => 2usize,
+            Self::Semicontinuous => 3usize,
+            Self::Semiinteger => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Continuous => None,
+            Self::Integer => None,
+            Self::Binary => None,
+            Self::Semicontinuous => None,
+            Self::Semiinteger => None,
+        }
+    }
+}
+impl core::str::FromStr for ModelingVariableDomain {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "continuous" => Ok(Self::Continuous),
+            "integer" => Ok(Self::Integer),
+            "binary" => Ok(Self::Binary),
+            "semicontinuous" => Ok(Self::Semicontinuous),
+            "semiinteger" => Ok(Self::Semiinteger),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ModelingVariableDomain).to_owned(),
+                    enumeration: stringify!(ModelingVariableDomain).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum Namespace {
     ///Shipped contracts and reference data.
     #[serde(rename = "reference")]
@@ -7513,6 +7616,23 @@ impl crate::SemanticFrame for QuantityAdditionKind {
         hash.str(self.as_str());
     }
 }
+/// Physical dictionary owned by the quantity library.
+pub type QuantityKindCategory = pse_quantity::QuantityKindCategory;
+impl crate::SemanticEq for QuantityKindCategory {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for QuantityKindCategory {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for QuantityKindCategory {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 /// A string enumeration projected from the registry.
 #[derive(
     Clone,
@@ -8806,6 +8926,16 @@ impl crate::HeapUsage for ModelingRealizationPolicy {
     }
 }
 impl crate::SemanticFrame for ModelingRealizationPolicy {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ModelingVariableDomain {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelingVariableDomain {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

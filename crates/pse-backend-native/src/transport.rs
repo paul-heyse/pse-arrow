@@ -591,7 +591,7 @@ mod tests {
             objective: vec![3.0],
             objective_constant: 5.0,
             sense: pse_math::binding::ObjectiveSense::Minimize,
-            domains: vec![pse_math::binding::VariableDomain::Continuous],
+            domains: vec![pse_model::generated::enums::ModelingVariableDomain::Continuous],
             assumptions: pse_ids::ContentHash::from_bytes([2; 32]),
             constraints: matrix(4.0),
             hessian: Some(matrix(2.0)),
@@ -651,7 +651,7 @@ mod tests {
         };
         assert_eq!(primal.unwrap(), vec![6.0]);
         assert_eq!(dual.unwrap(), (vec![12.0], vec![16.0]));
-        p.domains[0] = pse_math::binding::VariableDomain::Integer;
+        p.domains[0] = pse_model::generated::enums::ModelingVariableDomain::Integer;
         assert!(coefficients(&p, &n, Some(&proof)).is_err());
     }
     #[test]

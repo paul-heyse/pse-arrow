@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! One solver projection over the same shared mathematics and semantic variable identities.
 use super::*;
-use pse_math::binding::{CaseLimits, CaseStructure, Target};
+use pse_math::binding::{CaseLimits, CaseStructure, Target, Variable};
 /// Per-attempt variable specification in canonical physical units.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ModelingVariableState {
@@ -241,6 +241,46 @@ impl PreparedModeling {
         Ok(prepared)
     }
 }
+/// Finite-bound admission of free discrete variables after case binding (ADR-0103 item 4).
+/// A binary decision narrows to the unit box; integer and semi domains need finite bounds,
+/// and a semi domain's active interval is positive. Fixed variables are checked for
+/// membership by the case structure instead.
+fn admit_domains(model: &PreparedModeling, variables: &mut [Variable]) -> Result<()> {
+    use pse_model::generated::enums::ModelingVariableDomain as Domain;
+    use pse_modeling::{DomainAnalysis, DomainRefusal};
+    for v in variables
+        .iter_mut()
+        .filter(|v| !v.fixed && v.domain.is_discrete())
+    {
+        let refuse = |reason| {
+            CompileError::from(model.model.domain_refusal(
+                v.port.id,
+                DomainAnalysis::Preparation,
+                reason,
+            ))
+        };
+        let (lower, upper) = if v.domain == Domain::Binary {
+            (
+                v.lower.unwrap_or(0.0).max(0.0),
+                v.upper.unwrap_or(1.0).min(1.0),
+            )
+        } else {
+            match (v.lower, v.upper) {
+                (Some(l), Some(u)) if l.is_finite() && u.is_finite() => (l, u),
+                _ => return Err(refuse(DomainRefusal::InfiniteBound)),
+            }
+        };
+        if lower > upper
+            || v.domain.is_integer() && lower.ceil() > upper.floor()
+            || v.domain.is_semi() && lower <= 0.0
+        {
+            return Err(refuse(DomainRefusal::EmptyDomain));
+        }
+        v.lower = Some(lower);
+        v.upper = Some(upper);
+    }
+    Ok(())
+}
 impl CompilerWorkspace {
     /// Apply case specifications to an already resolved, immutable kernel revision.
     pub fn prepare_modeling_bound_case(
@@ -277,6 +317,7 @@ impl CompilerWorkspace {
                 variable.upper = upper;
             }
         }
+        admit_domains(model, &mut variables)?;
         let equations = model
             .admitted
             .outputs

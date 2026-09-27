@@ -80,8 +80,8 @@ pub use crate::conversion::ConversionRule;
 pub use crate::dimension::{BaseDimension, DimensionVector, Ratio};
 pub use crate::enums::{
     BasisKind, BasisRule, CompositionBasis, ConversionKind, Opcode,
-    QuantityAdditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind,
-    ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule, WeightNormalization,
+    QuantityAdditionKind, QuantityKindCategory, QuantityScaleRule, QuantityShapeRule, RateBasis,
+    ReductionKind, ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule, WeightNormalization,
 };
 pub use crate::error::{ContractComponent, DimensionError, IncompatibilityReason, QuantityError};
 pub use crate::ids::{

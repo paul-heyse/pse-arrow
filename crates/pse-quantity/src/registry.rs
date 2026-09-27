@@ -15,8 +15,8 @@ use crate::unit::Unit;
 use crate::unit_set::UnitSet;
 use crate::{
     BasisId, BasisKind, BasisRule, ConversionId, ConversionKind, EntityKind, EntityKindId, Opcode, OperationId,
-    QuantityAdditionKind, QuantityError, QuantityKindId, QuantityScaleRule, QuantityShapeRule,
-    QuantityTypeId, ReferenceRule, ReferenceStateId, ScaleKind, SubjectRule, UnitId,
+    DimensionVector, QuantityAdditionKind, QuantityError, QuantityKindCategory, QuantityKindId,
+    QuantityScaleRule, QuantityShapeRule, QuantityTypeId, ReferenceRule, ReferenceStateId, ScaleKind, SubjectRule, UnitId,
     UnitSetId,
 };
 use pse_ids::SemanticId;
@@ -304,6 +304,17 @@ impl QuantityRegistry {
     pub fn kinds(&self) -> impl ExactSizeIterator<Item = &QuantityKind> {
         self.kinds.values()
     }
+    /// The declared count or indicator category of a quantity type's kind (ADR-0103).
+    /// A measured kind has none.
+    ///
+    /// # Errors
+    /// Rejects a type or kind absent from this admitted registry.
+    pub fn discrete_category(
+        &self,
+        id: QuantityTypeId,
+    ) -> Result<Option<QuantityKindCategory>, QuantityError> {
+        Ok(self.kind(self.quantity_type(id)?.key.kind)?.category)
+    }
     /// All admitted bases in stable identity order.
     pub fn bases(&self) -> impl ExactSizeIterator<Item = &Basis> {
         self.bases.values()
@@ -391,6 +402,14 @@ impl QuantityRegistry {
                     "reference conditions must be finite and positive",
                 )?;
             }
+        }
+        for kind in self.kinds.values() {
+            require(
+                kind.category.is_none() || kind.dimension == DimensionVector::DIMENSIONLESS,
+                "quantity_kind.category_dimensionless",
+                kind.id.as_id(),
+                "a count or indicator kind is a dimensionless pure number",
+            )?;
         }
         for basis in self.bases.values() {
             if let Some(id) = basis.reference_conditions {
@@ -758,7 +777,7 @@ mod generic_kind_tests {
         let raw=SemanticId::from_bytes([1;16]);
         let mut seed=QuantityRegistryBuilder::new();
         seed.unit(Unit{id:raw.into(),symbol:"1".into(),dimension:DimensionVector::DIMENSIONLESS,scale_to_canonical:1.0,offset_to_canonical:0.0,is_affine:false,reference_state:None});
-        seed.kind(QuantityKind{id:raw.into(),dimension:DimensionVector::DIMENSIONLESS,extensive:false,addition_kind:QuantityAdditionKind::Additive});
+        seed.kind(QuantityKind{id:raw.into(),dimension:DimensionVector::DIMENSIONLESS,extensive:false,addition_kind:QuantityAdditionKind::Additive,category:None});
         seed.quantity_type(QuantityType{id:raw.into(),key:QuantityTypeKey{kind:raw.into(),basis:None,reference_state:None,scale_kind:ScaleKind::Point,shape:vec![],subject_kind:None},canonical_unit:raw.into(),nominal_magnitude:None});
         seed.neutral_dimensionless(raw.into());
         let registry=seed.build().unwrap();

@@ -451,6 +451,8 @@ pub struct AuthoredModelingDeclarationsFieldValueBinding {
     pub r#expression: Option<String>,
     ///defined_by
     pub r#defined_by: Option<String>,
+    ///domain
+    pub r#domain: Option<crate::generated::enums::ModelingVariableDomain>,
 }
 impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueBinding {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -458,6 +460,7 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueBinding {
             && crate::SemanticEq::semantic_eq(&self.r#indices, &other.r#indices)
             && crate::SemanticEq::semantic_eq(&self.r#expression, &other.r#expression)
             && crate::SemanticEq::semantic_eq(&self.r#defined_by, &other.r#defined_by)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueBinding {
@@ -4102,6 +4105,8 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueBinding {
         crate::SemanticFrame::frame(&self.r#expression, hash);
         hash.str(stringify!(r#defined_by));
         crate::SemanticFrame::frame(&self.r#defined_by, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueBinding {
@@ -4111,6 +4116,7 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueBinding {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#indices))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expression))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#defined_by))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
     }
 }
 impl crate::SemanticFrame

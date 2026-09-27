@@ -20,6 +20,8 @@ pub struct ReferenceQuantityKindsRow {
     pub r#extensive: bool,
     ///addition_kind
     pub r#addition_kind: crate::generated::enums::QuantityAdditionKind,
+    ///category
+    pub r#category: Option<crate::generated::enums::QuantityKindCategory>,
     ///doc
     pub r#doc: String,
 }
@@ -34,7 +36,8 @@ impl crate::SemanticEq for ReferenceQuantityKindsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#addition_kind,
                 &other.r#addition_kind,
-            ) && crate::SemanticEq::semantic_eq(&self.r#doc, &other.r#doc)
+            ) && crate::SemanticEq::semantic_eq(&self.r#category, &other.r#category)
+            && crate::SemanticEq::semantic_eq(&self.r#doc, &other.r#doc)
     }
 }
 impl PartialEq for ReferenceQuantityKindsRow {
@@ -56,6 +59,8 @@ impl crate::SemanticFrame for ReferenceQuantityKindsRow {
         crate::SemanticFrame::frame(&self.r#extensive, hash);
         hash.str(stringify!(r#addition_kind));
         crate::SemanticFrame::frame(&self.r#addition_kind, hash);
+        hash.str(stringify!(r#category));
+        crate::SemanticFrame::frame(&self.r#category, hash);
         hash.str(stringify!(r#doc));
         crate::SemanticFrame::frame(&self.r#doc, hash);
     }
@@ -68,6 +73,7 @@ impl crate::HeapUsage for ReferenceQuantityKindsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#dimension))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extensive))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#addition_kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#category))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
     }
 }

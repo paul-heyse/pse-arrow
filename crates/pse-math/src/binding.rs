@@ -5,6 +5,7 @@
 use crate::MathError;
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::Port;
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_model::{SemanticEq, SemanticFrame};
 use pse_quantity::{
     QuantityRegistry, UnitConvertSpec, admission::require_same_contract, convert_spec_for_type,
@@ -92,47 +93,14 @@ pub struct Variable {
     pub port: Port,
     /// Fixed/free affects the variable layout, not a reusable arithmetic body.
     pub fixed: bool,
-    /// Explicit variable domain; integer admission never follows from a numeric value.
-    pub domain: VariableDomain,
+    /// Declared registry domain (ADR-0103); integer admission never follows from a value.
+    pub domain: ModelingVariableDomain,
     /// Declared closed lower bound, if finite.
     pub lower: Option<f64>,
     /// Declared closed upper bound, if finite.
     pub upper: Option<f64>,
 }
 
-/// Declared decision domain.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum VariableDomain {
-    /// Real-valued decision.
-    Continuous,
-    /// Integer-valued decision.
-    Integer,
-    /// Decision restricted to zero or one.
-    Binary,
-    /// Zero or a real value in the declared positive interval.
-    SemiContinuous,
-    /// Zero or an integer value in the declared positive interval.
-    SemiInteger,
-}
-impl VariableDomain {
-    /// Integrality applies only to these declared domains.
-    pub const fn is_integer(self) -> bool {
-        matches!(self, Self::Integer | Self::Binary | Self::SemiInteger)
-    }
-    /// A semi-variable has a separate zero branch, outside its positive interval.
-    pub const fn is_semi(self) -> bool {
-        matches!(self, Self::SemiContinuous | Self::SemiInteger)
-    }
-    /// Exact domain membership for fixed values; no solver tolerance is involved.
-    pub fn contains(self, value: f64, lower: f64, upper: f64) -> bool {
-        value.is_finite()
-            && (self.is_semi() && value == 0.0
-                || value >= lower
-                    && value <= upper
-                    && (!self.is_integer() || value.fract() == 0.0)
-                    && (self != Self::Binary || value == 0.0 || value == 1.0))
-    }
-}
 /// Objective orientation retained independently from solver normalization.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjectiveSense {
@@ -363,20 +331,21 @@ impl CaseStructure {
         for variable in &variables {
             let l = variable.lower.unwrap_or(f64::NEG_INFINITY);
             let u = variable.upper.unwrap_or(f64::INFINITY);
+            // A declared structure may leave the active interval to case bounds (ADR-0103);
+            // any declared endpoint keeps it positive and nonempty. Native admission
+            // requires both endpoints finite.
             if variable.domain.is_semi()
-                && (!l.is_finite()
-                    || !u.is_finite()
-                    || l <= 0.0
+                && (variable.lower.is_some() && l <= 0.0
                     || l > u
                     || variable.domain.is_integer() && l.ceil() > u.floor())
             {
                 return Err(MathError::Contract(
-                    "semi-domain needs a nonempty finite positive interval".into(),
+                    "semi-domain needs a nonempty positive interval".into(),
                 ));
             }
-            if variable.domain == VariableDomain::Binary
+            if variable.domain == ModelingVariableDomain::Binary
                 && (l > 1.0 || u < 0.0 || l.max(0.0).ceil() > u.min(1.0).floor())
-                || variable.domain == VariableDomain::Integer && l.ceil() > u.floor()
+                || variable.domain == ModelingVariableDomain::Integer && l.ceil() > u.floor()
             {
                 return Err(MathError::Contract("empty declared integer domain".into()));
             }
@@ -449,14 +418,14 @@ impl CaseStructure {
     }
     /// Structural identity includes bindings, physical units, selected inventories and class declarations.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.math.case-structure.v1");
+        let mut h = FramedHasher::new("pse.math.case-structure.v2");
         h.u64(self.variables.len() as u64);
         for v in &self.variables {
             h.id(&v.port.id)
                 .id(&v.port.quantity.as_id())
                 .id(&v.port.unit.as_id())
                 .bool(v.fixed)
-                .u64(v.domain as u64)
+                .str(v.domain.as_str())
                 .u64(pse_ids::canonical_f64_bits(
                     v.lower.unwrap_or(f64::NEG_INFINITY),
                 ))

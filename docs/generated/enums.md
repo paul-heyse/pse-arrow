@@ -534,6 +534,16 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `nested` | `` | false |
 | `accelerated` | `` | false |
 
+## `ModelingVariableDomain`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `continuous` | `` | false |
+| `integer` | `` | false |
+| `binary` | `` | false |
+| `semicontinuous` | `` | false |
+| `semiinteger` | `` | false |
+
 ## `Namespace`
 
 | Member | IDAES name | Deprecated |
@@ -846,6 +856,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `additive` | `` | false |
 | `origin_sensitive` | `` | false |
+
+## `QuantityKindCategory`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `count` | `` | false |
+| `indicator` | `` | false |
 
 ## `QuantityPreconditionKind`
 
