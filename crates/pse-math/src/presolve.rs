@@ -7,7 +7,8 @@ use crate::{
     assembly::CasePlan,
     binding::{CaseValues, Target},
     factorable::{
-        Constraint, FactorableProgram, FactorableRequest, Node, NodeId, ObligationKind,
+        Constraint, FactorableError, FactorableProgram, FactorableRequest, Node, NodeId,
+        ObligationKind,
         ObligationScope, ProjectedObligation,
     },
     library,
@@ -154,8 +155,16 @@ impl CasePlan {
         let mut remaining = limit
             .checked_sub(rows.len())
             .ok_or(MathError::Limit("presolve rows"))?;
-        let program =
-            self.factorable_program(values, &FactorableRequest::default(), limit, cancel)?;
+        // The default request exports every branch through the auxiliary policy, so the only
+        // failures are mathematical ones.
+        let program = self
+            .factorable_program(values, &FactorableRequest::default(), limit, cancel)
+            .map_err(|e| match e {
+                FactorableError::Math(e) => e,
+                other @ FactorableError::DisjunctiveBranch { .. } => {
+                    MathError::Contract(other.to_string())
+                }
+            })?;
         let lower: Vec<_> = program.variables.iter().map(|v| v.lower).collect();
         let upper: Vec<_> = program.variables.iter().map(|v| v.upper).collect();
         let mut facts = Facts {

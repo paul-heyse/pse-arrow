@@ -50,6 +50,8 @@ const MAX_DEPTH: usize = 128;
 const MAX_NESTING: usize = 8;
 /// Largest stage expression retained for exact branch identities.
 const DEFINITION_BYTES: usize = 16 * 1024;
+/// Candidate factors α of the absolute-value identity, as `(numerator, denominator)`.
+const IDENTITY_FACTORS: [(i64, i64); 6] = [(1, 1), (-1, 1), (-2, 1), (2, 1), (1, 2), (-1, 2)];
 
 /// Exact rational constant `numerator / denominator` with a positive denominator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -629,8 +631,9 @@ impl CasePlan {
     /// values. `limit` bounds the number of DAG nodes.
     ///
     /// # Errors
-    /// Missing or nonfinite consumed values, cancellation, the declared disjunctive branch
-    /// policy (`Unsupported`), or an inconsistent implicit definition or envelope. An
+    /// Missing or nonfinite consumed values, cancellation, an inconsistent implicit
+    /// definition or envelope ([`FactorableError::Math`]), or the typed refusal of the
+    /// declared disjunctive branch policy ([`FactorableError::DisjunctiveBranch`]). An
     /// exhausted node budget leaves the affected rows `Unavailable` and records the instance
     /// in [`FactorableProgram::incomplete`].
     pub fn factorable_program(
@@ -639,9 +642,9 @@ impl CasePlan {
         request: &FactorableRequest,
         limit: usize,
         cancel: &Arc<AtomicBool>,
-    ) -> Result<FactorableProgram, MathError> {
+    ) -> Result<FactorableProgram, FactorableError> {
         if limit == 0 {
-            return Err(MathError::Limit(EXTENT));
+            return fail(MathError::Limit(EXTENT));
         }
         let columns: BTreeMap<_, _> = self
             .columns()
@@ -712,7 +715,7 @@ impl CasePlan {
                         .get(&s.source())
                         .ok_or_else(|| MathError::Contract("missing projected parameter".into()))?;
                     if !v.is_finite() {
-                        return Err(MathError::Contract("nonfinite projected parameter".into()));
+                        return fail(MathError::Contract("nonfinite projected parameter".into()));
                     }
                     consumed.insert(s.source(), v.to_bits());
                     Input::Value(s.scale() * v + s.offset())
@@ -916,10 +919,37 @@ fn classify(p: &mut FactorableProgram) {
     p.fidelity = fidelity;
 }
 
+/// A factorable projection failure.
+#[derive(Debug, thiserror::Error)]
+pub enum FactorableError {
+    /// Admission, consumed values, cancellation or a resource bound.
+    #[error(transparent)]
+    Math(#[from] MathError),
+    /// The declared policy asks for the exact disjunctive (mixed-integer) export of a
+    /// branch with proven continuity; it belongs to the discrete-decision packets
+    /// (Plan 22 M4, G7). The auxiliary policy exports the same branch as a relaxation.
+    #[error("instance {instance}: disjunctive export of a continuous branch is not provided")]
+    DisjunctiveBranch {
+        /// Instance whose branch required the disjunctive form.
+        instance: SemanticId,
+    },
+}
+pse_diagnostics::impl_diagnostic! {
+    FactorableError,
+    code(this) { match this {
+        Self::Math(_) => None,
+        Self::DisjunctiveBranch { .. } => Some(pse_diagnostics::DiagnosticCode::CompileMath),
+    } },
+    forward(this) { match this { Self::Math(e) => Some(e), Self::DisjunctiveBranch { .. } => None } },
+    help(_this) { None }, related(_this) { None }, source(_this) { None }
+}
+fn fail<T>(error: MathError) -> Result<T, FactorableError> {
+    Err(FactorableError::Math(error))
+}
 const EXTENT: &str = "factorable projection extent";
-fn optional<T>(result: Result<T, MathError>) -> Result<Option<T>, MathError> {
+fn optional<T>(result: Result<T, FactorableError>) -> Result<Option<T>, FactorableError> {
     match result {
-        Err(MathError::Limit(EXTENT)) => Ok(None),
+        Err(FactorableError::Math(MathError::Limit(EXTENT))) => Ok(None),
         other => other.map(Some),
     }
 }
@@ -1065,7 +1095,7 @@ impl<'a> Builder<'a> {
         cancel: &'a Arc<AtomicBool>,
         limit: usize,
         slots: usize,
-    ) -> Result<Self, MathError> {
+    ) -> Result<Self, FactorableError> {
         let mut symbols = HashMap::with_capacity(slots);
         for slot in 0..slots {
             if let AtomView::Var(v) = library::formal(slot)?.as_view() {
@@ -1090,9 +1120,9 @@ impl<'a> Builder<'a> {
             next_select: 0,
         })
     }
-    fn check(&self) -> Result<(), MathError> {
+    fn check(&self) -> Result<(), FactorableError> {
         if self.cancel.load(Ordering::Relaxed) {
-            Err(MathError::Cancelled)
+            fail(MathError::Cancelled)
         } else {
             Ok(())
         }
@@ -1110,7 +1140,7 @@ impl<'a> Builder<'a> {
         }
     }
     /// Intern a node, folding constant operands and trivial arities.
-    fn push(&mut self, node: Node) -> Result<NodeId, MathError> {
+    fn push(&mut self, node: Node) -> Result<NodeId, FactorableError> {
         let node = match node {
             Node::Sum(mut c) | Node::Product(mut c) if c.len() == 1 => return Ok(c.remove(0)),
             Node::Sum(c) if c.is_empty() => Node::Const(Constant::integer(0)),
@@ -1146,7 +1176,7 @@ impl<'a> Builder<'a> {
             return Ok(id);
         }
         if self.nodes.len() >= self.limit {
-            return Err(MathError::Limit(EXTENT));
+            return fail(MathError::Limit(EXTENT));
         }
         let id = self.nodes.len();
         self.nodes.push(node.clone());
@@ -1166,27 +1196,27 @@ impl<'a> Builder<'a> {
             .collect::<Option<Vec<_>>>()?;
         Constant::fold(&constants, rational, float, unit)
     }
-    fn constant(&mut self, c: Constant) -> Result<NodeId, MathError> {
+    fn constant(&mut self, c: Constant) -> Result<NodeId, FactorableError> {
         self.push(Node::Const(c))
     }
-    fn float(&mut self, v: f64) -> Result<NodeId, MathError> {
+    fn float(&mut self, v: f64) -> Result<NodeId, FactorableError> {
         if !v.is_finite() {
-            return Err(MathError::Contract("nonfinite projected constant".into()));
+            return fail(MathError::Contract("nonfinite projected constant".into()));
         }
         self.push(Node::Const(Constant::Float(v)))
     }
-    fn scaled(&mut self, node: NodeId, scale: f64) -> Result<NodeId, MathError> {
+    fn scaled(&mut self, node: NodeId, scale: f64) -> Result<NodeId, FactorableError> {
         if scale == 1.0 {
             return Ok(node);
         }
         let s = self.float(scale)?;
         self.push(Node::Product(vec![s, node]))
     }
-    fn sum(&mut self, terms: Vec<NodeId>) -> Result<NodeId, MathError> {
+    fn sum(&mut self, terms: Vec<NodeId>) -> Result<NodeId, FactorableError> {
         self.push(Node::Sum(terms))
     }
     /// `a - b`.
-    fn difference(&mut self, a: NodeId, b: NodeId) -> Result<NodeId, MathError> {
+    fn difference(&mut self, a: NodeId, b: NodeId) -> Result<NodeId, FactorableError> {
         let minus = self.constant(Constant::integer(-1))?;
         let negated = self.push(Node::Product(vec![minus, b]))?;
         self.push(Node::Sum(vec![a, negated]))
@@ -1197,9 +1227,9 @@ impl<'a> Builder<'a> {
         role: AuxiliaryRole,
         lower: f64,
         upper: f64,
-    ) -> Result<NodeId, MathError> {
+    ) -> Result<NodeId, FactorableError> {
         if lower.is_nan() || upper.is_nan() || lower > upper {
-            return Err(MathError::Contract("auxiliary interval".into()));
+            return fail(MathError::Contract("auxiliary interval".into()));
         }
         let index = self.auxiliaries.len();
         let node = self.push(Node::Aux(index))?;
@@ -1212,7 +1242,7 @@ impl<'a> Builder<'a> {
         });
         Ok(node)
     }
-    fn opaque(&mut self, cx: Context, opacity: Opacity) -> Result<NodeId, MathError> {
+    fn opaque(&mut self, cx: Context, opacity: Opacity) -> Result<NodeId, FactorableError> {
         self.auxiliary(
             cx.instance,
             AuxiliaryRole::Opaque(opacity),
@@ -1228,7 +1258,7 @@ impl<'a> Builder<'a> {
         body: &PreparedBody,
         inputs: &[Input],
         outputs: &[usize],
-    ) -> Result<BTreeMap<usize, NodeId>, MathError> {
+    ) -> Result<BTreeMap<usize, NodeId>, FactorableError> {
         let mut formals = Vec::with_capacity(inputs.len());
         for input in inputs {
             formals.push(match *input {
@@ -1259,9 +1289,9 @@ impl<'a> Builder<'a> {
         formals: &[NodeId],
         outputs: &[usize],
         cx: Context,
-    ) -> Result<BTreeMap<usize, NodeId>, MathError> {
+    ) -> Result<BTreeMap<usize, NodeId>, FactorableError> {
         if formals.len() != body.input_count() {
-            return Err(MathError::Contract("projected body arity".into()));
+            return fail(MathError::Contract("projected body arity".into()));
         }
         let stages = body.demanded_stages(outputs)?;
         let mut env = Env::new(body.slots);
@@ -1281,7 +1311,12 @@ impl<'a> Builder<'a> {
             })
             .collect()
     }
-    fn stages(&mut self, stages: &[Stage], env: &mut Env, cx: Context) -> Result<(), MathError> {
+    fn stages(
+        &mut self,
+        stages: &[Stage],
+        env: &mut Env,
+        cx: Context,
+    ) -> Result<(), FactorableError> {
         for stage in stages {
             self.check()?;
             match stage {
@@ -1385,7 +1420,7 @@ impl<'a> Builder<'a> {
         kind: ObligationKind,
         argument: Option<NodeId>,
         truth: Truth,
-    ) -> Result<(), MathError> {
+    ) -> Result<(), FactorableError> {
         let (constraints, represented) = match truth {
             Truth::Never => {
                 let one = self.constant(Constant::integer(1))?;
@@ -1418,11 +1453,11 @@ impl<'a> Builder<'a> {
         Ok(())
     }
     /// A stage expression's value. Aliases and sums over branch results stay symbolic.
-    fn block(&mut self, atom: &Atom, env: &Env, cx: Context) -> Result<Value, MathError> {
+    fn block(&mut self, atom: &Atom, env: &Env, cx: Context) -> Result<Value, FactorableError> {
         match atom.as_view() {
             AtomView::Var(v) => {
                 if let Some(&k) = self.symbols.get(&v.get_symbol()) {
-                    return env.read(k);
+                    return env.read(k).map_err(FactorableError::from);
                 }
             }
             AtomView::Add(add) => {
@@ -1457,7 +1492,7 @@ impl<'a> Builder<'a> {
         env: &Env,
         cx: Context,
         depth: usize,
-    ) -> Result<NodeId, MathError> {
+    ) -> Result<NodeId, FactorableError> {
         if depth > MAX_DEPTH {
             return self.opaque(cx, Opacity::Depth);
         }
@@ -1477,7 +1512,7 @@ impl<'a> Builder<'a> {
                 } else if s == Symbol::PI {
                     self.float(std::f64::consts::PI)
                 } else {
-                    Err(MathError::Contract(
+                    fail(MathError::Contract(
                         "unregistered symbol in a projected stage".into(),
                     ))
                 }
@@ -1548,9 +1583,9 @@ impl<'a> Builder<'a> {
     }
     /// A node for a slot value. Unresolved branch results become auxiliaries under the
     /// auxiliary policy, bounded by their constant branch values when all are constant.
-    fn materialize(&mut self, value: &Value) -> Result<NodeId, MathError> {
+    fn materialize(&mut self, value: &Value) -> Result<NodeId, FactorableError> {
         match value {
-            Value::Unset => Err(MathError::Contract(
+            Value::Unset => fail(MathError::Contract(
                 "projection reads a value before its producer".into(),
             )),
             Value::Node(n) => Ok(*n),
@@ -1605,7 +1640,7 @@ impl<'a> Builder<'a> {
         (then, otherwise): (&[Stage], &[Stage]),
         env: &mut Env,
         cx: Context,
-    ) -> Result<(), MathError> {
+    ) -> Result<(), FactorableError> {
         let l = env.read(left)?;
         let r = env.read(right)?;
         // Both regions were physically admitted; a constant guard selects one statically.
@@ -1623,18 +1658,18 @@ impl<'a> Builder<'a> {
         self.stages(then, &mut a, region)?;
         self.stages(otherwise, &mut b, region)?;
         let pure = pure(then) && pure(otherwise);
+        // Identities compare against the parent as it was before the branch.
+        let mut merged = Vec::new();
         for slot in 0..env.values.len() {
             if a.values[slot].same(&b.values[slot]) {
                 if !a.values[slot].same(&env.values[slot]) {
-                    env.values[slot] = a.values[slot].clone();
-                    env.definitions[slot] = a.definitions[slot].clone();
+                    merged.push((slot, a.values[slot].clone(), a.definitions[slot].clone()));
                 }
                 continue;
             }
             if matches!(a.values[slot], Value::Unset) || matches!(b.values[slot], Value::Unset) {
                 // Region-local values do not survive the branch.
-                env.values[slot] = Value::Unset;
-                env.definitions[slot] = None;
+                merged.push((slot, Value::Unset, None));
                 continue;
             }
             let exact = if pure {
@@ -1646,13 +1681,13 @@ impl<'a> Builder<'a> {
                 && continuity != DerivativeOrder::Value
                 && self.request.branches == BranchPolicy::Disjunctive
             {
-                return Err(MathError::Unsupported(
-                    "disjunctive export of a continuous branch (Plan 22 M4, G7)",
-                ));
+                return Err(FactorableError::DisjunctiveBranch {
+                    instance: cx.instance,
+                });
             }
             let id = self.next_select;
             self.next_select += 1;
-            env.values[slot] = Value::Select(Arc::new(Select {
+            let select = Value::Select(Arc::new(Select {
                 id,
                 instance: cx.instance,
                 comparison,
@@ -1662,20 +1697,25 @@ impl<'a> Builder<'a> {
                 otherwise: b.values[slot].clone(),
                 exact,
             }));
-            env.definitions[slot] = None;
+            merged.push((slot, select, None));
+        }
+        for (slot, value, definition) in merged {
+            env.values[slot] = value;
+            env.definitions[slot] = definition;
         }
         Ok(())
     }
     /// The exact absolute-value identity: when `X - Y = α (L - R)` holds symbolically for a
     /// constant α, `if L cmp R then X else Y` equals `(X + Y)/2 - (α/2)|L - R|` everywhere,
-    /// both at and away from the boundary. This covers min, max and abs.
+    /// both at and away from the boundary. The admitted minimum (α = 1), maximum (α = -1)
+    /// and absolute value (α = -2) take this form, in either guard orientation.
     fn identity(
         &mut self,
         parent: &Env,
         (a, b): (&Env, &Env),
         slot: usize,
         (left, right): (usize, usize),
-    ) -> Result<Option<NodeId>, MathError> {
+    ) -> Result<Option<NodeId>, FactorableError> {
         let (Some(x), Some(y), Some(l), Some(r)) = (
             &a.definitions[slot],
             &b.definitions[slot],
@@ -1695,11 +1735,21 @@ impl<'a> Builder<'a> {
             return Ok(None);
         }
         let difference = (&x - &y).expand();
-        let ratio = (&difference / &separation).cancel();
-        let AtomView::Num(n) = ratio.as_view() else {
-            return Ok(None);
-        };
-        let Some(alpha) = constant(n.get_coeff_view()) else {
+        // Each candidate is proved by expansion, never sampled. Rational cancellation is not
+        // used: it requires exact coefficients, and stage expressions carry binary64 ones.
+        let Some(alpha) = IDENTITY_FACTORS
+            .iter()
+            .find_map(|&(numerator, denominator)| {
+                let factor = Atom::num(numerator) / Atom::num(denominator);
+                (&difference - &(&factor * &separation))
+                    .expand()
+                    .is_zero()
+                    .then_some(Constant::Rational(Rational {
+                        numerator,
+                        denominator,
+                    }))
+            })
+        else {
             return Ok(None);
         };
         let xn = self.materialize(&a.values[slot])?;
@@ -1740,7 +1790,7 @@ impl<'a> Builder<'a> {
         atom: &Atom,
         region: &Env,
         parent: &Env,
-    ) -> Result<Option<Atom>, MathError> {
+    ) -> Result<Option<Atom>, FactorableError> {
         let mut atom = atom.clone();
         for _ in 0..MAX_NESTING {
             let mut changed = false;
@@ -1773,7 +1823,7 @@ impl<'a> Builder<'a> {
         outputs: &[usize],
         env: &mut Env,
         cx: Context,
-    ) -> Result<(), MathError> {
+    ) -> Result<(), FactorableError> {
         let mut nodes = Vec::with_capacity(inputs.len());
         for &i in inputs {
             let value = env.read(i)?;
@@ -1804,7 +1854,7 @@ impl<'a> Builder<'a> {
                         None
                     };
                     if envelope.is_some_and(|e| e.len() != spec.outputs.len()) {
-                        return Err(MathError::Contract("provider envelope arity".into()));
+                        return fail(MathError::Contract("provider envelope arity".into()));
                     }
                     (0..spec.outputs.len())
                         .map(|k| {
@@ -1849,7 +1899,7 @@ impl<'a> Builder<'a> {
         definition: &ImplicitDefinition,
         inputs: &[NodeId],
         cx: Context,
-    ) -> Result<Vec<NodeId>, MathError> {
+    ) -> Result<Vec<NodeId>, FactorableError> {
         let n = definition.unknowns.len();
         let residual = &definition.residual;
         if n == 0
@@ -1857,7 +1907,7 @@ impl<'a> Builder<'a> {
             || residual.input_count() != n + inputs.len()
             || residual.output_count() != n
         {
-            return Err(MathError::Contract("implicit definition layout".into()));
+            return fail(MathError::Contract("implicit definition layout".into()));
         }
         let first = self.auxiliaries.len();
         let mut unknowns = Vec::with_capacity(n);
@@ -1882,7 +1932,7 @@ impl<'a> Builder<'a> {
                 || program.lower.len() != n
                 || program.upper.len() != n
             {
-                return Err(MathError::Contract("implicit bound program layout".into()));
+                return fail(MathError::Contract("implicit bound program layout".into()));
             }
             // The evaluator never reads unknown coordinates in its bound program.
             let zero = self.constant(Constant::integer(0))?;
@@ -1932,7 +1982,7 @@ impl<'a> Builder<'a> {
                     }
                 }
                 if self.auxiliaries[index].lower > self.auxiliaries[index].upper {
-                    return Err(MathError::Contract("empty implicit interval".into()));
+                    return fail(MathError::Contract("empty implicit interval".into()));
                 }
             }
         }
@@ -1950,9 +2000,9 @@ impl<'a> Builder<'a> {
         Ok(unknowns)
     }
     /// Closed representation of `value > 0` or `value == 0`.
-    fn holds(&mut self, value: &Value, test: Test) -> Result<Truth, MathError> {
+    fn holds(&mut self, value: &Value, test: Test) -> Result<Truth, FactorableError> {
         match value {
-            Value::Unset => Err(MathError::Contract(
+            Value::Unset => fail(MathError::Contract(
                 "predicate reads a value before its producer".into(),
             )),
             Value::Node(n) => Ok(match self.constant_of(*n) {
@@ -2006,7 +2056,7 @@ impl<'a> Builder<'a> {
         }
     }
     /// Closed form of a branch guard, or of its negation.
-    fn comparison(&mut self, s: &Select, negate: bool) -> Result<Truth, MathError> {
+    fn comparison(&mut self, s: &Select, negate: bool) -> Result<Truth, FactorableError> {
         let equality = matches!(
             (s.comparison, negate),
             (Comparison::Eq, false) | (Comparison::Ne, true)
@@ -2021,7 +2071,7 @@ impl<'a> Builder<'a> {
         }
         let l = self.materialize(&s.left)?;
         let r = self.materialize(&s.right)?;
-        // (upper side node, lower side node, strict): the constraint `small <= large`.
+        // The closed constraint `small <= large`, from a strict comparison when `strict`.
         let (small, large, strict) = match (s.comparison, negate) {
             (Comparison::Lt, false) => (l, r, true),
             (Comparison::Le, false) => (l, r, false),

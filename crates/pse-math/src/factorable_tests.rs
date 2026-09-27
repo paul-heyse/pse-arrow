@@ -341,7 +341,11 @@ fn min_max_exported_exactly() {
     let magnitude = unary(&mut b, Function::Abs, &gap);
     let inner = b.extremum(false, y.clone(), one, id(207)).unwrap();
     let nested = b.extremum(true, x.clone(), inner, id(208)).unwrap();
-    let body = b.prepare(&[low, high, magnitude, nested]).unwrap();
+    // Binary64 coefficients, as authored decimal literals carry.
+    let scaled = op(&mut b, Binary::Mul, &number(Atom::num(-562.2)), x);
+    let shifted = op(&mut b, Binary::Add, y, &number(Atom::num(0.1)));
+    let decimal = b.extremum(false, scaled, shifted, id(209)).unwrap();
+    let body = b.prepare(&[low, high, magnitude, nested, decimal]).unwrap();
     let boxes = [(-2.0, 2.0), (-2.0, 2.0)];
     let assembly = case(&registry, body, &boxes, &[]);
     let program = project(&assembly, &FactorableRequest::default());
@@ -822,7 +826,10 @@ fn disjunctive_branch_policy_is_a_typed_refusal() {
         100_000,
         &Arc::new(AtomicBool::new(false)),
     );
-    assert!(matches!(refused, Err(MathError::Unsupported(_))));
+    assert!(matches!(
+        refused,
+        Err(FactorableError::DisjunctiveBranch { instance }) if instance == id(9)
+    ));
 }
 
 #[test]

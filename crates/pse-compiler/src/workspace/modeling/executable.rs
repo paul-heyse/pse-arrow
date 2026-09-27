@@ -8,6 +8,7 @@ use pse_modeling::{Type, specialize::symbol_name};
 use pse_quantity::scheme::Substitution;
 use std::collections::BTreeSet;
 mod conformance;
+mod factorable;
 mod grouped;
 mod implicit;
 mod solve;
@@ -177,16 +178,31 @@ fn projection(
             }
         }
     }
-    let objectives = model.annotations.iter().filter_map(|a| {
-        if let pse_modeling::annotation::AnnotationValue::Objective(sense) = a.value {
-            Some((a.target, match sense {
-                pse_modeling::annotation::ObjectiveSense::Minimize => pse_math::binding::ObjectiveSense::Minimize,
-                pse_modeling::annotation::ObjectiveSense::Maximize => pse_math::binding::ObjectiveSense::Maximize,
-            }))
-        } else {None}
-    }).collect::<Vec<_>>();
+    let objectives = model
+        .annotations
+        .iter()
+        .filter_map(|a| {
+            if let pse_modeling::annotation::AnnotationValue::Objective(sense) = a.value {
+                Some((
+                    a.target,
+                    match sense {
+                        pse_modeling::annotation::ObjectiveSense::Minimize => {
+                            pse_math::binding::ObjectiveSense::Minimize
+                        }
+                        pse_modeling::annotation::ObjectiveSense::Maximize => {
+                            pse_math::binding::ObjectiveSense::Maximize
+                        }
+                    },
+                ))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
     if objectives.len() > 1 {
-        return Err(CompileError::Missing("a selected analysis has exactly one objective".into()));
+        return Err(CompileError::Missing(
+            "a selected analysis has exactly one objective".into(),
+        ));
     }
     let mut p = Projection {
         objective: objectives.first().copied(),
@@ -419,9 +435,15 @@ fn projection(
     // through the same library body, so explicit function/fit selections do not
     // require an authored alias or report annotation. Synthetic rate coordinates
     // remain internal to integrated residual construction.
-    for id in p.inputs.iter().filter(|id| !model.derivatives.values().any(|d|d.rate==**id)) {
+    for id in p
+        .inputs
+        .iter()
+        .filter(|id| !model.derivatives.values().any(|d| d.rate == **id))
+    {
         p.outputs.push(ModelingOutput::Member(*id));
-        p.expressions.push(dsl::parse_expr(&symbol_name(*id)).map_err(|e|CompileError::Missing(e.to_string()))?);
+        p.expressions.push(
+            dsl::parse_expr(&symbol_name(*id)).map_err(|e| CompileError::Missing(e.to_string()))?,
+        );
     }
     for node in order {
         let id = graph[node];
