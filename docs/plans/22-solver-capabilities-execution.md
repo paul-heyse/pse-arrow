@@ -56,7 +56,7 @@ dispositions stay in the plan.
 |---|---|---|---|
 | E0 | Plan amendments for the maintainer's decisions; agent tooling; checkpoint commit | Plan, architecture, README and AGENTS updated; agents synced | complete |
 | E1 | D0: ADRs D22-01…D22-12, design review of the architecture, Plan 20 amendments, section amendments | ADR-0102–0113 accepted after the [target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md) (Accept; an author review; T01–T16 fixed in the ADRs and architecture). Superseded: 0028→0108, 0090→0106, 0091→0112, 0016→0112. `just adr-lint`: 46 records OK, exit 0 | complete |
-| E2 | A1 typed outcomes and failures | Plan 22 A1 tests; deletions | not started |
+| E2 | A1 typed outcomes and failures | `CandidateUse` has one owner (`workflow/numerics.rs`), with `seed_only`/`diagnostic_only` per ADR-0106. Typed `Evidence`. Six new `ProblemError` variants (186 sites retyped). Exhaustive IDAS, Diffsol, HiGHS and POUNCE status maps. Fit deadlines stay TimeLimit; one typed validation failure; HiGHS interrupt only for kinds 1, 2 and 6; `DiagnosticSeverity` and the numerical/inconclusive classes (registry + codegen). Tests: backend native lib 93/0, runtime native lib 111/0, `py-unit-native` 130/0 (2 collection errors: `pyomo` parity group not installed); coordinator spot check 4/4; `codegen-contracts-check` exit 0. Warnings 503→490. Commit `59249b06` | complete (architecture text for §16.6, §18.6 and §23.2 follows in a docs pass) |
 | E3 | A2 backend-execution adapter and one NLP runner | Plan 22 A2 tests; deletions | not started |
 | E4 | A3, A4, A7 | Their tests; deletions | not started |
 | E5 | A5 boundary contracts; A6 staged-sequence primitive | Their tests; deletions | not started |
@@ -76,5 +76,5 @@ step lands: test names, the command, and the failure count against the zero base
 
 ## Current checkpoint
 
-- **Now:** E0 and E1 are complete. E2 (A1) is running. E6 (image) and E7 (operational store) start now that ADR-0105, ADR-0108 and ADR-0112 are accepted.
+- **Now:** E0, E1, E2, E6 (image, unpublished) and E7 are complete. A2 runs in the main checkout. M1 and G2 run in isolated worktrees because they share the kernel, registry and codegen; they merge after review.
 - **Next:** E3 after E2.
