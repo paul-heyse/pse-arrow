@@ -501,7 +501,7 @@ universe); otherwise a thin sqlx-to-Arrow provider. Python gains runs, jobs, stu
 ## 11. Risks and open questions
 
 - **SCIP build.** Build time, image size and the GMP/MPFR/Boost toolchain. Mitigated by the image build and a skill runtime receipt before adoption.
-- **HSL.** No licence route exists for the maintainer. SPRAL SSIDS, MUMPS with METIS, and MKL Pardiso under a determinism contract replace it (D22-07).
+- **HSL.** No licence route exists for the maintainer. SPRAL SSIDS and oneMKL Pardiso (both licensed for personal use) and MUMPS with METIS replace it (D22-07).
 - **`pounce-sensitivity` 0.12.0 API.** Unverified: it is in neither the corpus nor the registry. Verified at packet start; the fallback is `pounce-sens-core` on both routes.
 - **Plan 21 overlap.** The kernel changes (§2) touch grammar, registry and compiler that Plan 21 owns until K8 closes (Plan 22 sequencing).
 - **Operational store as a deployment dependency** for durable work. Mitigated by the `Ephemeral` class and the `just` recipes.
