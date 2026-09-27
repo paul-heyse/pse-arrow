@@ -777,3 +777,172 @@ async fn parallel_jobs_admit_library_team_stacks_and_release_them_after_join() {
     assert_eq!(service.pool.reserved(), 0);
     assert_eq!(service.cpu.available_permits(), 2);
 }
+/// min y*y - 3y + x  s.t.  y - x*x = 0, x in `x_box`, y in [0, 4]: the quartic
+/// x^4 - 3x^2 + x, whose global minimum is near x = -1.3008.
+#[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
+fn quartic_inputs(x_box: (Option<f64>, Option<f64>)) -> Inputs {
+    let mut i = inputs();
+    let q = pse_quantity::standard::ids::quantity("neutral");
+    let unit = i.quantities.quantity_type(q).unwrap().canonical_unit;
+    let port = |n| Port {
+        id: id(n),
+        quantity: q,
+        unit,
+    };
+    let d = i.definitions.get_mut(&id(2)).unwrap();
+    d.sources = vec!["y - x*x".into(), "y*y - y - y - y + x".into()];
+    d.formals.push(Formal {
+        path: "y".into(),
+        quantity: q,
+    });
+    let s = CaseStructure::new(
+        vec![
+            Variable {
+                port: port(1),
+                fixed: false,
+                domain: VariableDomain::Continuous,
+                lower: x_box.0,
+                upper: x_box.1,
+            },
+            Variable {
+                port: port(6),
+                fixed: false,
+                domain: VariableDomain::Continuous,
+                lower: Some(0.0),
+                upper: Some(4.0),
+            },
+        ],
+        vec![],
+        vec![InstanceBinding {
+            instance: id(3),
+            body: ContentHash::from_bytes([0; 32]),
+            slots: vec![
+                SlotBinding::new(&port(1), &port(1), &i.quantities).unwrap(),
+                SlotBinding::new(&port(6), &port(6), &i.quantities).unwrap(),
+            ],
+            contributions: vec![
+                Contribution {
+                    output: 0,
+                    target: Target::Row(id(4)),
+                    scale: 1.,
+                },
+                Contribution {
+                    output: 1,
+                    target: Target::Objective,
+                    scale: 1.,
+                },
+            ],
+        }],
+        vec![Row {
+            id: id(4),
+            quantity: q,
+            lower: 0.,
+            upper: 0.,
+        }],
+        Some(Objective {
+            quantity: q,
+            sense: ObjectiveSense::Minimize,
+        }),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    i.cases.get_mut(&id(5)).unwrap().structure = Arc::new(s);
+    i
+}
+#[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn certify_intent_projects_and_solves_through_the_factorable_route() {
+    use super::solves::*;
+    use pse_backend_native::{
+        execution::BackendSettings,
+        routing::Route,
+        solve::{Assurance, Backend, Controls, Qualification, SolveIntent, SolverSelection},
+    };
+    use pse_model::generated::enums::CandidateUse;
+    let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(1 << 30));
+    let native = pse_engine::cache_service::NativeCacheService::new(
+        pse_engine::cache_service::CacheBudget::disabled(1024),
+        &pool,
+    )
+    .unwrap();
+    // SCIP's memory limit is the job's foreign allowance.
+    let s = MathService::new(
+        pool,
+        Arc::new(tokio::sync::Semaphore::new(2)),
+        2,
+        MathPolicy {
+            foreign_bytes: 128 << 20,
+            worker_bytes: 8 << 20,
+            workspace_bytes: 16 << 20,
+            ..MathPolicy::default()
+        },
+        &native,
+    );
+    let prepare = |x_box| {
+        let s = s.clone();
+        async move {
+            let w = s
+                .workspace(quartic_inputs(x_box), WorkspaceLimits::default())
+                .unwrap();
+            let p = s
+                .prepare(
+                    w,
+                    id(5),
+                    DerivativeOrder::Second,
+                    profile(),
+                    false,
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap();
+            s.prepare_solve(
+                p,
+                CaseValues {
+                    scalars: BTreeMap::from([(id(1), 1.0), (id(6), 1.0)]),
+                },
+                BTreeMap::new(),
+                SolverProfile {
+                    presolve: Default::default(),
+                    numerics: Default::default(),
+                    convexity: Default::default(),
+                    intent: SolveIntent::Certify,
+                    selection: SolverSelection::Auto,
+                    controls: Controls::default(),
+                    backend: BackendSettings::Default,
+                },
+                None,
+                NumericalInputs::default(),
+            )
+            .await
+        }
+    };
+    // An unbounded variable in a nonlinear term is refused before any worker exists.
+    let refused = prepare((None, Some(2.0))).await.unwrap_err();
+    assert!(
+        refused.to_string().contains("spatial branching"),
+        "{refused}"
+    );
+    // Certification selects the certifying record and projects the case lazily.
+    let p = prepare((Some(-2.0), Some(2.0))).await.unwrap();
+    assert_eq!(p.route(), Route::Native(Backend::Scip));
+    let report = s
+        .solve(SolveSequence {
+            steps: vec![p],
+            continue_independent: false,
+            result_limit: 1,
+        })
+        .unwrap()
+        .finish()
+        .await
+        .unwrap();
+    let outcome = &report.outcomes[0];
+    let Outcome::Native(r) = outcome else {
+        panic!("{outcome:?}");
+    };
+    assert_eq!(r.backend, Backend::Scip);
+    let x = r.candidate.as_ref().unwrap().primal[0];
+    assert!((x + 1.300_839).abs() < 1e-3, "{x}");
+    assert_eq!(r.qualification, Qualification::GapQualified);
+    assert_eq!(r.termination.assurance, Assurance::GlobalBound);
+    assert_eq!(outcome.candidate_use().usability, CandidateUse::Usable);
+}
