@@ -36,6 +36,11 @@ dispositions stay in the plan.
    - SPRAL without `OMP_CANCELLATION` surfaces from Ipopt as restoration failure (−2), so admission checks the environment before solving.
    - Netlib BLAS is gone, so the backend `sdp` feature moves from `clarabel/sdp-netlib` to MKL (with N1).
 
+10. **Operational-store follow-ups** (owned by later packets):
+    - **O3:** registry declarations of the operational relations and the lifecycle/job-state spellings, plus `schema_matches_registry_relations`.
+    - **O5:** numeric progress values go in typed `double precision` columns (or serde_json `float_roundtrip` is enabled), because jsonb round trips lose the last float digit.
+    - **Pins:** `whoami =2.1.3` with `std` works around sqlx-postgres 0.9.0 defaulting the user to `anonymous`.
+
 ## Tracks and path ownership
 
 | Track | Packets | Owns (exclusive while active) |
@@ -56,7 +61,7 @@ dispositions stay in the plan.
 | E4 | A3, A4, A7 | Their tests; deletions | not started |
 | E5 | A5 boundary contracts; A6 staged-sequence primitive | Their tests; deletions | not started |
 | E6 | T3: METIS, MUMPS+METIS, SPRAL, oneMKL (Pardiso) and SCIP in the solver image; skill receipts | Image built locally in 231 s. `docker/solvers/test/run.sh` passes: Ipopt lists exactly mumps/spral/pardisomkl and HS071 solves with each; `ma57` refused; SPRAL refused without `OMP_CANCELLATION`; the SCIP 10.0.2 MINLP reaches −2√2; one BLAS and one OpenMP runtime; MKL `CBWR=COMPATIBLE` in force. A `--no-cache` rebuild is byte-identical. `just setup-test` 89 passed; `just unit-ipopt-abi` (override) passed. Skill receipts `ipopt-linear-solver-runtime` (7/0) and `scip-native-runtime` (7/0). Commit `7fc817d1` | image complete; **publication pending** |
-| E7 | T4: O1 deployment; O2 `pse-operations` crate | `just db-status`; crate tests | not started |
+| E7 | T4: O1 deployment; O2 `pse-operations` crate | Store tests: 33 run, 33 passed against PostgreSQL 18.6, by `just db-test` and `just unit-package pse-operations 'package(pse-operations)'` (`DATABASE_URL` exported by the justfile). `just governance-tests`: 87 passed. `db-status`/`db-migrate` are idempotent; the `db-backup`/`db-restore` round trip preserves data. Deviations: peer-auth role named after the OS user; the lease lives on the attempt; early cancellation of planned or queued attempts; `progress_events.payload`; URL-only configuration. Commits `9ac684ac` and the follow-up | complete (registry declarations and the conformance test move to O3) |
 | E8 | N1–N5, C1–C2, Y6, N4 | Their tests | not started |
 | E9 | M1–M5 | Their tests | not started |
 | E10 | S1–S4; Y1–Y5 | Their tests | not started |

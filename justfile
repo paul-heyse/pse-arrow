@@ -93,6 +93,9 @@ fetch-external:
 # `pse` over the local Unix socket with peer authentication, so no credential exists.
 db_default_url := replace_regex(read("crates/pse-operations/src/store.rs"), '(?s)^.*\npub const DEFAULT_DATABASE_URL: &str = "([^"]*)";.*$', '$1')
 db_url := env("PSE_DATABASE_URL", db_default_url)
+# Every recipe (test, unit-package, native-test, ...) gets the operational-store URL so the
+# #[sqlx::test] store tests run rather than fail; an explicit DATABASE_URL still wins.
+export DATABASE_URL := env("DATABASE_URL", db_url)
 
 [group('env')]
 [doc('Create the peer-authenticated login role for $USER (CREATEDB) and database `pse` it owns; idempotent; runs psql as postgres via sudo')]
