@@ -75,6 +75,9 @@ foreign meaning. Registry and relation fingerprints identify content, not admiss
 
 > Decision: [ADR-0031](../../adr/0031-generated-sources-committed-and-diff-checked.md),
 > [ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)
+>
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — the
+> shared execution vocabulary is generated from the registry.
 
 `pse-codegen` returns a deterministic path-to-bytes tree and never writes files.
 `cargo xtask codegen` writes the tree and removes stale files; `--check` compares a real
@@ -309,6 +312,10 @@ The old instance/composition/connection relation families have no remaining prod
 
 ### 6.8 Symbol declarations and roles
 
+> Decision: [ADR-0103](../../adr/0103-variable-domain-facet.md) — variables gain a
+> declared domain facet (`continuous`, `integer`, `binary`, `semicontinuous`,
+> `semiinteger`) with per-mode semantics (Plan 22 M1; not yet implemented).
+
 Variables, parameters and value members are tagged modeling declarations. Specialized
 scalar identities derive from declaration, instance and admitted membership, never display
 labels or native slots. The compiler resolves source paths to these identities and builds
@@ -342,6 +349,10 @@ bind explicit registered capabilities and derivative contracts. Neither registry
 nor capability names alone make an implementation executable.
 
 ### 6.13 Execution results, publication and evidence
+
+> Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — the
+> solver image's linear-solver inventory and determinism settings are recorded with
+> results (Plan 22 N1; not yet implemented).
 
 The `runtime` namespace holds immutable result and control facts. Each group has its own
 owning section:

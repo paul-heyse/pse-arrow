@@ -1,7 +1,7 @@
 ---
 id: ADR-0016
 title: Adopt D13: initialization, homotopy and fix-then-release are immutable case overlays
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D13, §19.1, §17.1]
 review: not-required: neither review raised a finding against D13
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0112
 revisit: An operation genuinely needs to change structure mid-run, for example a native GDP lowering that adds equations during a solve
 verification: `tests/lifecycle` overlay-immutability tests; `python / test` golden fixtures open stores read-only
 
@@ -61,3 +61,4 @@ Blueprint §D13, §17.1 (plan model), §19.1 (cases and overlays), §23 (failure
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-27 — superseded by ADR-0112.

@@ -12,8 +12,11 @@ review_sources:
 **Evidence level: Proposed.** This document states the target that
 [Plan 22](22-solver-capabilities.md) implements. Library facts cite the
 [solver capability review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md)
-(slot 8) at the evidence level recorded there. Nothing here is authority until its ADR is
-accepted and the owning architecture section is amended (Plan 22, D0).
+(slot 8) at the evidence level recorded there. The decisions it rests on are ADR-0102–ADR-0113,
+accepted on 2026-09-27 after the
+[Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md);
+the ADRs are authoritative where this text and they differ. Findings T01–T16 of that review
+were corrected here before acceptance. Nothing here is implemented until its packet lands.
 
 ## 1. Target, drivers and scenarios
 
@@ -57,7 +60,7 @@ processes without losing state.
 
 A variable's domain is part of its **meaning**: it changes the problem class. It is therefore
 declared on the variable, not carried by an annotation (annotations hold numerical knowledge
-under ADR-0101). The ADR settles the syntax. The recommendation:
+under ADR-0101). ADR-0103 settles the syntax:
 
 ```
 var units_on[u in units] : Indicator in binary;
@@ -72,10 +75,11 @@ var modules : Count in semiinteger;
 - **Bounds.**
   - `binary` implies [0, 1].
   - `integer` and the semi domains require **finite** case bounds, from `annotation bounds` or case values. Admission refuses otherwise with a typed `Unsupported` cause naming the variable.
+  - Non-integral bounds on an integer variable are tightened inward exactly, and the transformation is recorded.
   - Spatial branch-and-bound needs finite boxes. The same admission covers continuous variables that enter a global route (§5).
 - **One authority.**
   - A registry enum `ModelingVariableDomain` [continuous, integer, binary, semicontinuous, semiinteger] is generated into `pse-model`.
-  - `pse_math::binding::VariableDomain` becomes that type, or a checked 1:1 mapping.
+  - `pse_math::binding::VariableDomain` is deleted; `pse-math` consumes the generated type directly (it already sits above `pse-model`), so no mapping layer exists ([T15](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t15)).
   - `grouped.rs` carries the declared domain instead of hard-coding `Continuous`.
   - `runtime.solve_variables` gains a `domain` column.
 
@@ -122,10 +126,12 @@ realize route using hull;   // bigm | bigm(derived) | hull | indicator
   `implicit … regime … eligible(...)`. It reuses its structure (named alternatives, local
   equations and annotations) and its realization declaration (`realize … using …`).
 - A regime selects an equation set during evaluation. A disjunction chooses one during optimization.
-- **Lowerings are named transformations with declared equivalence:**
-  - `bigm(derived)` takes M from bound propagation over the declared box, using `pounce-presolve` FBBT intervals (library-owned). The lowering is exact for bounded disjuncts.
-  - `hull` produces the convex-hull reformulation with disaggregated variables. It is tighter and needs finite bounds.
+- **Lowerings are named transformations with declared equivalence** (ADR-0104):
+  - `bigm(M)` uses an authored M; its validity is the author's assertion and is recorded as such.
+  - `bigm(derived)` takes M from bound propagation over the declared box, using `pounce-presolve` FBBT intervals (library-owned), widened outward by a declared relative margin. Every row of the disjunct must be FBBT-complete with a finite interval; otherwise the lowering is refused, naming the row, and no default M is used. The lowering is exact for bounded disjuncts.
+  - `hull` produces the convex-hull reformulation with disaggregated variables. It is tighter and needs finite bounds on every disjunct variable. Linear disjuncts are exact; nonlinear disjuncts use the ε-perspective `(λ+ε)·g(x/(λ+ε))` with a declared ε, and the O(ε) approximation is stated (PS-06).
   - `indicator` emits native indicator constraints and is SCIP only.
+- Lowering happens at preparation. The authored revision is unchanged (D13), and the realization with its parameters enters preparation identity.
 - Logic propositions between alternatives lower as in §2.3.
 - Nested disjunctions are admitted. Their lowering order is explicit.
 
@@ -140,25 +146,31 @@ approximation to be stated:
 | `penalty(l1)` | POUNCE ℓ1 exact-penalty route (§6.3) | Exact at a nondegenerate solution; least-infeasible point otherwise |
 | `disjunctive` | SOS1 or indicator; SCIP | Exact, discrete |
 
+An authored `penalty(l1)` is a declared requirement of the formulation, so it is the explicit
+selection of POUNCE `L1ExactPenalty` and is recorded as such; it does not conflict with
+"ℓ1 is never automatic" (§6.3). Mixing `penalty(l1)` with other realizations in one solve is
+admitted; the ℓ1 penalty then applies to every constraint, and the result says so
+([T14](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t14)).
+
 Phase appearance can then be authored as smoothing, complementarity or explicit discrete modes,
 as package data.
 
 ## 3. Problem classes, routing and assurance vocabulary
 
-These changes amend ADR-0090 through a new ADR. They are registry changes followed by `just codegen`.
+These changes are ADR-0106, which supersedes ADR-0090. They are registry changes followed by `just codegen`.
 
 - **`NativeProblemClass` gains:**
   - `nonconvex_quadratic`;
   - `mixed_integer_quadratic` (convexity recorded as a fact);
   - `mixed_integer_nonlinear`.
-- **`SolveIntent` gains `Certify`.** Global certification is an explicitly selected intent, never an automatic upgrade of a local solve.
-- **`NativeAssurance` gains four values:**
-  - `global_bound`: a valid dual bound for the exported program;
-  - `proven_infeasible`: a global infeasibility proof;
-  - `exact_certificate`: exact rational MILP;
-  - `sos_bound_nonrigorous`: a floating-point SOS polynomial bound (POUNCE-convex), never a certificate.
-- **`GapQualified`** extends to SCIP, recording the box, tolerances and export fidelity. A `Relaxed` export yields bound and infeasibility claims only (§5.2).
-- **`CandidateUse`** becomes the single typed decision (Accept, SeedOnly, Diagnostic, Unusable) over termination, qualification and quality. Every workflow consumes it ([F13](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f13)).
+- **`SolveIntent` becomes a registry enum and gains `Certify`.** Global certification is an explicitly selected intent, never an automatic upgrade of a local solve.
+- **`NativeAssurance` gains four values** ([T10](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t10)):
+  - `global_bound`: a dual bound for the exported program over the declared box, valid within the backend's recorded tolerances and the export fidelity; not interval-rigorous;
+  - `proven_infeasible`: the backend's global infeasibility conclusion for the exported program, under the same conditions; not interval-rigorous;
+  - `exact_certificate`: exact rational MILP, the only rigorous assurance;
+  - `sos_bound_nonrigorous`: a floating-point SOS polynomial bound (POUNCE-convex), never a certificate and never part of a gap claim.
+- **`GapQualified`** extends to SCIP, recording the box, tolerances, export fidelity and the sources of the dual bound and the primal candidate. A `Relaxed` export yields bound and infeasibility claims only (§5.2).
+- **`CandidateUse`** stays the single typed decision, owned by the workflow completion owner (§16.6), and is extended rather than replaced: `usable`, `qualified_unclosed`, `seed_only` (feasible in original coordinates, but the native stop forbids use as a result; may seed a later step), `diagnostic_only` (a relaxed or least-infeasible point; an observation only) and `unusable`. Every workflow consumes it ([F13](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f13), [T01](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t01)).
 
 **Target routing** (automatic order first; explicit alternatives never substitute silently):
 
@@ -230,17 +242,18 @@ never replaces the evaluator.
 
 - A `Relaxed` export may support a **dual bound** and a **global infeasibility proof**, never an optimality or solution claim.
 - Solutions from any export are re-qualified in original coordinates by `quality.rs` (PS-10).
-- An `Unavailable` objective yields no bound.
+- An `Unavailable` objective yields no bound, and `Certify` is refused with that reason.
+- **Mixed-integer programs with relaxed rows** ([T07](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t07)). SCIP's incumbent is an assignment proposal, recorded `diagnostic_only`. The candidate comes from the fixed-assignment continuous re-solve (§2.2) through the one NLP runner and is qualified in original coordinates. A gap may combine the relaxation's dual bound with that qualified candidate's objective; both sources are recorded.
 
 ### 5.3 SCIP 10.0.2 adapter (`pse-backend-native::scip`, feature `scip`)
 
-**Build** (solver image, amending ADR-0028):
+**Build** (a component of the solver image, §5.4 and ADR-0108):
 - the checksummed scipoptsuite 10.0.2 source;
 - SoPlex LP (`LPS=spx`);
 - `IPOPT=ON` against `/opt/pse-solvers` (one Ipopt, 3.14.20);
 - `PAPILO=ON`;
 - GMP, MPFR and Boost for exact mode;
-- `THREADSAFE=ON`, `TPI` for concurrent solving.
+- `THREADSAFE=ON`, and `TPI=tny` for concurrent solving, so SCIP's threads do not share the OpenMP runtime settings SPRAL requires (§5.4).
 
 The `bundled` and `from-source` scip-sys profiles are rejected (review §8.1).
 
@@ -255,7 +268,8 @@ The `bundled` and `from-source` scip-sys profiles are rejected (review §8.1).
 - `limits/time` from the deadline;
 - `limits/memory` from the foreign allowance;
 - seeds recorded;
-- concurrent mode deterministic, with thread count equal to the admitted permits.
+- concurrent mode deterministic, with thread count equal to the admitted permits;
+- SCIP's nested Ipopt ([T08](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t08)): `nlpi/ipopt/linear_solver` is set from the typed Ipopt linear-solver setting (default `mumps`); `nlpi/ipopt/hsllib` and `nlpi/ipopt/pardisolib` are refused; the nested Ipopt runs serial unless threads are admitted for it.
 
 **Cancellation** runs through an event handler that polls the attempt flag and calls
 `SCIPinterruptSolve` on the owning thread.
@@ -272,6 +286,36 @@ The `bundled` and `from-source` scip-sys profiles are rejected (review §8.1).
 - IIS on the true problem (`SCIPgenerateIIS`);
 - an incumbent and bound event stream into the operational store (§9).
 
+### 5.4 One solver image: Ipopt linear algebra, MKL and OpenMP
+
+ADR-0108 owns this contract; it supersedes ADR-0028. Findings
+[T04](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t04)–[T06](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t06)
+shaped it.
+
+- **Composition.** One digest-pinned image, built from checksummed sources: Ipopt 3.14.20 (the
+  only Ipopt, which SCIP also links), sequential MUMPS rebuilt with METIS, SPRAL SSIDS (CPU,
+  OpenMP, hwloc, METIS), oneMKL, METIS once for MUMPS and SPRAL, ASL for the parity executable,
+  and the SCIP components of §5.3. HSL is excluded.
+- **One BLAS/LAPACK, one OpenMP runtime.** Ipopt offers `pardisomkl` only when MKL is its
+  BLAS/LAPACK, so oneMKL (LP64, GNU threading layer) is the single BLAS/LAPACK provider of every
+  process that loads the native profile — MUMPS, SPRAL and Clarabel SDP included — and libgomp
+  is the single OpenMP runtime.
+- **Typed selection.** `linear_solver ∈ {mumps, spral, pardisomkl}` with explicit `ordering`
+  (default `mumps` with `metis`, stated explicitly because `mumps_pivot_order = 7` would pick
+  METIS silently once linked). `linear_solver`, `hsllib` and `pardisolib` are reserved; HSL
+  values are refused. An absent library or unmet precondition is a typed `Unsupported`
+  refusal, never a fallback.
+- **Threads.** SPRAL and MKL threads are admitted under §18.8: permits for the requested count,
+  `omp_set_num_threads` and `mkl_set_num_threads_local` on the owning worker, `MKL_DYNAMIC=FALSE`.
+  MUMPS stays serial.
+- **SPRAL preconditions.** `OMP_CANCELLATION=TRUE` and `OMP_PROC_BIND=TRUE` are process-level;
+  the image environment and `pse-worker` set them, and admission refuses SPRAL when
+  `omp_get_cancellation()` or the bind policy shows they are unmet.
+- **Determinism.** `MKL_CBWR` is pinned to a branch recorded in the image manifest and checked
+  with `mkl_cbwr_get`. The profile key records library versions, CBWR branch, linear solver,
+  ordering and thread counts. The claim is run-to-run reproducibility for one image, branch and
+  thread count, and numerical — never bitwise — agreement otherwise.
+
 ## 6. Sensitivity, covariance and uncertainty
 
 1. **NLP parametric sensitivity and reduced Hessian, POUNCE route:**
@@ -282,7 +326,7 @@ The `bundled` and `from-source` scip-sys profiles are rejected (review §8.1).
 3. **ℓ1 exact penalty** (`pounce-l1penalty`, already linked) is an explicit POUNCE method. It serves complementarity (§2.5) and whole-model infeasibility explanation, replacing the whole-model part of Plan 20 §5's bespoke elastic policy.
 4. **Covariance and confidence intervals:**
    - steady fits: from the reduced Hessian;
-   - transient fits: Gauss–Newton from the response SVD that already exists, and exact from §7's second-order sensitivities;
+   - transient fits: Gauss–Newton from the response SVD that already exists, recorded with `approximation = gauss_newton` (valid under the declared statistical model with small residuals; residual curvature neglected), and exact from §7's second-order sensitivities when available, recorded as such ([T11](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t11));
    - profile-likelihood intervals: a study over fixed parameters.
 5. **Uncertainty propagation** (the counterpart of IDAES `sens.py`): parameter covariance propagated through output sensitivities.
 6. **Conditional quantities.** For mixed-integer problems, sensitivities and duals are computed with the discrete assignment fixed, and say so.
@@ -338,9 +382,13 @@ These amend ADR-0084 and ADR-0093.
 - a MIP node budget separate from `iterations`;
 - the QP regularization value derived from the requested gap.
 
-**Multi-objective contract.** `annotation objective` gains priority and weight members,
-amending ADR-0101:
-- LP and MILP use HiGHS's native lexicographic objectives (`Highs_passLinearObjectives`).
+**Multi-objective contract** (ADR-0111, refining ADR-0101's objective clause).
+`annotation objective` gains priority and weight members, and each priority level declares
+absolute and relative degradation tolerances
+([T12](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t12)):
+- Within a level the objective is a weighted sum; each member must be dimensionless or carry an explicit declared normalization.
+- Across levels the order is lexicographic: each later level bounds every earlier objective by its optimum plus the declared tolerance. A zero tolerance is admitted only on the native LP/MILP path; staged NLP, QP and MINLP levels need a positive tolerance, because an exactly active objective bound breaks constraint qualification.
+- LP and MILP use HiGHS's native lexicographic objectives (`Highs_passLinearObjectives`) with the declared tolerances.
 - NLP and MINLP compose lexicographic solves as staged-sequence steps with objective-bound constraints: composition, not a bespoke solver.
 
 **Clarabel:**
@@ -411,32 +459,33 @@ There are no database enum types that could drift.
 | Table | Contents |
 |---|---|
 | `source_bundles`, `source_documents` | Keyed by content hash |
-| `attempts` | `attempt_id uuid` default `uuidv7()`, `run_id`, `kind`, `request_identity`, `preparation_identity`, `state`, `parent_attempt`, timestamps, `worker`, `lease_expires_at`, `cancel_requested`, typed termination |
+| `attempts` | `attempt_id uuid` minted by the runtime (no database default), `run_id`, `kind`, `request_identity`, `preparation_identity`, `state`, `parent_attempt`, timestamps, `worker`, `lease_expires_at`, `cancel_requested`, typed termination |
 | `attempt_transitions` | Append-only audit of every state change |
 | `jobs` | `job_id`, `attempt_id`, versioned `payload jsonb` (source bundle, case, profile), `priority`, `state`, `claimed_by`, `lease_expires_at`, `tries`, `idempotency_key unique` |
 | `progress_events` | `attempt_id`, `seq`, `at`, `phase`, `values jsonb`; batched inserts or `COPY` |
 | `incumbents` | `attempt_id`, `seq`, `objective`, `dual_bound`, `gap`, `at`, `solution_id` |
 | `solutions` | `solution_id`, `compatibility_stamp`, `preparation_identity`, `kind`, `payload bytea` (Arrow IPC, versioned), `created_by` |
 | `studies`, `study_points` | Point `binding_hash`, `state`, `attempt_id`, `result_ref` |
-| `workspaces`, `publication_heads`, `publications`, `publication_members`, `settlements` | The catalog |
+| `workspaces`, `publication_heads`, `publications` (attempt identity unique), `publication_members`, `settlements`, `reader_leases`, `retention_marks` | The catalog, reader leases and two-phase deletion state |
 
 ### 9.4 Lifecycle, queue and leases
 
 - **State machine:** planned → queued → running → {completed, partial, failed, cancelled}. From running, lease expiry gives stale, and a stale attempt is superseded by a new attempt.
-- **Transitions** go through one owner (a Rust repository function inside a transaction, backed by `CHECK` constraints). Illegal transitions are rejected (DP-03).
+- **Transitions** ([T13](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t13)). One pure Rust transition table in `pse-operations` is the only authority for legality and is testable without a database. Repository functions apply it inside a transaction under row locks, so illegal transitions are rejected (DP-03). The database enforces only the state-value domain (a `CHECK` from registry values) and append-only history (the application role cannot update or delete `attempt_transitions`).
+- **Identity.** The runtime mints attempt, run and publication identities on its existing UUIDv7 `SemanticId` path before any effect; the store records them, and no database default mints a domain identity (DP-04).
 - **Claim:** `UPDATE jobs … WHERE job_id = (SELECT … FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING`.
 - **Heartbeat** extends the lease. On expiry the attempt goes to stale, and the job is requeued under an explicit retry policy (maximum tries, backoff).
 - **Idempotency:** each try is a new attempt identity, and publication is idempotent per attempt (DP-19).
-- **Cancellation** sets `cancel_requested` and sends `NOTIFY`. The owning worker maps it onto the existing cooperative cancellation lease.
+- **Cancellation** sets `cancel_requested` and sends `NOTIFY`. The column is the authority and the heartbeat returns it; `NOTIFY` only shortens latency, because notifications are not durable across a dropped listener. A worker issues `LISTEN`, commits, then re-reads state, as PostgreSQL's delivery rule requires, and re-reads again whenever `PgListener::try_recv` reports a lost connection ([T03](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t03)). The owning worker maps cancellation onto the existing cooperative cancellation lease.
 - **`MathService` admission** queues through the store instead of refusing, when durability is requested.
 
 ### 9.5 Publication through the catalog
 
 1. **Members are unchanged:** written to Delta at attempt-scoped paths, with provisioned and written receipts.
 2. **Commit** is one PostgreSQL transaction. It checks that `publication_heads.publication_id` is the expected parent, inserts the publication and its members (location and version), and advances the head. A lost race is a typed conflict; the loser re-prepares against the new parent. This keeps today's "never rebase" rule.
-3. **Readers** resolve a publication id, or an explicit named query such as the latest head (with the resolved version recorded), to member locations and versions. No reader holds the control plane open.
-4. **Retention and maintenance** take PostgreSQL advisory locks per table: shared for readers and writers, exclusive for maintenance. This replaces `.pse-retention.lock`, which works for local files only, and makes remote object stores qualifiable (R-10).
-5. **Deletion without migration.** Existing Delta publications are regenerated by rerun. The system is in design, not production (maintainer, 2026-09-27), so there is no importer.
+3. **Readers** resolve a publication id, or an explicit named query such as the latest head (with the resolved version recorded), to member locations and versions. A reader takes a lease row with an expiry in a short transaction and releases it when done; no reader holds a database session open while reading Delta files ([T02](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t02)).
+4. **Retention and maintenance.** The catalog computes the protected versions (SQL in `pse-operations`), replacing the DataFusion query over the Delta control relations ([T16](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t16)). Deletion is two-phase: mark the publication `expiring` so no new lease is granted, wait until every lease is released or expired, let `pse-catalog` delete the member files, then mark it `deleted`. Transaction-scoped advisory locks serialize maintainers. This replaces `.pse-retention.lock`, which works for local files only, and makes remote object stores qualifiable (R-10, decided by ADR-0112).
+5. **Deletion without migration.** Existing Delta publications are regenerated by rerun. The system is in design, not production (maintainer, 2026-09-27), so there is no importer. A store written under the control table is refused as an unsupported historical format, with a migration-required diagnostic that names regeneration by rerun.
    - The Delta control table, its code and the file leases are deleted once the catalog path is proven (DP-16).
    - An export command writes a read-only manifest with the member tables for offline readers.
 
@@ -470,16 +519,29 @@ The class is an explicit policy, not a fallback (DP-15). Publication without the
 
 ### 9.8 Code placement
 
-**A new crate, `pse-operations`**, which needs an ADR and a design review:
-- **Owns** the store contract, migrations, repositories and the catalog.
-- **Uses** `sqlx` 0.8 with features postgres, runtime-tokio, tls-rustls, uuid, json and migrate.
-- **Queries are runtime-typed** (`query_as` with typed rows), not `query!` macros. This avoids a build-time database and a generated `.sqlx` directory.
-- **Errors** derive `thiserror` plus `miette` codes (§23.2).
-- **Dependency direction:** `pse-runtime` depends on it; `pse-catalog` keeps Delta data I/O; the domain core never does (DP-17).
+**A new crate, `pse-operations`** (ADR-0112):
+- **Owns** the store contract, migrations, repositories, the catalog and reader leases.
+- **Client:** `sqlx` =0.9.0, in `pse-operations` only, with `default-features = false` and features `postgres`, `runtime-tokio`, `tls-rustls-ring`, `macros`, `migrate`, `uuid`, `chrono` and `json` (matching the workspace's chrono, uuid and rustls/ring pins; the exact pin lives in `Cargo.toml`).
+- **Queries are runtime-typed:** `query` and `query_as` with `FromRow`. There are no `query!` macros and no `.sqlx` offline metadata, so there is no build-time database and no generated path (DP-16). SQL stays SQL, in the repository modules.
+- **Migrations:** `sqlx::migrate!` embeds versioned `.sql` files with LF line endings.
+- **Connections and coordination:** `PgPool`; `PgListener`, which reconnects transparently, for cancellation and progress notifications; `PgAdvisoryLock`, or `pg_advisory_xact_lock` inside catalog transactions.
+- **Batches:** typed batch inserts with `UNNEST($n::type[])`; `copy_in_raw` only if a measurement shows the need.
+- **Errors** derive `thiserror` plus `miette` codes (§23.2). SQLSTATE 40001, 40P01, 23505, 55P03 and 57014 map into typed store errors.
+- **Tests:** `#[sqlx::test(migrator = "pse_operations::MIGRATOR")]` against the local PostgreSQL 18 server, one isolated database per test with library-owned cleanup; the `just` recipe maps `PSE_DATABASE_URL` to `DATABASE_URL`.
+- **Server features:** `uuidv7()` for surrogate keys of rows without a runtime-minted domain identity, `FOR UPDATE SKIP LOCKED`, advisory locks, `LISTEN`/`NOTIFY`, `idle_in_transaction_session_timeout`; `pg_stat_statements` optional for measurement; no extension required.
+- **Dependency direction:** `pse-runtime` depends on it; it depends on `pse-model`, `pse-schema` and `pse-diagnostics` for meaning and on `pse-engine` for its read-only DataFusion provider, as `pse-catalog` does; `pse-catalog` keeps Delta data I/O; the domain core never depends on it (DP-17).
+- **Workers.** `pse-worker` is a binary target of `pse-runtime`, the composition root that already owns `MathService` and the workflows (decided in ADR-0112). It sets the process-level OpenMP environment SPRAL needs (§5.4).
 
-**Query surface.** Operational tables appear to DataFusion sessions as read-only providers. Use
-`datafusion-table-providers` only if a release pins exactly `datafusion =55.1.0` (one type
-universe); otherwise a thin sqlx-to-Arrow provider. Python gains runs, jobs, studies and a progress stream.
+**Client stacks not adopted** (the maintainer's [external review](../external-review-postgresl-options.md), assessed in ADR-0112):
+tokio-postgres with deadpool-postgres, refinery and tokio-postgres-rustls (four seams where one serves; no library-owned per-test database or reconnecting listener); Cornucopia or clorinde (code generation against a live database); SeaQuery (dynamic querying belongs to DataFusion); Diesel and SeaORM (ORMs); pgvector (no vector data); pgrx (no server-side computation); testcontainers (the local server with `#[sqlx::test]` suffices). Each carries its revisit trigger in ADR-0112.
+
+**Query surface.** Operational tables appear to DataFusion sessions as read-only providers. O9
+chooses between the ADBC PostgreSQL driver (`adbc_core`/`adbc_driver_manager` 0.24, which accept
+arrow-array ≥58 <60 and so fit arrow =59.3) and typed row-to-Arrow builders for the small fixed
+operational tables. `datafusion-table-providers` 0.13.1 is blocked: its postgres crate requires
+datafusion ^54 and arrow ^58, breaking the one type universe, and brings a second driver stack;
+revisit when a release matches `datafusion =55.1.0`. Python gains runs, jobs, studies and a
+progress stream.
 
 ### 9.9 Failure behaviour
 
@@ -501,9 +563,10 @@ universe); otherwise a thin sqlx-to-Arrow provider. Python gains runs, jobs, stu
 ## 11. Risks and open questions
 
 - **SCIP build.** Build time, image size and the GMP/MPFR/Boost toolchain. Mitigated by the image build and a skill runtime receipt before adoption.
-- **HSL.** No licence route exists for the maintainer. SPRAL SSIDS and oneMKL Pardiso (both licensed for personal use) and MUMPS with METIS replace it (D22-07).
+- **HSL.** No licence route exists for the maintainer. SPRAL SSIDS and oneMKL Pardiso (both licensed for personal use) and MUMPS with METIS replace it (ADR-0108; register R-34).
+- **Process-wide numerical environment.** One BLAS/LAPACK provider, one OpenMP runtime, a pinned `MKL_CBWR` and SPRAL's OpenMP settings apply to the whole process (§5.4). Mitigated by admission checks and the recorded profile key.
 - **`pounce-sensitivity` 0.12.0 API.** Unverified: it is in neither the corpus nor the registry. Verified at packet start; the fallback is `pounce-sens-core` on both routes.
-- **Plan 21 overlap.** The kernel changes (§2) touch grammar, registry and compiler that Plan 21 owns until K8 closes (Plan 22 sequencing).
+- **Plan 21 overlap.** The kernel changes (§2) touch grammar, registry and compiler that Plan 21 built; K8 is complete (maintainer, 2026-09-27), so the M packets follow Plan 21's kernel discipline without waiting.
 - **Operational store as a deployment dependency** for durable work. Mitigated by the `Ephemeral` class and the `just` recipes.
 - **Catalog cut-over.** There is no import; existing publications are regenerated by rerun. The risk is limited to proving the catalog path before deleting the Delta control table.
 - **Event volume.** Mitigated by batched or `COPY` inserts, retention policy and measurement in the final qualification.

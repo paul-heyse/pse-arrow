@@ -21,6 +21,11 @@ review_sources: [docs/design_review/reviews/design_review_idaes-capability-targe
 > members, functions, sets and tables, accumulators, implicit blocks with realization policies,
 > and annotations. The scientific content, coverage and scenarios here remain the target.
 
+> **Amended by [Plan 22](22-solver-capabilities.md) D0 (2026-09-27).** §4–§6 name the
+> mechanisms decided in ADR-0102–ADR-0111: POUNCE sensitivity and `pounce-sens-core` with FERAL
+> instead of a faer KKT LU, the explicit POUNCE ℓ1 route for whole-model infeasibility,
+> discrete domains for price-taker and MatOpt, and DegeneracyHunter on HiGHS.
+
 **Evidence level: Proposed.** This document is the target architecture for the numerical
 knowledge and workflows that make idaes-pse models usable. It covers:
 
@@ -211,9 +216,9 @@ model identities (DP-21, PS-04, PS-10).
 | Near-parallel constraints and variables | Normalized row and column dot products over the sparse Jacobian | faer sparse products |
 | Mismatched and canceling terms; problematic constraint terms | Term magnitudes from the derived-nominal artifact (§3), evaluated at the candidate | `pse-math` |
 | Potential evaluation errors | Domain obligations of each body (exists in the compiler, §7.3) reported as potential failures before solving | `pse-compiler` |
-| SVD toolbox and ill-conditioning certificate | Smallest singular values and vectors of the scaled Jacobian, mapped back to variables and rows; an ill-conditioning certificate LP | faer: dense SVD under a size budget, or shift-invert through faer's sparse LU behind a linear-operator adapter. `faer::operator::partial_svd` returns only the *largest* singular values, while IDAES asks for the smallest. Certificate LP on HiGHS (IDAES uses cbc) |
-| DegeneracyHunter | MILP for irreducible degenerate sets over the Jacobian | HiGHS (IDAES defaults to SCIP) |
-| Infeasibility explanation (`compute_infeasibility_explanation`) | Elastic relaxation plus deletion filter to a minimal infeasible set of named constraints, as in Pyomo's `contrib.iis.mis` | Ipopt/POUNCE solves with explicitly declared elastic penalties; HiGHS IIS (`Highs_getIis`, already wrapped) for linear parts; bounded orchestration in the runtime |
+| SVD toolbox and ill-conditioning certificate | Smallest singular values and vectors of the scaled Jacobian, mapped back to variables and rows; an ill-conditioning certificate LP; KKT and Jacobian condition estimates and certified inertia | faer: dense SVD under a size budget, or shift-invert through faer's sparse LU behind a linear-operator adapter. `faer::operator::partial_svd` returns only the *largest* singular values, while IDAES asks for the smallest. Sparse 1-norm condition estimates and certified KKT inertia from FERAL (Plan 22 N4). Certificate LP on HiGHS (IDAES uses cbc) |
+| DegeneracyHunter | MILP for irreducible degenerate sets over the Jacobian | HiGHS, with one `Session` reused per LP/MILP family (Plan 22 C2). IDAES defaults to SCIP; SCIP gives no advantage on this small MILP and is not used for it (ADR-0105) |
+| Infeasibility explanation (`compute_infeasibility_explanation`) | Whole-model relaxation plus deletion filter to a minimal infeasible set of named constraints, as in Pyomo's `contrib.iis.mis`; a certified IIS where a global route applies | The whole-model relaxation is the explicit POUNCE ℓ1 exact-penalty route (`L1ExactPenalty`, ADR-0109), whose least-infeasible point is recorded `diagnostic_only` with its violated constraints named; the deletion filter runs Ipopt/POUNCE solves over authored elastic overlays on the candidate constraints; HiGHS IIS (`Highs_getIis`, already wrapped) for linear parts; SCIP `SCIPgenerateIIS` as the certified route for nonlinear programs and true MIPs (ADR-0105, Plan 22 G5); bounded orchestration in the runtime |
 | `IpoptConvergenceAnalysis`, convergence evaluation | Study over sampled cases recording outcomes and statistics (§6) | Study runner |
 | `model_statistics` counts (98 functions) | Inspection queries over the specialized model: counts by kind, activity, fixedness, bounds, equality type, incidence | `pse-modeling` projection + DataFusion inspection over the admitted relations |
 
@@ -227,21 +232,31 @@ or workflow can require. Diagnostics never change a scientific outcome (§15.6 k
   for NLP, KINSOL for roots, HiGHS for LP/MILP/QP, Clarabel for cones, Diffsol and IDAS for
   DAEs. So are the truthful outcome envelope, original-space qualification and physical
   closure. These already exceed IDAES, whose `check_optimal_termination` trusts the solver
-  status.
+  status. Plan 22 adds SCIP for MIQP, MINLP and explicit global certification (ADR-0102,
+  ADR-0105), POUNCE-convex as an explicit alternative (ADR-0109), and typed Ipopt linear
+  solvers — MUMPS with METIS, SPRAL SSIDS and oneMKL Pardiso (ADR-0108).
 - **IDAES solver defaults** (`idaes.cfg` Ipopt options) become a named *solver profile*
   `idaes-2.13` for parity runs. That profile carries a relative `tol=1e-6`, `max_iter=200` and
-  gradient-based native scaling. The default profile remains the resolved numerical policy.
+  gradient-based native scaling. IDAES's default linear solver, MA27, is unavailable because
+  HSL is excluded (ADR-0108), so the profile names MUMPS and its ordering explicitly. The
+  default profile remains the resolved numerical policy.
   Reserved options are still refused
   ([§16.6](../authoritative_design/sections/numerical-execution.md#section-16-6)).
-- **MPCC formulations.** The phase-equilibrium and pressure-minimization formulations are
-  smoothed complementarity with declared ε. A *relaxation schedule policy* (ε sequence) is a
-  continuation policy (§2). Tightening ε is recorded with the result (PS-06).
-- **POUNCE's ℓ1 exact-penalty route** (`pounce-l1penalty`, pinned 0.12.0) is an explicit,
-  separately qualified NLP route. It is not an automatic fallback (§18 forbids fallbacks), and
-  its own documentation does not recommend it for MPCC benchmarks.
-- **`ipopt_l1`** (exact penalty with ℓ1 elastic variables) becomes an **elastic formulation
-  policy** that the law engine or analysis applies to selected constraints. It is used for
-  infeasibility analysis and robust initialization, not a separate solver wrapper.
+- **MPCC formulations.** A `complements(a >= 0, b >= 0)` declaration takes one of three
+  realizations (ADR-0104): `smooth(ε)`, whose *relaxation schedule policy* (ε sequence) is a
+  continuation policy (§2) and whose tightening is recorded with the result (PS-06);
+  `penalty(l1)`, the POUNCE ℓ1 route below; and `disjunctive`, an exact discrete form on SCIP.
+  The phase-equilibrium and pressure-minimization formulations default to `smooth(ε)`.
+- **POUNCE's ℓ1 exact-penalty route** (`pounce-l1penalty`, pinned 0.12.0) is the typed POUNCE
+  method `L1ExactPenalty` (ADR-0109), explicit only. It is never an automatic fallback (§18
+  forbids fallbacks); an authored `penalty(l1)` realization is the explicit selection. Its own
+  documentation does not recommend it for MPCC benchmarks, so it is not the default realization.
+- **`ipopt_l1`** (exact penalty with ℓ1 elastic variables) splits in two. The **whole-model**
+  part — infeasibility explanation of a complete model — is the POUNCE ℓ1 route, replacing the
+  bespoke whole-model elastic formulation this section previously proposed. **Selected-constraint**
+  elastic penalties stay an authored elastic overlay that the analysis applies to chosen
+  constraints (ADR-0101), for robust initialization and the deletion filter. Neither is a
+  separate solver wrapper.
 - **PETSc SNES, TS and TAO** are not re-created. Roots go to KINSOL, time stepping to Diffsol
   and IDAS, and optimization to Ipopt and POUNCE (PS-09). The capability they provide in IDAES
   (DAE time stepping) is covered by §13 and the modeling document §7.
@@ -266,13 +281,13 @@ has a **study runner** that executes `authored.case_sets` with the following typ
 |---|---|---|
 | Parameter sweep | Declared sample set, from explicit values or a sampler. Value bindings only; structure reused; warm-start policy per point, recorded as a dependency (PS-11 MUST) | `parameter_sweep` |
 | Convergence evaluation | Sampled cases through the declared initialization and solve policy; statistics of outcomes, iterations and times | `convergence/*`, `IpoptConvergenceAnalysis` |
-| Parameter estimation | The existing fitting route ([§19.4](../authoritative_design/sections/workflows-and-results.md#section-19-4)), extended with **covariance and confidence intervals** from the reduced Hessian at a qualified estimate. Validity conditions are stated: second-order sufficiency, full rank, statistical model (PS-12). Profile-likelihood intervals are a study over fixed parameters | parmest |
-| Parametric sensitivity and uncertainty propagation | NLP parametric sensitivity from the factorized KKT system at a qualified optimum (faer sparse LU or the solver's factorization where exposed), valid under strict complementarity and a stable active set. Propagation of parameter covariance to outputs | `sens.py` (sIpopt, k_aug) |
-| Dynamic optimization, NMPC and MHE | Simultaneous discretized dynamics (modeling document §7) with path constraints; a **rolling-horizon workflow**: shift, update measurements, warm start as a recorded dependency, solve; MHE arrival cost as declared objective terms | `caprese`, `nmpc` |
+| Parameter estimation | The existing fitting route ([§19.4](../authoritative_design/sections/workflows-and-results.md#section-19-4)), extended with **covariance and confidence intervals** from the reduced Hessian at a qualified estimate, computed by the sensitivity mechanism in the next row. Transient fits use Gauss–Newton covariance from the response SVD, labelled as that approximation, or exact second-order sensitivities when available (ADR-0107, ADR-0110). Validity conditions are stated: second-order sufficiency, full rank, statistical model (PS-12). Profile-likelihood intervals are a study over fixed parameters | parmest |
+| Parametric sensitivity and uncertainty propagation | NLP parametric sensitivity and the reduced Hessian at a qualified optimum through library-owned sIPOPT semantics (ADR-0107): POUNCE `sensitivity` on the POUNCE route; `pounce-sens-core` (`SensApplication`, `parametric_step`) over a barrier-replica KKT with a FERAL LDLᵀ backsolver on the Ipopt route. FERAL reports inertia, so second-order sufficiency is checked; a faer sparse LU, which cannot report it, is not used. Valid under second-order sufficiency, LICQ, strict complementarity and a stable active set, and withheld otherwise. Propagation of parameter covariance to outputs. `ipopt_sens` is a parity oracle only | `sens.py` (sIpopt, k_aug) |
+| Dynamic optimization, NMPC and MHE | Simultaneous discretized dynamics (modeling document §7) with path constraints, and single or multiple shooting over Diffsol sensitivities as explicit routes (ADR-0110); a **rolling-horizon workflow** on the staged-sequence primitive: shift, update measurements, warm start (SQP working set or interior-point restart) as a recorded dependency, advanced-step sensitivity (ADR-0107), solve; MHE arrival cost as declared objective terms | `caprese`, `nmpc` |
 | Multiperiod | Period-indexed children of a flowsheet template with declared linking constraints (ramping, storage) | `grid_integration.multiperiod` |
-| Market and price-taker studies | Multiperiod designs with price-series data; MILP where unit commitment is declared (HiGHS); bidding and tracking as workflows over prepared models; Prescient coupling through the Python boundary as an external co-simulation | `pricetaker`, `bidder`, `tracker`, `coordinator` |
+| Market and price-taker studies | Multiperiod designs with price-series data; unit commitment authored with binary domains (ADR-0103): MILP on HiGHS with fixed-integer LP duals stated as conditional on the commitment, and MIQP or MINLP on SCIP when operation models are quadratic or nonlinear (ADR-0102); bidding and tracking as workflows over prepared models; Prescient coupling through the Python boundary as an external co-simulation | `pricetaker`, `bidder`, `tracker`, `coordinator` |
 | Surrogate training | Sampling plus regression. Samplers: LHS via `egobox-doe`; Sobol via `sobol_burley`; Halton and Hammersley as trivial generators; CVT bespoke if needed. Seeds are recorded. Linear-in-parameter polynomial and RBF fits use faer least squares or the existing fitting route. Kriging uses `egobox-gp` behind a study adapter, or a faer plus Ipopt/POUNCE likelihood fit if exporting its private parameters is too coupled. Neural networks are imported with `tract-onnx` and translated layer by layer into authored expressions. ALAMO stays an external executable. Output is a published surrogate data package with a training-domain envelope and fit metrics | PySMO, ALAMO, Keras/OMLT, `sampling` |
-| Materials optimization (MatOpt) | Lattice and design MILP formulations authored as templates over discrete domains; HiGHS | `matopt` |
+| Materials optimization (MatOpt) | Lattice and design MILP formulations authored as templates with binary domains, cardinality and logic declarations (ADR-0103, ADR-0104); HiGHS, with SCIP as an explicit alternative | `matopt` |
 
 ## 7. Journeys (profile slot 4 additions)
 

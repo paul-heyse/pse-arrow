@@ -3,7 +3,7 @@ title: Plan 22 execution packet — solver capabilities, discrete decisions and 
 status: in-progress
 date: 2026-09-27
 parent: 22-solver-capabilities.md
-adrs: []
+adrs: [ADR-0102, ADR-0103, ADR-0104, ADR-0105, ADR-0106, ADR-0107, ADR-0108, ADR-0109, ADR-0110, ADR-0111, ADR-0112, ADR-0113]
 ---
 
 # Plan 22 execution packet
@@ -41,7 +41,7 @@ dispositions stay in the plan.
 | Step | Packets | Acceptance and deletion | State |
 |---|---|---|---|
 | E0 | Plan amendments for the maintainer's decisions; agent tooling; checkpoint commit | Plan, architecture, README and AGENTS updated; agents synced | complete |
-| E1 | D0: ADRs D22-01…D22-12, design review of the architecture, Plan 20 amendments, section amendments | ADRs accepted after review; `just adr-lint` | not started |
+| E1 | D0: ADRs D22-01…D22-12, design review of the architecture, Plan 20 amendments, section amendments | ADR-0102–0113 accepted after the [target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md) (Accept; an author review; T01–T16 fixed in the ADRs and architecture). Superseded: 0028→0108, 0090→0106, 0091→0112, 0016→0112. `just adr-lint`: 46 records OK, exit 0 | complete |
 | E2 | A1 typed outcomes and failures | Plan 22 A1 tests; deletions | not started |
 | E3 | A2 backend-execution adapter and one NLP runner | Plan 22 A2 tests; deletions | not started |
 | E4 | A3, A4, A7 | Their tests; deletions | not started |
@@ -62,5 +62,5 @@ step lands: test names, the command, and the failure count against the zero base
 
 ## Current checkpoint
 
-- **Now:** E0 is complete. E1 (decisions), E2 (A1), E6 (image) and E7 (operational store) start in parallel on disjoint tracks.
+- **Now:** E0 and E1 are complete. E2 (A1) is running. E6 (image) and E7 (operational store) start now that ADR-0105, ADR-0108 and ADR-0112 are accepted.
 - **Next:** E3 after E2.

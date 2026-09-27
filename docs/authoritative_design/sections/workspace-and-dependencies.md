@@ -69,7 +69,7 @@ are cited by the decision that owns them rather than by this page:
   ([ADR-0097](../../adr/0097-modeling-scope-and-parity.md), proposed; pin implemented).
 - Ipopt is built from pinned sources in a digest-pinned solver image, and the committed
   bindgen output follows its C ABI
-  ([ADR-0028](../../adr/0028-solver-acquisition-source-built-ipopt.md)).
+  ([ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md), superseding ADR-0028).
 - The vendored Delta source (`vendor/delta-rs`) and its kernel branch are recorded as
   exact revisions in workspace metadata. `just delta-source` verifies or regenerates that
   override, and the governance test `delta_revisions` checks the pair.
@@ -86,6 +86,11 @@ evidence.
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md) (proposed; implementation authorized).
+>
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — a new
+> crate `pse-operations` owns the operational store and publication catalog; `pse-runtime`
+> depends on it and gains the `pse-worker` binary target (Plan 22 O2–O4; not yet
+> implemented, so the crate is not yet in the table below).
 
 Cargo metadata owns workspace membership: `members` in the root manifest are `crates/*`,
 the five `tests/*` crates, `xtask` and `benches`. The table explains roles; it does not
@@ -151,6 +156,13 @@ whose only unsafe use reads the GMP/MPFR version strings
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0084](../../adr/0084-physical-provider-and-dynamic-contracts.md)
+>
+> Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
+> [ADR-0105](../../adr/0105-scip-factorable-backend.md) — SCIP for MIQP, MINLP and global
+> certification; [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) —
+> SPRAL SSIDS, oneMKL and METIS for Ipopt;
+> [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — PostgreSQL 18
+> through `pse-operations`. Rows join the table as Plan 22 packets land.
 
 Each library owns the operation it implements. PSE code owns the physical, identity and
 admission contracts around the library call. A library never becomes the authority for
@@ -182,9 +194,11 @@ units, identity, schemas or canonical encoding merely because it is present.
 
 A library's presence does not grant capability. A feature that is compiled in still
 needs an admitted operation, profile and test before a workflow advertises it
-([§18](numerical-execution.md#section-18)). JIT and SIMD evaluation, GPU execution and
-general global MINLP are not admitted. The same holds for any library that has no current
-consumer. That is a limit of the present scope, not a prohibition
+([§18](numerical-execution.md#section-18)). JIT and SIMD evaluation and GPU execution are
+not admitted. Mixed-integer nonlinear solving and global certification through SCIP
+(ADR-0102, ADR-0105) are admitted into the design target and not yet implemented. The same
+holds for any library that has no current consumer. That is a limit of the present scope,
+not a prohibition
 ([§25](scope-and-open-design.md#section-25)).
 
 #### 3.3.1 Arrow and DataFusion roles and capability eligibility

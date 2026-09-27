@@ -238,6 +238,10 @@ Derivative availability and smoothness are separate contracts.
 
 ### 9.5 Phase equilibrium
 
+> Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md) — a certified
+> tangent-plane-distance stability check over the global certification route enters the
+> design target (Plan 22 G6; not yet implemented).
+
 Authored equilibrium knowledge includes ideal bubble/dew equations, Rachford–Rice starts,
 SmoothVLE and log-fugacity equality. The seed binds BTIdeal, FPhx and BT_PR comparisons.
 Implicit closures can be inline, nested through the registered KINSOL capability or

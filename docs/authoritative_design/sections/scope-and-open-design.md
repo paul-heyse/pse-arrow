@@ -15,6 +15,14 @@ provider contracts in `pse-kernels`. The qualification basis for these statement
 
 ## 25. Supported scope and recorded limits
 
+> Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md) —
+> mixed-integer, disjunctive and globally certified classes enter the design target;
+> [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — sensitivity,
+> covariance and uncertainty under PS-12 validity;
+> [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — operational
+> store, publication catalog and durable multi-process execution. The Supported column
+> changes only as the [Plan 22](../../plans/22-solver-capabilities.md) packets land.
+
 The Supported column describes implemented contracts and the exercised K8 seed.
 The earlier local Linux qualification in §24.2 predates this replacement; the current
 assessment is owned by [Plan 21](../../plans/21-modeling-kernel.md). The refused column is enforced: an unsupported request fails with
@@ -24,22 +32,27 @@ no silent fallback, approximate substitute or compatibility route.
 | Area | Supported | Refused or outside the profile | Contract |
 |---|---|---|---|
 | Definitions and composition | Generic typed definitions, interfaces/defaults, finite/indexed and continuous membership, lazy demand, functions/partials, accumulators, children, cases and typed connections | Ambiguous interfaces/imports, unavailable demanded contracts, invalid physical operations, exceeded expansion limits | [§10](models-and-composition.md#section-10)–[§12](models-and-composition.md#section-12), [§22](models-and-composition.md#section-22) |
-| Physical properties | Authored ideal, PR and PC-SAFT seed potentials, DIPPR/Shomate/RPP4/Perry calorics, FTPx/FPhx, BTIdeal/BT_PR and dilute-liquid state bindings; explicit data/reference/envelope contracts | Unproved global stability or branch smoothness; undeclared extrapolation; unported property families | [§9](physical-semantics.md#section-9) |
+| Physical properties | Authored ideal, PR and PC-SAFT seed potentials, DIPPR/Shomate/RPP4/Perry calorics, FTPx/FPhx, BTIdeal/BT_PR and dilute-liquid state bindings; explicit data/reference/envelope contracts | Unproved global stability or branch smoothness (a certified tangent-plane stability check is in the target: ADR-0102, Plan 22 G6, not yet implemented); undeclared extrapolation; unported property families | [§9](physical-semantics.md#section-9) |
 | Reactions | Authored saponification stoichiometry, kinetics and heat conventions composed with generic accumulators | Unported reaction knowledge; missing demanded physical contracts | [§9](physical-semantics.md#section-9) |
 | Numerical policy | One resolved policy with recorded precedence; reversible normalization; frozen absolute and relative budgets; original-space acceptance; exact Gram convexity evidence, numerical PSD evidence only on opt-in | Conflicting equal-priority sources; relaxation of hard guards | [§16](numerical-execution.md#section-16) |
-| Problem classes | NLP (Ipopt, POUNCE), square roots and declared fixed-point maps (KINSOL), LP, MILP and certified convex QP (HiGHS), explicit cones including SDP (Clarabel) | General MINLP; nonconvex QP to HiGHS; arbitrary boxes on KINSOL and constrained fixed-point iteration; JIT or SIMD evaluation | [§18](numerical-execution.md#section-18) |
+| Problem classes | NLP (Ipopt, POUNCE), square roots and declared fixed-point maps (KINSOL), LP, MILP and certified convex QP (HiGHS), explicit cones including SDP (Clarabel) | MIQP, MINLP, disjunctive programs and global certification until Plan 22 M and G packets land (in the target: ADR-0102); authored MILP until M1 lands; nonconvex QP to HiGHS; arbitrary boxes on KINSOL and constrained fixed-point iteration; JIT or SIMD evaluation | [§18](numerical-execution.md#section-18) |
 | Initialization and recycles | Transactional staged initialization; finite supplied continuation; authored tears selected by HiGHS MILP with an independent acyclicity witness; causal fixed-point maps; explicit starts independent of allocation reuse | Any convergence guarantee for a strategy | [§17](numerical-execution.md#section-17) |
 | Dynamics | ODE and index-1 DAE with a fixed diag(I,0) mass matrix; consistent initialization; finite events/resets; physical time origins; smooth forward sensitivities; native quadratures; simultaneous authored FD/Radau schemes | Higher-index or general implicit DAE; variable-layout dynamics; hybrid IDAS sensitivities; unsupported residual/index structure | [§13](workflows-and-results.md#section-13) |
-| Fitting | Steady, transient and mixed fitting over declared sparse or dense support; candidate response derivatives; a qualified estimate requires convergence, original feasibility and response rank | Covariance, global identifiability and uncertainty claims | [§19](workflows-and-results.md#section-19) |
-| Results and publication | Typed completion through Rust, Arrow and Python; exact publication, settlement and read-only reopening; typed migration-required refusal for unsupported historical formats | Automatic migration; multi-writer or remote object-store deployment | [§20](identity-and-publication.md#section-20), [§21](workflows-and-results.md#section-21) |
+| Fitting | Steady, transient and mixed fitting over declared sparse or dense support; candidate response derivatives; a qualified estimate requires convergence, original feasibility and response rank | Covariance, confidence intervals and uncertainty propagation until Plan 22 S3–S4 land (in the target with PS-12 validity: ADR-0107); global identifiability | [§19](workflows-and-results.md#section-19) |
+| Results and publication | Typed completion through Rust, Arrow and Python; exact publication, settlement and read-only reopening; typed migration-required refusal for unsupported historical formats | Automatic migration; multi-writer or remote object-store deployment until the catalog lands (in the target: ADR-0112, Plan 22 O8) | [§20](identity-and-publication.md#section-20), [§21](workflows-and-results.md#section-21) |
 | Python | Registry-generated declarations, blocking and async jobs, Arrow result streams, publication and settlement | Mathematics in Python; production Pyomo or NL routes | [§21](workflows-and-results.md#section-21) |
 
 **Recorded limits.** The following bound every claim made from the current qualification:
 
 - Qualification is local Linux with the pinned default and native feature profiles. Remote
   CI, release, wheel or distribution, and other-platform qualification are not claimed.
-- GPU support, distributed execution, global MINLP and general higher-index DAEs are not
-  part of the design target, not merely unimplemented.
+- GPU support, distributing a single solve across processes or hosts, general
+  higher-index DAEs and interval-rigorous global optimization are not part of the design
+  target, not merely unimplemented. Mixed-integer and disjunctive programs,
+  tolerance-qualified global certification ([ADR-0102](../../adr/0102-discrete-and-global-design-target.md))
+  and durable multi-process execution through the operational store
+  ([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)) are in the target
+  and not yet implemented.
 - Declared operating envelopes and exercised reference comparisons do not certify
   empirical property accuracy. Passing analytic or reference cases does not establish
   untested formulations.
@@ -56,6 +69,12 @@ no silent fallback, approximate substitute or compatibility route.
 
 ## 26. Risks and unresolved design choices
 
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> multi-writer and remote publication decided through the PostgreSQL catalog (register
+> R-10 removed); [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) —
+> solver image and Ipopt linear solvers (register R-08, R-09 and R-34). Plan 22; not yet
+> implemented.
+
 Deferred choices with an observable trigger and review date are owned by the
 [deferred-decision register](../../adr/register.md); rows are cited here, not copied.
 
@@ -71,15 +90,16 @@ Deferred choices with an observable trigger and review date are owned by the
 | Symbolica licensing | Use beyond Symbolica's unlicensed mode relies on a locally provisioned personal licence | The optional key is read from `SYMBOLICA_LICENSE` at initialization and never enters artifacts, identities or diagnostics; distribution terms are a release question (register R-31) |
 
 **Unresolved design choices.** Each has no selected position; the current system refuses
-or does not offer the capability until an owner decides.
+or does not offer the capability until an owner decides. Multi-writer and remote
+object-store publication is no longer open: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)
+decides it through the PostgreSQL publication catalog, and qualification follows Plan 22 O8.
 
 | Choice | Current position | What would settle it |
 |---|---|---|
-| Multi-writer or remote object-store publication | Publication is qualified for a single local writer; Delta conflict detection relies on the store's conditional-create semantics | Qualify the target backend's conditional-write and durability contract before widening deployment (register R-10) |
 | Distribution of native solvers | Solvers are linked from the pinned local build; no wheel carries them | Decide bundling versus runtime loading and per-platform build recipes at the first distributed artifact (register R-08, R-09) |
 | Licence admission at release | Dependency and licence admission is advisory ([ADR-0066](../../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)) | The first published crate or wheel makes every linked licence a release question (register R-31) |
 | Compiled third-party providers | Providers are registered in-tree in `pse-kernels` | An actual external provider package; its loading boundary and failure containment must preserve [D9](architecture-overview.md#section-d9) (register R-04) |
-| Broader phase-equilibrium knowledge | Selected seed formulations only; local branch evidence is not global stability | New authored formulations with explicit stability, validity and derivative contracts under [§9](physical-semantics.md#section-9) |
+| Broader phase-equilibrium knowledge | Selected seed formulations only; local branch evidence is not global stability (a certified stability check is in the target: ADR-0102) | New authored formulations with explicit stability, validity and derivative contracts under [§9](physical-semantics.md#section-9) |
 
 ## Capability coverage against IDAES
 

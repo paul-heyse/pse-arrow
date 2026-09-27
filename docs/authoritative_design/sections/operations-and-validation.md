@@ -17,7 +17,7 @@ relations carry execution facts. Test crates live under `tests/`, Python tests u
 Observability explains execution; provenance explains derivation; results state
 scientific meaning. They share identifiers but are never merged, and observing a
 computation can never change its scientific or publication outcome
-([ADR-0090](../../adr/0090-shared-execution-vocabulary.md)).
+([ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)).
 
 ### 23.1 Observability
 
@@ -56,6 +56,10 @@ residual or derivative evaluations. There is no metrics exporter or distributed 
 propagation beyond `tracing` task propagation inside the engine.
 
 ### 23.2 Failure taxonomy
+
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
+> `numerical` and `inconclusive` boundary classes, diagnostic severity and typed
+> `ProblemError` variants (Plan 22 A1; not yet implemented).
 
 **Ownership.** `pse-diagnostics` declares one vocabulary: `FailureClass` (coarse class)
 and `DiagnosticCode` (detailed code, each mapped to one class). The registry projects

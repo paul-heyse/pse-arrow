@@ -1,7 +1,7 @@
 ---
 id: ADR-0091
 title: Immutable publication and retention contract
-status: accepted
+status: superseded
 date: 2026-09-25
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§20.2, §20.4]
 review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
 evidence: Implemented
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0112
 revisit: A new execution or storage path cannot preserve these distinctions.
 verification: P12 publication interruption, settlement and exact read-only reopen tests
 ---
@@ -89,3 +89,4 @@ and blueprint sections named in the front matter.
 - 2026-09-25 — proposed before affected implementation; decision PR acceptance pending.
 - 2026-09-26 — accepted by the maintainer as implemented through Plan 16 (review verdict Accept;
   local Linux qualification and independent review recorded in blueprint §24.2).
+- 2026-09-27 — superseded by ADR-0112.

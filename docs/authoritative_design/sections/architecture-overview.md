@@ -115,8 +115,8 @@ The registry generates every public declaration contract.
 
 > Decision: [ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md),
 > [ADR-0089](../../adr/0089-semantic-identity-projections.md),
-> [ADR-0090](../../adr/0090-shared-execution-vocabulary.md),
-> [ADR-0091](../../adr/0091-immutable-publication-contract.md),
+> [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md),
+> [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md),
 > [ADR-0092](../../adr/0092-ordinary-execution-evidence.md)
 
 The foundation keeps each meaning in one owner and derives every consumer projection
@@ -210,7 +210,7 @@ The linked section owns the detailed contract.
 ### D1. The registry declares each meaning once; authored definitions are the model
 
 > Decision: [ADR-0088](../../adr/0088-selected-model-and-physical-contracts.md),
-> [ADR-0090](../../adr/0090-shared-execution-vocabulary.md),
+> [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md),
 > [ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)
 
 Every durable shape, tag and public declaration contract is declared once in the
@@ -314,11 +314,19 @@ evidence never establishes global stability or empirical accuracy. See
 
 > Decision: [ADR-0082](../../adr/0082-library-owned-process-mathematics.md),
 > [ADR-0066](../../adr/0066-dependency-admission-and-licence-policy-are-advisory.md)
+>
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> PostgreSQL owns what changes (operational state and the publication catalog); Delta owns
+> what is published (immutable member data). Plan 22 O packets; not yet implemented: until
+> O8 lands, the Delta control relation remains the implemented publication record.
 
 Typed Rust owns physical finite compilation; Salsa owns pure dependency tracking;
 mathematical and numerical libraries own their algorithms; packages own scientific equations. Arrow and
 DataFusion own admission, set-oriented model and result work, inspection and storage
-boundaries; Delta owns publication. No layer duplicates another's authority. Hashes never
+boundaries; Delta owns published data. In the target, PostgreSQL owns what changes —
+attempts, jobs, leases, progress, reusable solutions and the publication catalog — and
+Delta owns what is published ([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)).
+No layer duplicates another's authority. Hashes never
 substitute for semantic admission. *Because* each mechanism is strongest at its own
 operation. See [§1.3](#section-1-3) and [§3.3](workspace-and-dependencies.md#section-3-3).
 
@@ -346,7 +354,7 @@ failure semantics singular. See [§18](numerical-execution.md#section-18) and
 
 ### D13. Cases and results never mutate the model
 
-> Decision: [ADR-0016](../../adr/0016-cases-and-results-never-mutate-the-model.md),
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md),
 > [ADR-0093](../../adr/0093-qualified-native-strategies.md)
 
 A model revision defines structure; case and analysis bindings supply values, bounds, fixed

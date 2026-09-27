@@ -108,3 +108,4 @@ sequencing. [Target review](../design_review/reviews/design_review_modeling-kern
 ## Status history
 
 - 2026-09-26 — proposed; implementation authorized by the maintainer. Acceptance remains on the decision-PR route.
+- 2026-09-27 — objective clause refined by ADR-0111: competing objectives are refused unless each declares a priority, or all share one priority with weights.

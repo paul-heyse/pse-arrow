@@ -1,7 +1,7 @@
 ---
 id: ADR-0090
 title: Shared execution vocabulary and structured boundaries
-status: accepted
+status: superseded
 date: 2026-09-25
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§4.2, §18.6, §21.1, §23.2]
 review: git:8950dd3d6ddb:docs/design_review/reviews/design_review_plan16-foundations_2026-09-25.md#12-decision
 evidence: Implemented
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0106
 revisit: A new execution or storage path cannot preserve these distinctions.
 verification: Vocabulary codec round trips and source-attributed boundary refusal unit tests
 ---
@@ -107,3 +107,4 @@ and blueprint sections named in the front matter.
 - 2026-09-25 — proposed before affected implementation; decision PR acceptance pending.
 - 2026-09-26 — accepted by the maintainer as implemented through Plan 16 (review verdict Accept;
   local Linux qualification and independent review recorded in blueprint §24.2).
+- 2026-09-27 — superseded by ADR-0106.

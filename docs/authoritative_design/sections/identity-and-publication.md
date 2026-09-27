@@ -71,7 +71,7 @@ other crates hash only through its framing APIs. Golden vectors in
 Definitions, instance bindings, case values, analysis requests, resolved numerical
 policy, prepared artifacts, used starts, results and publications have distinct
 identities and lifecycles. Cases and results never mutate the model
-([ADR-0016](../../adr/0016-cases-and-results-never-mutate-the-model.md)).
+([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)).
 
 **Package revision.** Runtime modeling admission seals the exact package closure,
 visibility, aliases, declarations and physical context into an immutable compiler
@@ -205,9 +205,16 @@ hot path; IPC remains an encoding and spill boundary.
 Durability is an explicit effect, and visibility is decided by one conditional commit.
 Execution stays in memory until a caller asks to publish; publication never re-runs
 science, and a scientifically failed attempt can still be published faithfully. The
-protocol is decided in [ADR-0091](../../adr/0091-immutable-publication-contract.md).
+protocol was decided in ADR-0091, which [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)
+supersedes: it restates the immutable-publication contract and moves the visibility boundary
+to a PostgreSQL catalog transaction. Until Plan 22 O8 lands, the Delta control relation
+described below remains the implemented publication record.
 
 ### 20.1 Delta durable relations
+
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — in
+> the target the publication control relation moves to the PostgreSQL catalog; Delta keeps
+> immutable member data (Plan 22 O8; not yet implemented).
 
 Delta tables persist authored sources and declarations, published results, provenance,
 publication control and retention records. Native Delta and DataFusion operations own
@@ -226,6 +233,10 @@ completeness and domain checks run against exact candidate versions
 (`pse-catalog::delta::admission`).
 
 ### 20.2 Exact coherent publication
+
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — the
+> commit becomes one catalog transaction with compare-and-set on the head; settlement
+> queries the catalog (Plan 22 O8; not yet implemented).
 
 A caller publishes a completed `RunResult` in two steps
 (`pse-runtime::workflow::publication`):
@@ -287,6 +298,10 @@ metadata and hashes alone never certify validity, execution or equivalence. Resu
 meaning is owned by [§19](workflows-and-results.md#section-19).
 
 ### 20.4 Reproduction, reuse and retention
+
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> reader leases and two-phase deletion in the catalog replace the local lock files, making
+> remote stores qualifiable (Plan 22 O8; not yet implemented).
 
 Three lifetimes are independent. Invalidating one never silently changes another.
 

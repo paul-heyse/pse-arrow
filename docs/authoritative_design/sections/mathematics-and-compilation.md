@@ -141,6 +141,10 @@ as constants, not model inputs.
 
 ### 7.5 Rows, contributions and established facts
 
+> Decision: [ADR-0111](../../adr/0111-multi-objective-optimization.md) — several
+> objectives with priority, weight and degradation tolerances (Plan 22 C3; not yet
+> implemented).
+
 A selected case is a `pse_math::binding::CaseStructure`: variables with declared domain
 (`Continuous`, `Integer`, `Binary`, `SemiContinuous`, `SemiInteger`), fixed/free status and
 optional closed bounds; ordinary parameters; instance bindings of body formals to global
@@ -214,6 +218,10 @@ lifetimes, and each has a distinct identity scope
 ([§5](identity-and-publication.md#section-5)).
 
 ### 14.1 Preparation stages and contracts
+
+> Decision: [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) —
+> named lowerings of indicator, SOS, cardinality, piecewise, logic, disjunction and
+> complementarity declarations join preparation (Plan 22 M3–M5; not yet implemented).
 
 | Stage | Owner | Consumes | Produces | Effects |
 |---|---|---|---|---|

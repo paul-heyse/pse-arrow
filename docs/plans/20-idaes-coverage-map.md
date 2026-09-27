@@ -60,13 +60,13 @@ tables.
 | `DiagnosticsToolbox` (31 methods), `SVDToolbox`, `DegeneracyHunter`, ill-conditioning certificate, `IpoptConvergenceAnalysis`, evaluation-error walker, constraint-term analysis | `core/util/diagnostics_tools/*` | Diagnostics catalogue with threshold profile `idaes-2.13` | `pse-structural`, `pse-backend-native::quality`, `pse-math`, HiGHS, faer | W2 |
 | `model_statistics` (98 functions) | `core/util/model_statistics.py` | Inspection queries over the specialized model | `pse-modeling` + DataFusion inspection | W2 |
 | `get_solver`, `idaes.cfg` solver defaults, `SolverWrapper` | `core/solvers/*`, `config.py` | Named solver profile `idaes-2.13` over class-specific adapters | `pse-backend-native` | W1 |
-| `ipopt_l1` | `core/solvers/ipopt_l1.py` | Elastic formulation policy | `pse-modeling` / analysis policy | W2 |
+| `ipopt_l1` | `core/solvers/ipopt_l1.py` | POUNCE ℓ1 route for whole-model explanation (ADR-0109); elastic overlays for selected constraints | `pse-backend-native` POUNCE method; `pse-modeling` / analysis policy | W2 |
 | PETSc SNES/TS/TAO, PETSc DAE stepping | `core/solvers/petsc.py`, idaes-ext `petsc` | Not reproduced; covered by KINSOL, Diffsol/IDAS and Ipopt/POUNCE | — | — |
 | `replace_variables`, `simple_equality_eliminator` transformations | `core/plugins/*` | Presolve (pounce-presolve, existing) and template aliasing; no model-rewriting transformation | existing | — |
 | `dyn_utils` (15 DAE helpers) | `core/util/dyn_utils.py` | Analysis-mode generation; time-indexed result projections | `pse-modeling`, results | W3 |
 | `parameter_sweep`, convergence evaluation and search | `core/util/parameter_sweep.py`, `core/util/convergence/*` | Study runner over `case_sets` | runtime studies | W5 |
 | Parameter estimation (parmest usage) | examples | Fitting (existing) + covariance and profile-likelihood studies | runtime fitting | W5 |
-| Uncertainty propagation (`sens.py`) | `apps/uncertainty_propagation` | Parametric NLP sensitivity + covariance propagation | runtime studies | W5 |
+| Uncertainty propagation (`sens.py`) | `apps/uncertainty_propagation` | Parametric NLP sensitivity (POUNCE sensitivity / `pounce-sens-core` with FERAL, ADR-0107) + covariance propagation | runtime studies | W5 |
 | Surrogates: `SurrogateBlock`, ALAMO, PySMO, Keras/ONNX via OMLT, sampling, metrics, plotting | `core/surrogate/*` | Surrogate data packages embedded as forms or providers; training and sampling studies | `pse-modeling`, studies | W5 |
 | Stream tables, performance contents, tags | `core/util/tables.py`, `tags.py`, unit `_get_*_contents` | Result projections (Arrow) over ports and report symbols | results | W1 |
 | Model serializer (`to_json`/`from_json`) | `core/util/model_serializer.py` | Immutable revisions + publication (existing; stronger) | existing | — |
@@ -77,7 +77,7 @@ tables.
 | DMF | `core/dmf` (stub) | Out of scope; publication and lineage cover provenance | — | — |
 | Grid integration (bidder, tracker, coordinator, forecaster, multiperiod) | `apps/grid_integration/*` | Multiperiod templates + market workflows; Prescient via the Python boundary | studies, `pse.apps.grid` | W5 |
 | NMPC/MHE (`caprese`, `nmpc`) | `apps/caprese`, `apps/nmpc` | Rolling-horizon workflow over simultaneous dynamics | studies | W5 |
-| MatOpt | `apps/matopt` | Discrete-domain MILP templates on HiGHS | `pse.apps.matopt` | W5 |
+| MatOpt | `apps/matopt` | Discrete-domain MILP templates (ADR-0103, ADR-0104) on HiGHS | `pse.apps.matopt` | W5 |
 
 ## Process blocks (generated from model records)
 

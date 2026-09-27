@@ -92,6 +92,11 @@ between time points or deactivating a model at selected points have no counterpa
 
 ### 13.6 Native integrators and trajectories
 
+> Decision: [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — IDAS scheduled
+> inputs with recoverable trials, events without sensitivities, constraints and Krylov;
+> Diffsol SDIRK, `tsit45` and KLU; adjoint and second-order sensitivities; shooting routes
+> (Plan 22 Y1–Y5; not yet implemented).
+
 | Route | Admitted profile | Owner |
 |---|---|---|
 | Diffsol BDF (default) | Fixed `diag(I,0)` ODE/index-1, events, resets, input changes, smooth forward sensitivities and library-owned reset sensitivities | `dynamics/integrator.rs` |
@@ -121,16 +126,18 @@ last completed time and sample count in `runtime.computation_runs`. Integration 
 fitting runs inline under the outer job's admission, without nested executor permits.
 
 **Limits.** Higher-index or general implicit DAEs, variable-layout modes, hybrid IDAS
-sensitivities and adjoint sensitivities are not supported by native integration;
+sensitivities and adjoint sensitivities are not supported by native integration (sensitivities
+across scheduled IDAS input changes and adjoint sensitivities are in the target, ADR-0110;
+not yet implemented);
 declarations outside the admitted profile are refused before native work. The
 qualification basis for the admitted profiles is
 [§24.2](operations-and-validation.md#section-24-2).
 
 ## 19. Cases, results and analytics
 
-> Decision: [ADR-0016](../../adr/0016-cases-and-results-never-mutate-the-model.md),
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md),
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
-> [ADR-0090](../../adr/0090-shared-execution-vocabulary.md)
+> [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)
 
 Public execution begins with an immutable `ModelingPackage` admitted from an explicit
 package closure and physical context. Selected definitions/cases produce immutable prepared
@@ -141,6 +148,10 @@ not publish or own a mutable solver. Publication remains explicit
 `workflow/run`, `workflow/completion`, `workflow/modeling_results` and fitting preparation.
 
 ### 19.1 Cases and overlays
+
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> restates D13 (superseding ADR-0016): cases and results never mutate the model; a
+> cancelled or failed attempt is distinguished by its typed lifecycle state.
 
 Authored case and fixture specifications resolve source paths against the selected concrete
 instance. They bind values, fixed/free state and physical bounds without changing symbol
@@ -214,6 +225,11 @@ active workers; historical campaign measurements do not qualify the new seed.
 
 ### 19.4 Parameter estimation
 
+> Decision: [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — covariance
+> and confidence intervals from a validated reduced Hessian, Gauss–Newton covariance for
+> transient fits; [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — Gauss–Newton
+> and exact transient Hessians (Plan 22 S3, Y4; not yet implemented).
+
 A fit (`authored.fit_cases`) declares shared parameters (fixed or free, value, optional
 bounds, positive scale), experiments (an authored case with an optional integrated analysis) and
 observation bindings (experiment, source output path, optional time/basis/unit, inclusion,
@@ -268,16 +284,29 @@ exists.
 
 ### 19.7 Optionality
 
-Not implemented as a modeling construct: alternative sets and disjunctions have no
-declaration or lowering. Integer and semi-variable domains that reach HiGHS through
-admitted coefficient routes are numerical classes, not optionality
-([§18](numerical-execution.md#section-18)); general MINLP is outside scope
-([§25](scope-and-open-design.md#section-25)).
+> Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
+> [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — discrete
+> domains, disjunctions and indicator, SOS, cardinality, piecewise and logic declarations
+> enter the design target (Plan 22 M1–M5; not yet implemented).
+
+Not yet implemented as a modeling construct: alternative sets and disjunctions have no
+declaration or lowering today. Authored discrete domains, disjunctions with declared
+realizations (big-M, derived big-M, hull, indicator) and the resulting MILP, MIQP and MINLP
+classes are in the design target
+([ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
+[ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md)). Until they land,
+integer and semi-variable domains that reach HiGHS through admitted coefficient routes are
+numerical classes, not optionality ([§18](numerical-execution.md#section-18)).
 
 ### 19.8 Uncertainty
 
-Not implemented: no uncertainty propagation, covariance estimate or robust
-optimization. Local response sensitivities, rank and condition from fitting
+> Decision: [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — uncertainty
+> propagation and covariance with PS-12 validity enter the design target (Plan 22 S3–S4;
+> not yet implemented).
+
+Not yet implemented: no uncertainty propagation or covariance estimate; both are in
+the design target ([ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md)). Robust
+optimization is not implemented. Local response sensitivities, rank and condition from fitting
 ([§19.4](#section-19-4)) are the only related results and are not statistical claims.
 
 ## 21. The Python boundary
@@ -300,6 +329,12 @@ full numerical equivalence
 ([relationship to IDAES](../../relationship-to-idaes.md)).
 
 ### 21.1 Extension module, jobs and Arrow streams
+
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
+> shared vocabulary (restating ADR-0090);
+> [ADR-0113](../../adr/0113-python-solve-settings-and-eligibility.md) — typed backend
+> settings, registry names and typed eligibility across the boundary (Plan 22 A5; not yet
+> implemented).
 
 `pse.Runtime(EngineSettings)` binds the shared runtime and memory budget, also used by
 `pse.open`; conflicting settings refuse. `physical_from_documents` admits physical data;
@@ -330,6 +365,10 @@ storage-only, metadata-lost or mismatched (`python/pse/_transfer.py`); capsule e
 does not prove the consumer registered the extension types.
 
 ### 21.5 Python contracts
+
+> Decision: [ADR-0113](../../adr/0113-python-solve-settings-and-eligibility.md) — every
+> enumeration crossing the boundary is a registry enum; settings envelopes are versioned
+> (Plan 22 A5; not yet implemented).
 
 Python contracts are generated from the registry into `python/pse/contracts/`
 ([§4.2](schema-and-relations.md#section-4-2),

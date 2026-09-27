@@ -100,6 +100,12 @@ reason; it is never zero or a fabricated NaN.
 
 ### 15.5 Advanced analyses
 
+> Decision: [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — parametric
+> sensitivity, reduced Hessian, covariance and uncertainty propagation with PS-12
+> validity; [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md) — whole-model
+> infeasibility explanation through the explicit POUNCE ℓ1 route. Plan 22 S1–S4, N3; not
+> yet implemented.
+
 Each analysis is opt-in or bounded, and none replaces the original candidate:
 
 | Analysis | Owner and mechanism | Limit |
@@ -134,7 +140,8 @@ the [generated runtime relations](../../generated/relations/runtime.md) for colu
 
 ## 16. Numerical policy and scaling
 
-> Decision: [ADR-0090](../../adr/0090-shared-execution-vocabulary.md) — resolved
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
+> resolved
 > numerical requirements and candidate assessment extend the shared vocabulary.
 
 Numerical meaning is resolved once per admitted analysis, before presolve or any
@@ -203,6 +210,10 @@ same resolved policy; comparing policies is a sequence of explicitly prepared an
 
 ### 16.6 Derived native controls and original-space acceptance
 
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
+> `CandidateUse` gains `seed_only` and `diagnostic_only` and becomes the only acceptance
+> rule every workflow consumes (Plan 22 A1; not yet implemented).
+
 From the resolved policy, `pse-backend-native::solve::Accuracy::resolve` derives
 normalized native controls: feasibility is the minimum of the comparable normalized
 variable/row budgets; stationarity, complementarity, integrality and gaps come from the
@@ -246,6 +257,9 @@ case. Strategies are derived from distinct structural projections and authored
 policy; libraries own every iteration.
 
 ### 17.1 Structural initialization model
+
+> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> restates D13: initialization stages, including discrete fixing, are immutable overlays.
 
 `pse-structural::initialization::Plan` converts a complete, structurally sound square
 analysis into predecessor-first conditional blocks, each with its original rows, solved
@@ -326,7 +340,7 @@ its input.
 ## 18. Native class-specific execution
 
 > Decision: [ADR-0083](../../adr/0083-class-specific-native-execution.md) — native
-> class-specific execution; [ADR-0090](../../adr/0090-shared-execution-vocabulary.md) —
+> class-specific execution; [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > shared execution vocabulary; [ADR-0093](../../adr/0093-qualified-native-strategies.md)
 > — contextual eligibility and qualification.
 
@@ -337,6 +351,9 @@ owns the rationale; [ADR-0082](../../adr/0082-library-owned-process-mathematics.
 library ownership of the mathematics.
 
 ### 18.1 Problem representations
+
+> Decision: [ADR-0103](../../adr/0103-variable-domain-facet.md) — authored variable
+> domains reach `CoefficientProblem` and routing (Plan 22 M1; not yet implemented).
 
 The compiler's immutable case products are projected into class-specific views
 (`pse-backend-native` crate root, `assembled`):
@@ -377,8 +394,13 @@ for all callback adapters:
 
 ### 18.3 In-process NLP: Ipopt C and POUNCE
 
+> Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — Ipopt
+> linear solvers MUMPS+METIS, SPRAL SSIDS and oneMKL Pardiso, typed and explicitly
+> selected, with HSL excluded (Plan 22 N1; not yet implemented: the implemented profile
+> below is MUMPS without METIS).
+
 `pse-ipopt-sys` holds generated, committed bindgen output for the Ipopt 3.14.20 C
-interface (`just codegen --only bindgen`; see [ADR-0028](../../adr/0028-solver-acquisition-source-built-ipopt.md)
+interface (`just codegen --only bindgen`; see [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md)
 for the digest-pinned solver image). ABI tests assert 32-bit indices, `f64` numbers,
 the version string and real symbol relocations. `pse-backend-native::ipopt` is the safe
 driver: RAII problem ownership on the owning worker, direct callbacks over `NlpOracle`,
@@ -401,6 +423,11 @@ feasible, not stationary), and HiGHS' default QP regularization can miss a stric
 requested objective gap.
 
 ### 18.6 Truthful outcomes
+
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — new
+> assurances `global_bound`, `proven_infeasible`, `exact_certificate` and
+> `sos_bound_nonrigorous`, each with stated conditions (Plan 22 A1, G4, G5, N5; not yet
+> implemented).
 
 `pse-backend-native::solve::SolveReport` is one envelope per attempt, including attempts
 without a usable candidate. Its facts are independent:
@@ -429,10 +456,16 @@ The report also retains effective options and queried native defaults, provenanc
 bounded events, complete native statistics where the library exposes them, the start
 receipt and an output seed. Fit response derivatives remain candidate data distinct from
 estimator qualification. The shared tags are registry-owned and projected into Rust,
-Arrow and Python ([ADR-0090](../../adr/0090-shared-execution-vocabulary.md)); candidate
+Arrow and Python ([ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)); candidate
 use (§16.6) combines these facts with physical closure.
 
 ### 18.7 Capability, eligibility and selection
+
+> Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md),
+> [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — the explicit
+> `certify` intent, SCIP routing for MIQP and MINLP, and the backend-execution adapter;
+> [ADR-0111](../../adr/0111-multi-objective-optimization.md) — lexicographic and weighted
+> multi-objective routes (Plan 22 A2, G3, C3; not yet implemented).
 
 Capability is five distinct facts:
 
@@ -462,6 +495,11 @@ continues after a failure only when steps are declared independent.
 
 ### 18.8 Threading, cancellation and resource ownership
 
+> Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — SPRAL
+> (OpenMP) and oneMKL threads become admitted resources under this owner, with one
+> BLAS/LAPACK provider, one OpenMP runtime and a pinned `MKL_CBWR` (Plan 22 N1; not yet
+> implemented).
+
 `MathService` (`pse-runtime/src/math.rs`, `math/jobs.rs`) is the single execution
 owner. Its `MathPolicy` draws finite allowances from the deployment memory pool:
 artifact retention, per-job foreign allowance, worker storage, workspace generations,
@@ -483,13 +521,20 @@ native stack, live jobs and flights.
   integrator step boundaries). A long native factorization completes before teardown.
 - Ipopt, KINSOL and Clarabel profiles are serial; POUNCE and HiGHS may use admitted
   threads. Foreign BLAS/OpenMP threading is environment configuration, not admitted
-  by this owner.
+  by this owner (in the target, ADR-0108 admits SPRAL and MKL threads here; not yet
+  implemented).
 
 Reservations are conservative admission policy, not allocator interception or a
 process RSS ceiling. The workstation sizing rationale and measured behavior are
 qualification matters ([§24.2](operations-and-validation.md#section-24-2)).
 
 ### 18.9 Capability matrix
+
+> Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
+> [ADR-0105](../../adr/0105-scip-factorable-backend.md),
+> [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md),
+> [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — the target adds SCIP,
+> POUNCE-convex and extended dynamics; rows change only as Plan 22 packets land.
 
 The linked inventory is `BackendCapabilities::capabilities` in
 `pse-backend-native/src/solve.rs`; feature `pse-runtime/native-solvers` links the full
@@ -505,11 +550,22 @@ profile, and Clarabel's non-SDP route is always present.
 | Diffsol | ODE, semi-explicit index-1 | None | First, smooth sensitivities | None | Serial |
 | IDAS | ODE, semi-explicit index-1 | None | First, smooth sensitivities | None | Serial |
 
-Outside the matrix: general or higher-index DAE, global MINLP, disjunctive programs,
-arbitrary cone recognition, finite-difference derivatives, GPU and distributed
-execution.
+Outside the matrix today: MIQP and MINLP, disjunctive programs, global certification,
+arbitrary cone recognition, general or higher-index DAE, finite-difference derivatives, GPU
+and distributed execution. Of these, MIQP, MINLP and disjunctive programs lowered by
+declared realizations, tolerance-qualified global certification
+([ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
+[ADR-0105](../../adr/0105-scip-factorable-backend.md)), cone recognition from exact
+certificates (Plan 22 C5) and durable multi-process execution
+([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)) are in the design
+target and not yet implemented. General or higher-index DAE, finite-difference
+derivatives, GPU execution and distributing one solve remain outside the target.
 
 ### 18.10 Root, coefficient and cone adapters
+
+> Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — Clarabel's
+> SDP profile moves to the image's single oneMKL BLAS/LAPACK provider (Plan 22 N1; not yet
+> implemented: the profile below is serial LP64 netlib).
 
 **KINSOL** (`kinsol`) owns Newton, line search, Picard and fixed-point iteration with
 Anderson acceleration, over vendored KLU, bounded dense or matrix-free SPGMR. Only exact
