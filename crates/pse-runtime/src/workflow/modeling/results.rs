@@ -26,7 +26,10 @@ pub struct ModelingResultData {
     pub reports: Vec<ModelingReport>,
     pub run_id: SemanticId,
     runtime: Runtime,
+    /// Projection of `completion`; never decided separately.
     pub accepted: bool,
+    /// The §16.6 candidate-use completion shared with the published assessment.
+    pub(in crate::workflow) completion: crate::workflow::numerics::Completed,
     pub validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     pub prepared: ModelingSolvePreparation,
     _owner: Arc<pse_columnar::AllocationLease>,
@@ -103,6 +106,8 @@ impl ModelingResult {
             result.class = match native.termination.category {
                 T::Cancelled => C::Cancelled,
                 T::TimeLimit | T::IterationLimit => C::ResourceLimit,
+                T::Numerical => C::Numerical,
+                T::Inconclusive => C::Inconclusive,
                 _ => C::TrialRejected,
             };
             result.observations.insert(
@@ -113,12 +118,14 @@ impl ModelingResult {
                 "qualification".into(),
                 Observation::Text(format!("{:?}", native.qualification)),
             );
-            if let Some(detail) = &native.validation_error {
-                result.observations.insert(
-                    "native_validation".into(),
-                    Observation::Text(detail.clone()),
-                );
-            }
+            result.observations.insert(
+                "candidate_use".into(),
+                Observation::Text(self.completion.decision.usability.as_str().into()),
+            );
+            result.observations.insert(
+                "candidate_reason".into(),
+                Observation::Text(self.completion.decision.reason.as_str().into()),
+            );
         }
         Some(result)
     }
@@ -160,12 +167,15 @@ impl ModelingResult {
         run_id: SemanticId,
         attempt: usize,
         mut outcome: Outcome,
-        point: super::sequence::AssessedPoint,
+        point: sequence::AssessedPoint,
         native_owner: Arc<pse_columnar::AllocationLease>,
     ) -> Self {
-        let accepted = outcome.accepts_feasible_candidate()
-            && point.error.is_none()
-            && point.checks.iter().all(|c| c.satisfied);
+        let completion = crate::workflow::numerics::complete(
+            outcome.candidate_use(),
+            &point.checks,
+            point.error.is_none(),
+            prepared.solve.numerics().policy.closure,
+        );
         stamp_start(&mut outcome, run_id, attempt);
         Self(Arc::new(ModelingResultData {
             runtime: prepared.source.runtime.clone(),
@@ -175,7 +185,8 @@ impl ModelingResult {
             values: point.values,
             checks: point.checks,
             reports: point.reports,
-            accepted,
+            accepted: completion.permits_use(),
+            completion,
             validation_error: point.error,
             _owner: point.owner,
             _native_owner: native_owner,
@@ -263,25 +274,18 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
         let mut values = prepared.model.values.clone();
-        let native_accepted = match &outcome {
-            Outcome::Rejected(_) => false,
-            Outcome::Constant(r) => r.quality.feasible(),
-            Outcome::Native(r) => {
-                if let Some(candidate) = &r.candidate {
-                    if r.variables.len() != candidate.primal.len() {
-                        return Err(contract("native candidate coordinate extent"));
-                    }
-                    for (id, v) in r.variables.iter().zip(&candidate.primal) {
-                        values.scalars.insert(*id, *v);
-                    }
-                }
-                r.qualification != pse_backend_native::solve::Qualification::Unqualified
-                    && r.validation_error.is_none()
-                    && r.quality
-                        .as_ref()
-                        .is_some_and(pse_backend_native::quality::Quality::feasible)
+        if let Outcome::Native(r) = &outcome
+            && let Some(candidate) = &r.candidate
+        {
+            if r.variables.len() != candidate.primal.len() {
+                return Err(contract("native candidate coordinate extent"));
             }
-        };
+            for (id, v) in r.variables.iter().zip(&candidate.primal) {
+                values.scalars.insert(*id, *v);
+            }
+        }
+        let native = outcome.candidate_use();
+        let policy = prepared.solve.numerics().policy.closure;
         let bytes = result_bytes(&prepared)?;
         let owner = self
             .runtime
@@ -296,6 +300,7 @@ impl ModelingPackage {
             checks: vec![],
             reports: vec![],
             accepted: false,
+            completion: crate::workflow::numerics::complete(native, &[], false, policy),
             validation_error: None,
             prepared,
             _owner: owner,
@@ -316,13 +321,19 @@ impl ModelingPackage {
                 .await
             {
                 Ok((checks, reports)) => {
-                    result.accepted = native_accepted && checks.iter().all(|c| c.satisfied);
                     result.checks = checks;
                     result.reports = reports;
                 }
                 Err(error) => result.validation_error = Some(error.boundary_diagnostic()),
             }
         }
+        result.completion = crate::workflow::numerics::complete(
+            native,
+            &result.checks,
+            has_candidate && result.validation_error.is_none(),
+            policy,
+        );
+        result.accepted = result.completion.permits_use();
         stamp_start(&mut result.outcome, run_id, 0);
         Ok(ModelingResult(Arc::new(result)))
     }
@@ -677,11 +688,7 @@ impl ModelingResult {
             .map_err(relation)?;
         if let Some(failure) = self.diagnostic() {
             columns
-                .push(super::analysis_tables::finding_row(
-                    self.run_id,
-                    0,
-                    &failure,
-                ))
+                .push(analysis_tables::finding_row(self.run_id, 0, &failure))
                 .map_err(relation)?;
         }
         for row in &self.checks {

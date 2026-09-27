@@ -122,7 +122,7 @@ pub fn with_threads<T: Send, E: From<ProblemError> + Send>(
         .num_threads(threads)
         .stack_size(stack)
         .build_scoped(|thread| thread.run(), |pool| pool.install(run))
-        .map_err(|e| E::from(ProblemError::Contract(format!("POUNCE local pool: {e}"))))?
+        .map_err(|e| E::from(ProblemError::Internal(format!("POUNCE local pool: {e}"))))?
 }
 /// Worker-local native application reuse; each call still constructs native iteration
 /// state. This makes no claim of retaining numeric factors across different solves.
@@ -160,7 +160,7 @@ impl Session {
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
         if oracle.normalization().is_some() {
-            return Err(ProblemError::Contract("model normalization must be transported through the shared NLP pipeline before native execution".into()));
+            return Err(ProblemError::Internal("model normalization must be transported through the shared NLP pipeline before native execution".into()));
         }
         let n = oracle.contract().variables.len();
         let m = oracle.contract().rows.len();
@@ -175,11 +175,11 @@ impl Session {
             },
         )?;
         if initial.len() != n || oracle.constraint_bounds().len() != m {
-            return Err(ProblemError::Contract("POUNCE dimensions".into()));
+            return Err(ProblemError::Internal("POUNCE dimensions".into()));
         }
         finite(initial)?;
         if controls.threads > 1 && ADMITTED.with(|a| a.get()) < controls.threads {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "POUNCE must execute inside its admitted local pool".into(),
             ));
         }
@@ -191,7 +191,7 @@ impl Session {
             .chain(oracle.constraint_bounds().iter().flat_map(|v| [v.0, v.1]))
         {
             if v.is_nan() || v.is_finite() && v.abs() >= 1e19 {
-                return Err(ProblemError::Contract(
+                return Err(ProblemError::Unsupported(
                     "POUNCE finite bound reaches native infinity threshold".into(),
                 ));
             }
@@ -200,7 +200,7 @@ impl Session {
         let hess = if exact {
             Pattern::new(
                 oracle.hessian_pattern().ok_or_else(|| {
-                    ProblemError::Contract("POUNCE exact Hessian unavailable".into())
+                    ProblemError::Unsupported("POUNCE exact Hessian unavailable".into())
                 })?,
                 true,
             )?
@@ -241,7 +241,7 @@ impl Session {
                         finite(r)?;
                         duals = Some((l.clone(), u.clone(), r.clone()));
                     } else if bounds.is_some() || rows.is_some() {
-                        return Err(ProblemError::Contract("partial POUNCE dual seed".into()));
+                        return Err(ProblemError::Unsupported("partial POUNCE dual seed".into()));
                     }
                 }
                 WarmPayload::PounceSqp(s) if method == Method::ActiveSetSqp => {
@@ -349,14 +349,14 @@ impl Session {
             && self.layout == Some(compatibility.layout)
             && controls.reuse != ReusePolicy::Fresh;
         if self.app.is_some() && !reused && controls.reuse == ReusePolicy::RequireReuse {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "POUNCE application reuse changes layout/profile".into(),
             ));
         }
         let mut app = if reused {
             self.app
                 .take()
-                .ok_or_else(|| ProblemError::Contract("missing POUNCE application".into()))?
+                .ok_or_else(|| ProblemError::Internal("missing POUNCE application".into()))?
         } else {
             self.app = None;
             IpoptApplication::new()
@@ -385,7 +385,7 @@ impl Session {
             ),
         );
         app.initialize()
-            .map_err(|e| ProblemError::Contract(format!("POUNCE initialization: {e}")))?;
+            .map_err(|e| ProblemError::Internal(format!("POUNCE initialization: {e}")))?;
         let inner = app.algorithm_builder_from_options();
         let config = feral.clone();
         let restore_sink = sink.clone();
@@ -511,6 +511,7 @@ impl Session {
                 .provenance
                 .insert("crossover".into(), format!("{c:?}"));
         }
+        report.evidence.start_submitted = warm.is_some();
         report
             .metrics
             .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
@@ -584,32 +585,37 @@ impl Session {
         Ok(report)
     }
 }
-/// POUNCE statuses share numeric ABI values with Ipopt, but retain their native identity.
+/// POUNCE statuses share numeric ABI values with Ipopt, but retain their native identity
+/// under the upstream C spelling. The match is exhaustive: a status added by an
+/// upgrade fails to compile instead of being silently categorized.
 pub fn termination(status: ApplicationReturnStatus) -> NativeTermination {
     use ApplicationReturnStatus::*;
-    let (category, assurance) = match status {
-        SolveSucceeded => (Termination::Success, Assurance::None),
-        SolvedToAcceptableLevel => (Termination::Acceptable, Assurance::None),
-        FeasiblePointFound => (Termination::FeasibleOnly, Assurance::None),
-        InfeasibleProblemDetected => (Termination::Infeasible, Assurance::None),
-        MaximumIterationsExceeded => (Termination::IterationLimit, Assurance::None),
-        InsufficientMemory => (Termination::ResourceExhausted, Assurance::None),
-        MaximumCpuTimeExceeded | MaximumWallTimeExceeded => {
-            (Termination::TimeLimit, Assurance::None)
-        }
-        UserRequestedStop => (Termination::Cancelled, Assurance::None),
-        InvalidNumberDetected => (Termination::Evaluation, Assurance::None),
+    let category = match status {
+        SolveSucceeded => Termination::Success,
+        SolvedToAcceptableLevel => Termination::Acceptable,
+        FeasiblePointFound => Termination::FeasibleOnly,
+        InfeasibleProblemDetected => Termination::Infeasible,
+        MaximumIterationsExceeded => Termination::IterationLimit,
+        InsufficientMemory => Termination::ResourceExhausted,
+        MaximumCpuTimeExceeded | MaximumWallTimeExceeded => Termination::TimeLimit,
+        UserRequestedStop => Termination::Cancelled,
+        InvalidNumberDetected => Termination::Evaluation,
         InvalidOption | InvalidProblemDefinition | NotEnoughDegreesOfFreedom | InternalError => {
-            (Termination::Invalid, Assurance::None)
+            Termination::Invalid
         }
-        _ => (Termination::Numerical, Assurance::None),
+        SearchDirectionBecomesTooSmall
+        | DivergingIterates
+        | RestorationFailed
+        | ErrorInStepComputation
+        | UnrecoverableException
+        | NonIpoptExceptionThrown => Termination::Numerical,
     };
     NativeTermination {
         code: i64::from(status.as_int()),
-        name: format!("{status:?}"),
+        name: status.upstream_name().into(),
         message: None,
         category,
-        assurance,
+        assurance: Assurance::None,
     }
 }
 

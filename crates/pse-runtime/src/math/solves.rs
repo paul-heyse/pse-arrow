@@ -188,7 +188,7 @@ impl PreparedSolve {
                 basis: None,
             },
             _ => {
-                return Err(ProblemError::Contract(
+                return Err(ProblemError::Unsupported(
                     "selected backend has no primal-start interface".into(),
                 ));
             }
@@ -271,15 +271,14 @@ pub enum Outcome {
     Rejected(Arc<MathRuntimeError>),
 }
 impl Outcome {
-    pub(crate) fn accepts_feasible_candidate(&self) -> bool {
+    /// The native candidate-use decision of the workflow completion owner (§16.6,
+    /// ADR-0106). Seeding, commits, homotopy, studies and publication consume it.
+    pub(crate) fn candidate_use(&self) -> crate::workflow::numerics::CandidateDecision {
+        use crate::workflow::numerics;
         match self {
-            Self::Rejected(_) => false,
-            Self::Constant(r) => r.quality.feasible(),
-            Self::Native(r) => {
-                r.qualification != Qualification::Unqualified
-                    && r.validation_error.is_none()
-                    && r.quality.as_ref().is_some_and(Quality::feasible)
-            }
+            Self::Rejected(_) => numerics::refused(numerics::CandidateReason::NoCandidate),
+            Self::Constant(r) => numerics::constant_use(&r.quality),
+            Self::Native(r) => numerics::native_use(r),
         }
     }
 }
@@ -377,7 +376,7 @@ pub(crate) fn admit_profile(profile: &SolverProfile, route: Route) -> Result<(),
     if !matches!(route, Route::Native(Backend::Ipopt | Backend::Pounce))
         && (matches!(&profile.presolve,native::presolve::Policy::Explicit{required,..}if !required.is_empty()))
     {
-        return Err(ProblemError::Contract("common NLP scales/required preprocessing need an NLP route; use the selected class's native controls".into()));
+        return Err(ProblemError::Unsupported("common NLP scales/required preprocessing need an NLP route; use the selected class's native controls".into()));
     }
     let Route::Native(backend) = route else {
         return Ok(());
@@ -408,7 +407,7 @@ pub(crate) fn admit_profile(profile: &SolverProfile, route: Route) -> Result<(),
         Backend::Ipopt | Backend::Kinsol | Backend::Clarabel
     ) && profile.controls.threads != 1
     {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Unsupported(
             "selected linked native profile is serial".into(),
         ));
     }
@@ -484,7 +483,7 @@ fn hash_controls(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemE
                 .u64(s.method as u64)
                 .str(
                     &serde_json::to_string(&s.diagnostics)
-                        .map_err(|e| ProblemError::Contract(e.to_string()))?,
+                        .map_err(|e| ProblemError::Internal(e.to_string()))?,
                 )
                 .bool(s.sparse_start.is_some());
             if let Some(start) = &s.sparse_start {
@@ -496,7 +495,7 @@ fn hash_controls(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemE
         BackendSettings::Clarabel { native, mode } => {
             h.u64(5).u64(*mode as u64).str(
                 &serde_json::to_string(native).map_err(|e| {
-                    ProblemError::Contract(format!("Clarabel settings identity: {e}"))
+                    ProblemError::Internal(format!("Clarabel settings identity: {e}"))
                 })?,
             );
         }
@@ -738,7 +737,7 @@ impl MathService {
             && profile.controls.hessian == HessianMode::Exact
             && f.prepared_derivatives < pse_kernels::DerivativeOrder::Second
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "exact NLP profile requires second-order compiler preparation".into(),
             )
             .into());
@@ -863,7 +862,7 @@ impl MathService {
         if profile.intent != SolveIntent::Optimize
             || matches!(profile.selection,SolverSelection::Explicit(b)if b!=Backend::Clarabel)
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "explicit continuous cone representation requires Clarabel optimization".into(),
             )
             .into());
@@ -1031,7 +1030,7 @@ impl MathService {
         flag: Arc<std::sync::atomic::AtomicBool>,
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
-        mut assessment: Option<Box<dyn SequenceAssessment>>,
+        assessment: Option<Box<dyn SequenceAssessment>>,
     ) -> Result<SequenceReport, MathRuntimeError> {
         #[cfg(feature = "solver-pounce")]
         if sequence
@@ -1136,8 +1135,7 @@ impl MathService {
                         seed.origin = Some(SeedOrigin { run: None, attempt });
                     }
                     let mut receipt = receipt;
-                    receipt.submitted =
-                        matches!(r.metrics.get("start.submitted"), Some(Metric::Bool(true)));
+                    receipt.submitted = r.evidence.start_submitted;
                     r.start_receipt = Some(receipt);
                     Outcome::Native(Box::new((*r).with_owner(owner.clone())))
                 }
@@ -1147,16 +1145,19 @@ impl MathService {
                 }
                 other => other,
             };
-            let original_accepted = assessment.as_mut().is_none_or(|a|a.accepted(attempt,&outcome,&flag));
-            let successful = outcome.accepts_feasible_candidate() && original_accepted;
+            let original_accepted = assessment
+                .as_mut()
+                .is_none_or(|a| a.accepted(attempt, &outcome, &flag));
+            // `PreviousAccepted` seeds only from a result; a seed-only candidate is
+            // offered to explicit consumers such as a study's dependent point.
+            let successful = outcome.candidate_use().permits_use() && original_accepted;
             warm = match &outcome {
-                Outcome::Native(r) => r.warm_start.clone(),
-                Outcome::Constant(_) | Outcome::Rejected(_) => None,
+                Outcome::Native(r) if successful => r.warm_start.clone(),
+                Outcome::Native(_) | Outcome::Constant(_) | Outcome::Rejected(_) => None,
             };
             // Terminal native failures cannot poison the next independent step.
             if !successful {
                 retained = Retained::None;
-                warm = None;
             }
             outcomes.push(outcome);
             if !successful && !sequence.continue_independent {
@@ -1195,7 +1196,7 @@ impl MathService {
             } => {
                 let stamp = step
                     .compatibility
-                    .ok_or_else(|| ProblemError::Contract("missing conic stamp".into()))?;
+                    .ok_or_else(|| ProblemError::Internal("missing conic stamp".into()))?;
                 let (native_settings, mode) = match step.profile.backend {
                     BackendSettings::Default => (
                         native::conic::Settings::default(),
@@ -1223,7 +1224,7 @@ impl MathService {
                 };
                 if !reusable {
                     if !rebuild && !matches!(retained, Retained::None) {
-                        return Err(ProblemError::Contract(
+                        return Err(ProblemError::Unsupported(
                             "required Clarabel reuse unavailable".into(),
                         )
                         .into());
@@ -1239,7 +1240,7 @@ impl MathService {
                     )?));
                 }
                 let Retained::Clarabel(s) = retained else {
-                    return Err(ProblemError::Contract("lost Clarabel owner".into()).into());
+                    return Err(ProblemError::Internal("lost Clarabel owner".into()).into());
                 };
                 let mut report = s.solve(
                     &problem,
@@ -1271,7 +1272,7 @@ impl MathService {
                 #[cfg(feature = "solver-highs")]
                 if backend == Some(Backend::Highs) {
                     let c = prepared.prepared.coefficients.as_ref().ok_or_else(|| {
-                        ProblemError::Contract("missing coefficient product".into())
+                        ProblemError::Internal("missing coefficient product".into())
                     })?;
                     let p = native::CoefficientProblem::from_plan(
                         &prepared.prepared.plan,
@@ -1291,7 +1292,7 @@ impl MathService {
                         .map(|w| native::transport::warm(w, &step.normalization, true))
                         .transpose()?;
                     let stamp = step.compatibility.ok_or_else(|| {
-                        ProblemError::Contract("missing coefficient stamp".into())
+                        ProblemError::Internal("missing coefficient stamp".into())
                     })?;
                     let settings = match step.profile.backend {
                         BackendSettings::Default => native::highs::Settings::default(),
@@ -1310,7 +1311,7 @@ impl MathService {
                     };
                     if !reusable {
                         if !rebuild && !matches!(retained, Retained::None) {
-                            return Err(ProblemError::Contract(
+                            return Err(ProblemError::Unsupported(
                                 "required HiGHS reuse unavailable".into(),
                             )
                             .into());
@@ -1320,7 +1321,7 @@ impl MathService {
                             Retained::Highs(native::highs::Session::new(&p, certificate, stamp)?);
                     }
                     let Retained::Highs(s) = retained else {
-                        return Err(ProblemError::Contract("lost HiGHS owner".into()).into());
+                        return Err(ProblemError::Internal("lost HiGHS owner".into()).into());
                     };
                     if let Some(start) = &settings.sparse_start {
                         let start = start
@@ -1405,10 +1406,7 @@ impl MathService {
                             bounds,
                         ) {
                             Ok(o) => report.observation = Some(o),
-                            Err(e) => {
-                                report.validation_error = Some(e.to_string());
-                                report.termination.assurance = Assurance::None;
-                            }
+                            Err(e) => report.record_validation_failure(e),
                         }
                     }
                     if let (Some(candidate), Some(observation)) =
@@ -1416,7 +1414,7 @@ impl MathService {
                     {
                         let validation = (|| -> Result<_, MathRuntimeError> {
                             let executable = case.clone().ok_or_else(|| {
-                                ProblemError::Contract(
+                                ProblemError::Internal(
                                     "missing original coefficient evaluator".into(),
                                 )
                             })?;
@@ -1425,7 +1423,7 @@ impl MathService {
                                 .map(|(key, f)| {
                                     f.worker_scoped(execution.cancel.clone())
                                         .map(|w| (*key, w))
-                                        .map_err(|e| ProblemError::Contract(e.to_string()))
+                                        .map_err(ProblemError::Provider)
                                 })
                                 .collect::<Result<_, _>>()?;
                             let mut original =
@@ -1466,7 +1464,7 @@ impl MathService {
                                                 * controls.accuracy.gap_absolute
                                     })
                             {
-                                return Err(ProblemError::Contract("native coefficient projection disagrees with the original model".into()).into());
+                                return Err(ProblemError::numerical("native coefficient projection disagrees with the original model").into());
                             }
                             let quality = quality::observed(
                                 &original_problem.contract,
@@ -1499,24 +1497,21 @@ impl MathService {
                                     .map_or(q.bounds, |prior| prior.bounds.clone());
                                 report.quality = Some(Quality::new(q.rows, bounds, integrality)?);
                             }
-                            Err(e) => {
-                                report.validation_error = Some(e.to_string());
-                                report.termination.assurance = Assurance::None;
-                            }
+                            Err(e) => report.record_validation_failure(e.into_problem()),
                         }
                     }
                     quality::qualify(&mut report, &controls.accuracy);
                     return Ok(Outcome::Native(Box::new(report)));
                 }
                 let case = case.ok_or_else(|| {
-                    ProblemError::Contract("missing executable representation".into())
+                    ProblemError::Internal("missing executable representation".into())
                 })?;
                 let providers = providers
                     .into_iter()
                     .map(|(key, f)| {
                         f.worker_scoped(execution.cancel.clone())
                             .map(|v| (key, v))
-                            .map_err(|e| ProblemError::Contract(e.to_string()))
+                            .map_err(ProblemError::Provider)
                     })
                     .collect::<Result<_, _>>()?;
                 let ExecutionWorker { mut worker, _case } =
@@ -1578,7 +1573,10 @@ impl MathService {
                 )))]
                 {
                     drop(owners);
-                    Err(ProblemError::Contract("selected native backend unavailable".into()).into())
+                    Err(
+                        ProblemError::Unsupported("selected native backend unavailable".into())
+                            .into(),
+                    )
                 }
                 #[cfg(any(
                     feature = "solver-ipopt",
@@ -1601,7 +1599,7 @@ impl MathService {
                         .map_or(ObjectiveSense::Minimize, |o| o.sense);
                     let stamp = step
                         .compatibility
-                        .ok_or_else(|| ProblemError::Contract("missing nonlinear stamp".into()))?;
+                        .ok_or_else(|| ProblemError::Internal("missing nonlinear stamp".into()))?;
                     let mut oracle = native::assembled::AlgebraicOracle::new(worker, values)?
                         .with_structural_analysis(prepared.prepared.structure.clone())
                         .with_presolve_facts(prepared.prepared.presolve.clone())?
@@ -1614,7 +1612,7 @@ impl MathService {
                         Some(Backend::Ipopt) => {
                             if !matches!(retained, Retained::Ipopt(_)) {
                                 if !rebuild && !matches!(retained, Retained::None) {
-                                    return Err(ProblemError::Contract(
+                                    return Err(ProblemError::Unsupported(
                                         "required Ipopt session unavailable".into(),
                                     )
                                     .into());
@@ -1638,7 +1636,7 @@ impl MathService {
                             }
                             let Retained::Ipopt(session) = retained else {
                                 return Err(
-                                    ProblemError::Contract("lost Ipopt session".into()).into()
+                                    ProblemError::Internal("lost Ipopt session".into()).into()
                                 );
                             };
                             let mut pipeline = native::presolve::Pipeline::new(
@@ -1675,7 +1673,7 @@ impl MathService {
                         Some(Backend::Pounce) => {
                             if !matches!(retained, Retained::Pounce(_)) {
                                 if !rebuild && !matches!(retained, Retained::None) {
-                                    return Err(ProblemError::Contract(
+                                    return Err(ProblemError::Unsupported(
                                         "required POUNCE application unavailable".into(),
                                     )
                                     .into());
@@ -1707,7 +1705,7 @@ impl MathService {
                             }
                             let Retained::Pounce(session) = retained else {
                                 return Err(
-                                    ProblemError::Contract("lost POUNCE session".into()).into()
+                                    ProblemError::Internal("lost POUNCE session".into()).into()
                                 );
                             };
                             let mut pipeline = native::presolve::Pipeline::new(
@@ -1790,7 +1788,7 @@ impl MathService {
                                 }
                             } else {
                                 if !rebuild && !matches!(retained, Retained::None) {
-                                    return Err(ProblemError::Contract(
+                                    return Err(ProblemError::Unsupported(
                                         "required KINSOL reuse unavailable".into(),
                                     )
                                     .into());
@@ -1808,7 +1806,7 @@ impl MathService {
                             }
                             let Retained::Kinsol { session, .. } = retained else {
                                 return Err(
-                                    ProblemError::Contract("lost KINSOL session".into()).into()
+                                    ProblemError::Internal("lost KINSOL session".into()).into()
                                 );
                             };
                             let mut report = session.solve(
@@ -1829,7 +1827,7 @@ impl MathService {
                             report
                         }
                         _ => {
-                            return Err(ProblemError::Contract(
+                            return Err(ProblemError::Unsupported(
                                 "selected native backend unavailable".into(),
                             )
                             .into());

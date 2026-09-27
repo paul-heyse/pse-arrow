@@ -83,14 +83,93 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
     }
 }
 
-#[cfg(feature="solver-ipopt")]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn authored_integration_controls_bind_to_the_experiment_instance() {
-    let (package,mut profile)=source(false,74.);
+    let (package, mut profile) = source(false, 74.);
     profile.simulations.clear();
-    let prepared=package.prepare_fit(id(73),profile,compiler_profile(),Default::default(),&crate::CancelSource::new()).await.unwrap();
-    let result=prepared.start().unwrap().wait().await.unwrap();
-    let crate::workflow::RunReport::Fit(report)=result.report().unwrap() else {panic!("missing fit")};
-    assert!((report.candidate.as_ref().unwrap()[0]-3.).abs()<1e-4,"{report:?}");
-    assert!(result.usable(),"{report:?}");
+    let prepared = package
+        .prepare_fit(
+            id(73),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+        panic!("missing fit")
+    };
+    assert!(
+        (report.candidate.as_ref().unwrap()[0] - 3.).abs() < 1e-4,
+        "{report:?}"
+    );
+    assert!(result.usable(), "{report:?}");
+}
+
+#[tokio::test]
+async fn transient_fit_deadline_is_time_limit() {
+    let (package, mut profile) = source(false, 74.);
+    profile.simulations.get_mut(&id(74)).unwrap().time_limit = std::time::Duration::from_nanos(1);
+    let cancel = crate::CancelSource::new();
+    let (problem, _) = package
+        .prepare_fit_problem(
+            id(73),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let problem = Arc::new(problem);
+    let execution = Execution::new(
+        Arc::new(AtomicBool::new(false)),
+        &problem.profile.solver.controls,
+    );
+    let mut oracle = FitOracle::new(problem.clone(), execution.clone()).unwrap();
+    // The Diffsol deadline stays a typed time limit, never an evaluation failure.
+    let error = oracle.objective(&[2.]).unwrap_err();
+    assert!(
+        matches!(
+            error,
+            ProblemError::Limit {
+                kind: native::LimitKind::Time,
+                ..
+            }
+        ),
+        "{error:?}"
+    );
+    assert_eq!(
+        native::callback::classify(&error),
+        native::callback::Failure::Stopped(native::solve::Termination::TimeLimit)
+    );
+    let mut state = native::callback::CallbackState::new(execution);
+    assert!(
+        state
+            .evaluate("fit.objective", || oracle.objective(&[2.]))
+            .is_none()
+    );
+    assert_eq!(
+        state.terminal.as_ref().map(|t| t.0),
+        Some(native::solve::Termination::TimeLimit)
+    );
+    assert_eq!(
+        crate::workflow::diagnostics::observed(&error, "fit").class,
+        pse_model::diagnostic::BoundaryClass::ResourceLimit
+    );
+    // Cancellation of the attempt is a cancellation.
+    let cancelled = Execution::new(
+        Arc::new(AtomicBool::new(true)),
+        &problem.profile.solver.controls,
+    );
+    let mut oracle = FitOracle::new(problem, cancelled).unwrap();
+    let error = oracle.objective(&[2.]).unwrap_err();
+    assert!(matches!(error, ProblemError::Cancelled), "{error:?}");
+    assert_eq!(
+        native::callback::classify(&error),
+        native::callback::Failure::Stopped(native::solve::Termination::Cancelled)
+    );
 }

@@ -83,6 +83,7 @@ pub(super) fn observed(
                 E::Quantity(_) => "math.quantity",
                 E::Library(_) => "math.library",
                 E::CoefficientRange => "math.coefficient_range",
+                E::Native { .. } => "math.native",
             }
             .into();
             match error {
@@ -109,6 +110,8 @@ pub(super) fn observed(
                 E::Contract(_) | E::Quantity(_) => result.class = Class::InvalidModel,
                 E::Library(_) => result.class = Class::Infrastructure,
                 E::CoefficientRange => result.class = Class::Infrastructure,
+                // The inner typed native cause is classified when the chain reaches it.
+                E::Native { source_id, .. } => result.sources.push(*source_id),
             }
             if let E::OutsideRange {
                 target,
@@ -169,17 +172,7 @@ pub(super) fn observed(
             }
         }
         if let Some(error) = error.downcast_ref::<pse_backend_native::ProblemError>() {
-            use pse_backend_native::ProblemError as E;
-            match error {
-                E::Unavailable { .. } => result.class = Class::Unsupported,
-                E::Contract(_) => result.class = Class::InvalidModel,
-                E::Structural { rows, columns, .. } => {
-                    result.class = Class::InvalidModel;
-                    result.sources.extend(rows);
-                    result.sources.extend(columns);
-                }
-                E::Math(_) => {}
-            }
+            problem(error, &mut result);
         }
         if let Some(error) = error.downcast_ref::<crate::math::MathRuntimeError>() {
             use crate::math::MathRuntimeError as E;
@@ -310,6 +303,10 @@ pub(super) fn observed(
             error.downcast_ref::<pse_backend_native::ProblemError>()
         {
             Some(e)
+        } else if let Some(pse_backend_native::ProblemError::Provider(e)) =
+            error.downcast_ref::<pse_backend_native::ProblemError>()
+        {
+            Some(e)
         } else if let Some(pse_compiler::workspace::CompileError::Math(e)) =
             error.downcast_ref::<pse_compiler::workspace::CompileError>()
         {
@@ -326,39 +323,90 @@ pub(super) fn observed(
     result.sources.dedup();
     result
 }
+/// Classify a native failure by its typed cause (DP-21). Structural failures keep their
+/// row and column identities; native statuses keep their code and name.
+fn problem(error: &pse_backend_native::ProblemError, result: &mut BoundaryDiagnostic) {
+    use pse_backend_native::{LimitKind, ProblemError as E};
+    let (class, rule) = match error {
+        E::Unavailable { backend, .. } => {
+            result
+                .observations
+                .insert("backend".into(), Observation::Text(backend.as_str().into()));
+            (Class::Unsupported, "native.unavailable")
+        }
+        E::Unsupported(_) => (Class::Unsupported, "native.unsupported"),
+        E::Contract(_) => (Class::InvalidModel, "native.contract"),
+        E::Structural { rows, columns, .. } => {
+            result.sources.extend(rows);
+            result.sources.extend(columns);
+            (Class::InvalidModel, "native.structural")
+        }
+        E::Numerical { status, .. } => {
+            if let Some(status) = status {
+                result.observations.insert(
+                    "native_backend".into(),
+                    Observation::Text(status.backend.as_str().into()),
+                );
+                result
+                    .observations
+                    .insert("native_code".into(), Observation::Integer(status.code));
+                result.observations.insert(
+                    "native_status".into(),
+                    Observation::Text(status.name.clone()),
+                );
+            }
+            // DP-21: an algorithmic failure without a model cause.
+            (Class::Numerical, "native.numerical")
+        }
+        E::Limit { kind, .. } => {
+            result.observations.insert(
+                "limit".into(),
+                Observation::Text(
+                    match kind {
+                        LimitKind::Time => "time",
+                        LimitKind::Work => "work",
+                        LimitKind::Memory => "memory",
+                    }
+                    .into(),
+                ),
+            );
+            (Class::ResourceLimit, "native.limit")
+        }
+        E::Cancelled => (Class::Cancelled, "native.cancelled"),
+        E::Internal(_) => (Class::Internal, "native.internal"),
+        // Typed causes are classified by their own owners further down the chain.
+        E::Math(_) | E::Provider(_) => return,
+    };
+    result.class = class;
+    result.rule = rule.into();
+}
 impl RunResult {
     pub(super) fn capture_diagnostics(&self) -> Vec<BoundaryDiagnostic> {
         match &self.report {
             Err(error) => vec![error.boundary_diagnostic()],
             Ok(RunReport::Modeling(r)) => r.iter().filter_map(|r| r.diagnostic()).collect(),
             Ok(RunReport::Simulation(r)) => r.diagnostic().into_iter().collect(),
+            // Stable rule codes with the class derived from each typed cause.
             Ok(RunReport::Fit(r)) => r
                 .diagnostic
                 .iter()
-                .map(|message| {
-                    BoundaryDiagnostic::new(
-                        Class::TrialRejected,
-                        "fit.final_evaluation",
-                        [],
-                        message.clone(),
-                    )
+                .map(|d| {
+                    let mut diagnostic = observed(d.cause.as_ref(), "fit");
+                    diagnostic.rule = d.rule.as_str().into();
+                    diagnostic
                 })
                 .chain(
                     r.solve
                         .iter()
-                        .filter_map(|s| s.validation_error.as_ref())
-                        .map(|message| {
-                            BoundaryDiagnostic::new(
-                                Class::TrialRejected,
-                                "fit.candidate_validation",
-                                [],
-                                message.clone(),
-                            )
+                        .filter_map(|s| s.validation_failure())
+                        .map(|cause| {
+                            let mut diagnostic = observed(cause, "fit");
+                            diagnostic.rule = "fit.candidate_validation".into();
+                            diagnostic
                         }),
                 )
                 .chain(r.validation_error.clone())
                 .collect(),
-
         }
     }
 }
@@ -382,6 +430,94 @@ mod tests {
         assert!(
             matches!(&diagnostic.observations["detail"], Observation::Text(value) if value == "synthetic capability")
         );
+    }
+    #[test]
+    fn adapter_not_linked_is_unsupported() {
+        use pse_backend_native::{
+            ProblemError,
+            routing::Requirements,
+            solve::{Backend, Controls, SolveIntent, SolverSelection},
+        };
+        let facts = pse_backend_native::routing::oracle_facts(
+            &pse_backend_native::OracleContract {
+                identity: pse_ids::ContentHash::from_bytes([1; 32]),
+                variables: vec![pse_backend_native::Variable {
+                    id: pse_ids::SemanticId::from_bytes([1; 16]),
+                    lower: f64::NEG_INFINITY,
+                    upper: f64::INFINITY,
+                }],
+                rows: vec![pse_ids::SemanticId::from_bytes([2; 16])],
+                derivatives: pse_kernels::DerivativeOrder::Second,
+                smoothness: pse_kernels::DerivativeOrder::Second,
+            },
+            false,
+            true,
+        );
+        let controls = Controls::default();
+        // No adapter exposed or linked: automatic routing has no eligible route.
+        let refused = Requirements {
+            available: Some(&[]),
+            facts: &facts,
+            intent: SolveIntent::Root,
+            convex: false,
+            controls: &controls,
+        };
+        let error = refused.select(SolverSelection::Auto).unwrap_err();
+        assert!(matches!(error, ProblemError::Unsupported(_)), "{error:?}");
+        let diagnostic = observed(&error, "routing");
+        assert_eq!(diagnostic.class, Class::Unsupported);
+        assert_eq!(diagnostic.rule, "native.unsupported");
+        // An explicitly selected adapter outside the linked inventory is unavailable.
+        let error = refused
+            .select(SolverSelection::Explicit(Backend::Ipopt))
+            .unwrap_err();
+        assert!(
+            matches!(error, ProblemError::Unavailable { .. }),
+            "{error:?}"
+        );
+        assert_eq!(observed(&error, "routing").class, Class::Unsupported);
+        // Internal invariants and numerical failures are never an invalid model.
+        for (error, class) in [
+            (ProblemError::internal("postcondition"), Class::Internal),
+            (ProblemError::Cancelled, Class::Cancelled),
+            (
+                ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    detail: "deadline".into(),
+                },
+                Class::ResourceLimit,
+            ),
+            (ProblemError::numerical("factorization"), Class::Numerical),
+            (
+                ProblemError::Provider(pse_kernels::ProviderError::Terminal("native".into())),
+                Class::Infrastructure,
+            ),
+        ] {
+            assert_eq!(observed(&error, "native").class, class, "{error:?}");
+        }
+    }
+    #[test]
+    fn structural_failure_keeps_rows_and_columns() {
+        let rows = vec![pse_ids::SemanticId::from_bytes([6; 16])];
+        let columns = vec![pse_ids::SemanticId::from_bytes([7; 16])];
+        let inner = pse_backend_native::ProblemError::Structural {
+            mode: pse_backend_native::structural::Mode::Roots,
+            rows: rows.clone(),
+            columns: columns.clone(),
+        };
+        let block = pse_ids::SemanticId::from_bytes([5; 16]);
+        // An injected inner solve retains the typed structural witness through MathError.
+        let error = pse_math::MathError::Native {
+            source_id: block,
+            retained: inner.retained_bytes(),
+            cause: Box::new(inner),
+        };
+        let d = observed(&error, "implicit");
+        assert_eq!(d.class, Class::InvalidModel);
+        assert_eq!(d.rule, "native.structural");
+        let mut expected = vec![block, rows[0], columns[0]];
+        expected.sort_unstable();
+        assert_eq!(d.sources, expected);
     }
     #[test]
     fn unattributed_failure_never_acquires_a_guessed_source() {

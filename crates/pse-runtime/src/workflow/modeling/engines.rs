@@ -94,14 +94,17 @@ impl ModelingInitializationAttempt {
         use crate::math::solves::Outcome;
         use pse_backend_native::solve::Termination as T;
         match &self.result {
-            Err(error) => error.boundary_diagnostic().class == BoundaryClass::TrialRejected,
+            Err(error) => matches!(
+                error.boundary_diagnostic().class,
+                BoundaryClass::TrialRejected | BoundaryClass::Numerical
+            ),
             Ok(result) => match &result.outcome {
-                Outcome::Rejected(error) => {
+                Outcome::Rejected(error) => matches!(
                     WorkflowError::Math(crate::math::MathRuntimeError::Shared(error.clone()))
                         .boundary_diagnostic()
-                        .class
-                        == BoundaryClass::TrialRejected
-                }
+                        .class,
+                    BoundaryClass::TrialRejected | BoundaryClass::Numerical
+                ),
                 Outcome::Constant(_) => true,
                 Outcome::Native(native) => {
                     matches!(
@@ -142,7 +145,7 @@ pub(super) async fn bounded_work<T, F, Fut>(
 ) -> (Result<T, WorkflowError>, Option<BoundaryDiagnostic>)
 where
     F: FnOnce(crate::CancelSource) -> Fut,
-    Fut: std::future::Future<Output = Result<T, WorkflowError>>,
+    Fut: Future<Output = Result<T, WorkflowError>>,
 {
     let interruption = |class, rule| BoundaryDiagnostic::new(class, scope, [], rule);
     if cancel.token().is_cancelled() {
@@ -296,7 +299,8 @@ impl ModelingPackage {
             };
             let seed = if let Some(previous) = p.predecessor {
                 match &outcomes[previous] {
-                    Ok(result) if result.accepted => result.values.scalars.clone(),
+                    // A dependent point is seeded by a result or a seed-only candidate.
+                    Ok(result) if result.completion.permits_seed() => result.values.scalars.clone(),
                     _ => {
                         let mut error = BoundaryDiagnostic::new(
                             BoundaryClass::Conflict,
@@ -847,10 +851,7 @@ mod tests {
         let failed=report.attempts.iter().filter_map(|a|a.result.as_ref().ok()).find(|r|
             matches!(&r.outcome,crate::math::solves::Outcome::Native(n) if n.callback_failure().is_some())).unwrap();
         let diagnostic = failed.diagnostic().unwrap();
-        assert_eq!(
-            diagnostic.class,
-            pse_model::diagnostic::BoundaryClass::TrialRejected
-        );
+        assert_eq!(diagnostic.class, BoundaryClass::TrialRejected);
         assert!(!diagnostic.sources.is_empty());
         assert!(matches!(
             diagnostic.rule.as_str(),

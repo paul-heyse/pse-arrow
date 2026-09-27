@@ -252,7 +252,7 @@ impl Policy {
             || o.licq_action != LicqAction::Warn
             || o.auxiliary_coupling == AuxiliaryCouplingPolicy::Aggressive
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "unsupported or unbounded native presolve controls".into(),
             ));
         }
@@ -329,7 +329,7 @@ impl Policy {
                 && required.contains(&pass)
                 && !applied
             {
-                return Err(ProblemError::Contract(format!(
+                return Err(ProblemError::Unsupported(format!(
                     "required {pass:?} unavailable: {reason}"
                 )));
             }

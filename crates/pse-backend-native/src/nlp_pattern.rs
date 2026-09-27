@@ -33,5 +33,5 @@ impl Pattern {
 }
 
 fn checked_index(n: usize) -> Result<i32, ProblemError> {
-    i32::try_from(n).map_err(|_| ProblemError::Contract("native sparse index overflow".into()))
+    i32::try_from(n).map_err(|_| ProblemError::Unsupported("native sparse index overflow".into()))
 }

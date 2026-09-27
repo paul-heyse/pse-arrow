@@ -192,14 +192,14 @@ impl Settings {
         }
         let signs = guarded_sign_constraints(c, guards)?;
         if (fixed || self.strategy == Strategy::Picard) && signs.iter().any(|v| *v != 0.0) {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "KIN_FP/KIN_PICARD forbid constraints; choose an eligible declared map or NLP"
                     .into(),
             ));
         }
         match self.linear {
             Linear::Dense { limit } if limit == 0 || n > limit => {
-                return Err(ProblemError::Contract(
+                return Err(ProblemError::Unsupported(
                     "KINSOL dense dimension limit".into(),
                 ));
             }
@@ -219,7 +219,7 @@ pub fn sign_constraints(c: &OracleContract) -> Result<Vec<f64>, ProblemError> {
             (l, u) if l == f64::NEG_INFINITY && u == f64::INFINITY => Ok(0.0),
             (0.0, u) if u == f64::INFINITY => Ok(1.0),
             (l, 0.0) if l == f64::NEG_INFINITY => Ok(-1.0),
-            _ => Err(ProblemError::Contract(
+            _ => Err(ProblemError::Unsupported(
                 "KINSOL sign constraints cannot encode general box bounds".into(),
             )),
         })
@@ -299,22 +299,22 @@ impl Drop for Session {
 }
 fn check(code: i32, name: &str) -> Result<(), ProblemError> {
     if code < 0 {
-        Err(ProblemError::Contract(format!("SUNDIALS {name}: {code}")))
+        Err(ProblemError::Internal(format!("SUNDIALS {name}: {code}")))
     } else {
         Ok(())
     }
 }
 fn index(n: usize) -> Result<ffi::sunindextype, ProblemError> {
     ffi::sunindextype::try_from(n)
-        .map_err(|_| ProblemError::Contract("SUNDIALS index overflow".into()))
+        .map_err(|_| ProblemError::Unsupported("SUNDIALS index overflow".into()))
 }
 unsafe fn values<'a>(v: ffi::N_Vector, n: usize) -> Result<&'a [f64], ProblemError> {
     if v.is_null() || unsafe { ffi::N_VGetLength(v) } != index(n)? {
-        return Err(ProblemError::Contract("SUNDIALS vector dimensions".into()));
+        return Err(ProblemError::Internal("SUNDIALS vector dimensions".into()));
     }
     let p = unsafe { ffi::N_VGetArrayPointer(v) };
     if p.is_null() {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Internal(
             "SUNDIALS null vector storage".into(),
         ));
     }
@@ -323,9 +323,7 @@ unsafe fn values<'a>(v: ffi::N_Vector, n: usize) -> Result<&'a [f64], ProblemErr
 unsafe fn publish(v: ffi::N_Vector, from: &[f64]) -> Result<(), ProblemError> {
     unsafe { values(v, from.len()) }?;
     if from.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract(
-            "nonfinite root callback output".into(),
-        ));
+        return Err(ProblemError::numerical("nonfinite root callback output"));
     }
     unsafe { std::ptr::copy_nonoverlapping(from.as_ptr(), ffi::N_VGetArrayPointer(v), from.len()) };
     Ok(())
@@ -373,20 +371,20 @@ unsafe extern "C" fn jacobian(
             Function::Equations(o) => o.jacobian(unsafe { values(x, c.n) }?, &mut v)?,
             Function::Picard { linear, .. } => v.copy_from_slice(linear.val()),
             Function::FixedPoint(_) => {
-                return Err(ProblemError::Contract(
+                return Err(ProblemError::Unsupported(
                     "map has no residual Jacobian".into(),
                 ));
             }
         }
         if v.iter().any(|v| !v.is_finite()) || matrix.is_null() {
-            return Err(ProblemError::Contract("invalid root Jacobian".into()));
+            return Err(ProblemError::numerical("invalid root Jacobian"));
         }
         if c.dense {
             check(unsafe { ffi::SUNMatZero(matrix) }, "dense zero")?;
             for col in 0..c.n {
                 let p = unsafe { ffi::SUNDenseMatrix_Column(matrix, index(col)?) };
                 if p.is_null() {
-                    return Err(ProblemError::Contract("null dense column".into()));
+                    return Err(ProblemError::Internal("null dense column".into()));
                 }
                 for k in c.columns[col] as usize..c.columns[col + 1] as usize {
                     unsafe { *p.add(c.rows[k] as usize) = v[k] };
@@ -397,7 +395,7 @@ unsafe extern "C" fn jacobian(
             let columns = unsafe { ffi::SUNSparseMatrix_IndexPointers(matrix) };
             let rows = unsafe { ffi::SUNSparseMatrix_IndexValues(matrix) };
             if columns.is_null() || (!v.is_empty() && (p.is_null() || rows.is_null())) {
-                return Err(ProblemError::Contract("null sparse values".into()));
+                return Err(ProblemError::Internal("null sparse values".into()));
             }
             // KINSOL zeros the matrix before each Jacobian callback. SUNDIALS
             // sparse zero clears both indices and values, including CSC pointers.
@@ -438,7 +436,7 @@ unsafe extern "C" fn jvp(
                 }
             }
             Function::FixedPoint(_) => {
-                return Err(ProblemError::Contract("map has no residual JVP".into()));
+                return Err(ProblemError::Unsupported("map has no residual JVP".into()));
             }
         }
         unsafe { publish(out, &y) }
@@ -482,7 +480,7 @@ impl Session {
                 .iter()
                 .map(|v| v.id))
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "KINSOL replacement changes layout".into(),
             ));
         }
@@ -499,7 +497,7 @@ impl Session {
                     columns.push(index(count)?);
                 }
                 if rows != self.callback.rows || columns != self.callback.columns {
-                    return Err(ProblemError::Contract(
+                    return Err(ProblemError::Unsupported(
                         "KINSOL replacement changes sparse layout".into(),
                     ));
                 }
@@ -589,13 +587,13 @@ impl Session {
             s.us = ffi::N_VNew_Serial(index(n)?, s.ctx);
             s.fs = ffi::N_VNew_Serial(index(n)?, s.ctx);
             if s.x.is_null() || s.us.is_null() || s.fs.is_null() {
-                return Err(ProblemError::Contract("SUNDIALS vector allocation".into()));
+                return Err(ProblemError::memory("SUNDIALS vector allocation"));
             }
             publish(s.us, &s.settings.variable_scales)?;
             publish(s.fs, &s.settings.residual_scales)?;
             s.mem = ffi::KINCreate(s.ctx);
             if s.mem.is_null() {
-                return Err(ProblemError::Contract("KINSOL allocation".into()));
+                return Err(ProblemError::memory("KINSOL allocation"));
             }
             check(
                 ffi::KINSetMAA(s.mem, s.settings.anderson as _),
@@ -617,7 +615,7 @@ impl Session {
                             s.ctx,
                         );
                         if s.matrix.is_null() {
-                            return Err(ProblemError::Contract("sparse matrix allocation".into()));
+                            return Err(ProblemError::memory("sparse matrix allocation"));
                         }
                         std::ptr::copy_nonoverlapping(
                             s.callback.columns.as_ptr(),
@@ -636,7 +634,7 @@ impl Session {
                     Linear::Dense { .. } => {
                         s.matrix = ffi::SUNDenseMatrix(index(n)?, index(n)?, s.ctx);
                         if s.matrix.is_null() {
-                            return Err(ProblemError::Contract("dense matrix allocation".into()));
+                            return Err(ProblemError::memory("dense matrix allocation"));
                         }
                         s.linear = ffi::SUNLinSol_Dense(s.x, s.matrix, s.ctx);
                     }
@@ -645,9 +643,7 @@ impl Session {
                     }
                 }
                 if s.linear.is_null() {
-                    return Err(ProblemError::Contract(
-                        "native linear solver allocation".into(),
-                    ));
+                    return Err(ProblemError::memory("native linear solver allocation"));
                 }
                 check(
                     ffi::KINSetLinearSolver(s.mem, s.linear, s.matrix),
@@ -679,14 +675,14 @@ impl Session {
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
         if controls.threads != 1 || !controls.options.is_empty() {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "serial KINSOL uses typed Settings and one core".into(),
             ));
         }
         let n = self.callback.n;
         tolerances.validate(n, n)?;
         if initial.len() != n {
-            return Err(ProblemError::Contract("root start dimensions".into()));
+            return Err(ProblemError::Internal("root start dimensions".into()));
         }
         let start = if let Some(w) = warm {
             w.validate(&self.compatibility)?;
@@ -765,6 +761,7 @@ impl Session {
         }
         macro_rules! real{($($get:ident),*)=>{$(let mut v=0.0;if unsafe{ffi::$get(self.mem,&mut v)}==0{report.metrics.insert(stringify!($get).into(),Metric::Real(v));})*}}
         real!(KINGetFuncNorm, KINGetStepLength);
+        report.evidence.start_submitted = warm.is_some();
         report
             .metrics
             .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
@@ -890,6 +887,8 @@ pub fn termination(code: i32) -> NativeTermination {
         ffi::KIN_REPTD_SYSFUNC_ERR => ("KIN_REPTD_SYSFUNC_ERR", Termination::Evaluation),
         ffi::KIN_VECTOROP_ERR => ("KIN_VECTOROP_ERR", Termination::Numerical),
         ffi::KIN_CONTEXT_ERR => ("KIN_CONTEXT_ERR", Termination::Invalid),
+        ffi::KIN_WARNING => ("KIN_WARNING", Termination::Inconclusive),
+        // Only an integer undeclared by the pinned SUNDIALS header reaches this arm.
         _ => ("KIN_UNKNOWN", Termination::Inconclusive),
     };
     NativeTermination {

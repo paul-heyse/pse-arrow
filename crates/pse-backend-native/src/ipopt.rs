@@ -22,14 +22,14 @@ const INFINITY: f64 = 1e19;
 use crate::nlp_pattern::Pattern;
 pub use crate::presolve::Scaling;
 fn index(n: usize) -> Result<i32, ProblemError> {
-    i32::try_from(n).map_err(|_| ProblemError::Contract("Ipopt index overflow".into()))
+    i32::try_from(n).map_err(|_| ProblemError::Unsupported("Ipopt index overflow".into()))
 }
 fn cstring(s: &str) -> Result<CString, ProblemError> {
     CString::new(s).map_err(|_| ProblemError::Contract("NUL in native option".into()))
 }
 fn native_bound(x: f64) -> Result<f64, ProblemError> {
     if x.is_nan() || x.is_finite() && x.abs() >= INFINITY {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Unsupported(
             "finite bound reaches Ipopt infinity threshold".into(),
         ));
     }
@@ -101,7 +101,7 @@ unsafe fn input<'a>(p: *const f64, n: usize) -> Result<&'a [f64], ProblemError> 
         return Ok(&[]);
     }
     if p.is_null() {
-        return Err(ProblemError::Contract("null callback input".into()));
+        return Err(ProblemError::Internal("null callback input".into()));
     }
     Ok(unsafe { std::slice::from_raw_parts(p, n) })
 }
@@ -110,7 +110,7 @@ unsafe fn publish<T: Copy>(p: *mut T, values: &[T]) -> Result<(), ProblemError> 
         return Ok(());
     }
     if p.is_null() {
-        return Err(ProblemError::Contract("null callback output".into()));
+        return Err(ProblemError::Internal("null callback output".into()));
     }
     unsafe { std::ptr::copy_nonoverlapping(values.as_ptr(), p, values.len()) };
     Ok(())
@@ -122,7 +122,7 @@ fn dimensions(c: &Context<'_>, n: i32, m: Option<i32>) -> Result<(), ProblemErro
     if usize::try_from(n).ok() != Some(c.n)
         || m.is_some_and(|m| usize::try_from(m).ok() != Some(c.m))
     {
-        Err(ProblemError::Contract(
+        Err(ProblemError::Internal(
             "callback dimensions differ from admitted NLP".into(),
         ))
     } else {
@@ -145,8 +145,8 @@ unsafe extern "C" fn objective(
             valid?;
             let value = c.oracle.objective(unsafe { input(x, c.n) }?)?;
             if !value.is_finite() {
-                return Err(ProblemError::Contract(
-                    "nonfinite objective returned by oracle".into(),
+                return Err(ProblemError::numerical(
+                    "nonfinite objective returned by oracle",
                 ));
             }
             unsafe { publish(out, &[value]) }
@@ -216,11 +216,11 @@ unsafe extern "C" fn jacobian(
         .evaluate("jacobian", || {
             valid?;
             if usize::try_from(nnz).ok() != Some(c.jac.rows.len()) {
-                return Err(ProblemError::Contract("Jacobian nnz".into()));
+                return Err(ProblemError::Internal("Jacobian nnz".into()));
             }
             if out.is_null() {
                 if nnz > 0 && (rows.is_null() || cols.is_null()) {
-                    return Err(ProblemError::Contract(
+                    return Err(ProblemError::Internal(
                         "null sparse structure output".into(),
                     ));
                 }
@@ -259,11 +259,11 @@ unsafe extern "C" fn hessian(
         .evaluate("hessian", || {
             valid?;
             if usize::try_from(nnz).ok() != Some(c.hess.rows.len()) {
-                return Err(ProblemError::Contract("Hessian nnz".into()));
+                return Err(ProblemError::Internal("Hessian nnz".into()));
             }
             if out.is_null() {
                 if nnz > 0 && (rows.is_null() || cols.is_null()) {
-                    return Err(ProblemError::Contract(
+                    return Err(ProblemError::Internal(
                         "null sparse structure output".into(),
                     ));
                 }
@@ -287,7 +287,7 @@ unsafe extern "C" fn hessian(
 }
 pub(crate) fn finite(values: &[f64]) -> Result<(), ProblemError> {
     if values.iter().any(|v| !v.is_finite()) {
-        Err(ProblemError::Contract("nonfinite callback output".into()))
+        Err(ProblemError::numerical("nonfinite callback output"))
     } else {
         Ok(())
     }
@@ -530,7 +530,7 @@ impl Session {
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
         if oracle.normalization().is_some() {
-            return Err(ProblemError::Contract("model normalization must be transported through the shared NLP pipeline before native execution".into()));
+            return Err(ProblemError::Internal("model normalization must be transported through the shared NLP pipeline before native execution".into()));
         }
         let exact = controls.hessian == HessianMode::Exact;
         crate::validate_nlp(
@@ -545,16 +545,16 @@ impl Session {
         let m = oracle.contract().rows.len();
         tolerances.validate(n, m)?;
         if initial.len() != n {
-            return Err(ProblemError::Contract("initial point dimensions".into()));
+            return Err(ProblemError::Internal("initial point dimensions".into()));
         }
         finite(initial)?;
         if controls.threads != 1 {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "pinned sequential Ipopt/MUMPS profile requires one core".into(),
             ));
         }
         if oracle.constraint_bounds().len() != m {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "constraint bounds dimensions".into(),
             ));
         }
@@ -563,7 +563,7 @@ impl Session {
             Pattern::new(
                 oracle
                     .hessian_pattern()
-                    .ok_or_else(|| ProblemError::Contract("exact Hessian unavailable".into()))?,
+                    .ok_or_else(|| ProblemError::Unsupported("exact Hessian unavailable".into()))?,
                 true,
             )?
         } else {
@@ -613,7 +613,7 @@ impl Session {
             && controls.reuse != ReusePolicy::Fresh;
         if !reused {
             if controls.reuse == ReusePolicy::RequireReuse && self.handle.is_some() {
-                return Err(ProblemError::Contract(
+                return Err(ProblemError::Unsupported(
                     "Ipopt C problem bounds or layout changed and require rebuilding".into(),
                 ));
             }
@@ -637,7 +637,7 @@ impl Session {
                         Some(hessian),
                     )
                 })
-                .ok_or_else(|| ProblemError::Contract("Ipopt refused problem creation".into()))?,
+                .ok_or_else(|| ProblemError::Internal("Ipopt refused problem creation".into()))?,
             );
             self.handle = Some(created);
             self.signature = Some(signature);
@@ -645,7 +645,7 @@ impl Session {
         let handle = self
             .handle
             .as_ref()
-            .ok_or_else(|| ProblemError::Contract("lost Ipopt native owner".into()))?;
+            .ok_or_else(|| ProblemError::Internal("lost Ipopt native owner".into()))?;
         reject_reserved(
             &controls.options,
             &[
@@ -760,7 +760,7 @@ impl Session {
                 rows.clone_from(r);
                 options.insert("warm_start_init_point".into(), OptionValue::Bool(true));
             } else if bounds.is_some() || row_seed.is_some() {
-                return Err(ProblemError::Contract("partial NLP dual seed".into()));
+                return Err(ProblemError::Unsupported("partial NLP dual seed".into()));
             }
         }
         for (key, value) in &options {
@@ -788,11 +788,11 @@ impl Session {
                     rows.as_mut_ptr(),
                 )
             } {
-                return Err(ProblemError::Contract("Ipopt rejected scaling".into()));
+                return Err(ProblemError::Internal("Ipopt rejected scaling".into()));
             }
         }
         if !unsafe { ffi::SetIntermediateCallback(handle.0.as_ptr(), Some(intermediate)) } {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "Ipopt intermediate callback registration".into(),
             ));
         }
@@ -829,6 +829,7 @@ impl Session {
         report
             .metrics
             .insert("reuse.native_model".into(), Metric::Bool(reused));
+        report.evidence.start_submitted = warm.is_some();
         report
             .metrics
             .insert("start.submitted".into(), Metric::Bool(warm.is_some()));

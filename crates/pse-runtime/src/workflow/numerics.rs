@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Numerical preparation and immutable completion assessment, shared by public workflows.
-use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
+use super::{RunReport, RunRequest, RunResult, WorkflowError, relation};
+use pse_backend_native::solve::SolveReport;
 use pse_ids::SemanticId;
 use pse_model::{
     generated::enums::{CandidateUse, ClosureAssessment, ClosurePolicy, NativeTermination},
@@ -12,72 +13,235 @@ use pse_relations::generated::runtime::{
 };
 use std::collections::BTreeMap;
 
-fn assessment(
-    native_ok: bool,
-    numerical: Option<bool>,
-    required: bool,
-    checks: &[Option<bool>],
+/// Stable reason for a candidate-use decision; published as text, never parsed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CandidateReason {
+    /// Every required original-coordinate check passed and the native stop permits use.
+    Accepted,
+    /// The native API supplied no candidate.
+    NoCandidate,
+    /// Independent original-model validation failed.
+    ValidationFailed,
+    /// Original-coordinate feasibility failed or is unavailable.
+    Infeasible,
+    /// Qualification was not established for the reported facts.
+    Unqualified,
+    /// A limit, numerical or inconclusive stop left an original-feasible iterate.
+    StoppedFeasible,
+    /// A refusal, failure, cancellation or unboundedness stop.
+    NativeOutcome,
+    /// The point a local infeasibility stop returns.
+    LeastInfeasible,
+    /// Required original-model checks failed or are unavailable.
+    ModelChecks,
+    /// Required physical closure is unavailable.
+    ClosureUnavailable,
+    /// Physical closure failed the frozen budget.
+    ClosureUnclosed,
+    /// Closure failed and an explicit policy permits the unclosed candidate.
+    ClosureAllowed,
+}
+impl CandidateReason {
+    /// Stable published reason.
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Accepted => "required original-coordinate checks passed",
+            Self::NoCandidate => "native attempt supplied no candidate",
+            Self::ValidationFailed => "original-model validation failed",
+            Self::Infeasible => "original numerical acceptance failed or is unavailable",
+            Self::Unqualified => "original-space qualification was not established",
+            Self::StoppedFeasible => {
+                "feasible iterate after a native stop that forbids use; seed only"
+            }
+            Self::NativeOutcome => "native outcome does not permit candidate use",
+            Self::LeastInfeasible => {
+                "least-infeasible point after a local infeasibility stop; diagnostic only"
+            }
+            Self::ModelChecks => "required original-model checks failed or are unavailable",
+            Self::ClosureUnavailable => "required physical closure is unavailable",
+            Self::ClosureUnclosed => "physical closure failed the frozen budget",
+            Self::ClosureAllowed => {
+                "explicit policy permits a retained physically unclosed candidate"
+            }
+        }
+    }
+}
+/// One immutable candidate-use decision (§16.6, ADR-0106). Solve sequences,
+/// initialization, homotopy, studies, fitting, diagnostics and publication consume it;
+/// no workflow re-derives acceptance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct CandidateDecision {
+    pub(crate) usability: CandidateUse,
+    pub(crate) reason: CandidateReason,
+}
+impl CandidateDecision {
+    const fn new(usability: CandidateUse, reason: CandidateReason) -> Self {
+        Self { usability, reason }
+    }
+    /// The candidate may be a result: it may be committed, published or advanced from.
+    pub(crate) const fn permits_use(self) -> bool {
+        matches!(
+            self.usability,
+            CandidateUse::Usable | CandidateUse::QualifiedUnclosed
+        )
+    }
+    /// The candidate may seed a later step; a seed-only candidate is never a result.
+    pub(crate) const fn permits_seed(self) -> bool {
+        self.permits_use() || matches!(self.usability, CandidateUse::SeedOnly)
+    }
+}
+/// What a native stop permits for an original-feasible candidate. The match is
+/// exhaustive: a new shared stop category must be assigned here.
+const fn stop_use(category: NativeTermination) -> Option<CandidateDecision> {
+    use NativeTermination as T;
+    match category {
+        // Success, a declared acceptable budget, or the feasible point of a square system.
+        T::Success | T::Acceptable | T::FeasibleOnly => None,
+        // The method stopped before establishing its result; the iterate may seed.
+        T::Limit
+        | T::IterationLimit
+        | T::TimeLimit
+        | T::SolutionLimit
+        | T::ObjectiveLimit
+        | T::ResourceExhausted
+        | T::Inconclusive
+        | T::Numerical => Some(CandidateDecision::new(
+            CandidateUse::SeedOnly,
+            CandidateReason::StoppedFeasible,
+        )),
+        T::Infeasible => Some(CandidateDecision::new(
+            CandidateUse::DiagnosticOnly,
+            CandidateReason::LeastInfeasible,
+        )),
+        T::Unbounded
+        | T::InfeasibleOrUnbounded
+        | T::Cancelled
+        | T::Evaluation
+        | T::Panic
+        | T::Invalid => Some(CandidateDecision::new(
+            CandidateUse::Unusable,
+            CandidateReason::NativeOutcome,
+        )),
+    }
+}
+/// The native decision over termination, qualification, quality and validation.
+pub(crate) fn native_use(report: &SolveReport) -> CandidateDecision {
+    use pse_backend_native::solve::Qualification;
+    let refused = |reason| CandidateDecision::new(CandidateUse::Unusable, reason);
+    if report.validation_failure().is_some() {
+        return refused(CandidateReason::ValidationFailed);
+    }
+    if report.candidate.is_none() {
+        return refused(CandidateReason::NoCandidate);
+    }
+    if report.termination.category == NativeTermination::Infeasible {
+        return CandidateDecision::new(
+            CandidateUse::DiagnosticOnly,
+            CandidateReason::LeastInfeasible,
+        );
+    }
+    if !report
+        .quality
+        .as_ref()
+        .is_some_and(pse_backend_native::quality::Quality::feasible)
+    {
+        return refused(CandidateReason::Infeasible);
+    }
+    if report.qualification == Qualification::Unqualified {
+        return refused(CandidateReason::Unqualified);
+    }
+    stop_use(report.termination.category).unwrap_or(CandidateDecision::new(
+        CandidateUse::Usable,
+        CandidateReason::Accepted,
+    ))
+}
+/// All-fixed evaluation has no native stop; original quality alone decides.
+pub(crate) fn constant_use(quality: &pse_backend_native::quality::Quality) -> CandidateDecision {
+    if quality.feasible() {
+        CandidateDecision::new(CandidateUse::Usable, CandidateReason::Accepted)
+    } else {
+        CandidateDecision::new(CandidateUse::Unusable, CandidateReason::Infeasible)
+    }
+}
+/// A trajectory is usable only after a completed integration without a typed failure.
+pub(crate) fn trajectory_use(report: &pse_backend_native::dynamics::Report) -> CandidateDecision {
+    if report.termination == pse_backend_native::dynamics::Termination::Completed
+        && report.error.is_none()
+    {
+        CandidateDecision::new(CandidateUse::Usable, CandidateReason::Accepted)
+    } else {
+        CandidateDecision::new(CandidateUse::Unusable, CandidateReason::NativeOutcome)
+    }
+}
+/// A refusal with no native report.
+pub(crate) const fn refused(reason: CandidateReason) -> CandidateDecision {
+    CandidateDecision::new(CandidateUse::Unusable, reason)
+}
+/// The completed decision for one candidate: the native decision, required
+/// original-model checks and physical closure (§16.6).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Completed {
+    pub(crate) closure: ClosureAssessment,
+    pub(crate) decision: CandidateDecision,
+}
+impl Completed {
+    /// See [`CandidateDecision::permits_use`].
+    pub(crate) const fn permits_use(self) -> bool {
+        self.decision.permits_use()
+    }
+    /// See [`CandidateDecision::permits_seed`].
+    pub(crate) const fn permits_seed(self) -> bool {
+        self.decision.permits_seed()
+    }
+}
+/// The workflow completion owner (§16.6). Checks and closure can only refuse or qualify
+/// a usable native decision; they never upgrade a seed-only or diagnostic point.
+pub(crate) fn complete(
+    native: CandidateDecision,
+    checks: &[super::ModelingCheck],
+    checks_complete: bool,
     policy: ClosurePolicy,
-) -> (ClosureAssessment, CandidateUse, &'static str) {
-    let closure = if checks.is_empty() {
+) -> Completed {
+    use pse_model::generated::enums::ModelingCheckKind;
+    let mut closure_checks = Vec::new();
+    let mut mandatory = checks_complete;
+    for check in checks {
+        if check.kind == ModelingCheckKind::Closure {
+            closure_checks.push(Some(check.satisfied));
+        } else {
+            mandatory &= check.satisfied;
+        }
+    }
+    if !checks_complete {
+        closure_checks.push(None);
+    }
+    let closure = if closure_checks.is_empty() {
         ClosureAssessment::NotRequired
-    } else if checks.contains(&None) {
+    } else if closure_checks.contains(&None) {
         ClosureAssessment::Unavailable
-    } else if checks.contains(&Some(false)) {
+    } else if closure_checks.contains(&Some(false)) {
         ClosureAssessment::Unclosed
     } else {
         ClosureAssessment::Closed
     };
-    let (use_, reason) = if !native_ok {
-        (
-            CandidateUse::Unusable,
-            "native outcome does not permit candidate use",
-        )
-    } else if numerical == Some(false) || required && numerical.is_none() {
-        (
-            CandidateUse::Unusable,
-            "original numerical acceptance failed or is unavailable",
-        )
+    let decision = if native.usability != CandidateUse::Usable {
+        native
+    } else if !mandatory {
+        refused(CandidateReason::ModelChecks)
     } else {
         match closure {
-            ClosureAssessment::Unavailable => (
-                CandidateUse::Unusable,
-                "required physical closure is unavailable",
-            ),
-            ClosureAssessment::Unclosed if policy == ClosurePolicy::AllowUnclosed => (
-                CandidateUse::QualifiedUnclosed,
-                "explicit policy permits a retained physically unclosed candidate",
-            ),
-            ClosureAssessment::Unclosed => (
-                CandidateUse::Unusable,
-                "physical closure failed the frozen budget",
-            ),
-            _ => (
-                CandidateUse::Usable,
-                "required original-coordinate checks passed",
-            ),
+            ClosureAssessment::Unavailable => refused(CandidateReason::ClosureUnavailable),
+            ClosureAssessment::Unclosed if policy == ClosurePolicy::AllowUnclosed => {
+                CandidateDecision::new(
+                    CandidateUse::QualifiedUnclosed,
+                    CandidateReason::ClosureAllowed,
+                )
+            }
+            ClosureAssessment::Unclosed => refused(CandidateReason::ClosureUnclosed),
+            ClosureAssessment::NotRequired | ClosureAssessment::Closed => native,
         }
     };
-    (closure, use_, reason)
-}
-fn model_checks(checks: &[super::ModelingCheck], complete: bool) -> (Vec<Option<bool>>, bool) {
-    use pse_model::generated::enums::ModelingCheckKind;
-    let mut closure = Vec::new();
-    let mut mandatory = complete;
-    for check in checks {
-        if check.kind == ModelingCheckKind::Closure { closure.push(Some(check.satisfied)); }
-        else { mandatory &= check.satisfied; }
-    }
-    if !complete { closure.push(None); }
-    (closure, mandatory)
-}
-fn permits(t: NativeTermination) -> bool {
-    matches!(
-        t,
-        NativeTermination::Success
-            | NativeTermination::Acceptable
-            | NativeTermination::FeasibleOnly
-    )
+    Completed { closure, decision }
 }
 impl RunResult {
     pub(super) fn assess_candidates(&self) -> Vec<assessments::Row> {
@@ -85,56 +249,73 @@ impl RunResult {
             RunRequest::Modeling(s) => s.len(),
             _ => 1,
         };
+        let unavailable = || Completed {
+            closure: ClosureAssessment::Unavailable,
+            decision: refused(CandidateReason::ModelChecks),
+        };
         (0..count)
             .map(|step| {
-                let (native, native_ok, numerical, required, policy) =
-                    match (&self.request, &self.report) {
-                        (RunRequest::Fit(p), Ok(RunReport::Fit(r))) => {
-                            let native = r.solve.as_ref().map(|s| s.termination.category);
-                            (
-                                native,
-                                r.candidate.is_some()
-                                    && native.is_none_or(permits)
-                                    && r.solve
-                                        .as_ref()
-                                        .is_none_or(|s| s.validation_error.is_none()),
-                                r.quality.as_ref().map(|q| q.feasible()),
-                                true,
-                                p.problem.numerics.policy.closure,
-                            )
-                        }
-                        (RunRequest::Modeling(p), Ok(RunReport::Modeling(results))) if results.get(step).is_some() => {
-                            let r=&results[step];
-                            let (native,ok,num)=match &r.outcome {
-                                crate::math::solves::Outcome::Native(n)=>(Some(n.termination.category),permits(n.termination.category)&&n.candidate.is_some()&&n.validation_error.is_none(),n.quality.as_ref().map(|q|q.feasible())),
-                                crate::math::solves::Outcome::Constant(c)=>(None,true,Some(c.quality.feasible())),
-                                _=>(None,false,None),
-                            };
-                            (native, ok, num, true, p[step].solve.numerics().policy.closure)
-                        }
-                        (RunRequest::Simulation(p), Ok(RunReport::Simulation(r))) => {
-                            (None, r.accepted, Some(r.accepted), true, p.numerics().policy.closure)
-                        }
-                        _ => (None, false, None, true, ClosurePolicy::RequireClosed),
-                    };
-                let (checks, model_ok) = match &self.report {
-                    Ok(RunReport::Modeling(results)) => results.get(step).map(|r| model_checks(&r.checks, r.validation_error.is_none())).unwrap_or_else(|| (vec![None], false)),
-                    Ok(RunReport::Fit(r)) => model_checks(&r.checks, r.checks_complete && r.validation_error.is_none()),
-                    Ok(RunReport::Simulation(r)) => model_checks(&r.checks, r.checks_complete && r.validation_error.is_none()),
-                    Err(_) => (vec![None], false),
+                let (native, numerical, policy, completed) = match (&self.request, &self.report) {
+                    (RunRequest::Fit(p), Ok(RunReport::Fit(r))) => {
+                        let policy = p.problem.numerics.policy.closure;
+                        (
+                            r.solve.as_ref().map(|s| s.termination.category),
+                            r.quality.as_ref().map(|q| q.feasible()),
+                            policy,
+                            complete(
+                                r.candidate_use(),
+                                &r.checks,
+                                r.checks_complete && r.validation_error.is_none(),
+                                policy,
+                            ),
+                        )
+                    }
+                    (RunRequest::Modeling(p), Ok(RunReport::Modeling(results)))
+                        if results.get(step).is_some() =>
+                    {
+                        let r = &results[step];
+                        let (native, numerical) = match &r.outcome {
+                            crate::math::solves::Outcome::Native(n) => (
+                                Some(n.termination.category),
+                                n.quality.as_ref().map(|q| q.feasible()),
+                            ),
+                            crate::math::solves::Outcome::Constant(c) => {
+                                (None, Some(c.quality.feasible()))
+                            }
+                            crate::math::solves::Outcome::Rejected(_) => (None, None),
+                        };
+                        (
+                            native,
+                            numerical,
+                            p[step].solve.numerics().policy.closure,
+                            r.completion,
+                        )
+                    }
+                    (RunRequest::Simulation(p), Ok(RunReport::Simulation(r))) => {
+                        let policy = p.numerics().policy.closure;
+                        (
+                            None,
+                            Some(r.accepted),
+                            policy,
+                            complete(
+                                r.candidate_use(),
+                                &r.checks,
+                                r.checks_complete && r.validation_error.is_none(),
+                                policy,
+                            ),
+                        )
+                    }
+                    _ => (None, None, ClosurePolicy::RequireClosed, unavailable()),
                 };
-                let (closure, usability, mut reason) =
-                    assessment(native_ok && model_ok, numerical, required, &checks, policy);
-                if !model_ok { reason = "required original-model checks failed or are unavailable"; }
                 assessments::Row {
                     run_id: self.run_id,
                     step: step as i64,
                     native_termination: native,
                     numerically_feasible: numerical,
-                    closure,
+                    closure: completed.closure,
                     policy,
-                    usability,
-                    reason: reason.into(),
+                    usability: completed.decision.usability,
+                    reason: completed.decision.reason.as_str().into(),
                 }
             })
             .collect()
@@ -198,52 +379,176 @@ impl RunResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pse_model::generated::enums::ModelingCheckKind;
+    fn check(kind: ModelingCheckKind, satisfied: bool) -> super::super::ModelingCheck {
+        super::super::ModelingCheck {
+            run_id: SemanticId::from_bytes([1; 16]),
+            step: 0,
+            sample_index: 0,
+            time: None,
+            target_id: SemanticId::from_bytes([4; 16]),
+            source_id: SemanticId::from_bytes([3; 16]),
+            kind,
+            value: 0.0,
+            tolerance: None,
+            satisfied,
+            within_validity: None,
+            extrapolation_allowed: None,
+        }
+    }
     #[test]
-    fn candidate_assessment_distinguishes_numerical_closure_and_usability() {
-        let check = |native, numerical, checks: &[Option<bool>], policy| {
-            assessment(native, numerical, true, checks, policy)
+    fn candidate_assessment_distinguishes_native_closure_and_usability() {
+        let accepted = CandidateDecision::new(CandidateUse::Usable, CandidateReason::Accepted);
+        let seed = CandidateDecision::new(CandidateUse::SeedOnly, CandidateReason::StoppedFeasible);
+        let refusal = refused(CandidateReason::NativeOutcome);
+        let closed = [check(ModelingCheckKind::Closure, true)];
+        let unclosed = [check(ModelingCheckKind::Closure, false)];
+        let failed = [check(ModelingCheckKind::OriginalEquation, false)];
+        let run = |native, checks: &[_], checked, policy| {
+            complete(native, checks, checked, policy).decision.usability
         };
+        use ClosurePolicy::{AllowUnclosed as Allow, RequireClosed as Require};
         assert_eq!(
-            check(
-                true,
-                Some(true),
-                &[Some(false)],
-                ClosurePolicy::RequireClosed
-            )
-            .1,
+            run(accepted, &unclosed, true, Require),
             CandidateUse::Unusable
         );
         assert_eq!(
-            check(
-                true,
-                Some(true),
-                &[Some(false)],
-                ClosurePolicy::AllowUnclosed
-            )
-            .1,
+            run(accepted, &unclosed, true, Allow),
             CandidateUse::QualifiedUnclosed
         );
+        assert_eq!(run(accepted, &closed, false, Allow), CandidateUse::Unusable);
+        assert_eq!(run(accepted, &failed, true, Allow), CandidateUse::Unusable);
+        assert_eq!(run(refusal, &closed, true, Allow), CandidateUse::Unusable);
         assert_eq!(
-            check(true, Some(true), &[None], ClosurePolicy::AllowUnclosed).1,
-            CandidateUse::Unusable
+            complete(refusal, &closed, true, Allow).decision.reason,
+            CandidateReason::NativeOutcome
         );
+        // Checks and closure never upgrade a seed-only point.
+        assert_eq!(run(seed, &closed, true, Allow), CandidateUse::SeedOnly);
+        assert_eq!(run(seed, &failed, true, Allow), CandidateUse::SeedOnly);
+        assert_eq!(run(accepted, &[], true, Require), CandidateUse::Usable);
+        assert_eq!(run(accepted, &closed, true, Require), CandidateUse::Usable);
+    }
+    fn report(category: NativeTermination) -> SolveReport {
+        use pse_backend_native::{self as native, solve::*};
+        let id = |v: u8| SemanticId::from_bytes([v; 16]);
+        let contract = native::OracleContract {
+            identity: pse_ids::ContentHash::from_bytes([1; 32]),
+            variables: vec![native::Variable {
+                id: id(1),
+                lower: f64::NEG_INFINITY,
+                upper: f64::INFINITY,
+            }],
+            rows: vec![id(2)],
+            derivatives: pse_kernels::DerivativeOrder::First,
+            smoothness: pse_kernels::DerivativeOrder::First,
+        };
+        let mut report = SolveReport::new(
+            Backend::Ipopt,
+            &contract,
+            NativeTermination {
+                code: -1,
+                name: "fixture".into(),
+                message: None,
+                category,
+                assurance: Assurance::None,
+            },
+            &Execution::new(std::sync::Arc::default(), &Controls::default()),
+        );
+        report.candidate = Some(Candidate {
+            kind: CandidateKind::FinalIterate,
+            primal: vec![2.0],
+            objective: None,
+            row_dual: None,
+            bound_dual: None,
+            reduced_costs: None,
+            slacks: None,
+        });
+        report.quality = Some(native::quality::Quality::new(vec![], vec![], vec![]).unwrap());
+        native::quality::qualify(&mut report, &Controls::default().accuracy);
+        report
+    }
+    #[test]
+    fn native_stops_map_to_one_candidate_use() {
+        use NativeTermination as T;
+        for (stop, usability) in [
+            (T::Success, CandidateUse::Usable),
+            (T::Acceptable, CandidateUse::Usable),
+            (T::FeasibleOnly, CandidateUse::Usable),
+            (T::IterationLimit, CandidateUse::SeedOnly),
+            (T::TimeLimit, CandidateUse::SeedOnly),
+            (T::Numerical, CandidateUse::SeedOnly),
+            (T::Infeasible, CandidateUse::DiagnosticOnly),
+            (T::Cancelled, CandidateUse::Unusable),
+            (T::Evaluation, CandidateUse::Unusable),
+            (T::Unbounded, CandidateUse::Unusable),
+        ] {
+            assert_eq!(native_use(&report(stop)).usability, usability, "{stop:?}");
+        }
+        let mut r = report(T::Success);
+        r.qualification = pse_backend_native::solve::Qualification::Unqualified;
+        assert_eq!(native_use(&r).reason, CandidateReason::Unqualified);
+        r.quality = None;
+        assert_eq!(native_use(&r).reason, CandidateReason::Infeasible);
+        r.record_validation_failure(pse_backend_native::ProblemError::numerical("observation"));
+        assert_eq!(native_use(&r).reason, CandidateReason::ValidationFailed);
+        r.candidate = None;
+        assert!(!native_use(&r).permits_seed());
+    }
+    #[test]
+    fn candidate_use_iteration_limited_feasible_is_seed_only_everywhere() {
+        use crate::math::solves::Outcome;
+        // An iteration-limited run whose final iterate is feasible in original coordinates.
+        let mut report = report(NativeTermination::IterationLimit);
+        // Feasibility is retained as qualification evidence, never as a result.
         assert_eq!(
-            check(
-                true,
-                Some(false),
-                &[Some(true)],
-                ClosurePolicy::AllowUnclosed
-            )
-            .1,
-            CandidateUse::Unusable
+            report.qualification,
+            pse_backend_native::solve::Qualification::Feasible
         );
-        assert_eq!(
-            check(false, Some(true), &[], ClosurePolicy::AllowUnclosed).1,
-            CandidateUse::Unusable
+        // Block initialization commits through the same native decision.
+        #[cfg(feature = "solver-kinsol")]
+        let commit = |report: &SolveReport| {
+            let id = |v: u8| SemanticId::from_bytes([v; 16]);
+            let block = pse_structural::initialization::Block {
+                id: pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([2; 32])),
+                members: pse_structural::incidence::Part {
+                    rows: vec![id(2)],
+                    columns: vec![id(1)],
+                },
+                inputs: vec![],
+            };
+            let mut values = pse_math::binding::CaseValues {
+                scalars: BTreeMap::from([(id(1), 1.0)]),
+            };
+            crate::math::initialization::commit_block(&mut values, &block, Some(report))
+        };
+        #[cfg(not(feature = "solver-kinsol"))]
+        let commit = |report: &SolveReport| native_use(report).permits_use();
+        let decide = |report: &SolveReport| {
+            let outcome = Outcome::Native(Box::new(report.clone()));
+            // Solve-sequence seeding and the nonlinear explanation read the native decision.
+            let native = outcome.candidate_use();
+            // Modeling acceptance (homotopy advance, study predecessors, initialization
+            // stages) and the published assessment read the same completion.
+            let completed = complete(native, &[], true, ClosurePolicy::AllowUnclosed);
+            (native, completed, commit(report))
+        };
+        let (native, completed, committed) = decide(&report);
+        assert_eq!(native.usability, CandidateUse::SeedOnly);
+        assert_eq!(completed.decision.usability, CandidateUse::SeedOnly);
+        assert_eq!(completed.decision.reason, CandidateReason::StoppedFeasible);
+        // It may seed a later step, and it is never a result, a commit or an advance.
+        assert!(native.permits_seed() && completed.permits_seed());
+        assert!(!native.permits_use() && !completed.permits_use());
+        assert!(!committed);
+        // The same facts after a permitted stop are a result in every consumer.
+        report.termination.category = NativeTermination::Success;
+        pse_backend_native::quality::qualify(
+            &mut report,
+            &pse_backend_native::solve::Controls::default().accuracy,
         );
-        assert_eq!(
-            check(true, Some(true), &[], ClosurePolicy::RequireClosed).1,
-            CandidateUse::Usable
-        );
+        let (native, completed, committed) = decide(&report);
+        assert!(native.permits_use() && completed.permits_use() && committed);
+        assert_eq!(completed.decision.usability, CandidateUse::Usable);
     }
 }

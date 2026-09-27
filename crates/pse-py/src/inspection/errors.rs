@@ -268,6 +268,11 @@ impl DiagnosticReport {
     fn boundary_class(&self) -> Option<&str> {
         self.boundary.as_ref().map(|b| b.class.as_str())
     }
+    /// Error, warning or information; a warning never makes a model invalid.
+    #[getter]
+    fn severity(&self) -> Option<&str> {
+        self.boundary.as_ref().map(|b| b.severity.as_str())
+    }
     #[getter]
     fn stage(&self) -> Option<&str> {
         self.boundary.as_ref().map(|b| b.stage.as_str())

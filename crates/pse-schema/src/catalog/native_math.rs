@@ -116,15 +116,23 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         "ClosureAssessment",
         ["not_required", "closed", "unclosed", "unavailable"],
     );
+    // ADR-0106: one candidate-use decision, owned by the workflow completion owner.
     enumeration(
         b,
         "CandidateUse",
-        ["usable", "qualified_unclosed", "unusable"],
+        [
+            "usable",
+            "qualified_unclosed",
+            "seed_only",
+            "diagnostic_only",
+            "unusable",
+        ],
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "candidate_assessments",
+        2,
         S::Derived,
         &["run_id", "step"],
         vec![
@@ -137,7 +145,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("usability", T::enumeration("CandidateUse")),
             column("reason", text()),
         ],
-        "Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct.",
+        "Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct. A seed-only candidate may seed a later step and is never a published solution; a diagnostic-only point is an observation only.",
     );
     relation(
         b,
@@ -195,6 +203,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "P05 declarative numerical meaning; selected ID targets, magnitude units and frozen relative budgets. Model/case selection establishes source precedence; runtime analysis overrides use the same row type.",
     );
+    // ADR-0106 (DP-21): algorithmic numerical failure and inconclusive outcomes are
+    // classes of their own; every diagnostic also carries a severity.
     enumeration(
         b,
         "NativeBoundaryClass",
@@ -209,8 +219,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "conflict",
             "incompatible",
             "internal",
+            "numerical",
+            "inconclusive",
         ],
     );
+    enumeration(b, "DiagnosticSeverity", ["error", "warning", "info"]);
     // Stable wire tags have one owner; native adapters implement behavior on these values.
     enumeration(
         b,

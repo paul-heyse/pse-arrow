@@ -33,7 +33,7 @@ impl NleOracle for Oracle {
             self.problem
                 .evaluate(&self.parameters, x, DerivativeOrder::Value, &self.cancel)?;
         if jet.values.len() != out.len() {
-            return Err(ProblemError::Contract("implicit residual extent".into()));
+            return Err(ProblemError::internal("implicit residual extent"));
         }
         out.copy_from_slice(&jet.values);
         Ok(())
@@ -46,7 +46,7 @@ impl NleOracle for Oracle {
                 .evaluate(&self.parameters, x, DerivativeOrder::First, &self.cancel)?;
         let pattern = self.problem.pattern();
         if jet.jacobian.len() != n * width || out.len() != pattern.compute_nnz() {
-            return Err(ProblemError::Contract("implicit Jacobian extent".into()));
+            return Err(ProblemError::internal("implicit Jacobian extent"));
         }
         for (slot, (i, j)) in (0..n)
             .flat_map(|j| pattern.row_idx_of_col(j).map(move |i| (i, j)))
@@ -64,7 +64,7 @@ impl NleOracle for Oracle {
     ) -> Result<(), ProblemError> {
         let n = self.problem.unknowns.len();
         if direction.len() != n || out.len() != n {
-            return Err(ProblemError::Contract("implicit JVP extent".into()));
+            return Err(ProblemError::internal("implicit JVP extent"));
         }
         let mut values = vec![0.0; self.problem.pattern().compute_nnz()];
         self.jacobian(x, &mut values)?;
@@ -80,7 +80,9 @@ impl NleOracle for Oracle {
     }
 }
 impl InnerSolver for Kinsol {
-    fn identity(&self) -> pse_ids::ContentHash { pse_math::implicit::solver_identity("sundials.kinsol.v1") }
+    fn identity(&self) -> pse_ids::ContentHash {
+        pse_math::implicit::solver_identity("sundials.kinsol.v1")
+    }
     fn solve(
         &self,
         problem: Arc<Problem>,
@@ -140,9 +142,15 @@ impl InnerSolver for Kinsol {
             backend: Backend::Kinsol,
         };
         let execution = Execution::new(cancel.clone(), &controls);
+        // Typed native causes, including structural rows and columns, stay attributable.
         let map = |e: ProblemError| match e {
             ProblemError::Math(e) => e,
-            other => MathError::Library(other.to_string()),
+            ProblemError::Cancelled => MathError::Cancelled,
+            other => MathError::Native {
+                source_id: problem.id,
+                retained: other.retained_bytes(),
+                cause: Box::new(other),
+            },
         };
         let mut session = kinsol::Session::new(
             kinsol::Function::Equations(Box::new(oracle)),
@@ -185,13 +193,12 @@ impl InnerSolver for Kinsol {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn implicit_kinsol_preserves_sparse_support_and_refuses_structural_deficiency() {
+    fn problem(deficient: bool) -> Result<Problem, MathError> {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
         let id = pse_ids::SemanticId::from_bytes([96; 16]);
         let cancel = Arc::new(AtomicBool::new(false));
-        let build = |deficient| {
+        {
             let mut builder = pse_math::typed::BodyBuilder::new(
                 pse_math::initialize().unwrap(),
                 &registry,
@@ -251,7 +258,47 @@ mod tests {
                 body,
                 100,
             )
+        }
+    }
+    fn options() -> Options {
+        Options {
+            start: vec![1., 1.],
+            variable_nominals: vec![1., 1.],
+            variable_tolerance: vec![1e-8, 1e-8],
+            residual_tolerance: vec![1e-8, 1e-8],
+            iterations: 20,
+            time_limit: std::time::Duration::from_secs(2),
+            derivative_tolerance: 1e-10,
+        }
+    }
+    #[test]
+    fn structural_failure_keeps_rows_and_columns() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let deficient = Arc::new(problem(true).unwrap());
+        let error = Kinsol
+            .solve(deficient.clone(), &[3.], &options(), &cancel)
+            .unwrap_err();
+        let MathError::Native {
+            source_id, cause, ..
+        } = &error
+        else {
+            panic!("untyped inner failure: {error:?}");
         };
+        assert_eq!(*source_id, deficient.id);
+        let Some(ProblemError::Structural { rows, columns, .. }) =
+            cause.downcast_ref::<ProblemError>()
+        else {
+            panic!("structural identities were not retained: {cause:?}");
+        };
+        let y = deficient.unknowns[1].id;
+        assert_eq!(columns, &vec![y]);
+        assert!(!rows.is_empty() && rows.iter().all(|r| deficient.rows.contains(r)));
+        assert!(error.retained_bytes() > size_of::<MathError>());
+    }
+    #[test]
+    fn implicit_kinsol_preserves_sparse_support_and_refuses_structural_deficiency() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let build = problem;
         let options = Options {
             start: vec![1., 1.],
             variable_nominals: vec![1., 1.],

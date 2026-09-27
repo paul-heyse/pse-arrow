@@ -265,8 +265,8 @@ impl NativeAttempt {
         self.inner.qualification.as_str()
     }
     #[getter]
-    fn validation_error(&self) -> Option<&str> {
-        self.inner.validation_error.as_deref()
+    fn validation_error(&self) -> Option<String> {
+        self.inner.validation_failure().map(ToString::to_string)
     }
     #[getter]
     fn normalized_violation(&self) -> Option<f64> {

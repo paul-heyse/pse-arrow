@@ -10,9 +10,6 @@ use faer::{
 use native::ProblemError;
 use pse_math::sparse::AssemblyMatrix;
 
-fn error(message: impl Into<String>) -> ProblemError {
-    ProblemError::Contract(message.into())
-}
 #[derive(Clone, Debug)]
 pub(super) struct ResponseTerm {
     pub observation: usize,
@@ -53,7 +50,7 @@ fn push(
     limit: usize,
 ) -> Result<usize, ProblemError> {
     if pairs.len() >= limit {
-        return Err(error("fit sparse contribution allowance"));
+        return Err(ProblemError::memory("fit sparse contribution allowance"));
     }
     let index = pairs.len();
     pairs.push(pair);
@@ -176,7 +173,7 @@ impl Layout {
                 .symbolic()
                 .transpose()
                 .to_col_major()
-                .map_err(|e| error(e.to_string()))?;
+                .map_err(|e| ProblemError::memory(e.to_string()))?;
             // Bound product support before asking faer to allocate it. This is a
             // count of declared row-support pairs, never a dense n-by-n estimate.
             let products = (0..transposed.ncols())
@@ -184,15 +181,15 @@ impl Layout {
                     let width = transposed.col_range(c).len();
                     n.checked_add(width.checked_mul(width)?)
                 })
-                .ok_or_else(|| error("fit Gram support overflow"))?;
+                .ok_or_else(|| ProblemError::memory("fit Gram support overflow"))?;
             if products > limit {
-                return Err(error("fit Gram contribution allowance"));
+                return Err(ProblemError::memory("fit Gram contribution allowance"));
             }
             let (pattern, info) = matmul::sparse_sparse_matmul_symbolic(
                 transposed.as_ref(),
                 responses.matrix().symbolic(),
             )
-            .map_err(|e| error(e.to_string()))?;
+            .map_err(|e| ProblemError::memory(e.to_string()))?;
             let mut contributions = Vec::new();
             for col in 0..columns {
                 for k in pattern.col_range(col) {
@@ -226,9 +223,9 @@ impl Layout {
             .checked_add(constraint_pairs.len())
             .and_then(|v| v.checked_add(hessian_pairs.len()))
             .and_then(|v| v.checked_add(gram.as_ref().map_or(0, |g| g.pattern.row_idx().len())))
-            .ok_or_else(|| error("fit derivative extent"))?;
+            .ok_or_else(|| ProblemError::memory("fit derivative extent"))?;
         if cells > limit {
-            return Err(error("fit derivative cell allowance"));
+            return Err(ProblemError::memory("fit derivative cell allowance"));
         }
         Ok(Self {
             responses,
@@ -270,9 +267,10 @@ impl GramWorker {
             weighted.ncols(),
         ));
         if request.size_bytes() > bytes {
-            return Err(error("fit Gram scratch allowance"));
+            return Err(ProblemError::memory("fit Gram scratch allowance"));
         }
-        let memory = MemBuffer::try_new(request).map_err(|e| error(e.to_string()))?;
+        let memory =
+            MemBuffer::try_new(request).map_err(|e| ProblemError::memory(e.to_string()))?;
         Ok(Self {
             transpose_values: vec![0.0; weighted.val().len()],
             transpose_columns: vec![0; weighted.nrows() + 1],
@@ -295,7 +293,7 @@ impl GramWorker {
                 let row = self.weighted.row_idx()[k];
                 let v = response.matrix().val()[k] * weights[row];
                 if !v.is_finite() {
-                    return Err(error("nonfinite weighted response"));
+                    return Err(ProblemError::numerical("nonfinite weighted response"));
                 }
                 self.weighted.val_mut()[k] = v;
             }

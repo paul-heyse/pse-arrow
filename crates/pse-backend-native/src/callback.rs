@@ -16,30 +16,53 @@ pub enum Failure {
     Trial,
     /// Abort evaluation; never substitute a previous value.
     Fatal,
-    /// Explicit cancellation.
-    Cancelled,
+    /// A cooperative stop: cancellation or an exhausted deadline, never an evaluation failure.
+    Stopped(Termination),
 }
 /// Classify typed causes, never native diagnostic strings.
 pub fn classify(error: &ProblemError) -> Failure {
+    fn provider(error: &pse_kernels::ProviderError) -> Failure {
+        use pse_kernels::ProviderError as E;
+        match error {
+            E::Trial(_) | E::OutsideEnvelope { .. } | E::Singular(_) => Failure::Trial,
+            E::Cancelled => Failure::Stopped(Termination::Cancelled),
+            E::Limit(_) | E::Contract(_) | E::Terminal(_) => Failure::Fatal,
+        }
+    }
     fn math(error: &pse_math::MathError) -> Failure {
         use pse_math::MathError as E;
         match error {
             E::Instance { cause, .. } => math(cause),
             E::Domain { .. } | E::OutsideRange { .. } => Failure::Trial,
-            E::Cancelled => Failure::Cancelled,
-            E::Provider { cause, .. } => match cause {
-                pse_kernels::ProviderError::Trial { .. }
-                | pse_kernels::ProviderError::OutsideEnvelope { .. }
-                | pse_kernels::ProviderError::Singular { .. } => Failure::Trial,
-                pse_kernels::ProviderError::Cancelled => Failure::Cancelled,
-                _ => Failure::Fatal,
-            },
-            _ => Failure::Fatal,
+            E::Cancelled => Failure::Stopped(Termination::Cancelled),
+            E::Provider { cause, .. } => provider(cause),
+            E::Native { cause, .. } => cause
+                .downcast_ref::<ProblemError>()
+                .map_or(Failure::Fatal, classify),
+            E::Contract(_)
+            | E::CoefficientRange
+            | E::Library(_)
+            | E::Evaluation { .. }
+            | E::Limit(_)
+            | E::WorkLimit { .. }
+            | E::Quantity(_) => Failure::Fatal,
         }
     }
     match error {
         ProblemError::Math(e) => math(e),
-        _ => Failure::Fatal,
+        ProblemError::Provider(e) => provider(e),
+        ProblemError::Cancelled => Failure::Stopped(Termination::Cancelled),
+        ProblemError::Limit {
+            kind: crate::LimitKind::Time,
+            ..
+        } => Failure::Stopped(Termination::TimeLimit),
+        ProblemError::Unavailable { .. }
+        | ProblemError::Contract(_)
+        | ProblemError::Structural { .. }
+        | ProblemError::Unsupported(_)
+        | ProblemError::Numerical { .. }
+        | ProblemError::Limit { .. }
+        | ProblemError::Internal(_) => Failure::Fatal,
     }
 }
 /// Worker-local failure state; recoverable history never becomes a terminal latch.
@@ -125,20 +148,36 @@ impl CallbackState {
                 ),
             ]),
         });
-        if failure != Failure::Trial {
-            self.terminal = Some((
-                if failure == Failure::Cancelled {
-                    self.execution.stopped().unwrap_or(Termination::Cancelled)
-                } else {
-                    Termination::Evaluation
-                },
-                message,
-            ));
+        match failure {
+            Failure::Trial => {}
+            Failure::Stopped(stop) => {
+                self.terminal = Some((self.execution.stopped().unwrap_or(stop), message));
+            }
+            Failure::Fatal => self.terminal = Some((Termination::Evaluation, message)),
         }
         None
     }
+    /// Typed cause of the latched terminal stop, consumed once. Evaluation stops return
+    /// the callback's own witness; checkpoint stops and panics return their typed class.
+    pub fn terminal_error(&mut self) -> Option<ProblemError> {
+        let (kind, message) = self.terminal.as_ref()?;
+        Some(match kind {
+            Termination::Evaluation => self
+                .last_failure
+                .take()
+                .unwrap_or_else(|| ProblemError::internal(message.clone())),
+            Termination::Cancelled | Termination::TimeLimit => {
+                ProblemError::stopped(*kind, message.clone())
+            }
+            _ => ProblemError::internal(message.clone()),
+        })
+    }
     /// Append callback measurements and preserve native status alongside terminal cause.
     pub fn finish(&mut self, report: &mut crate::solve::SolveReport) {
+        report.evidence.callback = crate::solve::CallbackEvidence {
+            trial_rejections: self.trial_rejections,
+            terminal_failure: self.terminal.is_some(),
+        };
         report.metrics.insert(
             "callback.trial_rejections".into(),
             Metric::Integer(self.trial_rejections.try_into().unwrap_or(i64::MAX)),
@@ -175,12 +214,10 @@ impl CallbackState {
 /// Native evaluation stops may be retried only with positive recoverability evidence.
 /// This does not depend on bounded progress events or parse human diagnostic messages.
 pub fn retryable_evaluation(report: &crate::solve::SolveReport) -> bool {
+    let evidence = report.evidence.callback;
     report.termination.category == Termination::Evaluation
-        && matches!(report.metrics.get("callback.trial_rejections"),Some(Metric::Integer(n)) if *n>0)
-        && matches!(
-            report.metrics.get("callback.terminal_failure"),
-            Some(Metric::Bool(false))
-        )
+        && evidence.trial_rejections > 0
+        && !evidence.terminal_failure
 }
 #[cfg(test)]
 mod tests {
@@ -248,6 +285,45 @@ mod tests {
         assert!(retained.failure_bytes() >= size_of::<ProblemError>() + "terminal".len());
         drop(retained);
         assert!(weak.upgrade().is_none());
+    }
+    #[test]
+    fn stopped_failures_keep_time_limit_and_cancellation() {
+        for (error, stop) in [
+            (
+                ProblemError::Limit {
+                    kind: crate::LimitKind::Time,
+                    detail: "inner deadline".into(),
+                },
+                Termination::TimeLimit,
+            ),
+            (ProblemError::Cancelled, Termination::Cancelled),
+            (
+                pse_math::MathError::Cancelled.into(),
+                Termination::Cancelled,
+            ),
+        ] {
+            assert_eq!(classify(&error), Failure::Stopped(stop));
+            let mut state = CallbackState::new(Execution::new(
+                std::sync::Arc::default(),
+                &crate::solve::Controls::default(),
+            ));
+            assert!(state.evaluate::<()>("f", || Err(error)).is_none());
+            assert_eq!(state.terminal.as_ref().map(|t| t.0), Some(stop));
+            assert!(matches!(
+                state.terminal_error(),
+                Some(ProblemError::Cancelled | ProblemError::Limit { .. })
+            ));
+        }
+        for fatal in [
+            ProblemError::numerical("native failure"),
+            ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                detail: "allocation".into(),
+            },
+            ProblemError::internal("postcondition"),
+        ] {
+            assert_eq!(classify(&fatal), Failure::Fatal);
+        }
     }
     #[test]
     fn recovered_trials_do_not_poison_success_but_panics_do() {

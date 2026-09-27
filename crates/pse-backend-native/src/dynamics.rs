@@ -72,7 +72,9 @@ pub fn integrate_with_progress(
         Method::Idas => {
             idas::integrate_with_progress(oracle, profile, parameters, cancel, progress)
         }
-        _ => Err(contract("requested dynamic backend is not linked")),
+        _ => Err(ProblemError::unsupported(
+            "requested dynamic backend is not linked",
+        )),
     }
 }
 
@@ -250,7 +252,9 @@ impl Profile {
         if (method == Method::Idas && !cfg!(feature = "idas"))
             || (method == Method::Diffsol && !cfg!(feature = "diffsol"))
         {
-            return Err(contract("requested dynamic backend is not linked"));
+            return Err(ProblemError::unsupported(
+                "requested dynamic backend is not linked",
+            ));
         }
         Ok(method)
     }

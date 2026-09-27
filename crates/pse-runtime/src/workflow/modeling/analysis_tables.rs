@@ -42,7 +42,7 @@ mod native_analysis;
 fn export(
     runtime: &Runtime,
     bytes: usize,
-    build: impl FnOnce(&mut Collection) -> Result<(), WorkflowError>,
+    build: impl FnOnce(&mut Collection<'_>) -> Result<(), WorkflowError>,
 ) -> Result<Tables, WorkflowError> {
     let _scratch = runtime.shared.math().reserve(
         "modeling:analysis-row-copy",
@@ -87,6 +87,7 @@ pub(in crate::workflow) fn finding_row(
         run_id,
         ordinal,
         class: f.class,
+        severity: f.severity,
         stage: f.stage.clone(),
         rule: f.rule.clone(),
         sources: f.sources.clone(),

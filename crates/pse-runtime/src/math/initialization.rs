@@ -251,7 +251,7 @@ impl MathService {
                                     || a.upper.to_bits() != b.upper.to_bits()
                             })
                     {
-                        return Err(native::ProblemError::Contract(
+                        return Err(native::ProblemError::Internal(
                             "root factory differs from admitted source contract".into(),
                         )
                         .into());
@@ -501,7 +501,7 @@ impl MathService {
                         .map(|(k, f)| {
                             f.worker_scoped(flag.clone())
                                 .map(|v| (*k, v))
-                                .map_err(|e| native::ProblemError::Contract(e.to_string()))
+                                .map_err(native::ProblemError::Provider)
                         })
                         .collect::<Result<_, _>>()?;
                     let ExecutionWorker {
@@ -648,7 +648,7 @@ impl MathService {
                                     pipeline.native_compatibility().clone(),
                                 )?,
                                 _ => {
-                                    return Err(native::ProblemError::Contract(
+                                    return Err(native::ProblemError::Unsupported(
                                         "initialization NLP adapter not linked".into(),
                                     )
                                     .into());
@@ -661,7 +661,7 @@ impl MathService {
                             )
                         }
                         _ => {
-                            return Err(native::ProblemError::Contract(
+                            return Err(native::ProblemError::Unsupported(
                                 "unsupported conditional initialization route".into(),
                             )
                             .into());
@@ -742,19 +742,15 @@ impl MathService {
     }
 }
 
-fn commit_block(
+pub(crate) fn commit_block(
     values: &mut CaseValues,
     b: &pse_structural::initialization::Block,
     report: Option<&SolveReport>,
 ) -> bool {
     let Some(r) = report else { return false };
-    if !matches!(
-        r.termination.category,
-        Termination::Success | Termination::Acceptable
-    ) || r.validation_error.is_some()
-        || !r.quality.as_ref().is_some_and(|q| q.feasible())
-        || r.variables != b.members.columns
-    {
+    // The native candidate-use decision is the only acceptance rule; commit adds the
+    // block's own coordinate and finiteness checks.
+    if !crate::workflow::numerics::native_use(r).permits_use() || r.variables != b.members.columns {
         return false;
     }
     let Some(c) = &r.candidate else { return false };
@@ -817,10 +813,13 @@ mod tests {
         let mut values = CaseValues {
             scalars: BTreeMap::from([(id(1), 1.0)]),
         };
+        let accuracy = Controls::default().accuracy;
         r.termination.category = Termination::Limit;
+        native::quality::qualify(&mut r, &accuracy);
         assert!(!commit_block(&mut values, &boundary, Some(&r)));
         assert_eq!(values.scalars[&id(1)], 1.0);
         r.termination.category = Termination::Success;
+        native::quality::qualify(&mut r, &accuracy);
         r.candidate.as_mut().unwrap().primal[0] = f64::NAN;
         assert!(!commit_block(&mut values, &boundary, Some(&r)));
         assert_eq!(values.scalars[&id(1)], 1.0);

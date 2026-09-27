@@ -85,6 +85,8 @@ pub struct RuntimeModelingFindingsRow {
     pub r#ordinal: i64,
     ///class
     pub r#class: crate::generated::enums::NativeBoundaryClass,
+    ///severity
+    pub r#severity: crate::generated::enums::DiagnosticSeverity,
     ///stage
     pub r#stage: String,
     ///rule
@@ -101,6 +103,7 @@ impl crate::SemanticEq for RuntimeModelingFindingsRow {
         crate::SemanticEq::semantic_eq(&self.r#run_id, &other.r#run_id)
             && crate::SemanticEq::semantic_eq(&self.r#ordinal, &other.r#ordinal)
             && crate::SemanticEq::semantic_eq(&self.r#class, &other.r#class)
+            && crate::SemanticEq::semantic_eq(&self.r#severity, &other.r#severity)
             && crate::SemanticEq::semantic_eq(&self.r#stage, &other.r#stage)
             && crate::SemanticEq::semantic_eq(&self.r#rule, &other.r#rule)
             && crate::SemanticEq::semantic_eq(&self.r#sources, &other.r#sources)
@@ -179,6 +182,8 @@ impl crate::SemanticFrame for RuntimeModelingFindingsRow {
         crate::SemanticFrame::frame(&self.r#ordinal, hash);
         hash.str(stringify!(r#class));
         crate::SemanticFrame::frame(&self.r#class, hash);
+        hash.str(stringify!(r#severity));
+        crate::SemanticFrame::frame(&self.r#severity, hash);
         hash.str(stringify!(r#stage));
         crate::SemanticFrame::frame(&self.r#stage, hash);
         hash.str(stringify!(r#rule));
@@ -197,6 +202,7 @@ impl crate::HeapUsage for RuntimeModelingFindingsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#ordinal))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#class))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#severity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stage))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#rule))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sources))

@@ -473,6 +473,12 @@ pub enum CandidateUse {
     ///qualified_unclosed
     #[serde(rename = "qualified_unclosed")]
     QualifiedUnclosed,
+    ///seed_only
+    #[serde(rename = "seed_only")]
+    SeedOnly,
+    ///diagnostic_only
+    #[serde(rename = "diagnostic_only")]
+    DiagnosticOnly,
     ///unusable
     #[serde(rename = "unusable")]
     Unusable,
@@ -484,9 +490,11 @@ impl crate::SemanticEq for CandidateUse {
 }
 impl CandidateUse {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [
+    pub const ALL: [Self; 5usize] = [
         Self::Usable,
         Self::QualifiedUnclosed,
+        Self::SeedOnly,
+        Self::DiagnosticOnly,
         Self::Unusable,
     ];
     /// The declared member spelling.
@@ -494,6 +502,8 @@ impl CandidateUse {
         match self {
             Self::Usable => "usable",
             Self::QualifiedUnclosed => "qualified_unclosed",
+            Self::SeedOnly => "seed_only",
+            Self::DiagnosticOnly => "diagnostic_only",
             Self::Unusable => "unusable",
         }
     }
@@ -502,7 +512,9 @@ impl CandidateUse {
         match self {
             Self::Usable => 0usize,
             Self::QualifiedUnclosed => 1usize,
-            Self::Unusable => 2usize,
+            Self::SeedOnly => 2usize,
+            Self::DiagnosticOnly => 3usize,
+            Self::Unusable => 4usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -515,6 +527,8 @@ impl CandidateUse {
         match self {
             Self::Usable => None,
             Self::QualifiedUnclosed => None,
+            Self::SeedOnly => None,
+            Self::DiagnosticOnly => None,
             Self::Unusable => None,
         }
     }
@@ -525,6 +539,8 @@ impl core::str::FromStr for CandidateUse {
         match value {
             "usable" => Ok(Self::Usable),
             "qualified_unclosed" => Ok(Self::QualifiedUnclosed),
+            "seed_only" => Ok(Self::SeedOnly),
+            "diagnostic_only" => Ok(Self::DiagnosticOnly),
             "unusable" => Ok(Self::Unusable),
             _ => {
                 Err(crate::ModelError::EnumMember {
@@ -1910,6 +1926,89 @@ impl core::str::FromStr for DiagnosticCode {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(DiagnosticCode).to_owned(),
                     enumeration: stringify!(DiagnosticCode).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum DiagnosticSeverity {
+    ///error
+    #[serde(rename = "error")]
+    Error,
+    ///warning
+    #[serde(rename = "warning")]
+    Warning,
+    ///info
+    #[serde(rename = "info")]
+    Info,
+}
+impl crate::SemanticEq for DiagnosticSeverity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl DiagnosticSeverity {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Error, Self::Warning, Self::Info];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Error => "error",
+            Self::Warning => "warning",
+            Self::Info => "info",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Error => 0usize,
+            Self::Warning => 1usize,
+            Self::Info => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Error => None,
+            Self::Warning => None,
+            Self::Info => None,
+        }
+    }
+}
+impl core::str::FromStr for DiagnosticSeverity {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "error" => Ok(Self::Error),
+            "warning" => Ok(Self::Warning),
+            "info" => Ok(Self::Info),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(DiagnosticSeverity).to_owned(),
+                    enumeration: stringify!(DiagnosticSeverity).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -5185,6 +5284,12 @@ pub enum NativeBoundaryClass {
     ///internal
     #[serde(rename = "internal")]
     Internal,
+    ///numerical
+    #[serde(rename = "numerical")]
+    Numerical,
+    ///inconclusive
+    #[serde(rename = "inconclusive")]
+    Inconclusive,
 }
 impl crate::SemanticEq for NativeBoundaryClass {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -5193,7 +5298,7 @@ impl crate::SemanticEq for NativeBoundaryClass {
 }
 impl NativeBoundaryClass {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 10usize] = [
+    pub const ALL: [Self; 12usize] = [
         Self::InvalidModel,
         Self::Unsupported,
         Self::ResourceLimit,
@@ -5204,6 +5309,8 @@ impl NativeBoundaryClass {
         Self::Conflict,
         Self::Incompatible,
         Self::Internal,
+        Self::Numerical,
+        Self::Inconclusive,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -5218,6 +5325,8 @@ impl NativeBoundaryClass {
             Self::Conflict => "conflict",
             Self::Incompatible => "incompatible",
             Self::Internal => "internal",
+            Self::Numerical => "numerical",
+            Self::Inconclusive => "inconclusive",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -5233,6 +5342,8 @@ impl NativeBoundaryClass {
             Self::Conflict => 7usize,
             Self::Incompatible => 8usize,
             Self::Internal => 9usize,
+            Self::Numerical => 10usize,
+            Self::Inconclusive => 11usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -5253,6 +5364,8 @@ impl NativeBoundaryClass {
             Self::Conflict => None,
             Self::Incompatible => None,
             Self::Internal => None,
+            Self::Numerical => None,
+            Self::Inconclusive => None,
         }
     }
 }
@@ -5270,6 +5383,8 @@ impl core::str::FromStr for NativeBoundaryClass {
             "conflict" => Ok(Self::Conflict),
             "incompatible" => Ok(Self::Incompatible),
             "internal" => Ok(Self::Internal),
+            "numerical" => Ok(Self::Numerical),
+            "inconclusive" => Ok(Self::Inconclusive),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeBoundaryClass).to_owned(),
@@ -8431,6 +8546,16 @@ impl crate::HeapUsage for DiagnosticCode {
     }
 }
 impl crate::SemanticFrame for DiagnosticCode {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for DiagnosticSeverity {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DiagnosticSeverity {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

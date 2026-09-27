@@ -7,15 +7,15 @@ pub use pse_model::generated::r#enums::{
     ArtifactReconstruction, AssertionStatus, Authority, BasisKind, BasisRule, BoundKind,
     BoundStatus, CandidateUse, ChangeKind, ClosureAssessment, ClosurePolicy, ColumnRole,
     CompositionBasis, ComputationKind, ConstraintScalingScheme, ConversionKind,
-    DerivationGranularity, Determinism, DiagnosticCode, DualQualification, EntityKind,
-    EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass, FindingSeverity,
-    IdPolicy, InputConsumptionKind, InvariantKind, MemberSelectionKind, MigrationOp,
-    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingCheckKind,
-    ModelingConformanceKind, ModelingConformanceStatus, ModelingContributionRole,
-    ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingElasticObservation,
-    ModelingFixtureBinding, ModelingFixtureExecution, ModelingInitializationStep,
-    ModelingRealValueKind, ModelingRealizationPolicy, Namespace, NativeAssurance,
-    NativeBackend, NativeBoundaryClass, NativeCandidateKind,
+    DerivationGranularity, Determinism, DiagnosticCode, DiagnosticSeverity,
+    DualQualification, EntityKind, EvidenceUnavailableReason, ExternalDerivativeSource,
+    FailureClass, FindingSeverity, IdPolicy, InputConsumptionKind, InvariantKind,
+    MemberSelectionKind, MigrationOp, ModelingAccumulatorMode, ModelingAnalysisRoute,
+    ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
+    ModelingContributionRole, ModelingDeclarationKind, ModelingDiagnosticSampleStop,
+    ModelingElasticObservation, ModelingFixtureBinding, ModelingFixtureExecution,
+    ModelingInitializationStep, ModelingRealValueKind, ModelingRealizationPolicy,
+    Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass, NativeCandidateKind,
     NativeDependencyEvidenceKind, NativeDependencyKind, NativeDerivativeCapability,
     NativeMetricKind, NativeObjectiveSense, NativeProblemClass, NativeQualification,
     NativeRunState, NativeStartPolicy, NativeTermination, NativeWarmCapability,
@@ -393,6 +393,25 @@ impl crate::columnar::ArrowValue for Determinism {
     }
 }
 impl crate::columnar::ArrowValue for DiagnosticCode {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for DiagnosticSeverity {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

@@ -490,7 +490,7 @@ fn failed_observation_preserves_native_status_and_candidate() {
     );
     assert_eq!(report.termination.code, 42);
     assert!(report.candidate.is_some());
-    assert!(report.validation_error.is_some());
+    assert!(report.validation_failure().is_some());
     assert!(report.observation.is_none());
     assert_eq!(report.termination.assurance, Assurance::None);
 }

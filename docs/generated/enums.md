@@ -70,6 +70,8 @@ Member names are canonical string values; declaration order is presentation only
 |---|---|---|
 | `usable` | `` | false |
 | `qualified_unclosed` | `` | false |
+| `seed_only` | `` | false |
+| `diagnostic_only` | `` | false |
 | `unusable` | `` | false |
 
 ## `ChangeKind`
@@ -232,6 +234,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `template.guard_undecidable` | `` | false |
 | `user.model` | `` | false |
 | `validation.invariant` | `` | false |
+
+## `DiagnosticSeverity`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `error` | `` | false |
+| `warning` | `` | false |
+| `info` | `` | false |
 
 ## `DualQualification`
 
@@ -572,6 +582,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `conflict` | `` | false |
 | `incompatible` | `` | false |
 | `internal` | `` | false |
+| `numerical` | `` | false |
+| `inconclusive` | `` | false |
 
 ## `NativeCandidateKind`
 

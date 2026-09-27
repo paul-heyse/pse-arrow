@@ -108,13 +108,17 @@ impl RunResult {
     pub fn assessments(&self) -> &[pse_relations::generated::runtime::candidate_assessments::Row] {
         &self.assessments
     }
-    /// Every requested candidate passed the requested usability policy.
+    /// Every requested candidate is a result under the requested usability policy.
+    /// Seed-only and diagnostic-only candidates are never results (ADR-0106).
     pub fn usable(&self) -> bool {
+        use pse_model::generated::enums::CandidateUse;
         !self.assessments.is_empty()
-            && self
-                .assessments
-                .iter()
-                .all(|a| a.usability != pse_model::generated::enums::CandidateUse::Unusable)
+            && self.assessments.iter().all(|a| {
+                matches!(
+                    a.usability,
+                    CandidateUse::Usable | CandidateUse::QualifiedUnclosed
+                )
+            })
     }
     fn completed(mut self) -> Self {
         match &mut self.report {

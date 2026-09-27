@@ -248,7 +248,11 @@ impl RunResult {
                 metric("local_response", "condition", Metric::Real(condition))?;
             }
             if let Some(d) = &r.diagnostic {
-                metric("local_response", "unavailable", Metric::Text(d.clone()))?;
+                metric(
+                    "local_response",
+                    "unavailable",
+                    Metric::Text(d.rule.as_str().into()),
+                )?;
             }
             for (i, s) in r.singular_values.iter().enumerate() {
                 metric(
@@ -263,8 +267,8 @@ impl RunResult {
                 if let Some(q) = &s.quality {
                     metric("physical", "feasible", Metric::Bool(q.feasible()))?;
                 }
-                if let Some(e) = &s.validation_error {
-                    metric("physical", "validation_error", Metric::Text(e.clone()))?;
+                if let Some(e) = s.validation_failure() {
+                    metric("physical", "validation_error", Metric::Text(e.to_string()))?;
                 }
             }
         }

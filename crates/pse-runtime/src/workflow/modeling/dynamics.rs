@@ -66,6 +66,10 @@ pub struct ModelingTrajectory {
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl ModelingTrajectory {
+    /// Native trajectory decision owned by `pse-backend-native`.
+    pub(crate) fn candidate_use(&self) -> crate::workflow::numerics::CandidateDecision {
+        crate::workflow::numerics::trajectory_use(&self.report)
+    }
     pub(super) fn sample_context(
         &self,
         sample: &native::Sample,
@@ -265,23 +269,29 @@ impl ModelingSimulation {
             #[cfg(not(any(feature = "solver-diffsol", feature = "solver-idas")))]
             {
                 let _ = (prepared, flag, progress);
-                Err(crate::math::MathRuntimeError::Infrastructure(
-                    "dynamic backend is not linked".into(),
+                Err(crate::math::MathRuntimeError::Solve(
+                    ProblemError::unsupported("dynamic backend is not linked"),
                 ))
             }
         })?;
         Ok(handle)
     }
     pub(in crate::workflow) fn finish(
-        &self, run_id: SemanticId, report: native::Report, checks: checks::SampleChecks,
+        &self,
+        run_id: SemanticId,
+        report: native::Report,
+        checks: checks::SampleChecks,
         owner: Arc<pse_columnar::AllocationLease>,
     ) -> ModelingTrajectory {
+        let completion = crate::workflow::numerics::complete(
+            crate::workflow::numerics::trajectory_use(&report),
+            &checks.rows,
+            checks.complete && checks.error.is_none(),
+            self.numerics().policy.closure,
+        );
         ModelingTrajectory {
             run_id,
-            accepted: report.termination == native::Termination::Completed
-                && report.error.is_none()
-                && checks.complete
-                && checks.rows.iter().all(|c| c.satisfied),
+            accepted: completion.permits_use(),
             checks: checks.rows,
             reports: checks.reports,
             checks_complete: checks.complete,
@@ -414,7 +424,7 @@ impl ModelingPackage {
             .map_err(super::super::math)?
             .scale_to_canonical;
         let case = ModelingCaseBindings::from(data);
-        let (states, parameters) = super::dynamics::dynamic_ports(product, &case)?;
+        let (states, parameters) = dynamics::dynamic_ports(product, &case)?;
         let profile = pse_backend_native::dynamics::Profile {
             start: axis.lower * time_scale,
             end: integration
@@ -1426,10 +1436,7 @@ fn contract_error(message: &str) -> WorkflowError {
 mod tests {
     use super::*;
     use pse_backend_native::dynamics::Oracle;
-    fn physical() -> (
-        super::super::super::PhysicalContext,
-        BTreeMap<String, pse_quantity::QuantityTypeId>,
-    ) {
+    fn physical() -> (PhysicalContext, BTreeMap<String, QuantityTypeId>) {
         let mut physical = super::super::super::tests::physical();
         physical.preconditions = Arc::new(
             pse_quantity::PhysicalPreconditions::new(
@@ -1448,7 +1455,7 @@ mod tests {
             ),
             (
                 "Time".into(),
-                pse_quantity::QuantityTypeId::from_id(
+                QuantityTypeId::from_id(
                     SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
                 ),
             ),

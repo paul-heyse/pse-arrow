@@ -56,7 +56,7 @@ impl FitOracle {
                         .map(|r| {
                             r.worker_scoped(execution.cancel.clone())
                                 .map(|w| (r.spec().key(), w))
-                                .map_err(|e| error(e.to_string()))
+                                .map_err(ProblemError::Provider)
                         })
                         .collect::<Result<_, _>>()?;
                     Ok(Some(
@@ -83,20 +83,23 @@ impl FitOracle {
         })
     }
     fn evaluate(&mut self, x: &[f64]) -> Result<&Point, ProblemError> {
-        if self.execution.stopped().is_some() {
-            return Err(error("fitting cancelled or deadline exceeded"));
+        if let Some(stop) = self.execution.stopped() {
+            return Err(ProblemError::stopped(stop, "fit evaluation deadline"));
         }
         let p = &self.prepared;
         let n = p.contract.variables.len();
         if x.len() != n || x.iter().any(|v| !v.is_finite()) {
-            return Err(error("fit trial coordinates"));
+            return Err(ProblemError::numerical("fit trial coordinates"));
         }
         if self
             .point
             .as_ref()
             .is_some_and(|v| v.x.iter().zip(x).all(|(a, b)| a.to_bits() == b.to_bits()))
         {
-            return self.point.as_ref().ok_or_else(|| error("fit point cache"));
+            return self
+                .point
+                .as_ref()
+                .ok_or_else(|| ProblemError::internal("fit point cache"));
         }
         self.point = None;
         let mut point = Point {
@@ -113,7 +116,7 @@ impl FitOracle {
                 Experiment::Steady(s) => {
                     let worker = self.workers[ei]
                         .as_mut()
-                        .ok_or_else(|| error("missing steady worker"))?;
+                        .ok_or_else(|| ProblemError::internal("missing steady worker"))?;
                     let mut values = s.values.clone();
                     for &(id, col) in &s.coordinates {
                         values.scalars.insert(id, x[col]);
@@ -177,13 +180,26 @@ impl FitOracle {
                             &params,
                             self.execution.cancel.clone(),
                         )?;
-                        if report.termination != native::dynamics::Termination::Completed {
-                            return Err(report.error.unwrap_or_else(|| {
-                                error(format!(
-                                    "incomplete fit integration: {:?}",
-                                    report.termination
-                                ))
-                            }));
+                        // A stopped integration keeps its stop; it is never an evaluation failure.
+                        match report.termination {
+                            native::dynamics::Termination::Completed => {}
+                            native::dynamics::Termination::Cancelled => {
+                                return Err(ProblemError::Cancelled);
+                            }
+                            native::dynamics::Termination::TimeLimit => {
+                                return Err(ProblemError::Limit {
+                                    kind: native::LimitKind::Time,
+                                    detail: "fit transient integration deadline".into(),
+                                });
+                            }
+                            termination => {
+                                return Err(report.error.unwrap_or_else(|| {
+                                    ProblemError::internal(format!(
+                                        "incomplete fit integration without a typed cause: {}",
+                                        termination.as_str()
+                                    ))
+                                }));
+                            }
                         }
                         for (i, o) in p
                             .measurements
@@ -194,7 +210,9 @@ impl FitOracle {
                             let sample = o
                                 .sample_index
                                 .and_then(|i| report.samples.get(i))
-                                .ok_or_else(|| error("missing prepared transient sample"))?;
+                                .ok_or_else(|| {
+                                    ProblemError::internal("missing prepared transient sample")
+                                })?;
                             point.predictions[i] = sample.outputs[o.row];
                             for term in p.layout.mappings[ei]
                                 .responses
@@ -204,7 +222,11 @@ impl FitOracle {
                                 let scale = bindings
                                     .iter()
                                     .find(|b| b.local == term.local)
-                                    .ok_or_else(|| error("transient response parameter binding"))?
+                                    .ok_or_else(|| {
+                                        ProblemError::internal(
+                                            "transient response parameter binding",
+                                        )
+                                    })?
                                     .conversion
                                     .scale;
                                 point.responses.add(
@@ -223,7 +245,7 @@ impl FitOracle {
                     #[cfg(not(feature = "solver-diffsol"))]
                     {
                         let _ = s;
-                        return Err(error("Diffsol not linked"));
+                        return Err(ProblemError::unsupported("Diffsol not linked"));
                     }
                 }
             }
@@ -240,7 +262,7 @@ impl FitOracle {
                 .iter()
                 .any(|v| !v.is_finite())
         {
-            return Err(error("nonfinite fit output or response"));
+            return Err(ProblemError::numerical("nonfinite fit output or response"));
         }
         self.execution.progress.push(native::solve::Event {
             phase: "fit.evaluation".into(),
@@ -253,7 +275,7 @@ impl FitOracle {
         self.point = Some(point);
         self.point
             .as_ref()
-            .ok_or_else(|| error("fit point publication"))
+            .ok_or_else(|| ProblemError::internal("fit point publication"))
     }
     fn residual(o: &Measurement, pred: f64) -> Result<(f64, f64), ProblemError> {
         let sigma = o.sigma.ok_or_else(|| error("missing standard deviation"))?;
@@ -280,7 +302,10 @@ impl NlpOracle for FitOracle {
     }
     fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
         self.evaluate(x)?;
-        let point = self.point.as_ref().ok_or_else(|| error("fit point"))?;
+        let point = self
+            .point
+            .as_ref()
+            .ok_or_else(|| ProblemError::internal("fit point"))?;
         let residuals = self
             .prepared
             .measurements
@@ -292,14 +317,14 @@ impl NlpOracle for FitOracle {
         let norm = faer::col::ColRef::from_slice(&residuals).squared_norm_l2();
         let sum = 0.5 * norm;
         if !sum.is_finite() {
-            return Err(error("fit objective overflow"));
+            return Err(ProblemError::numerical("fit objective overflow"));
         }
         Ok(sum)
     }
     fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         let p = self.evaluate(x)?;
         if out.len() != p.constraints.len() {
-            return Err(error("fit constraint extent"));
+            return Err(ProblemError::internal("fit constraint extent"));
         }
         out.copy_from_slice(&p.constraints);
         Ok(())
@@ -307,9 +332,12 @@ impl NlpOracle for FitOracle {
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.evaluate(x)?;
         if out.len() != x.len() {
-            return Err(error("fit gradient extent"));
+            return Err(ProblemError::internal("fit gradient extent"));
         }
-        let point = self.point.as_ref().ok_or_else(|| error("fit point"))?;
+        let point = self
+            .point
+            .as_ref()
+            .ok_or_else(|| ProblemError::internal("fit point"))?;
         let weights = self
             .prepared
             .measurements
@@ -336,7 +364,7 @@ impl NlpOracle for FitOracle {
         for (j, v) in out.iter_mut().enumerate() {
             let value = result[(j, 0)];
             if !value.is_finite() {
-                return Err(error("nonfinite loss gradient"));
+                return Err(ProblemError::numerical("nonfinite loss gradient"));
             }
             *v = value;
         }
@@ -347,12 +375,12 @@ impl NlpOracle for FitOracle {
         let values = self
             .point
             .as_ref()
-            .ok_or_else(|| error("fit point"))?
+            .ok_or_else(|| ProblemError::internal("fit point"))?
             .jacobian
             .matrix()
             .val();
         if out.len() != values.len() {
-            return Err(error("fit sparse Jacobian extent"));
+            return Err(ProblemError::internal("fit sparse Jacobian extent"));
         }
         out.copy_from_slice(values);
         Ok(())
@@ -370,14 +398,17 @@ impl NlpOracle for FitOracle {
             || !objective_weight.is_finite()
             || multipliers.iter().any(|v| !v.is_finite())
         {
-            return Err(error("fit Lagrangian demand"));
+            return Err(ProblemError::internal("fit Lagrangian demand"));
         }
         let p = &self.prepared;
-        let point = self.point.as_ref().ok_or_else(|| error("fit point"))?;
+        let point = self
+            .point
+            .as_ref()
+            .ok_or_else(|| ProblemError::internal("fit point"))?;
         let h = self
             .hessian
             .as_mut()
-            .ok_or_else(|| error("Hessian not prepared"))?;
+            .ok_or_else(|| ProblemError::internal("Hessian not prepared"))?;
         h.clear();
         let weights = p
             .measurements
@@ -393,11 +424,13 @@ impl NlpOracle for FitOracle {
             .collect::<Result<Vec<_>, _>>()?;
         self.gram
             .as_mut()
-            .ok_or_else(|| error("Gram not prepared"))?
+            .ok_or_else(|| ProblemError::internal("Gram not prepared"))?
             .refill(&point.responses, &weights, objective_weight, h)?;
         for (ei, e) in p.experiments.iter().enumerate() {
             let Experiment::Steady(s) = e else {
-                return Err(error("transient exact Hessian unavailable"));
+                return Err(ProblemError::unsupported(
+                    "transient exact Hessian unavailable",
+                ));
             };
             let mut lambda = vec![0.0; s.case.assembly.structure().rows().len()];
             for &(local, global) in &s.constraints {
@@ -418,14 +451,14 @@ impl NlpOracle for FitOracle {
             }
             let local = self.workers[ei]
                 .as_mut()
-                .ok_or_else(|| error("steady Hessian worker"))?
+                .ok_or_else(|| ProblemError::internal("steady Hessian worker"))?
                 .hessian(&values, 0.0, &lambda)?;
             for &(source, target) in &p.layout.mappings[ei].hessian {
                 h.add(target, local.val()[source])?;
             }
         }
         if out.len() != h.matrix().val().len() {
-            return Err(error("fit sparse Hessian extent"));
+            return Err(ProblemError::internal("fit sparse Hessian extent"));
         }
         out.copy_from_slice(h.matrix().val());
         Ok(())
@@ -466,7 +499,7 @@ impl FitProblem {
             (None, Some(vec![]))
         } else {
             let native::routing::Route::Native(backend) = route else {
-                return Err(error("nonempty fit has no native route").into());
+                return Err(ProblemError::unsupported("nonempty fit has no native route").into());
             };
             let stamp = Compatibility {
                 layout: self.key,
@@ -536,7 +569,12 @@ impl FitProblem {
                             pipeline.native_compatibility().clone(),
                         )?
                     }
-                    _ => return Err(error("native fitting backend unavailable").into()),
+                    _ => {
+                        return Err(ProblemError::unsupported(
+                            "native fitting backend unavailable",
+                        )
+                        .into());
+                    }
                 }
             };
             let mut report = pipeline.finish(
@@ -574,7 +612,7 @@ impl FitProblem {
             // Fresh final evaluation is independent of native callback cache and candidate status.
             let mut final_oracle = FitOracle::new(self.clone(), execution)?;
             match final_oracle.evaluate(x) {
-                Err(e) => report.diagnostic = Some(e.to_string()),
+                Err(e) => report.diagnostic = Some(FitDiagnostic::new(FitRule::FinalEvaluation, e)),
                 Ok(point) => {
                     report.trajectories = point.trajectories.clone();
                     report.constraint_values = point.constraints.clone();
@@ -588,7 +626,10 @@ impl FitProblem {
                     let objective =
                         0.5 * faer::col::ColRef::from_slice(&residuals).squared_norm_l2();
                     if !objective.is_finite() {
-                        report.diagnostic = Some("fresh fitting objective overflow".into());
+                        report.diagnostic = Some(FitDiagnostic::new(
+                            FitRule::ObjectiveOverflow,
+                            ProblemError::numerical("fresh fitting objective overflow"),
+                        ));
                         return Ok(report);
                     }
                     report.objective = Some(objective);
@@ -611,7 +652,9 @@ impl FitProblem {
                             report.singular_values = diagnostic.singular_values;
                             report.rank = Some(diagnostic.rank);
                         }
-                        Err(e) => report.diagnostic = Some(e.to_string()),
+                        Err(e) => {
+                            report.diagnostic = Some(FitDiagnostic::new(FitRule::ResponseRank, e));
+                        }
                     }
                 }
             }
@@ -624,7 +667,7 @@ fn singular_values(a: &Mat<f64>, limit: usize) -> Result<Vec<f64>, ProblemError>
         .col_iter()
         .any(|c| c.iter().any(|v| !v.is_finite()))
     {
-        return Err(error("nonfinite local rank input"));
+        return Err(ProblemError::numerical("nonfinite local rank input"));
     }
     use faer::{
         Par,
@@ -634,9 +677,9 @@ fn singular_values(a: &Mat<f64>, limit: usize) -> Result<Vec<f64>, ProblemError>
     };
     let req = rank_scratch(a.nrows(), a.ncols());
     if req.size_bytes() > limit {
-        return Err(error("rank scratch allowance"));
+        return Err(ProblemError::memory("rank scratch allowance"));
     }
-    let mut buffer = MemBuffer::try_new(req).map_err(|e| error(e.to_string()))?;
+    let mut buffer = MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
     let mut s = Diag::<f64>::zeros(a.nrows().min(a.ncols()));
     svd::svd(
         a.as_ref(),
@@ -647,7 +690,7 @@ fn singular_values(a: &Mat<f64>, limit: usize) -> Result<Vec<f64>, ProblemError>
         MemStack::new(&mut buffer),
         Default::default(),
     )
-    .map_err(|e| error(format!("{e:?}")))?;
+    .map_err(|e| ProblemError::numerical(format!("{e:?}")))?;
     Ok(s.column_vector().iter().copied().collect())
 }
 fn rank_scratch(rows: usize, cols: usize) -> faer::dyn_stack::StackReq {
@@ -681,9 +724,9 @@ fn solve_regular(a: &Mat<f64>, mut rhs: Mat<f64>, limit: usize) -> Result<Mat<f6
     let mut inverse = vec![0usize; n];
     let req = response_scratch(n, rhs.ncols());
     if req.size_bytes() > limit {
-        return Err(error("response solve scratch allowance"));
+        return Err(ProblemError::memory("response solve scratch allowance"));
     }
-    let mut memory = MemBuffer::try_new(req).map_err(|e| error(e.to_string()))?;
+    let mut memory = MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
     let (_, permutation) = factor::lu_in_place(
         lu.as_mut(),
         &mut perm,
@@ -705,7 +748,7 @@ fn solve_regular(a: &Mat<f64>, mut rhs: Mat<f64>, limit: usize) -> Result<Mat<f6
         .col_iter()
         .any(|c| c.iter().any(|v| !v.is_finite()))
     {
-        return Err(error("nonfinite implicit response solve"));
+        return Err(ProblemError::numerical("nonfinite implicit response solve"));
     }
     Ok(rhs)
 }
@@ -729,7 +772,7 @@ fn check_response(a: &Mat<f64>, x: &Mat<f64>, b: &Mat<f64>) -> Result<(), Proble
         numerator / denominator
     };
     if !denominator.is_finite() || !backward_error.is_finite() || backward_error > error_bound {
-        return Err(error(format!(
+        return Err(ProblemError::numerical(format!(
             "implicit response backward error {backward_error} exceeds {error_bound}"
         )));
     }
@@ -739,7 +782,10 @@ impl FitOracle {
     fn response_rank(&mut self, x: &[f64]) -> Result<RankDiagnostic, ProblemError> {
         self.evaluate(x)?;
         let p = &self.prepared;
-        let point = self.point.as_ref().ok_or_else(|| error("fit point"))?;
+        let point = self
+            .point
+            .as_ref()
+            .ok_or_else(|| ProblemError::internal("fit point"))?;
         let np = p.parameter_columns.iter().filter(|v| v.is_some()).count();
         let local_dense = p
             .experiments
@@ -751,9 +797,9 @@ impl FitOracle {
                 cells.checked_add(s.local_states.checked_mul(s.local_states + np)?)
             })
             .and_then(|cells| cells.checked_add(p.measurements.len().checked_mul(np)?))
-            .ok_or_else(|| error("local response diagnostic extent"))?;
+            .ok_or_else(|| ProblemError::memory("local response diagnostic extent"))?;
         if local_dense > p.profile.max_cells {
-            return Err(error(
+            return Err(ProblemError::memory(
                 "local dense response diagnostic allowance; fit candidate remains available",
             ));
         }
@@ -761,7 +807,9 @@ impl FitOracle {
         // solve, before allocating any matrix. Failure does not lose the candidate.
         let limit = p.runtime.shared.budget().math.worker_bytes;
         if local_dense.checked_mul(8).is_none_or(|bytes| bytes > limit) {
-            return Err(error("local dense response diagnostic memory allowance"));
+            return Err(ProblemError::memory(
+                "local dense response diagnostic memory allowance",
+            ));
         }
         use faer::linalg::temp_mat_scratch;
         let rows = p.measurements.len();
@@ -795,13 +843,15 @@ impl FitOracle {
             .and_then(|b| b.checked_add((rows + np).checked_mul(64)?))
             .and_then(|b| b.checked_add(4 << 20))
             .filter(|b| *b <= limit)
-            .ok_or_else(|| error("local dense response diagnostic memory allowance"))?;
+            .ok_or_else(|| {
+                ProblemError::memory("local dense response diagnostic memory allowance")
+            })?;
         let reservation =
             datafusion::execution::memory_pool::MemoryConsumer::new("fit:response-diagnostic")
                 .register(&p.runtime.shared.pool());
         reservation
             .try_grow(bytes)
-            .map_err(|e| error(e.to_string()))?;
+            .map_err(|e| ProblemError::memory(e.to_string()))?;
         let mut response = Mat::zeros(p.measurements.len(), np);
         let free = p
             .parameter_columns
@@ -827,7 +877,7 @@ impl FitOracle {
                         .iter()
                         .any(|(_, g)| p.bounds[*g].0 != p.bounds[*g].1)
                 {
-                    return Err(error(
+                    return Err(ProblemError::unsupported(
                         "steady response needs square equality closure; fit NLP remains valid",
                     ));
                 }
@@ -843,7 +893,7 @@ impl FitOracle {
                 }
                 let jac = point.blocks[ei]
                     .as_ref()
-                    .ok_or_else(|| error("steady response partials"))?;
+                    .ok_or_else(|| ProblemError::internal("steady response partials"))?;
                 let fx = Mat::from_fn(nx, nx, |i, j| {
                     jac.get(s.constraints[i].0, j).copied().unwrap_or(0.0)
                 });
@@ -856,7 +906,7 @@ impl FitOracle {
                     .last()
                     .is_none_or(|last| *last <= spectrum[0] * p.profile.rank_tolerance)
                 {
-                    return Err(error(
+                    return Err(ProblemError::numerical(
                         "steady closure is locally rank deficient at the stated scaling/cutoff",
                     ));
                 }

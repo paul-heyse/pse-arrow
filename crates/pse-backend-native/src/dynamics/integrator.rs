@@ -48,7 +48,13 @@ impl Shared<'_> {
             );
         }
         if Instant::now() >= self.deadline {
-            self.abort(Termination::TimeLimit, contract("dynamic deadline"));
+            self.abort(
+                Termination::TimeLimit,
+                ProblemError::Limit {
+                    kind: crate::LimitKind::Time,
+                    detail: "dynamic deadline".into(),
+                },
+            );
         }
     }
     fn evaluate(&self, f: Function, t: f64, x: &[f64], derivative: bool) -> Evaluation {
@@ -71,18 +77,29 @@ impl Shared<'_> {
             Ok(v) => {
                 let n = self.nout_mode(mode, f);
                 if v.values.len() != n
-                    || v.values.iter().any(|x| !x.is_finite())
                     || derivative
                         && v.jacobian.as_ref().is_none_or(|j| {
                             j.nrows() != n
                                 || j.ncols()
                                     != self.contract.states.len() + self.contract.parameters.len()
-                                || j.val().iter().any(|v| !v.is_finite())
                         })
                 {
                     self.abort(
                         Termination::Failed,
-                        contract("dynamic function value/derivative contract"),
+                        ProblemError::internal("dynamic function value/derivative dimensions"),
+                    );
+                }
+                if v.values.iter().any(|x| !x.is_finite())
+                    || derivative
+                        && v.jacobian
+                            .as_ref()
+                            .is_some_and(|j| j.val().iter().any(|v| !v.is_finite()))
+                {
+                    self.abort(
+                        Termination::Failed,
+                        ProblemError::numerical(
+                            "dynamic function value or derivative is nonfinite",
+                        ),
                     );
                 }
                 v
@@ -126,7 +143,7 @@ impl<'o> Operator<'o> {
             pairs.extend((0..n).flat_map(|r| (n..n + np).map(move |c| (r, c))));
         }
         if pairs.iter().any(|&(r, c)| r >= m || c >= n + np) {
-            return Err(contract("dynamic support bounds"));
+            return Err(ProblemError::internal("dynamic support bounds"));
         }
         let pattern = |parameter: bool| {
             let indices: Vec<_> = pairs
@@ -143,7 +160,7 @@ impl<'o> Operator<'o> {
                 .collect();
             Pattern::try_new_from_indices(m, if parameter { np } else { n }, &indices)
                 .map(|v| v.0)
-                .map_err(|e| contract(&e.to_string()))
+                .map_err(|e| ProblemError::internal(format!("dynamic support pattern: {e}")))
         };
         Ok(Self {
             state_pattern: pattern(false)?,
@@ -159,8 +176,10 @@ impl<'o> Operator<'o> {
             .shared
             .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
         let Some(j) = result.jacobian else {
-            self.shared
-                .abort(Termination::Failed, contract("missing dynamic partials"));
+            self.shared.abort(
+                Termination::Failed,
+                ProblemError::internal("missing dynamic partials"),
+            );
         };
         let offset = if parameter { self.nstates() } else { 0 };
         let target = matrix.inner_mut();
@@ -180,8 +199,10 @@ impl<'o> Operator<'o> {
             .shared
             .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
         let Some(j) = result.jacobian else {
-            self.shared
-                .abort(Termination::Failed, contract("missing dynamic partials"));
+            self.shared.abort(
+                Termination::Failed,
+                ProblemError::internal("missing dynamic partials"),
+            );
         };
         // Keep one direction buffer per operator attempt. faer multiplies the
         // full admitted CSC matrix; a fresh Diffsol matrix is unnecessary.
@@ -394,8 +415,56 @@ impl<'o> OdeEquations for Equation<'o> {
             .copy_from_slice(&self.rhs.shared.parameters.borrow());
     }
 }
+/// Classify Diffsol's typed errors by cause. The matches are exhaustive over the
+/// pinned enums, so an upgrade that adds a variant fails to compile (F06, F10).
 fn native(error: diffsol::DiffsolError) -> ProblemError {
-    pse_math::MathError::Library(error.to_string()).into()
+    use diffsol::{
+        DiffsolError as D,
+        error::{NonLinearSolverError as N, OdeSolverError as O},
+    };
+    let detail = format!("Diffsol {error}");
+    match &error {
+        D::LaError(_) => ProblemError::numerical(detail),
+        D::NonLinearSolverError(e) => match e {
+            N::InitialConditionDidNotConverge
+            | N::NewtonMaxIterations
+            | N::NewtonDiverged
+            | N::LinesearchFailedMaxIterations
+            | N::LinesearchFailedMinStep
+            | N::LuSolveFailed
+            | N::Other(_) => ProblemError::numerical(detail),
+            N::JacobianNotReset | N::WrongStateLength { .. } => ProblemError::internal(detail),
+        },
+        D::OdeSolverError(e) => match e {
+            O::TooManyNonlinearSolverFailures { .. }
+            | O::TooManyErrorTestFailures { .. }
+            | O::StepSizeTooSmall { .. }
+            | O::SensitivitySolveFailed
+            | O::SundialsError(_) => ProblemError::numerical(detail),
+            O::MassMatrixNotSupported
+            | O::SensitivityNotSupported
+            | O::ResetRequiresRootOperator
+            | O::JacobianNotAvailable => ProblemError::unsupported(detail),
+            O::StopTimeBeforeCurrentTime { .. }
+            | O::StopTimeAtCurrentTime
+            | O::InterpolationVectorWrongSize { .. }
+            | O::SensitivityCountMismatch { .. }
+            | O::InterpolationTimeAfterCurrentTime
+            | O::InterpolationTimeOutsideCurrentStep
+            | O::InterpolationTimeGreaterThanCurrentTime
+            | O::StateNotSet
+            | O::FailedToGetMutableReference
+            | O::BuilderError(_)
+            | O::StateProblemMismatch
+            | O::InvalidTEval
+            | O::ProblemNotSet
+            | O::InvalidTableau(_)
+            | O::Other(_) => ProblemError::internal(detail),
+        },
+        D::DiffslParserError(_) | D::DiffslCompilerError(_) | D::Other(_) => {
+            ProblemError::internal(detail)
+        }
+    }
 }
 
 /// Same owned integration using the caller's bounded progress source.
@@ -421,7 +490,7 @@ pub(super) fn integrate_with_progress(
         cancel,
         deadline: Instant::now()
             .checked_add(profile.time_limit)
-            .ok_or_else(|| contract("dynamic deadline overflow"))?,
+            .ok_or_else(|| ProblemError::unsupported("dynamic deadline overflow"))?,
         started: Instant::now(),
         progress,
         context: FaerContext {
@@ -445,11 +514,11 @@ pub(super) fn integrate_with_progress(
                     report.error = Some(error);
                 } else {
                     report.termination = Termination::Panic;
-                    report.error = Some(contract("unattributed dynamic abort"));
+                    report.error = Some(ProblemError::internal("unattributed dynamic abort"));
                 }
             } else {
                 report.termination = Termination::Panic;
-                report.error = Some(contract("panic inside Diffsol operation"));
+                report.error = Some(ProblemError::internal("panic inside Diffsol operation"));
             }
         }
     }
@@ -517,7 +586,7 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
             }));
             r.statistics.push(
                 serde_json::to_value(solver.get_statistics())
-                    .map_err(|e| contract(&e.to_string()))?,
+                    .map_err(|e| ProblemError::internal(format!("Diffsol statistics: {e}")))?,
             );
             if let Some(statistics) = r
                 .statistics
@@ -551,7 +620,7 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
             }));
             r.statistics.push(
                 serde_json::to_value(solver.get_statistics())
-                    .map_err(|e| contract(&e.to_string()))?,
+                    .map_err(|e| ProblemError::internal(format!("Diffsol statistics: {e}")))?,
             );
             match attempt {
                 Ok(result) => result?,
@@ -579,7 +648,7 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
             }
             let e = events
                 .get(index)
-                .ok_or_else(|| contract("native root index"))?
+                .ok_or_else(|| ProblemError::internal("native root index"))?
                 .clone();
             if r.events.len() >= p.max_events {
                 r.termination = Termination::EventLimit;
@@ -671,7 +740,7 @@ fn reset_sens<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     {
         let j = roots
             .jacobian
-            .ok_or_else(|| contract("missing root derivatives"))?;
+            .ok_or_else(|| ProblemError::internal("missing root derivatives"))?;
         for (k, s) in state.s.iter().enumerate() {
             let moving = (0..state.y.len())
                 .map(|i| j.get(index, i).copied().unwrap_or(0.0) * s[i])
@@ -848,11 +917,11 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             s.interpolate_sens(t).map_err(native)?
         };
         if vectors.len() != np {
-            return Err(contract("native sensitivity count"));
+            return Err(ProblemError::internal("native sensitivity count"));
         }
         let states = faer::Mat::from_fn(n, np, |i, j| vectors[j][i]);
         let Some(jac) = eval.jacobian else {
-            return Err(contract("output sensitivity partials"));
+            return Err(ProblemError::internal("output sensitivity partials"));
         };
         let chain = faer::Mat::from_fn(n + np, np, |i, j| {
             if i < n {
@@ -881,7 +950,7 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             }
         }
         if dy.iter().chain(&dh).any(|v| !v.is_finite()) {
-            return Err(contract("nonfinite output sensitivity"));
+            return Err(ProblemError::numerical("nonfinite output sensitivity"));
         }
     }
     let integrals = if shared.contract.quadratures.is_empty() {

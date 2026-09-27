@@ -92,6 +92,18 @@ pub enum MathError {
         #[source]
         cause: pse_kernels::ProviderError,
     },
+    /// An injected native inner solve failed. Its typed cause, including structural
+    /// row and column identities, is retained for the owner that classifies it.
+    #[error("native inner solve {source_id}: {cause}")]
+    Native {
+        /// Authored implicit block whose inner solve failed.
+        source_id: SemanticId,
+        /// Original typed native failure.
+        #[source]
+        cause: Box<dyn std::error::Error + Send + Sync + 'static>,
+        /// Owned extent of `cause`, reported by the producer that knows its type.
+        retained: usize,
+    },
 }
 impl MathError {
     /// Conservative owned extent of the complete source/provider error chain.
@@ -103,6 +115,7 @@ impl MathError {
             }
             Self::Quantity(e) => e.retained_bytes(),
             Self::Provider { cause, .. } => cause.retained_bytes(),
+            Self::Native { retained, .. } => *retained,
             Self::Domain { .. }
             | Self::OutsideRange { .. }
             | Self::Limit(_)
@@ -139,6 +152,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
         Self::Limit(_) | Self::WorkLimit {..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
         Self::Quantity(_) | Self::Provider {..} | Self::Instance {..} => None,
+        Self::Native {..} => Some(pse_diagnostics::DiagnosticCode::SolveSolverError),
         _ => Some(pse_diagnostics::DiagnosticCode::CompileMath),
     } },
     forward(this) { match this { Self::Quantity(e) => Some(e), Self::Instance {cause,..} => Some(cause.as_ref()), Self::Provider {cause,..} => Some(cause), _ => None } },

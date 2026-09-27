@@ -5,8 +5,8 @@ use crate::{
     ConicProblem, ProblemError,
     quality::{Quality, Tolerances, Violation, interval},
     solve::{
-        Assurance, Backend, Candidate, Certificate, Compatibility, Controls, Event, Execution,
-        Metric, NativeTermination, SolveReport, Termination,
+        Assurance, Backend, Candidate, Certificate, Compatibility, ConicEvidence, Controls, Event,
+        Execution, Metric, NativeTermination, SolveReport, Termination,
     },
 };
 /// Pinned native CSC request storage; no parallel sparse matrix wire contract.
@@ -141,12 +141,12 @@ fn settings(
     controls.validate()?;
     // Full settings are exposed directly; there is no unvalidated string option channel.
     if !controls.options.is_empty() {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Unsupported(
             "Clarabel uses typed DefaultSettings instead of native option strings".into(),
         ));
     }
     if controls.threads != 1 {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Unsupported(
             "Clarabel QDLDL/serial-netlib profile requires one core".into(),
         ));
     }
@@ -238,7 +238,7 @@ impl Session {
             || self.a_pattern != (d.a.colptr.clone(), d.a.rowval.clone())
             || self.p_pattern != (p.quadratic.colptr.clone(), p.quadratic.rowval.clone())
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "Clarabel update changes layout or requires disabled preprocessing".into(),
             ));
         }
@@ -260,7 +260,7 @@ impl Session {
         tolerances.validate(p.contract.variables.len(), p.contract.rows.len())?;
         let settings = settings(native, controls, self.mode)?;
         let settings_json =
-            serde_json::to_string(&settings).map_err(|e| ProblemError::Contract(e.to_string()))?;
+            serde_json::to_string(&settings).map_err(|e| ProblemError::Internal(e.to_string()))?;
         self.solver
             .update_settings(settings)
             .map_err(|e| ProblemError::Contract(format!("Clarabel settings: {e}")))?;
@@ -295,6 +295,14 @@ impl Session {
             &execution,
         );
         report.metrics = metrics(&self.solver.info);
+        // Nonfinite native residuals compare false against every budget.
+        let info = &self.solver.info;
+        report.evidence.conic = Some(ConicEvidence {
+            primal_residual: info.res_primal,
+            dual_residual: info.res_dual,
+            gap_absolute: info.gap_abs,
+            gap_relative: info.gap_rel,
+        });
         report.provenance.insert(
             "native".into(),
             if cfg!(feature = "sdp") {
@@ -520,7 +528,7 @@ fn cone_violation(cone: &SupportedConeT<f64>, s: &[f64]) -> Result<f64, ProblemE
             }
             let eig = m
                 .self_adjoint_eigenvalues(faer::Side::Lower)
-                .map_err(|e| ProblemError::Contract(format!("PSD quality eigensolve: {e:?}")))?;
+                .map_err(|e| ProblemError::numerical(format!("PSD quality eigensolve: {e:?}")))?;
             eig.iter().map(|v| -v).fold(0.0, f64::max)
         }
     };
@@ -563,7 +571,7 @@ fn quality(p: &ConicProblem, x: &[f64], t: &Tolerances) -> Result<Quality, Probl
         }
     }
     if s.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract("nonfinite conic residual".into()));
+        return Err(ProblemError::numerical("nonfinite conic residual"));
     }
     let mut rows = Vec::new();
     let mut start = 0;

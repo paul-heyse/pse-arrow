@@ -21,7 +21,7 @@ use pse_math::{
     diagnostics::{MatrixPolicy, MatrixReport, TermPolicy},
 };
 use pse_model::{
-    diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation, SourceLocation},
+    diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation, Severity, SourceLocation},
     generated::enums::NumericalTarget,
     numerics::ResolvedNumericalPolicy,
 };
@@ -134,18 +134,50 @@ impl ModelingDiagnosticPolicy {
         Ok(())
     }
 }
+/// Class and severity of one declared numerical-diagnostics rule (ADR-0106, DP-21).
+/// Structural and missing-value defects are invalid-model errors; scaling, conditioning
+/// and near-bound observations are numerical warnings or information, never an invalid
+/// model. Every rule this module declares has an explicit arm.
+fn disposition(kind: &str) -> (BoundaryClass, Severity) {
+    use BoundaryClass as C;
+    use Severity as S;
+    match kind {
+        "structural.underdetermined" | "structural.overdetermined" | "variable.missing_value" => {
+            (C::InvalidModel, S::Error)
+        }
+        "variable.nonfinite" => (C::Nonfinite, S::Error),
+        "variable.unused"
+        | "variable.only_in_inequalities"
+        | "domain.potential_evaluation_error" => (C::InvalidModel, S::Info),
+        "variable.outside_lower_bound"
+        | "variable.outside_upper_bound"
+        | "equation.large_residual"
+        | "jacobian.parallel_rows"
+        | "jacobian.parallel_columns"
+        | "jacobian.numerical_rank_deficiency" => (C::Numerical, S::Warning),
+        "variable.near_lower_bound"
+        | "variable.near_upper_bound"
+        | "variable.fixed_zero"
+        | "variable.large_value"
+        | "variable.small_value"
+        | "jacobian.extreme_entry"
+        | "jacobian.extreme_row"
+        | "jacobian.extreme_column"
+        | "equation.mismatched_term"
+        | "equation.canceling_terms" => (C::Numerical, S::Info),
+        "equation.term_evaluation_failed" => (C::TrialRejected, S::Warning),
+        _ => (C::Internal, S::Error),
+    }
+}
 fn finding(
     kind: &str,
     ids: impl IntoIterator<Item = SemanticId>,
     score: Option<f64>,
     threshold: Option<f64>,
 ) -> BoundaryDiagnostic {
-    let mut f = BoundaryDiagnostic::new(
-        BoundaryClass::InvalidModel,
-        "modeling.diagnostics",
-        ids,
-        kind,
-    );
+    let (class, severity) = disposition(kind);
+    let mut f =
+        BoundaryDiagnostic::new(class, "modeling.diagnostics", ids, kind).with_severity(severity);
     if let Some(v) = score {
         f.observations.insert("value".into(), Observation::Real(v));
     }
@@ -692,11 +724,12 @@ impl ModelingPackage {
                     Err(error) => {
                         report.complete = false;
                         let mut f = BoundaryDiagnostic::new(
-                            BoundaryClass::ResourceLimit,
+                            BoundaryClass::Inconclusive,
                             "modeling.diagnostics",
                             [],
                             "jacobian.analysis_inconclusive",
-                        );
+                        )
+                        .with_severity(Severity::Warning);
                         f.observations
                             .insert("reason".into(), Observation::Text(error.to_string()));
                         report.push(f, maximum, product);

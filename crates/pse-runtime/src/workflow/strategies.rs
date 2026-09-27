@@ -130,7 +130,7 @@ impl Runtime {
                     || source.gram_factors.iter().any(|r| r.len() != n)
                 {
                     return Err(
-                        native::ProblemError::Contract("Gram witness dimensions".into()).into(),
+                        native::ProblemError::Internal("Gram witness dimensions".into()).into(),
                     );
                 }
                 let problem = native::ConicProblem {

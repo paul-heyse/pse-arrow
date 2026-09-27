@@ -857,7 +857,7 @@ impl PreparedFit {
                         let mut values=s.values.clone();
                         for (id,col) in &s.coordinates {values.scalars.insert(*id,candidate[*col]);}
                         let observed=if let Some(program)=program {
-                            let providers=s.providers.values().map(|p|p.worker_scoped(flag.clone()).map(|w|(p.spec().key(),w)).map_err(|e|contract(e.to_string()))).collect::<Result<_,_>>()?;
+                            let providers=s.providers.values().map(|p|p.worker_scoped(flag.clone()).map(|w|(p.spec().key(),w)).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))).collect::<Result<_,_>>()?;
                             let mut worker=program.assembly.worker(providers,flag.clone());
                             let outputs=worker.constraints(&values).map_err(math)?;
                             program.assembly.structure().rows().iter().map(|r|r.id).zip(outputs).collect()

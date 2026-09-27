@@ -162,7 +162,48 @@ pub struct FitReport {
     /// Local numerical column rank, when independently qualified.
     pub rank: Option<usize>,
     /// Why prediction or local sensitivity qualification is unavailable.
-    pub diagnostic: Option<String>,
+    pub diagnostic: Option<FitDiagnostic>,
+}
+/// Stable rule for an unavailable fresh prediction or local sensitivity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FitRule {
+    /// The fresh final original evaluation failed.
+    FinalEvaluation,
+    /// The fresh weighted least-squares objective overflowed.
+    ObjectiveOverflow,
+    /// The local response rank diagnostic failed.
+    ResponseRank,
+}
+impl FitRule {
+    /// Stable published rule code; never prose.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::FinalEvaluation => "fit.final_evaluation",
+            Self::ObjectiveOverflow => "fit.objective_overflow",
+            Self::ResponseRank => "fit.response_rank",
+        }
+    }
+}
+/// A fit diagnostic keeps a stable rule and its original typed cause.
+#[derive(Clone, Debug)]
+pub struct FitDiagnostic {
+    /// Stable rule code.
+    pub rule: FitRule,
+    /// Original typed cause; its class is derived, never guessed.
+    pub cause: Arc<native::ProblemError>,
+}
+impl FitDiagnostic {
+    pub(crate) fn new(rule: FitRule, cause: native::ProblemError) -> Self {
+        Self {
+            rule,
+            cause: Arc::new(cause),
+        }
+    }
+}
+impl std::fmt::Display for FitDiagnostic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.rule.as_str(), self.cause)
+    }
 }
 impl FitReport {
     /// Known result buffers; the solver's finite report allowance owns diagnostics.
@@ -178,7 +219,27 @@ impl FitReport {
                 + self.candidate.as_ref().map_or(0, Vec::capacity))
                 * size_of::<f64>()
             // The optional dense response carries its own reservation.
-            + self.diagnostic.as_ref().map_or(0, String::capacity)
+            + self
+                .diagnostic
+                .as_ref()
+                .map_or(0, |d| d.cause.retained_bytes())
+    }
+    /// Candidate use of the final estimate: the native decision, then the fresh
+    /// independent original-model quality of the final evaluation.
+    pub(crate) fn candidate_use(&self) -> super::numerics::CandidateDecision {
+        use super::numerics::{CandidateReason, constant_use, native_use, refused};
+        if self.candidate.is_none() {
+            return refused(CandidateReason::NoCandidate);
+        }
+        let fresh = self
+            .quality
+            .as_ref()
+            .map_or(refused(CandidateReason::Infeasible), constant_use);
+        match self.solve.as_ref().map(native_use) {
+            // A native seed-only or refused estimate keeps its decision.
+            Some(native) if !native.permits_use() => native,
+            Some(_) | None => fresh,
+        }
     }
     /// A stationary feasible estimate with locally identifiable free parameters.
     /// This establishes neither global optimality nor a statistical confidence interval.

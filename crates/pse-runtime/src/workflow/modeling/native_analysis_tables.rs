@@ -71,7 +71,7 @@ impl ModelingLinearDiagnostics {
                         name: self.attempt.termination.name.clone(),
                     },
                     qualification: self.attempt.qualification,
-                    validation_error: self.attempt.validation_error.clone(),
+                    validation_error: self.attempt.validation_failure().map(ToString::to_string),
                 },
                 primal_ray: d.primal_ray.as_ref().map(|v| {
                     self.columns
@@ -264,7 +264,7 @@ impl ModelingJacobianOptimization {
                 },
             }).collect(),
             attempts:self.evidence.attempts.iter().map(|a|RuntimeModelingJacobianOptimizationFieldAttemptsItem{
-                termination:RuntimeModelingJacobianOptimizationFieldAttemptsItemTermination{category:a.termination.category,code:a.termination.code,name:a.termination.name.clone()},qualification:a.qualification,validation_error:a.validation_error.clone(),
+                termination:RuntimeModelingJacobianOptimizationFieldAttemptsItemTermination{category:a.termination.category,code:a.termination.code,name:a.termination.name.clone()},qualification:a.qualification,validation_error:a.validation_failure().map(ToString::to_string),
             }).collect(),unavailable:self.evidence.unavailable.clone(),
         }
         })?;

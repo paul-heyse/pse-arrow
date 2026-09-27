@@ -173,7 +173,7 @@ impl PreparedRecycle {
                         .values()
                         .map(|p| p.worker().map(|w| (p.spec().key(), w)))
                         .collect::<Result<_, _>>()
-                        .map_err(|e| native::ProblemError::Contract(e.to_string()))?;
+                        .map_err(native::ProblemError::Provider)?;
                     let worker = program
                         .program
                         .assembly

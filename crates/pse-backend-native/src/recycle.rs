@@ -190,7 +190,7 @@ impl CausalMap {
         let n = contract.variables.len();
         let (original, _) =
             faer::sparse::SymbolicSparseColMat::try_new_from_indices(n, n, &indices)
-                .map_err(|e| ProblemError::Contract(e.to_string()))?;
+                .map_err(|e| ProblemError::Internal(e.to_string()))?;
         Ok(Self {
             contract,
             original,
@@ -204,7 +204,7 @@ impl CausalMap {
     }
     fn sweep(&mut self, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
         if x.len() != self.tears.len() || x.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("invalid causal trial".into()));
+            return Err(ProblemError::numerical("invalid causal trial"));
         }
         let mut values = self.fixed.clone();
         values.extend(self.tears.iter().zip(x).map(|(b, v)| (b.target, *v)));
@@ -220,7 +220,7 @@ impl CausalMap {
                     .iter()
                     .any(|id| outputs.get(id).is_none_or(|v| !v.is_finite()))
             {
-                return Err(ProblemError::Contract(format!(
+                return Err(ProblemError::numerical(format!(
                     "causal unit {} returned incomplete or nonfinite outputs",
                     unit.id()
                 )));
@@ -229,7 +229,7 @@ impl CausalMap {
             for b in self.propagate.get(&unit.id()).into_iter().flatten() {
                 let v = values[&b.source] * b.conversion.scale + b.conversion.offset;
                 if !v.is_finite() {
-                    return Err(ProblemError::Contract("nonfinite flow conversion".into()));
+                    return Err(ProblemError::numerical("nonfinite flow conversion"));
                 }
                 values.insert(b.target, v);
             }
@@ -241,7 +241,7 @@ impl CausalMap {
                 if v.is_finite() {
                     Ok(v)
                 } else {
-                    Err(ProblemError::Contract("nonfinite tear conversion".into()))
+                    Err(ProblemError::numerical("nonfinite tear conversion"))
                 }
             })
             .collect()
@@ -256,7 +256,7 @@ impl FixedPointOracle for CausalMap {
     }
     fn map(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         if out.len() != x.len() {
-            return Err(ProblemError::Contract("causal output dimensions".into()));
+            return Err(ProblemError::Internal("causal output dimensions".into()));
         }
         let values = self.sweep(x)?;
         out.copy_from_slice(&values);
@@ -264,7 +264,7 @@ impl FixedPointOracle for CausalMap {
     }
     fn original_residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         if out.len() != x.len() {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "connection residual dimensions".into(),
             ));
         }

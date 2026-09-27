@@ -63,7 +63,35 @@ fn sundials_version() -> String {
 #[cfg(test)]
 use std::sync::{Arc, atomic::AtomicBool};
 
-/// A malformed problem or an attributable trial failure.
+/// Native status that ended a library operation, retaining its identity.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NativeStatus {
+    /// Library that reported the status.
+    pub backend: solve::Backend,
+    /// Unmodified native code.
+    pub code: i64,
+    /// Native symbolic name.
+    pub name: String,
+}
+impl std::fmt::Display for NativeStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {} ({})", self.backend.as_str(), self.name, self.code)
+    }
+}
+/// Finite allowance whose exhaustion ended an operation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LimitKind {
+    /// Wall-clock deadline.
+    Time,
+    /// Native iteration, step or evaluation allowance.
+    Work,
+    /// Memory or native allocation.
+    Memory,
+}
+fn native_suffix(status: Option<&NativeStatus>) -> String {
+    status.map_or_else(String::new, |s| format!(" [{s}]"))
+}
+/// A refused request or an attributable failure, classified by its cause (DP-21).
 #[derive(Debug, thiserror::Error)]
 pub enum ProblemError {
     /// The selected backend is not linked; no implicit fallback is performed.
@@ -76,7 +104,7 @@ pub enum ProblemError {
         /// Other linked backends; eligibility still requires admission.
         alternatives: Vec<solve::Backend>,
     },
-    /// Contract admission failed before entering a solver.
+    /// The model or request violates a declared contract.
     #[error("invalid native problem: {0}")]
     Contract(String),
     /// Library matching found deficient original equality support.
@@ -92,27 +120,141 @@ pub enum ProblemError {
     /// Mathematical evaluation retains its domain/provider cause.
     #[error(transparent)]
     Math(#[from] pse_math::MathError),
+    /// A registered provider failed outside an attributed expression; the typed cause is kept.
+    #[error("provider failure: {0}")]
+    Provider(#[from] pse_kernels::ProviderError),
+    /// No eligible route, or the selected adapter cannot represent the request.
+    #[error("unsupported: {0}")]
+    Unsupported(String),
+    /// A native method or numerical kernel failed; the native status is kept when one exists.
+    #[error("numerical failure: {detail}{}", native_suffix(.status.as_ref()))]
+    Numerical {
+        /// Native status of the failed library operation, when it reported one.
+        status: Option<NativeStatus>,
+        /// Failed operation.
+        detail: String,
+    },
+    /// A declared finite allowance was exhausted.
+    #[error("{kind:?} limit: {detail}")]
+    Limit {
+        /// Exhausted allowance.
+        kind: LimitKind,
+        /// Exhausted operation.
+        detail: String,
+    },
+    /// Cooperative cancellation fired.
+    #[error("native work cancelled")]
+    Cancelled,
+    /// An adapter postcondition or platform invariant failed.
+    #[error("internal invariant: {0}")]
+    Internal(String),
 }
 impl ProblemError {
+    /// No eligible route, or an adapter that cannot represent the request.
+    pub fn unsupported(message: impl Into<String>) -> Self {
+        Self::Unsupported(message.into())
+    }
+    /// An adapter postcondition or platform invariant failed.
+    pub fn internal(message: impl Into<String>) -> Self {
+        Self::Internal(message.into())
+    }
+    /// A numerical kernel failed without a native status.
+    pub fn numerical(detail: impl Into<String>) -> Self {
+        Self::Numerical {
+            status: None,
+            detail: detail.into(),
+        }
+    }
+    /// A native allocation or memory allowance failed.
+    pub fn memory(detail: impl Into<String>) -> Self {
+        Self::Limit {
+            kind: LimitKind::Memory,
+            detail: detail.into(),
+        }
+    }
+    /// A cooperative stop observed at an execution checkpoint.
+    pub fn stopped(stop: solve::Termination, detail: impl Into<String>) -> Self {
+        match stop {
+            solve::Termination::Cancelled => Self::Cancelled,
+            solve::Termination::TimeLimit => Self::Limit {
+                kind: LimitKind::Time,
+                detail: detail.into(),
+            },
+            _ => Self::Internal(detail.into()),
+        }
+    }
+    /// Classify a failed native call by its mapped status category. Evaluation
+    /// failures are attributed by the callback owner, which holds the typed cause.
+    pub fn native(
+        status: NativeStatus,
+        category: solve::Termination,
+        detail: impl Into<String>,
+    ) -> Self {
+        use solve::Termination as T;
+        let detail = detail.into();
+        match category {
+            T::Cancelled => Self::Cancelled,
+            T::TimeLimit => Self::Limit {
+                kind: LimitKind::Time,
+                detail: format!("{detail} [{status}]"),
+            },
+            T::IterationLimit | T::Limit | T::SolutionLimit | T::ObjectiveLimit => Self::Limit {
+                kind: LimitKind::Work,
+                detail: format!("{detail} [{status}]"),
+            },
+            T::ResourceExhausted => Self::Limit {
+                kind: LimitKind::Memory,
+                detail: format!("{detail} [{status}]"),
+            },
+            T::Invalid | T::Panic => Self::Internal(format!("{detail} [{status}]")),
+            T::Success
+            | T::Acceptable
+            | T::FeasibleOnly
+            | T::Infeasible
+            | T::Unbounded
+            | T::InfeasibleOrUnbounded
+            | T::Inconclusive
+            | T::Numerical
+            | T::Evaluation => Self::Numerical {
+                status: Some(status),
+                detail,
+            },
+        }
+    }
     /// Owned error payload admitted separately from bounded native report history.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>().saturating_add(match self {
             Self::Unavailable { alternatives, .. } => alternatives
                 .capacity()
                 .saturating_mul(size_of::<solve::Backend>()),
-            Self::Contract(s) => s.capacity(),
+            Self::Contract(s) | Self::Unsupported(s) | Self::Internal(s) => s.capacity(),
+            Self::Numerical { status, detail } => detail
+                .capacity()
+                .saturating_add(status.as_ref().map_or(0, |s| s.name.capacity())),
+            Self::Limit { detail, .. } => detail.capacity(),
             Self::Structural { rows, columns, .. } => rows
                 .capacity()
                 .saturating_add(columns.capacity())
                 .saturating_mul(size_of::<SemanticId>()),
             Self::Math(e) => e.retained_bytes(),
+            Self::Provider(e) => e.retained_bytes(),
+            Self::Cancelled => 0,
         })
     }
 }
 pse_diagnostics::impl_diagnostic! {
     ProblemError,
-    code(this) { match this { Self::Contract(_) | Self::Unavailable{..} | Self::Structural{..} => Some(pse_diagnostics::DiagnosticCode::CompileMath), Self::Math(_) => None } },
-    forward(this) { match this { Self::Math(error) => Some(error), _ => None } },
+    code(this) { match this {
+        Self::Contract(_) | Self::Structural{..} => Some(pse_diagnostics::DiagnosticCode::CompileMath),
+        Self::Unavailable{..} | Self::Unsupported(_) => Some(pse_diagnostics::DiagnosticCode::CapabilityBackend),
+        Self::Numerical{..} => Some(pse_diagnostics::DiagnosticCode::SolveSolverError),
+        Self::Limit{kind: LimitKind::Time, ..} => Some(pse_diagnostics::DiagnosticCode::RuntimeTimeout),
+        Self::Limit{..} => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
+        Self::Cancelled => Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),
+        Self::Internal(_) => Some(pse_diagnostics::DiagnosticCode::InternalInvariant),
+        Self::Math(_) | Self::Provider(_) => None,
+    } },
+    forward(this) { match this { Self::Math(error) => Some(error), Self::Provider(error) => Some(error), _ => None } },
     help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 /// Stable source identity and interval in its declared source representation.
@@ -421,7 +563,7 @@ impl ConicProblem {
                     .checked_add(1)
                     .and_then(|v| d.checked_mul(v))
                     .and_then(|v| v.checked_div(2))
-                    .ok_or_else(|| ProblemError::Contract("PSD dimension overflow".into()))?,
+                    .ok_or_else(|| ProblemError::Unsupported("PSD dimension overflow".into()))?,
                 PowerConeT(a) if a.is_finite() && *a > 0.0 && *a < 1.0 => 3,
                 GenPowerConeT(a, d)
                     if *d > 0
@@ -429,15 +571,15 @@ impl ConicProblem {
                         && a.iter().all(|v| v.is_finite() && *v > 0.0)
                         && (a.iter().sum::<f64>() - 1.0).abs() <= 1e-12 =>
                 {
-                    a.len()
-                        .checked_add(*d)
-                        .ok_or_else(|| ProblemError::Contract("cone dimension overflow".into()))?
+                    a.len().checked_add(*d).ok_or_else(|| {
+                        ProblemError::Unsupported("cone dimension overflow".into())
+                    })?
                 }
                 _ => return Err(ProblemError::Contract("invalid explicit cone".into())),
             };
             count = count
                 .checked_add(dim)
-                .ok_or_else(|| ProblemError::Contract("cone dimension overflow".into()))?;
+                .ok_or_else(|| ProblemError::Unsupported("cone dimension overflow".into()))?;
         }
         if count != m {
             return Err(ProblemError::Contract(
@@ -467,7 +609,7 @@ impl ConicProblem {
             }
         }
         let q = faer::sparse::SparseColMat::try_new_from_triplets(n, n, &entries)
-            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+            .map_err(|e| ProblemError::Internal(e.to_string()))?;
         Ok(q)
     }
 }

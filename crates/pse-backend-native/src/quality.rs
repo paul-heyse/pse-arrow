@@ -133,13 +133,11 @@ impl Observation {
         values: Vec<f64>,
         bounds: Vec<(f64, f64)>,
     ) -> Result<Self, ProblemError> {
-        if values.len() != bounds.len()
-            || values.iter().any(|v| !v.is_finite())
-            || objective.is_some_and(|v| !v.is_finite())
-        {
-            return Err(ProblemError::Contract(
-                "original observation dimensions/values".into(),
-            ));
+        if values.len() != bounds.len() {
+            return Err(ProblemError::internal("original observation dimensions"));
+        }
+        if values.iter().any(|v| !v.is_finite()) || objective.is_some_and(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite original observation"));
         }
         Ok(Self {
             sources: vec![],
@@ -228,18 +226,18 @@ fn kkt(
     let lambda = c
         .row_dual
         .as_ref()
-        .ok_or_else(|| ProblemError::Contract("row multipliers unavailable".into()))?;
+        .ok_or_else(|| ProblemError::unsupported("row multipliers unavailable"))?;
     let (zl, zu) = c
         .bound_dual
         .as_ref()
-        .ok_or_else(|| ProblemError::Contract("bound multipliers unavailable".into()))?;
+        .ok_or_else(|| ProblemError::unsupported("bound multipliers unavailable"))?;
     if lambda.len() != m
         || zl.len() != n
         || zu.len() != n
         || lambda.iter().chain(zl).chain(zu).any(|v| !v.is_finite())
         || zl.iter().chain(zu).any(|v| *v < 0.0)
     {
-        return Err(ProblemError::Contract("dual dimensions/values/sign".into()));
+        return Err(ProblemError::numerical("dual dimensions/values/sign"));
     }
     let mut gradient = vec![0.0; n];
     oracle.gradient(&c.primal, &mut gradient)?;
@@ -256,15 +254,15 @@ fn kkt(
         if v.lower.is_finite() {
             comp.push((zl[col] * (c.primal[col] - v.lower)).abs());
         } else if zl[col] != 0.0 {
-            return Err(ProblemError::Contract(
-                "dual on absent lower variable bound".into(),
+            return Err(ProblemError::numerical(
+                "dual on absent lower variable bound",
             ));
         }
         if v.upper.is_finite() {
             comp.push((zu[col] * (v.upper - c.primal[col])).abs());
         } else if zu[col] != 0.0 {
-            return Err(ProblemError::Contract(
-                "dual on absent upper variable bound".into(),
+            return Err(ProblemError::numerical(
+                "dual on absent upper variable bound",
             ));
         }
     }
@@ -275,12 +273,12 @@ fn kkt(
             if bound.is_finite() {
                 comp.push((lambda * (o.values[r] - bound)).abs());
             } else if *lambda != 0.0 {
-                return Err(ProblemError::Contract("dual on absent row bound".into()));
+                return Err(ProblemError::numerical("dual on absent row bound"));
             }
         }
     }
     if gradient.iter().chain(&comp).any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract("nonfinite original KKT".into()));
+        return Err(ProblemError::numerical("nonfinite original KKT"));
     }
     Ok((gradient, comp))
 }
@@ -302,8 +300,8 @@ impl Quality {
                 || !v.tolerance.is_finite()
                 || v.tolerance <= 0.0
             {
-                return Err(ProblemError::Contract(
-                    "invalid original quality measurement".into(),
+                return Err(ProblemError::numerical(
+                    "invalid original quality measurement",
                 ));
             }
             normalized_max = normalized_max.max(v.physical / v.tolerance);
@@ -321,8 +319,8 @@ pub(crate) fn contained<T>(
     work: impl FnOnce() -> Result<T, ProblemError>,
 ) -> Result<T, ProblemError> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)).unwrap_or_else(|_| {
-        Err(ProblemError::Contract(
-            "panic during original-model validation".into(),
+        Err(ProblemError::internal(
+            "panic during original-model validation",
         ))
     })
 }
@@ -360,8 +358,11 @@ pub fn observed(
     let n = contract.variables.len();
     let m = contract.rows.len();
     tolerance.validate(n, m)?;
-    if x.len() != n || values.len() != m || limits.len() != m || x.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract("nonfinite candidate".into()));
+    if x.len() != n || values.len() != m || limits.len() != m {
+        return Err(ProblemError::internal("candidate observation dimensions"));
+    }
+    if x.iter().any(|v| !v.is_finite()) {
+        return Err(ProblemError::numerical("nonfinite candidate"));
     }
     let bounds = contract
         .variables
@@ -376,7 +377,7 @@ pub fn observed(
         .collect();
     let ids = contract.rows.clone();
     if values.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract("nonfinite original residual".into()));
+        return Err(ProblemError::numerical("nonfinite original residual"));
     }
     let rows = ids
         .iter()
@@ -394,12 +395,13 @@ pub fn observed(
 
 /// Record achieved KKT quantities in the same normalized meaning as requested accuracy.
 /// Missing multipliers remain unavailable; feasibility is an independent assessment.
+/// The typed acceptance is evidence for qualification; the metrics are observations.
 pub fn record_kkt(
     report: &mut crate::solve::SolveReport,
     n: &pse_math::normalization::Normalization,
     accuracy: &crate::solve::Accuracy,
 ) {
-    use crate::solve::{Metric, Termination};
+    use crate::solve::{KktEvidence, Metric, Termination};
     let Some(o) = &report.observation else { return };
     let budget = if report.termination.category == Termination::Acceptable {
         accuracy
@@ -416,9 +418,7 @@ pub fn record_kkt(
     };
     let stationarity = o.stationarity.as_ref().map(|values| {
         if values.len() != n.variables.len() {
-            return Err(ProblemError::Contract(
-                "stationarity coordinate extent".into(),
-            ));
+            return Err(ProblemError::internal("stationarity coordinate extent"));
         }
         values
             .iter()
@@ -438,15 +438,27 @@ pub fn record_kkt(
             )?))
         })
     });
-    for (name, value, budget) in [
-        ("stationarity", stationarity, budget.stationarity),
-        ("complementarity", complementarity, budget.complementarity),
+    let mut evidence = KktEvidence::default();
+    for (name, value, budget, accepted) in [
+        (
+            "stationarity",
+            stationarity,
+            budget.stationarity,
+            &mut evidence.stationarity,
+        ),
+        (
+            "complementarity",
+            complementarity,
+            budget.complementarity,
+            &mut evidence.complementarity,
+        ),
     ] {
         report
             .metrics
             .insert(format!("quality.{name}.budget"), Metric::Real(budget));
         match value {
             Some(Ok(v)) => {
+                *accepted = Some(v <= budget);
                 report
                     .metrics
                     .insert(format!("quality.{name}.normalized"), Metric::Real(v));
@@ -469,15 +481,17 @@ pub fn record_kkt(
             }
         }
     }
+    report.evidence.kkt = Some(evidence);
 }
 
 /// Grant only the numerical claim supported by completed original-space observations.
 /// Native stop categories are retained independently, including limits with feasible candidates.
+/// Only typed adapter evidence is read; metrics never grant a claim.
 pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::Accuracy) {
-    use crate::solve::{Assurance, Backend, Metric, Qualification, Termination};
+    use crate::solve::{Assurance, Backend, Qualification, SolutionStatus, Termination};
     report.qualification = Qualification::Unqualified;
     report.termination.assurance = Assurance::None;
-    if report.validation_error.is_some()
+    if report.validation_failure().is_some()
         || report.candidate.is_none()
         || !report.quality.as_ref().is_some_and(Quality::feasible)
     {
@@ -485,11 +499,7 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
     }
     report.qualification = Qualification::Feasible;
     report.termination.assurance = Assurance::Feasible;
-    let accepted = |key: &str| matches!(report.metrics.get(key), Some(Metric::Bool(true)));
-    let real = |key: &str| match report.metrics.get(key) {
-        Some(Metric::Real(v)) if v.is_finite() => Some(*v),
-        _ => None,
-    };
+    let finite = |v: Option<f64>| v.filter(|v| v.is_finite());
     let stopped = matches!(
         report.termination.category,
         Termination::Success | Termination::Acceptable
@@ -497,27 +507,31 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
     if !stopped {
         return;
     }
+    let evidence = report.evidence;
     match report.backend {
         Backend::Ipopt | Backend::Pounce
             if report
                 .observation
                 .as_ref()
                 .is_some_and(|o| o.dual_error.is_none())
-                && accepted("quality.stationarity.accepted")
-                && accepted("quality.complementarity.accepted")
+                && evidence.kkt.is_some_and(|k| {
+                    k.stationarity == Some(true) && k.complementarity == Some(true)
+                })
                 && (report.termination.category != Termination::Acceptable
                     || accuracy.acceptable.is_some()) =>
         {
             report.qualification = Qualification::Stationary;
             report.termination.assurance = Assurance::LocalStationary;
         }
-        Backend::Highs if accepted("upload.equivalent") => {
-            if accepted("model.discrete") {
-                let (Some(gap), Some(bound)) = (real("mip_gap"), real("mip_dual_bound")) else {
+        Backend::Highs => {
+            let Some(c) = evidence.coefficient.filter(|c| c.upload_equivalent) else {
+                return;
+            };
+            if c.discrete {
+                let (Some(gap), Some(bound)) = (finite(c.mip_gap), finite(c.mip_dual_bound)) else {
                     return;
                 };
-                let value = real("objective_function_value");
-                let absolute = value.map(|v| (v - bound).abs());
+                let absolute = finite(c.objective).map(|v| (v - bound).abs());
                 if gap >= 0.0
                     && (gap <= accuracy.mip_relative_gap
                         || absolute.is_some_and(|v| v <= accuracy.mip_absolute_gap))
@@ -529,29 +543,33 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
                     };
                     report.termination.assurance = Assurance::NativeOptimal;
                 }
-            } else if real("max_dual_infeasibility")
+            } else if finite(c.max_dual_infeasibility)
                 .is_some_and(|v| v >= 0.0 && v <= accuracy.stationarity)
-                && real("primal_dual_objective_error")
+                && finite(c.primal_dual_objective_error)
                     .is_some_and(|v| v >= 0.0 && v <= accuracy.gap_relative)
-                && matches!(
-                    report.metrics.get("dual_solution_status"),
-                    Some(Metric::Integer(2))
-                )
+                && c.dual == SolutionStatus::Feasible
             {
                 report.qualification = Qualification::OptimalWithinTolerance;
                 report.termination.assurance = Assurance::NativeOptimal;
             }
         }
         Backend::Clarabel
-            if real("res_primal").is_some_and(|v| v <= accuracy.feasibility)
-                && real("res_dual").is_some_and(|v| v <= accuracy.stationarity)
-                && (real("gap_abs").is_some_and(|v| v <= accuracy.gap_absolute)
-                    || real("gap_rel").is_some_and(|v| v <= accuracy.gap_relative)) =>
+            if evidence.conic.is_some_and(|c| {
+                c.primal_residual <= accuracy.feasibility
+                    && c.dual_residual <= accuracy.stationarity
+                    && (c.gap_absolute <= accuracy.gap_absolute
+                        || c.gap_relative <= accuracy.gap_relative)
+            }) =>
         {
             report.qualification = Qualification::OptimalWithinTolerance;
             report.termination.assurance = Assurance::NativeOptimal;
         }
-        _ => {}
+        Backend::Ipopt
+        | Backend::Pounce
+        | Backend::Clarabel
+        | Backend::Kinsol
+        | Backend::Diffsol
+        | Backend::Idas => {}
     }
 }
 
@@ -619,41 +637,134 @@ mod qualification_tests {
         record_kkt(&mut r, &n, &accuracy);
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::Stationary);
-        r.validation_error = Some("original callback failed".into());
+        r.record_validation_failure(ProblemError::numerical("original callback failed"));
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::Unqualified);
     }
     #[test]
     fn original_validation_keeps_typed_failure_until_a_fresh_observation_succeeds() {
-        let mut r=report(Backend::Ipopt,Termination::Success);
-        let source_id=SemanticId::from_bytes([17;16]);
-        r.record_validation_failure(pse_math::MathError::Domain {source_id,requirement:"positive"}.into());
-        qualify(&mut r,&Accuracy::default());
-        assert_eq!(r.qualification,Qualification::Unqualified);
-        let retained=r.clone();
+        let mut r = report(Backend::Ipopt, Termination::Success);
+        let source_id = SemanticId::from_bytes([17; 16]);
+        r.record_validation_failure(
+            pse_math::MathError::Domain {
+                source_id,
+                requirement: "positive",
+            }
+            .into(),
+        );
+        qualify(&mut r, &Accuracy::default());
+        assert_eq!(r.qualification, Qualification::Unqualified);
+        let retained = r.clone();
         r.clear_validation_failure();
         assert!(r.validation_failure().is_none());
-        assert!(r.validation_error.is_none());
-        assert!(matches!(retained.validation_failure(),Some(ProblemError::Math(pse_math::MathError::Domain {source_id:id,..})) if *id==source_id));
-        assert!(retained.failure_bytes()>0);
+        assert!(
+            matches!(retained.validation_failure(),Some(ProblemError::Math(pse_math::MathError::Domain {source_id:id,..})) if *id==source_id)
+        );
+        assert!(retained.failure_bytes() > 0);
+    }
+    fn coefficient() -> CoefficientEvidence {
+        CoefficientEvidence {
+            upload_equivalent: true,
+            discrete: true,
+            objective: Some(10.0),
+            mip_gap: Some(0.02),
+            mip_dual_bound: Some(9.8),
+            primal: SolutionStatus::Feasible,
+            dual: SolutionStatus::Unavailable,
+            max_dual_infeasibility: None,
+            primal_dual_objective_error: None,
+        }
     }
     #[test]
-    fn gaps_upload_evidence_and_limits_have_separate_meanings() {
+    fn quality_reads_typed_evidence_only() {
+        let accuracy = Accuracy {
+            mip_relative_gap: 0.03,
+            ..Default::default()
+        };
+        // Observational metrics under the former keys grant nothing.
         let mut r = report(Backend::Highs, Termination::Success);
         r.metrics.extend([
+            ("upload.equivalent".into(), Metric::Bool(true)),
             ("model.discrete".into(), Metric::Bool(true)),
             ("mip_gap".into(), Metric::Real(0.02)),
             ("mip_dual_bound".into(), Metric::Real(9.8)),
             ("objective_function_value".into(), Metric::Real(10.0)),
         ]);
+        qualify(&mut r, &accuracy);
+        assert_eq!(r.qualification, Qualification::Feasible);
+        // Typed evidence qualifies without any metric.
+        r.metrics.clear();
+        r.evidence.coefficient = Some(CoefficientEvidence {
+            upload_equivalent: false,
+            ..coefficient()
+        });
+        qualify(&mut r, &accuracy);
+        assert_eq!(r.qualification, Qualification::Feasible);
+        r.evidence.coefficient = Some(coefficient());
+        qualify(&mut r, &accuracy);
+        assert_eq!(r.qualification, Qualification::GapQualified);
+        // Continuous LP optimality needs a typed feasible dual status.
+        let continuous = CoefficientEvidence {
+            discrete: false,
+            max_dual_infeasibility: Some(0.0),
+            primal_dual_objective_error: Some(0.0),
+            ..coefficient()
+        };
+        r.evidence.coefficient = Some(continuous);
+        qualify(&mut r, &accuracy);
+        assert_eq!(r.qualification, Qualification::Feasible);
+        r.evidence.coefficient = Some(CoefficientEvidence {
+            dual: SolutionStatus::Feasible,
+            ..continuous
+        });
+        qualify(&mut r, &accuracy);
+        assert_eq!(r.qualification, Qualification::OptimalWithinTolerance);
+        // KKT metrics alone never make an NLP stationary.
+        let mut nlp = report(Backend::Ipopt, Termination::Success);
+        let mut o = Observation::from_values(Some(10.0), vec![], vec![]).unwrap();
+        o.dual_error = None;
+        nlp.observation = Some(o);
+        nlp.metrics.extend([
+            ("quality.stationarity.accepted".into(), Metric::Bool(true)),
+            (
+                "quality.complementarity.accepted".into(),
+                Metric::Bool(true),
+            ),
+        ]);
+        qualify(&mut nlp, &accuracy);
+        assert_eq!(nlp.qualification, Qualification::Feasible);
+        nlp.evidence.kkt = Some(KktEvidence {
+            stationarity: Some(true),
+            complementarity: Some(true),
+        });
+        qualify(&mut nlp, &accuracy);
+        assert_eq!(nlp.qualification, Qualification::Stationary);
+        // Conic residuals come from typed evidence.
+        let mut conic = report(Backend::Clarabel, Termination::Success);
+        conic.metrics.extend([
+            ("res_primal".into(), Metric::Real(0.0)),
+            ("res_dual".into(), Metric::Real(0.0)),
+            ("gap_abs".into(), Metric::Real(0.0)),
+        ]);
+        qualify(&mut conic, &accuracy);
+        assert_eq!(conic.qualification, Qualification::Feasible);
+        conic.evidence.conic = Some(ConicEvidence {
+            primal_residual: 0.0,
+            dual_residual: 0.0,
+            gap_absolute: 0.0,
+            gap_relative: 0.0,
+        });
+        qualify(&mut conic, &accuracy);
+        assert_eq!(conic.qualification, Qualification::OptimalWithinTolerance);
+    }
+    #[test]
+    fn gaps_and_limits_have_separate_meanings() {
+        let mut r = report(Backend::Highs, Termination::Success);
+        r.evidence.coefficient = Some(coefficient());
         let accuracy = Accuracy {
             mip_relative_gap: 0.03,
             ..Default::default()
         };
-        qualify(&mut r, &accuracy);
-        assert_eq!(r.qualification, Qualification::Feasible);
-        r.metrics
-            .insert("upload.equivalent".into(), Metric::Bool(true));
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::GapQualified);
         for category in [
@@ -667,7 +778,10 @@ mod qualification_tests {
             assert_eq!(r.termination.category, category);
         }
         r.termination.category = Termination::Success;
-        r.metrics.insert("mip_gap".into(), Metric::Real(f64::NAN));
+        r.evidence.coefficient = Some(CoefficientEvidence {
+            mip_gap: Some(f64::NAN),
+            ..coefficient()
+        });
         qualify(&mut r, &accuracy);
         assert_eq!(r.qualification, Qualification::Feasible);
     }

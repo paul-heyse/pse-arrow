@@ -9,106 +9,272 @@ use pse_math::binding::{ObjectiveSense,VariableDomain};
 use std::collections::BTreeSet;
 
 /// Finite search over anchored left-null vectors.
-#[derive(Clone,Copy,Debug)]
-pub struct Policy{
-    pub maximum_rows:usize,
-    pub maximum_entries:usize,
-    pub maximum_attempts:usize,
-    pub multiplier_bound:f64,
-    pub tolerance:f64,
-    pub rank_relative:f64,
+#[derive(Clone, Copy, Debug)]
+pub struct Policy {
+    pub maximum_rows: usize,
+    pub maximum_entries: usize,
+    pub maximum_attempts: usize,
+    pub multiplier_bound: f64,
+    pub tolerance: f64,
+    pub rank_relative: f64,
 }
 /// A verified approximate left-null vector; residuals use the supplied matrix coordinates.
-#[derive(Clone,Debug)]
-pub struct Certificate{
-    pub weights:Vec<(SemanticId,f64)>,
-    pub residual_maximum:f64,
-    pub pivot:SemanticId,
+#[derive(Clone, Debug)]
+pub struct Certificate {
+    pub weights: Vec<(SemanticId, f64)>,
+    pub residual_maximum: f64,
+    pub pivot: SemanticId,
 }
 /// A minimum-support candidate qualified by removing each member and checking numerical rank.
-#[derive(Clone,Debug)]
-pub struct DegenerateSet{
-    pub rows:Vec<SemanticId>,
-    pub certificate:Certificate,
-    pub irreducible_at_tolerance:bool,
+#[derive(Clone, Debug)]
+pub struct DegenerateSet {
+    pub rows: Vec<SemanticId>,
+    pub certificate: Certificate,
+    pub irreducible_at_tolerance: bool,
 }
 #[derive(Debug)]
-pub struct Report{
-    pub conditioning:Vec<Certificate>,
-    pub degenerate:Vec<DegenerateSet>,
-    pub attempts:Vec<SolveReport>,
-    pub complete:bool,
-    pub unavailable:Vec<String>,
+pub struct Report {
+    pub conditioning: Vec<Certificate>,
+    pub degenerate: Vec<DegenerateSet>,
+    pub attempts: Vec<SolveReport>,
+    pub complete: bool,
+    pub unavailable: Vec<String>,
 }
-struct Builder{
-    id:SemanticId, variables:Vec<Variable>,domains:Vec<VariableDomain>,objective:Vec<f64>,
-    rows:Vec<SemanticId>,bounds:Vec<(f64,f64)>,entries:Vec<Triplet<usize,usize,f64>>,
+struct Builder {
+    id: SemanticId,
+    variables: Vec<Variable>,
+    domains: Vec<VariableDomain>,
+    objective: Vec<f64>,
+    rows: Vec<SemanticId>,
+    bounds: Vec<(f64, f64)>,
+    entries: Vec<Triplet<usize, usize, f64>>,
 }
-impl Builder{
-    fn variable(&mut self,name:&str,lower:f64,upper:f64,domain:VariableDomain,cost:f64)->usize{
-        let i=self.variables.len();self.variables.push(Variable{id:pse_ids::named_id(self.id,name),lower,upper});
-        self.domains.push(domain);self.objective.push(cost);i
+impl Builder {
+    fn variable(
+        &mut self,
+        name: &str,
+        lower: f64,
+        upper: f64,
+        domain: VariableDomain,
+        cost: f64,
+    ) -> usize {
+        let i = self.variables.len();
+        self.variables.push(Variable {
+            id: pse_ids::named_id(self.id, name),
+            lower,
+            upper,
+        });
+        self.domains.push(domain);
+        self.objective.push(cost);
+        i
     }
-    fn row(&mut self,terms:impl IntoIterator<Item=(usize,f64)>,lower:f64,upper:f64){
-        let row=self.rows.len();self.rows.push(pse_ids::named_id(self.id,&format!("row-{row}")));
-        self.bounds.push((lower,upper));self.entries.extend(terms.into_iter().filter(|(_,v)|*v!=0.).map(|(col,value)|Triplet::new(row,col,value)));
+    fn row(&mut self, terms: impl IntoIterator<Item = (usize, f64)>, lower: f64, upper: f64) {
+        let row = self.rows.len();
+        self.rows
+            .push(pse_ids::named_id(self.id, &format!("row-{row}")));
+        self.bounds.push((lower, upper));
+        self.entries.extend(
+            terms
+                .into_iter()
+                .filter(|(_, v)| *v != 0.)
+                .map(|(col, value)| Triplet::new(row, col, value)),
+        );
     }
-    fn finish(self)->Result<CoefficientProblem,ProblemError>{
-        let constraints=SparseColMat::try_new_from_triplets(self.rows.len(),self.variables.len(),&self.entries).map_err(|e|ProblemError::Contract(format!("diagnostic matrix: {e}")))?;
-        let mut h=FramedHasher::new("pse.jacobian-diagnostic.problem.v1");h.id(&self.id);
-        h.u64(self.variables.len() as u64).u64(self.rows.len() as u64);
-        for (v,domain)in self.variables.iter().zip(&self.domains){h.id(&v.id).u64(v.lower.to_bits()).u64(v.upper.to_bits()).u64(*domain as u64);}
-        for v in &self.objective{h.u64(v.to_bits());}
-        for (lo,hi)in &self.bounds{h.u64(lo.to_bits()).u64(hi.to_bits());}
-        for v in constraints.col_ptr(){h.u64(*v as u64);}
-        for v in constraints.row_idx(){h.u64(*v as u64);}
-        for v in constraints.val(){h.u64(v.to_bits());}
-        let identity=h.finish_hash();
-        let problem=CoefficientProblem{contract:OracleContract{identity,variables:self.variables,rows:self.rows,derivatives:DerivativeOrder::Value,smoothness:DerivativeOrder::Second},
-            objective:self.objective,objective_constant:0.,sense:ObjectiveSense::Minimize,domains:self.domains,assumptions:identity,constraints,hessian:None,bounds:self.bounds};
-        problem.validate()?;Ok(problem)
-    }
-}
-fn problem(matrix:SparseColMatRef<'_,usize,f64>,rows:&[SemanticId],pivot:usize,milp:bool,policy:Policy)->Result<CoefficientProblem,ProblemError>{
-    let id=pse_ids::named_id(rows[pivot],if milp{"degeneracy"}else{"conditioning"});
-    let mut b=Builder{id,variables:vec![],domains:vec![],objective:vec![],rows:vec![],bounds:vec![],entries:vec![]};
-    let bound=if milp{policy.multiplier_bound}else{1.};
-    for (i,id)in rows.iter().enumerate(){b.variable(&format!("multiplier-{id}"),if i==pivot{1.}else{-bound},if i==pivot{1.}else{bound},VariableDomain::Continuous,0.);}
-    if milp{
-        for id in rows{b.variable(&format!("selected-{id}"),0.,1.,VariableDomain::Binary,1.);}
-        for i in 0..rows.len(){
-            b.row([(i,1.),(rows.len()+i,-bound)],f64::NEG_INFINITY,0.);
-            b.row([(i,-1.),(rows.len()+i,-bound)],f64::NEG_INFINITY,0.);
+    fn finish(self) -> Result<CoefficientProblem, ProblemError> {
+        let constraints = SparseColMat::try_new_from_triplets(
+            self.rows.len(),
+            self.variables.len(),
+            &self.entries,
+        )
+        .map_err(|e| ProblemError::Internal(format!("diagnostic matrix: {e}")))?;
+        let mut h = FramedHasher::new("pse.jacobian-diagnostic.problem.v1");
+        h.id(&self.id);
+        h.u64(self.variables.len() as u64)
+            .u64(self.rows.len() as u64);
+        for (v, domain) in self.variables.iter().zip(&self.domains) {
+            h.id(&v.id)
+                .u64(v.lower.to_bits())
+                .u64(v.upper.to_bits())
+                .u64(*domain as u64);
         }
-        for col in 0..matrix.ncols(){b.row(matrix.row_idx_of_col(col).zip(matrix.val_of_col(col)).map(|(r,v)|(r,*v)),0.,0.);}
-    }else{
-        let residual=b.variable("residual-infinity-norm",0.,f64::INFINITY,VariableDomain::Continuous,1.);
-        for col in 0..matrix.ncols(){
-            for sign in [-1.,1.]{
-                b.row(matrix.row_idx_of_col(col).zip(matrix.val_of_col(col)).map(|(r,v)|(r,sign*v)).chain([(residual,-1.)]),f64::NEG_INFINITY,0.);
+        for v in &self.objective {
+            h.u64(v.to_bits());
+        }
+        for (lo, hi) in &self.bounds {
+            h.u64(lo.to_bits()).u64(hi.to_bits());
+        }
+        for v in constraints.col_ptr() {
+            h.u64(*v as u64);
+        }
+        for v in constraints.row_idx() {
+            h.u64(*v as u64);
+        }
+        for v in constraints.val() {
+            h.u64(v.to_bits());
+        }
+        let identity = h.finish_hash();
+        let problem = CoefficientProblem {
+            contract: OracleContract {
+                identity,
+                variables: self.variables,
+                rows: self.rows,
+                derivatives: DerivativeOrder::Value,
+                smoothness: DerivativeOrder::Second,
+            },
+            objective: self.objective,
+            objective_constant: 0.,
+            sense: ObjectiveSense::Minimize,
+            domains: self.domains,
+            assumptions: identity,
+            constraints,
+            hessian: None,
+            bounds: self.bounds,
+        };
+        problem.validate()?;
+        Ok(problem)
+    }
+}
+fn problem(
+    matrix: SparseColMatRef<'_, usize, f64>,
+    rows: &[SemanticId],
+    pivot: usize,
+    milp: bool,
+    policy: Policy,
+) -> Result<CoefficientProblem, ProblemError> {
+    let id = pse_ids::named_id(
+        rows[pivot],
+        if milp { "degeneracy" } else { "conditioning" },
+    );
+    let mut b = Builder {
+        id,
+        variables: vec![],
+        domains: vec![],
+        objective: vec![],
+        rows: vec![],
+        bounds: vec![],
+        entries: vec![],
+    };
+    let bound = if milp { policy.multiplier_bound } else { 1. };
+    for (i, id) in rows.iter().enumerate() {
+        b.variable(
+            &format!("multiplier-{id}"),
+            if i == pivot { 1. } else { -bound },
+            if i == pivot { 1. } else { bound },
+            VariableDomain::Continuous,
+            0.,
+        );
+    }
+    if milp {
+        for id in rows {
+            b.variable(
+                &format!("selected-{id}"),
+                0.,
+                1.,
+                VariableDomain::Binary,
+                1.,
+            );
+        }
+        for i in 0..rows.len() {
+            b.row([(i, 1.), (rows.len() + i, -bound)], f64::NEG_INFINITY, 0.);
+            b.row([(i, -1.), (rows.len() + i, -bound)], f64::NEG_INFINITY, 0.);
+        }
+        for col in 0..matrix.ncols() {
+            b.row(
+                matrix
+                    .row_idx_of_col(col)
+                    .zip(matrix.val_of_col(col))
+                    .map(|(r, v)| (r, *v)),
+                0.,
+                0.,
+            );
+        }
+    } else {
+        let residual = b.variable(
+            "residual-infinity-norm",
+            0.,
+            f64::INFINITY,
+            VariableDomain::Continuous,
+            1.,
+        );
+        for col in 0..matrix.ncols() {
+            for sign in [-1., 1.] {
+                b.row(
+                    matrix
+                        .row_idx_of_col(col)
+                        .zip(matrix.val_of_col(col))
+                        .map(|(r, v)| (r, sign * v))
+                        .chain([(residual, -1.)]),
+                    f64::NEG_INFINITY,
+                    0.,
+                );
             }
         }
     }
     b.finish()
 }
-fn verify(matrix:SparseColMatRef<'_,usize,f64>,rows:&[SemanticId],pivot:usize,point:&[f64],policy:Policy)->Option<Certificate>{
-    let weights=point.get(..rows.len())?;
-    if weights.iter().any(|v|!v.is_finite()) || (weights[pivot]-1.).abs()>policy.tolerance{return None;}
-    let residual=(0..matrix.ncols()).map(|j|matrix.row_idx_of_col(j).zip(matrix.val_of_col(j)).map(|(i,v)|v*weights[i]).sum::<f64>().abs()).fold(0.,f64::max);
-    if !residual.is_finite(){return None;}
-    Some(Certificate{weights:rows.iter().copied().zip(weights.iter().copied()).collect(),residual_maximum:residual,pivot:rows[pivot]})
+fn verify(
+    matrix: SparseColMatRef<'_, usize, f64>,
+    rows: &[SemanticId],
+    pivot: usize,
+    point: &[f64],
+    policy: Policy,
+) -> Option<Certificate> {
+    let weights = point.get(..rows.len())?;
+    if weights.iter().any(|v| !v.is_finite()) || (weights[pivot] - 1.).abs() > policy.tolerance {
+        return None;
+    }
+    let residual = (0..matrix.ncols())
+        .map(|j| {
+            matrix
+                .row_idx_of_col(j)
+                .zip(matrix.val_of_col(j))
+                .map(|(i, v)| v * weights[i])
+                .sum::<f64>()
+                .abs()
+        })
+        .fold(0., f64::max);
+    if !residual.is_finite() {
+        return None;
+    }
+    Some(Certificate {
+        weights: rows.iter().copied().zip(weights.iter().copied()).collect(),
+        residual_maximum: residual,
+        pivot: rows[pivot],
+    })
 }
-fn rank(matrix:SparseColMatRef<'_,usize,f64>,selected:&[usize],policy:Policy,execution:&Execution)->Result<usize,ProblemError>{
-    if selected.is_empty(){return Ok(0);}
-    let mut entries=vec![];
-    for j in 0..matrix.ncols(){
-        for(i,v)in matrix.row_idx_of_col(j).zip(matrix.val_of_col(j)){
-            if let Some(k)=selected.iter().position(|s|*s==i){entries.push(Triplet::new(k,j,*v));}
+fn rank(
+    matrix: SparseColMatRef<'_, usize, f64>,
+    selected: &[usize],
+    policy: Policy,
+    execution: &Execution,
+) -> Result<usize, ProblemError> {
+    if selected.is_empty() {
+        return Ok(0);
+    }
+    let mut entries = vec![];
+    for j in 0..matrix.ncols() {
+        for (i, v) in matrix.row_idx_of_col(j).zip(matrix.val_of_col(j)) {
+            if let Some(k) = selected.iter().position(|s| *s == i) {
+                entries.push(Triplet::new(k, j, *v));
+            }
         }
     }
-    let sub=SparseColMat::try_new_from_triplets(selected.len(),matrix.ncols(),&entries).map_err(|e|ProblemError::Contract(e.to_string()))?;
-    Ok(pse_math::diagnostics::analyze_matrix(sub.as_ref(),&vec![1.;selected.len()],&vec![1.;matrix.ncols()],
-        pse_math::diagnostics::MatrixPolicy{dense_entries:policy.maximum_entries,findings:policy.maximum_entries,parallel_tolerance:0.,rank_absolute:policy.tolerance,rank_relative:policy.rank_relative},&execution.cancel)?.rank)
+    let sub = SparseColMat::try_new_from_triplets(selected.len(), matrix.ncols(), &entries)
+        .map_err(|e| ProblemError::Internal(e.to_string()))?;
+    Ok(pse_math::diagnostics::analyze_matrix(
+        sub.as_ref(),
+        &vec![1.; selected.len()],
+        &vec![1.; matrix.ncols()],
+        pse_math::diagnostics::MatrixPolicy {
+            dense_entries: policy.maximum_entries,
+            findings: policy.maximum_entries,
+            parallel_tolerance: 0.,
+            rank_absolute: policy.tolerance,
+            rank_relative: policy.rank_relative,
+        },
+        &execution.cancel,
+    )?
+    .rank)
 }
 /// Run native LP conditioning certificates and anchored minimum-support MILPs under
 /// one outer execution deadline. Native limits and rank-budget refusals remain inconclusive.

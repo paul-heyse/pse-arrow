@@ -59,14 +59,14 @@ impl GuardWorker {
                     .scalars
                     .get(id)
                     .copied()
-                    .ok_or_else(|| ProblemError::Contract("dynamic range input absent".into())),
+                    .ok_or_else(|| ProblemError::Internal("dynamic range input absent".into())),
                 RangeValue::Output(id) => self
                     .program
                     .rows
                     .get(id)
                     .and_then(|i| rows.get(*i))
                     .copied()
-                    .ok_or_else(|| ProblemError::Contract("dynamic range output absent".into())),
+                    .ok_or_else(|| ProblemError::Internal("dynamic range output absent".into())),
                 RangeValue::Constant(v) => Ok(*v),
             }
         };
@@ -105,7 +105,7 @@ fn provider_workers(
         .map(|r| {
             r.worker_scoped(cancel.clone())
                 .map(|w| (r.spec().key(), w))
-                .map_err(|e| ProblemError::Contract(e.to_string()))
+                .map_err(ProblemError::Provider)
         })
         .collect()
 }
@@ -194,7 +194,7 @@ impl DynamicWorker {
         cancel: Arc<AtomicBool>,
     ) -> Result<Self, ProblemError> {
         if modes.len() != contract.events.len() {
-            return Err(ProblemError::Contract("dynamic mode extent".into()));
+            return Err(ProblemError::Internal("dynamic mode extent".into()));
         }
         let chain = coordinates
             .state
@@ -206,7 +206,7 @@ impl DynamicWorker {
         for program in programs.iter() {
             let mode = modes
                 .get(program.mode)
-                .ok_or_else(|| ProblemError::Contract("dynamic function mode absent".into()))?;
+                .ok_or_else(|| ProblemError::Internal("dynamic function mode absent".into()))?;
             let providers = provider_workers(&mode.providers, &cancel)?;
             let source = program.case.assembly.jacobian_pattern();
             let mut pairs = Vec::new();
@@ -339,7 +339,7 @@ impl Oracle for DynamicWorker {
                     jacobian: None,
                 });
             }
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "missing compiled dynamic function".into(),
             ));
         };
@@ -365,7 +365,7 @@ impl Oracle for DynamicWorker {
         let context = self
             .modes
             .get_mut(mode)
-            .ok_or_else(|| ProblemError::Contract("dynamic mode absent".into()))?;
+            .ok_or_else(|| ProblemError::Internal("dynamic mode absent".into()))?;
         context
             .values
             .scalars
@@ -407,7 +407,7 @@ impl Oracle for DynamicWorker {
             None
         };
         if values.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract("nonfinite dynamic values".into()));
+            return Err(ProblemError::numerical("nonfinite dynamic values"));
         }
         let result = native::Evaluation { values, jacobian };
         function.cache = Some((bits.collect(), result.clone()));

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Completion owns qualification and lineage. Exporters only copy this product.
-use super::{RunReport, RunRequest, RunResult, WorkflowError, contract};
+use super::{RunReport, RunRequest, RunResult, WorkflowError};
 use crate::math::solves::Outcome;
 use pse_ids::{ContentHash, FramedHasher};
 use pse_model::generated::{
@@ -104,9 +104,17 @@ impl RunResult {
                         objective: observation
                             .and_then(|o| o.objective)
                             .or_else(|| candidate.and_then(|c| c.objective)),
-                        objective_sense: declaration.objective().map(|o|match o.sense {pse_math::binding::ObjectiveSense::Minimize=>NativeObjectiveSense::Minimize,pse_math::binding::ObjectiveSense::Maximize=>NativeObjectiveSense::Maximize}),
-                        objective_quantity_id: declaration.objective().map(|o|o.quantity.as_id()),
-                        validation_error: native.and_then(|r| r.validation_error.clone()),
+                        objective_sense: declaration.objective().map(|o| match o.sense {
+                            pse_math::binding::ObjectiveSense::Minimize => {
+                                NativeObjectiveSense::Minimize
+                            }
+                            pse_math::binding::ObjectiveSense::Maximize => {
+                                NativeObjectiveSense::Maximize
+                            }
+                        }),
+                        objective_quantity_id: declaration.objective().map(|o| o.quantity.as_id()),
+                        validation_error: native
+                            .and_then(|r| r.validation_failure().map(ToString::to_string)),
                         error,
                         transformation: native
                             .and_then(|r| r.preprocessing.as_ref().map(|p| p.transformation)),
@@ -227,9 +235,11 @@ impl RunResult {
                 row.response_rank = r.and_then(|r| r.rank.map(|v| v as i64));
                 row.response_condition = r.and_then(super::FitReport::response_condition);
                 row.validation_error = native
-                    .and_then(|s| s.validation_error.clone())
+                    .and_then(|s| s.validation_failure().map(ToString::to_string))
                     .or_else(|| r.and_then(|r| r.validation_error.as_ref().map(|d| d.to_string())));
-                row.error = row.error.or_else(|| r.and_then(|r| r.diagnostic.clone()));
+                row.error = row
+                    .error
+                    .or_else(|| r.and_then(|r| r.diagnostic.as_ref().map(ToString::to_string)));
                 product.computation = Some(row);
                 let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
                 actual_environment

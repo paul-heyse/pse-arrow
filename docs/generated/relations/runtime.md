@@ -83,9 +83,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `name`.
 
 ## `candidate_assessments`
 
-Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct.
+Completion-owned candidate assessment. Native termination, original numerical acceptance, physical closure and final usability remain distinct. A seed-only candidate may seed a later step and is never a published solution; a diagnostic-only point is an observation only.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -397,15 +397,16 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 
 ## `modeling_findings`
 
-Attributed diagnostic findings. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices.
+Attributed diagnostic findings with a class and a severity; a warning is never an invalid model. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
 | `ordinal` | `Int64` | false | `key` | — | — |
 | `class` | `enum:NativeBoundaryClass` | false | `payload` | — | — |
+| `severity` | `enum:DiagnosticSeverity` | false | `payload` | — | — |
 | `stage` | `Utf8` | false | `payload` | — | — |
 | `rule` | `Utf8` | false | `payload` | — | — |
 | `sources` | `List` | false | `payload` | — | — |

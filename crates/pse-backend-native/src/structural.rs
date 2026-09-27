@@ -54,7 +54,7 @@ pub fn check(
     };
     admit(analysis, mode)?;
     let invalid = || {
-        ProblemError::Contract("compiler matching does not establish current oracle support".into())
+        ProblemError::Internal("compiler matching does not establish current oracle support".into())
     };
     if bounds.len() != contract.rows.len()
         || pattern.nrows() != contract.rows.len()

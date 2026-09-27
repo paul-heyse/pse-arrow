@@ -302,7 +302,7 @@ impl Session {
                             .saturating_sub(execution.started.elapsed())
                             .as_secs_f64(),
                     )
-                    .map_err(|_| ProblemError::Contract("diagnostic time limit".into()))?;
+                    .map_err(|_| ProblemError::Internal("diagnostic time limit".into()))?;
                 let ptr = model.as_mut_ptr();
                 // The copied diagnostic model minimizes weighted violations.
                 // HiGHS preserves the original objective offset through its elastic
@@ -376,7 +376,7 @@ impl Session {
         values: &BTreeMap<SemanticId, f64>,
     ) -> Result<(), ProblemError> {
         if !p.domains.iter().any(|d| *d != VariableDomain::Continuous) {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "sparse start requires mixed-linear model".into(),
             ));
         }
@@ -474,7 +474,7 @@ fn collect_iis(
                     .variables
                     .get(i as usize)
                     .map(|v| (v.id, b))
-                    .ok_or_else(|| ProblemError::Contract("native IIS column index".into()))
+                    .ok_or_else(|| ProblemError::Internal("native IIS column index".into()))
             })
             .collect::<Result<_, _>>()?;
         let rows = ri[..nr as usize]
@@ -485,7 +485,7 @@ fn collect_iis(
                     .rows
                     .get(i as usize)
                     .map(|v| (*v, b))
-                    .ok_or_else(|| ProblemError::Contract("native IIS row index".into()))
+                    .ok_or_else(|| ProblemError::Internal("native IIS row index".into()))
             })
             .collect::<Result<_, _>>()?;
         report.iis = Some(Iis {

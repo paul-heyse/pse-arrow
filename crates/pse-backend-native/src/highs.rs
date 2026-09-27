@@ -96,14 +96,14 @@ fn check(code: i32, operation: &str) -> Result<(), ProblemError> {
     }
 }
 fn index(n: usize) -> Result<i32, ProblemError> {
-    i32::try_from(n).map_err(|_| ProblemError::Contract("HiGHS index overflow".into()))
+    i32::try_from(n).map_err(|_| ProblemError::Unsupported("HiGHS index overflow".into()))
 }
 fn text(value: &str) -> Result<CString, ProblemError> {
     CString::new(value).map_err(|_| ProblemError::Contract("NUL in HiGHS option".into()))
 }
 fn bounds(value: f64) -> Result<f64, ProblemError> {
     if value.is_finite() && value.abs() >= 1e20 {
-        Err(ProblemError::Contract(
+        Err(ProblemError::Unsupported(
             "finite HiGHS bound reaches infinity threshold".into(),
         ))
     } else {
@@ -120,7 +120,9 @@ fn admit(
         .as_ref()
         .is_some_and(|q| q.val().iter().any(|v| *v != 0.0));
     if quadratic && p.domains.iter().any(|d| *d != VariableDomain::Continuous) {
-        return Err(ProblemError::Contract("HiGHS MIQP is unsupported".into()));
+        return Err(ProblemError::Unsupported(
+            "HiGHS MIQP is unsupported".into(),
+        ));
     }
     index(p.contract.variables.len())?;
     index(p.contract.rows.len())?;
@@ -138,7 +140,7 @@ fn admit(
                 || v.upper > 1e5
                 || d.is_integer() && v.lower.ceil() > v.upper.floor())
         {
-            return Err(ProblemError::Contract("pinned HiGHS semi domain needs a nonempty positive interval with upper bound <=1e5".into()));
+            return Err(ProblemError::Unsupported("pinned HiGHS semi domain needs a nonempty positive interval with upper bound <=1e5".into()));
         }
     }
     for &(l, u) in &p.bounds {
@@ -159,7 +161,7 @@ fn upload(p: &CoefficientProblem) -> Result<highs::Model, ProblemError> {
     // The high-level uploader accepts native warnings. Upload through the checked C
     // API so coefficient pruning and other model changes cannot be silently accepted.
     let mut model = highs::Model::try_new(highs::ColProblem::new())
-        .map_err(|e| ProblemError::Contract(format!("HiGHS allocation: {e:?}")))?;
+        .map_err(|e| ProblemError::memory(format!("HiGHS allocation: {e:?}")))?;
     let start: Vec<_> = p
         .constraints
         .col_ptr()
@@ -272,7 +274,7 @@ fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), Pro
         || nz as usize > p.constraints.val().len()
         || qz as usize > p.hessian.as_ref().map_or(0, |q| q.val().len())
     {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Internal(
             "HiGHS model readback dimensions differ from upload".into(),
         ));
     }
@@ -348,7 +350,7 @@ fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), Pro
         let mut out = BTreeMap::new();
         for c in 0..n {
             if starts[c] < 0 || starts[c] > starts[c + 1] || starts[c + 1] as usize > values.len() {
-                return Err(ProblemError::Contract(
+                return Err(ProblemError::Internal(
                     "invalid native sparse readback".into(),
                 ));
             }
@@ -385,7 +387,7 @@ fn verify_upload(model: &highs::Model, p: &CoefficientProblem) -> Result<(), Pro
     if equal {
         Ok(())
     } else {
-        Err(ProblemError::Contract(
+        Err(ProblemError::Unsupported(
             "HiGHS upload differs from the complete admitted coefficient model".into(),
         ))
     }
@@ -399,7 +401,7 @@ impl Session {
     ) -> Result<Self, ProblemError> {
         admit(p, certificate)?;
         if ACTIVE.with(|a| a.replace(true)) {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "nested HiGHS session would deadlock scheduler teardown".into(),
             ));
         }
@@ -424,7 +426,7 @@ impl Session {
     fn model(&mut self) -> Result<&mut highs::Model, ProblemError> {
         self.model
             .as_mut()
-            .ok_or_else(|| ProblemError::Contract("destroyed HiGHS model".into()))
+            .ok_or_else(|| ProblemError::Internal("destroyed HiGHS model".into()))
     }
     /// Update compatible costs, bounds, matrix values and Hessian. Numeric factors are
     /// refreshed by HiGHS; retaining allocation/basis does not promise factor reuse.
@@ -444,7 +446,9 @@ impl Session {
                     p.domains.clone(),
                 )
         {
-            return Err(ProblemError::Contract("HiGHS update changes layout".into()));
+            return Err(ProblemError::Unsupported(
+                "HiGHS update changes layout".into(),
+            ));
         }
         let ptr = self.model()?.as_mut_ptr();
         check(
@@ -548,7 +552,7 @@ impl Session {
             .values()
             .any(|v| matches!(v,OptionValue::Text(t)if t.len()>=512))
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "HiGHS text option exceeds native readback capacity".into(),
             ));
         }
@@ -589,10 +593,10 @@ impl Session {
                     .as_ref()
                     .is_some_and(|q| q.val().iter().any(|v| *v != 0.0)))
         {
-            return Err(ProblemError::Contract("disabling all HiGHS algorithmic scaling is qualified only for explicit continuous simplex LP".into()));
+            return Err(ProblemError::Unsupported("disabling all HiGHS algorithmic scaling is qualified only for explicit continuous simplex LP".into()));
         }
         if discrete && method != Method::Choose {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "explicit LP method cannot relax a mixed-integer model".into(),
             ));
         }
@@ -683,7 +687,7 @@ impl Session {
                     dual.as_ref().map(|(c, _)| c.as_slice()),
                     dual.as_ref().map(|(_, r)| r.as_slice()),
                 )
-                .map_err(|e| ProblemError::Contract(format!("HiGHS start: {e:?}")))?;
+                .map_err(|e| ProblemError::Internal(format!("HiGHS start: {e:?}")))?;
             if let Some(basis) = basis {
                 if basis.columns.len() != n
                     || basis.rows.len() != m
@@ -746,15 +750,17 @@ impl Session {
         let code = unsafe { ffi::Highs_getModelStatus(ptr) };
         let mut report =
             SolveReport::new(Backend::Highs, &p.contract, termination(code), &execution);
+        // The complete native model was read back and compared before this solve.
         report
             .metrics
             .insert("upload.equivalent".into(), Metric::Bool(true));
         report
             .metrics
             .insert("model.discrete".into(), Metric::Bool(discrete));
+        report.evidence.start_submitted = warm.is_some() || sparse.is_some();
         report.metrics.insert(
             "start.submitted".into(),
-            Metric::Bool(warm.is_some() || sparse.is_some()),
+            Metric::Bool(report.evidence.start_submitted),
         );
         let (effective, defaults) = option_snapshot(ptr)?;
         report.options = effective;
@@ -802,6 +808,35 @@ impl Session {
                 report.metrics.insert(key.into(), value);
             }
         }
+        let real = |key| -> Result<Option<f64>, ProblemError> {
+            Ok(match info(ptr, key)? {
+                Some(Metric::Real(v)) => Some(v),
+                _ => None,
+            })
+        };
+        let status = |key| -> Result<SolutionStatus, ProblemError> {
+            Ok(match info(ptr, key)? {
+                Some(Metric::Integer(v)) if v == i64::from(ffi::kHighsSolutionStatusFeasible) => {
+                    SolutionStatus::Feasible
+                }
+                Some(Metric::Integer(v)) if v == i64::from(ffi::kHighsSolutionStatusInfeasible) => {
+                    SolutionStatus::Infeasible
+                }
+                _ => SolutionStatus::Unavailable,
+            })
+        };
+        let evidence = CoefficientEvidence {
+            upload_equivalent: true,
+            discrete,
+            objective: real("objective_function_value")?,
+            mip_gap: real("mip_gap")?,
+            mip_dual_bound: real("mip_dual_bound")?,
+            primal: status("primal_solution_status")?,
+            dual: status("dual_solution_status")?,
+            max_dual_infeasibility: real("max_dual_infeasibility")?,
+            primal_dual_objective_error: real("primal_dual_objective_error")?,
+        };
+        report.evidence.coefficient = Some(evidence);
         report.provenance.insert(
             "native".into(),
             unsafe { std::ffi::CStr::from_ptr(ffi::Highs_version()) }
@@ -813,14 +848,8 @@ impl Session {
             "simplex/IPM/MIP callbacks; QP native time limit only".into(),
         );
         report.provenance.insert("duals".into(),"native authored-sense row multipliers and reduced costs; no split bound-dual fabrication".into());
-        let primal = matches!(
-            report.metrics.get("primal_solution_status"),
-            Some(Metric::Integer(1 | 2))
-        );
-        let dual = matches!(
-            report.metrics.get("dual_solution_status"),
-            Some(Metric::Integer(1 | 2))
-        );
+        let primal = evidence.primal != SolutionStatus::Unavailable;
+        let dual = evidence.dual != SolutionStatus::Unavailable;
         if primal {
             let mut x = vec![0.0; n];
             let mut cd = vec![0.0; n];
@@ -903,7 +932,7 @@ impl Drop for NativeName {
 fn option_snapshot(ptr: *const c_void) -> Result<(Options, Options), ProblemError> {
     let count = unsafe { ffi::Highs_getNumOptions(ptr) };
     if !(0..=4096).contains(&count) {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Internal(
             "native option inventory bound".into(),
         ));
     }
@@ -916,13 +945,13 @@ fn option_snapshot(ptr: *const c_void) -> Result<(Options, Options), ProblemErro
             "option name",
         )?;
         if name.0.is_null() {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "native option name allocation".into(),
             ));
         }
         let key = unsafe { std::ffi::CStr::from_ptr(name.0) }
             .to_str()
-            .map_err(|_| ProblemError::Contract("native option name UTF8".into()))?
+            .map_err(|_| ProblemError::Internal("native option name UTF8".into()))?
             .to_owned();
         let mut kind = 0;
         check(
@@ -992,7 +1021,7 @@ fn option_snapshot(ptr: *const c_void) -> Result<(Options, Options), ProblemErro
                 };
                 (OptionValue::Text(read(&c)), OptionValue::Text(read(&d)))
             }
-            _ => return Err(ProblemError::Contract("unknown native option type".into())),
+            _ => return Err(ProblemError::Internal("unknown native option type".into())),
         };
         current.insert(key.clone(), c);
         defaults.insert(key, d);
@@ -1121,33 +1150,74 @@ unsafe extern "C" fn callback(
     if result.is_err() {
         c.panicked.store(true, Ordering::Release)
     }
-    if let Some(input) = unsafe { input.as_mut() } {
+    // HiGHS acts on `user_interrupt` only for the interrupt kinds and asserts that it
+    // stays unset for every other kind, so it is written for those kinds alone.
+    if interruptible(kind)
+        && let Some(input) = unsafe { input.as_mut() }
+    {
         input.user_interrupt =
             i32::from(c.execution.stopped().is_some() || c.panicked.load(Ordering::Acquire));
     }
 }
-/// Preserve every pinned native model status.
+/// Callback kinds whose `user_interrupt` HiGHS acts on: simplex, IPM and MIP interrupts.
+fn interruptible(kind: i32) -> bool {
+    matches!(
+        kind,
+        ffi::kHighsCallbackSimplexInterrupt
+            | ffi::kHighsCallbackIpmInterrupt
+            | ffi::kHighsCallbackMipInterrupt
+    )
+}
+/// Preserve every pinned native model status under its C API name. Every declared
+/// status has an explicit arm; only an undeclared integer from a different native
+/// build reaches the final arm, and it is never given a confident category.
 pub fn termination(code: i32) -> NativeTermination {
-    let name = highs::HighsModelStatus::try_from(code)
-        .map_or_else(|_| format!("Unknown({code})"), |s| format!("{s:?}"));
-    let category = match code {
-        ffi::kHighsModelStatusOptimal => Termination::Success,
-        ffi::kHighsModelStatusInfeasible => Termination::Infeasible,
-        ffi::kHighsModelStatusUnboundedOrInfeasible => Termination::InfeasibleOrUnbounded,
-        ffi::kHighsModelStatusUnbounded => Termination::Unbounded,
-        ffi::kHighsModelStatusObjectiveBound | ffi::kHighsModelStatusObjectiveTarget => {
-            Termination::ObjectiveLimit
+    let (name, category) = match code {
+        ffi::kHighsModelStatusNotset => ("kHighsModelStatusNotset", Termination::Inconclusive),
+        ffi::kHighsModelStatusLoadError => ("kHighsModelStatusLoadError", Termination::Invalid),
+        ffi::kHighsModelStatusModelError => ("kHighsModelStatusModelError", Termination::Invalid),
+        ffi::kHighsModelStatusPresolveError => {
+            ("kHighsModelStatusPresolveError", Termination::Numerical)
         }
-        ffi::kHighsModelStatusIterationLimit => Termination::IterationLimit,
-        ffi::kHighsModelStatusTimeLimit => Termination::TimeLimit,
-        ffi::kHighsModelStatusSolutionLimit => Termination::SolutionLimit,
-        ffi::kHighsModelStatusInterrupt => Termination::Cancelled,
-        ffi::kHighsModelStatusPresolveError
-        | ffi::kHighsModelStatusSolveError
-        | ffi::kHighsModelStatusPostsolveError => Termination::Numerical,
-        ffi::kHighsModelStatusLoadError | ffi::kHighsModelStatusModelError => Termination::Invalid,
-        _ => Termination::Inconclusive,
+        ffi::kHighsModelStatusSolveError => ("kHighsModelStatusSolveError", Termination::Numerical),
+        ffi::kHighsModelStatusPostsolveError => {
+            ("kHighsModelStatusPostsolveError", Termination::Numerical)
+        }
+        ffi::kHighsModelStatusModelEmpty => ("kHighsModelStatusModelEmpty", Termination::Invalid),
+        ffi::kHighsModelStatusOptimal => ("kHighsModelStatusOptimal", Termination::Success),
+        ffi::kHighsModelStatusInfeasible => {
+            ("kHighsModelStatusInfeasible", Termination::Infeasible)
+        }
+        ffi::kHighsModelStatusUnboundedOrInfeasible => (
+            "kHighsModelStatusUnboundedOrInfeasible",
+            Termination::InfeasibleOrUnbounded,
+        ),
+        ffi::kHighsModelStatusUnbounded => ("kHighsModelStatusUnbounded", Termination::Unbounded),
+        ffi::kHighsModelStatusObjectiveBound => (
+            "kHighsModelStatusObjectiveBound",
+            Termination::ObjectiveLimit,
+        ),
+        ffi::kHighsModelStatusObjectiveTarget => (
+            "kHighsModelStatusObjectiveTarget",
+            Termination::ObjectiveLimit,
+        ),
+        ffi::kHighsModelStatusTimeLimit => ("kHighsModelStatusTimeLimit", Termination::TimeLimit),
+        ffi::kHighsModelStatusIterationLimit => (
+            "kHighsModelStatusIterationLimit",
+            Termination::IterationLimit,
+        ),
+        ffi::kHighsModelStatusUnknown => ("kHighsModelStatusUnknown", Termination::Inconclusive),
+        ffi::kHighsModelStatusSolutionLimit => {
+            ("kHighsModelStatusSolutionLimit", Termination::SolutionLimit)
+        }
+        ffi::kHighsModelStatusInterrupt => ("kHighsModelStatusInterrupt", Termination::Cancelled),
+        ffi::MODEL_STATUS_REACHED_MEMORY_LIMIT => (
+            "kHighsModelStatusMemoryLimit",
+            Termination::ResourceExhausted,
+        ),
+        _ => ("kHighsModelStatusUndeclared", Termination::Inconclusive),
     };
+    let name = name.to_owned();
     let assurance = Assurance::None;
     NativeTermination {
         code: i64::from(code),
@@ -1171,7 +1241,7 @@ pub fn coefficient_objective(p: &CoefficientProblem, x: &[f64]) -> f64 {
 // original symbolic-model evaluation remains independent of solver coefficients.
 fn coefficient_activity(p: &CoefficientProblem, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
     if x.len() != p.constraints.ncols() || x.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Internal(
             "coefficient activity dimensions or values".into(),
         ));
     }
@@ -1185,9 +1255,7 @@ fn coefficient_activity(p: &CoefficientProblem, x: &[f64]) -> Result<Vec<f64>, P
         faer::Par::Seq,
     );
     if result.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract(
-            "nonfinite coefficient activity".into(),
-        ));
+        return Err(ProblemError::numerical("nonfinite coefficient activity"));
     }
     Ok(result)
 }
@@ -1199,9 +1267,7 @@ pub fn coefficient_quality(
 ) -> Result<Quality, ProblemError> {
     t.validate(p.contract.variables.len(), p.contract.rows.len())?;
     if x.len() != p.contract.variables.len() || x.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Contract(
-            "invalid coefficient candidate".into(),
-        ));
+        return Err(ProblemError::numerical("invalid coefficient candidate"));
     }
     let activity = coefficient_activity(p, x)?;
     let rows = p
@@ -1268,7 +1334,7 @@ pub fn coefficient_observation(
     bounds: Vec<(f64, f64)>,
 ) -> Result<crate::quality::Observation, ProblemError> {
     if x.len() != p.contract.variables.len() || constants.len() != p.bounds.len() {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Internal(
             "coefficient observation dimensions".into(),
         ));
     }
@@ -1413,12 +1479,40 @@ mod tests {
         crate::transport::recover_diagnostics(&mut evidence, &n, &[0.]).unwrap();
         let relaxed = evidence.relaxation.unwrap();
         assert_eq!(relaxed.operation_status, 0);
-        assert_eq!(relaxed.restored_status.name, "NotSet");
+        assert_eq!(relaxed.restored_status.name, "kHighsModelStatusNotset");
         assert_eq!(relaxed.restored_status.category, Termination::Inconclusive);
         assert!((relaxed.penalty.unwrap() - 1.).abs() < 1e-8, "{relaxed:?}");
         assert!((relaxed.primal.unwrap()[0] - 1.).abs() < 1e-8);
         assert_eq!(p.contract.variables[0].upper, 1.);
         assert_eq!(p.bounds[0].0, 2.);
+    }
+    #[test]
+    fn highs_callback_interrupt_kinds() {
+        let callback_data = Callback {
+            execution: Execution::new(
+                std::sync::Arc::new(AtomicBool::new(true)),
+                &Controls::default(),
+            ),
+            panicked: AtomicBool::new(false),
+        };
+        let data = (&raw const callback_data).cast_mut().cast::<c_void>();
+        for kind in ffi::kHighsCallbackLogging..=ffi::kHighsCallbackCallbackMipUserSolution {
+            // SAFETY: plain C data with no invariants; zero is its initial native state.
+            let mut input: ffi::HighsCallbackDataIn = unsafe { std::mem::zeroed() };
+            // SAFETY: a null output is accepted; input and data outlive the call.
+            unsafe {
+                callback(
+                    kind,
+                    std::ptr::null(),
+                    std::ptr::null(),
+                    &raw mut input,
+                    data,
+                )
+            };
+            let interrupt = matches!(kind, 1 | 2 | 6);
+            assert_eq!(interruptible(kind), interrupt, "kind {kind}");
+            assert_eq!(input.user_interrupt, i32::from(interrupt), "kind {kind}");
+        }
     }
     #[test]
     fn checked_upload_clips_binary_bounds_and_preserves_authored_sense_offset() {

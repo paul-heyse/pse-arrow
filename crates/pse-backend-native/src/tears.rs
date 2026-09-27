@@ -79,7 +79,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
         variables.len(),
         &entries,
     )
-    .map_err(|e| ProblemError::Contract(e.to_string()))?;
+    .map_err(|e| ProblemError::Internal(e.to_string()))?;
     let problem = CoefficientProblem {
         contract: OracleContract {
             identity: graph.key(),

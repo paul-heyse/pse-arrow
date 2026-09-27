@@ -43,22 +43,20 @@ impl pounce_nlp::expression_provider::ExpressionProvider for Adapter {
 }
 pub(crate) fn copy<T: Copy>(from: &[T], to: &mut [T]) -> Result<(), ProblemError> {
     if from.len() != to.len() {
-        return Err(ProblemError::Contract("POUNCE callback dimensions".into()));
+        return Err(ProblemError::Internal("POUNCE callback dimensions".into()));
     }
     to.copy_from_slice(from);
     Ok(())
 }
 pub(crate) fn finite(x: &[f64]) -> Result<(), ProblemError> {
     if x.iter().any(|v| !v.is_finite()) {
-        Err(ProblemError::Contract(
-            "nonfinite POUNCE callback values".into(),
-        ))
+        Err(ProblemError::numerical("nonfinite POUNCE callback values"))
     } else {
         Ok(())
     }
 }
 fn point(x: Option<&[f64]>) -> Result<&[f64], ProblemError> {
-    x.ok_or_else(|| ProblemError::Contract("missing POUNCE trial".into()))
+    x.ok_or_else(|| ProblemError::Internal("missing POUNCE trial".into()))
 }
 impl TNLP for Adapter {
     fn get_scaling_parameters(&mut self, r: pounce_nlp::tnlp::ScalingRequest<'_>) -> bool {
@@ -145,7 +143,7 @@ impl TNLP for Adapter {
                     || b.g_l.len() != self.oracle.contract().rows.len()
                     || b.g_u.len() != self.oracle.contract().rows.len()
                 {
-                    return Err(ProblemError::Contract(
+                    return Err(ProblemError::Internal(
                         "POUNCE bound output dimensions".into(),
                     ));
                 }
@@ -187,8 +185,8 @@ impl TNLP for Adapter {
                             for bound in [&mut b.g_l[r], &mut b.g_u[r]] {
                                 let shifted = *bound - row.constant;
                                 if bound.is_finite() && !shifted.is_finite() {
-                                    return Err(ProblemError::Contract(
-                                        "affine bound transport overflow".into(),
+                                    return Err(ProblemError::numerical(
+                                        "affine bound transport overflow",
                                     ));
                                 }
                                 *bound = shifted;
@@ -223,7 +221,7 @@ impl TNLP for Adapter {
                     .chain(&*b.g_u)
                     .any(|v| v.is_finite() && v.abs() >= 1e19)
                 {
-                    return Err(ProblemError::Contract(
+                    return Err(ProblemError::Unsupported(
                         "normalized finite bound reaches native infinity sentinel".into(),
                     ));
                 }
@@ -237,7 +235,7 @@ impl TNLP for Adapter {
                                 if bound.is_finite() {
                                     let expanded = *bound + delta;
                                     if !expanded.is_finite() || expanded.abs() >= 1e19 {
-                                        return Err(ProblemError::Contract(
+                                        return Err(ProblemError::Unsupported(
                                             "tolerance expansion reaches native infinity sentinel"
                                                 .into(),
                                         ));
@@ -260,7 +258,7 @@ impl TNLP for Adapter {
                         && (s.z_l.len() != self.initial.len() || s.z_u.len() != self.initial.len())
                     || s.init_lambda && s.lambda.len() != self.oracle.contract().rows.len()
                 {
-                    return Err(ProblemError::Contract(
+                    return Err(ProblemError::Internal(
                         "POUNCE start output dimensions".into(),
                     ));
                 }
@@ -269,7 +267,7 @@ impl TNLP for Adapter {
                 }
                 if s.init_z || s.init_lambda {
                     let (l, u, r) = self.duals.as_ref().ok_or_else(|| {
-                        ProblemError::Contract("POUNCE requested absent dual seed".into())
+                        ProblemError::Internal("POUNCE requested absent dual seed".into())
                     })?;
                     if s.init_z {
                         copy(l, s.z_l)?;
@@ -368,7 +366,7 @@ impl TNLP for Adapter {
             .evaluate("jacobian", || match mode {
                 SparsityRequest::Structure { irow, jcol } => {
                     if irow.len() != self.jac.rows.len() || jcol.len() != self.jac.columns.len() {
-                        return Err(ProblemError::Contract(
+                        return Err(ProblemError::Internal(
                             "POUNCE Jacobian structure dimensions".into(),
                         ));
                     }
@@ -407,7 +405,7 @@ impl TNLP for Adapter {
             .evaluate("hessian", || match mode {
                 SparsityRequest::Structure { irow, jcol } => {
                     if irow.len() != self.hess.rows.len() || jcol.len() != self.hess.columns.len() {
-                        return Err(ProblemError::Contract(
+                        return Err(ProblemError::Internal(
                             "POUNCE Hessian structure dimensions".into(),
                         ));
                     }
@@ -422,7 +420,7 @@ impl TNLP for Adapter {
                         point(lambda)?
                     };
                     if lambda.len() != self.normalization.rows.len() {
-                        return Err(ProblemError::Contract("normalized multipliers".into()));
+                        return Err(ProblemError::Internal("normalized multipliers".into()));
                     }
                     let lambda = lambda
                         .iter()
@@ -459,7 +457,7 @@ impl TNLP for Adapter {
                 || s.z_l.len() != self.normalization.variables.len()
                 || s.z_u.len() != self.normalization.variables.len()
             {
-                return Err(ProblemError::Contract(
+                return Err(ProblemError::Internal(
                     "native multiplier recovery dimensions".into(),
                 ));
             }

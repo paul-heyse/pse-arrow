@@ -33,7 +33,7 @@ impl AlgebraicOracle {
             .iter()
             .any(|v| !v.fixed && v.domain != VariableDomain::Continuous)
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "continuous oracle cannot admit integer variables".into(),
             ));
         }
@@ -108,7 +108,7 @@ impl AlgebraicOracle {
         if self.worker.assembly().structure().objective().is_some()
             || self.bounds.iter().any(|(l, u)| !l.is_finite() || l != u)
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Unsupported(
                 "NLE requires selected finite equalities and no objective".into(),
             ));
         }
@@ -127,9 +127,7 @@ impl AlgebraicOracle {
     }
     fn trial(&mut self, x: &[f64]) -> Result<(), ProblemError> {
         if x.len() != self.contract.variables.len() || x.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract(
-                "native trial dimensions or values".into(),
-            ));
+            return Err(ProblemError::numerical("native trial dimensions or values"));
         }
         for (v, &x) in self.contract.variables.iter().zip(x) {
             self.values.scalars.insert(v.id, x);
@@ -139,7 +137,7 @@ impl AlgebraicOracle {
 }
 fn copy(source: &[f64], target: &mut [f64]) -> Result<(), ProblemError> {
     if source.len() != target.len() {
-        return Err(ProblemError::Contract("native output dimensions".into()));
+        return Err(ProblemError::Internal("native output dimensions".into()));
     }
     target.copy_from_slice(source);
     Ok(())
@@ -219,7 +217,7 @@ impl NleOracle for AlgebraicOracle {
     fn observe(&self, mut residual: Vec<f64>) -> Result<crate::quality::Observation, ProblemError> {
         self.admit_nle()?;
         if residual.len() != self.bounds.len() {
-            return Err(ProblemError::Contract("root observation dimensions".into()));
+            return Err(ProblemError::Internal("root observation dimensions".into()));
         }
         for (v, (l, _)) in residual.iter_mut().zip(&self.bounds) {
             *v += l;
@@ -329,8 +327,8 @@ impl CoefficientProblem {
                     if r.lower.is_finite() && !shifted.0.is_finite()
                         || r.upper.is_finite() && !shifted.1.is_finite()
                     {
-                        return Err(ProblemError::Contract(
-                            "affine coefficient bound shift overflow".into(),
+                        return Err(ProblemError::numerical(
+                            "affine coefficient bound shift overflow",
                         ));
                     }
                     Ok(shifted)
@@ -379,8 +377,8 @@ impl NlpOracle for FeasibilityOracle {
     }
     fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
         if x.len() != self.contract().variables.len() || x.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::Contract(
-                "feasibility trial dimensions/values".into(),
+            return Err(ProblemError::numerical(
+                "feasibility trial dimensions/values",
             ));
         }
         Ok(0.0)
@@ -388,7 +386,7 @@ impl NlpOracle for FeasibilityOracle {
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.objective(x)?;
         if out.len() != x.len() {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "feasibility gradient dimensions".into(),
             ));
         }

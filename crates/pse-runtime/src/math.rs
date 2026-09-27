@@ -114,6 +114,34 @@ pub enum MathRuntimeError {
     #[error("math infrastructure: {0}")]
     Infrastructure(String),
 }
+impl MathRuntimeError {
+    /// Carry a runtime failure into the native report's single typed validation record,
+    /// keeping its class: cancellation, limits and native causes stay typed.
+    pub fn into_problem(self) -> pse_backend_native::ProblemError {
+        use pse_backend_native::{LimitKind, ProblemError};
+        match self {
+            Self::Solve(e) => e,
+            Self::Math(e) => ProblemError::Math(e),
+            Self::Cancelled => ProblemError::Cancelled,
+            Self::Limit(detail) => ProblemError::Limit {
+                kind: LimitKind::Memory,
+                detail: detail.into(),
+            },
+            Self::Pool(e) => ProblemError::memory(e.to_string()),
+            Self::Shared(e) => Arc::try_unwrap(e).map_or_else(
+                |e| ProblemError::internal(e.to_string()),
+                Self::into_problem,
+            ),
+            Self::Compile(CompileError::Cancelled) => ProblemError::Cancelled,
+            Self::Compile(CompileError::Limit(detail)) => ProblemError::Limit {
+                kind: LimitKind::Work,
+                detail: detail.into(),
+            },
+            Self::Compile(e) => ProblemError::internal(e.to_string()),
+            Self::Retiring | Self::Infrastructure(_) => ProblemError::internal(self.to_string()),
+        }
+    }
+}
 pse_diagnostics::impl_diagnostic! {
     MathRuntimeError,
     code(this) { match this {Self::Cancelled=>Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled),Self::Retiring|Self::Limit(_)|Self::Pool(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),Self::Infrastructure(_)=>Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),_=>None} },

@@ -191,7 +191,7 @@ impl Requirements<'_> {
                 .copied()
                 .find(|b| admitted(*b))
                 .ok_or_else(|| {
-                    ProblemError::Contract(format!("no eligible native route: {choices:?}"))
+                    ProblemError::Unsupported(format!("no eligible native route: {choices:?}"))
                 })?,
         };
         if !self.available(selected) {
@@ -205,7 +205,7 @@ impl Requirements<'_> {
             });
         }
         if !admitted(selected) {
-            return Err(ProblemError::Contract(format!(
+            return Err(ProblemError::Unsupported(format!(
                 "selected {selected:?} is ineligible: {choices:?}"
             )));
         }
@@ -231,7 +231,10 @@ mod tests {
             convex: false,
             controls: &crate::solve::Controls::default(),
         };
-        assert!(requirements.select(SolverSelection::Auto).is_err());
+        assert!(matches!(
+            requirements.select(SolverSelection::Auto),
+            Err(ProblemError::Unsupported(_))
+        ));
         if Backend::Ipopt.available() {
             let requirements = Requirements {
                 available: Some(&[Backend::Ipopt]),

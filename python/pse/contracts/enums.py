@@ -71,6 +71,8 @@ class CandidateUse(StrEnum):
 
     USABLE = "usable"
     QUALIFIED_UNCLOSED = "qualified_unclosed"
+    SEED_ONLY = "seed_only"
+    DIAGNOSTIC_ONLY = "diagnostic_only"
     UNUSABLE = "unusable"
 
 
@@ -231,6 +233,14 @@ class DiagnosticCode(StrEnum):
     TEMPLATE_GUARD_UNDECIDABLE = "template.guard_undecidable"
     USER_MODEL = "user.model"
     VALIDATION_INVARIANT = "validation.invariant"
+
+
+class DiagnosticSeverity(StrEnum):
+    """The declared DiagnosticSeverity enumeration."""
+
+    ERROR = "error"
+    WARNING = "warning"
+    INFO = "info"
 
 
 class DualQualification(StrEnum):
@@ -571,6 +581,8 @@ class NativeBoundaryClass(StrEnum):
     CONFLICT = "conflict"
     INCOMPATIBLE = "incompatible"
     INTERNAL = "internal"
+    NUMERICAL = "numerical"
+    INCONCLUSIVE = "inconclusive"
 
 
 class NativeCandidateKind(StrEnum):

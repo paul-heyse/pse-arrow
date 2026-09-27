@@ -153,7 +153,7 @@ impl Pipeline {
                         _=>return Err(ProblemError::Contract("original warm dual dimensions/sign/values".into())),
                     }
                 },
-                _=>return Err(ProblemError::Contract("native basis/working set requires its exact native coordinate owner; supply an original NLP start".into())),
+                _=>return Err(ProblemError::Unsupported("native basis/working set requires its exact native coordinate owner; supply an original NLP start".into())),
             }
         }
         let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
@@ -212,7 +212,7 @@ impl Pipeline {
                 .any(|v| *v as usize > limit)
             || info.index_style != IndexStyle::C
         {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "presolve native dimensions/index style/cap".into(),
             ));
         }
@@ -281,14 +281,14 @@ impl Pipeline {
                 });
             } else {
                 if matches!(policy, Policy::Explicit { required, .. } if !required.is_empty()) {
-                    return Err(ProblemError::Contract("required presolve reduction lacks a tolerance-compatible infeasibility proof".into()));
+                    return Err(ProblemError::Unsupported("required presolve reduction lacks a tolerance-compatible infeasibility proof".into()));
                 }
                 drop(outer);
                 drop(row_wrapper);
                 drop(affine);
                 let adapter = Rc::try_unwrap(original)
                     .map_err(|_| {
-                        ProblemError::Contract(
+                        ProblemError::Internal(
                             "presolve confirmation retained callback owner".into(),
                         )
                     })?
@@ -336,7 +336,7 @@ impl Pipeline {
             |p| p.rows_kept.iter().map(|i| map.rows_kept[*i]).collect(),
         );
         if report.columns.len() != nr || report.rows.len() != mr {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "presolve semantic maps disagree with native shape".into(),
             ));
         }
@@ -511,9 +511,13 @@ impl Pipeline {
                 drop(outer);
                 drop(row_wrapper);
                 drop(affine);
-                let adapter = Rc::try_unwrap(original).map_err(|_| {
-                    ProblemError::Contract("presolve structural refusal retained callback owner".into())
-                })?.into_inner();
+                let adapter = Rc::try_unwrap(original)
+                    .map_err(|_| {
+                        ProblemError::Internal(
+                            "presolve structural refusal retained callback owner".into(),
+                        )
+                    })?
+                    .into_inner();
                 let execution = adapter.state.execution.clone();
                 // The original start and supplied original-space warm start remain
                 // the authorities; the declined wrapper's projected start is discarded.
@@ -576,7 +580,7 @@ impl Pipeline {
     pub fn take_oracle(&mut self) -> Result<Transport, ProblemError> {
         self.transport
             .take()
-            .ok_or_else(|| ProblemError::Contract("presolve transport already consumed".into()))
+            .ok_or_else(|| ProblemError::Internal("presolve transport already consumed".into()))
     }
     /// Full recovery traverses the library stack exactly once, then independently observes the original model.
     pub fn finish(
@@ -611,7 +615,7 @@ impl Pipeline {
             };
             let result = quality::contained(|| {
                 if zl.len() != n || zu.len() != n || lambda.len() != m {
-                    return Err(ProblemError::Contract(
+                    return Err(ProblemError::Internal(
                         "native final multiplier dimensions".into(),
                     ));
                 }
@@ -637,7 +641,6 @@ impl Pipeline {
             });
             if let Err(e) = result {
                 report.record_validation_failure(e);
-                report.termination.assurance = Assurance::None;
             }
             if let Some(mut original) = self.original.borrow_mut().solution.take() {
                 original.objective = original.objective.map(|v| v * sense.sign());
@@ -651,14 +654,18 @@ impl Pipeline {
         report.warm_start = None;
         {
             let mut original = self.original.borrow_mut();
-            if original.state.execution.stopped().is_none() {
-                quality::attach_nlp(&mut report, original.oracle.as_mut(), tolerance, sense);
-            } else {
-                report.quality = None;
-                report.observation = None;
-                report.validation_error =
-                    Some("final observation cancelled or deadline exhausted".into());
-                report.termination.assurance = Assurance::None;
+            match original.state.execution.stopped() {
+                None => {
+                    quality::attach_nlp(&mut report, original.oracle.as_mut(), tolerance, sense);
+                }
+                Some(stop) => {
+                    report.quality = None;
+                    report.observation = None;
+                    report.record_validation_failure(ProblemError::stopped(
+                        stop,
+                        "final original observation",
+                    ));
+                }
             }
             original.state.finish(&mut report);
         }
@@ -693,15 +700,9 @@ fn failure(original: &Rc<RefCell<Adapter>>) -> ProblemError {
     if let Some(error) = a.state.last_failure.take() {
         return error;
     }
-    if let Some((kind, message)) = &a.state.terminal {
-        if *kind == Termination::Cancelled {
-            return pse_math::MathError::Cancelled.into();
-        }
-        return ProblemError::Contract(format!("presolve callback: {message}"));
-    }
-    ProblemError::Contract(
-        "presolve evaluation failed without an attributable source witness".into(),
-    )
+    a.state.terminal_error().unwrap_or_else(|| {
+        ProblemError::internal("presolve evaluation failed without an attributable source witness")
+    })
 }
 fn matrix(
     outer: &Rc<RefCell<dyn TNLP>>,
@@ -724,7 +725,7 @@ fn matrix(
         outer.borrow_mut().eval_jac_g(None, false, mode)
     };
     if !ok && nnz != 0 {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Internal(
             "presolve sparse structure callback failed".into(),
         ));
     }
@@ -734,9 +735,9 @@ fn matrix(
         .map(|(r, c)| {
             Ok((
                 usize::try_from(r)
-                    .map_err(|_| ProblemError::Contract("negative native row".into()))?,
+                    .map_err(|_| ProblemError::Internal("negative native row".into()))?,
                 usize::try_from(c)
-                    .map_err(|_| ProblemError::Contract("negative native column".into()))?,
+                    .map_err(|_| ProblemError::Internal("negative native column".into()))?,
             ))
         })
         .collect::<Result<Vec<_>, ProblemError>>()?;

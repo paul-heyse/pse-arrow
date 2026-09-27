@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Structured boundary failures retain model identity and observed values.
-pub use crate::generated::enums::NativeBoundaryClass as BoundaryClass;
+pub use crate::generated::enums::{
+    DiagnosticSeverity as Severity, NativeBoundaryClass as BoundaryClass,
+};
 use pse_ids::SemanticId;
 
 /// An observed value is distinct from absent evidence and human-readable prose.
@@ -37,6 +39,9 @@ pub struct SourceLocation {
 pub struct BoundaryDiagnostic {
     /// Machine-readable disposition; callers never parse the message.
     pub class: BoundaryClass,
+    /// Error, warning or information; a warning never makes a model invalid.
+    #[serde(default = "error_severity")]
+    pub severity: Severity,
     /// Operation boundary, such as selected admission or provider registration.
     pub stage: String,
     /// All affected authored identities, in deterministic order.
@@ -48,6 +53,9 @@ pub struct BoundaryDiagnostic {
     /// Available source locations. Empty means unattributed, not a guessed source.
     #[serde(default)]
     pub locations: Vec<SourceLocation>,
+}
+const fn error_severity() -> Severity {
+    Severity::Error
 }
 impl BoundaryDiagnostic {
     /// Construct an attributable boundary error; add observations when available.
@@ -62,12 +70,19 @@ impl BoundaryDiagnostic {
         sources.dedup();
         Self {
             class,
+            severity: Severity::Error,
             stage: stage.into(),
             sources,
             rule: rule.into(),
             observations: Default::default(),
             locations: Vec::new(),
         }
+    }
+    /// The same finding at another severity; the class is unchanged.
+    #[must_use]
+    pub fn with_severity(mut self, severity: Severity) -> Self {
+        self.severity = severity;
+        self
     }
 }
 impl crate::HeapUsage for BoundaryDiagnostic {
@@ -105,6 +120,7 @@ pse_diagnostics::impl_diagnostic! {
         BoundaryClass::Infrastructure | BoundaryClass::Conflict | BoundaryClass::Incompatible => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         BoundaryClass::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         BoundaryClass::Internal => pse_diagnostics::DiagnosticCode::InternalInvariant,
+        BoundaryClass::Numerical | BoundaryClass::Inconclusive => pse_diagnostics::DiagnosticCode::SolveSolverError,
     }) },
     forward(_this) {None}, help(_this) {None}, related(_this) {None}, source(_this) {None}
 }

@@ -570,3 +570,106 @@ fn quadratures_coexist_with_consistent_dae_forward_sensitivities() {
         }
     }
 }
+/// A consistent algebraic state does not exist: `0 = x1^2 + 1` has no real root.
+#[cfg(feature = "idas")]
+#[derive(Debug)]
+struct Unsolvable(Toy);
+#[cfg(feature = "idas")]
+impl Oracle for Unsolvable {
+    fn contract(&self) -> &Contract {
+        self.0.contract()
+    }
+    fn support(&self, m: usize, f: Function) -> Vec<(usize, usize)> {
+        self.0.support(m, f)
+    }
+    fn evaluate(
+        &mut self,
+        m: usize,
+        f: Function,
+        t: f64,
+        x: &[f64],
+        p: &[f64],
+        d: bool,
+    ) -> Result<Evaluation, ProblemError> {
+        let mut e = self.0.evaluate(m, f, t, x, p, d)?;
+        if f == Function::Rhs {
+            e.values[1] = x[1] * x[1] + 1.0;
+            e.jacobian = d.then(|| {
+                faer::sparse::SparseColMat::try_new_from_triplets(
+                    2,
+                    3,
+                    &[
+                        faer::sparse::Triplet::new(0, 0, -p[0]),
+                        faer::sparse::Triplet::new(0, 2, -x[0]),
+                        faer::sparse::Triplet::new(1, 1, 2.0 * x[1]),
+                    ],
+                )
+                .unwrap()
+            });
+        }
+        Ok(e)
+    }
+}
+#[cfg(feature = "idas")]
+#[test]
+fn idas_conv_fail_is_numerical() {
+    use crate::solve::Termination as T;
+    // Every pinned solver flag keeps its native name and a numerical category.
+    for (flag, name, category) in [
+        (sundials_sys::IDA_CONV_FAIL, "IDA_CONV_FAIL", T::Numerical),
+        (sundials_sys::IDA_ERR_FAIL, "IDA_ERR_FAIL", T::Numerical),
+        (
+            sundials_sys::IDA_LSETUP_FAIL,
+            "IDA_LSETUP_FAIL",
+            T::Numerical,
+        ),
+        (
+            sundials_sys::IDA_NO_RECOVERY,
+            "IDA_NO_RECOVERY",
+            T::Numerical,
+        ),
+        (
+            sundials_sys::IDA_TOO_MUCH_WORK,
+            "IDA_TOO_MUCH_WORK",
+            T::IterationLimit,
+        ),
+        (
+            sundials_sys::IDA_REP_RES_ERR,
+            "IDA_REP_RES_ERR",
+            T::Evaluation,
+        ),
+        (
+            sundials_sys::IDA_MEM_FAIL,
+            "IDA_MEM_FAIL",
+            T::ResourceExhausted,
+        ),
+        (sundials_sys::IDA_ILL_INPUT, "IDA_ILL_INPUT", T::Invalid),
+    ] {
+        let t = idas::termination(flag);
+        assert_eq!((t.name.as_str(), t.category), (name, category));
+    }
+    for flag in (-107..=-1).chain([0, 1, 2, 99]) {
+        let named = idas::termination(flag).name != "IDA_UNKNOWN";
+        assert_eq!(
+            named,
+            !matches!(flag, -19..=-18 | -39..=-34 | -49..=-44 | -98..=-54 | -100),
+            "flag {flag}"
+        );
+    }
+    // A failed consistent initialization is a native numerical failure, never a
+    // contract violation, and it keeps the native status.
+    let mut p = profile(true);
+    p.method = Method::Idas;
+    let mut oracle = Unsolvable(Toy::new(true, false));
+    let r = integrate(&mut oracle, &p, &[2.0], Arc::default()).unwrap();
+    assert_eq!(r.termination, Termination::Failed);
+    let Some(ProblemError::Numerical {
+        status: Some(status),
+        ..
+    }) = &r.error
+    else {
+        panic!("untyped IDAS failure: {:?}", r.error);
+    };
+    assert_eq!(status.backend, crate::solve::Backend::Idas);
+    assert_eq!(idas::termination(status.code as i32).category, T::Numerical);
+}

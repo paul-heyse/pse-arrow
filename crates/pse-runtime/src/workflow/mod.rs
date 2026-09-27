@@ -5,9 +5,9 @@ use pse_backend_native::solve::BackendCapabilities;
 mod completion;
 mod diagnostics;
 pub use completion::Completion;
-mod numerics;
-mod time;
+pub(crate) mod numerics;
 mod strategies;
+mod time;
 pub use strategies::{AnalysisPort, ConicRequest, PreparedConic};
 #[cfg(feature = "solver-kinsol")]
 pub use strategies::{
@@ -23,7 +23,9 @@ pub use strategies::{
 mod dynamics;
 mod fitting;
 pub use dynamics::SimulationProfile;
-pub use fitting::{FitData, FitDeclaration, FitProfile, FitReport, PreparedFit};
+pub use fitting::{
+    FitData, FitDeclaration, FitDiagnostic, FitProfile, FitReport, FitRule, PreparedFit,
+};
 mod physical;
 pub use physical::PhysicalContext;
 mod modeling;

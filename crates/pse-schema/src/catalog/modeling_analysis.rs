@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Owned analysis evidence; source identities remain distinct from algorithm coordinates.
-use super::declarations::{column, enumeration, relation};
+use super::declarations::{column, enumeration, relation, relation_version};
 use crate::{
     builder::RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
@@ -136,16 +136,18 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         ],
         "Numerical diagnostics at an explicit physical point. Matrix vectors name semantic rows and variables, including rectangular null modes. Completeness concerns the requested bounded analyses, not structural rank or feasibility.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "modeling_findings",
+        2,
         S::Derived,
         &["run_id", "ordinal"],
         vec![
             column("run_id", T::id()),
             column("ordinal", count()),
             column("class", T::enumeration("NativeBoundaryClass")),
+            column("severity", T::enumeration("DiagnosticSeverity")),
             column("stage", text()),
             column("rule", text()),
             column("sources", T::list(T::id())),
@@ -175,7 +177,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
                 ])),
             ),
         ],
-        "Attributed diagnostic findings. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices.",
+        "Attributed diagnostic findings with a class and a severity; a warning is never an invalid model. The observation kind selects its payload; real_kind classifies finite, infinite and indeterminate values, with a numeric real payload only when finite. Absent values are not zero. Locations describe source declarations rather than native matrix indices.",
     );
     enumeration(
         b,

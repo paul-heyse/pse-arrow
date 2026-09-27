@@ -7,8 +7,9 @@
 //! IDAS owns residual integration, consistent initialization and trial recovery.
 use super::*;
 use crate::{
+    NativeStatus,
     callback::CallbackState,
-    solve::{Execution, Progress},
+    solve::{Assurance, Backend, Execution, NativeTermination, Progress},
 };
 use std::{ffi::c_void, marker::PhantomData, rc::Rc, time::Instant};
 use suitesparse_sys as _;
@@ -49,16 +50,23 @@ impl Context<'_> {
                 _ => c.states.len(),
             };
             if e.values.len() != rows
-                || e.values.iter().any(|v| !v.is_finite())
                 || derivatives
                     && e.jacobian.as_ref().is_none_or(|j| {
-                        j.nrows() != rows
-                            || j.ncols() != c.states.len() + c.parameters.len()
-                            || j.val().iter().any(|v| !v.is_finite())
+                        j.nrows() != rows || j.ncols() != c.states.len() + c.parameters.len()
                     })
             {
-                return Err(contract(
-                    "IDAS function value/derivative dimensions or nonfinite values",
+                return Err(ProblemError::internal(
+                    "IDAS function value/derivative dimensions",
+                ));
+            }
+            if e.values.iter().any(|v| !v.is_finite())
+                || derivatives
+                    && e.jacobian
+                        .as_ref()
+                        .is_some_and(|j| j.val().iter().any(|v| !v.is_finite()))
+            {
+                return Err(ProblemError::numerical(
+                    "IDAS function value or derivative is nonfinite",
                 ));
             }
             Ok(e)
@@ -81,16 +89,132 @@ impl Context<'_> {
             1
         }
     }
+    /// The typed cause of a failed callback demand, never a message.
+    fn failed(&mut self, operation: &str) -> ProblemError {
+        self.callback
+            .terminal_error()
+            .or_else(|| self.callback.last_failure.take())
+            .unwrap_or_else(|| ProblemError::internal(format!("IDAS {operation} failed")))
+    }
+    /// A failed integration or initialization flag: a latched callback cause wins, and
+    /// an evaluation flag reports the callback's typed witness; otherwise the native
+    /// status is kept (F06).
+    fn native_failure(&mut self, flag: i32, operation: &str) -> ProblemError {
+        let status = termination(flag);
+        if self.callback.terminal.is_some()
+            || status.category == crate::solve::Termination::Evaluation
+                && self.callback.last_failure.is_some()
+        {
+            return self.failed(operation);
+        }
+        ProblemError::native(
+            NativeStatus {
+                backend: Backend::Idas,
+                code: status.code,
+                name: status.name,
+            },
+            status.category,
+            format!("IDAS {operation}"),
+        )
+    }
 }
+/// Map every pinned IDA/IDAS return flag to the shared stop vocabulary, mirroring
+/// `kinsol::termination`. Only an integer undeclared by the pinned header reaches the
+/// final arm, and it is never given a confident category.
+pub(crate) fn termination(flag: i32) -> NativeTermination {
+    use crate::solve::Termination as T;
+    let (name, category) = match flag {
+        ffi::IDA_SUCCESS => ("IDA_SUCCESS", T::Success),
+        ffi::IDA_TSTOP_RETURN => ("IDA_TSTOP_RETURN", T::Success),
+        ffi::IDA_ROOT_RETURN => ("IDA_ROOT_RETURN", T::Success),
+        ffi::IDA_WARNING => ("IDA_WARNING", T::Inconclusive),
+        ffi::IDA_TOO_MUCH_WORK => ("IDA_TOO_MUCH_WORK", T::IterationLimit),
+        ffi::IDA_TOO_MUCH_ACC => ("IDA_TOO_MUCH_ACC", T::Numerical),
+        ffi::IDA_ERR_FAIL => ("IDA_ERR_FAIL", T::Numerical),
+        ffi::IDA_CONV_FAIL => ("IDA_CONV_FAIL", T::Numerical),
+        ffi::IDA_LINIT_FAIL => ("IDA_LINIT_FAIL", T::Numerical),
+        ffi::IDA_LSETUP_FAIL => ("IDA_LSETUP_FAIL", T::Numerical),
+        ffi::IDA_LSOLVE_FAIL => ("IDA_LSOLVE_FAIL", T::Numerical),
+        ffi::IDA_RES_FAIL => ("IDA_RES_FAIL", T::Evaluation),
+        ffi::IDA_REP_RES_ERR => ("IDA_REP_RES_ERR", T::Evaluation),
+        ffi::IDA_RTFUNC_FAIL => ("IDA_RTFUNC_FAIL", T::Evaluation),
+        ffi::IDA_CONSTR_FAIL => ("IDA_CONSTR_FAIL", T::Numerical),
+        ffi::IDA_FIRST_RES_FAIL => ("IDA_FIRST_RES_FAIL", T::Evaluation),
+        ffi::IDA_LINESEARCH_FAIL => ("IDA_LINESEARCH_FAIL", T::Numerical),
+        ffi::IDA_NO_RECOVERY => ("IDA_NO_RECOVERY", T::Numerical),
+        ffi::IDA_NLS_INIT_FAIL => ("IDA_NLS_INIT_FAIL", T::Numerical),
+        ffi::IDA_NLS_SETUP_FAIL => ("IDA_NLS_SETUP_FAIL", T::Numerical),
+        ffi::IDA_NLS_FAIL => ("IDA_NLS_FAIL", T::Numerical),
+        ffi::IDA_MEM_NULL => ("IDA_MEM_NULL", T::Invalid),
+        ffi::IDA_MEM_FAIL => ("IDA_MEM_FAIL", T::ResourceExhausted),
+        ffi::IDA_ILL_INPUT => ("IDA_ILL_INPUT", T::Invalid),
+        ffi::IDA_NO_MALLOC => ("IDA_NO_MALLOC", T::Invalid),
+        ffi::IDA_BAD_EWT => ("IDA_BAD_EWT", T::Numerical),
+        ffi::IDA_BAD_K => ("IDA_BAD_K", T::Invalid),
+        ffi::IDA_BAD_T => ("IDA_BAD_T", T::Invalid),
+        ffi::IDA_BAD_DKY => ("IDA_BAD_DKY", T::Invalid),
+        ffi::IDA_VECTOROP_ERR => ("IDA_VECTOROP_ERR", T::Numerical),
+        ffi::IDA_CONTEXT_ERR => ("IDA_CONTEXT_ERR", T::Invalid),
+        ffi::IDA_NO_QUAD => ("IDA_NO_QUAD", T::Invalid),
+        ffi::IDA_QRHS_FAIL => ("IDA_QRHS_FAIL", T::Evaluation),
+        ffi::IDA_FIRST_QRHS_ERR => ("IDA_FIRST_QRHS_ERR", T::Evaluation),
+        ffi::IDA_REP_QRHS_ERR => ("IDA_REP_QRHS_ERR", T::Evaluation),
+        ffi::IDA_NO_SENS => ("IDA_NO_SENS", T::Invalid),
+        ffi::IDA_SRES_FAIL => ("IDA_SRES_FAIL", T::Evaluation),
+        ffi::IDA_REP_SRES_ERR => ("IDA_REP_SRES_ERR", T::Evaluation),
+        ffi::IDA_BAD_IS => ("IDA_BAD_IS", T::Invalid),
+        ffi::IDA_NO_QUADSENS => ("IDA_NO_QUADSENS", T::Invalid),
+        ffi::IDA_QSRHS_FAIL => ("IDA_QSRHS_FAIL", T::Evaluation),
+        ffi::IDA_FIRST_QSRHS_ERR => ("IDA_FIRST_QSRHS_ERR", T::Evaluation),
+        ffi::IDA_REP_QSRHS_ERR => ("IDA_REP_QSRHS_ERR", T::Evaluation),
+        ffi::IDA_UNRECOGNIZED_ERROR => ("IDA_UNRECOGNIZED_ERROR", T::Inconclusive),
+        ffi::IDA_NO_ADJ => ("IDA_NO_ADJ", T::Invalid),
+        ffi::IDA_NO_FWD => ("IDA_NO_FWD", T::Invalid),
+        ffi::IDA_NO_BCK => ("IDA_NO_BCK", T::Invalid),
+        ffi::IDA_BAD_TB0 => ("IDA_BAD_TB0", T::Invalid),
+        ffi::IDA_REIFWD_FAIL => ("IDA_REIFWD_FAIL", T::Numerical),
+        ffi::IDA_FWD_FAIL => ("IDA_FWD_FAIL", T::Numerical),
+        ffi::IDA_GETY_BADT => ("IDA_GETY_BADT", T::Invalid),
+        _ => ("IDA_UNKNOWN", T::Inconclusive),
+    };
+    NativeTermination {
+        code: i64::from(flag),
+        name: name.into(),
+        message: None,
+        category,
+        assurance: Assurance::None,
+    }
+}
+/// Setup, option and retrieval calls return module-specific flags (IDA, IDALS or
+/// SUNErrCode); a nonzero flag there is an adapter invariant failure.
 fn check(code: i32, operation: &str) -> Result<(), ProblemError> {
     if code == 0 {
         Ok(())
     } else {
-        Err(contract(&format!("IDAS {operation}: native flag {code}")))
+        Err(ProblemError::internal(format!(
+            "IDAS {operation}: native flag {code}"
+        )))
     }
 }
 fn index(n: usize) -> Result<ffi::sunindextype, ProblemError> {
-    n.try_into().map_err(|_| contract("IDAS index extent"))
+    n.try_into()
+        .map_err(|_| ProblemError::unsupported("IDAS index extent"))
+}
+/// Trajectory stop implied by a typed failure; stops are never reported as failures.
+fn stopped(error: &ProblemError, execution: &Execution) -> Termination {
+    match crate::callback::classify(error) {
+        crate::callback::Failure::Stopped(crate::solve::Termination::Cancelled) => {
+            Termination::Cancelled
+        }
+        crate::callback::Failure::Stopped(crate::solve::Termination::TimeLimit) => {
+            Termination::TimeLimit
+        }
+        _ => match execution.stopped() {
+            Some(crate::solve::Termination::Cancelled) => Termination::Cancelled,
+            Some(crate::solve::Termination::TimeLimit) => Termination::TimeLimit,
+            _ => Termination::Failed,
+        },
+    }
 }
 unsafe fn read(v: ffi::N_Vector, n: usize) -> Vec<f64> {
     unsafe { std::slice::from_raw_parts(ffi::N_VGetArrayPointer(v), n).to_vec() }
@@ -331,7 +455,7 @@ impl<'a> Session<'a> {
     fn vector(&mut self, values: &[f64]) -> Result<ffi::N_Vector, ProblemError> {
         let v = unsafe { ffi::N_VNew_Serial(index(values.len())?, self.ctx) };
         if v.is_null() {
-            return Err(contract("IDAS vector allocation failed"));
+            return Err(ProblemError::memory("IDAS vector allocation"));
         }
         self.vectors.push(v);
         unsafe {
@@ -391,10 +515,12 @@ impl<'a> Session<'a> {
         unsafe {
             check(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
         }
-        let initial = s
-            .callback
-            .evaluate(Function::Initial, p.start, &vec![0.0; n], p.sensitivities)
-            .ok_or_else(|| contract("IDAS initial function failed"))?;
+        let Some(initial) =
+            s.callback
+                .evaluate(Function::Initial, p.start, &vec![0.0; n], p.sensitivities)
+        else {
+            return Err(s.callback.failed("initial function"));
+        };
         s.y = s.vector(&initial.values)?;
         s.dy = s.vector(&vec![0.0; n])?;
         let ids: Vec<_> = s
@@ -409,7 +535,7 @@ impl<'a> Session<'a> {
         unsafe {
             s.mem = ffi::IDACreate(s.ctx);
             if s.mem.is_null() {
-                return Err(contract("IDAS memory allocation failed"));
+                return Err(ProblemError::memory("IDAS memory allocation"));
             }
             check(
                 ffi::IDAInit(s.mem, Some(residual), p.start, s.y, s.dy),
@@ -433,11 +559,11 @@ impl<'a> Session<'a> {
                 s.ctx,
             );
             if s.matrix.is_null() {
-                return Err(contract("IDAS matrix allocation failed"));
+                return Err(ProblemError::memory("IDAS matrix allocation"));
             }
             s.linear = ffi::SUNLinSol_KLU(s.y, s.matrix, s.ctx);
             if s.linear.is_null() {
-                return Err(contract("IDAS KLU allocation failed"));
+                return Err(ProblemError::memory("IDAS KLU allocation"));
             }
             check(ffi::IDASetLinearSolver(s.mem, s.linear, s.matrix), "KLU")?;
             check(ffi::IDASetJacFn(s.mem, Some(jacobian)), "analytic Jacobian")?;
@@ -445,7 +571,7 @@ impl<'a> Session<'a> {
         if p.sensitivities {
             let j = initial
                 .jacobian
-                .ok_or_else(|| contract("IDAS initial sensitivity missing"))?;
+                .ok_or_else(|| ProblemError::internal("IDAS initial sensitivity missing"))?;
             for k in 0..parameters.len() {
                 let values: Vec<_> = (0..n)
                     .map(|r| j.get(r, n + k).copied().unwrap_or(0.0))
@@ -462,7 +588,7 @@ impl<'a> Session<'a> {
                         parameters
                             .len()
                             .try_into()
-                            .map_err(|_| contract("IDAS parameter extent"))?,
+                            .map_err(|_| ProblemError::unsupported("IDAS parameter extent"))?,
                         ffi::IDA_SIMULTANEOUS,
                         Some(sensitivities),
                         s.sens.as_mut_ptr(),
@@ -512,7 +638,8 @@ impl<'a> Session<'a> {
             check(
                 ffi::IDARootInit(
                     self.mem,
-                    n.try_into().map_err(|_| contract("IDAS root extent"))?,
+                    n.try_into()
+                        .map_err(|_| ProblemError::unsupported("IDAS root extent"))?,
                     if n == 0 { None } else { Some(roots) },
                 ),
                 "roots",
@@ -520,15 +647,19 @@ impl<'a> Session<'a> {
         }
     }
     fn consistent(&mut self, t: f64, p: &Profile) -> Result<(), ProblemError> {
+        let flag = unsafe {
+            ffi::IDACalcIC(
+                self.mem,
+                ffi::IDA_YA_YDP_INIT,
+                t + (p.end - t).min(p.initial_step),
+            )
+        };
+        if flag < 0 {
+            return Err(self
+                .callback
+                .native_failure(flag, "consistent initial conditions"));
+        }
         unsafe {
-            check(
-                ffi::IDACalcIC(
-                    self.mem,
-                    ffi::IDA_YA_YDP_INIT,
-                    t + (p.end - t).min(p.initial_step),
-                ),
-                "consistent initial conditions",
-            )?;
             check(
                 ffi::IDAGetConsistentIC(self.mem, self.y, self.dy),
                 "consistent state retrieval",
@@ -550,10 +681,12 @@ impl<'a> Session<'a> {
         let n = self.callback.contract.states.len();
         let np = self.callback.parameters.len();
         let x = unsafe { read(self.y, n) };
-        let e = self
+        let Some(e) = self
             .callback
             .evaluate(Function::Output, t, &x, p.sensitivities)
-            .ok_or_else(|| contract("IDAS output failed"))?;
+        else {
+            return Err(self.callback.failed("output"));
+        };
         let mut state_sensitivities = Vec::new();
         let mut output_sensitivities = Vec::new();
         if p.sensitivities {
@@ -572,7 +705,7 @@ impl<'a> Session<'a> {
                 .collect();
             let j = e
                 .jacobian
-                .ok_or_else(|| contract("IDAS output derivative missing"))?;
+                .ok_or_else(|| ProblemError::internal("IDAS output derivative missing"))?;
             for row in 0..e.values.len() {
                 for (k, column) in columns.iter().enumerate().take(np) {
                     output_sensitivities.push(
@@ -620,7 +753,7 @@ pub(super) fn integrate_with_progress(
 ) -> Result<Report, ProblemError> {
     p.validate(oracle.contract(), parameters)?;
     if !p.changes.is_empty() || oracle.contract().events.iter().any(|e| !e.is_empty()) {
-        return Err(contract(
+        return Err(ProblemError::unsupported(
             "IDAS currently admits smooth fixed-mass systems; use Diffsol for hybrid resets",
         ));
     }
@@ -632,12 +765,8 @@ pub(super) fn integrate_with_progress(
     };
     let mut r = Report::new(p.start);
     let n = oracle.contract().states.len();
-    let failure = |mut report: Report, error| {
-        report.termination = match execution.stopped() {
-            Some(crate::solve::Termination::Cancelled) => Termination::Cancelled,
-            Some(crate::solve::Termination::TimeLimit) => Termination::TimeLimit,
-            _ => Termination::Failed,
-        };
+    let failure = |mut report: Report, error: ProblemError| {
+        report.termination = stopped(&error, &execution);
         report.error = Some(error);
         (report.progress, report.dropped_progress) = execution.progress.snapshot();
         report
@@ -667,7 +796,7 @@ pub(super) fn integrate_with_progress(
     let max_steps: std::ffi::c_long = p
         .max_steps
         .try_into()
-        .map_err(|_| contract("IDAS step allowance extent"))?;
+        .map_err(|_| ProblemError::unsupported("IDAS step allowance extent"))?;
     let result = (|| -> Result<(), ProblemError> {
         for target in p.samples.iter().copied().chain(std::iter::once(p.end)) {
             if target > time {
@@ -696,7 +825,7 @@ pub(super) fn integrate_with_progress(
                     return Ok(());
                 }
                 if flag < 0 {
-                    return Err(contract(&format!("IDAS native flag {flag}")));
+                    return Err(s.callback.native_failure(flag, "integration step"));
                 }
                 r.completed_time = time;
                 s.callback
@@ -723,17 +852,20 @@ pub(super) fn integrate_with_progress(
         Ok(())
     })();
     if let Err(e) = result {
+        r.termination = stopped(&e, &s.callback.callback.execution);
         r.error = Some(e);
-        r.termination = Termination::Failed;
     }
-    if let Some((status, message)) = &s.callback.callback.terminal {
+    // Terminal-policy and checkpoint stops keep their typed status and cause.
+    if let Some((status, _)) = &s.callback.callback.terminal {
         r.termination = match status {
             crate::solve::Termination::Cancelled => Termination::Cancelled,
             crate::solve::Termination::TimeLimit => Termination::TimeLimit,
             crate::solve::Termination::Panic => Termination::Panic,
             _ => Termination::Failed,
         };
-        r.error = Some(contract(message));
+        if r.error.is_none() {
+            r.error = s.callback.callback.terminal_error();
+        }
     }
     (r.progress, r.dropped_progress) = s.callback.callback.execution.progress.snapshot();
     Ok(r)

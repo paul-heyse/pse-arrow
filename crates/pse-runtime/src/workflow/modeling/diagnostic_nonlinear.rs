@@ -257,7 +257,7 @@ impl ModelingPackage {
                                 .and_then(ModelingElasticAttempt::diagnostic)
                                 .unwrap_or_else(|| {
                                     BoundaryDiagnostic::new(
-                                        BoundaryClass::TrialRejected,
+                                        BoundaryClass::Inconclusive,
                                         "nonlinear-explanation",
                                         [analysis.root, analysis.instance],
                                         "modeling.nonlinear.initial_inconclusive",
@@ -289,21 +289,18 @@ fn classify(
         })?;
         Some(total + sum / policy.nominals[id])
     });
-    let (feasible, stationary) = match &result.outcome {
-        Outcome::Native(r) if r.candidate.is_some() && r.validation_error.is_none() => (
-            r.quality
-                .as_ref()
-                .is_some_and(pse_backend_native::quality::Quality::feasible),
-            matches!(
+    // The shared candidate-use decision: a limited or failed stop is never a witness.
+    let feasible = result.outcome.candidate_use().permits_use();
+    let stationary = feasible
+        && matches!(
+            &result.outcome,
+            Outcome::Native(r) if matches!(
                 r.qualification,
                 Qualification::Stationary
                     | Qualification::OptimalWithinTolerance
                     | Qualification::GapQualified
-            ),
-        ),
-        Outcome::Constant(r) => (r.quality.feasible(), false),
-        _ => (false, false),
-    };
+            )
+        );
     let original_ok = model.model.elastic.keys().all(|id| {
         result.checks.iter().any(|c| {
             c.target_id == *id

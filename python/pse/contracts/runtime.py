@@ -500,6 +500,7 @@ class RuntimeModelingFindingsRow:
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     class_: e.NativeBoundaryClass = attrs.field(validator=attrs.validators.instance_of(e.NativeBoundaryClass), metadata={v.FIELD_NAME_METADATA: "class"})
+    severity: e.DiagnosticSeverity = attrs.field(validator=attrs.validators.instance_of(e.DiagnosticSeverity))
     stage: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     rule: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     sources: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))

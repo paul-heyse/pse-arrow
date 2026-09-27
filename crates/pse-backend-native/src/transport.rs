@@ -25,7 +25,7 @@ fn contract(c: &OracleContract, n: &Normalization) -> Result<OracleContract, Pro
 }
 fn values(v: &mut [f64], s: &[f64], inverse: bool) -> Result<(), ProblemError> {
     if v.len() != s.len() {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Internal(
             "coordinate transport dimensions".into(),
         ));
     }
@@ -50,7 +50,7 @@ fn sparse(
         }
     }
     faer::sparse::SparseColMat::try_new_from_triplets(rows.len(), columns.len(), &entries)
-        .map_err(|e| ProblemError::Contract(e.to_string()))
+        .map_err(|e| ProblemError::Internal(e.to_string()))
 }
 /// Project coefficients once; original PSD evidence is checked before congruence transport.
 pub fn coefficients(
@@ -65,7 +65,7 @@ pub fn coefficients(
         .zip(&n.variables)
         .any(|(d, s)| d.is_integer() && *s != 1.0)
     {
-        return Err(ProblemError::Contract(
+        return Err(ProblemError::Unsupported(
             "integer coordinate substitution".into(),
         ));
     }
@@ -121,7 +121,7 @@ pub fn cone_normalization(
     for cone in &p.cones {
         let end = start + crate::conic::dim(cone);
         if end > n.rows.len() {
-            return Err(ProblemError::Contract("cone scale inventory".into()));
+            return Err(ProblemError::Internal("cone scale inventory".into()));
         }
         if !matches!(cone, ZeroConeT(_) | NonnegativeConeT(_)) {
             let mut required = None;
@@ -165,7 +165,7 @@ pub fn cone_normalization(
         start = end;
     }
     if start != n.rows.len() {
-        return Err(ProblemError::Contract("cone scale inventory".into()));
+        return Err(ProblemError::Internal("cone scale inventory".into()));
     }
     Ok(n)
 }
@@ -239,7 +239,7 @@ pub fn warm(w: &WarmStart, n: &Normalization, to_native: bool) -> Result<WarmSta
             }
         }
         _ => {
-            return Err(ProblemError::Contract(
+            return Err(ProblemError::Internal(
                 "wrong coordinate transport warm-start kind".into(),
             ));
         }
@@ -253,7 +253,7 @@ fn duals(
     to_native: bool,
 ) -> Result<(), ProblemError> {
     if v.len() != scales.len() {
-        return Err(ProblemError::Contract("dual transport dimensions".into()));
+        return Err(ProblemError::Internal("dual transport dimensions".into()));
     }
     for (v, s) in v.iter_mut().zip(scales) {
         *v = if to_native {
@@ -351,7 +351,7 @@ pub fn recover(
                 .iter()
                 .position(|id| *id == v.id)
                 .ok_or_else(|| {
-                    ProblemError::Contract("quality row absent from coordinate map".into())
+                    ProblemError::Internal("quality row absent from coordinate map".into())
                 })?;
             let s = n.rows[i];
             v.physical = mul(v.physical, s)?;
@@ -504,7 +504,7 @@ pub fn recover_diagnostics(
         let cost = name.starts_with("column_cost_");
         let scales = if row { &n.rows } else { &n.variables };
         if range.value.len() != scales.len() {
-            return Err(ProblemError::Contract("ranging coordinate extent".into()));
+            return Err(ProblemError::Internal("ranging coordinate extent".into()));
         }
         for (i, v) in range.value.iter_mut().enumerate() {
             if v.is_finite() {
@@ -516,7 +516,7 @@ pub fn recover_diagnostics(
                 if row {
                     *v += row_constants[i];
                     if !v.is_finite() {
-                        return Err(ProblemError::Contract("ranging constant overflow".into()));
+                        return Err(ProblemError::numerical("ranging constant overflow"));
                     }
                 }
             }

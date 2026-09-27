@@ -453,7 +453,7 @@ impl Controls {
                     .and_then(|h| n.checked_add(h))
             })
             .and_then(|n| n.checked_add(4 << 20))
-            .ok_or_else(|| ProblemError::Contract("report allowance overflow".into()))
+            .ok_or_else(|| ProblemError::memory("report allowance overflow"))
     }
     /// Refuse unlimited/invalid controls before allocating native state.
     pub fn validate(&self) -> Result<(), ProblemError> {
@@ -804,11 +804,88 @@ pub struct Certificate {
     /// Native dual certificate in original native row order, if supplied.
     pub dual: Option<Vec<f64>>,
 }
+/// Native solution status as reported by the library, never inferred from values.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SolutionStatus {
+    /// The library supplied no solution of this kind.
+    Unavailable,
+    /// A solution was supplied but the library reports it infeasible.
+    Infeasible,
+    /// The library reports a feasible solution.
+    Feasible,
+}
+/// Callback history consumed by retry policy, independent of bounded event retention.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CallbackEvidence {
+    /// Recoverable trial refusals.
+    pub trial_rejections: usize,
+    /// A terminal failure latched and ended the attempt.
+    pub terminal_failure: bool,
+}
+/// Original-coordinate KKT checks; `None` means the measure was unavailable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct KktEvidence {
+    /// Normalized stationarity within its budget.
+    pub stationarity: Option<bool>,
+    /// Normalized complementarity within its budget.
+    pub complementarity: Option<bool>,
+}
+/// Coefficient-model evidence reported by the `HiGHS` adapter, in normalized coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CoefficientEvidence {
+    /// The native model was read back and equals the admitted coefficient model.
+    pub upload_equivalent: bool,
+    /// The model has integer or semi-continuous columns.
+    pub discrete: bool,
+    /// Native objective at the returned primal.
+    pub objective: Option<f64>,
+    /// Native relative MIP gap.
+    pub mip_gap: Option<f64>,
+    /// Native MIP dual bound.
+    pub mip_dual_bound: Option<f64>,
+    /// Native primal solution status.
+    pub primal: SolutionStatus,
+    /// Native dual solution status.
+    pub dual: SolutionStatus,
+    /// Native maximum dual infeasibility.
+    pub max_dual_infeasibility: Option<f64>,
+    /// Native primal-dual objective error.
+    pub primal_dual_objective_error: Option<f64>,
+}
+/// Conic residuals reported by the Clarabel adapter, in normalized coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ConicEvidence {
+    /// Primal residual.
+    pub primal_residual: f64,
+    /// Dual residual.
+    pub dual_residual: f64,
+    /// Absolute duality gap.
+    pub gap_absolute: f64,
+    /// Relative duality gap.
+    pub gap_relative: f64,
+}
+/// Typed adapter evidence. Qualification, retry and start receipts read only this;
+/// metrics remain observations and are never an input to a decision.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Evidence {
+    /// Callback trial history.
+    pub callback: CallbackEvidence,
+    /// A start was submitted through the native API.
+    pub start_submitted: bool,
+    /// Original-coordinate KKT acceptance, recorded by `quality::record_kkt`.
+    pub kkt: Option<KktEvidence>,
+    /// Coefficient-model evidence.
+    pub coefficient: Option<CoefficientEvidence>,
+    /// Conic residual evidence.
+    pub conic: Option<ConicEvidence>,
+}
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
 pub struct SolveReport {
-    pub(crate) callback_failure: Option<Arc<crate::ProblemError>>,
-    validation_failure: Option<Arc<crate::ProblemError>>,
+    pub(crate) callback_failure: Option<Arc<ProblemError>>,
+    validation_failure: Option<Arc<ProblemError>>,
+    /// Typed adapter evidence consumed by qualification and retry.
+    pub evidence: Evidence,
     failure_owner: Option<Arc<dyn pse_math::AllocationOwner>>,
     /// Fresh original-model values and qualified dual diagnostics.
     pub observation: Option<crate::quality::Observation>,
@@ -834,11 +911,10 @@ pub struct SolveReport {
     pub termination: NativeTermination,
     /// Available values only; an iterate does not imply feasibility.
     pub candidate: Option<Candidate>,
-    /// Independent original-space checks, or an explicit validation error.
+    /// Independent original-space checks; absent when validation failed or no candidate exists.
     pub quality: Option<crate::quality::Quality>,
-    /// Reason independent validation could not be completed.
-    pub validation_error: Option<String>,
-    /// Native and adapter metrics; absent means unavailable, never implicitly zero.
+    /// Native and adapter observations; absent means unavailable, never implicitly zero.
+    /// Decisions read `evidence`, never these keys.
     pub metrics: BTreeMap<String, Metric>,
     /// Effective explicit native options and semantic controls.
     pub options: Options,
@@ -859,19 +935,21 @@ pub struct SolveReport {
 }
 impl SolveReport {
     /// Original typed cause of a failed native evaluation, independent of event retention.
-    pub fn callback_failure(&self) -> Option<&crate::ProblemError> {
+    pub fn callback_failure(&self) -> Option<&ProblemError> {
         self.callback_failure.as_deref()
     }
     /// Typed failure from independent original-model observation after native exit.
-    pub fn validation_failure(&self) -> Option<&crate::ProblemError> {
+    /// It is the only record of that failure; messages are derived from it.
+    pub fn validation_failure(&self) -> Option<&ProblemError> {
         self.validation_failure.as_deref()
     }
-    pub(crate) fn record_validation_failure(&mut self, error: crate::ProblemError) {
-        self.validation_error = Some(error.to_string());
+    /// Record why independent validation failed. Assurance is withdrawn; the native
+    /// termination is preserved.
+    pub fn record_validation_failure(&mut self, error: ProblemError) {
         self.validation_failure = Some(Arc::new(error));
+        self.termination.assurance = Assurance::None;
     }
     pub(crate) fn clear_validation_failure(&mut self) {
-        self.validation_error = None;
         self.validation_failure = None;
     }
     /// Variable retained failure extent, including shared-pointer allocation overhead.
@@ -904,6 +982,7 @@ impl SolveReport {
         Self {
             callback_failure: None,
             validation_failure: None,
+            evidence: Evidence::default(),
             failure_owner: None,
             owner: None,
             observation: None,
@@ -919,7 +998,6 @@ impl SolveReport {
             termination,
             candidate: None,
             quality: None,
-            validation_error: None,
             metrics: BTreeMap::new(),
             options: Options::new(),
             native_defaults: Options::new(),
