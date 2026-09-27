@@ -43,6 +43,13 @@ dispositions stay in the plan.
 
 11. **Open ADR-0103 item 4.** Non-integral bounds on an integer variable must be tightened inward and the change recorded. Today the code passes them unchanged and refuses only empty ranges (docs revision 63 states the gap). Owner: M2 completion, with the fixed-assignment stage.
 
+12. **HiGHS 1.14.3 presolve defect, fixed by C1.**
+    - **Model:** maximize −c·on + x subject to x − 100·on ≤ 0, x + 20·on ≤ 100, x ∈ [0, 100], on binary, with c = 90.
+    - **Wrong answer on 1.14.3:** with presolve on, HiGHS returns on = 1, x = 80, objective −10 at zero gap.
+    - **Correct answer:** on = 0, objective 0. 1.14.3 without presolve returns it, and so does 1.15.0 with or without presolve.
+    - Reproduced by the coordinator with a scratch program on both versions (2026-09-27).
+    - Qualification checks feasibility, not optimality, so this class of defect is only caught by enumerated oracles. The M3/M4 merge extends `indicator_linear_lowering_matches_native` to the off-optimal charge as a regression guard on 1.15.
+
 ## Tracks and path ownership
 
 | Track | Packets | Owns (exclusive while active) |
