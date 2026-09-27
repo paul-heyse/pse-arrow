@@ -35,6 +35,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -354,6 +355,116 @@ def check_solvers() -> Check:
     )
 
 
+OPERATIONS = ROOT / "crates/pse-operations"
+
+
+def operational_store_url() -> str:
+    """PSE_DATABASE_URL, else the default declared once in pse-operations."""
+    url = os.environ.get("PSE_DATABASE_URL", "")
+    if url:
+        return url
+    source = (OPERATIONS / "src/store.rs").read_text(encoding="utf-8")
+    found = re.search(
+        r'^pub const DEFAULT_DATABASE_URL: &str = "([^"]*)";$', source, re.MULTILINE
+    )
+    return found.group(1) if found else ""
+
+
+def is_local_database(url: str) -> bool:
+    """A Unix socket or loopback host: probing it never touches the network."""
+    parts = urllib.parse.urlsplit(url)
+    hosts = urllib.parse.parse_qs(parts.query).get("host", [])
+    host = hosts[0] if hosts else (parts.hostname or "")
+    return not host or host.startswith("/") or host in {"localhost", "127.0.0.1", "::1"}
+
+
+def check_operational_store() -> Check:
+    """Never blocking: ephemeral work runs without the operational store (ADR-0112)."""
+    setup = (
+        "just db-bootstrap (once), then just db-migrate; docs/dev/operational-store.md"
+    )
+    url = operational_store_url()
+    psql = shutil.which("psql")
+    if psql is None or not url:
+        detail = "psql not found" if psql is None else "no store URL"
+        return Check("opstore", False, detail, setup, blocking=False)
+    if not is_local_database(url):
+        return Check(
+            "opstore",
+            False,
+            "remote store not probed here",
+            "just db-status",
+            blocking=False,
+        )
+
+    def query(sql: str) -> tuple[int, str]:
+        try:
+            proc = subprocess.run(
+                [psql, "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-d", url, "-c", sql],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+                env={**os.environ, "PGCONNECT_TIMEOUT": "2"},
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            return 127, str(exc)
+        return proc.returncode, (
+            proc.stdout if proc.returncode == 0 else proc.stderr
+        ).strip()
+
+    code, out = query(
+        "SELECT current_setting('server_version_num'), current_setting('server_version'),"
+        " to_regclass('_sqlx_migrations') IS NOT NULL"
+    )
+    if code != 0:
+        first = (
+            out.splitlines()[0].removeprefix("psql: error: ") if out else "no answer"
+        )
+        return Check(
+            "opstore", False, f"unreachable: {first}"[:80], setup, blocking=False
+        )
+    version_num, version, tracked = out.split("|", 2)
+    version = version.split(" ", 1)[0]
+    if int(version_num) < 180000:
+        return Check(
+            "opstore",
+            False,
+            f"PostgreSQL {version}; 18 or newer is required",
+            "upgrade the server; docs/dev/operational-store.md",
+            blocking=False,
+        )
+    applied: set[int] = set()
+    if tracked == "t":
+        code, out = query("SELECT version FROM _sqlx_migrations WHERE success")
+        if code != 0:
+            return Check(
+                "opstore",
+                False,
+                f"migrations unreadable: {out}"[:80],
+                setup,
+                blocking=False,
+            )
+        applied = {int(line) for line in out.split() if line}
+    embedded = {
+        int(match.group(1))
+        for path in (OPERATIONS / "migrations").glob("*.sql")
+        if (match := re.fullmatch(r"(\d+)_.*(?<!\.down)\.sql", path.name))
+    }
+    pending, unknown = embedded - applied, applied - embedded
+    if pending or unknown:
+        detail = f"PostgreSQL {version}; {len(pending)} pending, {len(unknown)} unknown migration(s)"
+        fix = (
+            "just db-migrate"
+            if pending
+            else "update this checkout: the database is newer"
+        )
+        return Check("opstore", False, detail, fix, blocking=False)
+    return Check(
+        "opstore", True, f"PostgreSQL {version}; migrations current", blocking=False
+    )
+
+
 def check_external() -> Check:
     pins = tomllib.loads((ROOT / "Cargo.lock").read_text())["package"]
     versions = {p["name"]: p["version"] for p in pins}
@@ -395,6 +506,7 @@ CHECKS = (
     check_repo_linters,
     check_extension,
     check_solvers,
+    check_operational_store,
     check_external,
 )
 

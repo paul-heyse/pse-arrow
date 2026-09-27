@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-operations"
+description = "Operational store and publication catalog on PostgreSQL 18: migrations, the attempt lifecycle, jobs, streams, solutions and catalog commits (ADR-0112)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+pse-diagnostics.workspace = true
+pse-ids.workspace = true
+sqlx.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+miette.workspace = true
+tokio.workspace = true
+clap.workspace = true
+# Not called directly: enables whoami's `std` feature for sqlx-postgres, whose default
+# connection user is otherwise "anonymous" (see the root manifest).
+whoami.workspace = true
+
+[package.metadata.cargo-machete]
+ignored = ["whoami"]
+
+[package.metadata.cargo-shear]
+ignored = ["whoami"]

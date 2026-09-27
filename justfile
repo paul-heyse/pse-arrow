@@ -69,7 +69,7 @@ bootstrap-linters:
     ./scripts/bootstrap.sh --linters-only
 
 [group('env')]
-[doc('Pull the solver container (Ipopt 3.14 + MUMPS + ASL); build it locally with `just solver-image`')]
+[doc('Pull the solver container (Ipopt 3.14 + MUMPS/SPRAL/oneMKL + SCIP 10); build it locally with `just solver-image`')]
 bootstrap-solvers:
     docker pull {{ solver_image }}
 
@@ -87,6 +87,64 @@ doctor-json:
 [doc('Fetch the pinned reading copies into external/ (idaes-pse, arrow-rs, datafusion)')]
 fetch-external:
     ./scripts/fetch-external.sh
+
+# ---- operational store (PostgreSQL 18; ADR-0112, docs/dev/operational-store.md) ----
+# The URL is PSE_DATABASE_URL, else the default declared once in pse-operations: database
+# `pse` over the local Unix socket with peer authentication, so no credential exists.
+db_default_url := replace_regex(read("crates/pse-operations/src/store.rs"), '(?s)^.*\npub const DEFAULT_DATABASE_URL: &str = "([^"]*)";.*$', '$1')
+db_url := env("PSE_DATABASE_URL", db_default_url)
+
+[group('env')]
+[doc('Create the peer-authenticated login role for $USER (CREATEDB) and database `pse` it owns; idempotent; runs psql as postgres via sudo')]
+[confirm('Create or update the PostgreSQL role and database `pse` for the operational store (sudo -u postgres)?')]
+db-bootstrap:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    role="${USER:-$(id -un)}"
+    socket=/var/run/postgresql
+    # Idempotent: each statement is generated only when needed, or restates the attributes.
+    sudo -u postgres psql -X -q -h "$socket" -d postgres -v ON_ERROR_STOP=1 -v role="$role" -v db=pse <<'SQL'
+    SELECT format('CREATE ROLE %I LOGIN CREATEDB', :'role')
+     WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'role') \gexec
+    SELECT format('ALTER ROLE %I LOGIN CREATEDB', :'role') \gexec
+    SELECT format('CREATE DATABASE %I OWNER %I', :'db', :'role')
+     WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'db') \gexec
+    SELECT format('ALTER DATABASE %I OWNER TO %I', :'db', :'role') \gexec
+    SQL
+    psql -X -h "$socket" -d pse -Atc "SELECT 'connected to ' || current_database() || ' as ' || current_user || ', PostgreSQL ' || current_setting('server_version')"
+    echo "next: just db-migrate"
+
+[group('env')]
+[doc('Apply the embedded pse_ops migrations to the operational store')]
+db-migrate:
+    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} migrate
+
+[group('env')]
+[doc('Operational store: server version (>= 18), reachability and pending migrations; exits 1 unless current')]
+db-status:
+    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} status
+
+[group('env')]
+[doc('Dump the operational store with pg_dump -Fc into a directory; prints the dump path')]
+db-backup dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p {{ quote(dir) }}
+    file={{ quote(dir) }}/pse-$(date -u +%Y%m%dT%H%M%SZ).dump
+    # _sqlx_test is the #[sqlx::test] harness's bookkeeping, not operational state.
+    pg_dump --format=custom --exclude-schema=_sqlx_test --file="$file" --dbname={{ quote(db_url) }}
+    echo "$file"
+
+[group('env')]
+[doc('Restore a db-backup dump into the operational store, replacing the objects it contains')]
+[confirm('Restore the operational store from the dump, replacing its current contents?')]
+db-restore file:
+    pg_restore --clean --if-exists --no-owner --single-transaction --exit-on-error --dbname={{ quote(db_url) }} {{ quote(file) }}
+
+[group('local')]
+[doc('pse-operations tests; maps PSE_DATABASE_URL to DATABASE_URL so each #[sqlx::test] gets its own database')]
+db-test filter="package(pse-operations)" *args:
+    DATABASE_URL={{ quote(db_url) }} just unit-package pse-operations {{ quote(filter) }} {{ args }}
 
 # ---------------------------------------------------------------- discovery --
 
@@ -795,7 +853,7 @@ snapshots-accept:
     cargo insta accept
 
 [group('mutating')]
-[doc('Build the solver container locally (Ipopt 3.14 + MUMPS + ASL; 10-30 minutes)')]
+[doc('Build the solver container locally (Ipopt 3.14 with MUMPS/SPRAL/oneMKL Pardiso, SCIP 10; ~4 minutes on 32 threads)')]
 [confirm('Build the solver image locally?')]
 solver-image target="ci":
     docker build --target {{ target }} -t pse-solvers:{{ target }}-local -f docker/solvers/Dockerfile docker/solvers
