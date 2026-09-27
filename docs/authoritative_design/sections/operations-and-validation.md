@@ -143,6 +143,14 @@ separate columns. Each numerical-diagnostics rule
 Scaling, conditioning and near-bound findings are therefore warnings or information,
 never an invalid model. An undeclared rule is an `internal` error.
 
+**Modeling domain refusals.** `pse_modeling::ModelingError::Domain` is the typed refusal
+of a declared variable domain ([§6.8](schema-and-relations.md#section-6-8)). Its boundary
+rule is `modeling.domain`, with the variable's instance path, its domain, the analysis and
+the reason as observations and its declaration and variable identities as sources. A
+quantity kind that is not a count or indicator, and bounds that admit no value of the
+domain, are `invalid_model` (`validation.invariant`); missing finite bounds and a free
+discrete variable that the analysis cannot decide are `unsupported` (`capability.backend`).
+
 **Native failures.** `pse-backend-native::ProblemError` classifies a refused request or an
 attributable native failure by cause; each variant keeps its cause and structural
 identities, and none is flattened into a string of unknown class. Workflow diagnostics

@@ -260,6 +260,8 @@ survive name edits; names and source byte ranges are separate from identity.
 
 The reference relations declare dimensions, units, unit sets, quantity kinds, bases,
 reference states, quantity types, conversions, quantity operations and constants.
+`quantity_kinds` (version 2) carries the optional count or indicator category of a
+dimensionless kind ([§8.1](physical-semantics.md#section-8-1)).
 `quantity_preconditions` and `quantity_operation_reductions` carry the prerequisites
 checked against actual operands. `math_context` explicitly names the neutral scalar
 and Boolean kind.
@@ -314,7 +316,8 @@ The old instance/composition/connection relation families have no remaining prod
 
 > Decision: [ADR-0103](../../adr/0103-variable-domain-facet.md) — variables gain a
 > declared domain facet (`continuous`, `integer`, `binary`, `semicontinuous`,
-> `semiinteger`) with per-mode semantics (Plan 22 M1; not yet implemented).
+> `semiinteger`) with per-mode semantics (Plan 22 M1 and the M2 refusals, implemented;
+> the M2 fixed-assignment stage is not yet implemented).
 
 Variables, parameters and value members are tagged modeling declarations. Specialized
 scalar identities derive from declaration, instance and admitted membership, never display
@@ -322,12 +325,55 @@ labels or native slots. The compiler resolves source paths to these identities a
 library-owned mathematical bodies. Symbol tables, derivative layouts and native coordinates
 are preparation products, not independently authored relations.
 
+**Domain facet.** A variable declares its domain after its type, as in
+`var on[t in periods]: Indicator in binary;`, with `integer`, `binary`, `semicontinuous`
+or `semiinteger`. `continuous` is the default: omitting the facet and writing
+`in continuous` are the same declaration, and rendering prints no facet for it. Only `var`
+takes a facet; one on a parameter or value member is a parse error. The registry enum
+`ModelingVariableDomain` is the single authority from source to the native boundary. The
+binding arm of `authored.modeling_declarations` (version 2) stores it, present exactly on a
+variable; the compiler, `ProblemFacts` and HiGHS consume the generated type directly; and
+`runtime.solve_variables` (version 3) states it in its `domain` column on every variable
+row, while parameter rows carry none. An interface member's override or implementation
+keeps the member's domain; a different one is refused at checking.
+
+Integer and binary variables are dimensionless counts or indicators, while semi domains
+keep their physical quantity ([§8.1](physical-semantics.md#section-8-1)). The language's
+former built-in `Count` synonym of `Integer` is removed, so `Count` names the physical
+count type (the physical bundle's alias); `Integer` remains the built-in integer type.
+
+**Admission and analysis modes.** After case binding, every free discrete variable needs
+finite bounds that admit a value of its domain
+([§7.5](mathematics-and-compilation.md#section-7-5)). A free discrete variable is an
+ordinary free column in structure and degrees of freedom. Each analysis states what it does
+with one:
+
+| Analysis | Free discrete variable |
+|---|---|
+| Steady optimization | A decision: an authored MILP routes to HiGHS ([§18.1](numerical-execution.md#section-18-1)); MIQP and MINLP routes are not yet implemented |
+| Root solve | Refused; when the case fixes every discrete variable, the solve is continuous |
+| Initialization | Refused; the stage that fixes discrete variables as a scoped overlay (Plan 22 M2) is not yet implemented |
+| Fitting | Refused unless the experiment's case fixes it |
+| Integrated dynamics | Refused unless the case fixes it; a fixed one is a parameter of integration, piecewise constant through profile changes ([§13.5](workflows-and-results.md#section-13-5)) |
+| Nested implicit root | A discrete unknown is refused (analysis `root`) |
+
+Duals and sensitivities stated conditional on a fixed assignment (Plan 22 M2) are not yet
+implemented. Each refusal is a typed `pse_modeling::ModelingError::Domain` naming the
+variable (identity, declaration and instance path), its domain, the analysis
+(`preparation`, `root`, `initialization`, `fitting` or `integrated_dynamics`) and the
+violated rule; its diagnostic rule is `modeling.domain`
+([§23.2](operations-and-validation.md#section-23-2)).
+
 ### 6.10 Cases, observations, dynamics and fitting
 
 Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
 bounds and analysis choices. Initialized, steady, integrated and simultaneous fixture routes
 share the same definitions. A fixture retains expected outcomes, oracle provenance and
-physical/relative tolerances.
+physical/relative tolerances. Conformance records derivative sampling as not applicable
+while free discrete variables remain: sampling perturbs a continuous oracle, and
+integrality is never relaxed implicitly. The seed price-taker fixture
+(`packages/reference/seed-data/models/price-taker.pse`) is an authored MILP whose linear
+relaxation exceeds its optimum, so it shows that integrality is enforced.
 
 `authored.datasets` and `authored.observations` supply measurements. `authored.fit_cases`
 binds authored modeling experiments and source paths to the existing sparse fitting engine.

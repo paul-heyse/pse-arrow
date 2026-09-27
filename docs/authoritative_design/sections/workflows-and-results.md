@@ -45,6 +45,9 @@ conditions and outputs from the selected authored analysis. Native integration a
 fixed diagonal mass matrix `diag(I,0)` ODE/index-1 profile. The algebraic partition requires
 complete structural matching; the integrator establishes numerical consistency. Rates must
 be affine in derivative coordinates for this lowering; unsupported residual structure refuses.
+A discrete variable ([§6.8](schema-and-relations.md#section-6-8)) enters integration only
+when the case fixes it, as a parameter that profile changes can hold piecewise constant;
+a free one is refused (`modeling.domain`, analysis `integrated_dynamics`).
 
 Initial conditions and guesses, normalized-state tolerances and algebraic residual scaling
 remain separate. Integrated contexts retain selected bindings, original quantities and
@@ -251,8 +254,10 @@ Fitting uses the ordinary native NLP route (Ipopt or POUNCE) and library presolv
 declared sparse support; duplicates accumulate before faer's sparse Gram product, and
 dense support stays dense only where declared. Prepared fit metadata and sparse layouts
 share one admitted immutable product. Seeds for fitting are refused; declared parameter
-values are the start. The IDAS route refuses hybrid fitting sensitivities. Owners:
-`workflow/fitting.rs`, `fitting/{modeling,preparation,oracle,sparse,results}.rs`. Source paths bind shared
+values are the start. A discrete variable that an experiment's case leaves free is refused
+(`modeling.domain`, analysis `fitting`; [§6.8](schema-and-relations.md#section-6-8)). The
+IDAS route refuses hybrid fitting sensitivities. Owners: `workflow/fitting.rs`,
+`fitting/{modeling,preparation,oracle,sparse,results}.rs`. Source paths bind shared
 parameters and outputs through the same checked package; original checks, fixed values
 and bounds are retained. Integration controls are scoped to their experiment instance.
 
@@ -287,16 +292,20 @@ exists.
 > Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
 > [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — discrete
 > domains, disjunctions and indicator, SOS, cardinality, piecewise and logic declarations
-> enter the design target (Plan 22 M1–M5; not yet implemented).
+> enter the design target (Plan 22 M1–M5);
+> [ADR-0103](../../adr/0103-variable-domain-facet.md) — the declared domain facet (Plan 22
+> M1, implemented). The M2 fixed-assignment stage and M3–M5 are not yet implemented.
 
-Not yet implemented as a modeling construct: alternative sets and disjunctions have no
-declaration or lowering today. Authored discrete domains, disjunctions with declared
-realizations (big-M, derived big-M, hull, indicator) and the resulting MILP, MIQP and MINLP
+Authored discrete domains are implemented: a variable declares `integer`, `binary`,
+`semicontinuous` or `semiinteger` ([§6.8](schema-and-relations.md#section-6-8)), and a
+linear model over such decisions is an authored MILP that routes to HiGHS
+([§18.1](numerical-execution.md#section-18-1)). Not yet implemented as modeling
+constructs: alternative sets, disjunctions, and indicator, SOS, cardinality, piecewise and
+logic declarations have no declaration or lowering today. Disjunctions with declared
+realizations (big-M, derived big-M, hull, indicator) and the resulting MIQP and MINLP
 classes are in the design target
 ([ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
-[ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md)). Until they land,
-integer and semi-variable domains that reach HiGHS through admitted coefficient routes are
-numerical classes, not optionality ([§18](numerical-execution.md#section-18)).
+[ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md)).
 
 ### 19.8 Uncertainty
 
