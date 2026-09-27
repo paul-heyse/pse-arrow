@@ -99,6 +99,8 @@ struct Context<'a> {
     jac: Pattern,
     hess: Pattern,
     handle: ffi::IpoptProblem,
+    /// Barrier parameter of the most recent iteration.
+    barrier: Option<f64>,
 }
 // The native API calls sequentially with this worker-local context. Native dimensions
 // are checked before reading any pointer, and zero-length nullable inputs are allowed.
@@ -315,6 +317,9 @@ unsafe extern "C" fn intermediate(
     let Some(c) = (unsafe { context(data) }) else {
         return false;
     };
+    if barrier.is_finite() && barrier > 0.0 {
+        c.barrier = Some(barrier);
+    }
     c.state
         .evaluate("intermediate", || {
             let mut values = std::collections::BTreeMap::from([
@@ -645,6 +650,7 @@ impl Session {
             ],
         )?;
         reject_reserved(&controls.options, &settings::RESERVED)?;
+        reject_reserved(&controls.options, &RESTART_OPTIONS)?;
         let mut options = controls.options.clone();
         options.extend(accuracy.nlp_options());
         options.extend(settings.options());
@@ -689,6 +695,60 @@ impl Session {
             .entry("print_level".into())
             .or_insert(OptionValue::Integer(0));
         options.insert("warm_start_init_point".into(), OptionValue::Bool(false));
+        // The seed is read before the session signature: a primal-dual restart sets its own
+        // options, which must be part of the retained problem's key set (F02).
+        let mut x = initial.to_vec();
+        let mut lower = vec![0.0; n];
+        let mut upper = vec![0.0; n];
+        let mut rows = vec![0.0; m];
+        let mut restart = None;
+        if let Some(warm) = warm {
+            warm.validate(&compatibility)?;
+            let WarmPayload::Nlp {
+                primal,
+                bounds,
+                rows: row_seed,
+                barrier,
+                working,
+            } = &warm.payload
+            else {
+                return Err(ProblemError::Contract("Ipopt warm payload class".into()));
+            };
+            if working.is_some() {
+                return Err(ProblemError::Contract(
+                    "an active-set working set is not an Ipopt seed".into(),
+                ));
+            }
+            if primal.len() != n {
+                return Err(ProblemError::Contract("warm primal dimensions".into()));
+            }
+            finite(primal)?;
+            x.clone_from(primal);
+            if let (Some((l, u)), Some(r)) = (bounds, row_seed) {
+                if l.len() != n
+                    || u.len() != n
+                    || r.len() != m
+                    || l.iter().chain(u).any(|v| *v < 0.0)
+                {
+                    return Err(ProblemError::Contract("warm dual dimensions/sign".into()));
+                }
+                finite(l)?;
+                finite(u)?;
+                finite(r)?;
+                lower.clone_from(l);
+                upper.clone_from(u);
+                rows.clone_from(r);
+                options.insert("warm_start_init_point".into(), OptionValue::Bool(true));
+                // A primal-dual seed restarts under the typed profile (L-N3).
+                let (restart_options, applied) = settings
+                    .restart
+                    .apply(*barrier, settings.mu_strategy == MuStrategy::Monotone);
+                options.extend(restart_options);
+                restart = Some(applied);
+            } else if bounds.is_some() || row_seed.is_some() {
+                return Err(ProblemError::Unsupported("partial NLP dual seed".into()));
+            }
+        }
         let signature = (
             (compatibility.layout, compatibility.profile),
             jac.clone(),
@@ -739,44 +799,6 @@ impl Session {
             .handle
             .as_ref()
             .ok_or_else(|| ProblemError::Internal("lost Ipopt native owner".into()))?;
-        let mut x = initial.to_vec();
-        let mut lower = vec![0.0; n];
-        let mut upper = vec![0.0; n];
-        let mut rows = vec![0.0; m];
-        if let Some(warm) = warm {
-            warm.validate(&compatibility)?;
-            let WarmPayload::Nlp {
-                primal,
-                bounds,
-                rows: row_seed,
-            } = &warm.payload
-            else {
-                return Err(ProblemError::Contract("Ipopt warm payload class".into()));
-            };
-            if primal.len() != n {
-                return Err(ProblemError::Contract("warm primal dimensions".into()));
-            }
-            finite(primal)?;
-            x.clone_from(primal);
-            if let (Some((l, u)), Some(r)) = (bounds, row_seed) {
-                if l.len() != n
-                    || u.len() != n
-                    || r.len() != m
-                    || l.iter().chain(u).any(|v| *v < 0.0)
-                {
-                    return Err(ProblemError::Contract("warm dual dimensions/sign".into()));
-                }
-                finite(l)?;
-                finite(u)?;
-                finite(r)?;
-                lower.clone_from(l);
-                upper.clone_from(u);
-                rows.clone_from(r);
-                options.insert("warm_start_init_point".into(), OptionValue::Bool(true));
-            } else if bounds.is_some() || row_seed.is_some() {
-                return Err(ProblemError::Unsupported("partial NLP dual seed".into()));
-            }
-        }
         for (key, value) in &options {
             handle.option(key, value)?
         }
@@ -793,6 +815,7 @@ impl Session {
             jac,
             hess,
             handle: handle.0.as_ptr(),
+            barrier: None,
         };
         let mut g = vec![f64::NAN; m];
         let mut objective = f64::NAN;
@@ -822,6 +845,7 @@ impl Session {
             .insert("reuse.native_model".into(), Metric::Bool(reused));
         report.evidence.reused_native_state = reused;
         report.evidence.start_submitted = warm.is_some();
+        report.evidence.restart = restart;
         report
             .metrics
             .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
@@ -886,6 +910,10 @@ impl Session {
                     primal: x,
                     bounds: duals.then_some((lower, upper)),
                     rows: duals.then_some(rows),
+                    // The barrier value of the last iteration, as the intermediate callback
+                    // observed it; it seeds the next restart's `mu_init`.
+                    barrier: duals.then_some(context.barrier).flatten(),
+                    working: None,
                 },
             });
         } else {
@@ -949,6 +977,7 @@ mod tests {
             n: 1,
             m: 1,
             handle: std::ptr::null_mut(),
+            barrier: None,
         }
     }
     #[test]

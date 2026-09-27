@@ -503,13 +503,144 @@ pub struct Basis {
     /// Native row basis statuses.
     pub rows: Vec<i32>,
 }
+/// How an interior-point method re-centres a complete primal-dual seed (L-N3). With the
+/// cold-start defaults a seeded restart is pushed back towards the analytic centre and loses
+/// most of its benefit, so a restart states its barrier and its pushes.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct WarmRestart {
+    /// Initial barrier parameter of the restart (`mu_init`).
+    pub barrier: RestartBarrier,
+    /// Absolute push of the primal seed from its bounds (`warm_start_bound_push`).
+    pub bound_push: f64,
+    /// Relative push of the primal seed from its bounds (`warm_start_bound_frac`).
+    pub bound_frac: f64,
+    /// Absolute push of the slack seed from its bounds (`warm_start_slack_bound_push`).
+    pub slack_bound_push: f64,
+    /// Relative push of the slack seed from its bounds (`warm_start_slack_bound_frac`).
+    pub slack_bound_frac: f64,
+    /// Push of the bound multipliers from zero (`warm_start_mult_bound_push`).
+    pub mult_bound_push: f64,
+}
+impl Default for WarmRestart {
+    /// The seed's own final barrier and pushes of 1e-9: the restart stays near the seed.
+    fn default() -> Self {
+        Self {
+            barrier: RestartBarrier::Seed,
+            bound_push: 1e-9,
+            bound_frac: 1e-9,
+            slack_bound_push: 1e-9,
+            slack_bound_frac: 1e-9,
+            mult_bound_push: 1e-9,
+        }
+    }
+}
+/// The initial barrier parameter of an interior-point restart.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub enum RestartBarrier {
+    /// The final barrier value the producing interior-point solve recorded with the seed. A
+    /// seed without one (an authored seed) leaves the native default in force, and the
+    /// receipt says so.
+    Seed,
+    /// A stated positive value.
+    Value(f64),
+}
+impl WarmRestart {
+    /// Finite positive pushes and barrier inside the native option ranges.
+    ///
+    /// # Errors
+    /// A value outside its native range.
+    pub fn validate(&self) -> Result<(), ProblemError> {
+        let positive = |v: f64| v.is_finite() && v > 0.0;
+        let fraction = |v: f64| v > 0.0 && v <= 0.5;
+        if !positive(self.bound_push)
+            || !positive(self.slack_bound_push)
+            || !positive(self.mult_bound_push)
+            || !fraction(self.bound_frac)
+            || !fraction(self.slack_bound_frac)
+            || matches!(self.barrier, RestartBarrier::Value(v) if !positive(v))
+        {
+            return Err(ProblemError::Contract(
+                "warm restart pushes must be positive, fractions in (0, 0.5] and the barrier positive"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+    /// The native options of this restart for a seed carrying `barrier` (native
+    /// coordinates), and the record of what they set. `mu_init` is set only for the monotone
+    /// barrier update, the only one that reads it.
+    pub(crate) fn apply(&self, barrier: Option<f64>, monotone: bool) -> (Options, AppliedRestart) {
+        let mu_init = match self.barrier {
+            RestartBarrier::Seed => barrier.filter(|v| v.is_finite() && *v > 0.0),
+            RestartBarrier::Value(v) => Some(v),
+        }
+        .filter(|_| monotone);
+        let mut options = Options::from([
+            (
+                "warm_start_bound_push".into(),
+                OptionValue::Real(self.bound_push),
+            ),
+            (
+                "warm_start_bound_frac".into(),
+                OptionValue::Real(self.bound_frac),
+            ),
+            (
+                "warm_start_slack_bound_push".into(),
+                OptionValue::Real(self.slack_bound_push),
+            ),
+            (
+                "warm_start_slack_bound_frac".into(),
+                OptionValue::Real(self.slack_bound_frac),
+            ),
+            (
+                "warm_start_mult_bound_push".into(),
+                OptionValue::Real(self.mult_bound_push),
+            ),
+        ]);
+        if let Some(mu) = mu_init {
+            options.insert("mu_init".into(), OptionValue::Real(mu));
+        }
+        (
+            options,
+            AppliedRestart {
+                mu_init,
+                profile: *self,
+            },
+        )
+    }
+}
+/// Native options a [`WarmRestart`] owns; raw options may not set them.
+pub(crate) const RESTART_OPTIONS: [&str; 6] = [
+    "mu_init",
+    "warm_start_bound_push",
+    "warm_start_bound_frac",
+    "warm_start_slack_bound_push",
+    "warm_start_slack_bound_frac",
+    "warm_start_mult_bound_push",
+];
+/// The interior-point restart an adapter applied to a submitted primal-dual seed.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct AppliedRestart {
+    /// Initial barrier parameter set, in native coordinates; `None` left the native default.
+    pub mu_init: Option<f64>,
+    /// The restart profile that produced it.
+    pub profile: WarmRestart,
+}
+/// A POUNCE active-set working set. It indexes native rows and bounds, so it is meaningful
+/// only in the native coordinates of the presolve transformation that produced it (F07).
+#[derive(Clone, Debug)]
+pub struct WorkingSet {
+    /// Native coordinate identity of that transformation (`presolve::Report::transformation`).
+    pub transformation: ContentHash,
+    /// Native bound and constraint activity.
+    #[cfg(feature = "pounce")]
+    pub active: pounce_rs::sqp::WorkingSet,
+}
 /// Starts are typed by their native mathematical meaning.
 #[derive(Clone, Debug)]
 pub enum WarmPayload {
-    /// POUNCE active-set SQP iterate and working set in its native vocabulary.
-    #[cfg(feature = "pounce")]
-    PounceSqp(pounce_rs::pounce_algorithm::sqp::SqpIterates),
-    /// Primal start, optionally with NLP lower/upper/row multipliers.
+    /// Primal start, optionally with NLP lower/upper/row multipliers, the final barrier value
+    /// of an interior-point producer and an active-set working set.
     Nlp {
         /// Primal in source order.
         primal: Vec<f64>,
@@ -517,6 +648,12 @@ pub enum WarmPayload {
         bounds: Option<(Vec<f64>, Vec<f64>)>,
         /// Constraint multipliers.
         rows: Option<Vec<f64>>,
+        /// Final barrier parameter of the producing interior-point solve, in authored
+        /// objective units (native coordinates inside an adapter).
+        barrier: Option<f64>,
+        /// Active-set working set of the producing SQP solve, keyed by its native
+        /// transformation.
+        working: Option<WorkingSet>,
     },
     /// Root-system initial values; no fictitious duals.
     Root(Vec<f64>),
@@ -549,6 +686,16 @@ pub struct SeedOrigin {
     pub attempt: usize,
 }
 impl WarmPayload {
+    /// A primal-only NLP start.
+    pub fn primal(primal: Vec<f64>) -> Self {
+        Self::Nlp {
+            primal,
+            bounds: None,
+            rows: None,
+            barrier: None,
+            working: None,
+        }
+    }
     /// Source-coordinate dimensions and finite values of this payload.
     pub fn shaped(&self, variables: usize, rows: usize) -> bool {
         let finite = |v: &[f64], n| v.len() == n && v.iter().all(|v| v.is_finite());
@@ -558,12 +705,17 @@ impl WarmPayload {
                 primal,
                 bounds,
                 rows: dual,
+                barrier,
+                working: _,
             } => {
+                // A working set indexes native coordinates; the pipeline checks it against
+                // the native transformation.
                 finite(primal, variables)
                     && bounds
                         .as_ref()
                         .is_none_or(|(l, u)| finite(l, variables) && finite(u, variables))
                     && dual.as_ref().is_none_or(|d| finite(d, rows))
+                    && barrier.is_none_or(|b| b.is_finite() && b > 0.0)
             }
             Self::Highs {
                 primal,
@@ -580,12 +732,6 @@ impl WarmPayload {
                             && b.rows.len() == rows
                             && b.columns.iter().chain(&b.rows).all(|s| (0..=4).contains(s))
                     })
-            }
-            #[cfg(feature = "pounce")]
-            Self::PounceSqp(s) => {
-                finite(&s.x, variables)
-                    && finite(&s.lambda_g, rows)
-                    && s.lambda_x.iter().all(|v| v.is_finite())
             }
         }
     }
@@ -612,8 +758,10 @@ impl WarmStart {
                 primal,
                 bounds,
                 rows,
+                barrier,
+                working,
             } => {
-                serde_json::json!({"kind":"nlp","primal":primal,"bound_duals":bounds,"row_duals":rows})
+                serde_json::json!({"kind":"nlp","primal":primal,"bound_duals":bounds,"row_duals":rows,"barrier":barrier,"working_set":working.as_ref().map(WorkingSet::snapshot)})
             }
             WarmPayload::Highs {
                 primal,
@@ -621,10 +769,6 @@ impl WarmStart {
                 basis,
             } => {
                 serde_json::json!({"kind":"highs","primal":primal,"dual":dual,"basis":basis.as_ref().map(|b|serde_json::json!({"columns":b.columns,"rows":b.rows}))})
-            }
-            #[cfg(feature = "pounce")]
-            WarmPayload::PounceSqp(s) => {
-                serde_json::json!({"kind":"pounce_sqp","primal":s.x,"row_duals":s.lambda_g,"packed_bound_duals":s.lambda_x,"working_set":s.working.as_ref().map(|w|serde_json::json!({"bounds":w.bounds.iter().map(|v|format!("{v:?}")).collect::<Vec<_>>(),"constraints":w.constraints.iter().map(|v|format!("{v:?}")).collect::<Vec<_>>()}))})
             }
         };
         serde_json::json!({"origin":self.origin,"layout":self.compatibility.layout.to_hex(),"profile":self.compatibility.profile.to_hex(),"data":self.compatibility.data.to_hex(),"backend":self.compatibility.backend.as_str(),"payload":payload})
@@ -652,9 +796,31 @@ impl WarmStart {
         Ok(())
     }
 }
+impl WorkingSet {
+    /// Owned provenance of this working set.
+    fn snapshot(&self) -> serde_json::Value {
+        #[cfg(feature = "pounce")]
+        let active = serde_json::json!({
+            "bounds": self.active.bounds.iter().map(|v| format!("{v:?}")).collect::<Vec<_>>(),
+            "constraints": self.active.constraints.iter().map(|v| format!("{v:?}")).collect::<Vec<_>>(),
+        });
+        #[cfg(not(feature = "pounce"))]
+        let active = serde_json::Value::Null;
+        serde_json::json!({"transformation": self.transformation.to_hex(), "active": active})
+    }
+}
+/// What became of a submitted working set at the presolve boundary: it reaches the native
+/// solver only under the transformation that produced it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct WorkingSetTransfer {
+    /// The transformation the working set was produced under.
+    pub transformation: ContentHash,
+    /// It equals this attempt's transformation and was passed through.
+    pub retained: bool,
+}
 /// One transformation a submitted seed passed through between its source coordinates and
 /// the native API, recorded from what actually ran (F25).
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SeedTransformation {
     /// Model coordinate normalization, by its identity.
@@ -666,6 +832,10 @@ pub enum SeedTransformation {
         /// Passes the library actually installed.
         passes: Vec<crate::presolve::Pass>,
     },
+    /// An active-set working set checked against the native transformation.
+    WorkingSet(WorkingSetTransfer),
+    /// The interior-point restart the adapter applied to a primal-dual seed.
+    InteriorRestart(AppliedRestart),
 }
 impl SeedTransformation {
     /// The path a seed takes: normalization, then presolve when the library applied a pass.
@@ -687,6 +857,9 @@ impl SeedTransformation {
                     passes,
                 });
             }
+            if let Some(transfer) = report.working_set {
+                path.push(Self::WorkingSet(transfer));
+            }
         }
         path
     }
@@ -706,6 +879,20 @@ pub struct StartReceipt {
     pub submitted: bool,
 }
 impl StartReceipt {
+    /// Complete this receipt from the attempt that consumed its seed: whether the native API
+    /// received it and every transformation it passed through, including the interior-point
+    /// restart the adapter applied (F25, L-N3).
+    pub fn record(&mut self, report: &SolveReport, normalization: ContentHash) {
+        self.submitted = report.evidence.start_submitted;
+        if self.seed.is_some() || self.sparse_seed.is_some() {
+            self.transformations =
+                SeedTransformation::path(normalization, report.preprocessing.as_ref());
+            if let Some(restart) = report.evidence.restart {
+                self.transformations
+                    .push(SeedTransformation::InteriorRestart(restart));
+            }
+        }
+    }
     /// Owned JSON provenance of this receipt, shared by publication and the Python surface.
     pub fn snapshot(&self) -> serde_json::Value {
         serde_json::json!({
@@ -800,6 +987,10 @@ pub struct Evidence {
     pub start_submitted: bool,
     /// Native state retained from an earlier step was reused by this attempt.
     pub reused_native_state: bool,
+    /// Interior-point restart applied to the submitted primal-dual seed.
+    pub restart: Option<AppliedRestart>,
+    /// An active-set working set reached the native solver.
+    pub working_set_submitted: bool,
     /// Original-coordinate KKT acceptance, recorded by `quality::record_kkt`.
     pub kkt: Option<KktEvidence>,
     /// Coefficient-model evidence.

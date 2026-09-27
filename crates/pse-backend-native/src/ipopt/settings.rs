@@ -7,7 +7,7 @@
 use super::runtime::{self, Runtime};
 use crate::{
     ProblemError,
-    solve::{OptionValue, Options},
+    solve::{OptionValue, Options, WarmRestart},
 };
 
 /// The Ipopt adapter's settings type. Its identity derives from serde.
@@ -21,6 +21,8 @@ pub struct Settings {
     pub bound_push: f64,
     /// Minimum relative distance of a cold initial point from its bounds (`bound_frac`).
     pub bound_frac: f64,
+    /// Restart of a submitted primal-dual seed: barrier and pushes (L-N3).
+    pub restart: WarmRestart,
 }
 impl Default for Settings {
     /// MUMPS with METIS ordering, the monotone barrier and Ipopt's own push values, all
@@ -31,6 +33,7 @@ impl Default for Settings {
             mu_strategy: MuStrategy::Monotone,
             bound_push: 0.01,
             bound_frac: 0.01,
+            restart: WarmRestart::default(),
         }
     }
 }
@@ -289,7 +292,7 @@ impl Settings {
                 "Ipopt bound_push must be positive and bound_frac in (0, 0.5]".into(),
             ));
         }
-        Ok(())
+        self.restart.validate()
     }
     /// The native option table these settings set on every solve.
     pub(crate) fn options(&self) -> Options {

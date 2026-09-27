@@ -996,14 +996,10 @@ impl MathService {
                     if let Some(seed) = &mut r.warm_start {
                         seed.origin = Some(SeedOrigin { run: None, attempt });
                     }
+                    // The recorded path is what this step's transport, library presolve and
+                    // interior-point restart actually applied, never a constant label (F25).
                     let mut receipt = receipt;
-                    receipt.submitted = r.evidence.start_submitted;
-                    // The recorded path is what this step's transport and library presolve
-                    // actually applied, never a constant label (F25).
-                    if receipt.seed.is_some() || receipt.sparse_seed.is_some() {
-                        receipt.transformations =
-                            SeedTransformation::path(normalization, r.preprocessing.as_ref());
-                    }
+                    receipt.record(&r, normalization);
                     r.start_receipt = Some(receipt);
                     Outcome::Native(Box::new((*r).with_owner(owner.clone())))
                 }

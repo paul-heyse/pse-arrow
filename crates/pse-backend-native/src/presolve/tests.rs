@@ -236,8 +236,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                 ObjectiveSense::Minimize,
                 &controls,
                 &accuracy,
-                crate::pounce::Method::InteriorPoint,
-                Default::default(),
+                &Default::default(),
                 execution(),
                 &pipeline.tolerances(&tolerances()),
                 pipeline.warm(),
@@ -516,6 +515,8 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
             primal: vec![2.0, 2.0],
             bounds: Some((vec![0.0; 2], vec![0.0; 2])),
             rows: Some(vec![4.0, 0.0]),
+            barrier: None,
+            working: None,
         },
     };
     let mut pipeline = Pipeline::new(
@@ -620,6 +621,8 @@ fn normalization_callbacks_and_original_duals_round_trip() {
             primal: vec![2.0, 2.0],
             bounds: Some((vec![0.0; 2], vec![0.0; 2])),
             rows: Some(vec![-4.0, 0.0]),
+            barrier: None,
+            working: None,
         },
     };
     let mut pipeline = Pipeline::new(

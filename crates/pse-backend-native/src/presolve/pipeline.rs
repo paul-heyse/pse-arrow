@@ -9,7 +9,7 @@ use crate::{
     quality::{self, Tolerances},
     solve::{
         Assurance, Candidate, Compatibility, Execution, Metric, NativeTermination, SolveReport,
-        Termination, WarmPayload, WarmStart,
+        Termination, WarmPayload, WarmStart, WorkingSetTransfer,
     },
     tnlp::Adapter,
 };
@@ -136,10 +136,15 @@ impl Pipeline {
         }
         let mut start = initial.to_vec();
         let mut duals = None;
+        let mut barrier = None;
+        let mut working = None;
         if let Some(w) = warm {
             w.validate(&compatibility)?;
             match &w.payload {
-                WarmPayload::Nlp{primal,bounds,rows}=>{
+                WarmPayload::Nlp{primal,bounds,rows,barrier:b,working:ws}=>{
+                    if b.is_some_and(|b|!b.is_finite() || b<=0.0) {return Err(ProblemError::Contract("original warm barrier value".into()));}
+                    barrier=*b;
+                    working=ws.clone();
                     if primal.len()!=n || primal.iter().any(|v|!v.is_finite()) {return Err(ProblemError::Contract("original warm primal dimensions/values".into()));}
                     start.clone_from(primal);
                     match (bounds,rows) {
@@ -149,7 +154,7 @@ impl Pipeline {
                         _=>return Err(ProblemError::Contract("original warm dual dimensions/sign/values".into())),
                     }
                 },
-                _=>return Err(ProblemError::Unsupported("native basis/working set requires its exact native coordinate owner; supply an original NLP start".into())),
+                _=>return Err(ProblemError::Unsupported("an NLP attempt consumes only NLP seeds; a basis or root seed belongs to its own adapter".into())),
             }
         }
         let jac = Pattern::new(oracle.jacobian_pattern(), false)?;
@@ -445,13 +450,31 @@ impl Pipeline {
             data: compatibility.data,
             backend: compatibility.backend,
         };
-        let warm = want_duals.then(|| WarmStart {
+        // A working set indexes native rows and bounds: it passes through only under the
+        // transformation that produced it, and its fate is recorded either way (F07).
+        let working = working.and_then(|ws| {
+            let retained = ws.transformation == report.transformation;
+            report.working_set = Some(WorkingSetTransfer {
+                transformation: ws.transformation,
+                retained,
+            });
+            retained.then_some(ws)
+        });
+        // The barrier value travels in authored objective units; natively it is scaled like
+        // the objective.
+        let objective_scale = original.borrow().normalization.objective;
+        let barrier = barrier
+            .map(|b| pse_math::normalization::checked_ratio(b, objective_scale))
+            .transpose()?;
+        let warm = (want_duals || working.is_some()).then(|| WarmStart {
             origin: None,
             compatibility: native.clone(),
             payload: WarmPayload::Nlp {
                 primal: x.clone(),
-                bounds: Some((zl, zu)),
-                rows: Some(lambda),
+                bounds: want_duals.then_some((zl, zu)),
+                rows: want_duals.then_some(lambda),
+                barrier,
+                working,
             },
         });
         let mut contract = source_contract;
@@ -586,6 +609,16 @@ impl Pipeline {
             .map(|v| v.id)
             .collect();
         report.rows = self.original.borrow().oracle.contract().rows.clone();
+        // The native seed's barrier value and working set are carried into the original seed.
+        let (barrier, working) = match report.warm_start.take() {
+            Some(WarmStart {
+                payload: WarmPayload::Nlp {
+                    barrier, working, ..
+                },
+                ..
+            }) => (barrier, working),
+            _ => (None, None),
+        };
         if let Some(c) = report.candidate.take() {
             let n = c.primal.len();
             let m = self.report.rows.len();
@@ -638,7 +671,6 @@ impl Pipeline {
                 report.candidate = Some(original);
             }
         }
-        report.warm_start = None;
         {
             let mut original = self.original.borrow_mut();
             match original.state.execution.stopped() {
@@ -663,6 +695,7 @@ impl Pipeline {
                 .observation
                 .as_ref()
                 .is_some_and(|o| o.dual_error.is_none());
+            let objective_scale = self.original.borrow().normalization.objective;
             report.warm_start = Some(WarmStart {
                 origin: None,
                 compatibility: self.compatibility,
@@ -670,6 +703,11 @@ impl Pipeline {
                     primal: c.primal.clone(),
                     bounds: qualified.then(|| c.bound_dual.clone()).flatten(),
                     rows: qualified.then(|| c.row_dual.clone()).flatten(),
+                    barrier: barrier
+                        .filter(|_| qualified)
+                        .map(|b| b * objective_scale)
+                        .filter(|b| b.is_finite() && *b > 0.0),
+                    working,
                 },
             });
         } else {

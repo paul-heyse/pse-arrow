@@ -84,11 +84,7 @@ impl BackendExecution for Ipopt {
         }
     }
     fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
-        Ok(WarmPayload::Nlp {
-            primal,
-            bounds: None,
-            rows: None,
-        })
+        Ok(WarmPayload::primal(primal))
     }
     fn accepts(&self, payload: &WarmPayload) -> bool {
         matches!(payload, WarmPayload::Nlp { .. })

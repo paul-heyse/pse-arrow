@@ -92,6 +92,8 @@ pub struct Report {
     pub rows: Vec<usize>,
     /// Library-certified infeasibility; raw propagation crossings do not set this.
     pub proof: Option<PresolveProof>,
+    /// A submitted active-set working set and whether this transformation retained it.
+    pub working_set: Option<crate::solve::WorkingSetTransfer>,
 }
 /// Retained library proof plus the original scope and the budget it survived.
 #[derive(Clone, Debug)]
@@ -314,7 +316,7 @@ impl Policy {
         // separately survives each original bound's own acceptance budget.
         Ok(Report{requested:self.clone(),effective:o,passes,facts:facts.map(|f|f.key),transformation:self.key(),dimensions:(n,m,n,m),
             diagnostics:BTreeMap::from([("native.qualification".into(),"pounce-presolve 0.12.0: equality/coefficient tolerance 1e-12; bound-dual recovery activity tolerance 1e-6; LICQ diagnostics only".into())]),
-            columns:(0..n).collect(),rows:(0..m).collect(),proof:None})
+            columns:(0..n).collect(),rows:(0..m).collect(),proof:None,working_set:None})
     }
 }
 

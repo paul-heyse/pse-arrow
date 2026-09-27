@@ -807,3 +807,6 @@ mod assembled_tests;
 
 #[cfg(test)]
 mod solver_tests;
+
+#[cfg(test)]
+mod restart_tests;
