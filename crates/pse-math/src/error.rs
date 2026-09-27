@@ -78,6 +78,9 @@ pub enum MathError {
     /// Requested cancellation.
     #[error("math evaluation cancelled")]
     Cancelled,
+    /// A declared mathematical capability is recognized but not provided here.
+    #[error("unsupported mathematical capability: {0}")]
+    Unsupported(&'static str),
     /// Physical inference failed before normalization.
     #[error(transparent)]
     Quantity(#[from] pse_quantity::QuantityError),
@@ -119,6 +122,7 @@ impl MathError {
             Self::Domain { .. }
             | Self::OutsideRange { .. }
             | Self::Limit(_)
+            | Self::Unsupported(_)
             | Self::WorkLimit { .. }
             | Self::Cancelled
             | Self::CoefficientRange => 0,

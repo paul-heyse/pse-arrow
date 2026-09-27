@@ -7,8 +7,10 @@ pub mod binding;
 pub mod coefficients;
 pub mod collocation;
 pub mod convexity;
+pub mod diagnostics;
 mod error;
 mod execution;
+pub mod factorable;
 pub mod facts;
 mod functions;
 pub mod guarded;
@@ -17,7 +19,6 @@ pub mod jets;
 pub mod library;
 pub mod normalization;
 pub mod numerics;
-pub mod diagnostics;
 pub mod presolve;
 pub mod sparse;
 pub mod typed;
@@ -27,6 +28,8 @@ pub use functions::{Function, Implementation, UnaryFunction};
 mod assembly_tests;
 #[cfg(test)]
 mod derivative_tests;
+#[cfg(test)]
+mod factorable_tests;
 #[cfg(test)]
 mod guarded_tests;
 #[cfg(test)]
