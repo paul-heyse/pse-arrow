@@ -41,6 +41,8 @@ dispositions stay in the plan.
     - **O5:** numeric progress values go in typed `double precision` columns (or serde_json `float_roundtrip` is enabled), because jsonb round trips lose the last float digit.
     - **Pins:** `whoami =2.1.3` with `std` works around sqlx-postgres 0.9.0 defaulting the user to `anonymous`.
 
+11. **Open ADR-0103 item 4.** Non-integral bounds on an integer variable must be tightened inward and the change recorded. Today the code passes them unchanged and refuses only empty ranges (docs revision 63 states the gap). Owner: M2 completion, with the fixed-assignment stage.
+
 ## Tracks and path ownership
 
 | Track | Packets | Owns (exclusive while active) |
