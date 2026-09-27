@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 60
+revision: 61
 date: 2026-09-27
 ---
 
@@ -29,6 +29,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 | 58 | 2026-09-26 | ADR-0066 accepted as implemented (§3.3.2); no contract text changed. | maintainer acceptance |
 | 59 | 2026-09-27 | Plan 21 K0–K8: generic modeling ownership, authored scientific knowledge, analysis/result contracts and retirement; ADR-0097–0101 remain proposed. Contract updates describe the implemented K0–K8 boundaries and their explicit scientific limits. K9 is excluded. | implementation authorized; decision acceptance pending |
 | 60 | 2026-09-27 | Plan 22 D0: ADR-0102–0113 accepted after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md) (Accept, author review, Proposed level); ADR-0106 supersedes ADR-0090, ADR-0108 supersedes ADR-0028, ADR-0112 supersedes ADR-0091 and ADR-0016. Target and scope statements amended in §3.2, §3.3, §9.5, §13.6, §15.5, §19.4, §19.7, §19.8, §20, §25, §26 and D10; decision markers at §4.2, §6.8, §6.13, §7.5, §14.1, §16.6, §17.1, §18.1, §18.3, §18.6–§18.10, §19.1, §20.1, §20.2, §20.4, §21.1, §21.5, §23.2 and D13, and citations of superseded records moved to their successors. Implementation descriptions are unchanged; each capability row changes when its Plan 22 packet lands. Register R-10 removed (decided), R-08/R-09/R-21 moved to ADR-0108, R-34 added. | maintainer authorization of the Plan 22 scope (2026-09-27); `PSE_DESIGN_EDIT=1` |
+| 61 | 2026-09-27 | Plan 22 A1 implements part of [ADR-0106](../adr/0106-execution-vocabulary-discrete-and-global.md). §16.6 describes the five-value `CandidateUse`, its native-then-completion rule order, its single owner `workflow/numerics.rs` and which workflows accept which use; §18.6 makes typed adapter `Evidence` the only input to qualification, retry and start receipts, with metrics as observations; §23.2 adds the `numerical` and `inconclusive` boundary classes, diagnostic severity and the typed `ProblemError` variants with their codes, and no longer lists `solve.solver_error` and `runtime.timeout` as unproduced. The §16.6, §18.6 and §23.2 decision markers record A1 as implemented; the new assurances (G4, G5, N5) remain pending. | implementation `59249b06`; `PSE_DESIGN_EDIT=1` |
 
 ## Former anchors
 

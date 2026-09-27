@@ -212,7 +212,8 @@ same resolved policy; comparing policies is a sequence of explicitly prepared an
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > `CandidateUse` gains `seed_only` and `diagnostic_only` and becomes the only acceptance
-> rule every workflow consumes (Plan 22 A1; not yet implemented).
+> rule every workflow consumes (Plan 22 A1, implemented). Relaxed-export points, which the
+> decision also makes `diagnostic_only`, arrive with the global routes (Plan 22 G4, G5).
 
 From the resolved policy, `pse-backend-native::solve::Accuracy::resolve` derives
 normalized native controls: feasibility is the minimum of the comparable normalized
@@ -233,17 +234,69 @@ option that conflicts with them is refused before the library sees it.
 Acceptance is judged in original physical coordinates, not in the solver's normalized
 space. `quality::Tolerances::from_policy` projects the frozen per-ID budgets onto one
 oracle's order. Integration accuracy, integrated observables, instantaneous balances
-and cumulative closure are distinct requirements. The workflow completion owner
-(`pse-runtime/src/workflow/numerics.rs`) combines native outcome, numerical feasibility
-and closure into one immutable `CandidateUse`:
+and cumulative closure are distinct requirements.
 
-| Condition | `CandidateUse` |
+The workflow completion owner (`pse-runtime/src/workflow/numerics.rs`) is the single
+owner of candidate use. It combines native outcome, original numerical feasibility,
+required model checks and physical closure into one immutable `CandidateUse`, with a
+stable reason published as text and never parsed:
+
+| `CandidateUse` | Meaning | Permits |
+|---|---|---|
+| `usable` | Every required original-coordinate check passed | Result and seed |
+| `qualified_unclosed` | Numerically qualified; closure failed under explicit `AllowUnclosed` (no closure claim) | Result and seed |
+| `seed_only` | Feasible in original coordinates, but the native stop forbids use as a result | Seed only; never published as a solution |
+| `diagnostic_only` | The least-infeasible point a native infeasibility stop returns | Observation only; never a seed or a result |
+| `unusable` | Anything else | Neither |
+
+The decision is made in two ordered steps.
+
+**Native step.** For one native attempt the first applicable rule decides:
+
+1. independent original-model validation failed, or the API supplied no candidate:
+   `unusable`;
+2. the native stop is `infeasible`: `diagnostic_only`;
+3. original-coordinate feasibility failed or is unavailable: `unusable`;
+4. qualification is `Unqualified`: `unusable`;
+5. otherwise the native stop category decides: success, acceptable or feasible-only is
+   `usable`; an iteration, time, solution, objective or general limit, resource
+   exhaustion, an inconclusive or a numerical stop is `seed_only`; unbounded,
+   infeasible-or-unbounded, cancelled, evaluation, panic or invalid is `unusable`. The
+   match over `NativeTermination` is exhaustive, so a new stop category must be assigned.
+
+An all-fixed constant evaluation has no native stop, so original quality alone decides
+between `usable` and `unusable`. A dynamic trajectory is `usable` only after a completed
+integration without a typed failure. A refusal before any native report is `unusable`.
+
+**Completion step.** Required model checks and physical closure can only refuse or
+qualify a `usable` native decision. Any other native decision passes through unchanged;
+checks never upgrade a `seed_only` or `diagnostic_only` point.
+
+| Condition on a `usable` native decision | `CandidateUse` |
 |---|---|
-| Native outcome forbids use, or required numerical acceptance failed or is unavailable | `Unusable` |
-| Required physical closure unavailable | `Unusable` |
-| Closure failed the frozen budget, default `RequireClosed` | `Unusable` (candidate retained) |
-| Closure failed, explicit `AllowUnclosed` | `QualifiedUnclosed` (no closure claim) |
-| All required original-coordinate checks passed | `Usable` |
+| Required original-model checks failed or incomplete | `unusable` |
+| Required physical closure unavailable | `unusable` |
+| Closure failed the frozen budget, default `RequireClosed` | `unusable` (candidate retained) |
+| Closure failed, explicit `AllowUnclosed` | `qualified_unclosed` |
+| Closure closed or not required | `usable` |
+
+Every workflow consumes this decision; none re-derives acceptance:
+
+- a result (a commit, an advance, a publication) needs `usable` or `qualified_unclosed`.
+  This covers solve-sequence steps, block-initialization commits (which add the block's
+  own coordinate and finiteness checks), authored initialization stages and homotopy
+  advances, fitting estimates, the feasibility witness of a nonlinear explanation and
+  `RunResult::usable`;
+- a study's dependent point may be seeded from a predecessor that is a result or
+  `seed_only`; any other predecessor refuses the dependent point with a `conflict`
+  diagnostic;
+- `StartPolicy::PreviousAccepted` ([§17.6](#section-17-6)) seeds only from results; a
+  `seed_only` candidate never becomes a sequence warm start or a committed block value.
+
+Fitting keeps the native decision when it forbids use and otherwise decides from the
+fresh original-model quality of the final evaluation. `runtime.candidate_assessments`
+publishes each step's native termination, numerical feasibility, closure, policy, use
+and reason as distinct columns.
 
 ## 17. Initialization, starts and recycles
 
@@ -424,10 +477,10 @@ requested objective gap.
 
 ### 18.6 Truthful outcomes
 
-> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — new
-> assurances `global_bound`, `proven_infeasible`, `exact_certificate` and
-> `sos_bound_nonrigorous`, each with stated conditions (Plan 22 A1, G4, G5, N5; not yet
-> implemented).
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — typed
+> adapter evidence (Plan 22 A1, implemented); new assurances `global_bound`,
+> `proven_infeasible`, `exact_certificate` and `sos_bound_nonrigorous`, each with stated
+> conditions (Plan 22 G4, G5, N5; not yet implemented).
 
 `pse-backend-native::solve::SolveReport` is one envelope per attempt, including attempts
 without a usable candidate. Its facts are independent:
@@ -451,6 +504,19 @@ within budget or LP/QP dual feasibility and primal-dual error within budget; Cla
 needs residuals and a gap within budget. Roots top out at `Feasible`. A postsolve or
 validator failure preserves the native outcome and clears assurance; optional
 diagnostic failure never replaces the original solve.
+
+**Evidence and metrics.** Adapters record typed `solve::Evidence` on the report:
+callback trial history (`CallbackEvidence`: recoverable trial rejections and whether a
+terminal failure latched), whether a start was submitted through the native API,
+original-coordinate KKT acceptance (`KktEvidence`, recorded by `quality::record_kkt`),
+HiGHS coefficient-model evidence (`CoefficientEvidence`: upload equivalence,
+discreteness, objective, MIP gap and dual bound, primal and dual solution status, dual
+infeasibility and primal-dual objective error) and Clarabel conic residuals
+(`ConicEvidence`). Qualification (`quality::qualify`), evaluation retry
+(`callback::retryable_evaluation`: at least one recoverable trial rejection and no
+latched terminal failure) and start receipts (the submitted flag) read only this
+evidence. The string-keyed `metrics` are observations for reporting and publication and
+are never an input to a decision.
 
 The report also retains effective options and queried native defaults, provenance,
 bounded events, complete native statistics where the library exposes them, the start

@@ -59,7 +59,7 @@ propagation beyond `tracing` task propagation inside the engine.
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > `numerical` and `inconclusive` boundary classes, diagnostic severity and typed
-> `ProblemError` variants (Plan 22 A1; not yet implemented).
+> `ProblemError` variants (Plan 22 A1, implemented).
 
 **Ownership.** `pse-diagnostics` declares one vocabulary: `FailureClass` (coarse class)
 and `DiagnosticCode` (detailed code, each mapped to one class). The registry projects
@@ -82,7 +82,8 @@ by miette (`authoring::parse::missing_id`).
   (`pse-model::diagnostic`); Python exceptions carry the same structured report.
 - A non-converged or infeasible solve is a typed result (native termination, candidate
   kind, qualification), not an error ([§18](numerical-execution.md#section-18)).
-  Errors cover refusals, evaluation failures, resource, cancellation and infrastructure.
+  Errors cover refusals, evaluation failures, failed native operations, resource limits,
+  cancellation, infrastructure and internal failures.
 
 **Classes.** The IDAES column names the counterpart used for behavior comparison
 ([§6.14](schema-and-relations.md#section-6-14)).
@@ -95,30 +96,79 @@ by miette (`authoring::parse::missing_id`).
 | `compile.property` | unsupported or ambiguous property, incomplete provider | `PropertyNotSupportedError`, `PropertyPackageError` |
 | `compile.math` | `compile.math.{unit_inconsistent, quantity_operation_unsupported, domain_violation_static}` | Pyomo `UnitsError` |
 | `kernel.unbound_parameter` | a selected provider lacks its executable or parameter binding | `PropertyPackageError` |
-| `capability.backend` | unsupported capability or numerical preparation | `PropertyPackageError` |
+| `capability.backend` | unsupported capability, an unlinked or ineligible backend, or numerical preparation | `PropertyPackageError` |
 | `solve.evaluation_error` | nonfinite or rejected trial evaluation | Pyomo evaluation errors |
+| `solve.solver_error` | a native method or numerical kernel failed; a failed injected inner solve; `numerical` and `inconclusive` boundary diagnostics | — |
 | `runtime.cancelled` | a cancellation token fired | — |
-| `runtime.resource_limit` | reservation or size limit exceeded | — |
+| `runtime.timeout` | a wall-clock deadline was exhausted | — |
+| `runtime.resource_limit` | reservation, size, work or memory limit exceeded | — |
 | `runtime.infrastructure` | storage I/O, integrity failure, publication conflict or incompatibility | — |
 | `config.invalid` | invalid engine or platform configuration | — |
 | `internal.invariant` | a postcondition failed; a platform bug | `BurntToast` |
 | `user.model` | an authored query or assertion failed | `UserModelError` |
 
 The vocabulary also declares `compile.feature`, `compile.law`, `compile.discretization`,
-`plan.initialization`, `solve.infeasible`, `solve.locally_infeasible`,
-`solve.unbounded`, `solve.limit`, `solve.solver_error` and `runtime.timeout`, and the
-detailed codes `compile.math.cyclic_expression`, `template.guard_undecidable`,
-`rule.float_key`, `rule.head_schema_mismatch`, `schema.rule_float_key` and
-`schema.rule_stratification`. No current Rust error produces them; solver terminations
-are result tags instead. They remain declared vocabulary, not evidence of a supported
-failure path.
+`plan.initialization`, `solve.infeasible`, `solve.locally_infeasible`, `solve.unbounded`
+and `solve.limit`, and the detailed codes `compile.math.cyclic_expression`,
+`template.guard_undecidable`, `rule.float_key`, `rule.head_schema_mismatch`,
+`schema.rule_float_key` and `schema.rule_stratification`. No current Rust error
+produces them; solver terminations are result tags instead. They remain declared
+vocabulary, not evidence of a supported failure path.
 
 **Boundary classes.** `pse-model::diagnostic::BoundaryClass` maps the shared boundary
 vocabulary: invalid model → `validation.invariant`; unsupported → `capability.backend`;
 resource limit → `runtime.resource_limit`; trial rejected or nonfinite →
 `solve.evaluation_error`; infrastructure, conflict or incompatible →
 `runtime.infrastructure`; cancelled → `runtime.cancelled`; internal →
-`internal.invariant`.
+`internal.invariant`; numerical or inconclusive → `solve.solver_error`. `numerical` is an
+algorithmic failure without a model cause; `inconclusive` is an analysis that could not
+reach its conclusion.
+
+**Severity.** Every boundary diagnostic also carries a `DiagnosticSeverity`: `error`
+(the default), `warning` or `info`. Severity is independent of class, and a warning never
+makes a model invalid. `runtime.modeling_findings` publishes class and severity as
+separate columns. Each numerical-diagnostics rule
+(`pse-runtime/src/workflow/modeling/diagnostics.rs`) has an explicit disposition:
+
+| Findings | Class | Severity |
+|---|---|---|
+| Structural under- or overdetermination; missing variable value | `invalid_model` | `error` |
+| Nonfinite variable value | `nonfinite` | `error` |
+| Unused variable; variable only in inequalities; potential domain evaluation error | `invalid_model` | `info` |
+| Variable outside a bound; large equation residual; parallel Jacobian rows or columns; numerical rank deficiency | `numerical` | `warning` |
+| Variable near a bound, fixed at zero, or of large or small magnitude; extreme Jacobian entries, rows or columns; mismatched or cancelling equation terms | `numerical` | `info` |
+| Failed term evaluation | `trial_rejected` | `warning` |
+| Jacobian analysis that could not complete | `inconclusive` | `warning` |
+
+Scaling, conditioning and near-bound findings are therefore warnings or information,
+never an invalid model. An undeclared rule is an `internal` error.
+
+**Native failures.** `pse-backend-native::ProblemError` classifies a refused request or an
+attributable native failure by cause; each variant keeps its cause and structural
+identities, and none is flattened into a string of unknown class. Workflow diagnostics
+(`pse-runtime/src/workflow/diagnostics.rs`) derive the boundary class and a stable rule
+from the variant:
+
+| Variant | Meaning | Code | Boundary class (rule) |
+|---|---|---|---|
+| `Unavailable` | The explicitly selected backend is not linked; other linked backends are listed; no fallback | `capability.backend` | `unsupported` (`native.unavailable`), backend observed |
+| `Unsupported` | No eligible route, an ineligible explicit selection, or an adapter that cannot represent the request | `capability.backend` | `unsupported` (`native.unsupported`) |
+| `Contract` | The model or request violates a declared contract | `compile.math` | `invalid_model` (`native.contract`) |
+| `Structural` | Structural deficiency with overdetermined rows and underdetermined columns | `compile.math` | `invalid_model` (`native.structural`), rows and columns as sources |
+| `Math` | Mathematical evaluation failure with its domain or provider cause | the cause's code | the cause's class |
+| `Provider` | A registered provider failed outside an attributed expression | the cause's code | the cause's class |
+| `Numerical` | A native method or numerical kernel failed; the native status is kept when one exists | `solve.solver_error` | `numerical` (`native.numerical`), native backend, code and status observed |
+| `Limit` | A declared finite allowance (`Time`, `Work` or `Memory`) was exhausted | `runtime.timeout` for `Time`, otherwise `runtime.resource_limit` | `resource_limit` (`native.limit`), limit kind observed |
+| `Cancelled` | Cooperative cancellation fired | `runtime.cancelled` | `cancelled` (`native.cancelled`) |
+| `Internal` | An adapter postcondition or platform invariant failed | `internal.invariant` | `internal` (`native.internal`) |
+
+A failed native call is classified from its mapped stop category
+(`ProblemError::native`): cancelled → `Cancelled`; time limit → `Limit` (`Time`);
+iteration, solution, objective and general limits → `Limit` (`Work`); resource
+exhaustion → `Limit` (`Memory`); invalid or panic → `Internal`; every other category →
+`Numerical` with the native status. A failed injected inner solve
+(`pse-math::MathError::Native`) carries `solve.solver_error` and keeps its typed native
+cause, which the workflow classifies together with the block identity.
 
 **Native engine errors.** `pse-columnar::engine` classifies `DataFusionError` in one
 place, by the plan's origin (`PlanOrigin`), never per call site:
