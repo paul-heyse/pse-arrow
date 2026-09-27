@@ -7,23 +7,28 @@ use super::*;
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingDynamicEvent {
+    /// Path of the authored scalar member whose zero crossing triggers the event.
     pub guard: String,
     /// Each entry maps a state path to an authored expression with the same quantity type.
     #[serde(default)]
     pub reset: BTreeMap<String, String>,
+    /// Stop the integration at the event instead of resetting.
     pub terminal: bool,
     /// Required for resets; terminal events have no successor.
     pub next_mode: Option<String>,
+    /// Absolute guard tolerance for ambiguity detection, in the guard's canonical unit.
     pub tolerance: f64,
 }
 /// One same-layout specialization. The first mode supplies the initial condition.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingDynamicMode {
+    /// Mode name; the first declared mode starts the integration.
     pub name: String,
     /// Boolean facts read by source `when` variants and named `stage` overrides.
     #[serde(default)]
     pub facts: BTreeMap<String, bool>,
+    /// Events active in this mode.
     #[serde(default)]
     pub events: Vec<ModelingDynamicEvent>,
 }
@@ -48,6 +53,7 @@ impl ModelingDynamicMode {
     }
 }
 impl ModelingPackage {
+    /// Bind an authored case to the integrated route with declared same-layout modes.
     pub async fn declared_simulation_modes(
         &self,
         root: SemanticId,
@@ -70,6 +76,7 @@ impl ModelingPackage {
         )
         .await
     }
+    /// Prepare an integrated simulation of one instance under explicit bindings.
     pub async fn prepare_simulation(
         &self,
         root: SemanticId,
@@ -144,12 +151,49 @@ impl ModelingPackage {
                 .await?;
             identity.hash(&next.key);
             if let Some(result) = &mut prepared {
-                let physical_ports=|model:&ModelingPreparation|model.compiled().admitted.case.variables().iter().map(|v|(v.port.id,(v.port.quantity,v.port.unit))).chain(model.compiled().admitted.case.parameters().iter().map(|p|(p.id,(p.quantity,p.unit)))).collect::<BTreeMap<_,_>>();
+                let physical_ports = |model: &ModelingPreparation| {
+                    model
+                        .compiled()
+                        .admitted
+                        .case
+                        .variables()
+                        .iter()
+                        .map(|v| (v.port.id, (v.port.quantity, v.port.unit)))
+                        .chain(
+                            model
+                                .compiled()
+                                .admitted
+                                .case
+                                .parameters()
+                                .iter()
+                                .map(|p| (p.id, (p.quantity, p.unit))),
+                        )
+                        .collect::<BTreeMap<_, _>>()
+                };
                 if physical_ports(result.model()) != physical_ports(next.model())
                     || result.contract.states != next.contract.states
                     || result.contract.parameters != next.contract.parameters
                     || result.contract.outputs != next.contract.outputs
-                    || result.contract.outputs.iter().any(|id|result.model().compiled().admitted.case.rows().iter().find(|r|r.id==*id).map(|r|r.quantity)!=next.model().compiled().admitted.case.rows().iter().find(|r|r.id==*id).map(|r|r.quantity))
+                    || result.contract.outputs.iter().any(|id| {
+                        result
+                            .model()
+                            .compiled()
+                            .admitted
+                            .case
+                            .rows()
+                            .iter()
+                            .find(|r| r.id == *id)
+                            .map(|r| r.quantity)
+                            != next
+                                .model()
+                                .compiled()
+                                .admitted
+                                .case
+                                .rows()
+                                .iter()
+                                .find(|r| r.id == *id)
+                                .map(|r| r.quantity)
+                    })
                     || result.contract.differential != next.contract.differential
                     || result.contract.quadratures != next.contract.quadratures
                     || result.coordinates != next.coordinates
@@ -251,6 +295,8 @@ pub(super) fn resolve_events(
             terminal: event.terminal,
             next_mode,
             tolerance: event.tolerance,
+            // Authored events are zero crossings in either direction.
+            direction: native::Crossing::Either,
         });
         if !event.terminal {
             let mut rows = states

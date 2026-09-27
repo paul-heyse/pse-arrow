@@ -77,7 +77,8 @@ pub struct Capability {
     pub warm: WarmCapability,
     /// Arbitrary variable bounds are representable.
     pub general_bounds: bool,
-    /// Exact sign bounds are representable when general bounds are not.
+    /// One-sided bounds are representable, as sign constraints on shifted coordinates,
+    /// when general bounds are not.
     pub sign_bounds: bool,
     /// The adapter can consume more than one admitted native thread.
     pub parallel: bool,

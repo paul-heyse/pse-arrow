@@ -4,26 +4,45 @@
     unsafe_code,
     reason = "owned IDAS/SUNContext resources and panic-contained C callbacks"
 )]
-//! IDAS owns residual integration, consistent initialization and trial recovery.
+//! IDAS owns residual integration, consistent initialization, trial recovery, roots,
+//! scheduled reinitialization, sign constraints and forward sensitivities (ADR-0093,
+//! ADR-0110 item 1). Each scheduled change or reset restarts the same native memory with
+//! `IDAReInit`, `IDASensReInit`, `IDAQuadReInit` and `IDACalcIC`; nothing is integrated by
+//! project code.
 use super::*;
 use crate::{
     NativeStatus,
     callback::CallbackState,
-    solve::{Assurance, Backend, Execution, NativeTermination, Progress},
+    solve::{Assurance, Backend, Execution, NativeTermination, Preconditioner, Progress},
 };
-use std::{ffi::c_void, marker::PhantomData, rc::Rc, time::Instant};
+use std::{
+    ffi::{c_long, c_void},
+    marker::PhantomData,
+    rc::Rc,
+    time::Instant,
+};
 use suitesparse_sys as _;
 use sundials_sys as ffi;
+
+type Jacobian = faer::sparse::SparseColMat<usize, f64>;
 
 struct Context<'a> {
     oracle: &'a mut dyn Oracle,
     contract: Contract,
     parameters: Vec<f64>,
+    /// False after a scheduled change replaced the selected parameters: their direct
+    /// partials no longer depend on the original parameters, while carried-state
+    /// sensitivities remain active.
+    parameter_active: bool,
     mode: usize,
     trial_policy: TrialPolicy,
     callback: CallbackState,
+    /// CSC pattern of the Newton matrix: the state columns of every mode's support plus
+    /// the diagonal, sorted by row within each column.
     columns: Vec<ffi::sunindextype>,
     rows: Vec<ffi::sunindextype>,
+    /// Inverse Jacobi diagonal of the current Newton matrix (Krylov preconditioner).
+    inverse_diagonal: Vec<f64>,
 }
 impl Context<'_> {
     fn evaluate(
@@ -81,6 +100,12 @@ impl Context<'_> {
             ));
         }
         value
+    }
+    /// The analytic state-and-parameter partials of the current mode's residual function;
+    /// `evaluate` has checked their presence and extent.
+    fn partials(&mut self, t: f64, x: &[f64]) -> Option<Jacobian> {
+        self.evaluate(Function::Rhs, t, x, true)
+            .and_then(|e| e.jacobian)
     }
     fn failure(&self) -> i32 {
         if self.callback.terminal.is_some() {
@@ -224,6 +249,29 @@ unsafe fn write(v: ffi::N_Vector, values: &[f64]) {
         std::ptr::copy_nonoverlapping(values.as_ptr(), ffi::N_VGetArrayPointer(v), values.len());
     }
 }
+/// `J · [S; I]`: every function row's derivative along each parameter direction, from the
+/// state sensitivities `columns` (one per parameter) and, while the original parameters
+/// are active, the direct parameter partials. One faer sparse × dense product (F12).
+fn chained(j: &Jacobian, columns: &[Vec<f64>], n: usize, active: bool) -> faer::Mat<f64> {
+    let np = columns.len();
+    let chain = faer::Mat::from_fn(n + np, np, |i, k| {
+        if i < n {
+            columns[k][i]
+        } else {
+            f64::from(active && i - n == k)
+        }
+    });
+    let mut result = faer::Mat::zeros(j.nrows(), np);
+    faer::sparse::linalg::matmul::sparse_dense_matmul(
+        result.as_mut(),
+        faer::Accum::Replace,
+        j.as_ref(),
+        chain.as_ref(),
+        1.0,
+        faer::Par::Seq,
+    );
+    result
+}
 fn finish_callback(c: &mut Context<'_>, result: std::thread::Result<i32>) -> i32 {
     match result {
         Ok(flag) => flag,
@@ -271,6 +319,9 @@ unsafe extern "C" fn residual(
     }));
     finish_callback(c, result)
 }
+/// Newton matrix `cj·M − ∂f/∂y` on the admitted pattern, filled by one traversal of the
+/// analytic Jacobian's state columns (F12). A partial outside the declared support is a
+/// contract violation, never silently dropped.
 unsafe extern "C" fn jacobian(
     t: f64,
     cj: f64,
@@ -287,22 +338,34 @@ unsafe extern "C" fn jacobian(
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let n = c.contract.states.len();
         let x = unsafe { read(y, n) };
-        let Some(e) = c.evaluate(Function::Rhs, t, &x, true) else {
+        let Some(j) = c.partials(t, &x) else {
             return c.failure();
         };
-        let Some(j) = e.jacobian else { return -1 };
-        let mut values = Vec::with_capacity(c.rows.len());
+        let mut values = vec![0.0; c.rows.len()];
+        let symbolic = j.symbolic();
         for col in 0..n {
-            for k in c.columns[col] as usize..c.columns[col + 1] as usize {
-                let row = c.rows[k] as usize;
-                values.push(
-                    -j.get(row, col).copied().unwrap_or(0.0)
-                        + if row == col && c.contract.differential[row] {
-                            cj
-                        } else {
-                            0.0
-                        },
-                );
+            let range = c.columns[col] as usize..c.columns[col + 1] as usize;
+            let pattern = &c.rows[range.clone()];
+            let slot = |row: usize| {
+                pattern
+                    .binary_search(&(row as ffi::sunindextype))
+                    .ok()
+                    .map(|k| range.start + k)
+            };
+            if c.contract.differential[col] {
+                if let Some(k) = slot(col) {
+                    values[k] += cj;
+                }
+            }
+            for k in symbolic.col_range(col) {
+                let Some(target) = slot(symbolic.row_idx()[k]) else {
+                    c.callback.terminal = Some((
+                        crate::solve::Termination::Evaluation,
+                        "IDAS residual partial outside its declared support".into(),
+                    ));
+                    return -1;
+                };
+                values[target] -= j.val()[k];
             }
         }
         unsafe {
@@ -326,6 +389,118 @@ unsafe extern "C" fn jacobian(
     }));
     finish_callback(c, result)
 }
+/// Analytic Newton-matrix product `(cj·M − ∂f/∂y)·v` for the matrix-free Krylov routes.
+unsafe extern "C" fn jtimes(
+    t: f64,
+    y: ffi::N_Vector,
+    _dy: ffi::N_Vector,
+    _r: ffi::N_Vector,
+    v: ffi::N_Vector,
+    jv: ffi::N_Vector,
+    cj: f64,
+    data: *mut c_void,
+    _a: ffi::N_Vector,
+    _b: ffi::N_Vector,
+) -> i32 {
+    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let n = c.contract.states.len();
+        let x = unsafe { read(y, n) };
+        let Some(j) = c.partials(t, &x) else {
+            return c.failure();
+        };
+        let direction = unsafe { read(v, n) };
+        let mut extended = vec![0.0; j.ncols()];
+        extended[..n].copy_from_slice(&direction);
+        let mut product = vec![0.0; n];
+        faer::sparse::linalg::matmul::sparse_dense_matmul(
+            faer::MatMut::from_column_major_slice_mut(&mut product, n, 1),
+            faer::Accum::Replace,
+            j.as_ref(),
+            faer::MatRef::from_column_major_slice(&extended, extended.len(), 1),
+            1.0,
+            faer::Par::Seq,
+        );
+        let out: Vec<_> = (0..n)
+            .map(|i| {
+                let mass = if c.contract.differential[i] { cj } else { 0.0 };
+                mass * direction[i] - product[i]
+            })
+            .collect();
+        unsafe {
+            write(jv, &out);
+        }
+        0
+    }));
+    finish_callback(c, result)
+}
+/// Jacobi preconditioner setup from the compiled Newton-matrix diagonal.
+unsafe extern "C" fn precondition_setup(
+    t: f64,
+    y: ffi::N_Vector,
+    _dy: ffi::N_Vector,
+    _r: ffi::N_Vector,
+    cj: f64,
+    data: *mut c_void,
+) -> i32 {
+    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let n = c.contract.states.len();
+        let x = unsafe { read(y, n) };
+        let Some(j) = c.partials(t, &x) else {
+            return c.failure();
+        };
+        let symbolic = j.symbolic();
+        for col in 0..n {
+            let partial = symbolic
+                .col_range(col)
+                .find(|k| symbolic.row_idx()[*k] == col)
+                .map_or(0.0, |k| j.val()[k]);
+            let diagonal = if c.contract.differential[col] {
+                cj
+            } else {
+                0.0
+            } - partial;
+            c.inverse_diagonal[col] = if diagonal.is_finite() && diagonal.abs() > f64::MIN_POSITIVE
+            {
+                diagonal.recip()
+            } else {
+                1.0
+            };
+        }
+        0
+    }));
+    finish_callback(c, result)
+}
+/// Jacobi preconditioner solve `P z = r`.
+unsafe extern "C" fn precondition_solve(
+    _t: f64,
+    _y: ffi::N_Vector,
+    _dy: ffi::N_Vector,
+    _r: ffi::N_Vector,
+    rvec: ffi::N_Vector,
+    zvec: ffi::N_Vector,
+    _cj: f64,
+    _delta: f64,
+    data: *mut c_void,
+) -> i32 {
+    let c = unsafe { &mut *data.cast::<Context<'_>>() };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let r = unsafe { read(rvec, c.inverse_diagonal.len()) };
+        let z: Vec<_> = r
+            .iter()
+            .zip(&c.inverse_diagonal)
+            .map(|(r, d)| r * d)
+            .collect();
+        unsafe {
+            write(zvec, &z);
+        }
+        0
+    }));
+    finish_callback(c, result)
+}
+/// Forward-sensitivity residuals `M·ṡ − ∂f/∂y·s − ∂f/∂p` for every parameter at once: one
+/// faer sparse × dense product replaces the dense (row, column) loops (F12).
 unsafe extern "C" fn sensitivities(
     np: i32,
     t: f64,
@@ -346,26 +521,23 @@ unsafe extern "C" fn sensitivities(
         if np < 0 || np as usize != c.parameters.len() {
             return -1;
         }
+        let np = np as usize;
         let x = unsafe { read(y, n) };
-        let Some(e) = c.evaluate(Function::Rhs, t, &x, true) else {
+        let Some(j) = c.partials(t, &x) else {
             return c.failure();
         };
-        let Some(j) = e.jacobian else { return -1 };
-        for p in 0..np as usize {
-            let s = unsafe { read(*ys.add(p), n) };
+        let columns: Vec<_> = (0..np).map(|p| unsafe { read(*ys.add(p), n) }).collect();
+        let product = chained(&j, &columns, n, c.parameter_active);
+        for p in 0..np {
             let ds = unsafe { read(*yps.add(p), n) };
             let residual: Vec<_> = (0..n)
                 .map(|row| {
-                    let mut value = if c.contract.differential[row] {
+                    let rate = if c.contract.differential[row] {
                         ds[row]
                     } else {
                         0.0
                     };
-                    value -= j.get(row, n + p).copied().unwrap_or(0.0);
-                    for (col, s) in s.iter().enumerate() {
-                        value -= j.get(row, col).copied().unwrap_or(0.0) * s;
-                    }
-                    value
+                    rate - product[(row, p)]
                 })
                 .collect();
             unsafe {
@@ -427,6 +599,9 @@ struct Session<'a> {
     quad: ffi::N_Vector,
     sens: Vec<ffi::N_Vector>,
     dsens: Vec<ffi::N_Vector>,
+    /// Output quadratures of finished segments; IDAS restarts its quadrature at each
+    /// reinitialization.
+    totals: Vec<f64>,
     callback: Box<Context<'a>>,
     _local: PhantomData<Rc<()>>,
 }
@@ -451,6 +626,13 @@ impl Drop for Session<'_> {
         }
     }
 }
+/// Consistent-initialization option of `IDACalcIC`.
+fn initialization_option(start: IdasInitialization) -> i32 {
+    match start {
+        IdasInitialization::AlgebraicAndRates => ffi::IDA_YA_YDP_INIT,
+        IdasInitialization::SteadyStates => ffi::IDA_Y_INIT,
+    }
+}
 impl<'a> Session<'a> {
     fn vector(&mut self, values: &[f64]) -> Result<ffi::N_Vector, ProblemError> {
         let v = unsafe { ffi::N_VNew_Serial(index(values.len())?, self.ctx) };
@@ -471,21 +653,24 @@ impl<'a> Session<'a> {
     ) -> Result<Self, ProblemError> {
         let c = oracle.contract().clone();
         let n = c.states.len();
-        let mut support = BTreeSet::new();
+        let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
         for mode in 0..c.events.len() {
-            support.extend(
+            pattern.extend(
                 oracle
                     .support(mode, Function::Rhs)
                     .into_iter()
-                    .filter(|(_, col)| *col < n),
+                    .filter(|&(row, col)| col < n && row < n)
+                    .map(|(row, col)| (col, row)),
             );
         }
-        support.extend((0..n).map(|i| (i, i)));
+        pattern.sort_unstable();
+        pattern.dedup();
         let mut columns = vec![0];
-        let mut rows = Vec::new();
+        let mut rows = Vec::with_capacity(pattern.len());
+        let mut next = pattern.iter().peekable();
         for col in 0..n {
-            for &(r, _) in support.iter().filter(|(_, c)| *c == col) {
-                rows.push(index(r)?);
+            while let Some(&(_, row)) = next.next_if(|(c, _)| *c == col) {
+                rows.push(index(row)?);
             }
             columns.push(index(rows.len())?);
         }
@@ -500,15 +685,18 @@ impl<'a> Session<'a> {
             vectors: vec![],
             sens: vec![],
             dsens: vec![],
+            totals: vec![0.0; c.quadratures.len()],
             callback: Box::new(Context {
                 oracle,
                 contract: c,
                 parameters: parameters.to_vec(),
+                parameter_active: true,
                 mode: 0,
                 trial_policy: p.trial_failures,
                 callback: CallbackState::new(execution),
                 columns,
                 rows,
+                inverse_diagonal: vec![1.0; n],
             }),
             _local: PhantomData,
         };
@@ -551,31 +739,28 @@ impl<'a> Session<'a> {
                 "state tolerances",
             )?;
             check(ffi::IDASetInitStep(s.mem, p.initial_step), "initial step")?;
-            s.matrix = ffi::SUNSparseMatrix(
-                index(n)?,
-                index(n)?,
-                index(s.callback.rows.len())?,
-                0,
-                s.ctx,
-            );
-            if s.matrix.is_null() {
-                return Err(ProblemError::memory("IDAS matrix allocation"));
+        }
+        s.linear_solver(p.idas.linear)?;
+        if p.idas.constraints.iter().any(|v| *v != StateSign::Free) {
+            let codes: Vec<_> = p.idas.constraints.iter().map(|v| v.code()).collect();
+            let constraints = s.vector(&codes)?;
+            unsafe {
+                check(
+                    ffi::IDASetConstraints(s.mem, constraints),
+                    "sign constraints",
+                )?;
             }
-            s.linear = ffi::SUNLinSol_KLU(s.y, s.matrix, s.ctx);
-            if s.linear.is_null() {
-                return Err(ProblemError::memory("IDAS KLU allocation"));
-            }
-            check(ffi::IDASetLinearSolver(s.mem, s.linear, s.matrix), "KLU")?;
-            check(ffi::IDASetJacFn(s.mem, Some(jacobian)), "analytic Jacobian")?;
         }
         if p.sensitivities {
             let j = initial
                 .jacobian
                 .ok_or_else(|| ProblemError::internal("IDAS initial sensitivity missing"))?;
+            let symbolic = j.symbolic();
             for k in 0..parameters.len() {
-                let values: Vec<_> = (0..n)
-                    .map(|r| j.get(r, n + k).copied().unwrap_or(0.0))
-                    .collect();
+                let mut values = vec![0.0; n];
+                for e in symbolic.col_range(n + k) {
+                    values[symbolic.row_idx()[e]] = j.val()[e];
+                }
                 let v = s.vector(&values)?;
                 s.sens.push(v);
                 let v = s.vector(&vec![0.0; n])?;
@@ -589,7 +774,7 @@ impl<'a> Session<'a> {
                             .len()
                             .try_into()
                             .map_err(|_| ProblemError::unsupported("IDAS parameter extent"))?,
-                        ffi::IDA_SIMULTANEOUS,
+                        corrector(p.idas.sensitivity),
                         Some(sensitivities),
                         s.sens.as_mut_ptr(),
                         s.dsens.as_mut_ptr(),
@@ -629,31 +814,117 @@ impl<'a> Session<'a> {
             }
         }
         s.initialize_roots()?;
-        s.consistent(p.start, p)?;
+        s.consistent(p.start, p, initialization_option(p.idas.initialization))?;
         Ok(s)
     }
+    /// Direct KLU over the compiled Jacobian, or matrix-free SPGMR/SPFGMR over analytic
+    /// products with an optional Jacobi left preconditioner (IDAS supports left only).
+    fn linear_solver(&mut self, linear: IdasLinear) -> Result<(), ProblemError> {
+        let n = self.callback.contract.states.len();
+        unsafe {
+            match linear {
+                IdasLinear::Klu => {
+                    self.matrix = ffi::SUNSparseMatrix(
+                        index(n)?,
+                        index(n)?,
+                        index(self.callback.rows.len())?,
+                        0,
+                        self.ctx,
+                    );
+                    if self.matrix.is_null() {
+                        return Err(ProblemError::memory("IDAS matrix allocation"));
+                    }
+                    self.linear = ffi::SUNLinSol_KLU(self.y, self.matrix, self.ctx);
+                    if self.linear.is_null() {
+                        return Err(ProblemError::memory("IDAS KLU allocation"));
+                    }
+                    check(
+                        ffi::IDASetLinearSolver(self.mem, self.linear, self.matrix),
+                        "KLU",
+                    )?;
+                    check(
+                        ffi::IDASetJacFn(self.mem, Some(jacobian)),
+                        "analytic Jacobian",
+                    )?;
+                }
+                IdasLinear::Spgmr {
+                    dimension,
+                    preconditioner,
+                }
+                | IdasLinear::Spfgmr {
+                    dimension,
+                    preconditioner,
+                } => {
+                    let dimension =
+                        i32::try_from(dimension).map_err(|_| contract("IDAS Krylov dimension"))?;
+                    let side = match preconditioner {
+                        Preconditioner::None => ffi::SUN_PREC_NONE,
+                        Preconditioner::Jacobi => ffi::SUN_PREC_LEFT,
+                    } as i32;
+                    self.linear = if matches!(linear, IdasLinear::Spgmr { .. }) {
+                        ffi::SUNLinSol_SPGMR(self.y, side, dimension, self.ctx)
+                    } else {
+                        ffi::SUNLinSol_SPFGMR(self.y, side, dimension, self.ctx)
+                    };
+                    if self.linear.is_null() {
+                        return Err(ProblemError::memory("IDAS Krylov allocation"));
+                    }
+                    check(
+                        ffi::IDASetLinearSolver(self.mem, self.linear, std::ptr::null_mut()),
+                        "Krylov linear solver",
+                    )?;
+                    check(
+                        ffi::IDASetJacTimes(self.mem, None, Some(jtimes)),
+                        "analytic Jacobian products",
+                    )?;
+                    if preconditioner == Preconditioner::Jacobi {
+                        check(
+                            ffi::IDASetPreconditioner(
+                                self.mem,
+                                Some(precondition_setup),
+                                Some(precondition_solve),
+                            ),
+                            "Jacobi preconditioner",
+                        )?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    /// Root functions of the active mode, with their declared crossing directions.
     fn initialize_roots(&mut self) -> Result<(), ProblemError> {
-        let n = self.callback.contract.events[self.callback.mode].len();
+        let events = &self.callback.contract.events[self.callback.mode];
+        let mut directions: Vec<i32> = events.iter().map(|e| e.direction.code()).collect();
+        let count = events.len();
         unsafe {
             check(
                 ffi::IDARootInit(
                     self.mem,
-                    n.try_into()
+                    count
+                        .try_into()
                         .map_err(|_| ProblemError::unsupported("IDAS root extent"))?,
-                    if n == 0 { None } else { Some(roots) },
+                    if count == 0 { None } else { Some(roots) },
                 ),
                 "roots",
-            )
+            )?;
+            if directions.iter().any(|d| *d != 0) {
+                check(
+                    ffi::IDASetRootDirection(self.mem, directions.as_mut_ptr()),
+                    "root directions",
+                )?;
+            }
         }
+        Ok(())
     }
-    fn consistent(&mut self, t: f64, p: &Profile) -> Result<(), ProblemError> {
-        let flag = unsafe {
-            ffi::IDACalcIC(
-                self.mem,
-                ffi::IDA_YA_YDP_INIT,
-                t + (p.end - t).min(p.initial_step),
-            )
+    fn consistent(&mut self, t: f64, p: &Profile, option: i32) -> Result<(), ProblemError> {
+        // `tout1` only orients and scales the initialization step; nothing is integrated.
+        let toward = if p.end > t {
+            t + (p.end - t).min(p.initial_step)
+        } else {
+            t + p.initial_step
         };
+        let flag = unsafe { ffi::IDACalcIC(self.mem, option, toward) };
         if flag < 0 {
             return Err(self
                 .callback
@@ -677,9 +948,72 @@ impl<'a> Session<'a> {
         }
         Ok(())
     }
+    /// Restart the same native memory at a scheduled change or an event reset: the
+    /// differential states (and their sensitivities) carry over, `IDACalcIC` recomputes
+    /// the algebraic states and every rate under the new parameters or mode.
+    fn restart(
+        &mut self,
+        t: f64,
+        state: &[f64],
+        p: &Profile,
+        mode_changed: bool,
+    ) -> Result<(), ProblemError> {
+        unsafe {
+            if p.sensitivities {
+                // The carried sensitivities and their rates (the rates are only guesses
+                // for `IDACalcIC`).
+                let mut time = t;
+                check(
+                    ffi::IDAGetSens(self.mem, &raw mut time, self.sens.as_mut_ptr()),
+                    "segment sensitivities",
+                )?;
+                check(
+                    ffi::IDAGetSensDky(self.mem, t, 1, self.dsens.as_mut_ptr()),
+                    "segment sensitivity rates",
+                )?;
+            }
+            if !self.quad.is_null() {
+                let mut time = t;
+                check(
+                    ffi::IDAGetQuad(self.mem, &raw mut time, self.quad),
+                    "segment quadrature",
+                )?;
+                let finished = read(self.quad, self.totals.len());
+                for (total, value) in self.totals.iter_mut().zip(finished) {
+                    *total += value;
+                }
+            }
+            write(self.y, state);
+            check(
+                ffi::IDAReInit(self.mem, t, self.y, self.dy),
+                "reinitialization",
+            )?;
+            if p.sensitivities {
+                check(
+                    ffi::IDASensReInit(
+                        self.mem,
+                        corrector(p.idas.sensitivity),
+                        self.sens.as_mut_ptr(),
+                        self.dsens.as_mut_ptr(),
+                    ),
+                    "sensitivity reinitialization",
+                )?;
+            }
+            if !self.quad.is_null() {
+                write(self.quad, &vec![0.0; self.totals.len()]);
+                check(
+                    ffi::IDAQuadReInit(self.mem, self.quad),
+                    "quadrature reinitialization",
+                )?;
+            }
+        }
+        if mode_changed {
+            self.initialize_roots()?;
+        }
+        self.consistent(t, p, ffi::IDA_YA_YDP_INIT)
+    }
     fn sample(&mut self, t: f64, p: &Profile, stepped: bool) -> Result<Sample, ProblemError> {
         let n = self.callback.contract.states.len();
-        let np = self.callback.parameters.len();
         let x = unsafe { read(self.y, n) };
         let Some(e) = self
             .callback
@@ -705,17 +1039,13 @@ impl<'a> Session<'a> {
                 .collect();
             let j = e
                 .jacobian
+                .as_ref()
                 .ok_or_else(|| ProblemError::internal("IDAS output derivative missing"))?;
-            for row in 0..e.values.len() {
-                for (k, column) in columns.iter().enumerate().take(np) {
-                    output_sensitivities.push(
-                        j.get(row, n + k).copied().unwrap_or(0.0)
-                            + (0..n)
-                                .map(|i| j.get(row, i).copied().unwrap_or(0.0) * column[i])
-                                .sum::<f64>(),
-                    );
-                }
-            }
+            let product = chained(j, &columns, n, self.callback.parameter_active);
+            output_sensitivities = (0..e.values.len())
+                .flat_map(|row| (0..columns.len()).map(move |k| (row, k)))
+                .map(|(row, k)| product[(row, k)])
+                .collect();
         }
         let integrals = if self.quad.is_null() {
             vec![]
@@ -728,11 +1058,15 @@ impl<'a> Session<'a> {
                         "quadrature output",
                     )?;
                 }
-                read(self.quad, self.callback.contract.quadratures.len())
+                read(self.quad, self.totals.len())
+                    .iter()
+                    .zip(&self.totals)
+                    .map(|(v, total)| v + total)
+                    .collect()
             }
         };
         Ok(Sample {
-            mode: 0,
+            mode: self.callback.mode,
             time: t,
             state: x,
             outputs: e.values,
@@ -741,9 +1075,248 @@ impl<'a> Session<'a> {
             integrals,
         })
     }
+    /// Native counters of the current segment; IDAS resets them at each reinitialization.
+    fn statistics(&self, flag: i32, p: &Profile) -> serde_json::Value {
+        let mut value = serde_json::json!({
+            "backend": "idas",
+            "native_version": crate::sundials_version(),
+            "native_flag": flag,
+            "derivatives": "analytic state and parameter partials",
+            "idas": serde_json::to_value(&p.idas).unwrap_or(serde_json::Value::Null),
+        });
+        macro_rules! count {
+            ($($get:ident => $name:literal),* $(,)?) => {$(
+                let mut v: c_long = 0;
+                if unsafe { ffi::$get(self.mem, &raw mut v) } == 0 {
+                    value[$name] = serde_json::json!(long_counter(v));
+                }
+            )*};
+        }
+        count!(
+            IDAGetNumSteps => "steps",
+            IDAGetNumResEvals => "residual_evaluations",
+            IDAGetNumNonlinSolvIters => "nonlinear_iterations",
+            IDAGetNumNonlinSolvConvFails => "nonlinear_convergence_failures",
+            IDAGetNumErrTestFails => "error_test_failures",
+            IDAGetNumBacktrackOps => "initialization_backtracks",
+            IDAGetNumGEvals => "root_evaluations",
+            IDAGetNumLinIters => "linear_iterations",
+            IDAGetNumPrecEvals => "preconditioner_evaluations",
+            IDAGetNumJtimesEvals => "jacobian_products",
+        );
+        value
+    }
+    /// Integrate one segment toward `stop`, sampling every requested time before it.
+    /// Returns the found root index, or `None` at `stop`; step and native limits end the
+    /// report without an error.
+    fn segment(
+        &mut self,
+        p: &Profile,
+        r: &mut Report,
+        stop: f64,
+        changing: bool,
+        budget: c_long,
+    ) -> Result<(Option<usize>, c_long), ProblemError> {
+        let mut steps: c_long = 0;
+        r.statistics.push(self.statistics(0, p));
+        loop {
+            let target = p
+                .samples
+                .get(r.samples.len())
+                .copied()
+                .filter(|t| *t < stop)
+                .unwrap_or(stop);
+            if steps >= budget {
+                r.termination = Termination::StepLimit;
+                return Ok((None, steps));
+            }
+            let mut time = r.completed_time;
+            unsafe {
+                check(ffi::IDASetStopTime(self.mem, target), "stop time")?;
+                check(
+                    ffi::IDASetMaxNumSteps(self.mem, budget - steps),
+                    "remaining steps",
+                )?;
+            }
+            let flag = unsafe {
+                ffi::IDASolve(
+                    self.mem,
+                    target,
+                    &raw mut time,
+                    self.y,
+                    self.dy,
+                    ffi::IDA_NORMAL,
+                )
+            };
+            unsafe {
+                check(ffi::IDAGetNumSteps(self.mem, &raw mut steps), "step count")?;
+            }
+            if let Some(last) = r.statistics.last_mut() {
+                *last = self.statistics(flag, p);
+            }
+            if flag == ffi::IDA_TOO_MUCH_WORK {
+                r.termination = Termination::StepLimit;
+                return Ok((None, steps));
+            }
+            if flag < 0 {
+                return Err(self.callback.native_failure(flag, "integration step"));
+            }
+            r.completed_time = time;
+            let execution = &self.callback.callback.execution;
+            execution.progress.push(crate::solve::Event {
+                phase: "idas.output".into(),
+                elapsed: execution.started.elapsed(),
+                values: std::collections::BTreeMap::from([
+                    ("time".into(), crate::solve::Metric::Real(time)),
+                    (
+                        "steps".into(),
+                        crate::solve::Metric::Integer(long_counter(steps)),
+                    ),
+                ]),
+            });
+            if flag == ffi::IDA_ROOT_RETURN {
+                let events = self.callback.contract.events[self.callback.mode].len();
+                let mut found = vec![0; events];
+                unsafe {
+                    check(
+                        ffi::IDAGetRootInfo(self.mem, found.as_mut_ptr()),
+                        "root information",
+                    )?;
+                }
+                let index = found
+                    .iter()
+                    .position(|v| *v != 0)
+                    .ok_or_else(|| ProblemError::internal("IDAS root without a root index"))?;
+                return Ok((Some(index), steps));
+            }
+            // A sample at a scheduled change observes the post-change state.
+            let deferred = target >= stop && changing;
+            if !deferred && p.samples.get(r.samples.len()) == Some(&time) {
+                r.samples.push(self.sample(time, p, true)?);
+            }
+            if target >= stop {
+                return Ok((None, steps));
+            }
+        }
+    }
+    /// The segment loop: roots, resets and scheduled changes restart the same native
+    /// memory; every transition is recorded with its settled post-transition state.
+    fn run(&mut self, p: &Profile, r: &mut Report) -> Result<(), ProblemError> {
+        let n = self.callback.contract.states.len();
+        let max_steps: c_long = p
+            .max_steps
+            .try_into()
+            .map_err(|_| ProblemError::unsupported("IDAS step allowance extent"))?;
+        let mut used: c_long = 0;
+        let mut time = p.start;
+        let mut change = 0;
+        loop {
+            let state = unsafe { read(self.y, n) };
+            settle_transitions(&self.callback.contract, &mut r.events, time, &state)?;
+            if !self.callback.contract.events[self.callback.mode].is_empty() {
+                let Some(guards) = self.callback.evaluate(Function::Roots, time, &state, false)
+                else {
+                    return Err(self.callback.failed("root function"));
+                };
+                if guards_at_zero(
+                    &guards.values,
+                    &self.callback.contract.events[self.callback.mode],
+                ) > 0
+                {
+                    return Err(contract("initial or post-reset root is ambiguous"));
+                }
+            }
+            // A sample at a transition time observes the restarted state.
+            if p.samples.get(r.samples.len()) == Some(&time) {
+                r.samples.push(self.sample(time, p, false)?);
+            }
+            r.completed_time = time;
+            if time >= p.end {
+                r.termination = Termination::Completed;
+                return Ok(());
+            }
+            let stop = p.changes.get(change).map_or(p.end, |c| c.time);
+            let changing = change < p.changes.len();
+            let (root, steps) = self.segment(p, r, stop, changing, max_steps - used)?;
+            used += steps;
+            if r.termination == Termination::StepLimit {
+                return Ok(());
+            }
+            time = r.completed_time;
+            let state = unsafe { read(self.y, n) };
+            let mut seed = state.clone();
+            if let Some(index) = root {
+                let mode = self.callback.mode;
+                let Some(guards) = self.callback.evaluate(Function::Roots, time, &state, false)
+                else {
+                    return Err(self.callback.failed("root function"));
+                };
+                if guards_at_zero(&guards.values, &self.callback.contract.events[mode]) > 1 {
+                    return Err(contract("ambiguous simultaneous dynamic events"));
+                }
+                let event = self.callback.contract.events[mode][index].clone();
+                if r.events.len() >= p.max_events {
+                    r.termination = Termination::EventLimit;
+                    return Ok(());
+                }
+                r.events.push(EventRecord {
+                    event: Some(event.id),
+                    time,
+                    before: state.clone(),
+                    after: None,
+                });
+                if event.terminal {
+                    if p.samples.get(r.samples.len()) == Some(&time) {
+                        r.samples.push(self.sample(time, p, true)?);
+                    }
+                    r.termination = Termination::Event;
+                    return Ok(());
+                }
+                let Some(reset) =
+                    self.callback
+                        .evaluate(Function::Reset(index), time, &state, false)
+                else {
+                    return Err(self.callback.failed("event reset"));
+                };
+                seed = reset.values;
+                self.callback.mode = event.next_mode;
+            }
+            // Roots precede a scheduled change at the same native stop time.
+            let changed = p.changes.get(change).is_some_and(|c| c.time == time);
+            if changed {
+                if r.events.len() >= p.max_events {
+                    r.termination = Termination::EventLimit;
+                    return Ok(());
+                }
+                r.events.push(EventRecord {
+                    event: None,
+                    time,
+                    before: seed.clone(),
+                    after: None,
+                });
+                self.callback
+                    .parameters
+                    .clone_from(&p.changes[change].parameters);
+                self.callback.parameter_active = false;
+                change += 1;
+            }
+            if time >= p.end && root.is_none() && !changed {
+                r.termination = Termination::Completed;
+                return Ok(());
+            }
+            self.restart(time, &seed, p, root.is_some())?;
+        }
+    }
+}
+/// The native sensitivity corrector.
+fn corrector(method: SensitivityCorrector) -> i32 {
+    match method {
+        SensitivityCorrector::Simultaneous => ffi::IDA_SIMULTANEOUS,
+        SensitivityCorrector::Staggered => ffi::IDA_STAGGERED,
+    }
 }
 
-/// Execute the smooth IDAS profile on its owning worker.
+/// Execute the IDAS profile on its owning worker. The caller validated the profile.
 pub(super) fn integrate_with_progress(
     oracle: &mut dyn Oracle,
     p: &Profile,
@@ -751,12 +1324,6 @@ pub(super) fn integrate_with_progress(
     cancel: Cancellation,
     progress: Arc<Progress>,
 ) -> Result<Report, ProblemError> {
-    p.validate(oracle.contract(), parameters)?;
-    if !p.changes.is_empty() || oracle.contract().events.iter().any(|e| !e.is_empty()) {
-        return Err(ProblemError::unsupported(
-            "IDAS currently admits smooth fixed-mass systems; use Diffsol for hybrid resets",
-        ));
-    }
     let execution = Execution {
         cancel,
         started: Instant::now(),
@@ -792,67 +1359,7 @@ pub(super) fn integrate_with_progress(
         Err(error) => return Ok(failure(r, error)),
     };
     r.consistent_initial = unsafe { read(s.y, n) };
-    let mut steps = 0;
-    let mut time = p.start;
-    let max_steps: std::ffi::c_long = p
-        .max_steps
-        .try_into()
-        .map_err(|_| ProblemError::unsupported("IDAS step allowance extent"))?;
-    let result = (|| -> Result<(), ProblemError> {
-        for target in p.samples.iter().copied().chain(std::iter::once(p.end)) {
-            if target > time {
-                if steps >= max_steps {
-                    r.termination = Termination::StepLimit;
-                    return Ok(());
-                }
-                unsafe {
-                    check(ffi::IDASetStopTime(s.mem, target), "stop time")?;
-                    check(
-                        ffi::IDASetMaxNumSteps(s.mem, max_steps - steps),
-                        "remaining steps",
-                    )?;
-                }
-                let flag = unsafe {
-                    ffi::IDASolve(s.mem, target, &raw mut time, s.y, s.dy, ffi::IDA_NORMAL)
-                };
-                unsafe {
-                    check(ffi::IDAGetNumSteps(s.mem, &raw mut steps), "step count")?;
-                }
-                r.statistics = vec![
-                    serde_json::json!({"backend":"idas", "native_version":crate::sundials_version(), "native_flag":flag,"steps":steps,"derivatives":"analytic state and parameter partials"}),
-                ];
-                if flag == ffi::IDA_TOO_MUCH_WORK {
-                    r.termination = Termination::StepLimit;
-                    return Ok(());
-                }
-                if flag < 0 {
-                    return Err(s.callback.native_failure(flag, "integration step"));
-                }
-                r.completed_time = time;
-                s.callback
-                    .callback
-                    .execution
-                    .progress
-                    .push(crate::solve::Event {
-                        phase: "idas.output".into(),
-                        elapsed: s.callback.callback.execution.started.elapsed(),
-                        values: std::collections::BTreeMap::from([
-                            ("time".into(), crate::solve::Metric::Real(time)),
-                            (
-                                "steps".into(),
-                                crate::solve::Metric::Integer(long_counter(steps)),
-                            ),
-                        ]),
-                    });
-            }
-            if r.samples.len() < p.samples.len() && p.samples[r.samples.len()] == time {
-                r.samples.push(s.sample(time, p, steps > 0)?);
-            }
-        }
-        r.termination = Termination::Completed;
-        Ok(())
-    })();
-    if let Err(e) = result {
+    if let Err(e) = s.run(p, &mut r) {
         r.termination = stopped(&e, &s.callback.callback.execution);
         r.error = Some(e);
     }
@@ -876,6 +1383,6 @@ pub(super) fn integrate_with_progress(
     clippy::useless_conversion,
     reason = "C long width differs between native ABIs"
 )]
-fn long_counter(value: std::ffi::c_long) -> i64 {
+fn long_counter(value: c_long) -> i64 {
     i64::from(value)
 }

@@ -23,9 +23,9 @@ static DIFFSOL_CAPABILITY: Capability = Capability {
     parallel: false,
     certifies: false,
     native_forms: &[],
-    reuse: "worker-local BDF state",
+    reuse: "worker-local BDF, SDIRK or explicit Runge-Kutta state with faer LU or KLU factors",
     cancellation: "cooperative callbacks and step boundaries",
-    diagnostics: "native statistics, consistent starts, partial samples and root transitions",
+    diagnostics: "native statistics per segment and scheme, consistent starts, partial samples, root transitions and reset sensitivities",
 };
 static IDAS_CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
@@ -36,9 +36,9 @@ static IDAS_CAPABILITY: Capability = Capability {
     parallel: false,
     certifies: false,
     native_forms: &[],
-    reuse: "worker-local IDAS residual state",
+    reuse: "worker-local IDAS memory, restarted in place at scheduled changes and resets",
     cancellation: "residual callbacks and native step boundaries",
-    diagnostics: "native statuses, consistent starts, recoverable residual trials and sensitivities",
+    diagnostics: "native statuses and per-segment counters, consistent and steady starts, recoverable residual trials, roots, sign constraints, Krylov iterations and forward sensitivities",
 };
 fn trajectory(backend: Backend) -> ProblemError {
     ProblemError::Unsupported(format!(

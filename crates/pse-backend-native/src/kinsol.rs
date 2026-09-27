@@ -5,6 +5,9 @@
     reason = "checked SUNDIALS context/vector/matrix/solver RAII and panic-contained callbacks"
 )]
 //! SUNDIALS KINSOL owns nonlinear iteration, globalization and Anderson acceleration.
+//! Krylov variants, forcing terms, preconditioning, Newton-step limits and Anderson
+//! settings are typed [`Method`] fields (Plan 22 Y6); one-sided bounds are shifted to
+//! native sign constraints.
 use crate::{
     NleOracle, OracleContract, ProblemError,
     callback::CallbackState,
@@ -72,7 +75,8 @@ pub enum Strategy {
     /// Declared fixed-point map with native Anderson acceleration.
     FixedPoint,
 }
-/// Selected native linear algebra. Dense allocation has an explicit dimension ceiling.
+/// Selected native linear algebra. Dense allocation has an explicit dimension ceiling;
+/// the matrix-free Krylov routes use the analytic Jacobian-vector product.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum Linear {
     /// Vendored SuiteSparse KLU with analytic CSC Jacobian.
@@ -82,29 +86,87 @@ pub enum Linear {
         /// Maximum admitted dimension.
         limit: usize,
     },
-    /// Matrix-free native GMRES with analytic JVP.
+    /// Matrix-free native GMRES.
     Spgmr {
         /// Maximum Krylov subspace dimension.
         dimension: usize,
     },
+    /// Matrix-free native flexible GMRES.
+    Spfgmr {
+        /// Maximum Krylov subspace dimension.
+        dimension: usize,
+    },
+    /// Matrix-free native BiCGStab.
+    Spbcgs {
+        /// Maximum Krylov subspace dimension.
+        dimension: usize,
+    },
+    /// Matrix-free native transpose-free QMR.
+    Sptfqmr {
+        /// Maximum Krylov subspace dimension.
+        dimension: usize,
+    },
+}
+impl Linear {
+    /// Krylov subspace dimension of a matrix-free route.
+    pub const fn krylov(self) -> Option<usize> {
+        match self {
+            Self::Spgmr { dimension }
+            | Self::Spfgmr { dimension }
+            | Self::Spbcgs { dimension }
+            | Self::Sptfqmr { dimension } => Some(dimension),
+            Self::Klu | Self::Dense { .. } => None,
+        }
+    }
+}
+/// Inexact-Newton forcing term of the Krylov routes (`KINSetEtaForm`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
+pub enum Eta {
+    /// Eisenstat-Walker choice 1, KINSOL's default.
+    #[default]
+    Choice1,
+    /// Eisenstat-Walker choice 2 (`KINSetEtaParams`).
+    Choice2 {
+        /// Safeguard factor in (0, 1].
+        gamma: f64,
+        /// Power in (1, 2].
+        alpha: f64,
+    },
+    /// A constant forcing term in (0, 1] (`KINSetEtaConstValue`).
+    Constant(f64),
+}
+/// Anderson-acceleration QR orthogonalization (`KINSetOrthAA`), fixed at allocation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub enum Orthogonalization {
+    /// Modified Gram-Schmidt, KINSOL's default.
+    #[default]
+    ModifiedGramSchmidt,
+    /// Inverse compact WY modified Gram-Schmidt.
+    InverseCompactWy,
+    /// Classical Gram-Schmidt with reorthogonalization.
+    ClassicalGramSchmidt2,
+    /// Classical Gram-Schmidt with delayed reorthogonalization.
+    DelayedClassicalGramSchmidt2,
+}
+impl Orthogonalization {
+    const fn code(self) -> i32 {
+        match self {
+            Self::ModifiedGramSchmidt => ffi::KIN_ORTH_MGS,
+            Self::InverseCompactWy => ffi::KIN_ORTH_ICWY,
+            Self::ClassicalGramSchmidt2 => ffi::KIN_ORTH_CGS2,
+            Self::DelayedClassicalGramSchmidt2 => ffi::KIN_ORTH_DCGS2,
+        }
+    }
 }
 /// Typed SUNDIALS-specific controls in addition to common finite limits.
 #[derive(Clone, Debug)]
 pub struct Settings {
-    /// Nonlinear strategy.
-    pub strategy: Strategy,
-    /// Native linear solver for equation profiles.
-    pub linear: Linear,
+    /// Caller-selected method controls.
+    pub method: Method,
     /// Positive inverse characteristic variable scales.
     pub variable_scales: Vec<f64>,
     /// Positive inverse characteristic residual scales.
     pub residual_scales: Vec<f64>,
-    /// Native Anderson history; zero disables acceleration.
-    pub anderson: usize,
-    /// Damping in (0,1].
-    pub damping: f64,
-    /// Maximum nonlinear iterations between linear setups.
-    pub setup_interval: u32,
     /// Positive scaled-step stopping tolerance.
     pub step_tolerance: f64,
 }
@@ -123,6 +185,19 @@ pub struct Method {
     pub damping: f64,
     /// Maximum nonlinear iterations between linear setups.
     pub setup_interval: u32,
+    /// Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit
+    /// because KINSOL raises a smaller cap to one; `None` keeps KINSOL's
+    /// `1000 * ||D_u u_0||`.
+    pub max_newton_step: Option<f64>,
+    /// Inexact-Newton forcing term; Krylov routes only.
+    pub eta: Eta,
+    /// Krylov preconditioner from the analytic Jacobian (`KINSetPreconditioner`);
+    /// KINSOL preconditions on the right.
+    pub preconditioner: Preconditioner,
+    /// Anderson QR orthogonalization; Anderson acceleration only.
+    pub orthogonalization: Orthogonalization,
+    /// Iterations before Anderson acceleration starts (`KINSetDelayAA`); Anderson only.
+    pub anderson_delay: usize,
 }
 impl Default for Method {
     fn default() -> Self {
@@ -132,8 +207,32 @@ impl Default for Method {
             anderson: 0,
             damping: 1.0,
             setup_interval: 10,
+            max_newton_step: None,
+            eta: Eta::default(),
+            preconditioner: Preconditioner::None,
+            orthogonalization: Orthogonalization::default(),
+            anderson_delay: 0,
         }
     }
+}
+/// Native sign constraints and the coordinate shift that makes each one-sided bound a
+/// sign bound: KINSOL iterates `u = x - offset`, so `x >= l` becomes `u >= 0` and
+/// `x <= h` becomes `u <= 0`. Jacobians and step tests are unchanged by the shift.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Constraints {
+    /// Native codes 0, +-1, +-2 on the shifted coordinates.
+    pub signs: Vec<f64>,
+    /// Original-coordinate shifts; zero unless a nonzero one-sided bound is shifted.
+    pub offsets: Vec<f64>,
+}
+impl Constraints {
+    /// Whether any coordinate is constrained.
+    pub fn any(&self) -> bool {
+        self.signs.iter().any(|v| *v != 0.0)
+    }
+}
+fn shifted(u: &[f64], offsets: &[f64], sign: f64) -> Vec<f64> {
+    u.iter().zip(offsets).map(|(u, o)| u + sign * o).collect()
 }
 impl Settings {
     /// The one policy-derived KINSOL configuration (F22). `tolerances` are the original
@@ -158,29 +257,19 @@ impl Settings {
                 .collect()
         };
         Self {
-            strategy: method.strategy,
-            linear: method.linear,
+            method,
             variable_scales: scales(&tolerances.variables, &normalization.variables),
             residual_scales: scales(&tolerances.rows, &normalization.rows),
-            anderson: method.anderson,
-            damping: method.damping,
-            setup_interval: method.setup_interval,
             step_tolerance: feasibility,
         }
     }
     /// Caller-selected method controls of these settings.
     #[must_use]
     pub fn method(&self) -> Method {
-        Method {
-            strategy: self.strategy,
-            linear: self.linear,
-            anderson: self.anderson,
-            damping: self.damping,
-            setup_interval: self.setup_interval,
-        }
+        self.method
     }
-    /// Admit exact dimensions, sign-only bound semantics and strategy representation.
-    pub fn validate(&self, function: &Function) -> Result<Vec<f64>, ProblemError> {
+    /// Admit exact dimensions, one-sided bound semantics and strategy representation.
+    pub fn validate(&self, function: &Function) -> Result<Constraints, ProblemError> {
         let c = function.contract();
         let representation = match function {
             Function::Equations(_) => Strategy::LineSearch,
@@ -191,7 +280,7 @@ impl Settings {
             Function::Equations(o) | Function::Picard { oracle: o, .. } => o.guard_signs(),
             Function::FixedPoint(_) => Default::default(),
         };
-        let signs = self.validate_contract(c, representation, &guards)?;
+        let constraints = self.validate_contract(c, representation, &guards)?;
         if let Function::Picard { linear, .. } = function {
             if linear.val().iter().any(|v| !v.is_finite()) {
                 return Err(ProblemError::Contract("nonfinite Picard splitting".into()));
@@ -213,7 +302,7 @@ impl Settings {
             crate::structural::Mode::Roots,
             analysis,
         )?;
-        Ok(signs)
+        Ok(constraints)
     }
     /// Check strategy, scales, bounds and guards before an evaluator or native worker exists.
     pub fn validate_contract(
@@ -221,8 +310,9 @@ impl Settings {
         c: &OracleContract,
         representation: Strategy,
         guards: &std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign>,
-    ) -> Result<Vec<f64>, ProblemError> {
+    ) -> Result<Constraints, ProblemError> {
         let n = c.variables.len();
+        let m = &self.method;
         if n == 0
             || c.rows.len() != n
             || self.variable_scales.len() != n
@@ -232,25 +322,25 @@ impl Settings {
                 .iter()
                 .chain(&self.residual_scales)
                 .any(|v| !v.is_finite() || *v <= 0.0)
-            || !self.damping.is_finite()
-            || self.damping <= 0.0
-            || self.damping > 1.0
-            || self.setup_interval == 0
+            || !m.damping.is_finite()
+            || m.damping <= 0.0
+            || m.damping > 1.0
+            || m.setup_interval == 0
             || !self.step_tolerance.is_finite()
             || self.step_tolerance <= 0.0
-            || self.anderson > n
+            || m.anderson > n
         {
             return Err(ProblemError::Contract(
                 "KINSOL square/scaling/settings contract".into(),
             ));
         }
         let fixed = representation == Strategy::FixedPoint;
-        if fixed != (self.strategy == Strategy::FixedPoint) {
+        if fixed != (m.strategy == Strategy::FixedPoint) {
             return Err(ProblemError::Contract(
                 "KINSOL strategy requires its declared residual/map representation".into(),
             ));
         }
-        if (representation == Strategy::Picard) != (self.strategy == Strategy::Picard) {
+        if (representation == Strategy::Picard) != (m.strategy == Strategy::Picard) {
             return Err(ProblemError::Contract(
                 "Picard requires an explicit constant splitting".into(),
             ));
@@ -260,58 +350,99 @@ impl Settings {
         } else {
             c.validate(pse_kernels::DerivativeOrder::Value)?;
         }
-        let signs = guarded_sign_constraints(c, guards)?;
-        if (fixed || self.strategy == Strategy::Picard) && signs.iter().any(|v| *v != 0.0) {
+        let constraints = guarded_sign_constraints(c, guards)?;
+        if (fixed || m.strategy == Strategy::Picard) && constraints.any() {
             return Err(ProblemError::Unsupported(
                 "KIN_FP/KIN_PICARD forbid constraints; choose an eligible declared map or NLP"
                     .into(),
             ));
         }
-        match self.linear {
+        match m.linear {
             Linear::Dense { limit } if limit == 0 || n > limit => {
                 return Err(ProblemError::Unsupported(
                     "KINSOL dense dimension limit".into(),
                 ));
             }
-            Linear::Spgmr { dimension } if dimension == 0 || dimension > i32::MAX as usize => {
+            linear if linear
+                .krylov()
+                .is_some_and(|d| d == 0 || i32::try_from(d).is_err()) =>
+            {
                 return Err(ProblemError::Contract("KINSOL Krylov dimension".into()));
             }
             _ => {}
         }
-        Ok(signs)
+        let krylov = m.linear.krylov().is_some();
+        if m.max_newton_step.is_some_and(|v| !(v.is_finite() && v >= 1.0))
+            || match m.eta {
+                Eta::Choice1 => false,
+                Eta::Choice2 { gamma, alpha } => {
+                    !(gamma > 0.0 && gamma <= 1.0 && alpha > 1.0 && alpha <= 2.0)
+                }
+                Eta::Constant(v) => !(v > 0.0 && v <= 1.0),
+            }
+            || (m.eta != Eta::default() && !krylov)
+            || (m.preconditioner != Preconditioner::None && (!krylov || fixed))
+            || (m.anderson == 0
+                && (m.anderson_delay != 0
+                    || m.orthogonalization != Orthogonalization::default()))
+            || std::ffi::c_long::try_from(m.anderson_delay).is_err()
+        {
+            return Err(ProblemError::Contract(
+                "KINSOL Newton-step, forcing-term, preconditioner or Anderson control".into(),
+            ));
+        }
+        Ok(constraints)
     }
 }
-/// Convert only exactly representable sign bounds; arbitrary boxes are refused.
-pub fn sign_constraints(c: &OracleContract) -> Result<Vec<f64>, ProblemError> {
-    c.variables
+/// Represent one-sided bounds exactly as sign constraints on shifted coordinates
+/// (`x >= l` becomes `u = x - l >= 0`, `x <= h` becomes `u = x - h <= 0`); two-sided boxes
+/// are refused.
+pub fn sign_constraints(c: &OracleContract) -> Result<Constraints, ProblemError> {
+    let (signs, offsets) = c
+        .variables
         .iter()
         .map(|v| match (v.lower, v.upper) {
-            (l, u) if l == f64::NEG_INFINITY && u == f64::INFINITY => Ok(0.0),
-            (0.0, u) if u == f64::INFINITY => Ok(1.0),
-            (l, 0.0) if l == f64::NEG_INFINITY => Ok(-1.0),
+            (l, u) if l == f64::NEG_INFINITY && u == f64::INFINITY => Ok((0.0, 0.0)),
+            (l, u) if l.is_finite() && u == f64::INFINITY => Ok((1.0, l)),
+            (l, u) if l == f64::NEG_INFINITY && u.is_finite() => Ok((-1.0, u)),
             _ => Err(ProblemError::Unsupported(
-                "KINSOL sign constraints cannot encode general box bounds".into(),
+                "KINSOL sign constraints cannot encode two-sided box bounds".into(),
             )),
         })
-        .collect()
+        .collect::<Result<(Vec<_>, Vec<_>), _>>()?;
+    Ok(Constraints { signs, offsets })
 }
-/// Check guard and bound intersection without constructing an oracle.
+/// Check guard and bound intersection without constructing an oracle. A bound strictly
+/// inside the guarded half-line keeps its shift; otherwise the guard is at least as
+/// strong and is enforced unshifted.
 pub fn guarded_sign_constraints(
     c: &OracleContract,
     guards: &std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign>,
-) -> Result<Vec<f64>, ProblemError> {
-    let mut signs = sign_constraints(c)?;
-
+) -> Result<Constraints, ProblemError> {
+    let mut constraints = sign_constraints(c)?;
     for (i, v) in c.variables.iter().enumerate() {
-        if let Some(guard) = guards.get(&v.id) {
-            let direction = if guard.positive { 1.0 } else { -1.0 };
-            if signs[i] != 0.0 && signs[i].signum() != direction {
-                return Err(ProblemError::Contract("bound/guard sign conflict".into()));
-            }
-            signs[i] = direction * if guard.strict { 2.0 } else { 1.0 };
+        let Some(guard) = guards.get(&v.id) else {
+            continue;
+        };
+        let direction = if guard.positive { 1.0 } else { -1.0 };
+        let code = direction * if guard.strict { 2.0 } else { 1.0 };
+        let (sign, offset) = (constraints.signs[i], constraints.offsets[i]);
+        if sign != 0.0 && sign != direction {
+            // The bound faces the guard: empty or a two-sided interval.
+            return Err(if offset * direction <= 0.0 {
+                ProblemError::Contract("bound/guard sign conflict".into())
+            } else {
+                ProblemError::Unsupported(
+                    "KINSOL sign constraints cannot encode a guarded two-sided interval".into(),
+                )
+            });
+        }
+        if sign == 0.0 || offset * direction <= 0.0 {
+            constraints.signs[i] = code;
+            constraints.offsets[i] = 0.0;
         }
     }
-    Ok(signs)
+    Ok(constraints)
 }
 struct Context {
     function: Function,
@@ -320,6 +451,10 @@ struct Context {
     rows: Vec<ffi::sunindextype>,
     columns: Vec<ffi::sunindextype>,
     dense: bool,
+    /// Original-coordinate shift of KINSOL's iterate (one-sided bounds).
+    offsets: Vec<f64>,
+    /// Inverse Jacobi diagonal from the last preconditioner setup.
+    inverse_diagonal: Vec<f64>,
 }
 /// Worker-local allocation retains native layouts across compatible equation values.
 pub struct Session {
@@ -413,7 +548,7 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
     };
     let n = c.n;
     let value = c.state.evaluate("residual", || {
-        let x = unsafe { values(x, n) }?.to_vec();
+        let x = shifted(unsafe { values(x, n) }?, &c.offsets, 1.0);
         let mut v = vec![0.0; n];
         match &mut c.function {
             Function::Equations(o) => o.residual(&x, &mut v)?,
@@ -438,7 +573,10 @@ unsafe extern "C" fn jacobian(
     let value = c.state.evaluate("jacobian", || {
         let mut v = vec![0.0; c.rows.len()];
         match &mut c.function {
-            Function::Equations(o) => o.jacobian(unsafe { values(x, c.n) }?, &mut v)?,
+            Function::Equations(o) => o.jacobian(
+                &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
+                &mut v,
+            )?,
             Function::Picard { linear, .. } => v.copy_from_slice(linear.val()),
             Function::FixedPoint(_) => {
                 return Err(ProblemError::Unsupported(
@@ -495,7 +633,7 @@ unsafe extern "C" fn jvp(
         let mut y = vec![0.0; c.n];
         match &mut c.function {
             Function::Equations(o) => o.jacobian_product(
-                unsafe { values(x, c.n) }?,
+                &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
                 unsafe { values(v, c.n) }?,
                 &mut y,
             )?,
@@ -513,14 +651,81 @@ unsafe extern "C" fn jvp(
     });
     result(value, &c.state)
 }
+/// Jacobi preconditioner setup from the analytic Jacobian diagonal (right preconditioning).
+unsafe extern "C" fn precondition_setup(
+    x: ffi::N_Vector,
+    _us: ffi::N_Vector,
+    _f: ffi::N_Vector,
+    _fs: ffi::N_Vector,
+    data: *mut c_void,
+) -> i32 {
+    let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
+        return -1;
+    };
+    let value = c.state.evaluate("preconditioner", || {
+        let mut v = vec![0.0; c.rows.len()];
+        match &mut c.function {
+            Function::Equations(o) => o.jacobian(
+                &shifted(unsafe { values(x, c.n) }?, &c.offsets, 1.0),
+                &mut v,
+            )?,
+            Function::Picard { linear, .. } => v.copy_from_slice(linear.val()),
+            Function::FixedPoint(_) => {
+                return Err(ProblemError::Unsupported(
+                    "map has no preconditioner".into(),
+                ));
+            }
+        }
+        for col in 0..c.n {
+            let range = c.columns[col] as usize..c.columns[col + 1] as usize;
+            let diagonal = range
+                .clone()
+                .find(|k| c.rows[*k] as usize == col)
+                .map_or(0.0, |k| v[k]);
+            c.inverse_diagonal[col] = if diagonal.is_finite() && diagonal.abs() > f64::MIN_POSITIVE
+            {
+                diagonal.recip()
+            } else {
+                1.0
+            };
+        }
+        Ok(())
+    });
+    result(value, &c.state)
+}
+/// Jacobi preconditioner solve, in place.
+unsafe extern "C" fn precondition_solve(
+    _x: ffi::N_Vector,
+    _us: ffi::N_Vector,
+    _f: ffi::N_Vector,
+    _fs: ffi::N_Vector,
+    v: ffi::N_Vector,
+    data: *mut c_void,
+) -> i32 {
+    let Some(c) = (unsafe { data.cast::<Context>().as_mut() }) else {
+        return -1;
+    };
+    let value = c.state.evaluate("preconditioner.solve", || {
+        let z: Vec<f64> = unsafe { values(v, c.n) }?
+            .iter()
+            .zip(&c.inverse_diagonal)
+            .map(|(r, d)| r * d)
+            .collect();
+        unsafe { publish(v, &z) }
+    });
+    result(value, &c.state)
+}
 impl Session {
     /// Controls fixed during native allocation must match; legal numeric controls refresh.
     pub fn matches_settings(&self, settings: &Settings) -> bool {
-        self.settings.linear == settings.linear
-            && self.settings.anderson == settings.anderson
-            && (self.settings.strategy == settings.strategy
+        let (held, next) = (&self.settings.method, &settings.method);
+        held.linear == next.linear
+            && held.anderson == next.anderson
+            && held.orthogonalization == next.orthogonalization
+            && held.preconditioner == next.preconditioner
+            && (held.strategy == next.strategy
                 || matches!(
-                    (self.settings.strategy, settings.strategy),
+                    (held.strategy, next.strategy),
                     (Strategy::Newton, Strategy::LineSearch)
                         | (Strategy::LineSearch, Strategy::Newton)
                 ))
@@ -537,7 +742,7 @@ impl Session {
         settings: Settings,
         compatibility: Compatibility,
     ) -> Result<(), ProblemError> {
-        let signs = settings.validate(&function)?;
+        let constraints = settings.validate(&function)?;
         if !self.matches_settings(&settings)
             || !compatibility.same_session(&self.compatibility)
             || compatibility.backend != Backend::Kinsol
@@ -575,11 +780,11 @@ impl Session {
             None => {}
         }
         unsafe {
-            if signs.iter().any(|v| *v != 0.0) {
+            if constraints.any() {
                 if self.signs.is_null() {
-                    self.signs = ffi::N_VNew_Serial(index(signs.len())?, self.ctx);
+                    self.signs = ffi::N_VNew_Serial(index(constraints.signs.len())?, self.ctx);
                 }
-                publish(self.signs, &signs)?;
+                publish(self.signs, &constraints.signs)?;
                 check(
                     ffi::KINSetConstraints(self.mem, self.signs),
                     "updated sign constraints",
@@ -592,6 +797,7 @@ impl Session {
             }
         }
         self.callback.function = function;
+        self.callback.offsets = constraints.offsets;
         self.settings = settings;
         self.compatibility = compatibility;
         Ok(())
@@ -603,7 +809,7 @@ impl Session {
         execution: Execution,
         compatibility: Compatibility,
     ) -> Result<Self, ProblemError> {
-        let signs = settings.validate(&function)?;
+        let constraints = settings.validate(&function)?;
         let n = function.contract().variables.len();
         let (rows, columns) = match function.pattern() {
             Some(p) => {
@@ -635,7 +841,9 @@ impl Session {
             n,
             rows,
             columns,
-            dense: matches!(settings.linear, Linear::Dense { .. }),
+            dense: matches!(settings.method.linear, Linear::Dense { .. }),
+            offsets: constraints.offsets.clone(),
+            inverse_diagonal: vec![1.0; n],
         });
         let mut s = Self {
             ctx: std::ptr::null_mut(),
@@ -666,16 +874,21 @@ impl Session {
                 return Err(ProblemError::memory("KINSOL allocation"));
             }
             check(
-                ffi::KINSetMAA(s.mem, s.settings.anderson as _),
+                ffi::KINSetMAA(s.mem, s.settings.method.anderson as _),
                 "Anderson history",
+            )?;
+            check(
+                ffi::KINSetOrthAA(s.mem, s.settings.method.orthogonalization.code()),
+                "Anderson orthogonalization",
             )?;
             check(ffi::KINInit(s.mem, Some(residual), s.x), "initialization")?;
             check(
                 ffi::KINSetUserData(s.mem, (&raw mut *s.callback).cast()),
                 "callback context",
             )?;
-            if s.settings.strategy != Strategy::FixedPoint {
-                match s.settings.linear {
+            let method = s.settings.method;
+            if method.strategy != Strategy::FixedPoint {
+                match method.linear {
                     Linear::Klu => {
                         s.matrix = ffi::SUNSparseMatrix(
                             index(n)?,
@@ -708,8 +921,28 @@ impl Session {
                         }
                         s.linear = ffi::SUNLinSol_Dense(s.x, s.matrix, s.ctx);
                     }
-                    Linear::Spgmr { dimension } => {
-                        s.linear = ffi::SUNLinSol_SPGMR(s.x, 0, dimension as i32, s.ctx);
+                    Linear::Spgmr { dimension }
+                    | Linear::Spfgmr { dimension }
+                    | Linear::Spbcgs { dimension }
+                    | Linear::Sptfqmr { dimension } => {
+                        let maxl = i32::try_from(dimension)
+                            .map_err(|_| ProblemError::Contract("KINSOL Krylov dimension".into()))?;
+                        let side = match method.preconditioner {
+                            Preconditioner::None => ffi::SUN_PREC_NONE,
+                            Preconditioner::Jacobi => ffi::SUN_PREC_RIGHT,
+                        } as i32;
+                        let krylov: unsafe extern "C" fn(
+                            ffi::N_Vector,
+                            i32,
+                            i32,
+                            ffi::SUNContext,
+                        ) -> ffi::SUNLinearSolver = match method.linear {
+                            Linear::Spgmr { .. } => ffi::SUNLinSol_SPGMR,
+                            Linear::Spfgmr { .. } => ffi::SUNLinSol_SPFGMR,
+                            Linear::Spbcgs { .. } => ffi::SUNLinSol_SPBCGS,
+                            _ => ffi::SUNLinSol_SPTFQMR,
+                        };
+                        s.linear = krylov(s.x, side, maxl, s.ctx);
                     }
                 }
                 if s.linear.is_null() {
@@ -719,15 +952,25 @@ impl Session {
                     ffi::KINSetLinearSolver(s.mem, s.linear, s.matrix),
                     "linear solver",
                 )?;
-                if matches!(s.settings.linear, Linear::Spgmr { .. }) {
+                if method.linear.krylov().is_some() {
                     check(ffi::KINSetJacTimesVecFn(s.mem, Some(jvp)), "analytic JVP")?;
+                    if method.preconditioner == Preconditioner::Jacobi {
+                        check(
+                            ffi::KINSetPreconditioner(
+                                s.mem,
+                                Some(precondition_setup),
+                                Some(precondition_solve),
+                            ),
+                            "Jacobi preconditioner",
+                        )?;
+                    }
                 } else {
                     check(ffi::KINSetJacFn(s.mem, Some(jacobian)), "analytic Jacobian")?;
                 }
             }
-            if signs.iter().any(|v| *v != 0.0) {
+            if constraints.any() {
                 s.signs = ffi::N_VNew_Serial(index(n)?, s.ctx);
-                publish(s.signs, &signs)?;
+                publish(s.signs, &constraints.signs)?;
                 check(ffi::KINSetConstraints(s.mem, s.signs), "sign constraints")?;
             }
         }
@@ -768,8 +1011,17 @@ impl Session {
             initial
         };
         self.callback.state = CallbackState::new(execution.clone());
+        let method = self.settings.method;
+        let (eta, eta_constant, eta_gamma, eta_alpha) = match method.eta {
+            Eta::Choice1 => (ffi::KIN_ETACHOICE1, 0.0, 0.0, 0.0),
+            Eta::Choice2 { gamma, alpha } => (ffi::KIN_ETACHOICE2, 0.0, gamma, alpha),
+            Eta::Constant(value) => (ffi::KIN_ETACONSTANT, value, 0.0, 0.0),
+        };
+        let delay = std::ffi::c_long::try_from(method.anderson_delay)
+            .map_err(|_| ProblemError::Contract("KINSOL Anderson delay".into()))?;
         unsafe {
-            publish(self.x, start)?;
+            // KINSOL iterates the shifted coordinates of one-sided bounds.
+            publish(self.x, &shifted(start, &self.callback.offsets, -1.0))?;
             publish(self.us, &self.settings.variable_scales)?;
             publish(self.fs, &self.settings.residual_scales)?;
             check(
@@ -784,21 +1036,34 @@ impl Session {
                 ffi::KINSetScaledStepTol(self.mem, self.settings.step_tolerance),
                 "step tolerance",
             )?;
+            check(ffi::KINSetDamping(self.mem, method.damping), "damping")?;
             check(
-                ffi::KINSetDamping(self.mem, self.settings.damping),
-                "damping",
-            )?;
-            check(
-                ffi::KINSetDampingAA(self.mem, self.settings.damping),
+                ffi::KINSetDampingAA(self.mem, method.damping),
                 "Anderson damping",
             )?;
             check(
-                ffi::KINSetMaxSetupCalls(self.mem, self.settings.setup_interval.into()),
+                ffi::KINSetMaxSetupCalls(self.mem, method.setup_interval.into()),
                 "setup interval",
             )?;
             check(ffi::KINSetNoInitSetup(self.mem, 0), "refresh numeric setup")?;
+            // Every refreshable option is set on every solve (zero selects KINSOL's
+            // default), so a reused session never inherits a previous request's value.
+            check(
+                ffi::KINSetMaxNewtonStep(self.mem, method.max_newton_step.unwrap_or(0.0)),
+                "maximum Newton step",
+            )?;
+            check(ffi::KINSetEtaForm(self.mem, eta), "forcing-term form")?;
+            check(
+                ffi::KINSetEtaConstValue(self.mem, eta_constant),
+                "constant forcing term",
+            )?;
+            check(
+                ffi::KINSetEtaParams(self.mem, eta_gamma, eta_alpha),
+                "forcing-term parameters",
+            )?;
+            check(ffi::KINSetDelayAA(self.mem, delay), "Anderson delay")?;
         }
-        let strategy = match self.settings.strategy {
+        let strategy = match method.strategy {
             Strategy::Picard => 2,
             Strategy::Newton => 0,
             Strategy::LineSearch => 1,
@@ -818,7 +1083,7 @@ impl Session {
             KINGetNumBetaCondFails,
             KINGetNumBacktrackOps
         );
-        if self.settings.strategy != Strategy::FixedPoint {
+        if method.strategy != Strategy::FixedPoint {
             count!(
                 KINGetNumJacEvals,
                 KINGetNumLinFuncEvals,
@@ -843,7 +1108,7 @@ impl Session {
             .provenance
             .insert("settings".into(), format!("{:?}", self.settings));
         self.callback.state.finish(&mut report);
-        let x = unsafe { values(self.x, n) }?.to_vec();
+        let x = shifted(unsafe { values(self.x, n) }?, &self.callback.offsets, 1.0);
         if x.iter().all(|v| v.is_finite()) {
             let mut f = vec![0.0; n];
             let evaluation = crate::quality::contained(|| match &mut self.callback.function {
@@ -996,7 +1261,7 @@ mod tests {
             derivatives: pse_kernels::DerivativeOrder::First,
             smoothness: pse_kernels::DerivativeOrder::First,
         };
-        assert_eq!(sign_constraints(&c).unwrap(), vec![1.0]);
+        assert_eq!(sign_constraints(&c).unwrap().signs, vec![1.0]);
         c.variables[0].upper = 1.0;
         assert!(sign_constraints(&c).is_err());
     }
@@ -1011,19 +1276,15 @@ mod tests {
                 strict: true,
             },
         )]);
-        assert_eq!(guarded_sign_constraints(&c, &guard).unwrap(), vec![2.0]);
+        assert_eq!(guarded_sign_constraints(&c, &guard).unwrap().signs, vec![2.0]);
         c.variables[0].upper = 0.0;
         assert!(guarded_sign_constraints(&c, &guard).is_err());
     }
     fn settings() -> Settings {
         Settings {
-            strategy: Strategy::LineSearch,
-            linear: Linear::Klu,
+            method: Method::default(),
             variable_scales: vec![1.0],
             residual_scales: vec![1.0],
-            anderson: 0,
-            damping: 1.0,
-            setup_interval: 10,
             step_tolerance: 1e-8,
         }
     }
@@ -1046,11 +1307,12 @@ mod tests {
         .unwrap();
         assert_eq!(address, s.mem);
         let mut updated = settings();
-        updated.strategy = Strategy::Newton;
+        updated.method.strategy = Strategy::Newton;
         updated.variable_scales = vec![2.0];
         updated.residual_scales = vec![3.0];
-        updated.damping = 0.7;
-        updated.setup_interval = 4;
+        updated.method.damping = 0.7;
+        updated.method.setup_interval = 4;
+        updated.method.max_newton_step = Some(5.0);
         updated.step_tolerance = 2e-7;
         assert!(s.matches_settings(&updated));
         s.replace(
@@ -1062,10 +1324,11 @@ mod tests {
         assert_eq!(address, s.mem);
         assert_eq!(s.settings.variable_scales, updated.variable_scales);
         assert_eq!(s.settings.residual_scales, updated.residual_scales);
-        assert_eq!(s.settings.setup_interval, 4);
-        updated.anderson += 1;
+        assert_eq!(s.settings.method.setup_interval, 4);
+        updated.method.anderson += 1;
         assert!(!s.matches_settings(&updated));
         let mut o = crate::solver_tests::Polynomial::new();
+        o.c.variables[0].lower = -3.0;
         o.c.variables[0].upper = 3.0;
         assert!(
             s.replace(
@@ -1182,8 +1445,11 @@ mod tests {
             let dense = solve(
                 Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
                 Settings {
-                    strategy,
-                    linear: Linear::Dense { limit: 4 },
+                    method: Method {
+                        strategy,
+                        linear: Linear::Dense { limit: 4 },
+                        ..Method::default()
+                    },
                     ..settings()
                 },
                 2.0,
@@ -1194,8 +1460,11 @@ mod tests {
             let spgmr = solve(
                 Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
                 Settings {
-                    strategy,
-                    linear: Linear::Spgmr { dimension: 4 },
+                    method: Method {
+                        strategy,
+                        linear: Linear::Spgmr { dimension: 4 },
+                        ..Method::default()
+                    },
                     ..settings()
                 },
                 2.0,
@@ -1218,7 +1487,10 @@ mod tests {
                 linear,
             },
             Settings {
-                strategy: Strategy::Picard,
+                method: Method {
+                    strategy: Strategy::Picard,
+                    ..Method::default()
+                },
                 ..settings()
             },
             1.2,
@@ -1228,7 +1500,7 @@ mod tests {
     #[test]
     fn picard_requires_explicit_splitting_and_forbids_sign_constraints() {
         let mut profile = settings();
-        profile.strategy = Strategy::Picard;
+        profile.method.strategy = Strategy::Picard;
         let o = crate::solver_tests::Polynomial::new();
         assert!(profile.validate(&Function::Equations(Box::new(o))).is_err());
         let o = crate::solver_tests::Polynomial::new();
@@ -1256,5 +1528,320 @@ mod tests {
                 })
                 .is_err()
         );
+    }
+    fn cube_root(method: Method, lower: f64, upper: f64, start: f64) -> (Session, SolveReport) {
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        oracle.c.variables[0].lower = lower;
+        oracle.c.variables[0].upper = upper;
+        let mut session = Session::new(
+            Function::Equations(Box::new(oracle)),
+            Settings {
+                method,
+                ..settings()
+            },
+            crate::solver_tests::execution(),
+            crate::solver_tests::stamp(Backend::Kinsol),
+        )
+        .unwrap();
+        let report = session
+            .solve(
+                &[start],
+                &Controls::default(),
+                &ResolvedAccuracy::nominal(),
+                crate::solver_tests::execution(),
+                &Tolerances {
+                    variables: vec![1e-8],
+                    rows: vec![1e-8],
+                    integrality: 1e-8,
+                },
+                None,
+            )
+            .unwrap();
+        (session, report)
+    }
+    fn metric(report: &SolveReport, key: &str) -> i64 {
+        match report.metrics.get(key) {
+            Some(Metric::Integer(v)) => *v,
+            other => panic!("{key}: {other:?}"),
+        }
+    }
+    fn solved(report: &SolveReport) -> f64 {
+        assert_eq!(
+            report.termination.category,
+            Termination::Success,
+            "{report:?}"
+        );
+        let x = report.candidate.as_ref().unwrap().primal[0];
+        assert!((x - 1.0).abs() < 1e-7, "{x}");
+        x
+    }
+    /// L-D6: every matrix-free Krylov route solves `x^3 = 1` over the analytic JVP, with
+    /// and without the right Jacobi preconditioner and under each forcing-term form; the
+    /// Newton-step cap and Anderson settings are typed, validated and never leak on reuse.
+    #[test]
+    fn kinsol_krylov_variants_solve() {
+        for linear in [
+            Linear::Spgmr { dimension: 3 },
+            Linear::Spfgmr { dimension: 3 },
+            Linear::Spbcgs { dimension: 3 },
+            Linear::Sptfqmr { dimension: 3 },
+        ] {
+            for preconditioner in [Preconditioner::None, Preconditioner::Jacobi] {
+                for eta in [
+                    Eta::Choice1,
+                    Eta::Choice2 {
+                        gamma: 0.9,
+                        alpha: 1.5,
+                    },
+                    Eta::Constant(0.05),
+                ] {
+                    let method = Method {
+                        linear,
+                        preconditioner,
+                        eta,
+                        ..Method::default()
+                    };
+                    let (_, report) = cube_root(method, f64::NEG_INFINITY, f64::INFINITY, 2.0);
+                    solved(&report);
+                    assert!(metric(&report, "KINGetNumLinIters") > 0, "{linear:?}");
+                    assert!(metric(&report, "KINGetNumJtimesEvals") > 0, "{linear:?}");
+                    assert_eq!(
+                        metric(&report, "KINGetNumPrecEvals") > 0,
+                        preconditioner == Preconditioner::Jacobi,
+                        "{linear:?} {preconditioner:?}"
+                    );
+                }
+            }
+        }
+        // A Newton-step cap lengthens the solve; the reused session drops it again.
+        let capped = Method {
+            max_newton_step: Some(1.0),
+            ..Method::default()
+        };
+        let (mut session, report) = cube_root(capped, f64::NEG_INFINITY, f64::INFINITY, 10.0);
+        solved(&report);
+        let slow = metric(&report, "KINGetNumNonlinSolvIters");
+        let (_, free) = cube_root(Method::default(), f64::NEG_INFINITY, f64::INFINITY, 10.0);
+        let fast = metric(&free, "KINGetNumNonlinSolvIters");
+
+        assert!(slow > fast, "{slow} <= {fast}");
+        session
+            .replace(
+                Function::Equations(Box::new(crate::solver_tests::Polynomial::new())),
+                settings(),
+                crate::solver_tests::stamp(Backend::Kinsol),
+            )
+            .unwrap();
+        let again = session
+            .solve(
+                &[10.0],
+                &Controls::default(),
+                &ResolvedAccuracy::nominal(),
+                crate::solver_tests::execution(),
+                &Tolerances {
+                    variables: vec![1e-8],
+                    rows: vec![1e-8],
+                    integrality: 1e-8,
+                },
+                None,
+            )
+            .unwrap();
+        solved(&again);
+        assert_eq!(metric(&again, "KINGetNumNonlinSolvIters"), fast);
+        // Anderson orthogonalization (fixed at allocation) and delay on the Picard route.
+        for orthogonalization in [
+            Orthogonalization::ModifiedGramSchmidt,
+            Orthogonalization::InverseCompactWy,
+            Orthogonalization::ClassicalGramSchmidt2,
+            Orthogonalization::DelayedClassicalGramSchmidt2,
+        ] {
+            let oracle = crate::solver_tests::Polynomial::new();
+            let linear = faer::sparse::SparseColMat::try_new_from_triplets(
+                1,
+                1,
+                &[faer::sparse::Triplet::new(0, 0, 3.0)],
+            )
+            .unwrap();
+            let method = Method {
+                strategy: Strategy::Picard,
+                anderson: 1,
+                orthogonalization,
+                anderson_delay: 1,
+                ..Method::default()
+            };
+            let mut session = Session::new(
+                Function::Picard {
+                    oracle: Box::new(oracle),
+                    linear,
+                },
+                Settings {
+                    method,
+                    ..settings()
+                },
+                crate::solver_tests::execution(),
+                crate::solver_tests::stamp(Backend::Kinsol),
+            )
+            .unwrap();
+            let mut other = settings().method;
+            other.strategy = Strategy::Picard;
+            other.anderson = 1;
+            assert_eq!(
+                session.matches_settings(&Settings {
+                    method: other,
+                    ..settings()
+                }),
+                orthogonalization == Orthogonalization::default()
+            );
+            let report = session
+                .solve(
+                    &[1.2],
+                    &Controls::default(),
+                    &ResolvedAccuracy::nominal(),
+                    crate::solver_tests::execution(),
+                    &Tolerances {
+                        variables: vec![1e-8],
+                        rows: vec![1e-8],
+                        integrality: 1e-8,
+                    },
+                    None,
+                )
+                .unwrap();
+            solved(&report);
+        }
+        // Controls that would be ignored or are out of range are refused.
+        let c = crate::solver_tests::Polynomial::new().c;
+        for method in [
+            Method {
+                eta: Eta::Constant(0.1),
+                ..Method::default()
+            },
+            Method {
+                preconditioner: Preconditioner::Jacobi,
+                linear: Linear::Dense { limit: 4 },
+                ..Method::default()
+            },
+            Method {
+                anderson_delay: 2,
+                ..Method::default()
+            },
+            Method {
+                orthogonalization: Orthogonalization::InverseCompactWy,
+                ..Method::default()
+            },
+            Method {
+                max_newton_step: Some(0.5),
+                ..Method::default()
+            },
+            Method {
+                linear: Linear::Sptfqmr { dimension: 3 },
+                eta: Eta::Choice2 {
+                    gamma: 0.0,
+                    alpha: 1.5,
+                },
+                ..Method::default()
+            },
+            Method {
+                linear: Linear::Spbcgs { dimension: 0 },
+                ..Method::default()
+            },
+        ] {
+            let s = Settings {
+                method,
+                ..settings()
+            };
+            assert!(
+                s.validate_contract(&c, Strategy::LineSearch, &Default::default())
+                    .is_err(),
+                "{method:?}"
+            );
+        }
+    }
+    /// Plan 22 Y6: a nonzero one-sided bound is a sign bound on shifted coordinates, so a
+    /// root problem with one routes to KINSOL, which keeps every iterate inside it.
+    #[test]
+    fn one_sided_bounds_route_to_kinsol() {
+        use crate::{
+            execution::LINKED,
+            routing::{Ineligible, Requirements, Route, oracle_facts},
+        };
+        let bounded = |lower: f64, upper: f64| {
+            let mut c = crate::solver_tests::Polynomial::new().c;
+            c.variables[0].lower = lower;
+            c.variables[0].upper = upper;
+            c
+        };
+        let route = |c: &OracleContract| {
+            let facts = oracle_facts(c, false, true);
+            let requirements = Requirements {
+                table: &LINKED,
+                facts: &facts,
+                intent: SolveIntent::Root,
+                convex: false,
+                controls: &Controls::default(),
+            };
+            let kinsol = requirements
+                .eligibility()
+                .into_iter()
+                .find(|e| e.backend == Backend::Kinsol)
+                .unwrap();
+            (requirements.select(SolverSelection::Auto), kinsol.reasons)
+        };
+        for (lower, upper) in [(0.5, f64::INFINITY), (f64::NEG_INFINITY, 3.0)] {
+            let (selected, reasons) = route(&bounded(lower, upper));
+            assert!(reasons.is_empty(), "{reasons:?}");
+            assert_eq!(selected.unwrap(), Route::Native(Backend::Kinsol));
+        }
+        let (_, reasons) = route(&bounded(0.5, 3.0));
+        assert!(reasons.contains(&Ineligible::Bounds { signs: true }));
+        // The shift is exact: the native iterate satisfies the original bound.
+        let c = bounded(0.5, f64::INFINITY);
+        assert_eq!(
+            sign_constraints(&c).unwrap(),
+            Constraints {
+                signs: vec![1.0],
+                offsets: vec![0.5]
+            }
+        );
+        let (_, report) = cube_root(Method::default(), 0.5, f64::INFINITY, 2.0);
+        solved(&report);
+        let (_, report) = cube_root(Method::default(), f64::NEG_INFINITY, 3.0, 2.0);
+        solved(&report);
+        // A bound that excludes the root is never crossed.
+        let (_, report) = cube_root(Method::default(), 1.5, f64::INFINITY, 2.0);
+        assert_ne!(report.termination.category, Termination::Success);
+        assert!(report.candidate.as_ref().unwrap().primal[0] >= 1.5);
+        // Guards combine with shifted bounds: a bound inside the guarded half-line keeps
+        // its shift, a weaker one yields to the guard, a facing bound is refused.
+        let guard = |positive: bool| {
+            std::collections::BTreeMap::from([(
+                c.variables[0].id,
+                pse_math::presolve::GuardSign {
+                    positive,
+                    strict: true,
+                },
+            )])
+        };
+        assert_eq!(
+            guarded_sign_constraints(&c, &guard(true)).unwrap(),
+            Constraints {
+                signs: vec![1.0],
+                offsets: vec![0.5]
+            }
+        );
+        assert_eq!(
+            guarded_sign_constraints(&bounded(-1.0, f64::INFINITY), &guard(true)).unwrap(),
+            Constraints {
+                signs: vec![2.0],
+                offsets: vec![0.0]
+            }
+        );
+        assert!(matches!(
+            guarded_sign_constraints(&bounded(f64::NEG_INFINITY, 3.0), &guard(true)),
+            Err(ProblemError::Unsupported(_))
+        ));
+        assert!(matches!(
+            guarded_sign_constraints(&c, &guard(false)),
+            Err(ProblemError::Contract(_))
+        ));
     }
 }

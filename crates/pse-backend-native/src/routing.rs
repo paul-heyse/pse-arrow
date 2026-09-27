@@ -48,7 +48,7 @@ pub enum Ineligible {
     },
     /// A bound shape the adapter cannot represent.
     Bounds {
-        /// The adapter still represents exact sign bounds.
+        /// The adapter still represents one-sided bounds as shifted sign constraints.
         signs: bool,
     },
     /// The structure leaves constraint forms to native handlers the adapter's record does
@@ -90,7 +90,7 @@ impl std::fmt::Display for Ineligible {
                 }
             ),
             Self::Bounds { signs: true } => {
-                f.write_str("cannot represent general bounds; only exact sign bounds")
+                f.write_str("cannot represent two-sided bounds; only one-sided (shifted sign) bounds")
             }
             Self::Bounds { signs: false } => f.write_str("cannot represent variable bounds"),
             Self::NativeForms { missing } => write!(
@@ -256,8 +256,12 @@ pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec
     if !capability.general_bounds
         && !f.bounds.iter().all(|b| match b {
             BoundShape::Free => true,
-            BoundShape::Nonnegative | BoundShape::Nonpositive => capability.sign_bounds,
-            BoundShape::Lower | BoundShape::Upper | BoundShape::Boxed => false,
+            // A one-sided bound is a sign bound on shifted coordinates (Plan 22 Y6).
+            BoundShape::Nonnegative
+            | BoundShape::Nonpositive
+            | BoundShape::Lower
+            | BoundShape::Upper => capability.sign_bounds,
+            BoundShape::Boxed => false,
         })
     {
         reasons.push(Ineligible::Bounds {
