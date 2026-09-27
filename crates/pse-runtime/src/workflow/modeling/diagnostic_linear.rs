@@ -24,7 +24,7 @@ impl ModelingPackage {
         &self,
         prepared: ModelingDiagnosticPreparation,
         request: highs::diagnostics::Request,
-        mut controls: Controls,
+        controls: Controls,
         maximum_entries: usize,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingLinearDiagnostics, WorkflowError> {
@@ -71,8 +71,8 @@ impl ModelingPackage {
         .map_err(crate::math::MathRuntimeError::from)?;
         let tolerances = Tolerances::from_policy(&prepared.numerics, plan.columns(), &rows)
             .map_err(crate::math::MathRuntimeError::from)?;
-        controls.accuracy =
-            Accuracy::resolve(&prepared.numerics.policy, &tolerances, &normalization)
+        let accuracy =
+            ResolvedAccuracy::resolve(&prepared.numerics.policy, &tolerances, &normalization)
                 .map_err(crate::math::MathRuntimeError::from)?;
         let allowance = extent
             .checked_mul(512)
@@ -90,6 +90,7 @@ impl ModelingPackage {
                 let execution = Execution::new(worker.cancellation().clone(), &controls);
                 let compatibility = Compatibility {
                     layout: problem.contract.identity,
+                    profile: accuracy.key()?,
                     data: problem.assumptions,
                     backend: Backend::Highs,
                 };
@@ -97,6 +98,7 @@ impl ModelingPackage {
                 let mut attempt = session.solve(
                     &problem,
                     &controls,
+                    &accuracy,
                     highs::Method::Choose,
                     execution.clone(),
                     &tolerances.normalized(&normalization)?,

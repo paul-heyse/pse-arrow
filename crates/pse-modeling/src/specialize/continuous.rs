@@ -72,7 +72,7 @@ impl Engine<'_, '_> {
                 let id=member_id(instance,*member,&[]);let coordinate=pse_ids::named_id(id,"integrated-coordinate");let time=pse_ids::named_id(id,"time-value");
                 let point=Value::Coordinate{id:coordinate,bits:a.to_bits(),quantity};
                 self.model.integrated.insert(id,crate::continuous::IntegratedAxis{id,coordinate,time,quantity,lower:a,upper:b});
-                self.model.symbols.insert(time,Symbol{id:time,ty:ty.clone(),role:Kind::Parameter,expression:None,initial:Some(Value::Number{bits:a.to_bits(),quantity}),lineage:Lineage{declaration:*member,instance,path:format!("{path}.{}",row.name),demand:vec![*member],default_owner:row.parent_id.filter(|id|self.p.declarations[id].value.kind==Kind::Interface),is_override:row.is_override,presets:self.preset_stack.clone()}});
+                self.model.symbols.insert(time,Symbol{id:time,ty:ty.clone(),role:Kind::Parameter,domain:Domain::Continuous,expression:None,initial:Some(Value::Number{bits:a.to_bits(),quantity}),lineage:Lineage{declaration:*member,instance,path:format!("{path}.{}",row.name),demand:vec![*member],default_owner:row.parent_id.filter(|id|self.p.declarations[id].value.kind==Kind::Interface),is_override:row.is_override,presets:self.preset_stack.clone()}});
                 self.model.meshes.insert(id,Mesh{id,points:vec![point.clone()],derivative:vec![vec![]],integral:vec![0.],continuity:vec![]});
                 env.insert(row.name.clone(),Value::Set(vec![point]));
                 self.reserve(3)?;continue;
@@ -280,7 +280,7 @@ impl Engine<'_, '_> {
             let ty=Type::Quantity(pse_quantity::scheme::Scheme::Quotient(Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(state_ty))),Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(pse_quantity::scheme::Scheme::Concrete(axis.quantity))))));
             let quantity=if let Type::Quantity(q)=&ty{q.resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions).map_err(|e|invalid(at,e.to_string()))?}else{return Err(invalid(at,"integrated derivative physical type"));};
             let lineage=self.lineage(instance,&self.p.declarations[&at],chain);
-            self.model.symbols.insert(rate,Symbol{id:rate,ty:Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity)),role:Kind::Variable,expression:None,initial:None,lineage:lineage.clone()});
+            self.model.symbols.insert(rate,Symbol{id:rate,ty:Type::Quantity(pse_quantity::scheme::Scheme::Concrete(quantity)),role:Kind::Variable,domain:Domain::Continuous,expression:None,initial:None,lineage:lineage.clone()});
             self.model.derivatives.insert(state,crate::continuous::IntegratedDerivative{state,rate,axis:axis_id,lineage});
             self.reserve(2)?;return Ok(symbol_expr(rate));
         }
@@ -383,8 +383,8 @@ impl Engine<'_, '_> {
             self.reserve(3)?;
             let flux=pse_ids::named_id(result,"integrand");
             let lineage=self.lineage(instance,&self.p.declarations[&at],chain);
-            self.model.symbols.insert(flux,Symbol{id:flux,ty:Type::Quantity(pse_quantity::scheme::Scheme::Concrete(value_type)),role:Kind::Let,expression:Some(integrand),initial:None,lineage:lineage.clone()});
-            self.model.symbols.insert(result,Symbol{id:result,ty:Type::Quantity(pse_quantity::scheme::Scheme::Concrete(result_type)),role:Kind::Parameter,expression:None,initial:None,lineage});
+            self.model.symbols.insert(flux,Symbol{id:flux,ty:Type::Quantity(pse_quantity::scheme::Scheme::Concrete(value_type)),role:Kind::Let,domain:Domain::Continuous,expression:Some(integrand),initial:None,lineage:lineage.clone()});
+            self.model.symbols.insert(result,Symbol{id:result,ty:Type::Quantity(pse_quantity::scheme::Scheme::Concrete(result_type)),role:Kind::Parameter,domain:Domain::Continuous,expression:None,initial:None,lineage});
             self.model.integrals.insert(result,crate::continuous::IntegratedIntegral{result,integrand:flux,axis:axis_id});
             return Ok(symbol_expr(result));
         }

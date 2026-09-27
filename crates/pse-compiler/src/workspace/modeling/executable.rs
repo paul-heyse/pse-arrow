@@ -107,7 +107,8 @@ struct Projection {
     nonnegative: BTreeSet<SemanticId>,
     validity: BTreeMap<String, crate::typed_math::Validity>,
     inputs: Vec<SemanticId>,
-    free: BTreeSet<SemanticId>,
+    /// Free variables with their declared domain (ADR-0103); fixed inputs are absent.
+    free: BTreeMap<SemanticId, pse_model::generated::enums::ModelingVariableDomain>,
     formals: Vec<Formal>,
     outputs: Vec<ModelingOutput>,
     expressions: Vec<Expr>,
@@ -237,7 +238,7 @@ fn projection(
             .flat_map(|r| r.slacks.iter().copied())
             .collect(),
         inputs: vec![],
-        free: BTreeSet::new(),
+        free: BTreeMap::new(),
         formals: vec![],
         outputs: vec![],
         expressions: vec![],
@@ -297,7 +298,22 @@ fn projection(
                 )
                 .map_err(|e| CompileError::Missing(e.to_string()))?;
             if symbol.role == pse_model::generated::enums::ModelingDeclarationKind::Variable {
-                p.free.insert(*id);
+                // PS-01: an integer or binary decision is a dimensionless count or indicator.
+                if symbol.domain.requires_pure_number()
+                    && registry
+                        .discrete_category(quantity)
+                        .map_err(|e| CompileError::Missing(e.to_string()))?
+                        .is_none()
+                {
+                    return Err(model
+                        .domain_refusal(
+                            *id,
+                            pse_modeling::DomainAnalysis::Preparation,
+                            pse_modeling::DomainRefusal::QuantityKind,
+                        )
+                        .into());
+                }
+                p.free.insert(*id, symbol.domain);
             }
             p.inputs.push(*id);
             p.formals.push(Formal {
@@ -833,7 +849,7 @@ fn structure(
                 }
             }
             for column in columns {
-                if p.free.contains(&column) {
+                if p.free.contains_key(&column) {
                     edges.push(Incidence {
                         row: *id,
                         column,
@@ -847,7 +863,7 @@ fn structure(
     let incidence = CaseIncidence::new(
         Scope::Whole(*request.instance(db)),
         rows,
-        p.free.iter().copied().collect(),
+        p.free.keys().copied().collect(),
         edges,
         BTreeSet::new(),
         GraphLimits {

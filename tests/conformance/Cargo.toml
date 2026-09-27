@@ -63,6 +63,7 @@ pse-engine.workspace = true
 pse-rules.workspace = true
 url.workspace = true
 pse-math.workspace = true
+pse-model.workspace = true
 pse-kernels.workspace = true
 pse-columnar.workspace = true
 pse-testkit.workspace = true

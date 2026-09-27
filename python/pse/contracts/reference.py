@@ -177,6 +177,7 @@ class ReferenceQuantityKindsRow:
     dimension: b.tuple[v.DimensionVectorItem, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.DimensionVectorItem), iterable_validator=attrs.validators.instance_of(b.tuple)), attrs.validators.min_len(8), attrs.validators.max_len(8)))
     extensive: b.bool = attrs.field(validator=v.exact_type(b.bool))
     addition_kind: e.QuantityAdditionKind = attrs.field(validator=attrs.validators.instance_of(e.QuantityAdditionKind))
+    category: e.QuantityKindCategory | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.QuantityKindCategory)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 

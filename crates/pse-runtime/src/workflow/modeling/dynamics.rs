@@ -372,6 +372,14 @@ pub(super) fn dynamic_ports(
         .map(|v| v.port.clone())
         .collect::<Vec<_>>();
     let states = state.iter().map(|p| p.id).collect::<Vec<_>>();
+    // ADR-0103 item 6: integration holds discrete variables fixed per segment.
+    product
+        .model
+        .require_fixed_discrete(
+            states.iter().copied(),
+            pse_modeling::DomainAnalysis::IntegratedDynamics,
+        )
+        .map_err(crate::workflow::modeling_error)?;
     if product
         .model
         .derivatives
@@ -739,15 +747,12 @@ impl ModelingPackage {
                 initial.push(*row);
                 continue;
             }
-            let hint=product.admitted.outputs.iter().find(|o|matches!(o,ModelingOutput::Hint{target,kind:ModelingHint::Start,..} if target==id));
-            if starts[id].starts_with("annotation:") {
-                initial.push(
-                    hint.ok_or_else(|| contract("initial annotation output missing"))?
-                        .row_id(),
-                );
-            } else {
-                initial.push(SemanticId::NIL);
-                constants.insert(i, values.scalars[id]);
+            match start_row(&product.admitted.outputs, *id, starts.get(id))? {
+                Some(row) => initial.push(row),
+                None => {
+                    initial.push(SemanticId::NIL);
+                    constants.insert(i, values.scalars[id]);
+                }
             }
         }
         let mut outputs = states
@@ -1428,6 +1433,26 @@ impl ModelingPackage {
         }))
     }
 }
+/// The lower-endpoint start of a state without an isolated initial equation: an annotation
+/// start is evaluated through the model at the endpoint (its row); any other source is the
+/// resolved constant. The typed source decides; no label is parsed (F14).
+fn start_row(
+    outputs: &[ModelingOutput],
+    state: SemanticId,
+    source: Option<&StartSource>,
+) -> Result<Option<SemanticId>, WorkflowError> {
+    let Some(StartSource::Annotation { declaration }) = source else {
+        return Ok(None);
+    };
+    outputs
+        .iter()
+        .find(|o| {
+            matches!(o, ModelingOutput::Hint { target, declaration: d, kind: ModelingHint::Start }
+                if *target == state && d == declaration)
+        })
+        .map(|o| Some(o.row_id()))
+        .ok_or_else(|| contract("initial annotation output missing"))
+}
 fn contract_error(message: &str) -> WorkflowError {
     contract(message)
 }
@@ -1436,6 +1461,54 @@ fn contract_error(message: &str) -> WorkflowError {
 mod tests {
     use super::*;
     use pse_backend_native::dynamics::Oracle;
+    #[test]
+    fn start_source_drives_initial_conditions() {
+        let [state, declaration, other] = [1, 2, 3].map(|n| SemanticId::from_bytes([n; 16]));
+        let outputs = vec![
+            ModelingOutput::Hint {
+                target: state,
+                declaration,
+                kind: ModelingHint::Start,
+            },
+            ModelingOutput::Hint {
+                target: state,
+                declaration: other,
+                kind: ModelingHint::Lower,
+            },
+        ];
+        // An annotation start is evaluated through the model: its own hint row.
+        assert_eq!(
+            start_row(
+                &outputs,
+                state,
+                Some(&StartSource::Annotation { declaration })
+            )
+            .unwrap(),
+            Some(outputs[0].row_id())
+        );
+        // A start annotation without its model output is refused, not frozen.
+        assert!(
+            start_row(
+                &outputs,
+                state,
+                Some(&StartSource::Annotation { declaration: other })
+            )
+            .is_err()
+        );
+        // Every other source is the resolved constant, whatever its case path says.
+        for source in [
+            StartSource::ModelDefault,
+            StartSource::Case {
+                path: "annotation:x".into(),
+            },
+            StartSource::Predecessor,
+            StartSource::Continuation,
+            StartSource::Stored,
+        ] {
+            assert_eq!(start_row(&outputs, state, Some(&source)).unwrap(), None);
+        }
+        assert_eq!(start_row(&outputs, state, None).unwrap(), None);
+    }
     fn physical() -> (PhysicalContext, BTreeMap<String, QuantityTypeId>) {
         let mut physical = super::super::super::tests::physical();
         physical.preconditions = Arc::new(
@@ -2045,6 +2118,66 @@ mod tests {
                 assert!((sample.output_sensitivities[yi] - sample.time / 9.).abs() < 1e-6);
             }
         }
+    }
+    #[tokio::test]
+    async fn dynamics_refuses_free_integer() {
+        let runtime = super::super::super::tests::runtime();
+        let (physical, mut names) = physical();
+        names.extend(super::super::super::tests::discrete_names());
+        let source = "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); var x[i in t]: Time; var units: Count in integer; eq ode[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; annotation start x(0{s}); annotation start units(1{1}); annotation bounds units(0{1}, 3{1}); } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let profile = native::Profile {
+            end: 1.,
+            samples: vec![0., 1.],
+            parameter_scales: vec![1.],
+            ..Default::default()
+        };
+        let cancel = crate::CancelSource::new();
+        let simulate = |case| {
+            package.prepare_simulation(
+                root,
+                root,
+                Bindings::default(),
+                Limits::default(),
+                case,
+                super::super::super::tests::compiler_profile(),
+                profile.clone(),
+                &cancel,
+            )
+        };
+        let error = simulate(ModelingCaseBindings::default())
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(
+            super::super::super::tests::free_discrete_refusal(&error),
+            ("units".into(), "integrated_dynamics".into())
+        );
+        // Fixed for the segment, the discrete input is an ordinary parameter of integration.
+        let fixed = ModelingCaseBindings {
+            values: BTreeMap::from([("units".into(), 1.)]),
+            variables: BTreeMap::from([(
+                "units".into(),
+                pse_compiler::workspace::ModelingVariableState {
+                    fixed: Some(true),
+                    ..Default::default()
+                },
+            )]),
+        };
+        let prepared = simulate(fixed).await.unwrap();
+        assert_eq!(prepared.contract.states.len(), 1);
     }
     #[tokio::test]
     async fn kernel_integrated_time_uses_generated_rates_native_solver_and_initial_sensitivities() {

@@ -74,15 +74,14 @@ impl BackendExecution for Ipopt {
                 |_: &mut crate::ipopt::Session| Ok(true),
                 || Ok(crate::ipopt::Session::new()),
             )?;
-            let scaling = oracle.scaling().cloned();
             session.solve(
                 oracle.as_mut(),
                 initial,
                 sense,
                 input.controls,
+                input.accuracy,
                 input.execution,
                 input.tolerances,
-                scaling.as_ref(),
                 input.warm,
                 input.compatibility,
             )

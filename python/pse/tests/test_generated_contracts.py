@@ -12,7 +12,7 @@ import pytest
 from pse.codec import converter, structure_rows
 from pse.contracts import values as contract_values
 from pse.contracts.authored import AuthoredPackagesRow
-from pse.contracts.enums import PackageKind
+from pse.contracts.enums import ModelingVariableDomain, PackageKind
 from pse.contracts.extension_types import PseEnum, PseOrdinalRef
 from pse.contracts.reference import ReferenceUnitsRow
 from pse.contracts.runtime import RuntimePublicationsFieldMembersItemSelection
@@ -205,11 +205,13 @@ def test_modeling_declaration_tag_has_one_typed_payload() -> None:
         "indices": [],
         "expression": None,
         "defined_by": None,
+        "domain": "binary",
     }
     value = converter().structure(payload, AuthoredModelingDeclarationsFieldValue)
     assert value.binding is not None
     assert value.binding.type_name == "Flow"
     assert value.binding.indices == ()
+    assert value.binding.domain is ModelingVariableDomain.BINARY
     for invalid in (
         payload | {"binding": None},
         payload | {"scope": {"parameters": [], "bases": [], "type_parameters": []}},

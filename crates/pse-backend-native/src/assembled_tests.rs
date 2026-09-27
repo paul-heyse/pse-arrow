@@ -5,18 +5,19 @@ use pse_math::{
     assembly::{AssemblyLimits, CaseAssembly},
     binding::{
         CaseLimits, CaseStructure, CaseValues, Contribution, InstanceBinding, Row, SlotBinding,
-        Target, VariableDomain,
+        Target,
     },
     jets::EvaluationLimits,
     library::Optimization,
     typed::{BodyBuilder, BodyLimits},
 };
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_quantity::{
     IndexSet,
     standard::{StandardInvariantChecker, ids, standard_registry},
 };
 use std::collections::BTreeMap;
-fn fixture(domain: VariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
+fn fixture(domain: ModelingVariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
     let id = |n| SemanticId::from_bytes([n; 16]);
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("neutral");
@@ -96,7 +97,7 @@ fn fixture(domain: VariableDomain) -> (Arc<CaseAssembly>, CaseValues) {
 #[test]
 fn split_native_callbacks_and_equality_root_views() {
     pse_math::initialize().unwrap();
-    let (a, values) = fixture(VariableDomain::Continuous);
+    let (a, values) = fixture(ModelingVariableDomain::Continuous);
     let worker = a.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
     let mut oracle = assembled::AlgebraicOracle::new(worker, values).unwrap();
     oracle.admit_nle().unwrap();
@@ -116,12 +117,12 @@ fn split_native_callbacks_and_equality_root_views() {
 #[test]
 fn integrality_is_explicit_and_continuous_oracles_reject_it() {
     pse_math::initialize().unwrap();
-    let (a, v) = fixture(VariableDomain::Integer);
+    let (a, v) = fixture(ModelingVariableDomain::Integer);
     let c = a
         .coefficients(&v, 100, &Arc::new(AtomicBool::new(false)))
         .unwrap();
     let p = CoefficientProblem::from_plan(&a, c).unwrap();
-    assert_eq!(p.domains, vec![VariableDomain::Integer]);
+    assert_eq!(p.domains, vec![ModelingVariableDomain::Integer]);
     p.validate_convex(None).unwrap();
     assert!(
         assembled::AlgebraicOracle::new(
@@ -134,7 +135,7 @@ fn integrality_is_explicit_and_continuous_oracles_reject_it() {
 #[test]
 fn explicit_cones_validate_storage_dimensions_parameters_and_psd() {
     pse_math::initialize().unwrap();
-    let (a, _) = fixture(VariableDomain::Continuous);
+    let (a, _) = fixture(ModelingVariableDomain::Continuous);
     let q = faer::sparse::SparseColMat::try_new_from_triplets(
         1,
         1,

@@ -10,48 +10,9 @@ use pounce_presolve::{AuxiliaryCouplingPolicy, LicqAction, PresolveOptions};
 use pse_ids::{ContentHash, FramedHasher};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Positive numerical scales in original source order; never physical conversions.
-#[derive(Clone, Debug)]
-pub struct Scaling {
-    /// Native objective scale.
-    pub objective: f64,
-    /// Native independent variable scales.
-    pub variables: Vec<f64>,
-    /// Native row scales.
-    pub constraints: Vec<f64>,
-}
-impl Scaling {
-    /// Native scaling must preserve feasible sets and objective sense.
-    pub fn validate(&self, n: usize, m: usize) -> Result<(), ProblemError> {
-        if self.variables.len() != n
-            || self.constraints.len() != m
-            || self
-                .variables
-                .iter()
-                .chain(&self.constraints)
-                .chain(std::iter::once(&self.objective))
-                .any(|v| !v.is_finite() || *v < 1e-12)
-        {
-            return Err(ProblemError::Contract(
-                "native scaling dimensions/positive values".into(),
-            ));
-        }
-        Ok(())
-    }
-    /// Bit-preserving numerical identity.
-    pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.native.scaling.v1");
-        h.u64(self.objective.to_bits())
-            .u64(self.variables.len() as u64)
-            .u64(self.constraints.len() as u64);
-        for v in self.variables.iter().chain(&self.constraints) {
-            h.u64(v.to_bits());
-        }
-        h.finish_hash()
-    }
-}
 /// Native library passes, independently requested and qualified.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Pass {
     /// Propagation using proved affine rows.
     LinearBounds,

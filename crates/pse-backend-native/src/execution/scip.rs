@@ -162,6 +162,7 @@ impl BackendExecution for Scip {
                 normalization,
                 settings,
                 controls: input.controls,
+                accuracy: input.accuracy,
                 execution: &input.execution,
                 warm: input.warm,
                 compatibility: &input.compatibility,

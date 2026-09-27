@@ -106,7 +106,7 @@ pub(super) fn push_native_metrics(
         &Metric::Text(native.qualification.as_str().into()),
     )?;
     if let Some(start) = &native.start_receipt {
-        let value = serde_json::json!({"previous_attempt":start.previous_attempt,"seed":start.seed.as_ref().map(|s|s.snapshot()),"sparse_seed":start.sparse_seed.as_ref().map(|s|s.iter().map(|(id,v)|(id.to_hex(),*v)).collect::<BTreeMap<_,_>>()),"transformations":start.transformations,"submitted":start.submitted});
+        let value = start.snapshot();
         push_metric(
             builder,
             run_id,

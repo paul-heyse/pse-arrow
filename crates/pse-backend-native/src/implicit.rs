@@ -91,19 +91,33 @@ impl InnerSolver for Kinsol {
         cancel: &Arc<AtomicBool>,
     ) -> Result<Vec<f64>, MathError> {
         problem.validate_options(options)?;
-        let mut controls = Controls {
+        // Typed native causes, including structural rows and columns, stay attributable.
+        let map = |e: ProblemError| match e {
+            ProblemError::Math(e) => e,
+            ProblemError::Cancelled => MathError::Cancelled,
+            other => MathError::Native {
+                source_id: problem.id,
+                retained: other.retained_bytes(),
+                cause: Box::new(other),
+            },
+        };
+        let controls = Controls {
             iterations: options.iterations,
             time_limit: options.time_limit,
             ..Controls::default()
         };
         // The normalized feasibility budget of the unknowns (tolerance over nominal), as
-        // `Accuracy::resolve` forms it; the function-norm test stays |r| <= tolerance.
-        controls.accuracy.feasibility = options
-            .variable_tolerance
-            .iter()
-            .zip(&options.variable_nominals)
-            .map(|(t, n)| t / n)
-            .fold(f64::INFINITY, f64::min);
+        // `ResolvedAccuracy::resolve` forms it; the function-norm test stays |r| <= tolerance.
+        let accuracy = ResolvedAccuracy::from_policy(
+            &Default::default(),
+            options
+                .variable_tolerance
+                .iter()
+                .zip(&options.variable_nominals)
+                .map(|(t, n)| t / n)
+                .fold(f64::INFINITY, f64::min),
+        )
+        .map_err(map)?;
         let contract = OracleContract {
             identity: problem.identity,
             variables: problem
@@ -146,24 +160,15 @@ impl InnerSolver for Kinsol {
                 problem.unknowns.len(),
                 problem.rows.len(),
             ),
-            controls.accuracy.feasibility,
+            accuracy.feasibility,
         );
         let compatibility = Compatibility {
             layout: problem.identity,
+            profile: problem.identity,
             data: problem.identity,
             backend: Backend::Kinsol,
         };
         let execution = Execution::new(cancel.clone(), &controls);
-        // Typed native causes, including structural rows and columns, stay attributable.
-        let map = |e: ProblemError| match e {
-            ProblemError::Math(e) => e,
-            ProblemError::Cancelled => MathError::Cancelled,
-            other => MathError::Native {
-                source_id: problem.id,
-                retained: other.retained_bytes(),
-                cause: Box::new(other),
-            },
-        };
         let mut session = kinsol::Session::new(
             kinsol::Function::Equations(Box::new(oracle)),
             settings,
@@ -172,7 +177,14 @@ impl InnerSolver for Kinsol {
         )
         .map_err(map)?;
         let report = session
-            .solve(&options.start, &controls, execution, &tolerances, None)
+            .solve(
+                &options.start,
+                &controls,
+                &accuracy,
+                execution,
+                &tolerances,
+                None,
+            )
             .map_err(map)?;
         match report.termination.category {
             Termination::Cancelled => return Err(MathError::Cancelled),

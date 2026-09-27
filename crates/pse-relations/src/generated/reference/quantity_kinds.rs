@@ -8,20 +8,20 @@ pub use pse_model::generated::r#reference::r#quantity_kinds::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    226u8, 93u8, 225u8, 231u8, 197u8, 70u8, 54u8, 114u8, 56u8, 49u8, 138u8, 34u8, 3u8,
-    218u8, 77u8, 158u8,
+    237u8, 135u8, 148u8, 233u8, 20u8, 159u8, 174u8, 145u8, 123u8, 13u8, 252u8, 172u8,
+    166u8, 107u8, 167u8, 197u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "quantity_kinds";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Reference;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    229u8, 110u8, 149u8, 102u8, 108u8, 47u8, 18u8, 231u8, 77u8, 179u8, 86u8, 3u8, 80u8,
-    135u8, 253u8, 149u8, 238u8, 41u8, 212u8, 35u8, 72u8, 148u8, 194u8, 59u8, 70u8, 163u8,
-    31u8, 174u8, 26u8, 22u8, 18u8, 189u8,
+    16u8, 226u8, 153u8, 255u8, 199u8, 238u8, 187u8, 203u8, 182u8, 73u8, 130u8, 126u8,
+    43u8, 70u8, 165u8, 156u8, 237u8, 11u8, 4u8, 223u8, 124u8, 230u8, 48u8, 174u8, 31u8,
+    19u8, 89u8, 240u8, 243u8, 30u8, 78u8, 6u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceQuantityKindsRow {
     fn append(
@@ -49,7 +49,11 @@ impl crate::columnar::ArrowValue for ReferenceQuantityKindsRow {
             &self.r#addition_kind,
             children[4usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#doc, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#category,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#doc, children[6usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -71,7 +75,10 @@ impl crate::columnar::ArrowValue for ReferenceQuantityKindsRow {
         <crate::generated::enums::QuantityAdditionKind as crate::columnar::ArrowValue>::append_null(
             children[4usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            crate::generated::enums::QuantityKindCategory,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -102,8 +109,14 @@ impl crate::columnar::ArrowValue for ReferenceQuantityKindsRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#doc: <String as crate::columnar::ArrowValue>::read(
+            r#category: <Option<
+                crate::generated::enums::QuantityKindCategory,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#doc: <String as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
                 index,
             )?,
         })
@@ -171,7 +184,8 @@ impl crate::columnar::RelationRow for ReferenceQuantityKindsRow {
             &self.r#addition_kind,
             columns[4usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#doc, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#category, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#doc, columns[6usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -206,10 +220,10 @@ impl crate::columnar::RelationRow for ReferenceQuantityKindsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        53_248_usize + size_of::<Self::Builder>()
+        55_296_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        416usize
+        432usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -254,6 +268,17 @@ impl crate::columnar::RelationRow for ReferenceQuantityKindsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            if let Some(value) = (self.r#category).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             crate::columnar::allocation_add(8, (self.r#doc).len())?,
         )?;
         Ok(bytes)
@@ -266,7 +291,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "quantity_kind_id",
@@ -294,8 +319,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "doc",
+        name: "category",
         position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "doc",
+        position: 6usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -310,8 +340,10 @@ pub mod columns {
     pub const EXTENSIVE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///addition_kind
     pub const ADDITION_KIND: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///category
+    pub const CATEGORY: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///doc
-    pub const DOC: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const DOC: crate::columnar::ColumnReference = super::COLUMNS[6usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -323,6 +355,7 @@ pub struct ReferenceQuantityKindsView<'a> {
     dimension_column: &'a arrow_array::FixedSizeListArray,
     extensive_column: &'a arrow_array::BooleanArray,
     addition_kind_column: &'a arrow_array::StringArray,
+    category_column: &'a arrow_array::StringArray,
     doc_column: &'a arrow_array::StringArray,
 }
 impl<'a> ReferenceQuantityKindsView<'a> {
@@ -378,9 +411,12 @@ impl<'a> ReferenceQuantityKindsView<'a> {
             addition_kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(4usize).as_ref())?,
-            doc_column: crate::columnar::array::<
+            category_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(5usize).as_ref())?,
+            doc_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -459,6 +495,18 @@ impl<'a> ReferenceQuantityKindsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "category",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn category_column(&self) -> &'a arrow_array::StringArray {
+        self.category_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "category", "`.")]
+    pub fn category_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "doc",
         "`, including its offsets and validity bitmap.",
     )]
@@ -467,7 +515,7 @@ impl<'a> ReferenceQuantityKindsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "doc", "`.")]
     pub fn doc_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -498,6 +546,7 @@ impl<'a> ReferenceQuantityKindsView<'a> {
                 self.addition_kind_column,
                 index,
             )?,
+            r#category: crate::columnar::ArrowValue::read(self.category_column, index)?,
             r#doc: crate::columnar::ArrowValue::read(self.doc_column, index)?,
         })
     }

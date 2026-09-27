@@ -83,9 +83,9 @@ Version: 3. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Version-one generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR.
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none.
 
-Version: 1. Snapshot class: `model`. Primary key: `declaration_id`.
+Version: 2. Snapshot class: `model`. Primary key: `declaration_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -162,6 +162,7 @@ Version: 1. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.binding.indices.item.domain` | `Utf8` | false | `payload` | — | — |
 | `value.binding.expression` | `Utf8` | true | `payload` | — | — |
 | `value.binding.defined_by` | `Utf8` | true | `payload` | — | — |
+| `value.binding.domain` | `enum:ModelingVariableDomain` | true | `payload` | — | — |
 | `value.function` | `Struct` | true | `payload` | — | — |
 | `value.function.type_parameters` | `List` | false | `payload` | — | — |
 | `value.function.type_parameters.item` | `Utf8` | false | `payload` | — | — |

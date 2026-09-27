@@ -960,9 +960,28 @@ impl Cursor<'_> {
                     })
                     .collect();
                 let type_name = if self.eat(":") {
-                    self.type_name(&["=", ";", "defined"])?
+                    self.type_name(&["=", ";", "defined", "in"])?
                 } else {
                     String::new()
+                };
+                // ADR-0103: a variable always carries its declared domain; continuous is the
+                // default spelling. No other binding declares one.
+                let domain = if keyword == "var" {
+                    Some(if self.eat("in") {
+                        self.word()?
+                            .parse::<pse_model::generated::enums::ModelingVariableDomain>()
+                            .map_err(|_| {
+                                self.error(
+                                    "continuous, integer, binary, semicontinuous or semiinteger",
+                                )
+                            })?
+                    } else {
+                        pse_model::generated::enums::ModelingVariableDomain::Continuous
+                    })
+                } else if self.peek() == "in" {
+                    return Err(self.error("a domain facet belongs to a var declaration"));
+                } else {
+                    None
                 };
                 let expression = if self.eat("=") {
                     Some(self.until(&[";", "defined"])?)
@@ -981,6 +1000,7 @@ impl Cursor<'_> {
                     indices,
                     expression,
                     defined_by,
+                    domain,
                 };
                 match keyword.as_str() {
                     "param" => Value::from_parameter(b),

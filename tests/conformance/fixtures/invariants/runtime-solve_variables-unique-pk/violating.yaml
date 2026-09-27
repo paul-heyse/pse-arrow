@@ -3,6 +3,7 @@
   "rows": {
     "runtime.solve_variables": [
       {
+        "domain": "[\"enum\",\"continuous\"]",
         "dual_qualification": "[\"enum\",\"evaluated_kkt_not_sensitivity_certified\"]",
         "fixed": "[\"bool\",true]",
         "lower": "[\"f64\",\"3ff0000000000000\"]",
@@ -23,6 +24,7 @@
         "value": "[\"f64\",\"3ff0000000000000\"]"
       },
       {
+        "domain": "[\"enum\",\"continuous\"]",
         "dual_qualification": "[\"enum\",\"evaluated_kkt_not_sensitivity_certified\"]",
         "fixed": "[\"bool\",true]",
         "lower": "[\"f64\",\"3ff0000000000000\"]",

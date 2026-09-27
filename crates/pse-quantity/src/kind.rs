@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Quantity kind declarations (blueprint §6.2).
-use crate::{DimensionVector, QuantityAdditionKind, QuantityKindId};
+use crate::{DimensionVector, QuantityAdditionKind, QuantityKindCategory, QuantityKindId};
 /// What is measured, independent of basis and datum.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct QuantityKind {
@@ -14,4 +14,6 @@ pub struct QuantityKind {
     pub extensive: bool,
     /// Additive or origin-sensitive arithmetic.
     pub addition_kind: QuantityAdditionKind,
+    /// Discrete category of a dimensionless pure-number kind; `None` for a measured kind.
+    pub category: Option<QuantityKindCategory>,
 }

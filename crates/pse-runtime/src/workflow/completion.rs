@@ -123,8 +123,12 @@ impl RunResult {
                 let preparation = request.solve.preparation_identity().map_err(crate::math::MathRuntimeError::from)?;
                 let selected = request.solve.request_identity().map_err(crate::math::MathRuntimeError::from)?;
                 let profile = crate::math::solves::profile_key(&request.profile).map_err(crate::math::MathRuntimeError::from)?;
-                let mut identity = FramedHasher::new("pse.completed.request.v1");
+                let mut identity = FramedHasher::new("pse.completed.request.v2");
                 identity.hash(&request.source.revision.identity()).id(&request.instance).hash(&preparation).hash(&selected).hash(&profile).hash(&request.solve.numerics().key);
+                // A result is traceable to what seeded it and to native state it reused:
+                // the previous step's seed and the reuse of retained native state enter
+                // its lineage identity (F25).
+                frame_start(&mut identity, native);
                 let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
                 actual_environment.hash(&environment).hash(&pse_buildinfo::BUILD_IDENTITY);
                 if let Some(native) = native {
@@ -267,6 +271,35 @@ impl RunResult {
             }
         }
         Ok(product)
+    }
+}
+/// Frame the start a native step actually used: its submitted seed by content (never by
+/// the run that produced it), the predecessor step, a partial start, and whether the step
+/// reused retained native state.
+fn frame_start(h: &mut FramedHasher, native: Option<&pse_backend_native::solve::SolveReport>) {
+    let Some(native) = native else {
+        h.bool(false);
+        return;
+    };
+    h.bool(true).bool(native.evidence.reused_native_state);
+    let Some(receipt) = &native.start_receipt else {
+        h.bool(false);
+        return;
+    };
+    h.bool(true).bool(receipt.submitted);
+    h.u64(receipt.previous_attempt.map_or(0, |a| a as u64 + 1));
+    match receipt.seed.as_ref().filter(|_| receipt.submitted) {
+        Some(seed) => {
+            h.bool(true).hash(&seed.content_key());
+        }
+        None => {
+            h.bool(false);
+        }
+    }
+    let partial = receipt.sparse_seed.as_ref();
+    h.u64(partial.map_or(0, |p| p.len() as u64));
+    for (id, value) in partial.into_iter().flatten() {
+        h.id(id).u64(value.to_bits());
     }
 }
 fn header(

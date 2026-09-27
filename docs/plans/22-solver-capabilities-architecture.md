@@ -205,12 +205,26 @@ and [F28](../design_review/reviews/design_review_solver-capabilities_2026-09-27.
 
 The adapter table is a static map from `Backend` to its adapter. There is no string lookup.
 
-**Shared runners in `pse-runtime`:**
+As implemented in A2 (`pse-backend-native/src/execution*.rs`), eligibility is one rule,
+`routing::admit`, computed from the capability record, the adapter's linkage and the
+request; adapters do not override it. Settings and model-contract admission are the separate
+`admit_settings` and `admit_contract`. The session is `execute` over an opaque, worker-owned
+`Retained`, and the warm payload is `primal_start` and `accepts`. An `automatic` rank orders
+eligible adapters and never grants eligibility.
+
+**Shared runners:**
 
 | Runner | Replaces | Serves |
 |---|---|---|
-| One NLP runner (pipeline → solve → finish → KKT → qualify) | Four copies (F28) | Solve, initialization, fitting and certification |
-| One staged-sequence primitive (value-only rebind, retained sessions, typed `StartSource`) | Two initialization engines and two multi-case engines (F29) | Homotopy, studies, rolling horizons |
+| One NLP runner (pipeline → solve → finish → KKT → qualify), `execution::nlp` in `pse-backend-native` | Four copies (F28) | Solve, initialization and fitting (A2); certification when the G packets land |
+| Root, coefficient and cone runners, `execution::{roots, coefficients, cone}` in `pse-backend-native` | Per-workflow transport, recovery and qualification | Every root, coefficient and cone route |
+| One staged-sequence primitive (value-only rebind, retained sessions, typed `StartSource`), in `pse-runtime` | Two initialization engines and two multi-case engines (F29) | Homotopy, studies, rolling horizons |
+
+**Deviation (A2, adopted).** The shared representation runners live in `pse-backend-native`
+(`execution::{nlp, roots, coefficients, cone}`), not in `pse-runtime` as this section first
+said. A stub adapter test can then exercise the real runner. The stub is known only through
+its capability record and a table entry. `pse-runtime` keeps workflow ownership: it chooses
+a runner by representation and the adapter by table lookup, and never names a backend.
 
 **Typed failures (F17, F18, F19).** `ProblemError` gains Provider, Unsupported, Numerical,
 Limit, Cancelled and Internal variants, each keeping its cause. The registry diagnostic
@@ -225,18 +239,26 @@ A library-neutral DAG projected from Symbolica atoms. It sits beside the FBBT pr
 never replaces the evaluator.
 
 - **Nodes:**
-  - Var, Const (rational or f64);
+  - Var, Const (exact rational, or a finite f64);
   - n-ary Sum and Product;
-  - Pow with a rational exponent;
+  - Pow with a constant exponent;
   - Exp, Log, Abs, Sin, Cos;
   - Min and Max, exported exactly through the absolute-value identity;
   - `Aux`, a free auxiliary variable standing for an opaque output.
+- **Exponents are constants.** A Pow exponent is an exact rational when the library atom is rational, and otherwise a finite binary64 value. Every finite binary64 value is itself an exact dyadic rational, so no exponent is rounded by the export. A variable exponent is exported as `exp(e · log b)`, defined on the positive base the evaluator requires.
 - **Fidelity.** Every row and the objective carry `Exact`, `Relaxed` or `Unavailable`.
-- **Obligations** (`Require`, `Domain`) become closed bounds or constraints.
-- **Implicit blocks** export their residual equations and declared bounds whatever their realization. The residual atom exists (`implicit_cubic.rs`), so the PR cubic is exact.
+- **The absolute-value identity** is proved, never sampled. A branch `if L cmp R then X else Y` whose regions are pure arithmetic is exported as `(X + Y)/2 − (α/2)|L − R|` when `X − Y = α(L − R)` holds by symbolic expansion for α in the fixed set {±1, ±2, ±½}. Minimum (α = 1), maximum (α = −1) and absolute value (α = −2) take this form in either guard orientation. Rational cancellation is not used, because stage expressions carry binary64 coefficients.
+- **Obligations** (`Require`, `Domain`) become closed constraints, never expression dependencies. The constraints of one obligation form a conjunction, which is its closure:
+  - each constraint is `lower ≤ e ≤ upper` and is marked `strict` where the original condition excludes the finite bound, so `e > 0` exports as `e ≥ 0` marked strict;
+  - a nonzero requirement's closure admits every point, so it exports no constraint and keeps its exact condition on its argument;
+  - a predicate that can never hold exports the infeasible `1 ≤ 0`;
+  - a validity predicate is decomposed into its closed conjunction where its structure allows. A part without a closed conjunctive form, such as a disjunction of branch outcomes or an inequation, is dropped, which is sound; the obligation is then marked unrepresented and is at best `Relaxed`;
+  - presolve admits a requirement through its exact condition, and a domain predicate through its closed conjunction, which must be complete.
+- **Conditional obligations are not constraints.** An obligation inside a branch region is `Conditional`: it is recorded for domain analysis, never exported as a constraint and excluded from the program's fidelity. In presolve it can make its instance unestablished, never violated. A branch whose guard is constant under the consumed values selects its region statically, so its obligations stay unconditional.
+- **Implicit blocks** export their residual equations and declared bounds whatever their realization. The residual atom exists (`implicit_cubic.rs`), so the PR cubic is exact. G2 takes the definitions from `AdmittedImplicit::factorable_definition`; a regime selection has no single residual and stays a provider output (`Relaxed`).
 - **Providers** become `Aux` within an *enforced* envelope, so the row is `Relaxed`.
-- **Branches with proven continuity** become disjunctions (exact, but mixed-integer) or `Aux` (relaxed), by a declared policy.
-- **Validity guards must not poison projection.** The census traced the only non-physics opacity in the PC-SAFT cases to a `valid(...)` conditional lowered into a `Domain` stage. The projection treats `Domain` stages as obligations, not as expression dependencies.
+- **Branches with proven continuity** outside the identity become disjunctions (exact, but mixed-integer) or `Aux` (relaxed), by a declared policy. G2 implements `Aux`; the disjunctive policy is a typed refusal (`FactorableError::DisjunctiveBranch`) until M4 and G7.
+- **Census attribution (corrected by G2).** The census attributed the 9 non-projectable PC-SAFT rows to the `valid(...)` guard lowered into a `Domain` stage. The cause was `analyze()`'s flattening limit of 16,384 operations or a 1 MB substitution. PC-SAFT's Helmholtz derivatives share many intermediates, so their outputs lost the optional flattened expression. The validity guard was not the cause. The projection therefore reads each instance's demanded stage program and keeps every stage result as one shared node; it never reads the flattened expression. `Domain` stages remain obligations, not expression dependencies. After G2, 1,830 of the 1,845 steady rows are `Exact` and 15 are `Relaxed` (the `nested-equilibrium` regime outputs). See the [review correction](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#10-verification) and execution packet E11.
 
 ### 5.2 Relaxation-soundness rule
 

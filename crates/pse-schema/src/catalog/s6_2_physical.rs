@@ -3,7 +3,7 @@
 
 //! §6.2 physical type.
 
-use super::declarations::{column, relation, structure};
+use super::declarations::{column, relation, relation_version, structure};
 use crate::builder::RegistryBuilder;
 use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
@@ -103,10 +103,11 @@ fn declare_reference_unit_sets(builder: &mut RegistryBuilder) {
 }
 
 fn declare_reference_quantity_kinds(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Reference,
         "quantity_kinds",
+        2,
         S::Model,
         &["quantity_kind_id"],
         vec![
@@ -118,9 +119,10 @@ fn declare_reference_quantity_kinds(builder: &mut RegistryBuilder) {
             ),
             column("extensive", T::native(arrow_schema::DataType::Boolean)),
             column("addition_kind", T::enumeration("QuantityAdditionKind")),
+            column("category", T::enumeration("QuantityKindCategory")).optional(),
             column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
-        "blueprint §6.2 physical type: quantity_kinds.",
+        "blueprint §6.2 physical type: quantity_kinds. Version two adds the count or indicator category of a dimensionless pure-number kind (ADR-0103); measured kinds carry none.",
     );
 }
 

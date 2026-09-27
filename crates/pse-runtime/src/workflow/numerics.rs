@@ -480,7 +480,10 @@ mod tests {
             slacks: None,
         });
         report.quality = Some(native::quality::Quality::new(vec![], vec![], vec![]).unwrap());
-        native::quality::qualify(&mut report, &Controls::default().accuracy);
+        native::quality::qualify(
+            &mut report,
+            &ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap(),
+        );
         report
     }
     #[test]
@@ -560,7 +563,8 @@ mod tests {
         report.termination.category = NativeTermination::Success;
         pse_backend_native::quality::qualify(
             &mut report,
-            &pse_backend_native::solve::Controls::default().accuracy,
+            &pse_backend_native::solve::ResolvedAccuracy::from_policy(&Default::default(), 1e-8)
+                .unwrap(),
         );
         let (native, completed, committed) = decide(&report);
         assert!(native.permits_use() && completed.permits_use() && committed);

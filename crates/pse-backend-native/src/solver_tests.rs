@@ -26,6 +26,7 @@ pub(crate) fn execution() -> Execution {
 pub(crate) fn stamp(backend: Backend) -> Compatibility {
     Compatibility {
         layout: ContentHash::from_bytes([2; 32]),
+        profile: ContentHash::from_bytes([4; 32]),
         data: ContentHash::from_bytes([3; 32]),
         backend,
     }
@@ -194,15 +195,15 @@ fn history_is_bounded_and_deadline_is_distinct_from_cancellation() {
 }
 #[test]
 fn semi_domains_include_zero_but_never_fill_the_gap() {
-    use pse_math::binding::VariableDomain as D;
-    for d in [D::SemiContinuous, D::SemiInteger] {
+    use pse_model::generated::enums::ModelingVariableDomain as D;
+    for d in [D::Semicontinuous, D::Semiinteger] {
         assert!(d.contains(0.0, 2.0, 5.0));
         assert!(!d.contains(1.0, 2.0, 5.0));
         assert!(d.contains(3.0, 2.0, 5.0));
         assert!(!d.contains(6.0, 2.0, 5.0));
     }
-    assert!(D::SemiContinuous.contains(2.5, 2.0, 5.0));
-    assert!(!D::SemiInteger.contains(2.5, 2.0, 5.0));
+    assert!(D::Semicontinuous.contains(2.5, 2.0, 5.0));
+    assert!(!D::Semiinteger.contains(2.5, 2.0, 5.0));
     assert!(!D::Binary.contains(2.0, -10.0, 10.0));
 }
 

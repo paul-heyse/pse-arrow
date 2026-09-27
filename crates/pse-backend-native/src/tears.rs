@@ -7,7 +7,8 @@ use crate::quality::Tolerances;
 use crate::solve::*;
 use crate::{CoefficientProblem, OracleContract, ProblemError, Variable};
 use pse_ids::{FramedHasher, SemanticId};
-use pse_math::binding::{ObjectiveSense, VariableDomain};
+use pse_math::binding::ObjectiveSense;
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_structural::flowsheet::{FlowGraph, Policy};
 use std::collections::{BTreeMap, BTreeSet};
 /// Exact finite MILP projection with stable decision-group/native column maps.
@@ -44,7 +45,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
         .collect();
     let nodes: BTreeMap<_, _> = d.nodes.iter().enumerate().map(|(i, n)| (n.id, i)).collect();
     let mut decisions = BTreeMap::new();
-    let mut domains = vec![VariableDomain::Continuous; n];
+    let mut domains = vec![ModelingVariableDomain::Continuous; n];
     let mut objective = vec![0.0; n];
     for g in &d.decisions {
         decisions.insert(g.id, variables.len());
@@ -61,7 +62,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
                 1.0
             },
         });
-        domains.push(VariableDomain::Binary);
+        domains.push(ModelingVariableDomain::Binary);
         objective.push(g.cost);
     }
     let mut entries = Vec::new();
@@ -173,18 +174,24 @@ pub fn solve(
     let p = compile(graph)?;
     let compatibility = Compatibility {
         layout: graph.key(),
+        profile: graph.key(),
         data: graph.key(),
         backend: Backend::Highs,
     };
     let mut session = crate::highs::Session::new(&p.problem, None, compatibility)?;
+    // The tear MILP is a 0/1 problem of this analysis, not of a model: its feasibility
+    // budget is the default policy's integrality budget.
+    let policy = pse_model::numerics::NumericalPolicy::default();
+    let accuracy = ResolvedAccuracy::from_policy(&policy, policy.integrality)?;
     let t = Tolerances {
-        variables: vec![controls.accuracy.feasibility; p.problem.contract.variables.len()],
-        rows: vec![controls.accuracy.feasibility; p.problem.bounds.len()],
-        integrality: controls.accuracy.integrality,
+        variables: vec![accuracy.feasibility; p.problem.contract.variables.len()],
+        rows: vec![accuracy.feasibility; p.problem.bounds.len()],
+        integrality: accuracy.integrality,
     };
     let report = session.solve(
         &p.problem,
         controls,
+        &accuracy,
         crate::highs::Method::Choose,
         execution,
         &t,

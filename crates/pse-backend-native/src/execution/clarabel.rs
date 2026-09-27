@@ -72,6 +72,7 @@ impl BackendExecution for Clarabel {
                     problem,
                     certificate,
                     input.controls,
+                    input.accuracy,
                     native.clone(),
                     mode,
                     stamp.clone(),
@@ -81,6 +82,7 @@ impl BackendExecution for Clarabel {
         let mut report = session.solve(
             problem,
             input.controls,
+            input.accuracy,
             native,
             input.execution,
             input.tolerances,
@@ -88,6 +90,7 @@ impl BackendExecution for Clarabel {
         report
             .metrics
             .insert("reuse.native_model".into(), Metric::Bool(reused));
+        report.evidence.reused_native_state = reused;
         Ok(report)
     }
 }

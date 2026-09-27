@@ -206,7 +206,7 @@ feos-core = { version = "=0.10.1", default-features = false }
 num-dual = { version = "=0.14.2", default-features = false }
 nalgebra = { version = "=0.35.0", default-features = false, features = ["std"] }
 highs = "=2.4.0"
-highs-sys = "=1.14.3"
+highs-sys = "=1.15.0"
 # Raw SCIP 10.0.2 C API (ADR-0105). Default features only: bindgen over the solver
 # image's `SCIPOPTDIR` headers. The `bundled` and `from-source` profiles are refused.
 scip-sys = "=0.1.28"

@@ -11,8 +11,8 @@ use crate::{
     solver_tests::{Polynomial, stamp},
 };
 use pse_kernels::DerivativeOrder;
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_math::{
-    binding::VariableDomain,
     facts::{BoundShape, ProblemFacts},
 };
 
@@ -132,6 +132,7 @@ impl BackendExecution for Stub {
         report
             .metrics
             .insert("reuse.native_model".into(), Metric::Bool(reused));
+        report.evidence.reused_native_state = reused;
         Ok(report)
     }
 }
@@ -194,6 +195,7 @@ fn stub_backend_routes_through_adapter_table() {
                 adapter,
                 settings: &BackendSettings::Default,
                 controls: &controls,
+                accuracy: &ResolvedAccuracy::nominal(),
                 execution: Execution::new(
                     std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
                     &controls,
@@ -310,7 +312,7 @@ fn grid() -> Vec<ProblemFacts> {
             DerivativeOrder::First,
             DerivativeOrder::Second,
         ] {
-            for domain in [VariableDomain::Continuous, VariableDomain::Integer] {
+            for domain in [ModelingVariableDomain::Continuous, ModelingVariableDomain::Integer] {
                 for (objective, equalities, rows) in
                     [(false, true, 1), (true, false, 1), (true, true, 2)]
                 {

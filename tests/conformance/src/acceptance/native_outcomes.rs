@@ -123,9 +123,11 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
     let execution = Execution::new(cancel, controls);
     let compatibility = Compatibility {
         layout: ContentHash::from_bytes([9; 32]),
+        profile: ContentHash::from_bytes([7; 32]),
         data: ContentHash::from_bytes([8; 32]),
         backend,
     };
+    let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap();
     let tolerances = Tolerances {
         variables: vec![1e-6],
         rows: vec![],
@@ -137,9 +139,9 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
             &[10.],
             ObjectiveSense::Minimize,
             controls,
+            &accuracy,
             execution,
             &tolerances,
-            None,
             None,
             compatibility,
         ),
@@ -148,6 +150,7 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
             &[10.],
             ObjectiveSense::Minimize,
             controls,
+            &accuracy,
             pounce::Method::InteriorPoint,
             Default::default(),
             execution,
@@ -173,9 +176,9 @@ fn solve(backend: Backend, fault: Fault, controls: &Controls) -> (SolveReport, b
         pse_backend_native::quality::record_kkt(
             &mut report,
             &pse_math::normalization::Normalization::identity(1, 0),
-            &controls.accuracy,
+            &accuracy,
         );
-        pse_backend_native::quality::qualify(&mut report, &controls.accuracy);
+        pse_backend_native::quality::qualify(&mut report, &accuracy);
     }
     (report, fired.load(Ordering::SeqCst))
 }

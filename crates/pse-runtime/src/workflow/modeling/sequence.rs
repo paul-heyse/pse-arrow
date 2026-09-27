@@ -3,7 +3,10 @@
 //! Prepared original-model checks gate native sequence reuse without nested scheduling.
 use super::*;
 use super::results::{AssessmentScope, assessment_units, assess_observations};
-use crate::math::{ExecutableCase, solves::{Outcome, SequenceAssessment}};
+use crate::math::{
+    ExecutableCase, WorkerBudget,
+    solves::{Outcome, SequenceAssessment},
+};
 use pse_math::binding::CaseValues;
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
@@ -31,7 +34,13 @@ struct Assessor {
     points: Assessments,
 }
 impl SequenceAssessment for Assessor {
-    fn accepted(&mut self, attempt: usize, outcome: &Outcome, flag: &Arc<AtomicBool>) -> bool {
+    fn accepted(
+        &mut self,
+        attempt: usize,
+        outcome: &Outcome,
+        flag: &Arc<AtomicBool>,
+        budget: &Arc<WorkerBudget>,
+    ) -> bool {
         let program = &self.programs[attempt];
         let prepared = &program.prepared;
         let mut point = AssessedPoint {
@@ -69,18 +78,16 @@ impl SequenceAssessment for Assessor {
                     }
                 }
                 let observed = if let Some(executable) = &program.executable {
-                    let providers = prepared
-                        .providers
-                        .iter()
-                        .map(|(key, p)| p.worker().map(|w| (*key, w)))
-                        .collect::<Result<_, _>>()
-                        .map_err(|e| {
-                            crate::math::MathRuntimeError::from(
-                                pse_backend_native::ProblemError::Provider(e),
-                            )
-                        })?;
-                    let mut worker = executable.assembly.worker(providers, flag.clone());
-                    let values = worker
+                    // The assessment evaluator shares the sequence job: it observes the
+                    // attempt's cancellation and is charged to the job reservation (F31).
+                    let mut evaluator = prepared.source.runtime.native().worker(
+                        executable.clone(),
+                        &prepared.providers,
+                        flag.clone(),
+                        budget,
+                    )?;
+                    let values = evaluator
+                        .worker()
                         .constraints(&values)
                         .map_err(crate::math::MathRuntimeError::from)?;
                     program.rows.iter().copied().zip(values).collect()

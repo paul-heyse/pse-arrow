@@ -224,12 +224,23 @@ tolerances is ever used. Derived library options:
 | Adapter | Derived from the policy |
 |---|---|
 | Ipopt and POUNCE | `tol`, `constr_viol_tol`, `dual_inf_tol`, `compl_inf_tol`; `bound_relax_factor = 0` and `honor_original_bounds`; acceptable-level options only when an acceptable budget is declared |
-| KINSOL | Variable and residual scales, strict sign constraints from exact sign bounds, scaled-step tolerance |
+| KINSOL | `kinsol::Settings::from_policy`: each variable and residual scale is `feasibility * s / t` and the scaled-step tolerance is `feasibility`, so KINSOL's residual and step tests reduce to the original per-row and per-coordinate budgets; strict sign constraints from exact sign bounds. Callers choose only the method (`kinsol::Method`) |
 | HiGHS | Feasibility, integrality and MIP gap controls |
 | Clarabel | Primal/dual residual and gap controls, with cone-block adjustments retained in provenance |
 
 Options that encode these semantic controls are reserved; a caller-supplied native
 option that conflicts with them is refused before the library sees it.
+
+`kinsol::Settings::from_policy` is the one KINSOL configuration. The root runner,
+conditional initialization blocks ([§17.1](#section-17-1)) and the nested implicit solve
+inside an evaluation all derive from it; the nested solve takes the budgets and nominals of
+its unknowns and rows from the resolved policy's targets, and its normalized feasibility
+budget is the smallest tolerance-to-nominal ratio of its unknowns. The derived controls
+reach every adapter through the shared representation runners ([§18.7](#section-18-7)).
+One NLP runner, `execution::nlp`, serves solve sequences, initialization blocks and
+fitting: presolve pipeline (or its terminal report), native solve, library recovery with an
+independent original observation, KKT evidence and qualification. No workflow derives
+native controls or acceptance of its own.
 
 Acceptance is judged in original physical coordinates, not in the solver's normalized
 space. `quality::Tolerances::from_policy` projects the frozen per-ID budgets onto one
@@ -320,7 +331,12 @@ columns and explicit predecessor inputs. Deficient, partial or non-square struct
 refused before any factorization. `pse-runtime::math::initialization::PreparedInitialization`
 compiles each block as an ordinary library artifact (unselected variables bound as
 fixed) and resolves every block's route before worker acquisition
-([§18.7](#section-18-7)); a failed attempt does not trigger a fallback route.
+([§18.7](#section-18-7)); a failed attempt does not trigger a fallback route. Typed backend
+settings must belong to every block's route. Each block runs through the shared runner of
+its route's representation, the same runners a solve uses: `execution::roots` for KINSOL,
+with scales derived per block by `kinsol::Settings::from_policy`
+([§16.6](#section-16-6)), or the one NLP runner `execution::nlp` for Ipopt and POUNCE, with
+library presolve off.
 
 Execution is transactional over immutable case bindings:
 
@@ -478,7 +494,8 @@ requested objective gap.
 ### 18.6 Truthful outcomes
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — typed
-> adapter evidence (Plan 22 A1, implemented); new assurances `global_bound`,
+> adapter evidence (Plan 22 A1, implemented), which qualification reads by evidence type,
+> never by backend (Plan 22 A2, implemented); new assurances `global_bound`,
 > `proven_infeasible`, `exact_certificate` and `sos_bound_nonrigorous`, each with stated
 > conditions (Plan 22 G4, G5, N5; not yet implemented).
 
@@ -497,13 +514,21 @@ without a usable candidate. Its facts are independent:
 
 `quality::qualify` grants only what original observations support. A validation error,
 missing candidate or infeasible quality yields `Unqualified`. Feasibility yields
-`Feasible`. Beyond that, the native stop must be success (or acceptable with a declared
-acceptable budget) and, per class: NLP needs original stationarity and complementarity
-within budget; HiGHS needs a verified upload-equivalence readback plus either a MIP gap
-within budget or LP/QP dual feasibility and primal-dual error within budget; Clarabel
-needs residuals and a gap within budget. Roots top out at `Feasible`. A postsolve or
-validator failure preserves the native outcome and clears assurance; optional
-diagnostic failure never replaces the original solve.
+`Feasible`. Beyond that, the native stop must be success or acceptable, and the kind of
+typed evidence the adapter recorded selects the rule. No backend is named, so a new
+adapter qualifies through the evidence it produces:
+
+- `CoefficientEvidence` needs a verified upload-equivalence readback plus either a MIP gap
+  within budget (`GapQualified`, or `OptimalWithinTolerance` at a zero gap) or LP/QP dual
+  feasibility and primal-dual error within budget (`OptimalWithinTolerance`);
+- otherwise `ConicEvidence` needs residuals and a gap within budget
+  (`OptimalWithinTolerance`);
+- otherwise `KktEvidence` with original stationarity and complementarity within budget
+  grants `Stationary`; an acceptable stop additionally needs a declared acceptable budget.
+
+A root-system adapter supplies no multipliers, so the root runner tops out at `Feasible`.
+A postsolve or validator failure preserves the native outcome and clears assurance;
+optional diagnostic failure never replaces the original solve.
 
 **Evidence and metrics.** Adapters record typed `solve::Evidence` on the report:
 callback trial history (`CallbackEvidence`: recoverable trial rejections and whether a
@@ -528,30 +553,75 @@ use (§16.6) combines these facts with physical closure.
 ### 18.7 Capability, eligibility and selection
 
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md),
-> [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — the explicit
-> `certify` intent, SCIP routing for MIQP and MINLP, and the backend-execution adapter;
+> [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — the
+> backend-execution adapter table and the explicit `certify` intent (Plan 22 A2,
+> implemented; `certify` is refused until a global backend is linked); SCIP routing for
+> MIQP and MINLP (Plan 22 G3; not yet implemented);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — lexicographic and weighted
-> multi-objective routes (Plan 22 A2, G3, C3; not yet implemented).
+> multi-objective routes (Plan 22 C3; not yet implemented).
 
 Capability is five distinct facts:
 
 | Fact | Owner |
 |---|---|
-| Requested | `SolverProfile`: intent (`Optimize`, `Root`, `FeasiblePoint`, `Initialize`), `SolverSelection::{Auto, Explicit}`, controls and typed backend settings |
-| Available | `BackendCapabilities::available`: the adapter is linked by feature; `runtime.solver_capabilities` exposes the static inventory |
+| Requested | `SolverProfile`: the registry intent `NativeSolveIntent` (`optimize`, `root`, `feasible_point`, `initialize`, `certify`), `SolverSelection::{Auto, Explicit}`, controls and typed backend settings |
+| Available | `BackendExecution::linked`: the adapter is linked by feature; `runtime.solver_capabilities` publishes one row per linked adapter (§18.9) |
 | Admitted | Compiler facts (`pse-math::facts::ProblemFacts`) and structural admission (§15.2): domains, bound shapes, prepared derivative order, coefficient eligibility, convexity evidence |
-| Eligible | `routing::Requirements::eligibility`: every applicable reason per backend for this model, profile and thread count |
+| Eligible | `routing::admit`: every applicable typed `Ineligible` reason per adapter for this model, profile and thread count |
 | Selected | `routing::Requirements::select` returns `Constant` or `Native(backend)` |
 
-Automatic selection is deterministic: roots and initialization prefer KINSOL, then
-Ipopt, then POUNCE among eligible adapters, so boxed roots route to a constrained NLP
-adapter rather than dropping bounds; optimization prefers HiGHS for admitted
-coefficient classes, then Ipopt, then POUNCE. Clarabel is reached only through an
-explicit cone request. An explicit selection is never substituted: an unlinked choice
-fails with `Unavailable` listing eligible alternatives, and an ineligible choice fails
-with every reason. Unsupported bound, derivative, nonsmooth and thread combinations
-fail during preparation, before worker acquisition. Typed backend settings must match
-the selected route.
+**The adapter seam.** `pse-backend-native::execution` owns one `BackendExecution` adapter
+per registry `Backend`. The static table (`execution::adapter`) maps every `Backend` value
+to its adapter through an exhaustive match, so a new registry value cannot compile without
+one; there is no string lookup. Each adapter owns its pse-owned settings type, one
+`Capability` record (classes, derivative representation, warm-start support, general and
+sign bounds, parallelism, reuse, cancellation and diagnostics), admission of its settings
+and model contract, its native session on the owning worker, its warm-start payload and
+its typed evidence. The capability record is the only source of both eligibility and the
+published inventory row: `routing::admit` is a function of that record, the adapter's
+linkage and the request, and adapters do not override it. Settings identity
+(`BackendSettings::identity`) is derived from serde, never from a hand-written field list,
+and enters the request identity and native layout compatibility. Native state retained
+between the finite steps of a sequence is an opaque, worker-owned `execution::Retained`:
+an adapter reuses only its own session, when layout and settings match and `ReusePolicy`
+allows, and otherwise tears it down before building a replacement; `RequireReuse` refuses
+instead.
+
+**Shared runners.** Workflows choose a runner by representation and the adapter by table
+lookup; neither step names a backend. The runners `execution::nlp`, `execution::roots`,
+`execution::coefficients` and `execution::cone` build the adapter's native representation
+from original-coordinate inputs, execute it, recover original coordinates and qualify the
+report (§18.6). The one NLP runner serves solve sequences, initialization blocks and
+fitting ([§16.6](#section-16-6)). The coefficient runner re-evaluates the original compiled
+model at the candidate (`execution::OriginalModel`): a projection that disagrees with it
+becomes a validation failure, and the fresh original values replace the projected
+observation before qualification.
+
+**Selection.** The classes an adapter is assessed against follow from facts and intent
+(`routing::problem_classes`): a root intent makes a square continuous problem
+`square_root`; a continuous problem is `smooth_nlp`; for other intents, coefficient
+eligibility adds `linear`, `mixed_linear` or, with convexity evidence, `convex_quadratic`.
+Explicit cones and trajectories are never inferred from algebraic facts. Automatic
+selection takes the eligible adapter with the lowest automatic rank: KINSOL, HiGHS, Ipopt,
+POUNCE, then Clarabel. A rank orders a choice and never grants eligibility; Diffsol and
+IDAS are trajectory adapters that the algebraic router never assesses. Roots and
+initialization therefore reach KINSOL, then Ipopt, then POUNCE, so boxed roots route to a
+constrained NLP adapter rather than dropping bounds; optimization reaches HiGHS for
+admitted coefficient classes, then Ipopt, then POUNCE. Clarabel is reached only through an
+explicit cone request.
+
+An explicit selection is never substituted. An unlinked choice fails with `Unavailable`,
+whose alternatives are the other linked adapters that the capability rule finds eligible
+for this request; choosing one still passes structural, settings and contract admission.
+Refusals outside routing, such as tear selection without HiGHS, list none. An ineligible
+choice fails with every reason. The `certify` intent is only ever selected explicitly;
+until a global backend is linked, every adapter carries the `Certification` reason and
+selection refuses with a typed `Unsupported` before any route, including the constant route
+of an all-fixed model. Unsupported bound, derivative, nonsmooth and thread combinations
+fail during preparation, before worker acquisition. Typed backend settings must belong to
+the selected route (`BackendExecution::admit_settings`), and the route's model contract is
+admitted before any worker exists (`admit_contract`, for example KINSOL's sign-only bounds
+and guard signs).
 
 Strategies are derived from distinct projections rather than topology alone: square
 root blocks, declared causal fixed-point and Picard maps (§17.4), simultaneous
@@ -600,11 +670,18 @@ qualification matters ([§24.2](operations-and-validation.md#section-24-2)).
 > [ADR-0105](../../adr/0105-scip-factorable-backend.md),
 > [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md),
 > [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — the target adds SCIP,
-> POUNCE-convex and extended dynamics; rows change only as Plan 22 packets land.
+> POUNCE-convex and extended dynamics; rows change only as Plan 22 packets land. Since
+> Plan 22 A2 (implemented) each row is published from its adapter's capability record.
 
-The linked inventory is `BackendCapabilities::capabilities` in
-`pse-backend-native/src/solve.rs`; feature `pse-runtime/native-solvers` links the full
-profile, and Clarabel's non-SDP route is always present.
+The linked inventory is the static adapter table `execution::LINKED`
+(`pse-backend-native/src/execution.rs`). `runtime.solver_capabilities` publishes one row
+per linked adapter from the capability record routing reads ([§18.7](#section-18-7)); the
+test `published_capabilities_equal_routing_rules` rebuilds each adapter from its published
+row alone and checks that routing assesses it identically. Feature
+`pse-runtime/native-solvers` links the full profile, and Clarabel's non-SDP route is always
+present. Diffsol and IDAS publish their records, but their trajectory representation
+belongs to the integrator workflows ([§13.6](workflows-and-results.md#section-13-6)) and
+the algebraic router never assesses them.
 
 | Backend | Classes | Bounds | Derivatives | Starts | Threads |
 |---|---|---|---|---|---|

@@ -1546,6 +1546,90 @@
       "extensive": false,
       "addition_kind": "additive",
       "doc": "Inverse elapsed time."
+    },
+    {
+      "quantity_kind_id": "7c1d5e0a3b9f4e6c8a2d4f1b6e9c3a05",
+      "name": "count",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": true,
+      "addition_kind": "additive",
+      "category": "count",
+      "doc": "A dimensionless number of discrete things (units in operation, trays, modules); the kind of an integer decision (ADR-0103)."
+    },
+    {
+      "quantity_kind_id": "9e4b2c7d1f6a4d3e8b5c0a9f2e7d1c64",
+      "name": "indicator",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "category": "indicator",
+      "doc": "A dimensionless zero-or-one state (on/off, selected); the kind of a binary decision (ADR-0103)."
     }
   ],
   "quantity_operations": [
@@ -10420,6 +10504,30 @@
       "canonical_unit_id": "bd89c6bf5b514040a0d770e31ad0af0d",
       "nominal_magnitude": null,
       "doc": "Inverse elapsed time."
+    },
+    {
+      "quantity_type_id": "3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18",
+      "quantity_kind_id": "7c1d5e0a3b9f4e6c8a2d4f1b6e9c3a05",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "nominal_magnitude": null,
+      "doc": "Complete physical contract of a count of discrete things."
+    },
+    {
+      "quantity_type_id": "b5d9e1c4a7f2483e9d6c1b0a5e8f3d27",
+      "quantity_kind_id": "9e4b2c7d1f6a4d3e8b5c0a9f2e7d1c64",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "nominal_magnitude": null,
+      "doc": "Complete physical contract of a zero-or-one indicator."
     }
   ],
   "reference_states": [

@@ -19,14 +19,16 @@ use crate::{
     solve::{
         Assurance, Backend, BoundSource, Candidate, CandidateKind, Compatibility, Controls, Event,
         Execution, GlobalEvidence, Metric, NativeTermination, OptionValue, Options, PrimalSource,
-        Progress, SolveIntent, SolveReport, Termination, WarmPayload, WarmStart,
+        Progress, ResolvedAccuracy, SolveIntent, SolveReport, Termination, WarmPayload,
+        WarmStart,
     },
 };
 use pse_math::{
-    binding::{ObjectiveSense, VariableDomain},
+    binding::ObjectiveSense,
     factorable::{FactorableProgram, Fidelity, Node},
     normalization::Normalization,
 };
+use pse_model::generated::enums::ModelingVariableDomain;
 use scip_sys as ffi;
 use std::{
     ffi::{CStr, CString, c_char},
@@ -649,8 +651,8 @@ const RESERVED: [&str; 12] = [
 const RESERVED_PREFIXES: [&str; 2] = ["parallel/", "concurrent/"];
 /// The native feasibility tolerance derived from the resolved normalized budget, within
 /// SCIP's numerically safe range.
-fn feasibility(controls: &Controls) -> f64 {
-    controls.accuracy.feasibility.clamp(1e-9, 1e-6)
+fn feasibility(accuracy: &ResolvedAccuracy) -> f64 {
+    accuracy.feasibility.clamp(1e-9, 1e-6)
 }
 /// Reserved options from typed settings and controls, then admitted free-form options;
 /// returns the effective values read back from the instance.
@@ -658,6 +660,7 @@ pub(crate) fn configure(
     instance: &Instance,
     settings: &Settings,
     controls: &Controls,
+    accuracy: &ResolvedAccuracy,
     execution: &Execution,
     gap_absolute: f64,
 ) -> Result<Options, ProblemError> {
@@ -685,10 +688,10 @@ pub(crate) fn configure(
         ),
         (
             "limits/gap",
-            OptionValue::Real(controls.accuracy.mip_relative_gap),
+            OptionValue::Real(accuracy.mip_relative_gap),
         ),
         ("limits/absgap", OptionValue::Real(gap_absolute)),
-        ("numerics/feastol", OptionValue::Real(feasibility(controls))),
+        ("numerics/feastol", OptionValue::Real(feasibility(accuracy))),
         (
             "randomization/randomseedshift",
             OptionValue::Integer(i32::from(settings.seed)),
@@ -759,13 +762,13 @@ pub(crate) struct Export {
     pub linear: usize,
     pub nonlinear: usize,
 }
-fn vartype(domain: VariableDomain) -> ffi::SCIP_VARTYPE {
+fn vartype(domain: ModelingVariableDomain) -> ffi::SCIP_VARTYPE {
     match domain {
-        VariableDomain::Binary => ffi::SCIP_Vartype_SCIP_VARTYPE_BINARY,
-        VariableDomain::Integer | VariableDomain::SemiInteger => {
+        ModelingVariableDomain::Binary => ffi::SCIP_Vartype_SCIP_VARTYPE_BINARY,
+        ModelingVariableDomain::Integer | ModelingVariableDomain::Semiinteger => {
             ffi::SCIP_Vartype_SCIP_VARTYPE_INTEGER
         }
-        VariableDomain::Continuous | VariableDomain::SemiContinuous => {
+        ModelingVariableDomain::Continuous | ModelingVariableDomain::Semicontinuous => {
             ffi::SCIP_Vartype_SCIP_VARTYPE_CONTINUOUS
         }
     }
@@ -1302,6 +1305,7 @@ pub(crate) struct Request<'a> {
     pub normalization: &'a Normalization,
     pub settings: &'a Settings,
     pub controls: &'a Controls,
+    pub accuracy: &'a ResolvedAccuracy,
     pub execution: &'a Execution,
     pub warm: Option<&'a WarmStart>,
     pub compatibility: &'a Compatibility,
@@ -1324,9 +1328,16 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
         return Err(ProblemError::Contract("SCIP start dimensions".into()));
     }
     // Normalized absolute gap budgets convert to original objective units.
-    let gap_absolute = r.controls.accuracy.mip_absolute_gap * r.normalization.objective;
+    let gap_absolute = r.accuracy.mip_absolute_gap * r.normalization.objective;
     let mut instance = Instance::new(r.execution)?;
-    let options = configure(&instance, r.settings, r.controls, r.execution, gap_absolute)?;
+    let options = configure(
+        &instance,
+        r.settings,
+        r.controls,
+        r.accuracy,
+        r.execution,
+        gap_absolute,
+    )?;
     let export = export(&mut instance, &plan)?;
     // Readback at the start, clamped into the box, with auxiliaries inside theirs.
     let clamp = |x: f64, (l, u): (f64, f64)| {
@@ -1419,8 +1430,8 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
         sense: plan
             .objective
             .map_or(ObjectiveSense::Minimize, |(_, sense)| sense),
-        feasibility: feasibility(r.controls),
-        gap_relative: r.controls.accuracy.mip_relative_gap,
+        feasibility: feasibility(r.accuracy),
+        gap_relative: r.accuracy.mip_relative_gap,
         gap_absolute,
         dual_bound: plan.objective.and(dual_bound),
         primal_bound: plan.objective.and(primal_bound),
@@ -1523,6 +1534,7 @@ pub(crate) mod testing {
             &instance,
             &Settings::default(),
             &Controls::default(),
+            &ResolvedAccuracy::nominal(),
             execution,
             1e-6,
         )?;
@@ -1573,10 +1585,11 @@ pub(crate) mod testing {
     pub(crate) fn configured(
         settings: &Settings,
         controls: &Controls,
+        accuracy: &ResolvedAccuracy,
     ) -> Result<Options, ProblemError> {
         let mut execution = Execution::new(Arc::default(), controls);
         execution.memory = Some(256 << 20);
         let instance = Instance::new(&execution)?;
-        configure(&instance, settings, controls, &execution, 1e-6)
+        configure(&instance, settings, controls, accuracy, &execution, 1e-6)
     }
 }

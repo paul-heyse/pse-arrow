@@ -439,7 +439,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solve_variables",
-        2,
+        3,
         S::Derived,
         &["run_id", "step", "symbol_id"],
         vec![
@@ -450,6 +450,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("unit_id", T::id()).optional(),
             column("fixed", flag()),
             column("parameter", flag()),
+            column("domain", T::enumeration("ModelingVariableDomain")).optional(),
             column("value", real()).optional(),
             column("lower", real()).optional(),
             column("upper", real()).optional(),
@@ -462,7 +463,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("stationarity", real()).optional(),
             column("dual_qualification", T::enumeration("DualQualification")),
         ],
-        "Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate.",
+        "Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate. Every variable row states its declared domain (ADR-0103); parameter rows carry none.",
     );
     relation_version(
         b,

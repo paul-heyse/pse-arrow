@@ -26,7 +26,9 @@ static CAPABILITY: Capability = Capability {
     parallel: true,
     certifies: false,
     reuse: "native coefficient/bound updates with compatible layout",
-    cancellation: "simplex/IPM/MIP interrupt callbacks; QP native time limit",
+    // PDLP never polls the interrupt callback (HiGHS `pdlp/*Wrapper.cpp`), so, like the
+    // QP solver, it stops only at the native time limit (F08c).
+    cancellation: "simplex/IPM/MIP interrupt callbacks; QP and PDLP native time limit only",
     diagnostics: "native information, rays, IIS, ranging and explicit relaxation",
 };
 impl BackendExecution for Highs {
@@ -112,6 +114,7 @@ impl BackendExecution for Highs {
             let mut report = session.solve(
                 problem,
                 input.controls,
+                input.accuracy,
                 settings.method,
                 input.execution.clone(),
                 input.tolerances,
@@ -136,6 +139,7 @@ impl BackendExecution for Highs {
             report
                 .metrics
                 .insert("reuse.native_model".into(), Metric::Bool(reused));
+            report.evidence.reused_native_state = reused;
             Ok(report)
         }
         #[cfg(not(feature = "highs"))]

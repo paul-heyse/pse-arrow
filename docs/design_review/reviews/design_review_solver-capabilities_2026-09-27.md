@@ -353,6 +353,28 @@ validity guard is lowered. It also includes the only authored optimization. Two 
 therefore needed before SCIP could certify the current fixtures exactly: resolving branch-stage
 projection, and exporting implicit residuals rather than realizations.
 
+**Correction (G2, 2026-09-27).** The table and the reading above keep the original
+observation. Their attribution of the 9 PC-SAFT rows in the "Branch-stage rows" group is
+wrong. The cause was the flattening limit of `analyze()`: 16,384 operations or a 1 MB
+substitution. PC-SAFT's Helmholtz derivatives share many intermediates, so flattening them
+exceeded that limit, and their outputs lost the flattened expression that this census walked.
+The `valid(...)` guard was not the cause. Plan 22 G2's `FactorableProgram` projects the
+demanded stage program as a shared DAG instead. With implicit residual definitions supplied,
+1,830 of the 1,845 steady rows are Exact and 15 are Relaxed: the `nested-equilibrium` regime
+outputs. No row is Unavailable. Without implicit definitions, only 1,723 rows are exact.
+FBBT-complete rows went from 1,684 to 1,693. Per case, as Exact/Relaxed/Unavailable:
+
+- `pcsaft_flash` 11/0/0;
+- `heater_optimization` 7/0/0, with the objective Exact;
+- `heater_recycle` 6/0/0;
+- `heat_exchanger_bt_cocurrent` 228/0/0, with 32 implicit blocks;
+- `heater_bt` 112/0/0;
+- `ftpx_368` 53/0/0;
+- each density case 1/0/0;
+- each of the three nested cases 9/5/0.
+
+Current packet status is owned by Plan 22 execution packet E11.
+
 **Evidence labels for the main claims.**
 
 | Claim / scenario / risk | Evidence label | Reasoning, test or measurement | Conditions and expected result | Result or gap |

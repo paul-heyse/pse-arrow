@@ -23,9 +23,14 @@ fn contract(rows: usize) -> OracleContract {
 fn stamp(backend: Backend) -> Compatibility {
     Compatibility {
         layout: ContentHash::from_bytes([1; 32]),
+        profile: ContentHash::from_bytes([3; 32]),
         data: ContentHash::from_bytes([2; 32]),
         backend,
     }
+}
+/// The default numerical policy's budgets at a normalized feasibility budget of 1e-8.
+fn accuracy() -> ResolvedAccuracy {
+    ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap()
 }
 fn execution(c: &Controls) -> Execution {
     Execution::new(Arc::new(AtomicBool::new(false)), c)
@@ -33,12 +38,14 @@ fn execution(c: &Controls) -> Execution {
 #[test]
 fn coefficient_conic() {
     use faer::sparse::{SparseColMat, Triplet};
-    use pse_math::binding::{ObjectiveSense, VariableDomain};
+    use pse_math::binding::ObjectiveSense;
+    use pse_model::generated::enums::ModelingVariableDomain;
     let controls = Controls::default();
+    let accuracy = accuracy();
     for domain in [
-        VariableDomain::Continuous,
-        VariableDomain::Integer,
-        VariableDomain::Binary,
+        ModelingVariableDomain::Continuous,
+        ModelingVariableDomain::Integer,
+        ModelingVariableDomain::Binary,
     ] {
         let p = CoefficientProblem {
             contract: contract(1),
@@ -62,6 +69,7 @@ fn coefficient_conic() {
             .solve(
                 &p,
                 &controls,
+                &accuracy,
                 highs::Method::Choose,
                 execution(&controls),
                 &tolerances,
@@ -69,15 +77,15 @@ fn coefficient_conic() {
             )
             .unwrap();
         assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
-        quality::qualify(&mut r, &controls.accuracy);
+        quality::qualify(&mut r, &accuracy);
         assert_eq!(r.termination.category, Termination::Success, "{r:?}");
         assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible());
         near(
             r.candidate.as_ref().unwrap().primal[0],
             match domain {
-                VariableDomain::Continuous => 2.5,
-                VariableDomain::Integer => 2.,
+                ModelingVariableDomain::Continuous => 2.5,
+                ModelingVariableDomain::Integer => 2.,
                 _ => 1.,
             },
             1e-7,
@@ -112,6 +120,7 @@ fn coefficient_conic() {
             &p,
             &certificate,
             &controls,
+            &accuracy,
             Default::default(),
             conic::Mode::ReusableData,
             stamp(Backend::Clarabel),
@@ -121,6 +130,7 @@ fn coefficient_conic() {
             .solve(
                 &p,
                 &controls,
+                &accuracy,
                 Default::default(),
                 execution(&controls),
                 &Tolerances {
@@ -131,7 +141,7 @@ fn coefficient_conic() {
             )
             .unwrap();
         assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
-        quality::qualify(&mut r, &controls.accuracy);
+        quality::qualify(&mut r, &accuracy);
         assert_eq!(r.termination.category, Termination::Success, "{r:?}");
         assert_eq!(r.termination.assurance, Assurance::NativeOptimal, "{r:?}");
         assert!(r.quality.as_ref().unwrap().feasible(), "{r:?}");
@@ -146,7 +156,7 @@ fn coefficient_conic() {
         objective: vec![-4.],
         objective_constant: 4.,
         sense: ObjectiveSense::Minimize,
-        domains: vec![VariableDomain::Continuous],
+        domains: vec![ModelingVariableDomain::Continuous],
         assumptions: stamp(Backend::Highs).data,
         constraints: SparseColMat::try_new_from_triplets(0, 1, &[]).unwrap(),
         hessian: Some(q),
@@ -157,6 +167,7 @@ fn coefficient_conic() {
         .solve(
             &p,
             &controls,
+            &accuracy,
             highs::Method::Choose,
             execution(&controls),
             &Tolerances {
@@ -168,13 +179,13 @@ fn coefficient_conic() {
         )
         .unwrap();
     assert_eq!(r.termination.assurance, Assurance::None, "{r:?}");
-    quality::qualify(&mut r, &controls.accuracy);
+    quality::qualify(&mut r, &accuracy);
     assert_eq!(r.termination.category, Termination::Success, "{r:?}");
     // Native QP regularization can satisfy native stopping while missing the
     // requested original objective gap. The default candidate is only feasible.
     assert_eq!(r.qualification, Qualification::Feasible, "{r:?}");
     assert!(
-        matches!(r.metrics.get("primal_dual_objective_error"), Some(Metric::Real(v)) if *v > controls.accuracy.gap_relative)
+        matches!(r.metrics.get("primal_dual_objective_error"), Some(Metric::Real(v)) if *v > accuracy.gap_relative)
     );
     near(r.candidate.unwrap().primal[0], 2., 1e-5);
     let mut precise = controls.clone();
@@ -186,6 +197,7 @@ fn coefficient_conic() {
         .solve(
             &p,
             &precise,
+            &accuracy,
             highs::Method::Choose,
             execution(&precise),
             &Tolerances {
@@ -196,16 +208,16 @@ fn coefficient_conic() {
             None,
         )
         .unwrap();
-    quality::qualify(&mut r, &precise.accuracy);
+    quality::qualify(&mut r, &accuracy);
     assert_eq!(
         r.qualification,
         Qualification::OptimalWithinTolerance,
         "{r:?}"
     );
     near(r.candidate.unwrap().primal[0], 2., 1e-8);
-    p.domains[0] = VariableDomain::Integer;
+    p.domains[0] = ModelingVariableDomain::Integer;
     assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());
-    p.domains[0] = VariableDomain::Continuous;
+    p.domains[0] = ModelingVariableDomain::Continuous;
     p.hessian.as_mut().unwrap().val_mut()[0] = -2.;
     assert!(highs::Session::new(&p, Some(&certificate), stamp(Backend::Highs)).is_err());
 }

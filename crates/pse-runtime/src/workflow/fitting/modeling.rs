@@ -565,10 +565,20 @@ impl ModelingPackage {
                 execution_identity.hash(&source.key());
                 let mut values = resolved.model.values.clone();
                 let mut coordinates = Vec::new();
+                // ADR-0103 item 6: estimation refuses a discrete variable the case leaves free.
+                model
+                    .compiled()
+                    .model
+                    .require_fixed_discrete(
+                        source
+                            .variables()
+                            .iter()
+                            .filter(|v| !v.fixed)
+                            .map(|v| v.port.id),
+                        pse_modeling::DomainAnalysis::Fitting,
+                    )
+                    .map_err(crate::workflow::modeling_error)?;
                 for v in source.variables().iter().filter(|v| !v.fixed) {
-                    if v.domain != pse_math::binding::VariableDomain::Continuous {
-                        return Err(contract("fitting requires continuous states"));
-                    }
                     targets.push(TargetSpec {
                         id: alias(e.experiment_id, v.port.id),
                         kind: NumericalTarget::Variable,

@@ -12,7 +12,7 @@ use pse_compiler::workspace::{
 use pse_kernels::DerivativeOrder;
 use pse_math::binding::CaseValues;
 use pse_model::generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget};
-use pse_modeling::annotation::AnnotationValue;
+use pse_modeling::{DomainAnalysis, annotation::AnnotationValue};
 use std::collections::BTreeSet;
 
 /// Selected values retain their allocation owner until the last reader drops them.
@@ -27,13 +27,37 @@ impl std::ops::Deref for ModelingObservations {
         &self.values
     }
 }
+/// Where a resolved input's value came from (F14). Workflows branch on this type, never
+/// on a label.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StartSource {
+    /// The model's declared initial value.
+    ModelDefault,
+    /// An explicit case value at this path.
+    Case {
+        /// Authored case path.
+        path: String,
+    },
+    /// A start annotation evaluated through the model.
+    Annotation {
+        /// The start annotation's declaration.
+        declaration: SemanticId,
+    },
+    /// The accepted result of a predecessor point.
+    Predecessor,
+    /// A continuation parameter override.
+    Continuation,
+    /// A start read from the operational store (reserved for packet O).
+    Stored,
+}
 /// One immutable case plus the numerical declarations selected for this analysis.
 #[derive(Clone, Debug)]
 pub struct ModelingSolvePreparation {
     pub model: ModelingCasePreparation,
     pub solve: PreparedSolve,
-    /// Explicit case/default/start provenance for every resolved input.
-    pub starts: BTreeMap<SemanticId, String>,
+    /// Typed case/default/start provenance for every resolved input.
+    pub starts: BTreeMap<SemanticId, StartSource>,
     pub(in crate::workflow) providers:
         BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     pub(in crate::workflow) source: ModelingPackage,
@@ -47,7 +71,7 @@ pub(in crate::workflow) struct ModelingCaseResolution {
     pub compiler: Profile,
     pub instance: SemanticId,
     pub model: ModelingCasePreparation,
-    pub starts: BTreeMap<SemanticId, String>,
+    pub starts: BTreeMap<SemanticId, StartSource>,
     pub providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     pub numerical: NumericalInputs,
     pub solver: SolverProfile,
@@ -148,7 +172,7 @@ impl ModelingPackage {
         compiler: Profile,
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
-    ) -> Result<(CaseValues, BTreeMap<SemanticId, String>), WorkflowError> {
+    ) -> Result<(CaseValues, BTreeMap<SemanticId, StartSource>), WorkflowError> {
         let product = model.compiled();
         let inner_unknowns = product
             .admitted
@@ -165,7 +189,7 @@ impl ModelingPackage {
                 product.model.symbols[id].initial
             {
                 values.scalars.insert(*id, f64::from_bits(bits));
-                starts.insert(*id, "model default".into());
+                starts.insert(*id, StartSource::ModelDefault);
             }
         }
         for (id, value) in seed {
@@ -184,7 +208,7 @@ impl ModelingPackage {
                     return Err(contract("nonfinite accepted predecessor seed"));
                 }
                 values.scalars.insert(id, value);
-                starts.insert(id, "accepted predecessor".into());
+                starts.insert(id, StartSource::Predecessor);
             }
         }
         for (path, value) in &case.values {
@@ -202,7 +226,7 @@ impl ModelingPackage {
                 )));
             }
             values.scalars.insert(id, *value);
-            starts.insert(id, format!("case:{path}"));
+            starts.insert(id, StartSource::Case { path: path.clone() });
         }
         for (id, value) in parameters {
             if !value.is_finite()
@@ -218,7 +242,7 @@ impl ModelingPackage {
                 ));
             }
             values.scalars.insert(id, value);
-            starts.insert(id, "continuation".into());
+            starts.insert(id, StartSource::Continuation);
         }
         let hints = product
             .admitted
@@ -294,7 +318,12 @@ impl ModelingPackage {
                     return Err(contract("nonfinite start result"));
                 }
                 values.scalars.insert(*target, value);
-                starts.insert(*target, format!("annotation:{declaration}"));
+                starts.insert(
+                    *target,
+                    StartSource::Annotation {
+                        declaration: *declaration,
+                    },
+                );
             }
             pending.retain(|v| !ready.contains(v));
         }
@@ -612,6 +641,23 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
+        // ADR-0103 item 6: a root or initialization solve cannot decide a discrete variable.
+        let analysis = match solver.intent {
+            pse_backend_native::solve::SolveIntent::Root => Some(DomainAnalysis::Root),
+            pse_backend_native::solve::SolveIntent::Initialize => {
+                Some(DomainAnalysis::Initialization)
+            }
+            _ => None,
+        };
+        if let Some(analysis) = analysis {
+            product
+                .model
+                .require_fixed_discrete(
+                    prepared.case.compiled().plan.columns().iter().copied(),
+                    analysis,
+                )
+                .map_err(crate::workflow::modeling_error)?;
+        }
         let mut nominal_point = values.clone();
         // Resolve source precedence before selecting the physical nominal point.
         let physical = prepared.case.compiled().quantities.clone();
@@ -847,7 +893,7 @@ mod tests {
         let y = p.model.model.compiled().model.paths["y"];
         assert_eq!(p.model.values.scalars[&x], 2.);
         assert_eq!(p.model.values.scalars[&y], 4.);
-        assert!(p.starts[&x].starts_with("annotation:"));
+        assert!(matches!(p.starts[&x], StartSource::Annotation { .. }));
         assert_eq!(
             p.model
                 .case
@@ -915,7 +961,73 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(p.model.values.scalars[&y], 6.);
-        assert_eq!(p.starts[&x], "case:x");
+        assert_eq!(p.starts[&x], StartSource::Case { path: "x".into() });
+    }
+    #[tokio::test]
+    async fn root_refuses_free_integer() {
+        use super::super::super::tests as fixture;
+        let rows = pse_authoring::language::parse(
+            "package p { def Root { var n: Count in integer; eq e: n == 2{1}; annotation start n(0{1}); annotation bounds n(0{1}, 5{1}); } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = fixture::runtime()
+            .modeling_package(rows, fixture::physical(), fixture::discrete_names())
+            .unwrap();
+        let error = package
+            .prepare_solve(
+                root,
+                root,
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .err()
+            .unwrap();
+        assert_eq!(
+            fixture::free_discrete_refusal(&error),
+            ("n".into(), "root".into())
+        );
+        // Fixed by the case, the same model is an admitted continuous square system.
+        let fixed = ModelingCaseBindings {
+            values: BTreeMap::from([("n".into(), 2.)]),
+            variables: BTreeMap::from([(
+                "n".into(),
+                ModelingVariableState {
+                    fixed: Some(true),
+                    ..Default::default()
+                },
+            )]),
+        };
+        let prepared = package
+            .prepare_solve(
+                root,
+                root,
+                Bindings::default(),
+                Limits::default(),
+                fixed,
+                DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                NumericalInputs::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(prepared.model.case.compiled().facts.variables, 0);
     }
 }
 

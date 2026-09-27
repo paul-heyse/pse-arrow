@@ -1036,9 +1036,9 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 ## `solve_variables`
 
-Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate.
+Original physical variable coordinates, including authored fixed values. Missing multipliers differ from zero. KKT residuals alone are not a sensitivity certificate. Every variable row states its declared domain (ADR-0103); parameter rows carry none.
 
-Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
+Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -1049,6 +1049,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 | `unit_id` | `semantic_id` | true | `payload` | — | — |
 | `fixed` | `Boolean` | false | `payload` | — | — |
 | `parameter` | `Boolean` | false | `payload` | — | — |
+| `domain` | `enum:ModelingVariableDomain` | true | `payload` | — | — |
 | `value` | `Float64` | true | `payload` | — | — |
 | `lower` | `Float64` | true | `payload` | — | — |
 | `upper` | `Float64` | true | `payload` | — | — |

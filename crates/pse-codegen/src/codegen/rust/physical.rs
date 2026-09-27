@@ -48,8 +48,9 @@ pub fn append_quantity_fixture(
             let dimension = values.dimension(value.dimension);
             let extensive = value.extensive;
             let addition = enumeration("QuantityAdditionKind", value.addition_kind);
+            let category = optional_enum("QuantityKindCategory", value.category);
             quote! { b.kind(crate::QuantityKind { id: #id, dimension: #dimension,
-            extensive: #extensive, addition_kind: #addition }); }
+            extensive: #extensive, addition_kind: #addition, category: #category }); }
         })
         .collect::<Vec<_>>();
     let bases = registry

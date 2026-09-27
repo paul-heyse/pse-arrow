@@ -231,3 +231,62 @@ fn function_reference_types_and_partial_selectors_roundtrip() {
         .unwrap();
     assert!(crate::dsl::render_expr(&expression).contains("x[renamed]"));
 }
+
+#[test]
+fn var_domain_parses_and_renders() {
+    use pse_model::generated::enums::ModelingVariableDomain as Domain;
+    for domain in Domain::ALL {
+        let facet = if domain == Domain::Continuous {
+            String::new()
+        } else {
+            format!(" in {}", domain.as_str())
+        };
+        let source = format!(
+            "package domains {{ entity kind unit {{}} set units: Set<unit> = {{}}; def D {{ param p: Count = 1; var x[u in units]: Count{facet}; var y: Power; var z: Power in continuous; }} }}"
+        );
+        let rows = parse_named(&source);
+        let binding = |name: &str| {
+            rows.iter()
+                .find(|r| r.name == name)
+                .and_then(|r| r.value.binding.clone())
+                .unwrap()
+        };
+        assert_eq!(binding("x").domain, Some(domain));
+        assert_eq!(binding("x").indices[0].domain, "units");
+        assert_eq!(binding("x").type_name, "Count");
+        // Continuous is the default: the omitted and explicit spellings are one declaration.
+        assert_eq!(binding("y").domain, Some(Domain::Continuous));
+        assert_eq!(binding("z").domain, Some(Domain::Continuous));
+        assert_eq!(binding("p").domain, None);
+        let printed = render(&rows).unwrap();
+        assert!(!printed.contains(" in continuous"));
+        assert!(printed.contains(&facet));
+        let again = parse(
+            &printed,
+            SemanticId::NIL,
+            IdentityPolicy::Explicit,
+            ParseBudget::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+            again.iter().map(|r| &r.value).collect::<Vec<_>>()
+        );
+    }
+    for invalid in [
+        "package p { def D { var x: Count in natural; } }",
+        "package p { def D { param p: Count in integer = 1; } }",
+        "package p { def D { let l: Count in binary = 1; } }",
+    ] {
+        assert!(
+            parse(
+                invalid,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
+            "{invalid}"
+        );
+    }
+}

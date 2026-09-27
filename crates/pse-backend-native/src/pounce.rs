@@ -100,6 +100,95 @@ pub enum Method {
     /// Native active-set sequential quadratic programming.
     ActiveSetSqp,
 }
+/// Worker count of FERAL's own factorization pool, by the rule feral 0.18 applies when it
+/// builds that pool (`Solver::pool_num_threads`): `RAYON_NUM_THREADS` when it parses as a
+/// positive count, else the available parallelism, else one. The pool cannot be injected,
+/// so it is sized independently of the admitted local pool.
+fn feral_pool_threads() -> usize {
+    std::env::var("RAYON_NUM_THREADS")
+        .ok()
+        .and_then(|s| s.trim().parse::<usize>().ok())
+        .filter(|n| *n > 0)
+        .or_else(|| std::thread::available_parallelism().ok().map(|n| n.get()))
+        .unwrap_or(1)
+        .max(1)
+}
+/// FERAL's effective factorization thread count for an admitted count (F01). FERAL
+/// factorizes on its own pool, outside the admitted scoped pool, so it runs parallel only
+/// when admission covers every core that pool would use; otherwise it runs serial.
+fn feral_threads(admitted: usize, pool: usize) -> usize {
+    if admitted > 1 && admitted >= pool {
+        pool
+    } else {
+        1
+    }
+}
+/// Hidden second solves are pinned off, and the ℓ1 methods stay reserved until a typed
+/// method selects them (packet N3): a result never comes from an undeclared attempt beyond
+/// the admitted iteration budget (F03).
+const PINNED_OFF: [&str; 2] = ["mu_strategy_fallback", "dual_divergence_retry"];
+const RESERVED_METHODS: [&str; 2] = [
+    "l1_fallback_on_restoration_failure",
+    "l1_exact_penalty_barrier",
+];
+/// The complete effective option table after a solve, with the registered defaults, read
+/// back from the library as the HiGHS adapter does: every registered option at its current
+/// value, plus any explicitly set prefixed option such as `resto.tol`.
+fn option_snapshot(app: &IpoptApplication) -> (Options, Options) {
+    use pounce_common::{DefaultValue, OptionType};
+    let list = app.options();
+    let mut effective = Options::new();
+    let mut defaults = Options::new();
+    for option in app.registered_options().registered_options_in_order() {
+        let name = option.name.as_str();
+        let boolean = option.option_type == OptionType::OT_String
+            && option.valid_strings.len() == 2
+            && option
+                .valid_strings
+                .iter()
+                .all(|s| matches!(s.value.as_str(), "yes" | "no"));
+        let current = match option.option_type {
+            OptionType::OT_Number => list
+                .get_numeric_value(name, "")
+                .ok()
+                .map(|(v, _)| OptionValue::Real(v)),
+            OptionType::OT_Integer => list
+                .get_integer_value(name, "")
+                .ok()
+                .map(|(v, _)| OptionValue::Integer(v)),
+            OptionType::OT_String if boolean => list
+                .get_bool_value(name, "")
+                .ok()
+                .map(|(v, _)| OptionValue::Bool(v)),
+            OptionType::OT_String => list
+                .get_string_value(name, "")
+                .ok()
+                .map(|(v, _)| OptionValue::Text(v)),
+            OptionType::OT_Unknown => None,
+        };
+        let default = match &option.default {
+            DefaultValue::Number(v) => Some(OptionValue::Real(*v)),
+            DefaultValue::Integer(v) => Some(OptionValue::Integer(*v)),
+            DefaultValue::String(v) if boolean => Some(OptionValue::Bool(v == "yes")),
+            DefaultValue::String(v) => Some(OptionValue::Text(v.clone())),
+            DefaultValue::None => None,
+        };
+        if let Some(value) = current {
+            effective.insert(option.name.clone(), value);
+        }
+        if let Some(value) = default {
+            defaults.insert(option.name.clone(), value);
+        }
+    }
+    for name in list.names() {
+        if !effective.contains_key(name)
+            && let Ok((value, true)) = list.get_string_value(name, "")
+        {
+            effective.insert(name.into(), OptionValue::Text(value));
+        }
+    }
+    (effective, defaults)
+}
 thread_local! {static ADMITTED:std::cell::Cell<usize>=const{std::cell::Cell::new(0)};}
 struct Admission(usize);
 impl Drop for Admission {
@@ -134,12 +223,12 @@ pub fn with_threads<T: Send, E: From<ProblemError> + Send>(
 #[derive(Default)]
 pub struct Session {
     app: Option<IpoptApplication>,
-    layout: Option<pse_ids::ContentHash>,
+    stamp: Option<Compatibility>,
 }
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PounceSession")
-            .field("layout", &self.layout)
+            .field("stamp", &self.stamp)
             .finish_non_exhaustive()
     }
 }
@@ -156,6 +245,7 @@ impl Session {
         initial: &[f64],
         sense: ObjectiveSense,
         controls: &Controls,
+        accuracy: &ResolvedAccuracy,
         method: Method,
         mut feral: pounce_feral::FeralConfig,
         execution: Execution,
@@ -262,6 +352,8 @@ impl Session {
                 _ => return Err(ProblemError::Contract("POUNCE seed class".into())),
             }
         }
+        reject_reserved(&controls.options, &PINNED_OFF)?;
+        reject_reserved(&controls.options, &RESERVED_METHODS)?;
         reject_reserved(
             &controls.options,
             &[
@@ -306,7 +398,7 @@ impl Session {
             ));
         }
         let mut options = controls.options.clone();
-        options.extend(controls.accuracy.nlp_options());
+        options.extend(accuracy.nlp_options());
         options.extend([
             (
                 "algorithm".into(),
@@ -333,9 +425,7 @@ impl Session {
             (
                 "nlp_scaling_method".into(),
                 OptionValue::Text(
-                    if oracle.scaling().is_some() {
-                        "user-scaling"
-                    } else if controls.accuracy.native_scaling {
+                    if accuracy.native_scaling {
                         "gradient-based"
                     } else {
                         "none"
@@ -350,8 +440,12 @@ impl Session {
             ),
             ("print_level".into(), OptionValue::Integer(0)),
         ]);
+        options.extend(PINNED_OFF.map(|k| (k.to_owned(), OptionValue::Bool(false))));
         let reused = self.app.is_some()
-            && self.layout == Some(compatibility.layout)
+            && self
+                .stamp
+                .as_ref()
+                .is_some_and(|s| s.same_session(&compatibility))
             && controls.reuse != ReusePolicy::Fresh;
         if self.app.is_some() && !reused && controls.reuse == ReusePolicy::RequireReuse {
             return Err(ProblemError::Unsupported(
@@ -359,9 +453,14 @@ impl Session {
             ));
         }
         let mut app = if reused {
-            self.app
+            let mut app = self
+                .app
                 .take()
-                .ok_or_else(|| ProblemError::Internal("missing POUNCE application".into()))?
+                .ok_or_else(|| ProblemError::Internal("missing POUNCE application".into()))?;
+            // A reused application starts from an empty option table, so no option of an
+            // earlier step survives into this one (F02).
+            app.options_mut().clear();
+            app
         } else {
             self.app = None;
             IpoptApplication::new()
@@ -379,7 +478,8 @@ impl Session {
                 return Err(ProblemError::Contract(format!("POUNCE ignored option {k}")));
             }
         }
-        feral.parallel = Some(controls.threads > 1);
+        let linear_threads = feral_threads(controls.threads, feral_pool_threads());
+        feral.parallel = Some(linear_threads > 1);
         feral.fma = false;
         let sink = Arc::new(Mutex::new(Default::default()));
         app.set_linear_backend_factory(
@@ -423,10 +523,19 @@ impl Session {
             termination(status),
             &execution,
         );
-        report.options = options;
+        // The option table read back from the application is what ran; `options` is only
+        // what this adapter set on it.
+        let (effective, defaults) = option_snapshot(&app);
+        report.options = effective;
+        report.native_defaults = defaults;
         report
             .metrics
             .insert("reuse.native_application".into(), Metric::Bool(reused));
+        report.evidence.reused_native_state = reused;
+        report.metrics.insert(
+            "linear.threads".into(),
+            Metric::Integer(i64::try_from(linear_threads).unwrap_or(i64::MAX)),
+        );
         let mut statistics = app.statistics();
         if statistics.iterations.len() > controls.history {
             report.dropped_events += (statistics.iterations.len() - controls.history) as u64;
@@ -585,7 +694,7 @@ impl Session {
                 | Termination::Numerical
         ) {
             self.app = Some(app);
-            self.layout = Some(compatibility.layout);
+            self.stamp = Some(compatibility);
         }
         Ok(report)
     }
@@ -689,6 +798,105 @@ mod tests {
         c = a.clone();
         c.method = Method::ActiveSetSqp;
         assert_ne!(key(&a), key(&c));
+    }
+    fn run(
+        session: &mut Session,
+        options: Options,
+        threads: usize,
+    ) -> Result<SolveReport, ProblemError> {
+        let controls = Controls {
+            options,
+            threads,
+            reuse: ReusePolicy::AllowRebuild,
+            ..Controls::default()
+        };
+        session.solve(
+            Box::new(crate::solver_tests::Polynomial::new()),
+            &[2.0],
+            ObjectiveSense::Minimize,
+            &controls,
+            &ResolvedAccuracy::nominal(),
+            Method::InteriorPoint,
+            Default::default(),
+            crate::solver_tests::execution(),
+            &Tolerances {
+                variables: vec![1e-8],
+                rows: vec![1e-8],
+                integrality: 1e-8,
+            },
+            None,
+            crate::solver_tests::stamp(Backend::Pounce),
+        )
+    }
+    #[test]
+    fn feral_threads_bounded_by_admission() {
+        // FERAL's own pool runs only when admission covers every core it would use.
+        assert_eq!(feral_threads(1, 8), 1);
+        assert_eq!(feral_threads(2, 8), 1);
+        assert_eq!(feral_threads(8, 8), 8);
+        assert_eq!(feral_threads(16, 8), 8);
+        assert_eq!(feral_threads(1, 1), 1);
+        let pool = feral_pool_threads();
+        let report =
+            with_threads(2, 8 << 20, || run(&mut Session::new(), Options::new(), 2)).unwrap();
+        assert!(matches!(report.termination.category, Termination::Success));
+        let expected = i64::try_from(feral_threads(2, pool)).unwrap();
+        assert_eq!(report.metrics["linear.threads"], Metric::Integer(expected));
+        assert!(
+            report.provenance["feral.effective"]
+                .contains(&format!("parallel: Some({})", expected > 1)),
+            "{}",
+            report.provenance["feral.effective"]
+        );
+    }
+    #[test]
+    fn reused_session_does_not_inherit_options() {
+        let mut session = Session::new();
+        let adaptive =
+            Options::from([("mu_strategy".into(), OptionValue::Text("adaptive".into()))]);
+        let first = run(&mut session, adaptive, 1).unwrap();
+        assert_eq!(
+            first.options["mu_strategy"],
+            OptionValue::Text("adaptive".into())
+        );
+        let second = run(&mut session, Options::new(), 1).unwrap();
+        assert_eq!(
+            second.metrics["reuse.native_application"],
+            Metric::Bool(true)
+        );
+        // The reused application ran at the registered default, not the first step's value.
+        assert_eq!(
+            second.options["mu_strategy"],
+            second.native_defaults["mu_strategy"]
+        );
+        let fresh = run(&mut Session::new(), Options::new(), 1).unwrap();
+        assert_eq!(second.options, fresh.options);
+    }
+    #[test]
+    fn pounce_retry_options_reserved_and_snapshotted() {
+        for key in PINNED_OFF.iter().chain(&RESERVED_METHODS) {
+            let options = Options::from([(key.to_string(), OptionValue::Bool(true))]);
+            assert!(
+                run(&mut Session::new(), options, 1).is_err(),
+                "{key} must be reserved"
+            );
+        }
+        let report = run(&mut Session::new(), Options::new(), 1).unwrap();
+        for key in PINNED_OFF.iter().chain(&RESERVED_METHODS) {
+            assert_eq!(report.options[*key], OptionValue::Bool(false), "{key}");
+        }
+        // The retry is default-on upstream; the snapshot records that it was pinned off.
+        assert_eq!(
+            report.native_defaults["mu_strategy_fallback"],
+            OptionValue::Bool(true)
+        );
+        assert_eq!(
+            report.options["linear_solver"],
+            OptionValue::Text("feral".into())
+        );
+        assert_eq!(report.options["max_iter"], OptionValue::Integer(3000));
+        assert!(report.options.len() > 100);
+        assert!(report.options.len() >= report.native_defaults.len());
     }
     #[test]
     fn local_pool_admission_does_not_accept_the_global_pool() {

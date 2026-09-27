@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Conditional initialization and finite supplied continuation; KINSOL owns iteration.
 use super::{
-    ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, Workspace, solves::SolveHandle,
+    ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, WorkerBudget, Workspace,
+    solves::SolveHandle,
 };
 use pse_backend_native::{
     self as native,
@@ -91,12 +92,6 @@ impl PreparedInitialization {
             return Err(MathRuntimeError::Limit(
                 "serial finite initialization schedule",
             ));
-        }
-        if profile.controls.accuracy != Accuracy::default() {
-            return Err(native::ProblemError::Contract(
-                "initialization accuracy belongs to the numerical policy".into(),
-            )
-            .into());
         }
         let numerics = Arc::new(pse_math::numerics::resolve(
             &self.quantities,
@@ -221,19 +216,25 @@ struct Block<'a> {
     started: std::time::Instant,
     previous_attempt: Option<usize>,
     owner: &'a Arc<pse_columnar::AllocationLease>,
+    budget: &'a Arc<WorkerBudget>,
 }
 impl MathService {
     /// Execute a declared root/map factory on its owning admitted worker. Causal
     /// sweeps may use nested native unit calculations on this same admission; they
     /// must not recursively request CPU permits. Mutable oracles never enter Salsa.
+    /// The factory charges each evaluator it builds to the job's worker budget.
     pub fn solve_declared_root(
         self: &Arc<Self>,
         contract: native::OracleContract,
         initial: Vec<f64>,
         settings: kinsol::Settings,
         controls: Controls,
+        accuracy: ResolvedAccuracy,
         tolerances: Tolerances,
-        factory: impl FnOnce(Execution) -> Result<kinsol::Function, native::ProblemError>
+        factory: impl FnOnce(
+            Execution,
+            Arc<WorkerBudget>,
+        ) -> Result<kinsol::Function, native::ProblemError>
         + Send
         + 'static,
     ) -> Result<SolveHandle<DeclaredRootReport>, MathRuntimeError> {
@@ -260,11 +261,14 @@ impl MathService {
         let service = self.clone();
         let (tx, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
+            let bytes = service.policy.worker_bytes;
+            // The factory charges every evaluator it builds to this job's reservation.
+            let budget = WorkerBudget::new(bytes);
             let result = service
-                .job(1, service.policy.worker_bytes, control, move |flag| {
+                .job(1, bytes, control, move |flag| {
                     let mut execution = Execution::new(flag, &controls);
                     execution.progress = events;
-                    let function = factory(execution.clone())?;
+                    let function = factory(execution.clone(), budget)?;
                     let actual = function.contract();
                     if actual.identity != contract.identity
                         || actual.rows != contract.rows
@@ -286,14 +290,23 @@ impl MathService {
                     }
                     let stamp = Compatibility {
                         layout: contract.identity,
+                        profile: accuracy.key()?,
                         data: contract.identity,
                         backend: Backend::Kinsol,
                     };
                     let mut session =
                         kinsol::Session::new(function, settings, execution.clone(), stamp)?;
-                    let mut report =
-                        session.solve(&initial, &controls, execution, &tolerances, None)?;
-                    native::quality::qualify(&mut report, &controls.accuracy);
+                    // The declared root runs and qualifies with the budgets its caller
+                    // resolved from the numerical policy (F20).
+                    let mut report = session.solve(
+                        &initial,
+                        &controls,
+                        &accuracy,
+                        execution,
+                        &tolerances,
+                        None,
+                    )?;
+                    native::quality::qualify(&mut report, &accuracy);
                     drop(session);
                     Ok(DeclaredRootReport {
                         report: report.with_owner(owner.clone()),
@@ -474,11 +487,14 @@ impl MathService {
         let (tx, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             let runner = service.clone();
+            let bytes = service.policy.worker_bytes;
+            // Each block attempt's evaluator is charged to this job's reservation (F31).
+            let budget = WorkerBudget::new(bytes);
             let result = service
-                .job(1, service.policy.worker_bytes, control, move |flag| {
+                .job(1, bytes, control, move |flag| {
                     runner.run_initialization(
                         prepared, values, providers, profile, strategies, numerics, flag, events,
-                        owner,
+                        owner, budget,
                     )
                 })
                 .await;
@@ -501,6 +517,7 @@ impl MathService {
         flag: Arc<AtomicBool>,
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
+        budget: Arc<WorkerBudget>,
     ) -> Result<InitializationReport, MathRuntimeError> {
         let adapters: Vec<&dyn BackendExecution> = strategies
             .iter()
@@ -516,7 +533,7 @@ impl MathService {
             || {
                 self.run_initialization_inner(
                     prepared, original, providers, profile, strategies, numerics, flag, progress,
-                    owner,
+                    owner, &budget,
                 )
             },
         )
@@ -532,6 +549,7 @@ impl MathService {
         flag: Arc<AtomicBool>,
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
+        budget: &Arc<WorkerBudget>,
     ) -> Result<InitializationReport, MathRuntimeError> {
         let mut attempts = vec![];
         let mut completed_stages = 0;
@@ -581,6 +599,7 @@ impl MathService {
                         started,
                         previous_attempt,
                         owner: &owner,
+                        budget,
                     })
                     .map_err(Arc::new);
                 let committed = commit_block(&mut values, boundary, result.as_deref().ok());
@@ -652,17 +671,13 @@ impl MathService {
             started,
             previous_attempt,
             owner,
+            budget,
         } = block;
-        let providers = providers
-            .iter()
-            .map(|(k, f)| {
-                f.worker_scoped(flag.clone())
-                    .map(|v| (*k, v))
-                    .map_err(native::ProblemError::Provider)
-            })
-            .collect::<Result<_, _>>()?;
-        let ExecutionWorker { worker, _case } =
-            self.worker(case.clone(), providers, flag.clone())?;
+        let ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = self.worker(case.clone(), providers, flag.clone(), budget)?;
         let facts = Arc::new(case.assembly.presolve_facts(
             &values,
             self.policy.worker_bytes / 256,
@@ -684,8 +699,8 @@ impl MathService {
             &boundary.members.columns,
             &boundary.members.rows,
         )?;
-        let mut controls = profile.controls.clone();
-        controls.accuracy = Accuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        let controls = profile.controls.clone();
+        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
         let mut execution = Execution::new(flag.clone(), &controls);
         execution.progress = progress.clone();
         execution.started = started;
@@ -703,6 +718,11 @@ impl MathService {
             value_key.id(id).u64(value.to_bits());
         }
         let data = value_key.finish_hash();
+        let mut session = FramedHasher::new("pse.initialization.session.v1");
+        session
+            .hash(&numerics.key)
+            .hash(&controls.identity()?)
+            .hash(&profile.backend.identity()?);
         let native::routing::Route::Native(backend) = strategy else {
             return Err(native::ProblemError::Unsupported(
                 "unsupported conditional initialization route".into(),
@@ -712,6 +732,7 @@ impl MathService {
         let adapter = execution::adapter(backend);
         let compatibility = Compatibility {
             layout,
+            profile: session.finish_hash(),
             data,
             backend,
         };
@@ -721,6 +742,7 @@ impl MathService {
             adapter,
             settings: &profile.backend,
             controls: &controls,
+            accuracy: &accuracy,
             execution,
             tolerances: &tolerances,
             normalization: &normalization,
@@ -760,21 +782,31 @@ impl MathService {
             }
         };
         drop(retained);
+        // The block starts from its staged values. Only a predecessor stage's committed
+        // values make that start a seed, submitted as the native initial point; the
+        // authored initial point is not a warm start (F25).
+        let seed = previous_attempt
+            .map(|attempt| -> Result<WarmStart, native::ProblemError> {
+                Ok(WarmStart {
+                    origin: Some(SeedOrigin { run: None, attempt }),
+                    compatibility,
+                    payload: adapter.primal_start(initial)?,
+                })
+            })
+            .transpose()?;
         report.start_receipt = Some(StartReceipt {
             previous_attempt,
-            seed: Some(WarmStart {
-                origin: previous_attempt.map(|attempt| SeedOrigin { run: None, attempt }),
-                compatibility,
-                payload: adapter.primal_start(initial)?,
-            }),
+            transformations: if seed.is_some() {
+                SeedTransformation::path(normalization.key(), report.preprocessing.as_ref())
+            } else {
+                vec![]
+            },
+            submitted: seed.is_some(),
+            seed,
             sparse_seed: None,
-            transformations: vec![
-                "stage overlay -> source primal -> shared normalization -> native initial point"
-                    .into(),
-            ],
-            submitted: true,
         });
         drop(_case);
+        drop(_charge);
         Ok(Box::new(report.with_owner(owner.clone())))
     }
 }
@@ -850,7 +882,7 @@ mod tests {
         let mut values = CaseValues {
             scalars: BTreeMap::from([(id(1), 1.0)]),
         };
-        let accuracy = Controls::default().accuracy;
+        let accuracy = ResolvedAccuracy::from_policy(&Default::default(), 1e-8).unwrap();
         r.termination.category = Termination::Limit;
         native::quality::qualify(&mut r, &accuracy);
         assert!(!commit_block(&mut values, &boundary, Some(&r)));

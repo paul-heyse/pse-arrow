@@ -27,9 +27,10 @@ use crate::{
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_math::{
-    binding::{ObjectiveSense, VariableDomain},
+    binding::ObjectiveSense,
     factorable::{BoundOwner, Constraint, FactorableProgram, Fidelity, MissingBound, Node, NodeId},
 };
+use pse_model::generated::enums::ModelingVariableDomain;
 use std::collections::BTreeMap;
 
 /// Relative margin that closes a strict obligation bound: `x > b` exports as
@@ -157,8 +158,8 @@ fn close(c: &Constraint) -> (f64, f64) {
     };
     (lower, upper)
 }
-fn column_box(domain: VariableDomain, lower: f64, upper: f64) -> (f64, f64) {
-    if domain == VariableDomain::Binary {
+fn column_box(domain: ModelingVariableDomain, lower: f64, upper: f64) -> (f64, f64) {
+    if domain == ModelingVariableDomain::Binary {
         (lower.max(0.0), upper.min(1.0))
     } else {
         (lower, upper)
@@ -533,6 +534,7 @@ pub fn factorable(
                 normalization: step.normalization,
             },
             controls: step.controls,
+            accuracy: step.accuracy,
             settings: step.settings,
             execution: step.execution.clone(),
             tolerances: step.tolerances,
@@ -583,7 +585,7 @@ pub fn factorable(
         };
         report.evidence.global = Some(global);
     }
-    quality::qualify(&mut report, &step.controls.accuracy);
+    quality::qualify(&mut report, step.accuracy);
     Ok(report)
 }
 
@@ -725,8 +727,15 @@ fn fixed_assignment(
     for (i, v) in &assignment {
         layout.u64(*i as u64).u64(v.to_bits());
     }
+    // The re-solve's native profile is its own: default settings of its NLP adapter under
+    // the step's profile.
+    let mut profile = FramedHasher::new("pse.factorable.fixed-assignment.profile.v1");
+    profile
+        .hash(&step.compatibility.profile)
+        .str(backend.as_str());
     let compatibility = Compatibility {
         layout: layout.finish_hash(),
+        profile: profile.finish_hash(),
         data: step.compatibility.data,
         backend,
     };
@@ -740,6 +749,7 @@ fn fixed_assignment(
             adapter,
             settings: &BackendSettings::Default,
             controls: &controls,
+            accuracy: step.accuracy,
             execution: step.execution.clone(),
             tolerances: step.tolerances,
             normalization: step.normalization,

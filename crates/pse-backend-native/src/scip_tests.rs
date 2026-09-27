@@ -18,7 +18,7 @@ use crate::{
     scip::{self, Status},
     solve::{
         Assurance, Backend, BoundSource, Controls, Execution, OptionValue, PrimalSource,
-        Qualification, SolveIntent, SolveReport, Termination, WarmCapability,
+        Qualification, ResolvedAccuracy, SolveIntent, SolveReport, Termination, WarmCapability,
     },
     solver_tests::stamp,
 };
@@ -32,7 +32,7 @@ use pse_math::{
     assembly::{AssemblyLimits, CaseAssembly, CasePlan},
     binding::{
         CaseLimits, CaseStructure, CaseValues, Contribution, InstanceBinding, Objective,
-        ObjectiveSense, Row, SlotBinding, Target, Variable, VariableDomain,
+        ObjectiveSense, Row, SlotBinding, Target, Variable,
     },
     factorable::{BoundOwner, FactorableProgram, FactorableRequest, Fidelity},
     jets::EvaluationLimits,
@@ -40,6 +40,7 @@ use pse_math::{
     normalization::Normalization,
     typed::{Binary, BodyBuilder, BodyLimits, TypedValue},
 };
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_quantity::{
     IndexSet, QuantityRegistry, QuantityTypeId,
     literal::LiteralContext,
@@ -126,7 +127,7 @@ fn no_providers() -> BTreeMap<ProviderKey, Box<dyn Provider>> {
 fn case(
     registry: &QuantityRegistry,
     body: pse_math::guarded::PreparedBody,
-    columns: &[(VariableDomain, Option<f64>, Option<f64>, f64)],
+    columns: &[(ModelingVariableDomain, Option<f64>, Option<f64>, f64)],
     rows: &[(f64, f64)],
     objective: Option<(usize, ObjectiveSense)>,
     order: DerivativeOrder,
@@ -328,6 +329,7 @@ fn run(
     let n = program.variables.len();
     let m = program.rows.len();
     let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::nominal();
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
     let mut original = Original(case);
@@ -339,6 +341,7 @@ fn run(
             adapter: execution::adapter(Backend::Scip),
             settings: &BackendSettings::Default,
             controls: &controls,
+            accuracy: &accuracy,
             execution: execution(cancel),
             tolerances: &tolerances,
             normalization: &normalization,
@@ -377,8 +380,8 @@ fn quartic(registry: &QuantityRegistry, x_box: (Option<f64>, Option<f64>)) -> Ca
         registry,
         body,
         &[
-            (VariableDomain::Continuous, x_box.0, x_box.1, 1.0),
-            (VariableDomain::Continuous, Some(0.0), Some(4.0), 1.0),
+            (ModelingVariableDomain::Continuous, x_box.0, x_box.1, 1.0),
+            (ModelingVariableDomain::Continuous, Some(0.0), Some(4.0), 1.0),
         ],
         &[(0.0, 0.0)],
         Some((1, ObjectiveSense::Minimize)),
@@ -417,9 +420,9 @@ fn synthesis(registry: &QuantityRegistry) -> Case {
         registry,
         body,
         &[
-            (VariableDomain::Continuous, Some(0.0), Some(4.0), 0.0),
-            (VariableDomain::Continuous, Some(0.0), Some(3.0), 3.0),
-            (VariableDomain::Binary, None, None, 0.0),
+            (ModelingVariableDomain::Continuous, Some(0.0), Some(4.0), 0.0),
+            (ModelingVariableDomain::Continuous, Some(0.0), Some(3.0), 3.0),
+            (ModelingVariableDomain::Binary, None, None, 0.0),
         ],
         &[(3.0, f64::INFINITY)],
         Some((1, ObjectiveSense::Minimize)),
@@ -572,7 +575,7 @@ fn scip_export_readback_equivalent() {
     let boxes = [(0.5, 3.0), (0.5, 3.0), (-1.0, 2.0)];
     let columns: Vec<_> = boxes
         .iter()
-        .map(|(l, u)| (VariableDomain::Continuous, Some(*l), Some(*u), *l))
+        .map(|(l, u)| (ModelingVariableDomain::Continuous, Some(*l), Some(*u), *l))
         .collect();
     let case = case(
         &registry,
@@ -651,6 +654,7 @@ fn scip_solves_small_nonconvex_nlp_globally() {
     assert!(quartic_value(global) < quartic_value(local) - 2.0);
     // A local solve from the start point stays in the local basin.
     let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::nominal();
     let tolerances = tolerances(2, 1);
     let normalization = Normalization::identity(2, 1);
     let ipopt = execution::nlp(
@@ -658,6 +662,7 @@ fn scip_solves_small_nonconvex_nlp_globally() {
             adapter: execution::adapter(Backend::Ipopt),
             settings: &BackendSettings::Default,
             controls: &controls,
+            accuracy: &accuracy,
             execution: execution(false),
             tolerances: &tolerances,
             normalization: &normalization,
@@ -818,8 +823,8 @@ fn relaxed_export_bound_only() {
         &registry,
         body,
         &[
-            (VariableDomain::Continuous, Some(0.5), Some(3.0), 2.0),
-            (VariableDomain::Continuous, Some(-1.0), Some(1.0), 0.0),
+            (ModelingVariableDomain::Continuous, Some(0.5), Some(3.0), 2.0),
+            (ModelingVariableDomain::Continuous, Some(-1.0), Some(1.0), 0.0),
         ],
         &[],
         Some((0, ObjectiveSense::Minimize)),
@@ -883,8 +888,8 @@ fn unbounded_variable_refused_for_spatial_branching() {
         &registry,
         body,
         &[
-            (VariableDomain::Continuous, Some(-1.0), Some(1.0), 0.0),
-            (VariableDomain::Continuous, None, None, 0.0),
+            (ModelingVariableDomain::Continuous, Some(-1.0), Some(1.0), 0.0),
+            (ModelingVariableDomain::Continuous, None, None, 0.0),
         ],
         &[(0.0, f64::INFINITY)],
         Some((1, ObjectiveSense::Minimize)),
@@ -897,8 +902,9 @@ fn unbounded_variable_refused_for_spatial_branching() {
 #[test]
 fn scip_internal_ipopt_uses_typed_linear_solver() {
     let controls = Controls::default();
+    let accuracy = ResolvedAccuracy::nominal();
     // The nested Ipopt's linear solver comes from the typed setting, default MUMPS.
-    let defaults = scip::testing::configured(&ScipSettings::default(), &controls).unwrap();
+    let defaults = scip::testing::configured(&ScipSettings::default(), &controls, &accuracy).unwrap();
     assert_eq!(
         defaults["nlpi/ipopt/linear_solver"],
         OptionValue::Text("mumps".into())
@@ -908,7 +914,7 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
         seed: 3,
         nodes: Some(1000),
     };
-    let options = scip::testing::configured(&pardiso, &controls).unwrap();
+    let options = scip::testing::configured(&pardiso, &controls, &accuracy).unwrap();
     assert_eq!(
         options["nlpi/ipopt/linear_solver"],
         OptionValue::Text("pardisomkl".into())
@@ -923,7 +929,7 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
     assert_eq!(options["lp/threads"], OptionValue::Integer(1));
     assert_eq!(
         options["limits/gap"],
-        OptionValue::Real(controls.accuracy.mip_relative_gap)
+        OptionValue::Real(accuracy.mip_relative_gap)
     );
     // Free-form options cannot reach reserved or unadmitted native settings.
     for key in [
@@ -939,7 +945,7 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
             .insert(key.into(), OptionValue::Text("x".into()));
         assert!(
             matches!(
-                scip::testing::configured(&ScipSettings::default(), &controls),
+                scip::testing::configured(&ScipSettings::default(), &controls, &accuracy),
                 Err(ProblemError::Contract(_))
             ),
             "{key}"

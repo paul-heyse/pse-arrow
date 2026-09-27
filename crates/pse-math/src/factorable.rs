@@ -22,12 +22,13 @@
 use crate::{
     MathError,
     assembly::CasePlan,
-    binding::{CaseValues, ObjectiveSense, Target, VariableDomain},
+    binding::{CaseValues, ObjectiveSense, Target},
     guarded::{Comparison, Condition, PreparedBody, Stage},
     library,
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, ProviderKey, ProviderSpec};
+use pse_model::generated::enums::ModelingVariableDomain;
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     hash::{Hash, Hasher},
@@ -290,7 +291,7 @@ pub struct ProjectedVariable {
     /// Case variable identity.
     pub id: SemanticId,
     /// Declared decision domain.
-    pub domain: VariableDomain,
+    pub domain: ModelingVariableDomain,
     /// Closed lower bound (zero for semicontinuous domains), or negative infinity.
     pub lower: f64,
     /// Closed upper bound, or positive infinity.
