@@ -24,6 +24,7 @@ static CAPABILITY: Capability = Capability {
     general_bounds: true,
     sign_bounds: true,
     parallel: true,
+    certifies: false,
     reuse: "native coefficient/bound updates with compatible layout",
     // PDLP never polls the interrupt callback (HiGHS `pdlp/*Wrapper.cpp`), so, like the
     // QP solver, it stops only at the native time limit (F08c).

@@ -5,7 +5,7 @@
 use super::declarations::{column, enumeration, relation, relation_version};
 use crate::{
     RegistryBuilder,
-    model::{FieldContract as T, Namespace as N, SnapshotClass as S},
+    model::{EnumDecl, EnumMember, FieldContract as T, Namespace as N, SnapshotClass as S},
 };
 use arrow_schema::DataType as D;
 fn text() -> T {
@@ -41,8 +41,9 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("general_bounds", flag()),
             column("sign_bounds", flag()),
             column("parallel", flag()),
+            column("certifies", flag()),
         ],
-        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request.",
+        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances.",
     );
     relation(
         b,
@@ -229,7 +230,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         "NativeBackend",
         [
-            "ipopt", "pounce", "kinsol", "highs", "clarabel", "diffsol", "idas",
+            "ipopt", "pounce", "kinsol", "highs", "clarabel", "diffsol", "idas", "scip",
         ],
     );
     enumeration(
@@ -284,17 +285,45 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "gap_qualified",
         ],
     );
-    enumeration(
-        b,
+    // Each assurance states its conditions; only `exact_certificate` is rigorous (ADR-0106 §9).
+    b.declare_enum(EnumDecl::platform(
         "NativeAssurance",
-        [
-            "none",
-            "feasible",
-            "local_stationary",
-            "native_optimal",
-            "certificate",
+        vec![
+            EnumMember::new("none", "No claim beyond the native termination."),
+            EnumMember::new(
+                "feasible",
+                "The candidate meets every original-coordinate tolerance.",
+            ),
+            EnumMember::new(
+                "local_stationary",
+                "Original-coordinate KKT conditions hold within the resolved budgets; a local claim.",
+            ),
+            EnumMember::new(
+                "native_optimal",
+                "The native method's optimality or gap test holds within its tolerances.",
+            ),
+            EnumMember::new(
+                "certificate",
+                "A native infeasibility or unboundedness certificate, qualified by its residuals.",
+            ),
+            EnumMember::new(
+                "global_bound",
+                "A dual bound on the exported program over the declared box, valid within the backend's recorded feasibility and optimality tolerances and the export fidelity; not interval-rigorous.",
+            ),
+            EnumMember::new(
+                "proven_infeasible",
+                "The backend's global infeasibility conclusion for the exported program over the declared box, under the conditions of global_bound; a relaxed export keeps it sound; not interval-rigorous.",
+            ),
+            EnumMember::new(
+                "exact_certificate",
+                "Optimality or infeasibility established in rational arithmetic; the only rigorous assurance.",
+            ),
+            EnumMember::new(
+                "sos_bound_nonrigorous",
+                "A floating-point sum-of-squares polynomial lower bound; never a certificate and never part of a gap claim.",
+            ),
         ],
-    );
+    ));
     enumeration(
         b,
         "NativeRunState",
@@ -341,6 +370,9 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "continuous_cone",
             "ode",
             "semi_explicit_index1",
+            "nonconvex_quadratic",
+            "mixed_integer_quadratic",
+            "mixed_integer_nonlinear",
         ],
     );
     enumeration(
@@ -351,6 +383,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "jacobian_or_product",
             "coefficients",
             "first_with_smooth_sensitivities",
+            "factorable",
         ],
     );
     enumeration(

@@ -25,6 +25,7 @@ kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
 sdp = ["clarabel/sdp-netlib"]
 diffsol = ["dep:diffsol"]
 idas = ["dep:sundials-sys", "sundials-sys/idas", "dep:suitesparse_sys"]
+scip = ["dep:scip-sys"]
 native-solvers = [
   "ipopt",
   "highs",
@@ -33,6 +34,7 @@ native-solvers = [
   "sdp",
   "diffsol",
   "idas",
+  "scip",
 ]
 
 [dependencies]
@@ -60,6 +62,7 @@ pounce-feral = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 sundials-sys = { workspace = true, optional = true }
 suitesparse_sys = { workspace = true, optional = true }
+scip-sys = { workspace = true, optional = true }
 
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }

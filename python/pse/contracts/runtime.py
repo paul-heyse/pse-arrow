@@ -1434,6 +1434,7 @@ class RuntimeSolverCapabilitiesRow:
     general_bounds: b.bool = attrs.field(validator=v.exact_type(b.bool))
     sign_bounds: b.bool = attrs.field(validator=v.exact_type(b.bool))
     parallel: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    certifies: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
 
 @attrs.frozen(kw_only=True)

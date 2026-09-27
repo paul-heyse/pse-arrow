@@ -57,6 +57,12 @@ struct AlgebraicCase {
     values: CaseValues,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     certificate: Option<Arc<dyn QuadraticEvidence>>,
+    /// Factorable projection under `values`, built only for a factorable route, with the
+    /// reservation that admits its retained size.
+    factorable: Option<(
+        Arc<pse_math::factorable::FactorableProgram>,
+        Arc<pse_columnar::AllocationLease>,
+    )>,
 }
 #[derive(Clone, Debug)]
 enum Representation {
@@ -691,6 +697,52 @@ impl MathService {
             _ => {}
         }
         admit_profile(&profile, route)?;
+        // The factorable projection exists only for a factorable route. It is built and
+        // admitted before any worker, refusing with every typed reason (ADR-0105 §2).
+        let factorable = match adapter.map(|a| a.representation()) {
+            Some(execution::Representation::Factorable) => {
+                let plan = prepared.prepared.plan.clone();
+                let values = values.clone();
+                let limit = self.policy.worker_bytes / 256;
+                let intent = profile.intent;
+                let program = self
+                    .job(
+                        1,
+                        self.policy.worker_bytes,
+                        FlightCancellation::default(),
+                        move |flag| {
+                            let program = plan
+                                .factorable_program(
+                                    &values,
+                                    &pse_math::factorable::FactorableRequest::default(),
+                                    limit,
+                                    &flag,
+                                )
+                                .map_err(|e| match e {
+                                    pse_math::factorable::FactorableError::Math(e) => {
+                                        ProblemError::Math(e)
+                                    }
+                                    other => ProblemError::Unsupported(other.to_string()),
+                                })?;
+                            let refusals = execution::admit_program(&program, intent);
+                            if !refusals.is_empty() {
+                                let reasons: Vec<String> =
+                                    refusals.iter().map(ToString::to_string).collect();
+                                return Err(ProblemError::Unsupported(format!(
+                                    "factorable export refused: {}",
+                                    reasons.join("; ")
+                                ))
+                                .into());
+                            }
+                            Ok(program)
+                        },
+                    )
+                    .await?;
+                let owner = self.reserve("math:factorable-program", program.bytes())?;
+                Some((Arc::new(program), owner))
+            }
+            _ => None,
+        };
         if let Some(adapter) = adapter {
             adapter.admit_contract(
                 &native::assembled::contract(plan),
@@ -722,6 +774,7 @@ impl MathService {
                 values,
                 providers,
                 certificate,
+                factorable,
             }),
             profile,
             numerics,
@@ -796,6 +849,8 @@ impl MathService {
                 values,
                 providers,
                 certificate: None,
+                // A block runs only on a root or NLP route, refused above otherwise.
+                factorable: None,
             }),
             profile,
             numerics,
@@ -1062,6 +1117,8 @@ impl MathService {
         }
         let mut execution = Execution::new(flag.clone(), &controls);
         execution.progress = progress.clone();
+        // Libraries that enforce their own memory limit read the job's foreign allowance.
+        execution.memory = Some(self.policy.foreign_bytes);
         let receipt = StartReceipt {
             previous_attempt,
             seed: chosen.clone(),
@@ -1148,6 +1205,9 @@ impl MathService {
             (Representation::Algebraic(case), execution::Representation::Coefficients) => {
                 self.coefficient_step(run, retained, case, budget)?
             }
+            (Representation::Algebraic(case), execution::Representation::Factorable) => {
+                self.factorable_step(run, retained, case, &profile, budget)?
+            }
             (
                 Representation::Algebraic(case),
                 kind @ (execution::Representation::Nlp | execution::Representation::Roots),
@@ -1175,6 +1235,7 @@ impl MathService {
             values,
             providers,
             certificate,
+            ..
         } = case;
         let coefficients = prepared
             .prepared
@@ -1208,6 +1269,88 @@ impl MathService {
                 original: &mut original,
             },
         )?)
+    }
+    /// Factorable export of the compiled case for a global adapter. Candidates are
+    /// re-checked against the original case, and a discrete assignment is re-solved as a
+    /// continuous problem through the one NLP runner (ADR-0105 §2).
+    fn factorable_step(
+        &self,
+        run: execution::Step<'_>,
+        retained: &mut Retained,
+        case: AlgebraicCase,
+        profile: &SolverProfile,
+        budget: &Arc<WorkerBudget>,
+    ) -> Result<SolveReport, MathRuntimeError> {
+        let AlgebraicCase {
+            prepared,
+            case,
+            values,
+            providers,
+            factorable,
+            ..
+        } = case;
+        let (program, _owner) = factorable
+            .ok_or_else(|| ProblemError::Internal("missing factorable program".into()))?;
+        let plan = &prepared.prepared.plan;
+        if !program.matches(plan, &values) {
+            return Err(ProblemError::Contract(
+                "factorable program assumptions differ from the case values".into(),
+            )
+            .into());
+        }
+        let initial: Vec<_> = plan.columns().iter().map(|id| values.scalars[id]).collect();
+        let mut original = OriginalCase {
+            service: self,
+            case: case.clone(),
+            providers: &providers,
+            values: &values,
+            plan,
+            cancel: run.execution.cancel.clone(),
+            budget,
+        };
+        let normalization = run.normalization.clone();
+        let cancel = run.execution.cancel.clone();
+        // Executable owners and their budget charges outlive every re-solve oracle.
+        let mut owners = Vec::new();
+        let mut fixed = |assignment: &BTreeMap<usize, f64>| {
+            (|| -> Result<Box<dyn native::NlpOracle>, MathRuntimeError> {
+                let ExecutionWorker {
+                    worker,
+                    _case,
+                    _charge,
+                } = self.case_worker(case.clone(), providers.clone(), &cancel, budget)?;
+                owners.push((_case, _charge));
+                let assignment = assignment
+                    .iter()
+                    .map(|(i, v)| (plan.columns()[*i], *v))
+                    .collect();
+                let oracle = native::assembled::AlgebraicOracle::with_fixed_assignment(
+                    worker,
+                    values.clone(),
+                    &assignment,
+                )?
+                .with_normalization(normalization.clone())?;
+                Ok(Box::new(oracle))
+            })()
+            .map_err(MathRuntimeError::into_problem)
+        };
+        let report = execution::factorable(
+            run,
+            retained,
+            execution::Factorable {
+                program: &program,
+                initial: &initial,
+                intent: profile.intent,
+                original: &mut original,
+                resolve: Some(execution::Resolve {
+                    oracle: &mut fixed,
+                    presolve: &profile.presolve,
+                    limit: self.policy.worker_bytes / 256,
+                }),
+            },
+        )?;
+        drop(owners);
+        Ok(report)
     }
     /// Callback oracle over the compiled case for an NLP or root-system adapter.
     fn callback_step(

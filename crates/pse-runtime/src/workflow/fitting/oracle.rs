@@ -493,6 +493,7 @@ impl FitProblem {
             started: Instant::now(),
             time_limit: self.profile.solver.controls.time_limit,
             progress,
+            memory: None,
         };
         let mut oracle = FitOracle::new(self.clone(), execution.clone())?;
         let (solve, candidate) = if self.initial.is_empty() {

@@ -25,6 +25,7 @@ solver-kinsol = ["pse-backend-native/kinsol"]
 solver-sdp = ["pse-backend-native/sdp"]
 solver-diffsol = ["pse-backend-native/diffsol"]
 solver-idas = ["solver-diffsol", "pse-backend-native/idas"]
+solver-scip = ["pse-backend-native/scip"]
 native-solvers = [
   "solver-ipopt",
   "solver-highs",
@@ -33,6 +34,7 @@ native-solvers = [
   "solver-sdp",
   "solver-diffsol",
   "solver-idas",
+  "solver-scip",
 ]
 
 [dependencies]
