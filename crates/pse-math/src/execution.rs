@@ -284,13 +284,43 @@ impl PreparedBody {
     pub fn providers(&self) -> &[ProviderSpec] {
         &self.providers
     }
-    /// Library expression when no opaque provider or branch prevents exact projection.
+    /// Optional flattened library expression of one output. It is absent when a provider or
+    /// branch prevents flattening, and also when substituting the shared stage results
+    /// would exceed the flattening bound (large but factorable bodies, such as Helmholtz
+    /// derivatives). Projections that must not lose such outputs read the stage program
+    /// instead ([`crate::factorable`]).
     pub fn expression(&self, output: usize) -> Option<&Atom> {
         self.expressions.get(output).and_then(Option::as_ref)
     }
     /// Whether coefficient views must retain a domain/control obligation.
     pub fn has_obligations(&self) -> bool {
         has_obligations(&self.stages)
+    }
+    /// The stage program an evaluation of `outputs` executes: every retained obligation and
+    /// only the arithmetic those outputs and their effects need. Projections read this
+    /// program so that they carry exactly the obligations the evaluator enforces.
+    /// # Errors
+    /// An output ordinal outside the body, or an exhausted formal vocabulary.
+    pub(crate) fn demanded_stages(&self, outputs: &[usize]) -> Result<Vec<Stage>, MathError> {
+        if outputs.iter().any(|&i| i >= self.outputs.len()) {
+            return Err(MathError::Contract("demanded body output".into()));
+        }
+        let parameters = (0..self.slots)
+            .map(library::formal)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(self.demand(outputs, &symbol_map(&parameters)))
+    }
+    fn demand(&self, outputs: &[usize], symbols: &HashMap<Symbol, usize>) -> Vec<Stage> {
+        let mut needed: BTreeSet<_> = outputs.iter().map(|&i| self.outputs[i]).collect();
+        if let Some(effects) = &self.output_effects {
+            needed.extend(outputs.iter().flat_map(|&i| effects[i].iter().copied()));
+        }
+        prune(
+            &self.stages,
+            &mut needed,
+            symbols,
+            self.output_effects.is_none(),
+        )
     }
     /// Compile an exact output/coordinate demand under explicit limits.
     pub fn compile(
@@ -378,16 +408,7 @@ impl PreparedBody {
             .map(library::formal)
             .collect::<Result<Vec<_>, _>>()?;
         let symbols = symbol_map(&parameters);
-        let mut needed: BTreeSet<_> = selected.iter().copied().collect();
-        if let Some(effects) = &self.output_effects {
-            needed.extend(outputs.iter().flat_map(|&i| effects[i].iter().copied()));
-        }
-        let stages = prune(
-            &self.stages,
-            &mut needed,
-            &symbols,
-            self.output_effects.is_none(),
-        );
+        let stages = self.demand(outputs, &symbols);
         // Conservative coordinate reachability includes every branch alternative. It
         // selects Taylor coefficients; Symbolica still owns every derivative operation.
         let support_entries = self

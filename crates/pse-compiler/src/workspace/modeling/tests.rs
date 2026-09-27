@@ -3469,3 +3469,60 @@ fn kernel_flow_projection_preserves_ports_isolates_and_explicit_tear_policies() 
             .is_err()
     );
 }
+#[test]
+fn nested_implicit_factorable_definition_exports_residual_exactly() {
+    use pse_math::factorable::{FactorableRequest, Fidelity};
+    let (mut workspace, _, _, root) = setup(
+        "package p { def Root { var x: Scalar; implicit root { var y: Scalar; eq residual: y*y == x; annotation bounds y(0.5, 10); } realize policy on root using nested; eq pin: root.y == 2; } }",
+    );
+    let admitted = admit(&mut workspace, root);
+    let inner = admitted.implicit.values().next().unwrap();
+    let (key, definition) = inner.factorable_definition().unwrap();
+    assert_eq!(key, inner.descriptor.spec().key());
+    assert_eq!(
+        definition.residual.input_count(),
+        1 + inner.descriptor.spec().inputs.len()
+    );
+    let bounds = definition.bounds.as_ref().unwrap();
+    assert!(bounds.lower[0].is_some() && bounds.upper[0].is_some());
+    let cancel = Arc::new(AtomicBool::new(false));
+    let f = fixture(
+        &admitted,
+        workspace.inputs.quantities.clone(),
+        DerivativeOrder::Value,
+        &cancel,
+    )
+    .unwrap();
+    let values = CaseValues {
+        scalars: admitted.inputs.iter().map(|id| (*id, 4.0)).collect(),
+    };
+    let relaxed = f
+        .assembly
+        .factorable_program(&values, &FactorableRequest::default(), 10_000, &cancel)
+        .unwrap();
+    assert!(relaxed.rows.iter().any(|r| r.fidelity == Fidelity::Relaxed));
+    let request = FactorableRequest {
+        implicit: BTreeMap::from([(key, definition)]),
+        ..Default::default()
+    };
+    let program = f
+        .assembly
+        .factorable_program(&values, &request, 10_000, &cancel)
+        .unwrap();
+    assert_eq!(program.implicit.len(), 1);
+    assert_eq!(program.implicit[0].fidelity, Fidelity::Exact);
+    let unknown = &program.auxiliaries[program.implicit[0].unknowns[0]];
+    assert_eq!((unknown.lower, unknown.upper), (0.5, 10.0));
+    assert!(program.rows.iter().all(|r| r.fidelity == Fidelity::Exact));
+    // A regime selection has no single residual; it stays a provider output.
+    let (mut workspace, _, _, root) = setup(
+        "package p { def Root { var target:Scalar; implicit roots select minimum((y-target)*(y-target),1e-8) {var y:Scalar; annotation start y(y); regime negative {eq root:y==-1; annotation start y(-1);} regime positive {eq root:y==1; annotation start y(1);} } realize r on roots using nested; eq selected:roots.y==target; } }",
+    );
+    let admitted = admit(&mut workspace, root);
+    assert!(
+        admitted
+            .implicit
+            .values()
+            .all(|i| i.factorable_definition().is_none())
+    );
+}

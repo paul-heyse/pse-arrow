@@ -6,18 +6,23 @@ use crate::{
     MathError,
     assembly::CasePlan,
     binding::{CaseValues, Target},
+    factorable::{
+        Constraint, FactorableError, FactorableProgram, FactorableRequest, Node, NodeId,
+        ObligationKind,
+        ObligationScope, ProjectedObligation,
+    },
     library,
 };
 use pounce_nlp::expression_provider::{FbbtOp as Op, FbbtTape};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
 };
-use symbolica::atom::{Atom, AtomCore, AtomView, Indeterminate, Symbol};
+use symbolica::atom::{Atom, AtomCore, Indeterminate};
 
 /// One proved affine row, including its original constant.
 #[derive(Clone, Debug, PartialEq)]
@@ -112,13 +117,18 @@ impl Facts {
 impl CasePlan {
     /// Build independently useful affine proofs and native FBBT tapes.
     ///
+    /// Tapes and obligation admission come from the shared stage projection
+    /// ([`crate::factorable`]): a large factorable body keeps a complete tape, and a
+    /// validity predicate is checked through its closed conjunction. Affine proofs and the
+    /// objective degree use the optional flattened expressions.
+    ///
     /// # Errors
     /// Rejects missing or nonfinite consumed values, insufficient row storage,
     /// cancellation, or a failed symbolic projection. Exhausted optional tape
     /// construction leaves an opaque row or an unestablished obligation.
     #[expect(
         clippy::too_many_lines,
-        reason = "one bounded traversal accumulates row proofs and native tapes together"
+        reason = "one bounded traversal accumulates row proofs, admission and native tapes together"
     )]
     pub fn presolve_facts(
         &self,
@@ -142,10 +152,25 @@ impl CasePlan {
             .enumerate()
             .map(|(i, r)| (r.id, i))
             .collect();
+        let mut remaining = limit
+            .checked_sub(rows.len())
+            .ok_or(MathError::Limit("presolve rows"))?;
+        // The default request exports every branch through the auxiliary policy, so the only
+        // failures are mathematical ones.
+        let program = self
+            .factorable_program(values, &FactorableRequest::default(), limit, cancel)
+            .map_err(|e| match e {
+                FactorableError::Math(e) => e,
+                other @ FactorableError::DisjunctiveBranch { .. } => {
+                    MathError::Contract(other.to_string())
+                }
+            })?;
+        let lower: Vec<_> = program.variables.iter().map(|v| v.lower).collect();
+        let upper: Vec<_> = program.variables.iter().map(|v| v.upper).collect();
         let mut facts = Facts {
             key: self.structure().key(),
             structure: self.structure().key(),
-            values: BTreeMap::new(),
+            values: program.values.clone(),
             affine: vec![
                 Some(AffineRow {
                     entries: BTreeMap::new(),
@@ -154,40 +179,103 @@ impl CasePlan {
                 rows.len()
             ],
             row_sources: vec![vec![]; rows.len()],
-            tapes: (0..rows.len())
-                .map(|_| FbbtTape {
-                    ops: vec![Op::Const(0.0)],
-                })
-                .collect(),
-            complete: vec![true; rows.len()],
+            tapes: Vec::with_capacity(rows.len()),
+            complete: Vec::with_capacity(rows.len()),
             objective_linear: vec![true; columns.len()],
             objective_degree: Some(0),
             obligations: BTreeMap::new(),
             has_guards: false,
             signs: BTreeMap::new(),
         };
-        let mut remaining = limit
-            .checked_sub(rows.len())
-            .ok_or(MathError::Limit("presolve rows"))?;
-        let bounds: Vec<_> = self
-            .structure()
-            .variables()
-            .iter()
-            .filter(|v| !v.fixed)
-            .map(|v| {
-                (
-                    if v.domain.is_semi() {
-                        0.0
-                    } else {
-                        v.lower.unwrap_or(f64::NEG_INFINITY)
-                    },
-                    v.upper.unwrap_or(f64::INFINITY),
-                )
-            })
-            .collect();
-        let lower: Vec<_> = bounds.iter().map(|b| b.0).collect();
-        let upper: Vec<_> = bounds.iter().map(|b| b.1).collect();
-        let mut row_memos: HashMap<(SemanticId, usize), HashMap<Atom, usize>> = HashMap::new();
+        for b in self.structure().instances() {
+            facts
+                .obligations
+                .insert(b.instance, ObligationStatus::Discharged);
+        }
+        // An instance whose projection exhausted the budget is admitted only when its body
+        // retains no obligation at all.
+        for b in self.structure().instances() {
+            if program.incomplete.contains(&b.instance)
+                && !self.bodies()[&b.body].obligations.is_empty()
+            {
+                facts
+                    .obligations
+                    .insert(b.instance, ObligationStatus::Unestablished);
+            }
+        }
+        for obligation in &program.obligations {
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
+            let status = admission(&program, obligation, &lower, &upper, &mut remaining)?;
+            let current = facts
+                .obligations
+                .entry(obligation.instance)
+                .or_insert(ObligationStatus::Discharged);
+            *current = match (*current, status) {
+                (ObligationStatus::Violated, _) | (_, ObligationStatus::Violated) => {
+                    ObligationStatus::Violated
+                }
+                (ObligationStatus::Unestablished, _) | (_, ObligationStatus::Unestablished) => {
+                    ObligationStatus::Unestablished
+                }
+                _ => ObligationStatus::Discharged,
+            };
+            // Only an obligation enforced at every evaluation is a hard sign domain.
+            if let (
+                ObligationKind::Require(condition),
+                ObligationScope::Unconditional,
+                Some(argument),
+            ) = (obligation.kind, obligation.scope, obligation.argument)
+                && let Some((column, coefficient)) = single_column(&program, argument)
+            {
+                use crate::guarded::Condition;
+                let sign = match condition {
+                    Condition::Positive => Some(GuardSign {
+                        positive: coefficient > 0.0,
+                        strict: true,
+                    }),
+                    Condition::Nonnegative => Some(GuardSign {
+                        positive: coefficient > 0.0,
+                        strict: false,
+                    }),
+                    Condition::Nonzero if lower[column] >= 0.0 => Some(GuardSign {
+                        positive: true,
+                        strict: true,
+                    }),
+                    Condition::Nonzero if upper[column] <= 0.0 => Some(GuardSign {
+                        positive: false,
+                        strict: true,
+                    }),
+                    Condition::Nonzero => None,
+                };
+                if let Some(mut sign) = sign {
+                    let id = self.columns()[column];
+                    if let Some(old) = facts.signs.get(&id) {
+                        if old.positive != sign.positive {
+                            return Err(MathError::Contract(format!(
+                                "conflicting original sign guards for {id}"
+                            )));
+                        }
+                        sign.strict |= old.strict;
+                    }
+                    facts.signs.insert(id, sign);
+                }
+            }
+        }
+        for row in &program.rows {
+            let tape = match row.expression {
+                // The original expression remains executable. A partial native tape
+                // cannot support any interval conclusion.
+                Some(root) => optional_tape(tape(&program, root, &mut remaining, true))?,
+                None => None,
+            };
+            let tape = tape.unwrap_or_else(|| FbbtTape {
+                ops: vec![Op::Opaque],
+            });
+            facts.complete.push(!tape.ops.contains(&Op::Opaque));
+            facts.tapes.push(tape);
+        }
         for b in self.structure().instances() {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
@@ -204,97 +292,10 @@ impl CasePlan {
                         .scalars
                         .get(&s.source())
                         .ok_or_else(|| MathError::Contract("missing presolve parameter".into()))?;
-                    if !v.is_finite() {
-                        return Err(MathError::Contract("nonfinite presolve parameter".into()));
-                    }
-                    facts.values.insert(s.source(), v.to_bits());
                     bindings.push((formal, None, 0.0, s.scale() * v + s.offset()));
                 }
             }
-            let mut admitted = ObligationStatus::Discharged;
-            for (expression, condition) in &body.obligations {
-                let Some(expression) = expression else {
-                    admitted = ObligationStatus::Unestablished;
-                    continue;
-                };
-                use crate::guarded::Condition;
-                if let Some(row) = affine(expression, &bindings, 1.0, cancel)?
-                    && row.constant == 0.0
-                    && row.entries.len() == 1
-                    && let Some((&column, &coefficient)) = row.entries.first_key_value()
-                {
-                    let sign = match condition {
-                        Condition::Positive => Some(GuardSign {
-                            positive: coefficient > 0.0,
-                            strict: true,
-                        }),
-                        Condition::Nonnegative => Some(GuardSign {
-                            positive: coefficient > 0.0,
-                            strict: false,
-                        }),
-                        Condition::Nonzero if lower[column] >= 0.0 => Some(GuardSign {
-                            positive: true,
-                            strict: true,
-                        }),
-                        Condition::Nonzero if upper[column] <= 0.0 => Some(GuardSign {
-                            positive: false,
-                            strict: true,
-                        }),
-                        _ => None,
-                    };
-                    if let Some(mut sign) = sign {
-                        let id = self.columns()[column];
-                        if let Some(old) = facts.signs.get(&id) {
-                            if old.positive != sign.positive {
-                                return Err(MathError::Contract(format!(
-                                    "conflicting original sign guards for {id}"
-                                )));
-                            }
-                            sign.strict |= old.strict;
-                        }
-                        facts.signs.insert(id, sign);
-                    }
-                }
-                let mut ops = Vec::new();
-                let mut emitter = Emitter {
-                    ops: &mut ops,
-                    bindings: &bindings,
-                    remaining: &mut remaining,
-                    cancel,
-                    memo: HashMap::new(),
-                };
-                if optional_tape(emitter.atom(expression.as_view(), 0))?.is_none() {
-                    admitted = ObligationStatus::Unestablished;
-                    continue;
-                }
-                let Ok(intervals) =
-                    pounce_presolve::fbbt::forward_pass(&FbbtTape { ops }, &lower, &upper)
-                else {
-                    admitted = ObligationStatus::Unestablished;
-                    continue;
-                };
-                let interval = pounce_presolve::fbbt::forward_result(&intervals);
-                let valid = interval.lo <= interval.hi
-                    && match condition {
-                        Condition::Positive => interval.lo > 0.0,
-                        Condition::Nonnegative => interval.lo >= 0.0,
-                        Condition::Nonzero => interval.lo > 0.0 || interval.hi < 0.0,
-                    };
-                let violated = interval.lo > interval.hi
-                    || match condition {
-                        Condition::Positive => interval.hi <= 0.0,
-                        Condition::Nonnegative => interval.hi < 0.0,
-                        Condition::Nonzero => interval.lo == 0.0 && interval.hi == 0.0,
-                    };
-                if violated {
-                    admitted = ObligationStatus::Violated;
-                    break;
-                }
-                if !valid {
-                    admitted = ObligationStatus::Unestablished;
-                }
-            }
-            facts.obligations.insert(b.instance, admitted);
+            let admitted = facts.obligations[&b.instance];
             for c in &b.contributions {
                 let expression = body.expression(c.output).map(|a| {
                     bindings
@@ -307,37 +308,6 @@ impl CasePlan {
                 if let Target::Row(id) = c.target {
                     let r = rows[&id];
                     facts.row_sources[r].push((b.instance, c.output));
-                    let tape = &mut facts.tapes[r];
-                    if facts.complete[r] {
-                        let previous = tape.ops.len() - 1;
-                        let mut emitter = Emitter {
-                            ops: &mut tape.ops,
-                            bindings: &bindings,
-                            remaining: &mut remaining,
-                            cancel,
-                            memo: row_memos.remove(&(b.instance, r)).unwrap_or_default(),
-                        };
-                        let projection = (|| -> Result<(), MathError> {
-                            let v = match &expression {
-                                Some(a) => emitter.atom(a.as_view(), 0)?,
-                                None => emitter.push(Op::Opaque)?,
-                            };
-                            let scale = emitter.push(Op::Const(c.scale))?;
-                            let v = emitter.push(Op::Mul(v, scale))?;
-                            emitter.push(Op::Add(previous, v))?;
-                            Ok(())
-                        })();
-                        if optional_tape(projection)?.is_some() {
-                            row_memos.insert((b.instance, r), std::mem::take(&mut emitter.memo));
-                        } else {
-                            // The original expression remains executable. A partial
-                            // native tape cannot support any interval conclusion.
-                            tape.ops.clear();
-                            tape.ops.push(Op::Opaque);
-                            facts.complete[r] = false;
-                            row_memos.retain(|(_, row), _| *row != r);
-                        }
-                    }
                     if admitted != ObligationStatus::Discharged || expression.is_none() {
                         facts.affine[r] = None;
                     }
@@ -380,8 +350,7 @@ impl CasePlan {
                 }
             }
         }
-        for (r, tape) in facts.tapes.iter().enumerate() {
-            facts.complete[r] = !tape.ops.contains(&Op::Opaque);
+        for tape in &facts.tapes {
             if tape.first_invalid_slot().is_some() {
                 return Err(MathError::Contract("invalid derived FBBT tape".into()));
             }
@@ -394,13 +363,245 @@ impl CasePlan {
         }
         let mut h = FramedHasher::new("pse.math.bound-facts.v2");
         h.hash(&facts.structure)
-            .str("pounce-nlp-0.12.0;projection-v2");
+            .str("pounce-nlp-0.12.0;projection-v3;stage-dag");
         for (id, b) in &facts.values {
             h.str(&id.to_string()).u64(*b);
         }
         facts.key = h.finish_hash();
         Ok(facts)
     }
+}
+/// Admission of one retained obligation over the complete selected variable box.
+fn admission(
+    program: &FactorableProgram,
+    obligation: &ProjectedObligation,
+    lower: &[f64],
+    upper: &[f64],
+    remaining: &mut usize,
+) -> Result<ObligationStatus, MathError> {
+    use crate::guarded::Condition;
+    // A requirement is checked through its exact condition on the argument; a domain
+    // predicate through its closed conjunction with strictness, which must be complete.
+    let (mut status, checks): (_, Vec<(NodeId, Check)>) =
+        match (obligation.kind, obligation.argument) {
+            (ObligationKind::Require(condition), Some(argument)) => (
+                ObligationStatus::Discharged,
+                vec![(argument, Check::Condition(condition))],
+            ),
+            _ => (
+                if obligation.represented {
+                    ObligationStatus::Discharged
+                } else {
+                    ObligationStatus::Unestablished
+                },
+                obligation
+                    .constraints
+                    .iter()
+                    .map(|c| (c.expression, Check::Closed(*c)))
+                    .collect(),
+            ),
+        };
+    for (root, check) in checks {
+        let Some(tape) = optional_tape(tape(program, root, remaining, false))? else {
+            status = ObligationStatus::Unestablished;
+            continue;
+        };
+        if tape.ops.contains(&Op::Opaque) {
+            status = ObligationStatus::Unestablished;
+            continue;
+        }
+        let Ok(intervals) = pounce_presolve::fbbt::forward_pass(&tape, lower, upper) else {
+            status = ObligationStatus::Unestablished;
+            continue;
+        };
+        let range = pounce_presolve::fbbt::forward_result(&intervals);
+        let (lo, hi) = (range.lo, range.hi);
+        let (valid, violated) = match check {
+            Check::Condition(condition) => (
+                lo <= hi
+                    && match condition {
+                        Condition::Positive => lo > 0.0,
+                        Condition::Nonnegative => lo >= 0.0,
+                        Condition::Nonzero => lo > 0.0 || hi < 0.0,
+                    },
+                lo > hi
+                    || match condition {
+                        Condition::Positive => hi <= 0.0,
+                        Condition::Nonnegative => hi < 0.0,
+                        Condition::Nonzero => lo == 0.0 && hi == 0.0,
+                    },
+            ),
+            Check::Closed(c) => (
+                lo <= hi
+                    && (if c.strict {
+                        lo > c.lower
+                    } else {
+                        lo >= c.lower
+                    })
+                    && (if c.strict {
+                        hi < c.upper
+                    } else {
+                        hi <= c.upper
+                    }),
+                lo > hi
+                    || (if c.strict {
+                        hi <= c.lower
+                    } else {
+                        hi < c.lower
+                    })
+                    || (if c.strict {
+                        lo >= c.upper
+                    } else {
+                        lo > c.upper
+                    }),
+            ),
+        };
+        if violated {
+            // A region-local obligation constrains only points where its region is taken.
+            return Ok(if obligation.scope == ObligationScope::Unconditional {
+                ObligationStatus::Violated
+            } else {
+                ObligationStatus::Unestablished
+            });
+        }
+        if !valid {
+            status = ObligationStatus::Unestablished;
+        }
+    }
+    Ok(status)
+}
+#[derive(Clone, Copy, Debug)]
+enum Check {
+    Condition(crate::guarded::Condition),
+    Closed(Constraint),
+}
+/// `coefficient * column` with no offset, as a hard sign domain requires.
+fn single_column(program: &FactorableProgram, node: NodeId) -> Option<(usize, f64)> {
+    match program.nodes.get(node)? {
+        Node::Var(c) => Some((*c, 1.0)),
+        Node::Product(children) if children.len() == 2 => {
+            match (
+                program.nodes.get(children[0])?,
+                program.nodes.get(children[1])?,
+            ) {
+                (Node::Const(k), Node::Var(c)) | (Node::Var(c), Node::Const(k)) => {
+                    Some((*c, k.value()))
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+/// Native FBBT tape of one projected node, emitting every reachable node once. A row's
+/// first operation was charged when the row inventory was admitted (`prepaid`).
+fn tape(
+    program: &FactorableProgram,
+    root: NodeId,
+    remaining: &mut usize,
+    prepaid: bool,
+) -> Result<FbbtTape, MathError> {
+    let mut prepaid = prepaid;
+    let mut reachable = BTreeSet::new();
+    let mut stack = vec![root];
+    while let Some(n) = stack.pop() {
+        if !reachable.insert(n) {
+            continue;
+        }
+        match program.nodes.get(n) {
+            Some(Node::Sum(c) | Node::Product(c)) => stack.extend(c),
+            Some(
+                Node::Pow { base: i, .. }
+                | Node::Exp(i)
+                | Node::Log(i)
+                | Node::Abs(i)
+                | Node::Sin(i)
+                | Node::Cos(i),
+            ) => stack.push(*i),
+            Some(Node::Var(_) | Node::Aux(_) | Node::Const(_)) => {}
+            None => return Err(MathError::Contract("projected node out of range".into())),
+        }
+    }
+    let mut ops = Vec::with_capacity(reachable.len());
+    let mut push = |ops: &mut Vec<Op>, op: Op| -> Result<usize, MathError> {
+        if prepaid {
+            prepaid = false;
+        } else if *remaining == 0 {
+            return Err(MathError::Limit("presolve tape extent"));
+        } else {
+            *remaining -= 1;
+        }
+        ops.push(op);
+        Ok(ops.len() - 1)
+    };
+    let mut slots: HashMap<NodeId, usize> = HashMap::with_capacity(reachable.len());
+    let slot = |slots: &HashMap<NodeId, usize>, n: &NodeId| {
+        slots
+            .get(n)
+            .copied()
+            .ok_or_else(|| MathError::Contract("projected node order".into()))
+    };
+    // Node identities are topological: children precede their parents, and the root is
+    // the largest reachable identity, so it is the tape result.
+    for n in reachable {
+        let emitted = match &program.nodes[n] {
+            Node::Var(c) => push(&mut ops, Op::Var(*c))?,
+            Node::Aux(_) => push(&mut ops, Op::Opaque)?,
+            Node::Const(c) => push(&mut ops, Op::Const(c.value()))?,
+            Node::Sum(children) | Node::Product(children) => {
+                let sum = matches!(program.nodes[n], Node::Sum(_));
+                let (first, rest) = children
+                    .split_first()
+                    .ok_or_else(|| MathError::Contract("empty projected operation".into()))?;
+                let mut acc = slot(&slots, first)?;
+                for child in rest {
+                    let next = slot(&slots, child)?;
+                    acc = push(
+                        &mut ops,
+                        if sum {
+                            Op::Add(acc, next)
+                        } else {
+                            Op::Mul(acc, next)
+                        },
+                    )?;
+                }
+                acc
+            }
+            Node::Pow { base, exponent } => {
+                let b = slot(&slots, base)?;
+                let e = exponent.value();
+                if e.to_bits() == 0.5_f64.to_bits() {
+                    push(&mut ops, Op::Sqrt(b))?
+                } else if e.fract() == 0.0 && e.abs() <= 64.0 {
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        clippy::cast_sign_loss,
+                        reason = "the branch proved an integer absolute exponent at most 64"
+                    )]
+                    let power = e.abs() as u32;
+                    let p = push(&mut ops, Op::PowInt(b, power))?;
+                    if e < 0.0 {
+                        let one = push(&mut ops, Op::Const(1.0))?;
+                        push(&mut ops, Op::Div(one, p))?
+                    } else {
+                        p
+                    }
+                } else {
+                    push(&mut ops, Op::Opaque)?
+                }
+            }
+            Node::Exp(i) => push(&mut ops, Op::Exp(slot(&slots, i)?))?,
+            Node::Log(i) => push(&mut ops, Op::Ln(slot(&slots, i)?))?,
+            Node::Abs(i) => push(&mut ops, Op::Abs(slot(&slots, i)?))?,
+            Node::Sin(i) => push(&mut ops, Op::Sin(slot(&slots, i)?))?,
+            Node::Cos(i) => push(&mut ops, Op::Cos(slot(&slots, i)?))?,
+        };
+        slots.insert(n, emitted);
+    }
+    if slot(&slots, &root)? + 1 != ops.len() {
+        return Err(MathError::Contract("projected tape result".into()));
+    }
+    Ok(FbbtTape { ops })
 }
 fn optional_tape<T>(result: Result<T, MathError>) -> Result<Option<T>, MathError> {
     match result {
@@ -493,158 +694,4 @@ fn affine_candidate(
     }
     result.constant += number(&zero, c)? * scale;
     Ok(Some(result))
-}
-struct Emitter<'a> {
-    ops: &'a mut Vec<Op>,
-    bindings: &'a [(Atom, Option<usize>, f64, f64)],
-    remaining: &'a mut usize,
-    cancel: &'a Arc<AtomicBool>,
-    memo: HashMap<Atom, usize>,
-}
-impl Emitter<'_> {
-    fn push(&mut self, op: Op) -> Result<usize, MathError> {
-        if *self.remaining == 0 {
-            return Err(MathError::Limit("presolve tape extent"));
-        }
-        *self.remaining -= 1;
-        let i = self.ops.len();
-        self.ops.push(op);
-        Ok(i)
-    }
-    fn atom(&mut self, a: AtomView<'_>, depth: usize) -> Result<usize, MathError> {
-        if let Some(slot) = self.memo.get(&a.to_owned()) {
-            return Ok(*slot);
-        }
-        let slot = self.emit(a, depth)?;
-        self.memo.insert(a.to_owned(), slot);
-        Ok(slot)
-    }
-    fn emit(&mut self, a: AtomView<'_>, depth: usize) -> Result<usize, MathError> {
-        if depth > 128 {
-            return self.push(Op::Opaque);
-        }
-        if self.cancel.load(Ordering::Relaxed) {
-            return Err(MathError::Cancelled);
-        }
-        if let Some((_, col, s, o)) = self.bindings.iter().find(|(f, _, _, _)| f.as_view() == a) {
-            let (col, s, o) = (*col, *s, *o);
-            return match col {
-                None => self.push(Op::Const(o)),
-                Some(col) => {
-                    let v = self.push(Op::Var(col))?;
-                    let s = self.push(Op::Const(s))?;
-                    let v = self.push(Op::Mul(v, s))?;
-                    let o = self.push(Op::Const(o))?;
-                    self.push(Op::Add(v, o))
-                }
-            };
-        }
-        match a {
-            AtomView::Num(_) => match number(&a.to_owned(), self.cancel) {
-                Ok(value) => self.push(Op::Const(value)),
-                Err(MathError::CoefficientRange) => self.push(Op::Opaque),
-                Err(error) => Err(error),
-            },
-            AtomView::Add(v) => {
-                let mut result = self.push(Op::Const(0.0))?;
-                for x in v {
-                    let k = self.atom(x, depth + 1)?;
-                    result = self.push(Op::Add(result, k))?;
-                }
-                Ok(result)
-            }
-            AtomView::Mul(v) => {
-                let mut result = self.push(Op::Const(1.0))?;
-                for x in v {
-                    let k = self.atom(x, depth + 1)?;
-                    result = self.push(Op::Mul(result, k))?;
-                }
-                Ok(result)
-            }
-            AtomView::Pow(v) => {
-                if matches!(v.get_base(), AtomView::Var(b) if b.get_symbol() == Symbol::E) {
-                    let argument = self.atom(v.get_exp(), depth + 1)?;
-                    return self.push(Op::Exp(argument));
-                }
-                let exponent = v.get_exp().to_owned();
-                if !exponent.is_constant() {
-                    return self.push(Op::Opaque);
-                }
-                let e = number(&exponent, self.cancel)?;
-                let b = self.atom(v.get_base(), depth + 1)?;
-                if e.to_bits() == 0.5_f64.to_bits() {
-                    self.push(Op::Sqrt(b))
-                } else if e.fract() == 0.0 && e.abs() <= 64.0 {
-                    #[expect(
-                        clippy::cast_possible_truncation,
-                        clippy::cast_sign_loss,
-                        reason = "the branch proved an integer absolute exponent at most 64"
-                    )]
-                    let power = e.abs() as u32;
-                    let p = self.push(Op::PowInt(b, power))?;
-                    if e < 0.0 {
-                        let one = self.push(Op::Const(1.0))?;
-                        self.push(Op::Div(one, p))
-                    } else {
-                        Ok(p)
-                    }
-                } else {
-                    self.push(Op::Opaque)
-                }
-            }
-            AtomView::Fun(v) if v.get_nargs() == 1 => {
-                let symbol = v.get_symbol();
-                let op: Option<fn(usize) -> Op> = match symbol {
-                    s if s == Symbol::EXP => Some(Op::Exp),
-                    s if s == Symbol::LOG => Some(Op::Ln),
-                    s if s == Symbol::SIN => Some(Op::Sin),
-                    s if s == Symbol::COS => Some(Op::Cos),
-                    s if s == Symbol::ABS => Some(Op::Abs),
-                    _ => None,
-                };
-                if let Some(op) = op {
-                    let k = self.atom(v.get(0), depth + 1)?;
-                    self.push(op(k))
-                } else {
-                    self.push(Op::Opaque)
-                }
-            }
-            _ => self.push(Op::Opaque),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn fbbt_projection_normalized_transcendentals_and_shared_nodes() {
-        crate::initialize().unwrap();
-        let x = library::formal(0).unwrap();
-        let expressions = [x.exp(), x.log(), x.sin(), x.cos(), x.abs()];
-        for expression in expressions {
-            let mut ops = Vec::new();
-            let mut remaining = 100;
-            let cancel = Arc::new(AtomicBool::new(false));
-            let bindings = [(x.clone(), Some(0), 1.0, 0.0)];
-            let mut emitter = Emitter {
-                ops: &mut ops,
-                bindings: &bindings,
-                remaining: &mut remaining,
-                cancel: &cancel,
-                memo: HashMap::new(),
-            };
-            let first = emitter.atom(expression.as_view(), 0).unwrap();
-            let count = emitter.ops.len();
-            assert_eq!(emitter.atom(expression.as_view(), 0).unwrap(), first);
-            assert_eq!(emitter.ops.len(), count);
-            let tape = FbbtTape { ops };
-            assert!(!tape.ops.contains(&Op::Opaque), "{expression}");
-            assert!(tape.first_invalid_slot().is_none());
-            let range = pounce_presolve::fbbt::forward_result(
-                &pounce_presolve::fbbt::forward_pass(&tape, &[1.0], &[2.0]).unwrap(),
-            );
-            assert!(range.lo.is_finite() && range.hi.is_finite());
-        }
-    }
 }
