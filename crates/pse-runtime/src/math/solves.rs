@@ -4,6 +4,7 @@
 use super::{ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, Preparation};
 use pse_backend_native::{
     self as native, ProblemError,
+    execution::{self, BackendExecution, BackendSettings, Retained},
     quality::{self, Quality, Tolerances, Violation},
     routing::{self, Route},
     solve::*,
@@ -28,33 +29,6 @@ pub struct NumericalInputs {
 }
 use std::{collections::BTreeMap, sync::Arc};
 
-/// The selected backend's complete typed controls remain visible through the common pipeline.
-#[derive(Clone, Debug)]
-pub enum BackendSettings {
-    /// Use native defaults and the common semantic controls on the routed backend.
-    Default,
-    /// POUNCE algorithm and complete native FERAL configuration.
-    #[cfg(feature = "solver-pounce")]
-    Pounce {
-        /// NLP method.
-        method: native::pounce::Method,
-        /// Native linear settings.
-        linear: native::pounce::LinearSettings,
-    },
-    /// KINSOL equation/map and linear/scaling controls.
-    #[cfg(feature = "solver-kinsol")]
-    Kinsol(native::kinsol::Settings),
-    /// HiGHS LP method (MIP/QP use native class routing).
-    #[cfg(feature = "solver-highs")]
-    Highs(native::highs::Settings),
-    /// Clarabel's complete settings and preprocessing/data-update mode.
-    Clarabel {
-        /// Native settings.
-        native: Box<native::conic::Settings>,
-        /// Reuse/preprocessing mode.
-        mode: native::conic::Mode,
-    },
-}
 /// Unified solver request policy; physical tolerances are never inferred from trial magnitudes.
 #[derive(Clone, Debug)]
 pub struct SolverProfile {
@@ -73,15 +47,18 @@ pub struct SolverProfile {
     /// Complete backend-specific typed settings.
     pub backend: BackendSettings,
 }
+/// A compiled case with its selected values, providers and convexity evidence.
+#[derive(Clone, Debug)]
+struct AlgebraicCase {
+    prepared: Preparation,
+    case: Option<Arc<ExecutableCase>>,
+    values: CaseValues,
+    providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    certificate: Option<Arc<dyn QuadraticEvidence>>,
+}
 #[derive(Clone, Debug)]
 enum Representation {
-    Algebraic {
-        prepared: Preparation,
-        case: Option<Arc<ExecutableCase>>,
-        values: CaseValues,
-        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        certificate: Option<Arc<dyn QuadraticEvidence>>,
-    },
+    Algebraic(AlgebraicCase),
     Conic {
         problem: Arc<native::ConicProblem>,
         certificate: Arc<dyn QuadraticEvidence>,
@@ -108,11 +85,11 @@ impl PreparedSolve {
         h.hash(&profile_key(&self.profile)?)
             .hash(&self.numerics.key);
         match &self.representation {
-            Representation::Algebraic {
+            Representation::Algebraic(AlgebraicCase {
                 prepared,
                 providers,
                 ..
-            } => {
+            }) => {
                 for provider in providers.values() {
                     h.hash(&provider.configuration_key());
                 }
@@ -160,7 +137,7 @@ impl PreparedSolve {
             ProblemError::Contract("constant evaluation has no numerical start".into())
         })?;
         let ids: Vec<_> = match &self.representation {
-            Representation::Algebraic { prepared, .. } => prepared.prepared.plan.columns().to_vec(),
+            Representation::Algebraic(a) => a.prepared.prepared.plan.columns().to_vec(),
             Representation::Conic { problem, .. } => {
                 problem.contract.variables.iter().map(|v| v.id).collect()
             }
@@ -175,24 +152,7 @@ impl PreparedSolve {
             ));
         }
         let primal = ids.iter().map(|id| values[id]).collect();
-        let payload = match compatibility.backend {
-            Backend::Ipopt | Backend::Pounce => WarmPayload::Nlp {
-                primal,
-                bounds: None,
-                rows: None,
-            },
-            Backend::Kinsol => WarmPayload::Root(primal),
-            Backend::Highs => WarmPayload::Highs {
-                primal: Some(primal),
-                dual: None,
-                basis: None,
-            },
-            _ => {
-                return Err(ProblemError::Unsupported(
-                    "selected backend has no primal-start interface".into(),
-                ));
-            }
-        };
+        let payload = execution::adapter(compatibility.backend).primal_start(primal)?;
         self.with_start(WarmStart {
             origin: None,
             compatibility,
@@ -210,9 +170,9 @@ impl PreparedSolve {
         })?;
         seed.validate(target)?;
         let (n, m) = match &self.representation {
-            Representation::Algebraic { prepared, .. } => (
-                prepared.prepared.facts.variables,
-                prepared.prepared.facts.rows,
+            Representation::Algebraic(a) => (
+                a.prepared.prepared.facts.variables,
+                a.prepared.prepared.facts.rows,
             ),
             Representation::Conic { problem, .. } => (
                 problem.contract.variables.len(),
@@ -227,7 +187,7 @@ impl PreparedSolve {
     /// Current quadratic evidence, including explicit inconclusive or numerical assessments.
     pub fn quadratic_evidence(&self) -> Option<&dyn QuadraticEvidence> {
         match &self.representation {
-            Representation::Algebraic { certificate, .. } => certificate.as_deref(),
+            Representation::Algebraic(a) => a.certificate.as_deref(),
             Representation::Conic { certificate, .. } => Some(certificate.as_ref()),
         }
     }
@@ -311,7 +271,12 @@ pub struct SolveSequence {
 /// A prepared, bounded original-contract check executed between native attempts.
 /// Implementations consume the current worker's admission and cannot schedule nested work.
 pub(crate) trait SequenceAssessment: Send + std::fmt::Debug {
-    fn accepted(&mut self, attempt: usize, outcome: &Outcome, cancel: &Arc<std::sync::atomic::AtomicBool>) -> bool;
+    fn accepted(
+        &mut self,
+        attempt: usize,
+        outcome: &Outcome,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> bool;
 }
 /// Dropping the handle requests cancellation; awaiting it witnesses native destruction and join.
 pub struct SolveHandle<T = SequenceReport> {
@@ -361,57 +326,28 @@ impl<T> SolveHandle<T> {
         result
     }
 }
-pub(crate) const ALGEBRAIC_BACKENDS: &[Backend] = &[
-    #[cfg(feature = "solver-ipopt")]
-    Backend::Ipopt,
-    #[cfg(feature = "solver-pounce")]
-    Backend::Pounce,
-    #[cfg(feature = "solver-kinsol")]
-    Backend::Kinsol,
-    #[cfg(feature = "solver-highs")]
-    Backend::Highs,
-    Backend::Clarabel,
-];
+/// Admit a selected route's typed settings and controls through its adapter. Required
+/// library preprocessing needs an NLP representation.
 pub(crate) fn admit_profile(profile: &SolverProfile, route: Route) -> Result<(), ProblemError> {
-    if !matches!(route, Route::Native(Backend::Ipopt | Backend::Pounce))
-        && (matches!(&profile.presolve,native::presolve::Policy::Explicit{required,..}if !required.is_empty()))
+    let adapter = match route {
+        Route::Native(backend) => Some(execution::adapter(backend)),
+        Route::Constant => None,
+    };
+    if adapter.is_none_or(|a| a.representation() != execution::Representation::Nlp)
+        && matches!(&profile.presolve, native::presolve::Policy::Explicit { required, .. } if !required.is_empty())
     {
         return Err(ProblemError::Unsupported("common NLP scales/required preprocessing need an NLP route; use the selected class's native controls".into()));
     }
-    let Route::Native(backend) = route else {
+    let Some(adapter) = adapter else {
         return Ok(());
     };
-    if !ALGEBRAIC_BACKENDS.contains(&backend) || !backend.available() {
+    if !adapter.representation().algebraic() || !adapter.linked() {
         return Err(ProblemError::Unavailable {
-            backend,
+            backend: adapter.backend(),
             alternatives: vec![],
         });
     }
-    let selected = match &profile.backend {
-        BackendSettings::Default => backend,
-        #[cfg(feature = "solver-pounce")]
-        BackendSettings::Pounce { .. } => Backend::Pounce,
-        #[cfg(feature = "solver-kinsol")]
-        BackendSettings::Kinsol(_) => Backend::Kinsol,
-        #[cfg(feature = "solver-highs")]
-        BackendSettings::Highs(_) => Backend::Highs,
-        BackendSettings::Clarabel { .. } => Backend::Clarabel,
-    };
-    if selected != backend {
-        return Err(ProblemError::Contract(
-            "backend settings do not match selected route".into(),
-        ));
-    }
-    if matches!(
-        backend,
-        Backend::Ipopt | Backend::Kinsol | Backend::Clarabel
-    ) && profile.controls.threads != 1
-    {
-        return Err(ProblemError::Unsupported(
-            "selected linked native profile is serial".into(),
-        ));
-    }
-    Ok(())
+    adapter.admit_settings(&profile.backend, &profile.controls)
 }
 fn hash_controls(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemError> {
     h.hash(&p.presolve.key()).hash(&p.numerics.key());
@@ -424,7 +360,7 @@ fn hash_controls(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemE
         }
     }
     h.hash(&p.controls.accuracy.key());
-    h.u64(p.intent as u64)
+    h.str(p.intent.as_str())
         .u64(p.controls.hessian as u64)
         .u64(p.controls.threads as u64);
     h.u64(p.controls.options.len() as u64);
@@ -445,62 +381,8 @@ fn hash_controls(h: &mut FramedHasher, p: &SolverProfile) -> Result<(), ProblemE
             }
         }
     }
-    match &p.backend {
-        BackendSettings::Default => {
-            h.u64(0);
-        }
-        #[cfg(feature = "solver-pounce")]
-        BackendSettings::Pounce { method, linear } => {
-            h.u64(2)
-                .u64(*method as u64)
-                .hash(&native::pounce::linear_key(linear));
-        }
-        #[cfg(feature = "solver-kinsol")]
-        BackendSettings::Kinsol(s) => {
-            h.u64(3).u64(s.strategy as u64);
-            match s.linear {
-                native::kinsol::Linear::Klu => {
-                    h.u64(0);
-                }
-                native::kinsol::Linear::Dense { limit } => {
-                    h.u64(1).u64(limit as u64);
-                }
-                native::kinsol::Linear::Spgmr { dimension } => {
-                    h.u64(2).u64(dimension as u64);
-                }
-            }
-            for v in s.variable_scales.iter().chain(&s.residual_scales) {
-                h.u64(v.to_bits());
-            }
-            h.u64(s.anderson as u64)
-                .u64(s.damping.to_bits())
-                .u64(s.setup_interval as u64)
-                .u64(s.step_tolerance.to_bits());
-        }
-        #[cfg(feature = "solver-highs")]
-        BackendSettings::Highs(s) => {
-            h.u64(4)
-                .u64(s.method as u64)
-                .str(
-                    &serde_json::to_string(&s.diagnostics)
-                        .map_err(|e| ProblemError::Internal(e.to_string()))?,
-                )
-                .bool(s.sparse_start.is_some());
-            if let Some(start) = &s.sparse_start {
-                for (id, v) in start {
-                    h.id(id).u64(v.to_bits());
-                }
-            }
-        }
-        BackendSettings::Clarabel { native, mode } => {
-            h.u64(5).u64(*mode as u64).str(
-                &serde_json::to_string(native).map_err(|e| {
-                    ProblemError::Internal(format!("Clarabel settings identity: {e}"))
-                })?,
-            );
-        }
-    }
-
+    // Backend settings identity derives from serde, never from a hand-written list.
+    h.hash(&p.backend.identity()?);
     Ok(())
 }
 fn compatibility(
@@ -617,24 +499,6 @@ impl MathService {
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
         profile.controls.accuracy =
             Accuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-        #[cfg(feature = "solver-kinsol")]
-        if let BackendSettings::Kinsol(settings) = &profile.backend {
-            let expected = |budgets: &[f64], scales: &[f64]| {
-                budgets
-                    .iter()
-                    .zip(scales)
-                    .map(|(t, s)| profile.controls.accuracy.feasibility * s / t)
-                    .collect::<Vec<_>>()
-            };
-            if settings.variable_scales != expected(&tolerances.variables, &normalization.variables)
-                || settings.residual_scales != expected(&tolerances.rows, &normalization.rows)
-            {
-                return Err(ProblemError::Contract(
-                    "KINSOL scale vectors conflict with the resolved numerical policy".into(),
-                )
-                .into());
-            }
-        }
 
         let mut convex = false;
         if let Some(c) = &prepared.prepared.coefficients {
@@ -698,7 +562,7 @@ impl MathService {
             certificate = Some(evidence.0);
         }
         let requirements = routing::Requirements {
-            available: Some(ALGEBRAIC_BACKENDS),
+            table: &execution::LINKED,
             facts: f,
             intent: profile.intent,
             convex,
@@ -706,41 +570,31 @@ impl MathService {
         };
         let route = requirements.select(profile.selection)?;
         let eligibility = requirements.eligibility();
-        match route {
-            Route::Native(Backend::Kinsol) => {
+        let adapter = match route {
+            Route::Native(backend) => Some(execution::adapter(backend)),
+            Route::Constant => None,
+        };
+        match adapter.map(|a| a.representation()) {
+            Some(execution::Representation::Roots) => {
                 native::structural::admit(prepared.structure(), native::structural::Mode::Roots)?
             }
-            Route::Native(Backend::Ipopt | Backend::Pounce) => {
+            Some(execution::Representation::Nlp) => {
                 native::structural::admit(prepared.structure(), native::structural::Mode::Nlp)?
             }
             _ => {}
         }
         admit_profile(&profile, route)?;
-        #[cfg(feature = "solver-kinsol")]
-        if route == Route::Native(Backend::Kinsol) {
-            let contract = native::assembled::contract(plan);
-            if let BackendSettings::Kinsol(settings) = &profile.backend {
-                settings.validate_contract(
-                    &contract,
-                    native::kinsol::Strategy::LineSearch,
-                    &prepared.prepared.presolve.signs,
-                )?;
-            } else {
-                native::kinsol::guarded_sign_constraints(
-                    &contract,
-                    &prepared.prepared.presolve.signs,
-                )?;
-            }
-        }
-
-        if matches!(route, Route::Native(Backend::Ipopt | Backend::Pounce))
-            && profile.controls.hessian == HessianMode::Exact
-            && f.prepared_derivatives < pse_kernels::DerivativeOrder::Second
-        {
-            return Err(ProblemError::Unsupported(
-                "exact NLP profile requires second-order compiler preparation".into(),
-            )
-            .into());
+        if let Some(adapter) = adapter {
+            adapter.admit_contract(
+                &native::assembled::contract(plan),
+                &prepared.prepared.presolve.signs,
+                &profile.backend,
+                execution::Budgets {
+                    tolerances: &tolerances,
+                    normalization: &normalization,
+                    feasibility: profile.controls.accuracy.feasibility,
+                },
+            )?;
         }
         let mut stamp = match route {
             Route::Constant => None,
@@ -759,13 +613,13 @@ impl MathService {
         }
         let case = Some(self.assemble(prepared.clone()).await?);
         Ok(PreparedSolve {
-            representation: Representation::Algebraic {
+            representation: Representation::Algebraic(AlgebraicCase {
                 prepared,
                 case,
                 values,
                 providers,
                 certificate,
-            },
+            }),
             profile,
             numerics,
             normalization,
@@ -859,15 +713,25 @@ impl MathService {
         let tolerances = Tolerances::from_policy(&numerics, &ids, &problem.contract.rows)?;
         profile.controls.accuracy =
             Accuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-        if profile.intent != SolveIntent::Optimize
-            || matches!(profile.selection,SolverSelection::Explicit(b)if b!=Backend::Clarabel)
-        {
+        // A cone request routes to a cone adapter: the explicit one, or the preferred linked one.
+        let adapter = match profile.selection {
+            SolverSelection::Explicit(backend) => Some(execution::adapter(backend)),
+            SolverSelection::Auto => execution::LINKED
+                .adapters()
+                .filter(|a| a.representation() == execution::Representation::Cone && a.linked())
+                .filter_map(|a| a.automatic().map(|rank| (rank, a)))
+                .min_by_key(|(rank, _)| *rank)
+                .map(|(_, a)| a),
+        }
+        .filter(|a| a.representation() == execution::Representation::Cone);
+        let Some(adapter) = adapter.filter(|_| profile.intent == SolveIntent::Optimize) else {
             return Err(ProblemError::Unsupported(
-                "explicit continuous cone representation requires Clarabel optimization".into(),
+                "explicit continuous cone representation requires cone optimization".into(),
             )
             .into());
-        }
-        admit_profile(&profile, Route::Native(Backend::Clarabel))?;
+        };
+        let route = Route::Native(adapter.backend());
+        admit_profile(&profile, route)?;
         let (normalized, transported) =
             native::transport::conic(&problem, &normalization, certificate.as_ref())?;
         let problem = Arc::new(normalized);
@@ -911,7 +775,7 @@ impl MathService {
         let stamp = Compatibility {
             layout: h.finish_hash(),
             data: d.finish_hash(),
-            backend: Backend::Clarabel,
+            backend: adapter.backend(),
         };
         Ok(PreparedSolve {
             representation: Representation::Conic {
@@ -922,11 +786,11 @@ impl MathService {
             numerics,
             normalization,
             tolerances,
-            route: Route::Native(Backend::Clarabel),
+            route,
             compatibility: Some(stamp),
             explicit_start: None,
             eligibility: vec![routing::Eligibility {
-                backend: Backend::Clarabel,
+                backend: adapter.backend(),
                 reasons: vec![],
             }],
             _owner: owner,
@@ -962,9 +826,9 @@ impl MathService {
                 .into());
             }
             let (n, m) = match &s.representation {
-                Representation::Algebraic { prepared, .. } => (
-                    prepared.prepared.facts.variables,
-                    prepared.prepared.facts.rows,
+                Representation::Algebraic(a) => (
+                    a.prepared.prepared.facts.variables,
+                    a.prepared.prepared.facts.rows,
                 ),
                 Representation::Conic { problem, .. } => (
                     problem.contract.variables.len(),
@@ -972,7 +836,8 @@ impl MathService {
                 ),
             };
             let sources = match &s.representation {
-                Representation::Algebraic { prepared, .. } => prepared
+                Representation::Algebraic(a) => a
+                    .prepared
                     .prepared
                     .plan
                     .structure()
@@ -1032,23 +897,25 @@ impl MathService {
         owner: Arc<pse_columnar::AllocationLease>,
         assessment: Option<Box<dyn SequenceAssessment>>,
     ) -> Result<SequenceReport, MathRuntimeError> {
-        #[cfg(feature = "solver-pounce")]
-        if sequence
+        // Every adapter the sequence executes provides its scope (for example an admitted
+        // local pool) around the whole sequence, so retained sessions live inside it.
+        let adapters: Vec<&dyn BackendExecution> = sequence
             .steps
             .iter()
-            .any(|s| s.route == Route::Native(Backend::Pounce))
-        {
-            let threads = sequence
-                .steps
-                .iter()
-                .map(|s| s.profile.controls.threads)
-                .max()
-                .unwrap_or(1);
-            return native::pounce::with_threads(threads, self.policy.stack_bytes, move || {
-                self.run_sequence_inner(sequence, flag, progress, owner, assessment)
-            });
-        }
-        self.run_sequence_inner(sequence, flag, progress, owner, assessment)
+            .filter_map(|s| match s.route {
+                Route::Native(backend) => Some(execution::adapter(backend)),
+                Route::Constant => None,
+            })
+            .collect();
+        let threads = sequence
+            .steps
+            .iter()
+            .map(|s| s.profile.controls.threads)
+            .max()
+            .unwrap_or(1);
+        execution::scoped(&adapters, threads, self.policy.stack_bytes, move || {
+            self.run_sequence_inner(sequence, flag, progress, owner, assessment)
+        })
     }
     fn run_sequence_inner(
         self: &Arc<Self>,
@@ -1061,7 +928,7 @@ impl MathService {
         let total = sequence.steps.len();
         let mut outcomes = Vec::new();
         let mut warm: Option<WarmStart> = None;
-        let mut retained = Retained::None;
+        let mut retained = Retained::default();
         for (attempt, step) in sequence.steps.into_iter().enumerate() {
             if flag.load(std::sync::atomic::Ordering::Acquire) {
                 break;
@@ -1070,7 +937,7 @@ impl MathService {
             let mut execution = Execution::new(flag.clone(), controls);
             execution.progress = progress.clone();
             if controls.reuse == ReusePolicy::Fresh {
-                retained = Retained::None;
+                retained.clear();
             }
             let chosen = match controls.start {
                 StartPolicy::NoPriorStart => None,
@@ -1090,7 +957,7 @@ impl MathService {
                 if let Err(error) = validation {
                     outcomes.push(Outcome::Rejected(Arc::new(error.into())));
                     warm = None;
-                    retained = Retained::None;
+                    retained.clear();
                     if sequence.continue_independent {
                         continue;
                     }
@@ -1102,20 +969,7 @@ impl MathService {
                     && chosen.is_some())
                 .then(|| attempt.saturating_sub(1)),
                 seed: chosen.clone(),
-                sparse_seed: {
-                    #[cfg(feature = "solver-highs")]
-                    {
-                        if let BackendSettings::Highs(s) = &step.profile.backend {
-                            s.sparse_start.clone()
-                        } else {
-                            None
-                        }
-                    }
-                    #[cfg(not(feature = "solver-highs"))]
-                    {
-                        None
-                    }
-                },
+                sparse_seed: step.profile.backend.partial_start().cloned(),
                 transformations: vec![
                     "original -> model normalization -> admitted native presolve".into(),
                 ],
@@ -1157,7 +1011,7 @@ impl MathService {
             };
             // Terminal native failures cannot poison the next independent step.
             if !successful {
-                retained = Retained::None;
+                retained.clear();
             }
             outcomes.push(outcome);
             if !successful && !sequence.continue_independent {
@@ -1172,6 +1026,8 @@ impl MathService {
             _owner: owner,
         })
     }
+    /// One prepared step: constant evaluation, or the selected adapter's representation
+    /// runner. No backend is named; the adapter declares its representation.
     fn run_step(
         &self,
         step: PreparedSolve,
@@ -1179,684 +1035,286 @@ impl MathService {
         warm: Option<&WarmStart>,
         retained: &mut Retained,
     ) -> Result<Outcome, MathRuntimeError> {
-        #[cfg(not(any(
-            feature = "solver-ipopt",
-            feature = "solver-pounce",
-            feature = "solver-kinsol",
-            feature = "solver-highs"
-        )))]
-        let _ = warm;
-        let controls = &step.profile.controls;
-        let tolerance = &step.tolerances;
-        let rebuild = controls.reuse != ReusePolicy::RequireReuse;
-        match step.representation {
-            Representation::Conic {
-                problem,
-                certificate,
-            } => {
-                let stamp = step
-                    .compatibility
-                    .ok_or_else(|| ProblemError::Internal("missing conic stamp".into()))?;
-                let (native_settings, mode) = match step.profile.backend {
-                    BackendSettings::Default => (
-                        native::conic::Settings::default(),
-                        native::conic::Mode::SingleSolve,
-                    ),
-                    BackendSettings::Clarabel { native, mode } => (*native, mode),
-                    #[cfg(any(
-                        feature = "solver-ipopt",
-                        feature = "solver-pounce",
-                        feature = "solver-kinsol",
-                        feature = "solver-highs"
-                    ))]
-                    _ => {
-                        return Err(ProblemError::Contract(
-                            "wrong backend settings for Clarabel".into(),
-                        )
-                        .into());
-                    }
-                };
-                let reusable = if let Retained::Clarabel(s) = retained {
-                    s.update(&problem, certificate.as_ref(), stamp.clone())
-                        .is_ok()
-                } else {
-                    false
-                };
-                if !reusable {
-                    if !rebuild && !matches!(retained, Retained::None) {
-                        return Err(ProblemError::Unsupported(
-                            "required Clarabel reuse unavailable".into(),
-                        )
-                        .into());
-                    }
-                    *retained = Retained::None;
-                    *retained = Retained::Clarabel(Box::new(native::conic::Session::new(
-                        &problem,
-                        certificate.as_ref(),
-                        controls,
-                        native_settings.clone(),
-                        mode,
-                        stamp,
-                    )?));
-                }
-                let Retained::Clarabel(s) = retained else {
-                    return Err(ProblemError::Internal("lost Clarabel owner".into()).into());
-                };
-                let mut report = s.solve(
-                    &problem,
-                    controls,
-                    native_settings,
-                    execution,
-                    &tolerance.normalized(&step.normalization)?,
-                )?;
-                native::transport::recover(&mut report, &step.normalization, &problem.contract)?;
-                quality::qualify(&mut report, &controls.accuracy);
-                report
-                    .metrics
-                    .insert("reuse.native_model".into(), Metric::Bool(reusable));
-                Ok(Outcome::Native(Box::new(report)))
+        let PreparedSolve {
+            representation,
+            profile,
+            normalization,
+            tolerances,
+            route,
+            compatibility,
+            ..
+        } = step;
+        let Route::Native(backend) = route else {
+            return self.constant(representation, &tolerances, &execution.cancel);
+        };
+        let adapter = execution::adapter(backend);
+        let stamp = compatibility
+            .ok_or_else(|| ProblemError::Internal("missing native compatibility stamp".into()))?;
+        let run = execution::Step {
+            adapter,
+            settings: &profile.backend,
+            controls: &profile.controls,
+            execution,
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: stamp,
+            warm,
+        };
+        let report = match (representation, adapter.representation()) {
+            (
+                Representation::Conic {
+                    problem,
+                    certificate,
+                },
+                execution::Representation::Cone,
+            ) => execution::cone(run, retained, &problem, certificate.as_ref())?,
+            (Representation::Algebraic(case), execution::Representation::Coefficients) => {
+                self.coefficient_step(run, retained, case)?
             }
-            Representation::Algebraic {
-                prepared,
-                case,
-                values,
-                providers,
-                certificate,
-            } => {
-                #[cfg(not(feature = "solver-highs"))]
-                let _ = certificate;
-                let backend = match step.route {
-                    Route::Constant => None,
-                    Route::Native(b) => Some(b),
-                };
-                #[cfg(feature = "solver-highs")]
-                if backend == Some(Backend::Highs) {
-                    let c = prepared.prepared.coefficients.as_ref().ok_or_else(|| {
-                        ProblemError::Internal("missing coefficient product".into())
-                    })?;
-                    let p = native::CoefficientProblem::from_plan(
-                        &prepared.prepared.plan,
-                        c.as_ref().clone(),
-                    )?;
-                    let original_problem = p;
-                    let (p, transported) = native::transport::coefficients(
-                        &original_problem,
-                        &step.normalization,
-                        certificate.as_deref(),
-                    )?;
-                    let certificate = transported
-                        .as_ref()
-                        .map(|p| -> &dyn QuadraticEvidence { p });
-                    let normalized_tolerance = tolerance.normalized(&step.normalization)?;
-                    let normalized_warm = warm
-                        .map(|w| native::transport::warm(w, &step.normalization, true))
-                        .transpose()?;
-                    let stamp = step.compatibility.ok_or_else(|| {
-                        ProblemError::Internal("missing coefficient stamp".into())
-                    })?;
-                    let settings = match step.profile.backend {
-                        BackendSettings::Default => native::highs::Settings::default(),
-                        BackendSettings::Highs(m) => m,
-                        _ => {
-                            return Err(ProblemError::Contract(
-                                "wrong backend settings for HiGHS".into(),
-                            )
-                            .into());
-                        }
-                    };
-                    let reusable = if let Retained::Highs(s) = retained {
-                        s.update(&p, certificate, stamp.clone()).is_ok()
-                    } else {
-                        false
-                    };
-                    if !reusable {
-                        if !rebuild && !matches!(retained, Retained::None) {
-                            return Err(ProblemError::Unsupported(
-                                "required HiGHS reuse unavailable".into(),
-                            )
-                            .into());
-                        }
-                        *retained = Retained::None;
-                        *retained =
-                            Retained::Highs(native::highs::Session::new(&p, certificate, stamp)?);
-                    }
-                    let Retained::Highs(s) = retained else {
-                        return Err(ProblemError::Internal("lost HiGHS owner".into()).into());
-                    };
-                    if let Some(start) = &settings.sparse_start {
-                        let start = start
-                            .iter()
-                            .map(|(id, v)| {
-                                let i = p
-                                    .contract
-                                    .variables
-                                    .iter()
-                                    .position(|c| c.id == *id)
-                                    .ok_or_else(|| {
-                                        ProblemError::Contract(
-                                            "unknown sparse start coordinate".into(),
-                                        )
-                                    })?;
-                                Ok((
-                                    *id,
-                                    pse_math::normalization::checked_ratio(
-                                        *v,
-                                        step.normalization.variables[i],
-                                    )?,
-                                ))
-                            })
-                            .collect::<Result<BTreeMap<_, _>, ProblemError>>()?;
-                        s.sparse_start(&p, &start)?;
-                    }
-                    let mut report = s.solve(
-                        &p,
-                        controls,
-                        settings.method,
-                        execution.clone(),
-                        &normalized_tolerance,
-                        normalized_warm.as_ref(),
-                    )?;
-                    native::transport::recover(
-                        &mut report,
-                        &step.normalization,
-                        &original_problem.contract,
-                    )?;
-                    if settings.diagnostics.rays
-                        || settings.diagnostics.iis
-                        || settings.diagnostics.ranging
-                        || settings.diagnostics.relaxation.is_some()
-                    {
-                        let request = native::transport::diagnostic_request(
-                            &settings.diagnostics,
-                            &step.normalization,
-                        )?;
-                        let mut diagnostics =
-                            s.diagnose(&p, &request, &execution).unwrap_or_else(|e| {
-                                native::highs::diagnostics::Report {
-                                    unavailable: BTreeMap::from([(
-                                        "operation".into(),
-                                        e.to_string(),
-                                    )]),
-                                    ..Default::default()
-                                }
-                            });
-                        native::transport::recover_diagnostics(
-                            &mut diagnostics,
-                            &step.normalization,
-                            &c.row_constants,
-                        )?;
-                        report.highs_diagnostics = Some(Box::new(diagnostics));
-                    }
-                    report
-                        .metrics
-                        .insert("reuse.native_model".into(), Metric::Bool(reusable));
-                    if let Some(candidate) = &report.candidate {
-                        let bounds = prepared
-                            .prepared
-                            .plan
-                            .structure()
-                            .rows()
-                            .iter()
-                            .map(|r| (r.lower, r.upper))
-                            .collect();
-                        match native::highs::coefficient_observation(
-                            &original_problem,
-                            &candidate.primal,
-                            &c.row_constants,
-                            bounds,
-                        ) {
-                            Ok(o) => report.observation = Some(o),
-                            Err(e) => report.record_validation_failure(e),
-                        }
-                    }
-                    if let (Some(candidate), Some(observation)) =
-                        (&report.candidate, &mut report.observation)
-                    {
-                        let validation = (|| -> Result<_, MathRuntimeError> {
-                            let executable = case.clone().ok_or_else(|| {
-                                ProblemError::Internal(
-                                    "missing original coefficient evaluator".into(),
-                                )
-                            })?;
-                            let providers = providers
-                                .iter()
-                                .map(|(key, f)| {
-                                    f.worker_scoped(execution.cancel.clone())
-                                        .map(|w| (*key, w))
-                                        .map_err(ProblemError::Provider)
-                                })
-                                .collect::<Result<_, _>>()?;
-                            let mut original =
-                                self.worker(executable, providers, execution.cancel.clone())?;
-                            let mut trial = values.clone();
-                            for (id, value) in prepared
-                                .prepared
-                                .plan
-                                .columns()
-                                .iter()
-                                .zip(&candidate.primal)
-                            {
-                                trial.scalars.insert(*id, *value);
-                            }
-                            let fresh_values = original.worker.constraints(&trial)?;
-                            let fresh_objective = prepared
-                                .prepared
-                                .plan
-                                .structure()
-                                .objective()
-                                .map(|o| {
-                                    original
-                                        .worker
-                                        .objective(&trial)
-                                        .map(|v| v * o.sense.sign())
-                                })
-                                .transpose()?;
-                            if fresh_values
-                                .iter()
-                                .zip(&observation.values)
-                                .zip(&tolerance.rows)
-                                .any(|((a, b), t)| (a - b).abs() > *t)
-                                || fresh_objective
-                                    .zip(candidate.objective)
-                                    .is_some_and(|(a, b)| {
-                                        (a - b).abs()
-                                            > step.normalization.objective
-                                                * controls.accuracy.gap_absolute
-                                    })
-                            {
-                                return Err(ProblemError::numerical("native coefficient projection disagrees with the original model").into());
-                            }
-                            let quality = quality::observed(
-                                &original_problem.contract,
-                                &observation.bounds,
-                                &candidate.primal,
-                                &fresh_values,
-                                tolerance,
-                            )?;
-                            let sources = original.worker.constraint_sources()?;
-                            Ok((quality, sources, fresh_values, fresh_objective))
-                        })();
-                        match validation {
-                            Ok((q, sources, values, objective)) => {
-                                let mut fresh = quality::Observation::from_values(
-                                    objective,
-                                    values,
-                                    observation.bounds.clone(),
-                                )?;
-                                fresh.sources = sources;
-                                *observation = fresh;
-                                let integrality = report
-                                    .quality
-                                    .as_ref()
-                                    .map_or_else(Vec::new, |q| q.integrality.clone());
-                                // Semi-continuous/semi-integer zero branches belong to the
-                                // coefficient domain, not the enclosing bound interval.
-                                let bounds = report
-                                    .quality
-                                    .as_ref()
-                                    .map_or(q.bounds, |prior| prior.bounds.clone());
-                                report.quality = Some(Quality::new(q.rows, bounds, integrality)?);
-                            }
-                            Err(e) => report.record_validation_failure(e.into_problem()),
-                        }
-                    }
-                    quality::qualify(&mut report, &controls.accuracy);
-                    return Ok(Outcome::Native(Box::new(report)));
-                }
-                let case = case.ok_or_else(|| {
-                    ProblemError::Internal("missing executable representation".into())
-                })?;
-                let providers = providers
-                    .into_iter()
-                    .map(|(key, f)| {
-                        f.worker_scoped(execution.cancel.clone())
-                            .map(|v| (key, v))
-                            .map_err(ProblemError::Provider)
-                    })
-                    .collect::<Result<_, _>>()?;
-                let ExecutionWorker { mut worker, _case } =
-                    self.worker(case, providers, execution.cancel.clone())?;
-                #[cfg(feature = "solver-kinsol")]
-                let mut owners = Some(_case);
-                #[cfg(not(feature = "solver-kinsol"))]
-                let owners = Some(_case);
-                if backend.is_none() {
-                    let objective = prepared
-                        .prepared
-                        .plan
-                        .structure()
-                        .objective()
-                        .map(|o| worker.objective(&values).map(|v| v * o.sense.sign()))
-                        .transpose()?;
-                    let values = worker.constraints(&values)?;
-                    let rows = prepared
-                        .prepared
-                        .plan
-                        .structure()
-                        .rows()
-                        .iter()
-                        .zip(&values)
-                        .zip(&tolerance.rows)
-                        .map(|((r, v), t)| Violation {
-                            id: r.id,
-                            physical: quality::interval(*v, r.lower, r.upper),
-                            tolerance: *t,
-                        })
-                        .collect();
-                    let sources = worker.constraint_sources()?;
-                    return Ok(Outcome::Constant(Box::new(ConstantReport {
-                        owner: None,
-                        objective,
-                        observation: {
-                            let mut observation = quality::Observation::from_values(
-                                objective,
-                                values,
-                                prepared
-                                    .prepared
-                                    .plan
-                                    .structure()
-                                    .rows()
-                                    .iter()
-                                    .map(|r| (r.lower, r.upper))
-                                    .collect(),
-                            )?;
-                            observation.sources = sources;
-                            observation
-                        },
-                        quality: Quality::new(rows, vec![], vec![])?,
-                    })));
-                }
-                #[cfg(not(any(
-                    feature = "solver-ipopt",
-                    feature = "solver-pounce",
-                    feature = "solver-kinsol"
-                )))]
-                {
-                    drop(owners);
-                    Err(
-                        ProblemError::Unsupported("selected native backend unavailable".into())
-                            .into(),
-                    )
-                }
-                #[cfg(any(
-                    feature = "solver-ipopt",
-                    feature = "solver-pounce",
-                    feature = "solver-kinsol"
-                ))]
-                {
-                    let initial: Vec<_> = prepared
-                        .prepared
-                        .plan
-                        .columns()
-                        .iter()
-                        .map(|id| values.scalars[id])
-                        .collect();
-                    let sense = prepared
-                        .prepared
-                        .plan
-                        .structure()
-                        .objective()
-                        .map_or(ObjectiveSense::Minimize, |o| o.sense);
-                    let stamp = step
-                        .compatibility
-                        .ok_or_else(|| ProblemError::Internal("missing nonlinear stamp".into()))?;
-                    let mut oracle = native::assembled::AlgebraicOracle::new(worker, values)?
-                        .with_structural_analysis(prepared.prepared.structure.clone())
-                        .with_presolve_facts(prepared.prepared.presolve.clone())?
-                        .with_normalization(step.normalization.clone())?;
-                    if let Some(c) = &prepared.prepared.coefficients {
-                        oracle = oracle.with_coefficient_facts(c)?;
-                    }
-                    let mut report = match backend {
-                        #[cfg(feature = "solver-ipopt")]
-                        Some(Backend::Ipopt) => {
-                            if !matches!(retained, Retained::Ipopt(_)) {
-                                if !rebuild && !matches!(retained, Retained::None) {
-                                    return Err(ProblemError::Unsupported(
-                                        "required Ipopt session unavailable".into(),
-                                    )
-                                    .into());
-                                }
-                                *retained = Retained::None;
-                                *retained = Retained::Ipopt(native::ipopt::Session::new());
-                            }
-                            if !matches!(step.profile.backend, BackendSettings::Default) {
-                                return Err(
-                                    ProblemError::Contract("wrong Ipopt settings".into()).into()
-                                );
-                            }
-                            let mut oracle: Box<dyn native::NlpOracle> = Box::new(oracle);
-                            if matches!(
-                                step.profile.intent,
-                                SolveIntent::FeasiblePoint
-                                    | SolveIntent::Root
-                                    | SolveIntent::Initialize
-                            ) {
-                                oracle = Box::new(native::assembled::FeasibilityOracle(oracle));
-                            }
-                            let Retained::Ipopt(session) = retained else {
-                                return Err(
-                                    ProblemError::Internal("lost Ipopt session".into()).into()
-                                );
-                            };
-                            let mut pipeline = native::presolve::Pipeline::new(
-                                oracle,
-                                &initial,
-                                &step.profile.presolve,
-                                tolerance,
-                                None,
-                                execution.clone(),
-                                warm,
-                                stamp,
-                                self.policy.worker_bytes / 256,
-                            )?;
-                            let mut transport = pipeline.take_oracle()?;
-                            let scaling = native::NlpOracle::scaling(&transport).cloned();
-                            let report = if let Some(report) = pipeline.terminal_report(sense)? {
-                                report
-                            } else {
-                                session.solve(
-                                    &mut transport,
-                                    pipeline.initial(),
-                                    sense,
-                                    controls,
-                                    execution,
-                                    &pipeline.tolerances(tolerance),
-                                    scaling.as_ref(),
-                                    pipeline.warm(),
-                                    pipeline.native_compatibility().clone(),
-                                )?
-                            };
-                            pipeline.finish(report, tolerance, sense)
-                        }
-                        #[cfg(feature = "solver-pounce")]
-                        Some(Backend::Pounce) => {
-                            if !matches!(retained, Retained::Pounce(_)) {
-                                if !rebuild && !matches!(retained, Retained::None) {
-                                    return Err(ProblemError::Unsupported(
-                                        "required POUNCE application unavailable".into(),
-                                    )
-                                    .into());
-                                }
-                                *retained = Retained::None;
-                                *retained = Retained::Pounce(native::pounce::Session::new());
-                            }
-                            let (method, linear) = match step.profile.backend {
-                                BackendSettings::Default => (
-                                    native::pounce::Method::InteriorPoint,
-                                    native::pounce::LinearSettings::default(),
-                                ),
-                                BackendSettings::Pounce { method, linear } => (method, linear),
-                                _ => {
-                                    return Err(ProblemError::Contract(
-                                        "wrong POUNCE settings".into(),
-                                    )
-                                    .into());
-                                }
-                            };
-                            let mut oracle: Box<dyn native::NlpOracle> = Box::new(oracle);
-                            if matches!(
-                                step.profile.intent,
-                                SolveIntent::FeasiblePoint
-                                    | SolveIntent::Root
-                                    | SolveIntent::Initialize
-                            ) {
-                                oracle = Box::new(native::assembled::FeasibilityOracle(oracle));
-                            }
-                            let Retained::Pounce(session) = retained else {
-                                return Err(
-                                    ProblemError::Internal("lost POUNCE session".into()).into()
-                                );
-                            };
-                            let mut pipeline = native::presolve::Pipeline::new(
-                                oracle,
-                                &initial,
-                                &step.profile.presolve,
-                                tolerance,
-                                None,
-                                execution.clone(),
-                                warm,
-                                stamp,
-                                self.policy.worker_bytes / 256,
-                            )?;
-                            let transport = pipeline.take_oracle()?;
-                            let report = if let Some(report) = pipeline.terminal_report(sense)? {
-                                report
-                            } else {
-                                session.solve(
-                                    Box::new(transport),
-                                    pipeline.initial(),
-                                    sense,
-                                    controls,
-                                    method,
-                                    linear,
-                                    execution,
-                                    &pipeline.tolerances(tolerance),
-                                    pipeline.warm(),
-                                    pipeline.native_compatibility().clone(),
-                                )?
-                            };
-                            pipeline.finish(report, tolerance, sense)
-                        }
-                        #[cfg(feature = "solver-kinsol")]
-                        Some(Backend::Kinsol) => {
-                            oracle.admit_nle()?;
-                            let settings = match step.profile.backend {
-                                BackendSettings::Kinsol(s) => s,
-                                BackendSettings::Default => native::kinsol::Settings {
-                                    strategy: native::kinsol::Strategy::LineSearch,
-                                    linear: native::kinsol::Linear::Klu,
-                                    variable_scales: tolerance
-                                        .variables
-                                        .iter()
-                                        .zip(&step.normalization.variables)
-                                        .map(|(t, s)| controls.accuracy.feasibility * s / t)
-                                        .collect(),
-                                    residual_scales: tolerance
-                                        .rows
-                                        .iter()
-                                        .zip(&step.normalization.rows)
-                                        .map(|(t, s)| controls.accuracy.feasibility * s / t)
-                                        .collect(),
-                                    anderson: 0,
-                                    damping: 1.0,
-                                    setup_interval: 10,
-                                    step_tolerance: controls.accuracy.feasibility,
-                                },
-                                _ => {
-                                    return Err(ProblemError::Contract(
-                                        "wrong KINSOL settings".into(),
-                                    )
-                                    .into());
-                                }
-                            };
-                            let function = native::kinsol::Function::Equations(Box::new(
-                                native::transport::Roots::new(
-                                    Box::new(oracle),
-                                    step.normalization.clone(),
-                                )?,
-                            ));
-                            let initial = step.normalization.normalized_point(&initial)?;
-                            let normalized_warm = warm
-                                .map(|w| native::transport::warm(w, &step.normalization, true))
-                                .transpose()?;
-                            let reused = matches!(retained,Retained::Kinsol{session,..}if session.matches_layout(&stamp) && session.matches_settings(&settings));
-                            if reused {
-                                if let Retained::Kinsol { session, _owners } = retained {
-                                    session.replace(function, settings, stamp)?;
-                                    *_owners = owners.take();
-                                }
-                            } else {
-                                if !rebuild && !matches!(retained, Retained::None) {
-                                    return Err(ProblemError::Unsupported(
-                                        "required KINSOL reuse unavailable".into(),
-                                    )
-                                    .into());
-                                }
-                                *retained = Retained::None;
-                                *retained = Retained::Kinsol {
-                                    session: native::kinsol::Session::new(
-                                        function,
-                                        settings,
-                                        execution.clone(),
-                                        stamp,
-                                    )?,
-                                    _owners: owners.take(),
-                                };
-                            }
-                            let Retained::Kinsol { session, .. } = retained else {
-                                return Err(
-                                    ProblemError::Internal("lost KINSOL session".into()).into()
-                                );
-                            };
-                            let mut report = session.solve(
-                                &initial,
-                                controls,
-                                execution,
-                                &tolerance.normalized(&step.normalization)?,
-                                normalized_warm.as_ref(),
-                            )?;
-                            native::transport::recover(
-                                &mut report,
-                                &step.normalization,
-                                &native::assembled::contract(&prepared.prepared.plan),
-                            )?;
-                            report
-                                .metrics
-                                .insert("reuse.native_model".into(), Metric::Bool(reused));
-                            report
-                        }
-                        _ => {
-                            return Err(ProblemError::Unsupported(
-                                "selected native backend unavailable".into(),
-                            )
-                            .into());
-                        }
-                    };
-                    quality::record_kkt(&mut report, &step.normalization, &controls.accuracy);
-                    quality::qualify(&mut report, &controls.accuracy);
-                    // The case owner and enclosing job reservation outlive every native callback.
-                    drop(owners);
-                    Ok(Outcome::Native(Box::new(report)))
-                }
+            (
+                Representation::Algebraic(case),
+                kind @ (execution::Representation::Nlp | execution::Representation::Roots),
+            ) => self.callback_step(run, retained, case, kind, &profile)?,
+            _ => {
+                return Err(ProblemError::Internal(
+                    "prepared representation differs from the selected adapter".into(),
+                )
+                .into());
             }
+        };
+        Ok(Outcome::Native(Box::new(report)))
+    }
+    /// Coefficient projection of the compiled case, re-checked against the original case.
+    fn coefficient_step(
+        &self,
+        run: execution::Step<'_>,
+        retained: &mut Retained,
+        case: AlgebraicCase,
+    ) -> Result<SolveReport, MathRuntimeError> {
+        let AlgebraicCase {
+            prepared,
+            case,
+            values,
+            providers,
+            certificate,
+        } = case;
+        let coefficients = prepared
+            .prepared
+            .coefficients
+            .as_ref()
+            .ok_or_else(|| ProblemError::Internal("missing coefficient product".into()))?;
+        let plan = &prepared.prepared.plan;
+        let problem = native::CoefficientProblem::from_plan(plan, coefficients.as_ref().clone())?;
+        let mut original = OriginalCase {
+            service: self,
+            case,
+            providers: &providers,
+            values: &values,
+            plan,
+            cancel: run.execution.cancel.clone(),
+        };
+        Ok(execution::coefficients(
+            run,
+            retained,
+            execution::Coefficients {
+                problem: &problem,
+                certificate: certificate.as_deref(),
+                row_constants: &coefficients.row_constants,
+                row_bounds: plan
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|r| (r.lower, r.upper))
+                    .collect(),
+                original: &mut original,
+            },
+        )?)
+    }
+    /// Callback oracle over the compiled case for an NLP or root-system adapter.
+    fn callback_step(
+        &self,
+        run: execution::Step<'_>,
+        retained: &mut Retained,
+        case: AlgebraicCase,
+        kind: execution::Representation,
+        profile: &SolverProfile,
+    ) -> Result<SolveReport, MathRuntimeError> {
+        let AlgebraicCase {
+            prepared,
+            case,
+            values,
+            providers,
+            ..
+        } = case;
+        let ExecutionWorker { worker, _case } =
+            self.case_worker(case, providers, &run.execution.cancel)?;
+        let plan = &prepared.prepared.plan;
+        let initial: Vec<_> = plan.columns().iter().map(|id| values.scalars[id]).collect();
+        let mut oracle = native::assembled::AlgebraicOracle::new(worker, values)?
+            .with_structural_analysis(prepared.prepared.structure.clone())
+            .with_presolve_facts(prepared.prepared.presolve.clone())?
+            .with_normalization(run.normalization.clone())?;
+        if let Some(c) = &prepared.prepared.coefficients {
+            oracle = oracle.with_coefficient_facts(c)?;
         }
+        if kind == execution::Representation::Roots {
+            oracle.admit_nle()?;
+            // A retained root session keeps the evaluators' owner alive with it.
+            return Ok(execution::roots(
+                run,
+                retained,
+                execution::Roots {
+                    oracle: Box::new(oracle),
+                    initial: &initial,
+                    owner: Some(Box::new(_case)),
+                },
+            )?);
+        }
+        let sense = plan
+            .structure()
+            .objective()
+            .map_or(ObjectiveSense::Minimize, |o| o.sense);
+        let report = execution::nlp(
+            run,
+            retained,
+            execution::Nlp {
+                oracle: Box::new(oracle),
+                initial: &initial,
+                presolve: &profile.presolve,
+                intent: profile.intent,
+                sense,
+                limit: self.policy.worker_bytes / 256,
+            },
+        )?;
+        // The case owner and enclosing job reservation outlive every native callback.
+        drop(_case);
+        Ok(report)
+    }
+    /// Worker-scoped providers and one attempt-local evaluator on this thread.
+    fn case_worker(
+        &self,
+        case: Option<Arc<ExecutableCase>>,
+        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<ExecutionWorker, MathRuntimeError> {
+        let case =
+            case.ok_or_else(|| ProblemError::Internal("missing executable representation".into()))?;
+        let providers = providers
+            .into_iter()
+            .map(|(key, f)| {
+                f.worker_scoped(cancel.clone())
+                    .map(|v| (key, v))
+                    .map_err(ProblemError::Provider)
+            })
+            .collect::<Result<_, _>>()?;
+        self.worker(case, providers, cancel.clone())
+    }
+    /// All-fixed original evaluation without a native attempt.
+    fn constant(
+        &self,
+        representation: Representation,
+        tolerances: &Tolerances,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Outcome, MathRuntimeError> {
+        let Representation::Algebraic(AlgebraicCase {
+            prepared,
+            case,
+            values,
+            providers,
+            ..
+        }) = representation
+        else {
+            return Err(
+                ProblemError::Internal("constant route needs an algebraic case".into()).into(),
+            );
+        };
+        let ExecutionWorker { mut worker, _case } = self.case_worker(case, providers, cancel)?;
+        let structure = prepared.prepared.plan.structure();
+        let objective = structure
+            .objective()
+            .map(|o| worker.objective(&values).map(|v| v * o.sense.sign()))
+            .transpose()?;
+        let constraints = worker.constraints(&values)?;
+        let rows = structure
+            .rows()
+            .iter()
+            .zip(&constraints)
+            .zip(&tolerances.rows)
+            .map(|((r, v), t)| Violation {
+                id: r.id,
+                physical: quality::interval(*v, r.lower, r.upper),
+                tolerance: *t,
+            })
+            .collect();
+        let sources = worker.constraint_sources()?;
+        let mut observation = quality::Observation::from_values(
+            objective,
+            constraints,
+            structure
+                .rows()
+                .iter()
+                .map(|r| (r.lower, r.upper))
+                .collect(),
+        )?;
+        observation.sources = sources;
+        Ok(Outcome::Constant(Box::new(ConstantReport {
+            owner: None,
+            objective,
+            observation,
+            quality: Quality::new(rows, vec![], vec![])?,
+        })))
     }
 }
-enum Retained {
-    None,
-    #[cfg(feature = "solver-pounce")]
-    Pounce(native::pounce::Session),
-    #[cfg(feature = "solver-kinsol")]
-    Kinsol {
-        session: native::kinsol::Session,
-        _owners: Option<Arc<ExecutableCase>>,
-    },
-    #[cfg(feature = "solver-ipopt")]
-    Ipopt(native::ipopt::Session),
-    Clarabel(Box<native::conic::Session>),
-    #[cfg(feature = "solver-highs")]
-    Highs(native::highs::Session),
+/// The original compiled case, evaluated fresh at a coefficient candidate.
+struct OriginalCase<'a> {
+    service: &'a MathService,
+    case: Option<Arc<ExecutableCase>>,
+    providers: &'a BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    values: &'a CaseValues,
+    plan: &'a pse_math::assembly::CasePlan,
+    cancel: Arc<std::sync::atomic::AtomicBool>,
+}
+impl execution::OriginalModel for OriginalCase<'_> {
+    fn evaluate(&mut self, primal: &[f64]) -> Result<execution::Evaluation, ProblemError> {
+        (|| -> Result<_, MathRuntimeError> {
+            let case = self.case.clone().ok_or_else(|| {
+                ProblemError::Internal("missing original coefficient evaluator".into())
+            })?;
+            let providers = self
+                .providers
+                .iter()
+                .map(|(key, f)| {
+                    f.worker_scoped(self.cancel.clone())
+                        .map(|w| (*key, w))
+                        .map_err(ProblemError::Provider)
+                })
+                .collect::<Result<_, _>>()?;
+            let mut original = self.service.worker(case, providers, self.cancel.clone())?;
+            let mut trial = self.values.clone();
+            for (id, value) in self.plan.columns().iter().zip(primal) {
+                trial.scalars.insert(*id, *value);
+            }
+            let constraints = original.worker.constraints(&trial)?;
+            let objective = self
+                .plan
+                .structure()
+                .objective()
+                .map(|o| {
+                    original
+                        .worker
+                        .objective(&trial)
+                        .map(|v| v * o.sense.sign())
+                })
+                .transpose()?;
+            let sources = original.worker.constraint_sources()?;
+            Ok(execution::Evaluation {
+                constraints,
+                objective,
+                sources,
+            })
+        })()
+        .map_err(MathRuntimeError::into_problem)
+    }
 }
 
 /// Complete effective request identity, distinct from native session compatibility.

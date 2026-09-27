@@ -261,6 +261,18 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         "NativeStartPolicy",
         ["no_prior_start", "previous_accepted", "explicit"],
     );
+    // Mathematical purpose of a request; `certify` is only ever selected explicitly (ADR-0106).
+    enumeration(
+        b,
+        "NativeSolveIntent",
+        [
+            "optimize",
+            "root",
+            "feasible_point",
+            "initialize",
+            "certify",
+        ],
+    );
     enumeration(
         b,
         "NativeQualification",

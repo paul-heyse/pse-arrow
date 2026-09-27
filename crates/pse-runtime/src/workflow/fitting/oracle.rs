@@ -6,7 +6,7 @@ use faer::{
     Mat,
     sparse::{SparseColMat, SymbolicSparseColMatRef},
 };
-#[cfg(any(test, feature = "solver-ipopt", feature = "solver-pounce"))]
+#[cfg(test)]
 use native::solve::Backend;
 use native::{
     NlpOracle, ProblemError,
@@ -147,7 +147,6 @@ impl FitOracle {
                     point.blocks.push(Some(j.to_owned()));
                 }
                 Experiment::Transient(s) => {
-                    let bindings = &s.bindings;
                     if !p
                         .measurements
                         .iter()
@@ -159,7 +158,7 @@ impl FitOracle {
                     #[cfg(feature = "solver-diffsol")]
                     {
                         let mut params = s.parameters.clone();
-                        for binding in bindings {
+                        for binding in &s.bindings {
                             let k = binding.parameter;
                             let v = p.parameter_columns[k]
                                 .map_or(p.declaration.parameters[k].value, |c| x[c]);
@@ -219,7 +218,8 @@ impl FitOracle {
                                 .iter()
                                 .filter(|t| t.observation == i)
                             {
-                                let scale = bindings
+                                let scale = s
+                                    .bindings
                                     .iter()
                                     .find(|b| b.local == term.local)
                                     .ok_or_else(|| {
@@ -471,15 +471,16 @@ impl FitProblem {
         flag: Arc<AtomicBool>,
         progress: Arc<native::solve::Progress>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
-        #[cfg(feature = "solver-pounce")]
-        if route == native::routing::Route::Native(Backend::Pounce) {
-            return native::pounce::with_threads(
-                self.profile.solver.controls.threads,
-                self.runtime.native().stack_bytes(),
-                || self.execute_inner(route, flag, progress),
-            );
-        }
-        self.execute_inner(route, flag, progress)
+        let adapters: Vec<&dyn native::execution::BackendExecution> = match route {
+            native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
+            native::routing::Route::Constant => vec![],
+        };
+        native::execution::scoped(
+            &adapters,
+            self.profile.solver.controls.threads,
+            self.runtime.native().stack_bytes(),
+            || self.execute_inner(route, flag, progress),
+        )
     }
     fn execute_inner(
         self: &Arc<Self>,
@@ -501,93 +502,32 @@ impl FitProblem {
             let native::routing::Route::Native(backend) = route else {
                 return Err(ProblemError::unsupported("nonempty fit has no native route").into());
             };
-            let stamp = Compatibility {
-                layout: self.key,
-                data: self.source_identity,
-                backend,
-            };
-            let pipeline = native::presolve::Pipeline::new(
-                Box::new(oracle),
-                &self.initial,
-                &self.profile.solver.presolve,
-                &self.tolerances,
-                None,
-                execution.clone(),
-                None,
-                stamp,
-                self.profile.max_cells,
+            // The one NLP runner, shared with solve sequences and initialization.
+            let report = native::execution::nlp(
+                native::execution::Step {
+                    adapter: native::execution::adapter(backend),
+                    settings: &self.profile.solver.backend,
+                    controls: &self.profile.solver.controls,
+                    execution: execution.clone(),
+                    tolerances: &self.tolerances,
+                    normalization: &self.normalization,
+                    compatibility: Compatibility {
+                        layout: self.key,
+                        data: self.source_identity,
+                        backend,
+                    },
+                    warm: None,
+                },
+                &mut native::execution::Retained::default(),
+                native::execution::Nlp {
+                    oracle: Box::new(oracle),
+                    initial: &self.initial,
+                    presolve: &self.profile.solver.presolve,
+                    intent: self.profile.solver.intent,
+                    sense: pse_math::binding::ObjectiveSense::Minimize,
+                    limit: self.profile.max_cells,
+                },
             )?;
-            #[cfg(any(feature = "solver-ipopt", feature = "solver-pounce"))]
-            let mut pipeline = pipeline;
-            let report = if let Some(r) =
-                pipeline.terminal_report(pse_math::binding::ObjectiveSense::Minimize)?
-            {
-                r
-            } else {
-                match backend {
-                    #[cfg(feature = "solver-ipopt")]
-                    Backend::Ipopt => {
-                        let mut transport = pipeline.take_oracle()?;
-                        let controls = &self.profile.solver.controls;
-                        let scales = NlpOracle::scaling(&transport).cloned();
-                        native::ipopt::Session::new().solve(
-                            &mut transport,
-                            pipeline.initial(),
-                            pse_math::binding::ObjectiveSense::Minimize,
-                            controls,
-                            execution.clone(),
-                            &pipeline.tolerances(&self.tolerances),
-                            scales.as_ref(),
-                            None,
-                            pipeline.native_compatibility().clone(),
-                        )?
-                    }
-                    #[cfg(feature = "solver-pounce")]
-                    Backend::Pounce => {
-                        let transport = pipeline.take_oracle()?;
-                        let controls = &self.profile.solver.controls;
-                        let (method, linear) = match self.profile.solver.backend.clone() {
-                            crate::math::solves::BackendSettings::Default => (
-                                native::pounce::Method::InteriorPoint,
-                                native::pounce::LinearSettings::default(),
-                            ),
-                            crate::math::solves::BackendSettings::Pounce { method, linear } => {
-                                (method, linear)
-                            }
-                            _ => return Err(error("wrong fitting POUNCE settings").into()),
-                        };
-                        native::pounce::Session::new().solve(
-                            Box::new(transport),
-                            pipeline.initial(),
-                            pse_math::binding::ObjectiveSense::Minimize,
-                            controls,
-                            method,
-                            linear,
-                            execution.clone(),
-                            &pipeline.tolerances(&self.tolerances),
-                            None,
-                            pipeline.native_compatibility().clone(),
-                        )?
-                    }
-                    _ => {
-                        return Err(ProblemError::unsupported(
-                            "native fitting backend unavailable",
-                        )
-                        .into());
-                    }
-                }
-            };
-            let mut report = pipeline.finish(
-                report,
-                &self.tolerances,
-                pse_math::binding::ObjectiveSense::Minimize,
-            );
-            native::quality::record_kkt(
-                &mut report,
-                &self.normalization,
-                &self.profile.solver.controls.accuracy,
-            );
-            native::quality::qualify(&mut report, &self.profile.solver.controls.accuracy);
             let candidate = report.candidate.as_ref().map(|c| c.primal.clone());
             (Some(report), candidate)
         };
@@ -1036,7 +976,7 @@ mod tests {
                 intent: SolveIntent::Optimize,
                 selection: native::solve::SolverSelection::Explicit(Backend::Ipopt),
                 controls: Default::default(),
-                backend: crate::math::solves::BackendSettings::Default,
+                backend: native::execution::BackendSettings::Default,
             },
             simulations: BTreeMap::new(),
             modes: BTreeMap::new(),
@@ -1589,6 +1529,159 @@ mod tests {
                 .to_string()
                 .contains("duplicate experiment parameter binding")
         );
+    }
+
+    /// Solve sequences, block initialization and fitting all execute NLP routes through
+    /// the one shared runner, so their reports carry the same pipeline fields.
+    #[cfg(all(feature = "solver-ipopt", feature = "solver-kinsol"))]
+    #[tokio::test]
+    async fn nlp_runner_serves_solve_initialize_fit() {
+        use crate::math::solves::{NumericalInputs, Outcome};
+        use native::solve::{Controls, Qualification, SolveReport, SolverSelection};
+        use pse_compiler::workspace::ModelingCaseBindings;
+        let cancel = crate::CancelSource::new();
+        let compiler = compiler_profile();
+        let physical = physical();
+        let names = BTreeMap::from([(
+            "Scalar".into(),
+            physical.quantities.neutral_dimensionless().unwrap(),
+        )]);
+        let rows = pse_authoring::language::parse(
+            "package p { def Root { var x:Scalar; eq e:x*x==4; annotation start x(1); annotation bounds x(0.5,3); annotation nominal x(2); } }",
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime().modeling_package(rows, physical, names).unwrap();
+        let ipopt = |intent| SolverProfile {
+            presolve: Default::default(),
+            numerics: Default::default(),
+            convexity: Default::default(),
+            intent,
+            selection: SolverSelection::Explicit(Backend::Ipopt),
+            controls: Controls::default(),
+            backend: native::execution::BackendSettings::Default,
+        };
+        // A solve sequence step.
+        let prepared = package
+            .prepare_solve(
+                root,
+                root,
+                Default::default(),
+                Default::default(),
+                ModelingCaseBindings::default(),
+                pse_kernels::DerivativeOrder::Second,
+                compiler,
+                ipopt(SolveIntent::FeasiblePoint),
+                NumericalInputs::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let solved = package
+            .solve_case(prepared, compiler, &cancel)
+            .await
+            .unwrap();
+        let Outcome::Native(solve) = &solved.outcome else {
+            panic!("{:?}", solved.outcome)
+        };
+        // A block initialization attempt.
+        let analysis = package
+            .declared_analysis(
+                root,
+                pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                compiler,
+                ipopt(SolveIntent::Initialize),
+                Default::default(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        let initialized = package
+            .prepare_block_initialization(
+                &analysis,
+                crate::math::initialization::InitializationProfile {
+                    selection: SolverSelection::Explicit(Backend::Ipopt),
+                    // Initialization blocks prepare first derivatives only.
+                    controls: Controls {
+                        hessian: native::solve::HessianMode::LimitedMemory,
+                        ..Controls::default()
+                    },
+                    backend: native::execution::BackendSettings::Default,
+                    numerics: Default::default(),
+                    stages: vec![BTreeMap::new()],
+                },
+                &cancel,
+            )
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        let initialize = initialized.attempts[0].result.as_ref().unwrap();
+        // A parameter fit.
+        let fitted = source(false)
+            .prepare_fit(
+                id(32),
+                profile(false),
+                compiler,
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        let crate::workflow::RunReport::Fit(fit) = fitted.report().unwrap() else {
+            panic!("fit report")
+        };
+        let fit = fit.solve.as_ref().unwrap();
+        // The runner's pipeline fields: preprocessing receipt with library recovery, the
+        // original-coordinate KKT evidence and its budgets, and a numerical qualification.
+        let fields = |r: &SolveReport| {
+            let preprocessing = r.preprocessing.as_ref().expect("pipeline receipt");
+            (
+                r.backend,
+                preprocessing.diagnostics.get("recovery").cloned(),
+                preprocessing.passes.keys().copied().collect::<Vec<_>>(),
+                r.evidence.kkt.is_some(),
+                [
+                    "quality.stationarity.budget",
+                    "quality.complementarity.budget",
+                ]
+                .map(|k| r.metrics.contains_key(k)),
+                r.warm_start.as_ref().map(|w| w.compatibility.backend),
+            )
+        };
+        let expected = fields(solve);
+        assert_eq!(expected.0, Backend::Ipopt);
+        assert!(expected.1.is_some());
+        assert!(expected.3);
+        assert_eq!(expected.4, [true, true]);
+        for (name, report) in [("initialize", initialize.as_ref()), ("fit", fit)] {
+            assert_eq!(fields(report), expected, "{name}");
+        }
+        for report in [solve.as_ref(), initialize.as_ref(), fit] {
+            assert_ne!(
+                report.qualification,
+                Qualification::Unqualified,
+                "{report:?}"
+            );
+        }
+        assert!((solve.candidate.as_ref().unwrap().primal[0] - 2.0).abs() < 1e-6);
+        assert!((initialized.values.scalars.values().next().unwrap() - 2.0).abs() < 1e-6);
     }
 
     #[test]

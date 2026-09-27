@@ -4,7 +4,13 @@
 use super::{
     ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, Workspace, solves::SolveHandle,
 };
-use pse_backend_native::{self as native, kinsol, quality::Tolerances, solve::*};
+use pse_backend_native::{
+    self as native,
+    execution::{self, BackendExecution, BackendSettings, Retained},
+    kinsol,
+    quality::Tolerances,
+    solve::*,
+};
 use pse_columnar::flight::FlightCancellation;
 use pse_compiler::workspace::Profile;
 use pse_ids::{FramedHasher, SemanticId};
@@ -39,7 +45,7 @@ impl PreparedInitialization {
                 let c = native::assembled::contract(&case.assembly);
                 let facts = native::routing::oracle_facts(&c, false, true);
                 native::routing::Requirements {
-                    available: Some(crate::math::solves::ALGEBRAIC_BACKENDS),
+                    table: &execution::LINKED,
                     facts: &facts,
                     intent: SolveIntent::Initialize,
                     convex: false,
@@ -68,6 +74,12 @@ impl PreparedInitialization {
             return Err(native::ProblemError::Contract("initialization uses declared guesses or previous accepted stages, with fresh native allocation".into()).into());
         }
         let strategies = self.strategies(&profile.controls, profile.selection)?;
+        // Typed settings must belong to every block's route; KINSOL scales stay per block.
+        for route in &strategies {
+            if let native::routing::Route::Native(backend) = route {
+                execution::adapter(*backend).admit_settings(&profile.backend, &profile.controls)?;
+            }
+        }
         if profile.controls.threads != 1
             || profile.stages.is_empty()
             || profile
@@ -179,8 +191,9 @@ pub struct InitializationProfile {
     pub selection: SolverSelection,
     /// Same finite execution policy used by other native attempts.
     pub controls: Controls,
-    /// KLU, bounded dense or matrix-free SPGMR; no custom factorization.
-    pub linear: kinsol::Linear,
+    /// Typed backend settings honoured by every block's route, as in a solve; KINSOL
+    /// method controls select KLU, bounded dense or matrix-free SPGMR.
+    pub backend: BackendSettings,
     /// ID-keyed numerical meaning shared with ordinary solve preparation.
     pub numerics: pse_model::numerics::NumericalPolicy,
     /// Finite prescribed parameter/fixed-coordinate replacements. Use one empty map
@@ -193,6 +206,21 @@ pub struct DeclaredRootReport {
     /// Native root outcome with original residual validation.
     pub report: SolveReport,
     _owner: Arc<pse_columnar::AllocationLease>,
+}
+/// Inputs of one conditional block attempt.
+struct Block<'a> {
+    boundary: &'a pse_structural::initialization::Block,
+    case: &'a Arc<ExecutableCase>,
+    strategy: native::routing::Route,
+    values: &'a CaseValues,
+    providers: &'a BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    profile: &'a InitializationProfile,
+    numerics: &'a pse_model::numerics::ResolvedNumericalPolicy,
+    flag: &'a Arc<AtomicBool>,
+    progress: &'a Arc<Progress>,
+    started: std::time::Instant,
+    previous_attempt: Option<usize>,
+    owner: &'a Arc<pse_columnar::AllocationLease>,
 }
 impl MathService {
     /// Execute a declared root/map factory on its owning admitted worker. Causal
@@ -318,37 +346,70 @@ impl MathService {
                 },
             )
             .await?;
-        self.own_initialization(products,lease,quantities,targets,Vec::new()).await
+        self.own_initialization(products, lease, quantities, targets, Vec::new())
+            .await
     }
     /// Reuse the same conditional engine with an authored case's selected physical bindings.
     pub async fn prepare_modeling_initialization(
-        self: &Arc<Self>, workspace: Workspace, case: super::Preparation,
-        profile: Profile, numerical: super::solves::NumericalInputs, driver: &crate::CancelSource,
-    ) -> Result<PreparedInitialization,MathRuntimeError> {
-        let quantities=case.compiled().quantities.clone();
-        let mut targets=case.compiled().plan.structure().numerical_targets(&quantities)?;
+        self: &Arc<Self>,
+        workspace: Workspace,
+        case: super::Preparation,
+        profile: Profile,
+        numerical: super::solves::NumericalInputs,
+        driver: &crate::CancelSource,
+    ) -> Result<PreparedInitialization, MathRuntimeError> {
+        let quantities = case.compiled().quantities.clone();
+        let mut targets = case
+            .compiled()
+            .plan
+            .structure()
+            .numerical_targets(&quantities)?;
         targets.extend(numerical.targets);
         use pse_model::HeapUsage;
-        let numerical_bytes=numerical.declarations.iter().map(|r|size_of_val(r)+r.declaration.owned_bytes()).sum::<usize>()+size_of_val(targets.as_slice());
-        let foreign=self.policy.foreign_bytes;
-        let control=FlightCancellation::default();
-        let operation=self.job_retained(1,self.policy.workspace_bytes,control.clone(),move |flag| {
-            let _lease=workspace.lease;
-            let compiler=workspace.compiler.lock().map_err(|_|MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
-            let products=compiler.prepare_bound_initialization(case.compiled(),profile,&flag)?;
-            let bytes=products.iter().try_fold(foreign.checked_add(numerical_bytes).ok_or(MathRuntimeError::Limit("initialization numerical extent"))?,|n,p|n.checked_add(p.plan.retained_bytes())).ok_or(MathRuntimeError::Limit("initialization product extent"))?;
-            Ok((products,bytes))
-        });
+        let numerical_bytes = numerical
+            .declarations
+            .iter()
+            .map(|r| size_of_val(r) + r.declaration.owned_bytes())
+            .sum::<usize>()
+            + size_of_val(targets.as_slice());
+        let foreign = self.policy.foreign_bytes;
+        let control = FlightCancellation::default();
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                let products =
+                    compiler.prepare_bound_initialization(case.compiled(), profile, &flag)?;
+                let bytes = products
+                    .iter()
+                    .try_fold(
+                        foreign
+                            .checked_add(numerical_bytes)
+                            .ok_or(MathRuntimeError::Limit("initialization numerical extent"))?,
+                        |n, p| n.checked_add(p.plan.retained_bytes()),
+                    )
+                    .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
+                Ok((products, bytes))
+            },
+        );
         tokio::pin!(operation);
-        let (products,lease)=tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.own_initialization(products,lease,quantities,targets,numerical.declarations).await
+        let (products, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        self.own_initialization(products, lease, quantities, targets, numerical.declarations)
+            .await
     }
     async fn own_initialization(
-        self: &Arc<Self>, products: Arc<Vec<pse_compiler::workspace::PreparedBlock>>,
-        lease: Arc<pse_columnar::AllocationLease>, quantities: Arc<pse_quantity::QuantityRegistry>,
+        self: &Arc<Self>,
+        products: Arc<Vec<pse_compiler::workspace::PreparedBlock>>,
+        lease: Arc<pse_columnar::AllocationLease>,
+        quantities: Arc<pse_quantity::QuantityRegistry>,
         targets: Vec<pse_math::numerics::TargetSpec>,
         requirements: Vec<pse_math::numerics::SourcedRequirement>,
-    ) -> Result<PreparedInitialization,MathRuntimeError> {
+    ) -> Result<PreparedInitialization, MathRuntimeError> {
         let owner = self.shared_product(
             vec![3, Arc::as_ptr(&products) as usize],
             products.clone(),
@@ -375,7 +436,7 @@ impl MathService {
         Ok(PreparedInitialization {
             quantities,
             targets,
-            requirements:Arc::new(requirements),
+            requirements: Arc::new(requirements),
             blocks,
             _owner: owner,
         })
@@ -441,20 +502,23 @@ impl MathService {
         progress: Arc<Progress>,
         owner: Arc<pse_columnar::AllocationLease>,
     ) -> Result<InitializationReport, MathRuntimeError> {
-        #[cfg(feature = "solver-pounce")]
-        if strategies
+        let adapters: Vec<&dyn BackendExecution> = strategies
             .iter()
-            .any(|s| *s == native::routing::Route::Native(Backend::Pounce))
-        {
-            return native::pounce::with_threads(1, self.policy.stack_bytes, || {
+            .filter_map(|s| match s {
+                native::routing::Route::Native(backend) => Some(execution::adapter(*backend)),
+                native::routing::Route::Constant => None,
+            })
+            .collect();
+        execution::scoped(
+            &adapters,
+            profile.controls.threads,
+            self.policy.stack_bytes,
+            || {
                 self.run_initialization_inner(
                     prepared, original, providers, profile, strategies, numerics, flag, progress,
                     owner,
                 )
-            });
-        }
-        self.run_initialization_inner(
-            prepared, original, providers, profile, strategies, numerics, flag, progress, owner,
+            },
         )
     }
     fn run_initialization_inner(
@@ -495,198 +559,30 @@ impl MathService {
                     completed = false;
                     break;
                 }
-                let result = (|| -> Result<Box<SolveReport>, MathRuntimeError> {
-                    let providers = providers
-                        .iter()
-                        .map(|(k, f)| {
-                            f.worker_scoped(flag.clone())
-                                .map(|v| (*k, v))
-                                .map_err(native::ProblemError::Provider)
+                let previous_attempt = (profile.controls.start == StartPolicy::PreviousAccepted
+                    && stage > 0)
+                    .then(|| {
+                        attempts.iter().rposition(|a: &BlockAttempt| {
+                            a.boundary.id == boundary.id && a.committed
                         })
-                        .collect::<Result<_, _>>()?;
-                    let ExecutionWorker {
-                        worker,
-                        _case,
-                    } = self.worker(case.clone(), providers, flag.clone())?;
-                    let facts = Arc::new(case.assembly.presolve_facts(
-                        &values,
-                        self.policy.worker_bytes / 256,
-                        &flag,
-                    )?);
-                    let oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
-                        .with_presolve_facts(facts)?;
-                    oracle.admit_nle()?;
-                    let tolerances = Tolerances::from_policy(
-                        &numerics,
-                        &boundary.members.columns,
-                        &boundary.members.rows,
-                    )?;
-                    let initial: Vec<_> = boundary
-                        .members
-                        .columns
-                        .iter()
-                        .map(|id| values.scalars[id])
-                        .collect();
-                    let normalization = pse_math::normalization::Normalization::from_policy(
-                        &numerics,
-                        &boundary.members.columns,
-                        &boundary.members.rows,
-                    )?;
-                    let mut controls = profile.controls.clone();
-                    controls.accuracy =
-                        Accuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-                    let contract = native::NleOracle::contract(&oracle).clone();
-                    let mut execution = Execution::new(flag.clone(), &controls);
-                    execution.progress = progress.clone();
-                    execution.started = started;
-                    let mut h = FramedHasher::new("pse.initialization.block.v1");
-                    for id in &boundary.members.columns {
-                        h.id(id);
-                    }
-                    for id in &boundary.members.rows {
-                        h.id(id);
-                    }
-                    h.hash(&numerics.key).hash(&boundary.id.0);
-                    let layout = h.finish_hash();
-                    let mut value_key = FramedHasher::new("pse.initialization.values.v1");
-                    for (id, value) in &values.scalars {
-                        value_key.id(id).u64(value.to_bits());
-                    }
-                    let data = value_key.finish_hash();
-                    let mut report = match strategy {
-                        native::routing::Route::Native(Backend::Kinsol) => {
-                            let initial = normalization.normalized_point(&initial)?;
-                            let oracle = native::transport::Roots::new(
-                                Box::new(oracle),
-                                normalization.clone(),
-                            )?;
-                            let settings = kinsol::Settings {
-                                strategy: kinsol::Strategy::LineSearch,
-                                linear: profile.linear,
-                                variable_scales: tolerances
-                                    .variables
-                                    .iter()
-                                    .zip(&normalization.variables)
-                                    .map(|(v, s)| controls.accuracy.feasibility * s / v)
-                                    .collect(),
-                                residual_scales: tolerances
-                                    .rows
-                                    .iter()
-                                    .zip(&normalization.rows)
-                                    .map(|(v, s)| controls.accuracy.feasibility * s / v)
-                                    .collect(),
-                                anderson: 0,
-                                damping: 1.0,
-                                setup_interval: 10,
-                                step_tolerance: controls.accuracy.feasibility,
-                            };
-                            let mut session = kinsol::Session::new(
-                                kinsol::Function::Equations(Box::new(oracle)),
-                                settings,
-                                execution.clone(),
-                                Compatibility {
-                                    layout,
-                                    data,
-                                    backend: Backend::Kinsol,
-                                },
-                            )?;
-                            let mut report = session.solve(
-                                &initial,
-                                &controls,
-                                execution,
-                                &tolerances.normalized(&normalization)?,
-                                None,
-                            )?;
-                            native::transport::recover(&mut report, &normalization, &contract)?;
-                            drop(session);
-                            report
-                        }
-                        native::routing::Route::Native(
-                            backend @ (Backend::Ipopt | Backend::Pounce),
-                        ) => {
-                            let oracle = oracle.with_normalization(normalization.clone())?;
-                            let mut pipeline = native::presolve::Pipeline::new(
-                                Box::new(native::assembled::FeasibilityOracle(Box::new(oracle))),
-                                &initial,
-                                &native::presolve::Policy::Off,
-                                &tolerances,
-                                None,
-                                execution.clone(),
-                                None,
-                                Compatibility {
-                                    layout,
-                                    data,
-                                    backend: *backend,
-                                },
-                                self.policy.worker_bytes / 256,
-                            )?;
-                            let mut transport = pipeline.take_oracle()?;
-                            let result = match backend {
-                                #[cfg(feature = "solver-ipopt")]
-                                Backend::Ipopt => native::ipopt::Session::new().solve(
-                                    &mut transport,
-                                    pipeline.initial(),
-                                    pse_math::binding::ObjectiveSense::Minimize,
-                                    &controls,
-                                    execution.clone(),
-                                    &pipeline.tolerances(&tolerances),
-                                    None,
-                                    None,
-                                    pipeline.native_compatibility().clone(),
-                                )?,
-                                #[cfg(feature = "solver-pounce")]
-                                Backend::Pounce => native::pounce::Session::new().solve(
-                                    Box::new(transport),
-                                    pipeline.initial(),
-                                    pse_math::binding::ObjectiveSense::Minimize,
-                                    &controls,
-                                    native::pounce::Method::InteriorPoint,
-                                    Default::default(),
-                                    execution.clone(),
-                                    &pipeline.tolerances(&tolerances),
-                                    None,
-                                    pipeline.native_compatibility().clone(),
-                                )?,
-                                _ => {
-                                    return Err(native::ProblemError::Unsupported(
-                                        "initialization NLP adapter not linked".into(),
-                                    )
-                                    .into());
-                                }
-                            };
-                            pipeline.finish(
-                                result,
-                                &tolerances,
-                                pse_math::binding::ObjectiveSense::Minimize,
-                            )
-                        }
-                        _ => {
-                            return Err(native::ProblemError::Unsupported(
-                                "unsupported conditional initialization route".into(),
-                            )
-                            .into());
-                        }
-                    };
-                    native::quality::record_kkt(&mut report, &normalization, &controls.accuracy);
-                    native::quality::qualify(&mut report, &controls.accuracy);
-                    let previous_attempt = (profile.controls.start == StartPolicy::PreviousAccepted && stage > 0)
-                        .then(|| attempts.iter().rposition(|a: &BlockAttempt| a.boundary.id == boundary.id && a.committed)).flatten();
-                    report.start_receipt = Some(StartReceipt {
+                    })
+                    .flatten();
+                let result = self
+                    .attempt_block(Block {
+                        boundary,
+                        case,
+                        strategy: *strategy,
+                        values: &values,
+                        providers: &providers,
+                        profile: &profile,
+                        numerics: &numerics,
+                        flag: &flag,
+                        progress: &progress,
+                        started,
                         previous_attempt,
-                        seed: Some(WarmStart {
-                            origin: previous_attempt.map(|attempt| SeedOrigin { run: None, attempt }),
-                            compatibility: Compatibility {layout,data,backend:report.backend},
-                            payload: if report.backend == Backend::Kinsol { WarmPayload::Root(initial) }
-                                else { WarmPayload::Nlp {primal:initial,bounds:None,rows:None} },
-                        }),
-                        sparse_seed: None,
-                        transformations: vec!["stage overlay -> source primal -> shared normalization -> native initial point".into()],
-                        submitted: true,
-                    });
-                    drop(_case);
-                    Ok(Box::new(report.with_owner(owner.clone())))
-                })()
-                .map_err(Arc::new);
+                        owner: &owner,
+                    })
+                    .map_err(Arc::new);
                 let committed = commit_block(&mut values, boundary, result.as_deref().ok());
                 attempts.push(BlockAttempt {
                     stage,
@@ -739,6 +635,146 @@ impl MathService {
             cancelled: flag.load(Ordering::Acquire),
             _owner: owner,
         })
+    }
+    /// One block attempt: its original-coordinate oracle, the route's representation
+    /// runner and the submitted-start receipt. A failure commits nothing.
+    fn attempt_block(&self, block: Block<'_>) -> Result<Box<SolveReport>, MathRuntimeError> {
+        let Block {
+            boundary,
+            case,
+            strategy,
+            values,
+            providers,
+            profile,
+            numerics,
+            flag,
+            progress,
+            started,
+            previous_attempt,
+            owner,
+        } = block;
+        let providers = providers
+            .iter()
+            .map(|(k, f)| {
+                f.worker_scoped(flag.clone())
+                    .map(|v| (*k, v))
+                    .map_err(native::ProblemError::Provider)
+            })
+            .collect::<Result<_, _>>()?;
+        let ExecutionWorker { worker, _case } =
+            self.worker(case.clone(), providers, flag.clone())?;
+        let facts = Arc::new(case.assembly.presolve_facts(
+            &values,
+            self.policy.worker_bytes / 256,
+            &flag,
+        )?);
+        let oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
+            .with_presolve_facts(facts)?;
+        oracle.admit_nle()?;
+        let tolerances =
+            Tolerances::from_policy(&numerics, &boundary.members.columns, &boundary.members.rows)?;
+        let initial: Vec<_> = boundary
+            .members
+            .columns
+            .iter()
+            .map(|id| values.scalars[id])
+            .collect();
+        let normalization = pse_math::normalization::Normalization::from_policy(
+            &numerics,
+            &boundary.members.columns,
+            &boundary.members.rows,
+        )?;
+        let mut controls = profile.controls.clone();
+        controls.accuracy = Accuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        let mut execution = Execution::new(flag.clone(), &controls);
+        execution.progress = progress.clone();
+        execution.started = started;
+        let mut h = FramedHasher::new("pse.initialization.block.v1");
+        for id in &boundary.members.columns {
+            h.id(id);
+        }
+        for id in &boundary.members.rows {
+            h.id(id);
+        }
+        h.hash(&numerics.key).hash(&boundary.id.0);
+        let layout = h.finish_hash();
+        let mut value_key = FramedHasher::new("pse.initialization.values.v1");
+        for (id, value) in &values.scalars {
+            value_key.id(id).u64(value.to_bits());
+        }
+        let data = value_key.finish_hash();
+        let native::routing::Route::Native(backend) = strategy else {
+            return Err(native::ProblemError::Unsupported(
+                "unsupported conditional initialization route".into(),
+            )
+            .into());
+        };
+        let adapter = execution::adapter(backend);
+        let compatibility = Compatibility {
+            layout,
+            data,
+            backend,
+        };
+        // Fresh native allocation per block: nothing is retained across blocks.
+        let mut retained = Retained::default();
+        let run = execution::Step {
+            adapter,
+            settings: &profile.backend,
+            controls: &controls,
+            execution,
+            tolerances: &tolerances,
+            normalization: &normalization,
+            compatibility: compatibility.clone(),
+            warm: None,
+        };
+        let mut report = match adapter.representation() {
+            execution::Representation::Roots => execution::roots(
+                run,
+                &mut retained,
+                execution::Roots {
+                    oracle: Box::new(oracle),
+                    initial: &initial,
+                    owner: None,
+                },
+            )?,
+            execution::Representation::Nlp => execution::nlp(
+                run,
+                &mut retained,
+                execution::Nlp {
+                    oracle: Box::new(oracle.with_normalization(normalization.clone())?),
+                    initial: &initial,
+                    presolve: &native::presolve::Policy::Off,
+                    intent: SolveIntent::Initialize,
+                    sense: pse_math::binding::ObjectiveSense::Minimize,
+                    limit: self.policy.worker_bytes / 256,
+                },
+            )?,
+            execution::Representation::Coefficients
+            | execution::Representation::Cone
+            | execution::Representation::Trajectory => {
+                return Err(native::ProblemError::Unsupported(
+                    "unsupported conditional initialization route".into(),
+                )
+                .into());
+            }
+        };
+        drop(retained);
+        report.start_receipt = Some(StartReceipt {
+            previous_attempt,
+            seed: Some(WarmStart {
+                origin: previous_attempt.map(|attempt| SeedOrigin { run: None, attempt }),
+                compatibility,
+                payload: adapter.primal_start(initial)?,
+            }),
+            sparse_seed: None,
+            transformations: vec![
+                "stage overlay -> source primal -> shared normalization -> native initial point"
+                    .into(),
+            ],
+            submitted: true,
+        });
+        drop(_case);
+        Ok(Box::new(report.with_owner(owner.clone())))
     }
 }
 

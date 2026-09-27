@@ -565,7 +565,7 @@ impl NativePreparedOperation {
     #[getter]
     fn eligibility(&self, py: Python<'_>) -> PyResult<Vec<(String,Vec<String>)>> {
         let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"algebraic eligibility requires an algebraic solve"));};
-        Ok(p.solve.eligibility().iter().map(|e|(e.backend.as_str().into(),e.reasons.clone())).collect())
+        Ok(p.solve.eligibility().iter().map(|e|(e.backend.as_str().into(),e.reasons.iter().map(ToString::to_string).collect())).collect())
     }
     fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
         let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"native warm starts require an algebraic solve"));};

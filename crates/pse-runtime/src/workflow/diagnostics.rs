@@ -456,7 +456,7 @@ mod tests {
         let controls = Controls::default();
         // No adapter exposed or linked: automatic routing has no eligible route.
         let refused = Requirements {
-            available: Some(&[]),
+            table: &pse_backend_native::execution::Table::new(&[]),
             facts: &facts,
             intent: SolveIntent::Root,
             convex: false,

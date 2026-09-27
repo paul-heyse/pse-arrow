@@ -5,11 +5,7 @@
     reason = "checked extensions to the pinned HiGHS owning Rust model and C callbacks"
 )]
 //! HiGHS coefficient adapter with completion-owned native scheduler teardown.
-use crate::{
-    CoefficientProblem, ProblemError,
-    quality::{Quality, Tolerances, Violation, interval},
-    solve::*,
-};
+use crate::{CoefficientProblem, ProblemError, quality::Tolerances, solve::*};
 use highs_sys as ffi;
 use pse_math::binding::{ObjectiveSense, VariableDomain};
 use std::{
@@ -27,7 +23,7 @@ static LIFECYCLE: RwLock<()> = RwLock::new(());
 thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(false)};}
 
 /// Explicit native method; automatic remains a native class-specific decision.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum Method {
     /// Native method selection.
     Choose,
@@ -38,8 +34,8 @@ pub enum Method {
     /// First-order primal-dual LP method.
     Pdlp,
 }
-/// Complete HiGHS-specific request on the unified lifecycle.
-#[derive(Clone, Debug)]
+/// The HiGHS adapter's settings type on the unified lifecycle; identity derives from serde.
+#[derive(Clone, Debug, serde::Serialize)]
 pub struct Settings {
     /// Eligible LP algorithm; mixed models retain native class routing.
     pub method: Method,
@@ -868,7 +864,7 @@ impl Session {
                 "solution",
             )?;
             if x.iter().all(|v| v.is_finite()) {
-                let objective = coefficient_objective(p, &x);
+                let objective = p.objective_at(&x);
                 report.candidate = Some(Candidate {
                     kind: CandidateKind::FinalIterate,
                     primal: x.clone(),
@@ -878,7 +874,7 @@ impl Session {
                     reduced_costs: dual.then(|| cd.clone()),
                     slacks: None,
                 });
-                let quality = coefficient_quality(p, &x, tolerances)?;
+                let quality = p.quality(&x, tolerances)?;
                 if !quality.feasible() {
                     report.termination.assurance = Assurance::None
                 }
@@ -1227,122 +1223,6 @@ pub fn termination(code: i32) -> NativeTermination {
         assurance,
     }
 }
-/// Exact declared objective convention `constant + c*x + 1/2 x'Qx`.
-pub fn coefficient_objective(p: &CoefficientProblem, x: &[f64]) -> f64 {
-    let column = faer::ColRef::from_slice(x);
-    let linear = faer::ColRef::from_slice(&p.objective).transpose() * column;
-    let quadratic = p.hessian.as_ref().map_or(0.0, |q| {
-        let product = q * column;
-        0.5 * (column.transpose() * product.as_ref())
-    });
-    p.objective_constant + linear + quadratic
-}
-// Both coefficient consumers use the same library product. The runtime's final
-// original symbolic-model evaluation remains independent of solver coefficients.
-fn coefficient_activity(p: &CoefficientProblem, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
-    if x.len() != p.constraints.ncols() || x.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::Internal(
-            "coefficient activity dimensions or values".into(),
-        ));
-    }
-    let mut result = vec![0.0; p.constraints.nrows()];
-    faer::sparse::linalg::matmul::sparse_dense_matmul(
-        faer::MatMut::from_column_major_slice_mut(&mut result, p.constraints.nrows(), 1),
-        faer::Accum::Replace,
-        p.constraints.as_ref(),
-        faer::MatRef::from_column_major_slice(x, x.len(), 1),
-        1.0,
-        faer::Par::Seq,
-    );
-    if result.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::numerical("nonfinite coefficient activity"));
-    }
-    Ok(result)
-}
-/// Recompute all affine rows and disjunctive domain violations independently.
-pub fn coefficient_quality(
-    p: &CoefficientProblem,
-    x: &[f64],
-    t: &Tolerances,
-) -> Result<Quality, ProblemError> {
-    t.validate(p.contract.variables.len(), p.contract.rows.len())?;
-    if x.len() != p.contract.variables.len() || x.iter().any(|v| !v.is_finite()) {
-        return Err(ProblemError::numerical("invalid coefficient candidate"));
-    }
-    let activity = coefficient_activity(p, x)?;
-    let rows = p
-        .contract
-        .rows
-        .iter()
-        .zip(activity)
-        .zip(&p.bounds)
-        .zip(&t.rows)
-        .map(|(((id, x), (l, u)), t)| Violation {
-            id: *id,
-            physical: interval(x, *l, *u),
-            tolerance: *t,
-        })
-        .collect();
-    let mut bounds = Vec::new();
-    let mut integrality = Vec::new();
-    for (((v, d), &x), tolerance) in p
-        .contract
-        .variables
-        .iter()
-        .zip(&p.domains)
-        .zip(x)
-        .zip(&t.variables)
-    {
-        let physical = if d.is_semi() {
-            x.abs().min(interval(x, v.lower, v.upper))
-        } else {
-            interval(
-                x,
-                if *d == VariableDomain::Binary {
-                    v.lower.max(0.0)
-                } else {
-                    v.lower
-                },
-                if *d == VariableDomain::Binary {
-                    v.upper.min(1.0)
-                } else {
-                    v.upper
-                },
-            )
-        };
-        bounds.push(Violation {
-            id: v.id,
-            physical,
-            tolerance: *tolerance,
-        });
-        if d.is_integer() {
-            integrality.push(Violation {
-                id: v.id,
-                physical: (x - x.round()).abs(),
-                tolerance: t.integrality,
-            });
-        }
-    }
-    Quality::new(rows, bounds, integrality)
-}
-/// Independently reconstruct original affine row values and authored objective.
-/// The native model has shifted row bounds; source constants are applied exactly once.
-pub fn coefficient_observation(
-    p: &CoefficientProblem,
-    x: &[f64],
-    constants: &[f64],
-    bounds: Vec<(f64, f64)>,
-) -> Result<crate::quality::Observation, ProblemError> {
-    if x.len() != p.contract.variables.len() || constants.len() != p.bounds.len() {
-        return Err(ProblemError::Internal(
-            "coefficient observation dimensions".into(),
-        ));
-    }
-    let activity = coefficient_activity(p, x)?;
-    let values = activity.iter().zip(constants).map(|(v, c)| v + c).collect();
-    crate::quality::Observation::from_values(Some(coefficient_objective(p, x)), values, bounds)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1603,7 +1483,7 @@ mod tests {
             rows: vec![1e-8],
             integrality: 1e-8,
         };
-        assert!(coefficient_quality(&p, &[0.0], &t).unwrap().feasible());
-        assert!(!coefficient_quality(&p, &[1.0], &t).unwrap().feasible());
+        assert!(p.quality(&[0.0], &t).unwrap().feasible());
+        assert!(!p.quality(&[1.0], &t).unwrap().feasible());
     }
 }

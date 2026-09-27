@@ -17,177 +17,10 @@ pub use pse_model::generated::enums::{
     EvidenceUnavailableReason as UnavailableReason, NativeAssurance as Assurance,
     NativeBackend as Backend, NativeCandidateKind as CandidateKind,
     NativeDerivativeCapability as DerivativeCapability, NativeProblemClass as ProblemClass,
-    NativeQualification as Qualification, NativeStartPolicy as StartPolicy,
-    NativeTermination as Termination, NativeWarmCapability as WarmCapability,
+    NativeQualification as Qualification, NativeSolveIntent as SolveIntent,
+    NativeStartPolicy as StartPolicy, NativeTermination as Termination,
+    NativeWarmCapability as WarmCapability,
 };
-/// Adapter behavior stays with the linked implementations, outside shared semantic values.
-pub trait BackendCapabilities {
-    /// Static inventory; actual model eligibility is a separate admission result.
-    fn capabilities(self) -> Capabilities;
-    /// Whether this binary links the selected native implementation.
-    fn available(self) -> bool;
-}
-impl BackendCapabilities for Backend {
-    /// Explicit representational and execution capabilities of the linked adapters.
-    /// Eligibility still requires admission of the actual model and profile.
-    fn capabilities(self) -> Capabilities {
-        match self {
-            Self::Ipopt => Capabilities {
-                general_bounds: true,
-                sign_bounds: true,
-                parallel: false,
-                contextual: None,
-                classes: &[ProblemClass::SmoothNlp],
-                derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,
-                warm: WarmCapability::PrimalDual,
-                reuse: "same sparse layout and bounds: retained C problem",
-                cancellation: "intermediate/evaluation checkpoints",
-                diagnostics: "native current iterate, violations, callback counts and timing",
-            },
-            Self::Pounce => Capabilities {
-                general_bounds: true,
-                sign_bounds: true,
-                parallel: true,
-                contextual: None,
-                classes: &[ProblemClass::SmoothNlp],
-                derivatives: DerivativeCapability::ExactHessianOrLimitedMemory,
-                warm: WarmCapability::PrimalDualAndWorkingSet,
-                reuse: "native application and compatible starts; iteration factors are library-owned",
-                cancellation: "TNLP intermediate/evaluation checkpoints",
-                diagnostics: "complete SolveStatistics, phase timing, FERAL inertia/pivots/fill, restoration and crossover",
-            },
-            Self::Kinsol => Capabilities {
-                general_bounds: false,
-                sign_bounds: true,
-                parallel: false,
-                contextual: None,
-                classes: &[ProblemClass::SquareRoot, ProblemClass::DeclaredFixedPoint],
-                derivatives: DerivativeCapability::JacobianOrProduct,
-                warm: WarmCapability::Primal,
-                reuse: "same sparse layout: retained SUNDIALS/KLU allocations",
-                cancellation: "evaluation checkpoints; native factorization completes before teardown",
-                diagnostics: "native nonlinear/linear iterations, setups, failures, norms and callback timing",
-            },
-            Self::Highs => Capabilities {
-                general_bounds: true,
-                sign_bounds: true,
-                parallel: true,
-                contextual: None,
-                classes: &[
-                    ProblemClass::Linear,
-                    ProblemClass::MixedLinear,
-                    ProblemClass::ConvexQuadratic,
-                ],
-                derivatives: DerivativeCapability::Coefficients,
-                warm: WarmCapability::PrimalDualAndBasis,
-                reuse: "native coefficient/bound updates with compatible layout",
-                cancellation: "simplex/IPM/MIP interrupt callbacks; QP native time limit",
-                diagnostics: "native information, rays, IIS, ranging and explicit relaxation",
-            },
-            Self::Clarabel => Capabilities {
-                general_bounds: true,
-                sign_bounds: true,
-                parallel: false,
-                contextual: None,
-                classes: &[ProblemClass::ContinuousCone],
-                derivatives: DerivativeCapability::Coefficients,
-                warm: WarmCapability::None,
-                reuse: "native data-update eligibility; reusable mode disables preprocessing",
-                cancellation: "native iteration termination callback",
-                diagnostics: "complete native info/settings, cone slacks/duals and certificates",
-            },
-            Self::Idas => Capabilities {
-                general_bounds: false,
-                sign_bounds: false,
-                parallel: false,
-                contextual: None,
-                classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
-                derivatives: DerivativeCapability::FirstWithSmoothSensitivities,
-                warm: WarmCapability::None,
-                reuse: "worker-local IDAS residual state",
-                cancellation: "residual callbacks and native step boundaries",
-                diagnostics: "native statuses, consistent starts, recoverable residual trials and sensitivities",
-            },
-            Self::Diffsol => Capabilities {
-                general_bounds: false,
-                sign_bounds: false,
-                parallel: false,
-                contextual: None,
-                classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
-                derivatives: DerivativeCapability::FirstWithSmoothSensitivities,
-                warm: WarmCapability::None,
-                reuse: "worker-local BDF state",
-                cancellation: "cooperative callbacks and step boundaries",
-                diagnostics: "native statistics, consistent starts, partial samples and root transitions",
-            },
-        }
-    }
-    /// Whether this binary includes the adapter and its native link profile.
-    fn available(self) -> bool {
-        match self {
-            Self::Ipopt => cfg!(feature = "ipopt"),
-            Self::Pounce => cfg!(feature = "pounce"),
-            Self::Kinsol => cfg!(feature = "kinsol"),
-            Self::Highs => cfg!(feature = "highs"),
-            Self::Clarabel => true,
-            Self::Diffsol => cfg!(feature = "diffsol"),
-            Self::Idas => cfg!(feature = "idas"),
-        }
-    }
-}
-/// Inspectable adapter contract with explicit operational limitations.
-#[derive(Clone, Copy, Debug)]
-pub struct Capabilities {
-    /// Static bound representation; KINSOL accepts only its sign constraints.
-    pub general_bounds: bool,
-    /// Whether a compatible strategy can represent sign constraints.
-    pub sign_bounds: bool,
-    /// Whether the adapter can consume more than one admitted native thread.
-    pub parallel: bool,
-    /// Selected-model admission is absent from a static inventory. P07 owns routing.
-    pub contextual: Option<ContextualCapabilities>,
-    /// Representable mathematical classes.
-    pub classes: &'static [ProblemClass],
-    /// Required derivative representation.
-    pub derivatives: DerivativeCapability,
-    /// Externally supplied starting-state support.
-    pub warm: WarmCapability,
-    /// Native allocation/data reuse boundary.
-    pub reuse: &'static str,
-    /// Actual interrupt checkpoints.
-    pub cancellation: &'static str,
-    /// Available native diagnostic families.
-    pub diagnostics: &'static str,
-}
-/// Facts established for one selected model/settings pair, never inferred from
-/// the static library inventory. The routing boundary produces this record.
-#[derive(Clone, Copy, Debug)]
-pub struct ContextualCapabilities {
-    /// Identity of the exact mathematical representation and selected analysis.
-    pub analysis: ContentHash,
-    /// Mathematical class proved for that representation.
-    pub class: ProblemClass,
-    /// Highest derivative order admitted for every selected body and provider.
-    pub derivatives: pse_kernels::DerivativeOrder,
-    /// Actual native thread count admitted against the runtime budget.
-    pub threads: usize,
-    /// Bound semantics were checked for the selected native strategy.
-    pub bounds_admitted: bool,
-    /// Starting payload was checked for the selected layout and backend.
-    pub start_admitted: bool,
-}
-/// Why the caller requests numerical work.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SolveIntent {
-    /// Optimize the authored scalar objective.
-    Optimize,
-    /// Solve declared square equations.
-    Root,
-    /// Find feasibility using an explicitly constant NLP objective.
-    FeasiblePoint,
-    /// Produce a start, without claiming optimization.
-    Initialize,
-}
 /// No implicit fallback is performed for an unavailable selected backend.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SolverSelection {
@@ -690,33 +523,29 @@ pub struct SeedOrigin {
     /// Zero-based original attempt.
     pub attempt: usize,
 }
-impl WarmStart {
-    /// Check source-coordinate shape and finite payloads before native construction.
-    pub fn validate_shape(&self, variables: usize, rows: usize) -> Result<(), ProblemError> {
+impl WarmPayload {
+    /// Source-coordinate dimensions and finite values of this payload.
+    pub fn shaped(&self, variables: usize, rows: usize) -> bool {
         let finite = |v: &[f64], n| v.len() == n && v.iter().all(|v| v.is_finite());
-        let valid = match &self.payload {
-            WarmPayload::Root(x) => {
-                self.compatibility.backend == Backend::Kinsol && finite(x, variables)
-            }
-            WarmPayload::Nlp {
+        match self {
+            Self::Root(x) => finite(x, variables),
+            Self::Nlp {
                 primal,
                 bounds,
                 rows: dual,
             } => {
-                matches!(self.compatibility.backend, Backend::Ipopt | Backend::Pounce)
-                    && finite(primal, variables)
+                finite(primal, variables)
                     && bounds
                         .as_ref()
                         .is_none_or(|(l, u)| finite(l, variables) && finite(u, variables))
                     && dual.as_ref().is_none_or(|d| finite(d, rows))
             }
-            WarmPayload::Highs {
+            Self::Highs {
                 primal,
                 dual,
                 basis,
             } => {
-                self.compatibility.backend == Backend::Highs
-                    && (primal.is_some() || dual.is_some() || basis.is_some())
+                (primal.is_some() || dual.is_some() || basis.is_some())
                     && primal.as_ref().is_none_or(|p| finite(p, variables))
                     && dual
                         .as_ref()
@@ -728,13 +557,20 @@ impl WarmStart {
                     })
             }
             #[cfg(feature = "pounce")]
-            WarmPayload::PounceSqp(s) => {
-                self.compatibility.backend == Backend::Pounce
-                    && finite(&s.x, variables)
+            Self::PounceSqp(s) => {
+                finite(&s.x, variables)
                     && finite(&s.lambda_g, rows)
                     && s.lambda_x.iter().all(|v| v.is_finite())
             }
-        };
+        }
+    }
+}
+impl WarmStart {
+    /// Check that the selected adapter consumes this payload variant, and its
+    /// source-coordinate shape and finite values, before native construction.
+    pub fn validate_shape(&self, variables: usize, rows: usize) -> Result<(), ProblemError> {
+        let valid = crate::execution::adapter(self.compatibility.backend).accepts(&self.payload)
+            && self.payload.shaped(variables, rows);
         if valid {
             Ok(())
         } else {

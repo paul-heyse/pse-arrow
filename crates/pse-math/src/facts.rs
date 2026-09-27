@@ -110,3 +110,64 @@ impl ProblemFacts {
         })
     }
 }
+impl crate::presolve::Facts {
+    /// The one coefficient-class rule: every row is proved affine, the objective degree is
+    /// at most two and every retained domain obligation is discharged under these
+    /// assumptions. Preparation, routing facts and coefficient projection all consume it.
+    #[must_use]
+    pub fn coefficient_eligible(&self) -> bool {
+        self.affine.iter().all(Option::is_some)
+            && self.objective_degree.is_some_and(|d| d <= 2)
+            && self
+                .obligations
+                .values()
+                .all(|s| *s == crate::presolve::ObligationStatus::Discharged)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::presolve::{AffineRow, Facts, ObligationStatus};
+    use pse_ids::{ContentHash, SemanticId};
+    use std::collections::BTreeMap;
+    fn facts() -> Facts {
+        Facts {
+            key: ContentHash::from_bytes([1; 32]),
+            structure: ContentHash::from_bytes([2; 32]),
+            values: BTreeMap::new(),
+            affine: vec![Some(AffineRow {
+                entries: BTreeMap::from([(0, 1.0)]),
+                constant: 0.0,
+            })],
+            row_sources: vec![vec![]],
+            tapes: vec![],
+            complete: vec![true],
+            has_guards: false,
+            signs: BTreeMap::new(),
+            obligations: BTreeMap::from([(
+                SemanticId::from_bytes([3; 16]),
+                ObligationStatus::Discharged,
+            )]),
+            objective_linear: vec![true],
+            objective_degree: Some(2),
+        }
+    }
+    #[test]
+    fn coefficient_eligible_requires_affine_rows_quadratic_degree_and_discharged_obligations() {
+        assert!(facts().coefficient_eligible());
+        let mut opaque = facts();
+        opaque.affine[0] = None;
+        assert!(!opaque.coefficient_eligible());
+        let mut cubic = facts();
+        cubic.objective_degree = Some(3);
+        assert!(!cubic.coefficient_eligible());
+        let mut unknown = facts();
+        unknown.objective_degree = None;
+        assert!(!unknown.coefficient_eligible());
+        for status in [ObligationStatus::Violated, ObligationStatus::Unestablished] {
+            let mut guarded = facts();
+            guarded.obligations.values_mut().for_each(|s| *s = status);
+            assert!(!guarded.coefficient_eligible());
+        }
+    }
+}

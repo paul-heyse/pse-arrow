@@ -18,79 +18,84 @@ use std::{
 };
 /// Complete native FERAL configuration, with thread/FMA policy applied at execution.
 pub type LinearSettings = pounce_feral::FeralConfig;
-/// Complete bit-preserving native linear profile identity, independent of Debug text.
-pub fn linear_key(c: &LinearSettings) -> pse_ids::ContentHash {
-    let mut h = pse_ids::FramedHasher::new("pse.pounce.feral-profile.v1");
-    for v in [c.cascade_break, c.parallel, c.static_pivoting] {
-        h.u64(v.map_or(0, |v| if v { 2 } else { 1 }));
-    }
-    h.bool(c.fma)
-        .bool(c.refine)
-        .bool(c.increase_quality)
-        .u64(c.refine_max_steps as u64);
-    for v in [c.refine_target, c.singular_pivot_floor, c.pivtol] {
-        h.u64(v.to_bits());
-    }
-    h.bool(c.inertia_pivot_floor.is_some())
-        .u64(c.inertia_pivot_floor.map_or(0, f64::to_bits));
-    h.bool(c.min_par_flops.is_some())
-        .u64(c.min_par_flops.unwrap_or(0));
-    use pounce_feral::{OrderingMethod as O, ScalingStrategy as S};
-    match &c.ordering {
-        O::Amd => {
-            h.u64(0);
-        }
-        O::Amf => {
-            h.u64(1);
-        }
-        O::MetisND => {
-            h.u64(2);
-        }
-        O::ScotchND => {
-            h.u64(3);
-        }
-        O::KahipND => {
-            h.u64(4);
-        }
-        O::Auto => {
-            h.u64(5);
-        }
-        O::AutoRace => {
-            h.u64(6);
-        }
-        O::External(v) => {
-            h.u64(7).u64(v.len() as u64);
-            for x in v {
-                h.u64(*x as u64);
-            }
-        }
-    }
-    match &c.scaling {
-        S::InfNorm => {
-            h.u64(0);
-        }
-        S::Mc64Symmetric => {
-            h.u64(1);
-        }
-        S::Identity => {
-            h.u64(2);
-        }
-        S::Auto => {
-            h.u64(3);
-        }
-        S::External(v) => {
-            h.u64(4).u64(v.len() as u64);
-            for x in v {
-                h.u64(x.to_bits());
-            }
-        }
-    }
-    h.finish_hash()
+/// The POUNCE adapter's settings type. Its identity derives from serde; the native FERAL
+/// configuration serializes through a remote definition checked against every upstream
+/// field, so a FERAL upgrade that adds a field fails to compile instead of leaving
+/// identity (F09).
+#[derive(Clone, Debug, Default, serde::Serialize)]
+pub struct Settings {
+    /// NLP method.
+    pub method: Method,
+    /// Native linear settings.
+    #[serde(with = "FeralIdentity")]
+    pub linear: LinearSettings,
 }
+#[derive(serde::Serialize)]
+#[serde(remote = "pounce_feral::FeralConfig")]
+struct FeralIdentity {
+    cascade_break: Option<bool>,
+    fma: bool,
+    refine: bool,
+    increase_quality: bool,
+    refine_max_steps: usize,
+    refine_target: f64,
+    singular_pivot_floor: f64,
+    inertia_pivot_floor: Option<f64>,
+    pivtol: f64,
+    #[serde(with = "OrderingIdentity")]
+    ordering: pounce_feral::OrderingMethod,
+    #[serde(with = "ScalingIdentity")]
+    scaling: pounce_feral::ScalingStrategy,
+    parallel: Option<bool>,
+    min_par_flops: Option<u64>,
+    static_pivoting: Option<bool>,
+}
+#[derive(serde::Serialize)]
+#[serde(remote = "pounce_feral::OrderingMethod")]
+enum OrderingIdentity {
+    Amd,
+    Amf,
+    MetisND,
+    ScotchND,
+    KahipND,
+    Auto,
+    AutoRace,
+    External(Vec<usize>),
+}
+#[derive(serde::Serialize)]
+#[serde(remote = "pounce_feral::ScalingStrategy")]
+enum ScalingIdentity {
+    InfNorm,
+    Mc64Symmetric,
+    Identity,
+    External(Vec<f64>),
+    Auto,
+}
+/// Upgrade check: an exhaustive destructuring fails to compile when FERAL adds a field
+/// that the serde remote above does not frame.
+const _: fn(&LinearSettings) = |c| {
+    let pounce_feral::FeralConfig {
+        cascade_break: _,
+        fma: _,
+        refine: _,
+        increase_quality: _,
+        refine_max_steps: _,
+        refine_target: _,
+        singular_pivot_floor: _,
+        inertia_pivot_floor: _,
+        pivtol: _,
+        ordering: _,
+        scaling: _,
+        parallel: _,
+        min_par_flops: _,
+        static_pivoting: _,
+    } = c;
+};
 /// Algorithm is explicit; POUNCE never silently changes the selected problem class.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub enum Method {
     /// Native barrier/filter NLP method.
+    #[default]
     InteriorPoint,
     /// Native active-set sequential quadratic programming.
     ActiveSetSqp,
@@ -667,14 +672,23 @@ mod tests {
         assert_eq!(out, [44.0]);
     }
     #[test]
-    fn linear_profile_identity_preserves_external_order_and_float_bits() {
-        let a = LinearSettings::default();
+    fn settings_identity_preserves_external_order_and_float_bits() {
+        let key = |s: &Settings| crate::identity::of("pse.test.pounce.v1", s).unwrap();
+        let a = Settings::default();
         let mut b = a.clone();
-        b.ordering = pounce_feral::OrderingMethod::External(vec![1, 0]);
-        assert_ne!(linear_key(&a), linear_key(&b));
-        let k = linear_key(&b);
-        b.ordering = pounce_feral::OrderingMethod::External(vec![0, 1]);
-        assert_ne!(k, linear_key(&b));
+        b.linear.ordering = pounce_feral::OrderingMethod::External(vec![1, 0]);
+        assert_ne!(key(&a), key(&b));
+        let k = key(&b);
+        b.linear.ordering = pounce_feral::OrderingMethod::External(vec![0, 1]);
+        assert_ne!(k, key(&b));
+        let mut c = a.clone();
+        c.linear.pivtol = -0.0;
+        let mut d = a.clone();
+        d.linear.pivtol = 0.0;
+        assert_ne!(key(&c), key(&d));
+        c = a.clone();
+        c.method = Method::ActiveSetSqp;
+        assert_ne!(key(&a), key(&c));
     }
     #[test]
     fn local_pool_admission_does_not_accept_the_global_pool() {

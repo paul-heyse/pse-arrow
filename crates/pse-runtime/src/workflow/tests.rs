@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
-use crate::math::solves::{BackendSettings, SolverProfile};
+use crate::math::solves::SolverProfile;
+use pse_backend_native::execution::BackendSettings;
 use pse_backend_native::solve::*;
 use pse_ids::SemanticId;
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};

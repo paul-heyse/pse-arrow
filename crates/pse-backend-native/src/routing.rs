@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Deterministic class routing with explicit representation and availability failures.
-use crate::solve::BackendCapabilities;
+//! Eligibility is a function of each adapter's published capability record and linkage
+//! (F21); automatic preference only orders eligible adapters.
 use crate::{
     ProblemError,
-    solve::{Backend, SolveIntent, SolverSelection},
+    execution::{Capability, Table},
+    solve::{
+        Backend, DerivativeCapability, HessianMode, ProblemClass, SolveIntent, SolverSelection,
+    },
 };
-use pse_math::{binding::VariableDomain, facts::ProblemFacts};
+use pse_kernels::DerivativeOrder;
+use pse_math::{
+    binding::VariableDomain,
+    facts::{BoundShape, ProblemFacts},
+};
 /// Selected execution class, including the zero-variable path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {
@@ -15,19 +23,86 @@ pub enum Route {
     /// Native implementation and its separately admitted representation.
     Native(Backend),
 }
-/// One backend's contextual refusal; inventory alone never grants eligibility.
+/// Why one adapter cannot represent this request; every applicable reason is reported.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Ineligible {
+    /// The binary does not link the adapter.
+    NotLinked,
+    /// More than one thread was requested from a serial adapter.
+    Serial,
+    /// Root intents need square continuous equalities without an objective.
+    NotSquareRoot,
+    /// Optimization needs an authored objective.
+    NoObjective,
+    /// No linked adapter certifies global bounds yet.
+    Certification,
+    /// None of the problem's classes is among the adapter's classes.
+    Class {
+        /// Classes the facts and intent establish for this problem.
+        problem: Vec<ProblemClass>,
+    },
+    /// The prepared smooth derivative order is below the adapter's requirement.
+    Derivatives {
+        /// Required prepared order.
+        required: DerivativeOrder,
+    },
+    /// A bound shape the adapter cannot represent.
+    Bounds {
+        /// The adapter still represents exact sign bounds.
+        signs: bool,
+    },
+}
+impl std::fmt::Display for Ineligible {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotLinked => f.write_str("adapter not linked"),
+            Self::Serial => f.write_str("linked profile is serial"),
+            Self::NotSquareRoot => f.write_str(
+                "root analysis requires square continuous equalities without an objective",
+            ),
+            Self::NoObjective => f.write_str("optimization requires an authored objective"),
+            Self::Certification => f.write_str("no linked backend certifies global bounds"),
+            Self::Class { problem } => {
+                f.write_str("problem class ")?;
+                if problem.is_empty() {
+                    f.write_str("(none)")?;
+                }
+                for (i, class) in problem.iter().enumerate() {
+                    if i > 0 {
+                        f.write_str(", ")?;
+                    }
+                    f.write_str(class.as_str())?;
+                }
+                f.write_str(" is not represented by this adapter")
+            }
+            Self::Derivatives { required } => write!(
+                f,
+                "requires prepared smooth {} derivatives",
+                match required {
+                    DerivativeOrder::Second => "second",
+                    _ => "first",
+                }
+            ),
+            Self::Bounds { signs: true } => {
+                f.write_str("cannot represent general bounds; only exact sign bounds")
+            }
+            Self::Bounds { signs: false } => f.write_str("cannot represent variable bounds"),
+        }
+    }
+}
+/// One adapter's contextual assessment; inventory alone never grants eligibility.
 #[derive(Clone, Debug)]
 pub struct Eligibility {
     /// Backend whose concrete representation is assessed.
     pub backend: Backend,
-    /// All applicable preparation failures; empty means eligible.
-    pub reasons: Vec<String>,
+    /// Every applicable refusal; empty means eligible.
+    pub reasons: Vec<Ineligible>,
 }
 /// Requirements established by the selected mathematical representation and policy.
 #[derive(Debug)]
 pub struct Requirements<'a> {
-    /// Routes exposed by the caller's build. None uses the linked adapter inventory.
-    pub available: Option<&'a [Backend]>,
+    /// Adapters exposed to this request: the linked table in production.
+    pub table: &'a Table,
     /// Compiler-established class and derivative facts.
     pub facts: &'a ProblemFacts,
     /// Selected analysis purpose.
@@ -40,7 +115,6 @@ pub struct Requirements<'a> {
 /// Project an already admitted native oracle into the same contextual selector.
 /// Callers supply the represented objective/equality meaning, not a backend preference.
 pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool) -> ProblemFacts {
-    use pse_math::facts::BoundShape;
     ProblemFacts {
         variables: c.variables.len(),
         rows: c.rows.len(),
@@ -69,97 +143,101 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         quadratic: false,
     }
 }
-impl Requirements<'_> {
-    /// Assess every algebraic backend through one policy owner.
-    pub fn eligibility(&self) -> Vec<Eligibility> {
-        use crate::solve::HessianMode;
-        use pse_kernels::DerivativeOrder;
-        use pse_math::facts::BoundShape;
-        let f = self.facts;
-        let continuous = f.domains.iter().all(|d| *d == VariableDomain::Continuous);
-        let first = f.derivatives.min(f.prepared_derivatives) >= DerivativeOrder::First;
-        let root = f.equalities && f.rows == f.variables && !f.objective && continuous;
-        let root_intent = matches!(self.intent, SolveIntent::Root | SolveIntent::Initialize);
-        let coefficient = f.coefficients && (!f.quadratic || continuous && self.convex);
-        [
-            Backend::Ipopt,
-            Backend::Pounce,
-            Backend::Kinsol,
-            Backend::Highs,
-            Backend::Clarabel,
-        ]
-        .into_iter()
-        .map(|backend| {
-            let mut reasons = Vec::new();
-            let mut require = |valid: bool, reason: &str| {
-                if !valid {
-                    reasons.push(reason.to_owned());
-                }
-            };
-            require(
-                self.available
-                    .is_none_or(|routes| routes.contains(&backend)),
-                "adapter not exposed by caller",
-            );
-            require(backend.available(), "adapter not linked");
-            require(
-                self.controls.threads == 1 || backend.capabilities().parallel,
-                "linked profile is serial",
-            );
-            if root_intent {
-                require(
-                    root,
-                    "root analysis requires square continuous equalities without an objective",
-                );
-            }
-            if self.intent == SolveIntent::Optimize {
-                require(f.objective, "optimization requires an authored objective");
-            }
-            match backend {
-                Backend::Kinsol => {
-                    require(
-                        root_intent && root,
-                        "equation representation requires root intent",
-                    );
-                    require(
-                        first,
-                        "equation strategy requires prepared smooth first derivatives",
-                    );
-                    require(
-                        f.bounds.iter().all(|b| {
-                            matches!(
-                                b,
-                                BoundShape::Free
-                                    | BoundShape::Nonnegative
-                                    | BoundShape::Nonpositive
-                            )
-                        }),
-                        "KINSOL cannot represent general bounds",
-                    );
-                }
-                Backend::Ipopt | Backend::Pounce => {
-                    require(
-                        continuous && first,
-                        "NLP requires prepared smooth continuous derivatives",
-                    );
-                    require(
-                        self.controls.hessian != HessianMode::Exact
-                            || f.derivatives.min(f.prepared_derivatives) >= DerivativeOrder::Second,
-                        "exact Hessian requires prepared second derivatives",
-                    );
-                }
-                Backend::Highs => require(
-                    coefficient && !root_intent,
-                    "HiGHS requires affine constraints and an admitted LP/MILP/convex QP",
-                ),
-                Backend::Clarabel => {
-                    require(false, "Clarabel requires an explicit cone representation")
-                }
-                _ => require(false, "not an algebraic backend"),
-            }
-            Eligibility { backend, reasons }
+fn continuous(f: &ProblemFacts) -> bool {
+    f.domains.iter().all(|d| *d == VariableDomain::Continuous)
+}
+fn square_root(f: &ProblemFacts) -> bool {
+    f.equalities && f.rows == f.variables && !f.objective && continuous(f)
+}
+const fn root_intent(intent: SolveIntent) -> bool {
+    matches!(intent, SolveIntent::Root | SolveIntent::Initialize)
+}
+/// The mathematical classes the facts and intent establish. Root intents make a square
+/// problem a root system; coefficient classes are optimization classes; an explicit cone
+/// or a trajectory is never inferred from algebraic facts.
+pub fn problem_classes(f: &ProblemFacts, intent: SolveIntent, convex: bool) -> Vec<ProblemClass> {
+    let mut classes = Vec::new();
+    if root_intent(intent) && square_root(f) {
+        classes.push(ProblemClass::SquareRoot);
+    }
+    if continuous(f) {
+        classes.push(ProblemClass::SmoothNlp);
+    }
+    if !root_intent(intent) && f.coefficients {
+        match (f.quadratic, continuous(f)) {
+            (false, true) => classes.push(ProblemClass::Linear),
+            (false, false) => classes.push(ProblemClass::MixedLinear),
+            (true, true) if convex => classes.push(ProblemClass::ConvexQuadratic),
+            (true, _) => {}
+        }
+    }
+    classes
+}
+/// The one eligibility rule: a function of an adapter's capability record, its linkage and
+/// the request. Every adapter is assessed through it.
+pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec<Ineligible> {
+    let f = r.facts;
+    let mut reasons = Vec::new();
+    if !linked {
+        reasons.push(Ineligible::NotLinked);
+    }
+    if r.controls.threads != 1 && !capability.parallel {
+        reasons.push(Ineligible::Serial);
+    }
+    if root_intent(r.intent) && !square_root(f) {
+        reasons.push(Ineligible::NotSquareRoot);
+    }
+    if r.intent == SolveIntent::Optimize && !f.objective {
+        reasons.push(Ineligible::NoObjective);
+    }
+    // Plan 22 G packets add the first certifying adapter; until then routing refuses.
+    if r.intent == SolveIntent::Certify {
+        reasons.push(Ineligible::Certification);
+    }
+    let classes = problem_classes(f, r.intent, r.convex);
+    if !classes.iter().any(|c| capability.classes.contains(c)) {
+        reasons.push(Ineligible::Class { problem: classes });
+    }
+    let required = match capability.derivatives {
+        DerivativeCapability::ExactHessianOrLimitedMemory
+            if r.controls.hessian == HessianMode::Exact =>
+        {
+            Some(DerivativeOrder::Second)
+        }
+        DerivativeCapability::ExactHessianOrLimitedMemory
+        | DerivativeCapability::JacobianOrProduct
+        | DerivativeCapability::FirstWithSmoothSensitivities => Some(DerivativeOrder::First),
+        DerivativeCapability::Coefficients => None,
+    };
+    if let Some(required) = required
+        && f.derivatives.min(f.prepared_derivatives) < required
+    {
+        reasons.push(Ineligible::Derivatives { required });
+    }
+    if !capability.general_bounds
+        && !f.bounds.iter().all(|b| match b {
+            BoundShape::Free => true,
+            BoundShape::Nonnegative | BoundShape::Nonpositive => capability.sign_bounds,
+            BoundShape::Lower | BoundShape::Upper | BoundShape::Boxed => false,
         })
-        .collect()
+    {
+        reasons.push(Ineligible::Bounds {
+            signs: capability.sign_bounds,
+        });
+    }
+    reasons
+}
+impl Requirements<'_> {
+    /// Assess every exposed algebraic adapter through the one eligibility rule.
+    pub fn eligibility(&self) -> Vec<Eligibility> {
+        self.table
+            .adapters()
+            .filter(|a| a.representation().algebraic())
+            .map(|a| Eligibility {
+                backend: a.backend(),
+                reasons: a.admit(self),
+            })
+            .collect()
     }
     /// Deterministic route; explicit selection never silently falls back.
     pub fn select(&self, selection: SolverSelection) -> Result<Route, ProblemError> {
@@ -169,30 +247,34 @@ impl Requirements<'_> {
                 "optimization needs an authored objective".into(),
             ));
         }
-        if self.facts.variables == 0 {
-            return Ok(Route::Constant);
-        }
         let choices = self.eligibility();
         let admitted = |backend| {
             choices
                 .iter()
                 .any(|c| c.backend == backend && c.reasons.is_empty())
         };
-        let preferred: &[Backend] =
-            if matches!(self.intent, SolveIntent::Root | SolveIntent::Initialize) {
-                &[Backend::Kinsol, Backend::Ipopt, Backend::Pounce]
-            } else {
-                &[Backend::Highs, Backend::Ipopt, Backend::Pounce]
-            };
+        if self.intent == SolveIntent::Certify && !choices.iter().any(|c| c.reasons.is_empty()) {
+            return Err(ProblemError::Unsupported(
+                "no linked backend certifies global bounds".into(),
+            ));
+        }
+        if self.facts.variables == 0 {
+            return Ok(Route::Constant);
+        }
         let selected = match selection {
             SolverSelection::Explicit(b) => b,
-            SolverSelection::Auto => preferred
-                .iter()
-                .copied()
-                .find(|b| admitted(*b))
-                .ok_or_else(|| {
+            SolverSelection::Auto => {
+                let mut automatic: Vec<_> = self
+                    .table
+                    .adapters()
+                    .filter_map(|a| a.automatic().map(|rank| (rank, a.backend())))
+                    .filter(|(_, b)| admitted(*b))
+                    .collect();
+                automatic.sort_by_key(|(rank, _)| *rank);
+                automatic.first().map(|(_, b)| *b).ok_or_else(|| {
                     ProblemError::Unsupported(format!("no eligible native route: {choices:?}"))
-                })?,
+                })?
+            }
         };
         if !self.available(selected) {
             return Err(ProblemError::Unavailable {
@@ -212,20 +294,18 @@ impl Requirements<'_> {
         Ok(Route::Native(selected))
     }
     fn available(&self, backend: Backend) -> bool {
-        backend.available()
-            && self
-                .available
-                .is_none_or(|routes| routes.contains(&backend))
+        self.table.get(backend).is_some_and(|a| a.linked())
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::execution::{LINKED, adapter};
     #[test]
     fn caller_inventory_limits_automatic_selection() {
         let facts = root_facts();
         let requirements = Requirements {
-            available: Some(&[]),
+            table: &Table::new(&[]),
             facts: &facts,
             intent: SolveIntent::Root,
             convex: false,
@@ -235,9 +315,10 @@ mod tests {
             requirements.select(SolverSelection::Auto),
             Err(ProblemError::Unsupported(_))
         ));
-        if Backend::Ipopt.available() {
+        if adapter(Backend::Ipopt).linked() {
+            static IPOPT_ONLY: Table = Table::new(&[adapter(Backend::Ipopt)]);
             let requirements = Requirements {
-                available: Some(&[Backend::Ipopt]),
+                table: &IPOPT_ONLY,
                 ..requirements
             };
             assert_eq!(
@@ -253,7 +334,7 @@ mod tests {
         convex: bool,
     ) -> Result<Route, ProblemError> {
         Requirements {
-            available: None,
+            table: &LINKED,
             facts: f,
             intent,
             convex,
@@ -268,9 +349,9 @@ mod tests {
             objective: false,
             equalities: true,
             domains: vec![VariableDomain::Continuous],
-            derivatives: pse_kernels::DerivativeOrder::Second,
-            prepared_derivatives: pse_kernels::DerivativeOrder::Second,
-            bounds: vec![pse_math::facts::BoundShape::Free],
+            derivatives: DerivativeOrder::Second,
+            prepared_derivatives: DerivativeOrder::Second,
+            bounds: vec![BoundShape::Free],
             guarded: false,
             coefficients: false,
             affine_rows: vec![false],
@@ -282,11 +363,11 @@ mod tests {
     #[test]
     fn contextual_bounds_derivatives_and_threads_are_preparation_facts() {
         let mut f = root_facts();
-        f.bounds[0] = pse_math::facts::BoundShape::Boxed;
+        f.bounds[0] = BoundShape::Boxed;
         let mut controls = crate::solve::Controls::default();
         let assess = |f: &ProblemFacts, c: &crate::solve::Controls| {
             Requirements {
-                available: None,
+                table: &LINKED,
                 facts: f,
                 intent: SolveIntent::Root,
                 convex: false,
@@ -294,24 +375,25 @@ mod tests {
             }
             .eligibility()
         };
+        let reasons = |q: &[Eligibility], backend| {
+            q.iter()
+                .find(|e| e.backend == backend)
+                .unwrap()
+                .reasons
+                .clone()
+        };
         let q = assess(&f, &controls);
         assert!(
-            q.iter()
-                .find(|e| e.backend == Backend::Kinsol)
-                .unwrap()
-                .reasons
+            reasons(&q, Backend::Kinsol)
                 .iter()
-                .any(|r| r.contains("general bounds"))
+                .any(|r| matches!(r, Ineligible::Bounds { signs: true }))
         );
         assert!(
-            q.iter()
-                .find(|e| e.backend == Backend::Ipopt)
-                .unwrap()
-                .reasons
+            reasons(&q, Backend::Ipopt)
                 .iter()
-                .all(|r| r == "adapter not linked")
+                .all(|r| *r == Ineligible::NotLinked)
         );
-        f.prepared_derivatives = pse_kernels::DerivativeOrder::Value;
+        f.prepared_derivatives = DerivativeOrder::Value;
         assert!(
             assess(&f, &controls)
                 .iter()
@@ -319,23 +401,18 @@ mod tests {
                     e.backend,
                     Backend::Ipopt | Backend::Pounce | Backend::Kinsol
                 ))
-                .all(|e| e.reasons.iter().any(|r| r.contains("derivative")))
+                .all(|e| e
+                    .reasons
+                    .iter()
+                    .any(|r| matches!(r, Ineligible::Derivatives { .. })))
         );
         f = root_facts();
         controls.threads = 2;
-        assert!(
-            assess(&f, &controls)
-                .iter()
-                .find(|e| e.backend == Backend::Kinsol)
-                .unwrap()
-                .reasons
-                .iter()
-                .any(|r| r.contains("serial"))
-        );
+        assert!(reasons(&assess(&f, &controls), Backend::Kinsol).contains(&Ineligible::Serial));
         f.variables = 0;
         assert!(
             Requirements {
-                available: None,
+                table: &LINKED,
                 facts: &f,
                 intent: SolveIntent::Optimize,
                 convex: false,
@@ -353,9 +430,9 @@ mod tests {
             objective: true,
             equalities: true,
             domains: vec![VariableDomain::Integer; 2],
-            derivatives: pse_kernels::DerivativeOrder::Second,
-            prepared_derivatives: pse_kernels::DerivativeOrder::Second,
-            bounds: vec![pse_math::facts::BoundShape::Free; 2],
+            derivatives: DerivativeOrder::Second,
+            prepared_derivatives: DerivativeOrder::Second,
+            bounds: vec![BoundShape::Free; 2],
             guarded: false,
             coefficients: true,
             quadratic: true,
@@ -393,5 +470,80 @@ mod tests {
             select(&f, SolveIntent::Optimize, SolverSelection::Auto, false).unwrap(),
             Route::Constant
         );
+    }
+    #[test]
+    fn problem_classes_follow_facts_and_intent() {
+        let mut f = root_facts();
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Root, false),
+            [ProblemClass::SquareRoot, ProblemClass::SmoothNlp]
+        );
+        assert_eq!(
+            problem_classes(&f, SolveIntent::FeasiblePoint, false),
+            [ProblemClass::SmoothNlp]
+        );
+        f.coefficients = true;
+        f.objective = true;
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, false),
+            [ProblemClass::SmoothNlp, ProblemClass::Linear]
+        );
+        f.quadratic = true;
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, false),
+            [ProblemClass::SmoothNlp]
+        );
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, true),
+            [ProblemClass::SmoothNlp, ProblemClass::ConvexQuadratic]
+        );
+        f.quadratic = false;
+        f.domains = vec![VariableDomain::Binary];
+        assert_eq!(
+            problem_classes(&f, SolveIntent::Optimize, false),
+            [ProblemClass::MixedLinear]
+        );
+    }
+    #[test]
+    fn certify_intent_refused_until_global_backend() {
+        let mut f = root_facts();
+        f.objective = true;
+        f.equalities = false;
+        for selection in [
+            SolverSelection::Auto,
+            SolverSelection::Explicit(Backend::Ipopt),
+            SolverSelection::Explicit(Backend::Pounce),
+        ] {
+            let error = select(&f, SolveIntent::Certify, selection, false).unwrap_err();
+            assert!(
+                matches!(&error, ProblemError::Unsupported(m) if m == "no linked backend certifies global bounds"),
+                "{error:?}"
+            );
+        }
+        // Even an all-fixed model is not silently certified by constant evaluation.
+        f.variables = 0;
+        assert!(matches!(
+            select(&f, SolveIntent::Certify, SolverSelection::Auto, false),
+            Err(ProblemError::Unsupported(_))
+        ));
+        let requirements = Requirements {
+            table: &LINKED,
+            facts: &root_facts(),
+            intent: SolveIntent::Certify,
+            convex: false,
+            controls: &crate::solve::Controls::default(),
+        };
+        assert!(
+            requirements
+                .eligibility()
+                .iter()
+                .all(|e| e.reasons.contains(&Ineligible::Certification))
+        );
+        // Certification is a typed intent with a registry name, parsed like every other.
+        assert_eq!(
+            "certify".parse::<SolveIntent>().unwrap(),
+            SolveIntent::Certify
+        );
+        assert_eq!(SolveIntent::Certify.as_str(), "certify");
     }
 }

@@ -6,15 +6,19 @@ use pse_math::binding::{CaseLimits, CaseStructure, Target};
 /// Per-attempt variable specification in canonical physical units.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ModelingVariableState {
+    /// Override of whether the variable is fixed; `None` keeps the authored state.
     pub fixed: Option<bool>,
     /// Outer option selects an override; inner None removes that endpoint.
     pub lower: Option<Option<f64>>,
+    /// Upper endpoint override with the same meaning as `lower`.
     pub upper: Option<Option<f64>>,
 }
 /// Case values and structural specifications resolve through the modeling language's paths.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ModelingCaseBindings {
+    /// Values by modeling-language path, in canonical physical units.
     pub values: BTreeMap<String, f64>,
+    /// Structural variable specifications by modeling-language path.
     pub variables: BTreeMap<String, ModelingVariableState>,
 }
 impl From<&pse_modeling::specialize::Fixture> for ModelingCaseBindings {
@@ -189,14 +193,7 @@ impl PreparedModeling {
             &cancel,
         )?);
         let presolve = Arc::new(plan.presolve_facts(&values, 100_000, &cancel)?);
-        let facts = pse_math::facts::ProblemFacts::from_plan(&plan, None, &presolve)?;
-        let coefficients = if facts.affine_rows.iter().all(|v| *v)
-            && facts.objective_degree.is_some_and(|d| d <= 2)
-            && presolve
-                .obligations
-                .values()
-                .all(|s| *s == pse_math::presolve::ObligationStatus::Discharged)
-        {
+        let coefficients = if presolve.coefficient_eligible() {
             Some(Arc::new(plan.coefficients_with_facts(
                 &values, &presolve, 100_000, &cancel,
             )?))

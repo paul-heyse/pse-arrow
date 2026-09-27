@@ -84,14 +84,7 @@ impl CasePlan {
         term_limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Coefficients, MathError> {
-        if !facts.matches(self, values)
-            || facts.affine.iter().any(Option::is_none)
-            || facts.objective_degree.is_none_or(|d| d > 2)
-            || facts
-                .obligations
-                .values()
-                .any(|s| *s != crate::presolve::ObligationStatus::Discharged)
-        {
+        if !facts.matches(self, values) || !facts.coefficient_eligible() {
             return Err(MathError::Contract(
                 "coefficient projection requires current affine and domain facts".into(),
             ));

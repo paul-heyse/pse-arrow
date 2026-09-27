@@ -422,7 +422,7 @@ async fn actual_compile_failure_is_retryable_and_admission_is_finite() {
 async fn native_staged_recycle_and_singular_block_preserve_original_values() {
     use super::initialization::InitializationProfile;
     use pse_backend_native::{
-        kinsol::Linear,
+        execution::BackendSettings,
         solve::{Controls, SolverSelection, Termination},
     };
     for singular in [false, true] {
@@ -525,7 +525,7 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
                 InitializationProfile {
                     selection: SolverSelection::Auto,
                     controls: Controls::default(),
-                    linear: Linear::Klu,
+                    backend: BackendSettings::Default,
                     numerics: Default::default(),
                     stages: vec![BTreeMap::new(), BTreeMap::new()],
                 },
@@ -560,7 +560,7 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
 #[tokio::test]
 async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() {
     use super::solves::*;
-    use pse_backend_native::solve::*;
+    use pse_backend_native::{execution::BackendSettings, solve::*};
     let s = service();
     let mut i = inputs();
     i.values.insert(id(1), 0.0);
@@ -637,7 +637,7 @@ async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() 
 #[tokio::test]
 async fn solver_profile_refuses_mismatched_backend_before_artifact_construction() {
     use super::solves::*;
-    use pse_backend_native::solve::*;
+    use pse_backend_native::{execution::BackendSettings, solve::*};
     let s = service();
     let p = prepared(&s).await;
     let before = s.entries.len();
@@ -668,7 +668,7 @@ async fn solver_profile_refuses_mismatched_backend_before_artifact_construction(
 #[tokio::test]
 async fn initialization_prepares_conditional_programs_and_rejects_invalid_schedules() {
     use super::initialization::*;
-    use pse_backend_native::{kinsol, solve::*};
+    use pse_backend_native::{execution::BackendSettings, solve::*};
     let s = service();
     let w = s.workspace(inputs(), WorkspaceLimits::default()).unwrap();
     let p = s
@@ -679,7 +679,7 @@ async fn initialization_prepares_conditional_programs_and_rejects_invalid_schedu
     let profile = InitializationProfile {
         selection: SolverSelection::Auto,
         controls: Controls::default(),
-        linear: kinsol::Linear::Klu,
+        backend: BackendSettings::Default,
         numerics: Default::default(),
         stages: vec![BTreeMap::from([(id(1), 2.0)])],
     };

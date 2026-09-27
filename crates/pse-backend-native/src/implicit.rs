@@ -96,7 +96,14 @@ impl InnerSolver for Kinsol {
             time_limit: options.time_limit,
             ..Controls::default()
         };
-        controls.accuracy.feasibility = 1.0;
+        // The normalized feasibility budget of the unknowns (tolerance over nominal), as
+        // `Accuracy::resolve` forms it; the function-norm test stays |r| <= tolerance.
+        controls.accuracy.feasibility = options
+            .variable_tolerance
+            .iter()
+            .zip(&options.variable_nominals)
+            .map(|(t, n)| t / n)
+            .fold(f64::INFINITY, f64::min);
         let contract = OracleContract {
             identity: problem.identity,
             variables: problem
@@ -122,20 +129,25 @@ impl InnerSolver for Kinsol {
             contract,
             cancel: cancel.clone(),
         };
-        let settings = kinsol::Settings {
-            strategy: kinsol::Strategy::LineSearch,
-            linear: kinsol::Linear::Klu,
-            variable_scales: options
-                .variable_nominals
-                .iter()
-                .map(|v| v.recip())
-                .collect(),
-            residual_scales: options.residual_tolerance.iter().map(|t| 1.0 / t).collect(),
-            anderson: 0,
-            damping: 1.0,
-            setup_interval: 1,
-            step_tolerance: 1e-12,
+        // The nested budgets come from the resolved numerical policy: residuals within
+        // their tolerance and steps below the unknowns' tolerance, in original coordinates.
+        let tolerances = Tolerances {
+            variables: options.variable_tolerance.clone(),
+            rows: options.residual_tolerance.clone(),
+            integrality: f64::EPSILON,
         };
+        let settings = kinsol::Settings::from_policy(
+            kinsol::Method {
+                setup_interval: 1,
+                ..kinsol::Method::default()
+            },
+            &tolerances,
+            &pse_math::normalization::Normalization::identity(
+                problem.unknowns.len(),
+                problem.rows.len(),
+            ),
+            controls.accuracy.feasibility,
+        );
         let compatibility = Compatibility {
             layout: problem.identity,
             data: problem.identity,
@@ -159,11 +171,6 @@ impl InnerSolver for Kinsol {
             compatibility,
         )
         .map_err(map)?;
-        let tolerances = Tolerances {
-            variables: options.variable_tolerance.clone(),
-            rows: options.residual_tolerance.clone(),
-            integrality: f64::EPSILON,
-        };
         let report = session
             .solve(&options.start, &controls, execution, &tolerances, None)
             .map_err(map)?;

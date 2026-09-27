@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
-use crate::math::solves::{BackendSettings, Outcome};
+use crate::math::solves::Outcome;
 #[cfg(feature = "solver-kinsol")]
 use crate::workflow::tests::compiler_profile;
 use crate::workflow::tests::{id, physical, runtime};
+use pse_backend_native::execution::BackendSettings;
 pub(super) fn profile(intent: SolveIntent) -> SolverProfile {
     SolverProfile {
         intent,
@@ -86,7 +87,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
                     iterations: 50,
                     ..Default::default()
                 },
-                linear: native::kinsol::Linear::Klu,
+                backend: BackendSettings::Default,
                 numerics: Default::default(),
                 stages: vec![
                     BTreeMap::from([(a, 9.0)]),
@@ -136,7 +137,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     let flow=package.prepare_flow(&analysis,selection.clone(),&cancel).await.unwrap();
     let witness=runtime.native().select_tears(flow,crate::math::flows::TearMethod::UnweightedHeuristic,Controls::default()).unwrap().finish().await.unwrap().selected.clone().unwrap();
     assert_eq!(witness.cost,2.0);
-    let request=crate::workflow::RecycleRequest{tears:witness.decisions,units:vec![crate::workflow::CausalUnitRequest{node:root,inputs:BTreeSet::from([input]),outputs:BTreeSet::from([output])}],anderson:1,damping:1.0};
+    let request=RecycleRequest{tears:witness.decisions,units:vec![CausalUnitRequest{node:root,inputs:BTreeSet::from([input]),outputs:BTreeSet::from([output])}],anderson:1,damping:1.0};
     let prepared=package.prepare_recycle(&analysis,selection.clone(),request.clone(),&cancel).await.unwrap();
     assert_eq!(prepared.order().unwrap(),vec![root]);
     assert_eq!(prepared.numerics().targets.len(),2);

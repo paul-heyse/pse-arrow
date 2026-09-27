@@ -225,7 +225,7 @@ impl NativeModelingPackage {
         let simulations = simulations
             .into_iter()
             .map(|(key, v)| id(py, &key).map(|key| (key, v.profile.clone())))
-            .collect::<PyResult<std::collections::BTreeMap<_, _>>>()?;
+            .collect::<PyResult<BTreeMap<_, _>>>()?;
         if simulations.len() != count {
             return Err(invalid(py, "duplicate experiment settings"));
         }
@@ -324,7 +324,7 @@ impl NativeModelingPackage {
         time_limit: f64,
     ) -> PyResult<NativeModelingDiagnosticSamples> {
         let root = id(py, case_id)?;
-        let duration = std::time::Duration::try_from_secs_f64(time_limit)
+        let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "diagnostic time limit must be finite and positive"))?;
         let samples = samples
             .into_iter()
@@ -542,9 +542,9 @@ impl NativeModelingPackage {
                         .iter()
                         .map(|r| r.id)
                         .collect::<Vec<_>>();
-                    let align=|values:Option<BTreeMap<String,f64>>,ids:&[pse_ids::SemanticId]|->Result<Option<Vec<f64>>,native::WorkflowError>{
+                    let align=|values:Option<BTreeMap<String,f64>>,ids:&[SemanticId]|->Result<Option<Vec<f64>>,native::WorkflowError>{
                     values.map(|values|{
-                        let values=values.into_iter().map(|(key,v)|pse_ids::SemanticId::parse_hex(&key).map(|id|(id,v)).map_err(|e|native::WorkflowError::Contract(e.to_string()))).collect::<Result<BTreeMap<_,_>,_>>()?;
+                        let values=values.into_iter().map(|(key,v)|SemanticId::parse_hex(&key).map(|id|(id,v)).map_err(|e|native::WorkflowError::Contract(e.to_string()))).collect::<Result<BTreeMap<_,_>,_>>()?;
                         if values.len()!=ids.len(){return Err(native::WorkflowError::Contract("local penalties require every source coordinate exactly once".into()));}
                         ids.iter().map(|id|values.get(id).copied().ok_or_else(||native::WorkflowError::Contract("local penalty source coordinate absent".into()))).collect()
                     }).transpose()
@@ -680,7 +680,7 @@ impl NativeModelingPackage {
         time_limit: f64,
     ) -> PyResult<NativeModelingInitialization> {
         let root = id(py, case_id)?;
-        let duration = std::time::Duration::try_from_secs_f64(time_limit)
+        let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "initialization time limit must be finite and positive"))?;
         let policy = native::ModelingInitialization {
             stages,
@@ -836,12 +836,12 @@ impl NativeModelingPackage {
             if !matches!(settings.profile.intent,pse_backend_native::solve::SolveIntent::Initialize|pse_backend_native::solve::SolveIntent::Root)
                 || matches!(settings.profile.presolve,pse_backend_native::presolve::Policy::Explicit{..})
                 || !matches!(settings.profile.convexity,pse_runtime::math::solves::ConvexityPolicy::Exact)
-                || !matches!(settings.profile.backend,pse_runtime::math::solves::BackendSettings::Default) {
+                || !matches!(settings.profile.backend,pse_backend_native::execution::BackendSettings::Default) {
                 return Err(invalid(py,"initialization requires root/initialize intent and has no explicit preprocessing or convexity strategy"));
             }
             if stages.len()>4096 {return Err(invalid(py,"continuation stage allowance"));}
             let stages=stages.into_iter().map(|s|s.into_iter().map(|(k,v)|id(py,&k).map(|k|(k,v))).collect::<PyResult<_>>()).collect::<PyResult<_>>()?;
-            let profile=pse_runtime::math::initialization::InitializationProfile{selection:settings.profile.selection,controls:settings.profile.controls.clone(),linear:pse_backend_native::kinsol::Linear::Klu,numerics:settings.profile.numerics.clone(),stages};
+            let profile=pse_runtime::math::initialization::InitializationProfile{selection:settings.profile.selection,controls:settings.profile.controls.clone(),backend:settings.profile.backend.clone(),numerics:settings.profile.numerics.clone(),stages};
             let cancel=CancelSource::new();
             let inner=blocking(py,&self.owner,async {
                 let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.profile.clone(),Default::default(),self.limits,&cancel).await?;

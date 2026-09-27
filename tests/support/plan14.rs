@@ -7,9 +7,10 @@
 )]
 #[path = "workflow_runtime.rs"]
 mod workflow_runtime;
+use pse_backend_native::execution::BackendSettings;
 use pse_backend_native::solve::{Backend, Controls, SolveIntent, SolverSelection};
 use pse_ids::SemanticId;
-use pse_runtime::math::solves::{BackendSettings, SolverProfile};
+use pse_runtime::math::solves::SolverProfile;
 use pse_runtime::workflow::{RunReport, RunResult, Runtime};
 use std::collections::BTreeMap;
 pub(crate) use workflow_runtime::WorkflowRuntime;

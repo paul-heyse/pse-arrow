@@ -681,6 +681,16 @@ class NativeRunState(StrEnum):
     UNATTEMPTED = "unattempted"
 
 
+class NativeSolveIntent(StrEnum):
+    """The declared NativeSolveIntent enumeration."""
+
+    OPTIMIZE = "optimize"
+    ROOT = "root"
+    FEASIBLE_POINT = "feasible_point"
+    INITIALIZE = "initialize"
+    CERTIFY = "certify"
+
+
 class NativeStartPolicy(StrEnum):
     """The declared NativeStartPolicy enumeration."""
 

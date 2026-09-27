@@ -16,8 +16,11 @@ use pse_relations::{
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FitData {
+    /// Declared fits with their parameters, experiments and observation selections.
     pub fits: Vec<fit_cases::Row>,
+    /// Measured observations referenced by fits.
     pub observations: Vec<observations::Row>,
+    /// Datasets the observations come from.
     pub datasets: Vec<datasets::Row>,
     #[serde(skip)]
     owner: Option<Arc<pse_columnar::AllocationLease>>,
@@ -148,7 +151,7 @@ impl ModelingPackage {
             problem.bounds.iter().all(|(a, b)| a.is_finite() && a == b),
         );
         let route = native::routing::Requirements {
-            available: Some(crate::math::solves::ALGEBRAIC_BACKENDS),
+            table: &native::execution::LINKED,
             facts: &facts,
             intent: problem.profile.solver.intent,
             convex: false,

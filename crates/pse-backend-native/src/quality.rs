@@ -488,7 +488,7 @@ pub fn record_kkt(
 /// Native stop categories are retained independently, including limits with feasible candidates.
 /// Only typed adapter evidence is read; metrics never grant a claim.
 pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::Accuracy) {
-    use crate::solve::{Assurance, Backend, Qualification, SolutionStatus, Termination};
+    use crate::solve::{Assurance, Qualification, SolutionStatus, Termination};
     report.qualification = Qualification::Unqualified;
     report.termination.assurance = Assurance::None;
     if report.validation_failure().is_some()
@@ -507,69 +507,57 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
     if !stopped {
         return;
     }
+    // The typed evidence an adapter records selects the class rule; no backend is named,
+    // so a new adapter qualifies through the evidence it produces.
     let evidence = report.evidence;
-    match report.backend {
-        Backend::Ipopt | Backend::Pounce
-            if report
-                .observation
-                .as_ref()
-                .is_some_and(|o| o.dual_error.is_none())
-                && evidence.kkt.is_some_and(|k| {
-                    k.stationarity == Some(true) && k.complementarity == Some(true)
-                })
-                && (report.termination.category != Termination::Acceptable
-                    || accuracy.acceptable.is_some()) =>
-        {
-            report.qualification = Qualification::Stationary;
-            report.termination.assurance = Assurance::LocalStationary;
+    if let Some(c) = evidence.coefficient {
+        if !c.upload_equivalent {
+            return;
         }
-        Backend::Highs => {
-            let Some(c) = evidence.coefficient.filter(|c| c.upload_equivalent) else {
+        if c.discrete {
+            let (Some(gap), Some(bound)) = (finite(c.mip_gap), finite(c.mip_dual_bound)) else {
                 return;
             };
-            if c.discrete {
-                let (Some(gap), Some(bound)) = (finite(c.mip_gap), finite(c.mip_dual_bound)) else {
-                    return;
-                };
-                let absolute = finite(c.objective).map(|v| (v - bound).abs());
-                if gap >= 0.0
-                    && (gap <= accuracy.mip_relative_gap
-                        || absolute.is_some_and(|v| v <= accuracy.mip_absolute_gap))
-                {
-                    report.qualification = if gap == 0.0 && absolute == Some(0.0) {
-                        Qualification::OptimalWithinTolerance
-                    } else {
-                        Qualification::GapQualified
-                    };
-                    report.termination.assurance = Assurance::NativeOptimal;
-                }
-            } else if finite(c.max_dual_infeasibility)
-                .is_some_and(|v| v >= 0.0 && v <= accuracy.stationarity)
-                && finite(c.primal_dual_objective_error)
-                    .is_some_and(|v| v >= 0.0 && v <= accuracy.gap_relative)
-                && c.dual == SolutionStatus::Feasible
+            let absolute = finite(c.objective).map(|v| (v - bound).abs());
+            if gap >= 0.0
+                && (gap <= accuracy.mip_relative_gap
+                    || absolute.is_some_and(|v| v <= accuracy.mip_absolute_gap))
             {
-                report.qualification = Qualification::OptimalWithinTolerance;
+                report.qualification = if gap == 0.0 && absolute == Some(0.0) {
+                    Qualification::OptimalWithinTolerance
+                } else {
+                    Qualification::GapQualified
+                };
                 report.termination.assurance = Assurance::NativeOptimal;
             }
-        }
-        Backend::Clarabel
-            if evidence.conic.is_some_and(|c| {
-                c.primal_residual <= accuracy.feasibility
-                    && c.dual_residual <= accuracy.stationarity
-                    && (c.gap_absolute <= accuracy.gap_absolute
-                        || c.gap_relative <= accuracy.gap_relative)
-            }) =>
+        } else if finite(c.max_dual_infeasibility)
+            .is_some_and(|v| v >= 0.0 && v <= accuracy.stationarity)
+            && finite(c.primal_dual_objective_error)
+                .is_some_and(|v| v >= 0.0 && v <= accuracy.gap_relative)
+            && c.dual == SolutionStatus::Feasible
         {
             report.qualification = Qualification::OptimalWithinTolerance;
             report.termination.assurance = Assurance::NativeOptimal;
         }
-        Backend::Ipopt
-        | Backend::Pounce
-        | Backend::Clarabel
-        | Backend::Kinsol
-        | Backend::Diffsol
-        | Backend::Idas => {}
+    } else if let Some(c) = evidence.conic {
+        if c.primal_residual <= accuracy.feasibility
+            && c.dual_residual <= accuracy.stationarity
+            && (c.gap_absolute <= accuracy.gap_absolute || c.gap_relative <= accuracy.gap_relative)
+        {
+            report.qualification = Qualification::OptimalWithinTolerance;
+            report.termination.assurance = Assurance::NativeOptimal;
+        }
+    } else if report
+        .observation
+        .as_ref()
+        .is_some_and(|o| o.dual_error.is_none())
+        && evidence
+            .kkt
+            .is_some_and(|k| k.stationarity == Some(true) && k.complementarity == Some(true))
+        && (report.termination.category != Termination::Acceptable || accuracy.acceptable.is_some())
+    {
+        report.qualification = Qualification::Stationary;
+        report.termination.assurance = Assurance::LocalStationary;
     }
 }
 

@@ -61,7 +61,7 @@ pub fn cone_key(cones: &[Cone<f64>]) -> pse_ids::ContentHash {
     h.finish_hash()
 }
 /// Native preprocessing and mutable-data reuse are distinct execution profiles.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum Mode {
     /// Native presolve/chordal preprocessing may change the native layout.
     SingleSolve,

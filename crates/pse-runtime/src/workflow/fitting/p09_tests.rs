@@ -25,7 +25,7 @@ fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage,FitPr
     }
     data.fits.push(fit);
     let profile=FitProfile {
-        solver:SolverProfile {intent:SolveIntent::Optimize,selection:native::solve::SolverSelection::Explicit(Backend::Ipopt),controls:native::solve::Controls{hessian:HessianMode::LimitedMemory,..Default::default()},presolve:native::presolve::Policy::Off,numerics:Default::default(),convexity:Default::default(),backend:crate::math::solves::BackendSettings::Default},
+        solver:SolverProfile {intent:SolveIntent::Optimize,selection:native::solve::SolverSelection::Explicit(Backend::Ipopt),controls:native::solve::Controls{hessian:HessianMode::LimitedMemory,..Default::default()},presolve:native::presolve::Policy::Off,numerics:Default::default(),convexity:Default::default(),backend:native::execution::BackendSettings::Default},
         simulations:BTreeMap::from([(id(74),native::dynamics::Profile{start:160.,end:161.,samples:vec![160.,161.],parameter_scales:vec![1.],..Default::default()})]),
         modes:BTreeMap::new(),rank_tolerance:1e-8,max_cells:100000,
     };

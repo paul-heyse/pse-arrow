@@ -6384,6 +6384,109 @@ impl core::str::FromStr for NativeRunState {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NativeSolveIntent {
+    ///optimize
+    #[serde(rename = "optimize")]
+    Optimize,
+    ///root
+    #[serde(rename = "root")]
+    Root,
+    ///feasible_point
+    #[serde(rename = "feasible_point")]
+    FeasiblePoint,
+    ///initialize
+    #[serde(rename = "initialize")]
+    Initialize,
+    ///certify
+    #[serde(rename = "certify")]
+    Certify,
+}
+impl crate::SemanticEq for NativeSolveIntent {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativeSolveIntent {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Optimize,
+        Self::Root,
+        Self::FeasiblePoint,
+        Self::Initialize,
+        Self::Certify,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Optimize => "optimize",
+            Self::Root => "root",
+            Self::FeasiblePoint => "feasible_point",
+            Self::Initialize => "initialize",
+            Self::Certify => "certify",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Optimize => 0usize,
+            Self::Root => 1usize,
+            Self::FeasiblePoint => 2usize,
+            Self::Initialize => 3usize,
+            Self::Certify => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Optimize => None,
+            Self::Root => None,
+            Self::FeasiblePoint => None,
+            Self::Initialize => None,
+            Self::Certify => None,
+        }
+    }
+}
+impl core::str::FromStr for NativeSolveIntent {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "optimize" => Ok(Self::Optimize),
+            "root" => Ok(Self::Root),
+            "feasible_point" => Ok(Self::FeasiblePoint),
+            "initialize" => Ok(Self::Initialize),
+            "certify" => Ok(Self::Certify),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(NativeSolveIntent).to_owned(),
+                    enumeration: stringify!(NativeSolveIntent).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NativeStartPolicy {
     ///no_prior_start
     #[serde(rename = "no_prior_start")]
@@ -8936,6 +9039,16 @@ impl crate::HeapUsage for NativeRunState {
     }
 }
 impl crate::SemanticFrame for NativeRunState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NativeSolveIntent {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeSolveIntent {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

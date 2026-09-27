@@ -221,10 +221,8 @@ impl ModelingPackage {
                 "causal map requires serial KINSOL root intent and original declared guesses",
             ));
         }
-        if !matches!(
-            profile.backend,
-            crate::math::solves::BackendSettings::Default
-        ) || profile.controls.accuracy != Accuracy::default()
+        if !matches!(profile.backend, native::execution::BackendSettings::Default)
+            || profile.controls.accuracy != Accuracy::default()
         {
             return Err(contract(
                 "causal map settings derive from its numerical policy and declared map controls",
@@ -512,21 +510,17 @@ impl ModelingPackage {
         };
         profile.controls.accuracy = Accuracy::resolve(&numerics.policy, &tolerances, &identity)
             .map_err(MathRuntimeError::from)?;
-        let scales = |t: &[f64]| {
-            t.iter()
-                .map(|t| profile.controls.accuracy.feasibility / t)
-                .collect()
-        };
-        let settings = kinsol::Settings {
-            strategy: kinsol::Strategy::FixedPoint,
-            linear: kinsol::Linear::Klu,
-            variable_scales: scales(&tolerances.variables),
-            residual_scales: scales(&tolerances.rows),
-            anderson: request.anderson,
-            damping: request.damping,
-            setup_interval: 10,
-            step_tolerance: profile.controls.accuracy.feasibility,
-        };
+        let settings = kinsol::Settings::from_policy(
+            kinsol::Method {
+                strategy: kinsol::Strategy::FixedPoint,
+                anderson: request.anderson,
+                damping: request.damping,
+                ..kinsol::Method::default()
+            },
+            &tolerances,
+            &identity,
+            profile.controls.accuracy.feasibility,
+        );
         settings
             .validate_contract(&contract, kinsol::Strategy::FixedPoint, &BTreeMap::new())
             .map_err(MathRuntimeError::from)?;

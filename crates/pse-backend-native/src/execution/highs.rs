@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//! HiGHS adapter: typed method, opt-in native diagnostics and partial MIP starts over a
+//! retained native model updated in place for compatible layouts.
+use super::{BackendExecution, Capability, Input, Representation, Retained};
+use crate::{
+    ProblemError,
+    solve::{
+        Backend, DerivativeCapability, ProblemClass, SolveReport, WarmCapability, WarmPayload,
+    },
+};
+
+#[derive(Debug)]
+pub(super) struct Highs;
+pub(super) static ADAPTER: Highs = Highs;
+static CAPABILITY: Capability = Capability {
+    classes: &[
+        ProblemClass::Linear,
+        ProblemClass::MixedLinear,
+        ProblemClass::ConvexQuadratic,
+    ],
+    derivatives: DerivativeCapability::Coefficients,
+    warm: WarmCapability::PrimalDualAndBasis,
+    general_bounds: true,
+    sign_bounds: true,
+    parallel: true,
+    reuse: "native coefficient/bound updates with compatible layout",
+    cancellation: "simplex/IPM/MIP interrupt callbacks; QP native time limit",
+    diagnostics: "native information, rays, IIS, ranging and explicit relaxation",
+};
+impl BackendExecution for Highs {
+    fn backend(&self) -> Backend {
+        Backend::Highs
+    }
+    fn capability(&self) -> &'static Capability {
+        &CAPABILITY
+    }
+    fn representation(&self) -> Representation {
+        Representation::Coefficients
+    }
+    fn linked(&self) -> bool {
+        cfg!(feature = "highs")
+    }
+    fn automatic(&self) -> Option<u8> {
+        Some(1)
+    }
+    fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
+        Ok(WarmPayload::Highs {
+            primal: Some(primal),
+            dual: None,
+            basis: None,
+        })
+    }
+    fn accepts(&self, payload: &WarmPayload) -> bool {
+        matches!(payload, WarmPayload::Highs { .. })
+    }
+    fn execute(
+        &self,
+        retained: &mut Retained,
+        input: Input<'_>,
+    ) -> Result<SolveReport, ProblemError> {
+        let super::Problem::Coefficients {
+            problem,
+            certificate,
+            normalization,
+            row_constants,
+        } = input.problem
+        else {
+            return Err(super::representation(Backend::Highs));
+        };
+        #[cfg(feature = "highs")]
+        {
+            use super::BackendSettings;
+            use crate::{highs, solve::Metric, transport};
+            use std::collections::BTreeMap;
+            let defaults = highs::Settings::default();
+            let settings = match input.settings {
+                BackendSettings::Default => &defaults,
+                BackendSettings::Highs(settings) => settings,
+                _ => return Err(super::foreign(Backend::Highs)),
+            };
+            let stamp = input.compatibility;
+            let (session, reused) = retained.session(
+                Backend::Highs,
+                input.controls.reuse,
+                |session: &mut highs::Session| {
+                    Ok(session.update(problem, certificate, stamp.clone()).is_ok())
+                },
+                || highs::Session::new(problem, certificate, stamp.clone()),
+            )?;
+            if let Some(start) = &settings.sparse_start {
+                let start = start
+                    .iter()
+                    .map(|(id, v)| {
+                        let i = problem
+                            .contract
+                            .variables
+                            .iter()
+                            .position(|c| c.id == *id)
+                            .ok_or_else(|| {
+                                ProblemError::Contract("unknown sparse start coordinate".into())
+                            })?;
+                        Ok((
+                            *id,
+                            pse_math::normalization::checked_ratio(*v, normalization.variables[i])?,
+                        ))
+                    })
+                    .collect::<Result<BTreeMap<_, _>, ProblemError>>()?;
+                session.sparse_start(problem, &start)?;
+            }
+            let mut report = session.solve(
+                problem,
+                input.controls,
+                settings.method,
+                input.execution.clone(),
+                input.tolerances,
+                input.warm,
+            )?;
+            let requested = &settings.diagnostics;
+            if requested.rays
+                || requested.iis
+                || requested.ranging
+                || requested.relaxation.is_some()
+            {
+                let request = transport::diagnostic_request(requested, normalization)?;
+                let mut diagnostics = session
+                    .diagnose(problem, &request, &input.execution)
+                    .unwrap_or_else(|e| highs::diagnostics::Report {
+                        unavailable: BTreeMap::from([("operation".into(), e.to_string())]),
+                        ..Default::default()
+                    });
+                transport::recover_diagnostics(&mut diagnostics, normalization, row_constants)?;
+                report.highs_diagnostics = Some(Box::new(diagnostics));
+            }
+            report
+                .metrics
+                .insert("reuse.native_model".into(), Metric::Bool(reused));
+            Ok(report)
+        }
+        #[cfg(not(feature = "highs"))]
+        {
+            let _ = (retained, problem, certificate, normalization, row_constants);
+            Err(super::unlinked(Backend::Highs))
+        }
+    }
+}

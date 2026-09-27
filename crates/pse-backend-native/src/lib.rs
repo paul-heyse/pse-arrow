@@ -8,8 +8,10 @@ pub mod conic;
 mod convexity;
 pub mod derivative_diagnostics;
 pub mod dynamics;
+pub mod execution;
 #[cfg(feature = "highs")]
 pub mod highs;
+pub mod identity;
 #[cfg(feature = "kinsol")]
 pub mod implicit;
 #[cfg(feature = "ipopt")]
@@ -497,6 +499,129 @@ impl CoefficientProblem {
             ));
         }
         Ok(())
+    }
+    /// Exact declared objective convention `constant + c*x + 1/2 x'Qx`.
+    pub fn objective_at(&self, x: &[f64]) -> f64 {
+        let column = faer::ColRef::from_slice(x);
+        let linear = faer::ColRef::from_slice(&self.objective).transpose() * column;
+        let quadratic = self.hessian.as_ref().map_or(0.0, |q| {
+            let product = q * column;
+            0.5 * (column.transpose() * product.as_ref())
+        });
+        self.objective_constant + linear + quadratic
+    }
+    // Every coefficient consumer uses the same library product. The runtime's final
+    // original symbolic-model evaluation remains independent of solver coefficients.
+    fn activity(&self, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
+        if x.len() != self.constraints.ncols() || x.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::Internal(
+                "coefficient activity dimensions or values".into(),
+            ));
+        }
+        let mut result = vec![0.0; self.constraints.nrows()];
+        faer::sparse::linalg::matmul::sparse_dense_matmul(
+            faer::MatMut::from_column_major_slice_mut(&mut result, self.constraints.nrows(), 1),
+            faer::Accum::Replace,
+            self.constraints.as_ref(),
+            faer::MatRef::from_column_major_slice(x, x.len(), 1),
+            1.0,
+            faer::Par::Seq,
+        );
+        if result.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("nonfinite coefficient activity"));
+        }
+        Ok(result)
+    }
+    /// Recompute all affine rows and disjunctive domain violations independently.
+    ///
+    /// # Errors
+    /// Dimensions, tolerances or candidate values are invalid.
+    pub fn quality(
+        &self,
+        x: &[f64],
+        t: &quality::Tolerances,
+    ) -> Result<quality::Quality, ProblemError> {
+        use pse_math::binding::VariableDomain;
+        use quality::{Violation, interval};
+        t.validate(self.contract.variables.len(), self.contract.rows.len())?;
+        if x.len() != self.contract.variables.len() || x.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::numerical("invalid coefficient candidate"));
+        }
+        let activity = self.activity(x)?;
+        let rows = self
+            .contract
+            .rows
+            .iter()
+            .zip(activity)
+            .zip(&self.bounds)
+            .zip(&t.rows)
+            .map(|(((id, x), (l, u)), t)| Violation {
+                id: *id,
+                physical: interval(x, *l, *u),
+                tolerance: *t,
+            })
+            .collect();
+        let mut bounds = Vec::new();
+        let mut integrality = Vec::new();
+        for (((v, d), &x), tolerance) in self
+            .contract
+            .variables
+            .iter()
+            .zip(&self.domains)
+            .zip(x)
+            .zip(&t.variables)
+        {
+            let physical = if d.is_semi() {
+                x.abs().min(interval(x, v.lower, v.upper))
+            } else {
+                interval(
+                    x,
+                    if *d == VariableDomain::Binary {
+                        v.lower.max(0.0)
+                    } else {
+                        v.lower
+                    },
+                    if *d == VariableDomain::Binary {
+                        v.upper.min(1.0)
+                    } else {
+                        v.upper
+                    },
+                )
+            };
+            bounds.push(Violation {
+                id: v.id,
+                physical,
+                tolerance: *tolerance,
+            });
+            if d.is_integer() {
+                integrality.push(Violation {
+                    id: v.id,
+                    physical: (x - x.round()).abs(),
+                    tolerance: t.integrality,
+                });
+            }
+        }
+        quality::Quality::new(rows, bounds, integrality)
+    }
+    /// Independently reconstruct original affine row values and the authored objective.
+    /// The native model has shifted row bounds; source constants are applied exactly once.
+    ///
+    /// # Errors
+    /// Dimensions or candidate values are invalid.
+    pub fn observation(
+        &self,
+        x: &[f64],
+        constants: &[f64],
+        bounds: Vec<(f64, f64)>,
+    ) -> Result<quality::Observation, ProblemError> {
+        if x.len() != self.contract.variables.len() || constants.len() != self.bounds.len() {
+            return Err(ProblemError::Internal(
+                "coefficient observation dimensions".into(),
+            ));
+        }
+        let activity = self.activity(x)?;
+        let values = activity.iter().zip(constants).map(|(v, c)| v + c).collect();
+        quality::Observation::from_values(Some(self.objective_at(x)), values, bounds)
     }
 }
 /// Native conic data in Clarabel's own matrix and cone vocabulary, separate from NLP.

@@ -681,6 +681,16 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `rejected` | `` | false |
 | `unattempted` | `` | false |
 
+## `NativeSolveIntent`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `optimize` | `` | false |
+| `root` | `` | false |
+| `feasible_point` | `` | false |
+| `initialize` | `` | false |
+| `certify` | `` | false |
+
 ## `NativeStartPolicy`
 
 | Member | IDAES name | Deprecated |

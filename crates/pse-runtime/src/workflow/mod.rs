@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
-use pse_backend_native::solve::BackendCapabilities;
 mod completion;
 mod diagnostics;
 pub use completion::Completion;
@@ -129,27 +128,9 @@ impl Runtime {
         cfg!(feature = "solver-diffsol")
     }
     /// Actual linked implementations; model eligibility is separately reported by preparation.
+    /// The published rows are the capability records routing reads (F21).
     pub fn capabilities(&self) -> Vec<pse_model::generated::runtime::solver_capabilities::Row> {
-        use pse_backend_native::solve::Backend::*;
-        [Ipopt, Pounce, Kinsol, Highs, Clarabel, Diffsol, Idas]
-            .into_iter()
-            .filter(|b| b.available())
-            .map(|backend| {
-                let c = backend.capabilities();
-                pse_model::generated::runtime::solver_capabilities::Row {
-                    backend,
-                    classes: c.classes.to_vec(),
-                    derivatives: c.derivatives,
-                    warm: c.warm,
-                    reuse: c.reuse.into(),
-                    cancellation: c.cancellation.into(),
-                    diagnostics: c.diagnostics.into(),
-                    general_bounds: c.general_bounds,
-                    sign_bounds: c.sign_bounds,
-                    parallel: c.parallel,
-                }
-            })
-            .collect()
+        pse_backend_native::execution::LINKED.published()
     }
     /// Existing typed native services, including cone preparation, initialization,
     /// graph analysis, MILP tears and declared recycle maps, use this same owner.

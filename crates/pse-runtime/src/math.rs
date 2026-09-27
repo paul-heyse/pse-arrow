@@ -165,7 +165,6 @@ pub struct MathService {
 }
 impl MathService {
     /// Admitted worker stack, also used by nested native pools.
-    #[cfg(feature = "solver-pounce")]
     pub(crate) fn stack_bytes(&self) -> usize {
         self.policy.stack_bytes
     }
@@ -335,14 +334,7 @@ impl MathService {
                 compiler.publish(inputs)?;
                 let prepared =
                     compiler.prepare_cancellable(id, order, profile, false, flag.clone())?;
-                let prepared = if prepared.facts.affine_rows.iter().all(|v| *v)
-                    && prepared.facts.objective_degree.is_some_and(|d| d <= 2)
-                    && prepared
-                        .presolve
-                        .obligations
-                        .values()
-                        .all(|s| *s == pse_math::presolve::ObligationStatus::Discharged)
-                {
+                let prepared = if prepared.presolve.coefficient_eligible() {
                     compiler.prepare_cancellable(id, order, profile, true, flag)?
                 } else {
                     prepared

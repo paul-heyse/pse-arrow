@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Thin option projection; native adapters own validation and effective-option reporting.
 use super::invalid;
+use pse_backend_native::execution::BackendSettings;
 use pse_backend_native::{
     presolve::Policy,
     solve::{
@@ -9,7 +10,7 @@ use pse_backend_native::{
         SolverSelection,
     },
 };
-use pse_runtime::math::solves::{BackendSettings, SolverProfile};
+use pse_runtime::math::solves::SolverProfile;
 use pyo3::{
     prelude::*,
     types::{PyBool, PyDict, PyFloat, PyInt, PyString},
@@ -48,13 +49,10 @@ impl SolveSettings {
         convexity_absolute: Option<f64>,
         convexity_relative: Option<f64>,
     ) -> PyResult<Self> {
-        let intent = match intent {
-            "optimize" => SolveIntent::Optimize,
-            "root" => SolveIntent::Root,
-            "feasible_point" => SolveIntent::FeasiblePoint,
-            "initialize" => SolveIntent::Initialize,
-            _ => return Err(invalid(py, "unknown native solve intent")),
-        };
+        // Registry spelling; `certify` parses and routing refuses it until a certifying backend exists.
+        let intent: SolveIntent = intent
+            .parse()
+            .map_err(|_| invalid(py, "unknown native solve intent"))?;
         let selection = if backend == "auto" {
             SolverSelection::Auto
         } else {

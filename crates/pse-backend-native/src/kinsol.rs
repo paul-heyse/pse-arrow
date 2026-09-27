@@ -61,7 +61,7 @@ impl Function {
     }
 }
 /// KINSOL nonlinear strategy, without a project-owned Newton method.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum Strategy {
     /// Declared constant linear splitting with native Anderson acceleration.
     Picard,
@@ -73,7 +73,7 @@ pub enum Strategy {
     FixedPoint,
 }
 /// Selected native linear algebra. Dense allocation has an explicit dimension ceiling.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum Linear {
     /// Vendored SuiteSparse KLU with analytic CSC Jacobian.
     Klu,
@@ -108,7 +108,77 @@ pub struct Settings {
     /// Positive scaled-step stopping tolerance.
     pub step_tolerance: f64,
 }
+/// Caller-selected KINSOL method controls: the adapter's pse-owned settings type.
+/// Characteristic scales and the scaled-step tolerance are never caller inputs;
+/// [`Settings::from_policy`] derives them from the resolved numerical policy.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct Method {
+    /// Nonlinear strategy.
+    pub strategy: Strategy,
+    /// Native linear solver for equation profiles.
+    pub linear: Linear,
+    /// Native Anderson history; zero disables acceleration.
+    pub anderson: usize,
+    /// Damping in (0,1].
+    pub damping: f64,
+    /// Maximum nonlinear iterations between linear setups.
+    pub setup_interval: u32,
+}
+impl Default for Method {
+    fn default() -> Self {
+        Self {
+            strategy: Strategy::LineSearch,
+            linear: Linear::Klu,
+            anderson: 0,
+            damping: 1.0,
+            setup_interval: 10,
+        }
+    }
+}
 impl Settings {
+    /// The one policy-derived KINSOL configuration (F22). `tolerances` are the original
+    /// physical acceptance budgets of the solved coordinates and rows, `normalization` the
+    /// coordinate transport of the function KINSOL evaluates (identity for an original-
+    /// coordinate function) and `feasibility` the normalized budget used as KINSOL's
+    /// function-norm tolerance. Each scale is `feasibility * s / t` and the scaled-step
+    /// tolerance is `feasibility`, so the native residual and step tests reduce to the
+    /// original budgets `|r| <= t` and `|dx| <= t`.
+    #[must_use]
+    pub fn from_policy(
+        method: Method,
+        tolerances: &Tolerances,
+        normalization: &pse_math::normalization::Normalization,
+        feasibility: f64,
+    ) -> Self {
+        let scales = |budgets: &[f64], coordinates: &[f64]| {
+            budgets
+                .iter()
+                .zip(coordinates)
+                .map(|(t, s)| feasibility * s / t)
+                .collect()
+        };
+        Self {
+            strategy: method.strategy,
+            linear: method.linear,
+            variable_scales: scales(&tolerances.variables, &normalization.variables),
+            residual_scales: scales(&tolerances.rows, &normalization.rows),
+            anderson: method.anderson,
+            damping: method.damping,
+            setup_interval: method.setup_interval,
+            step_tolerance: feasibility,
+        }
+    }
+    /// Caller-selected method controls of these settings.
+    #[must_use]
+    pub fn method(&self) -> Method {
+        Method {
+            strategy: self.strategy,
+            linear: self.linear,
+            anderson: self.anderson,
+            damping: self.damping,
+            setup_interval: self.setup_interval,
+        }
+    }
     /// Admit exact dimensions, sign-only bound semantics and strategy representation.
     pub fn validate(&self, function: &Function) -> Result<Vec<f64>, ProblemError> {
         let c = function.contract();
@@ -1003,6 +1073,69 @@ mod tests {
                 crate::solver_tests::stamp(Backend::Kinsol)
             )
             .is_err()
+        );
+    }
+    #[test]
+    fn settings_from_policy_reduce_native_tests_to_original_budgets() {
+        let tolerances = Tolerances {
+            variables: vec![1e-3, 4.0],
+            rows: vec![2e-6, 5e2],
+            integrality: 1e-9,
+        };
+        let normalization = pse_math::normalization::Normalization {
+            variables: vec![10.0, 1e3],
+            rows: vec![1e-2, 1e4],
+            objective: 1.0,
+        };
+        let feasibility = 1e-7;
+        let method = Method {
+            linear: Linear::Dense { limit: 8 },
+            anderson: 1,
+            ..Method::default()
+        };
+        let s = Settings::from_policy(method, &tolerances, &normalization, feasibility);
+        assert_eq!(s.method(), method);
+        assert_eq!(s.step_tolerance, feasibility);
+        for (scales, budgets, coordinates) in [
+            (
+                &s.variable_scales,
+                &tolerances.variables,
+                &normalization.variables,
+            ),
+            (&s.residual_scales, &tolerances.rows, &normalization.rows),
+        ] {
+            for ((scale, t), c) in scales.iter().zip(budgets).zip(coordinates) {
+                assert_eq!(*scale, feasibility * c / t);
+                // A normalized deviation of exactly t / c meets the native tolerance.
+                assert!((scale * (t / c) - feasibility).abs() <= 4.0 * f64::EPSILON * feasibility);
+            }
+        }
+        // Identity coordinates reduce to feasibility / t, bit for bit.
+        let identity = pse_math::normalization::Normalization::identity(2, 2);
+        let s = Settings::from_policy(Method::default(), &tolerances, &identity, 1.0);
+        assert_eq!(s.residual_scales, vec![1.0 / 2e-6, 1.0 / 5e2]);
+        assert_eq!(s.method(), Method::default());
+        let c = crate::solver_tests::Polynomial::new().c;
+        let one = Tolerances {
+            variables: vec![1e-8],
+            rows: vec![1e-8],
+            integrality: 1e-9,
+        };
+        let s = Settings::from_policy(
+            Method::default(),
+            &one,
+            &pse_math::normalization::Normalization::identity(1, 1),
+            1e-8,
+        );
+        assert!(
+            s.validate_contract(&c, Strategy::LineSearch, &Default::default())
+                .is_ok()
+        );
+        // Policy dimensions that do not cover the contract are refused, never padded.
+        let s = Settings::from_policy(Method::default(), &tolerances, &identity, 1.0);
+        assert!(
+            s.validate_contract(&c, Strategy::LineSearch, &Default::default())
+                .is_err()
         );
     }
     #[test]
