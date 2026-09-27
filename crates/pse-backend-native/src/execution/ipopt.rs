@@ -20,6 +20,7 @@ static CAPABILITY: Capability = Capability {
     sign_bounds: true,
     parallel: false,
     certifies: false,
+    native_forms: &[],
     reuse: "same sparse layout and bounds: retained C problem",
     cancellation: "intermediate/evaluation checkpoints",
     diagnostics: "native current iterate, violations, callback counts and timing",

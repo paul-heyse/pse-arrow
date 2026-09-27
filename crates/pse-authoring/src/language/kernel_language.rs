@@ -290,3 +290,107 @@ fn var_domain_parses_and_renders() {
         );
     }
 }
+
+#[test]
+fn constraint_forms_and_disjunctions_parse_and_render() {
+    use pse_model::generated::enums::{
+        ModelingDeclarationKind as Kind, ModelingRealizationPolicy as Policy,
+    };
+    let source = r#"package forms {
+ entity kind k {}
+ set ks: Set<k> = {};
+ def D {
+  var y[i in ks]: Indicator in binary;
+  var x[i in ks]: Power;
+  eq on[i in ks] when y[i]: x[i] <= 10{W};
+  eq off[i in ks] when not y[i]: x[i] == 0{W};
+  sos1 pick[i in ks]: x[i] weight w[i];
+  sos2 curve[i in ks]: x[i] weight w[i];
+  atmost few[i in ks]: 2 of y[i];
+  atleast some[i in ks]: 1 of y[i];
+  exactly single[i in ks]: 1 of y[i];
+  piecewise cost[i in ks]: c == x[i] at (bx[i], by[i]);
+  logic rule: a implies (b or not c);
+  disjunction route {
+   alternative left { eq l: x[a] <= 1{W}; annotation bounds x(0{W}, 5{W}); }
+   alternative right { disjunction inner { alternative up { eq u: x[a] >= 2{W}; } } }
+  }
+  realize r1 on route using bigm(derived);
+  realize r2 on route using bigm(derived, 0.001);
+  realize r3 on inner using bigm(100{W});
+  realize r4 on route using hull;
+  realize r5 on route using hull(0.0001);
+  realize r6 on on using indicator;
+  realize r7 on pick using native;
+  realize r8 on cost using incremental;
+  realize r9 on cost using sos2;
+  realize r10 on rule using linear;
+ }
+}"#;
+    let rows = parse_named(source);
+    let row = |name: &str| rows.iter().find(|r| r.name == name).unwrap();
+    let condition = |name: &str| row(name).value.equation.as_ref().unwrap().condition.clone();
+    assert!(condition("on").is_some_and(|c| c.active && c.variable == "y[i]"));
+    assert!(condition("off").is_some_and(|c| !c.active));
+    assert_eq!(row("pick").value.kind, Kind::Sos1);
+    assert_eq!(
+        row("curve").value.ordered_set.as_ref().unwrap().weight,
+        "w[i]"
+    );
+    assert_eq!(row("few").value.cardinality.as_ref().unwrap().count, "2");
+    assert_eq!(row("single").value.kind, Kind::Exactly);
+    let piecewise = row("cost").value.piecewise.as_ref().unwrap();
+    assert_eq!(
+        (piecewise.output.as_str(), piecewise.input.as_str()),
+        ("c", "x[i]")
+    );
+    assert_eq!(
+        row("rule").value.logic.as_ref().unwrap().proposition,
+        "a implies (b or not c)"
+    );
+    assert_eq!(row("route").value.kind, Kind::Disjunction);
+    assert_eq!(row("up").value.kind, Kind::Alternative);
+    let realization = |name: &str| {
+        let r = row(name).value.realization.as_ref().unwrap();
+        (r.policy, r.argument.clone())
+    };
+    assert_eq!(realization("r1"), (Policy::DerivedBigM, None));
+    assert_eq!(
+        realization("r2"),
+        (Policy::DerivedBigM, Some("0.001".into()))
+    );
+    assert_eq!(realization("r3"), (Policy::BigM, Some("100{W}".into())));
+    assert_eq!(realization("r5"), (Policy::Hull, Some("0.0001".into())));
+    assert_eq!(realization("r6"), (Policy::Indicator, None));
+    assert_eq!(realization("r8"), (Policy::Incremental, None));
+    let printed = render(&rows).unwrap();
+    let again = parse(
+        &printed,
+        SemanticId::NIL,
+        IdentityPolicy::Explicit,
+        ParseBudget::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
+        again.iter().map(|r| &r.value).collect::<Vec<_>>()
+    );
+    for invalid in [
+        "package p { def D { realize r on t using bigm; } }",
+        "package p { def D { realize r on t using big_m; } }",
+        "package p { def D { sos1 s: x; } }",
+        "package p { def D { atmost a: 2 y; } }",
+        "package p { def D { piecewise f: y == x; } }",
+    ] {
+        assert!(
+            parse(
+                invalid,
+                SemanticId::NIL,
+                IdentityPolicy::Named,
+                ParseBudget::default()
+            )
+            .is_err(),
+            "{invalid}"
+        );
+    }
+}

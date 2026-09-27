@@ -87,6 +87,7 @@ impl CompilerWorkspace {
             .collect::<Result<BTreeMap<_, _>>>()?;
         let prepared =
             self.prepare_modeling_bound_case(&model, &values, &states, order, profile, &cancel)?;
+        let values = prepared.complete(&values);
         Ok((model, prepared, values))
     }
 }
@@ -120,6 +121,14 @@ impl PreparedModeling {
     /// A minimal value-only observation view. Unselected expressions and absent inputs
     /// are not evaluated and cannot poison a start or check.
     pub fn observation_structure(&self, rows: &BTreeSet<SemanticId>) -> Result<Arc<CaseStructure>> {
+        self.observation_structure_over(rows, self.admitted.case.variables())
+    }
+    /// An observation view over explicitly bound variables (fixed flags and box).
+    pub(super) fn observation_structure_over(
+        &self,
+        rows: &BTreeSet<SemanticId>,
+        variables: &[Variable],
+    ) -> Result<Arc<CaseStructure>> {
         if rows
             .iter()
             .any(|id| !self.admitted.case.rows().iter().any(|r| r.id == *id))
@@ -143,9 +152,7 @@ impl PreparedModeling {
             .flat_map(|i| i.slots.iter().map(|s| s.source()))
             .collect::<BTreeSet<_>>();
         Ok(Arc::new(CaseStructure::new(
-            self.admitted
-                .case
-                .variables()
+            variables
                 .iter()
                 .filter(|v| needed.contains(&v.port.id))
                 .cloned()
@@ -170,12 +177,13 @@ impl PreparedModeling {
         )?))
     }
     /// Complete identity of a prepared view of `structure` (A6, DP-09): the bound case
-    /// structure (fixed/free state, bounds, instances, rows and objective), every admitted
-    /// body the plan may bind with its source occurrences, the derivative order, the
-    /// evaluator profile and the physical context. Equal keys give equal plans, structural
-    /// analyses, artifact requests and provenance, so a view prepared once serves every
+    /// structure (fixed/free state, bounds, instances, rows, objective and native forms),
+    /// every admitted body the plan may bind with its source occurrences, the rules of the
+    /// derived realization parameters (ADR-0104), the derivative order, the evaluator
+    /// profile and the physical context. Equal keys give equal plans, structural analyses,
+    /// derivations, artifact requests and provenance, so a view prepared once serves every
     /// value rebind of the same structure. Values are not part of it: they reach only the
-    /// value-dependent products ([`PreparedCase::rebind`]).
+    /// derived parameters and the value-dependent products ([`PreparedCase::rebind`]).
     pub fn view_key(
         &self,
         structure: &CaseStructure,
@@ -183,7 +191,7 @@ impl PreparedModeling {
         profile: Profile,
         context: &ContentHash,
     ) -> ContentHash {
-        let mut h = FramedHasher::new("pse.compiler.modeling-view.v1");
+        let mut h = FramedHasher::new("pse.compiler.modeling-view.v2");
         h.hash(&structure.key())
             .hash(context)
             .u64(order as u64)
@@ -195,6 +203,25 @@ impl PreparedModeling {
                     .id(&o.definition)
                     .u64(u64::from(o.span.start))
                     .u64(u64::from(o.span.end));
+            }
+        }
+        h.u64(self.model.derived.len() as u64);
+        for (id, parameter) in &self.model.derived {
+            h.id(id).id(&parameter.source);
+            match parameter.rule {
+                pse_modeling::specialize::DerivedRule::Bound { variable, upper } => {
+                    h.str("bound").id(&variable).bool(upper);
+                }
+                pse_modeling::specialize::DerivedRule::Extremum {
+                    expression,
+                    upper,
+                    margin,
+                } => {
+                    h.str("extremum")
+                        .id(&expression)
+                        .bool(upper)
+                        .u64(pse_ids::canonical_f64_bits(margin));
+                }
             }
         }
         for x in [
@@ -232,7 +259,10 @@ impl PreparedModeling {
         environment: &ContentHash,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedCase> {
-        structure.validate_frozen_values(values)?;
+        let derivation = Arc::new(Derivation::new(self, &structure, &quantities, cancel)?);
+        let derived = derivation.derive(values, cancel)?;
+        let values = derived.complete(values);
+        structure.validate_frozen_values(&values)?;
         let plan = Arc::new(CasePlan::prepare(
             structure,
             self.admitted
@@ -245,7 +275,7 @@ impl PreparedModeling {
             AssemblyLimits::default(),
             cancel,
         )?);
-        let bound = ValueProducts::bind(&plan, values, cancel)?;
+        let bound = ValueProducts::bind(&plan, &values, cancel)?;
         Ok(PreparedCase {
             quantities,
             presolve: bound.presolve,
@@ -256,15 +286,26 @@ impl PreparedModeling {
             occurrences: self.occurrences(),
             coefficients: bound.coefficients,
             plan,
+            derivation,
+            derived,
         })
     }
 }
 impl PreparedCase {
     /// Whether every value the value-dependent products consumed is unchanged in `values`
-    /// (DP-09): the dependencies the presolve projection recorded and, with a coefficient
-    /// snapshot, the fixed and parameter values it assumed. Free-variable starts are never
-    /// among them.
+    /// (DP-09): the values the derived parameters consumed (ADR-0104), the dependencies the
+    /// presolve projection recorded and, with a coefficient snapshot, the fixed and
+    /// parameter values it assumed. Free-variable starts are never among them.
     pub fn values_match(&self, values: &CaseValues) -> bool {
+        self.derived.matches(values) && self.products_match(&self.derived.complete(values))
+    }
+    /// `values` completed with the derived parameters of this binding (ADR-0104): the
+    /// values every consumer of this view evaluates with.
+    pub fn complete(&self, values: &CaseValues) -> CaseValues {
+        self.derived.complete(values).into_owned()
+    }
+    /// Whether the presolve projection and coefficient snapshot hold for completed values.
+    fn products_match(&self, values: &CaseValues) -> bool {
         self.presolve.matches(&self.plan, values)
             && (self.coefficients.is_none()
                 || self
@@ -272,19 +313,26 @@ impl PreparedCase {
                     .iter()
                     .all(|(id, bits)| values.scalars.get(id).map(|v| v.to_bits()) == Some(*bits)))
     }
-    /// Value-only rebind (A6). The plan, structural analysis, artifact requests and source
-    /// occurrences depend on structure only and are shared. The presolve projection,
-    /// coefficient snapshot and problem facts are rebuilt only when a value they consumed
-    /// changed ([`Self::values_match`]); the recorded assumptions always follow `values`.
+    /// Value-only rebind (A6). The plan, structural analysis, artifact requests, source
+    /// occurrences and derivation rules depend on structure only and are shared. Derived
+    /// parameters are recomputed only when a value they consumed changed; the presolve
+    /// projection, coefficient snapshot and problem facts are rebuilt only when a value
+    /// they consumed, derived or not, changed ([`Self::values_match`]). The recorded
+    /// assumptions always follow the completed values.
     ///
     /// # Errors
-    /// Values that do not bind this structure, a failed projection, or cancellation.
+    /// Values that do not bind this structure, a refused derived parameter, a failed
+    /// projection, or cancellation.
     pub fn rebind(&self, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
-        self.plan.structure().validate_frozen_values(values)?;
         let mut rebound = self.clone();
-        rebound.coefficient_values = fixed_values(&self.plan, values)?;
-        if !self.values_match(values) {
-            let bound = ValueProducts::bind(&self.plan, values, cancel)?;
+        if !self.derived.matches(values) {
+            rebound.derived = self.derivation.derive(values, cancel)?;
+        }
+        let values = rebound.derived.complete(values);
+        self.plan.structure().validate_frozen_values(&values)?;
+        rebound.coefficient_values = fixed_values(&self.plan, &values)?;
+        if !self.products_match(&values) {
+            let bound = ValueProducts::bind(&self.plan, &values, cancel)?;
             rebound.presolve = bound.presolve;
             rebound.coefficients = bound.coefficients;
             rebound.facts = bound.facts;
@@ -404,14 +452,17 @@ impl PreparedModeling {
                 (!i.contributions.is_empty()).then_some(i)
             })
             .collect::<Vec<_>>();
-        Ok(Arc::new(CaseStructure::new(
-            variables,
-            model.admitted.case.parameters().to_vec(),
-            instances,
-            rows,
-            model.admitted.case.objective().cloned(),
-            CaseLimits::default(),
-        )?))
+        Ok(Arc::new(
+            CaseStructure::new(
+                variables,
+                model.admitted.case.parameters().to_vec(),
+                instances,
+                rows,
+                model.admitted.case.objective().cloned(),
+                CaseLimits::default(),
+            )?
+            .with_native(model.admitted.case.native().to_vec())?,
+        ))
     }
 }
 impl CompilerWorkspace {

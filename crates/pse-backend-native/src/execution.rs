@@ -21,6 +21,7 @@ use pse_math::{
     binding::ObjectiveSense, convexity::QuadraticEvidence, factorable::FactorableProgram,
     normalization::Normalization, presolve::GuardSign,
 };
+use pse_model::generated::enums::NativeConstraintForm;
 use std::{any::Any, collections::BTreeMap};
 
 mod clarabel;
@@ -83,6 +84,9 @@ pub struct Capability {
     /// The adapter serves the explicit certify intent: global bounds and infeasibility
     /// conclusions over declared finite boxes (ADR-0106 §8–§9).
     pub certifies: bool,
+    /// Constraint handlers the adapter consumes for forms a native realization leaves to
+    /// the backend (ADR-0104). A structure requiring any other form is ineligible.
+    pub native_forms: &'static [NativeConstraintForm],
     /// Native allocation/data reuse boundary.
     pub reuse: &'static str,
     /// Actual interrupt checkpoints.
@@ -105,6 +109,7 @@ impl Capability {
             sign_bounds: self.sign_bounds,
             parallel: self.parallel,
             certifies: self.certifies,
+            native_forms: self.native_forms.to_vec(),
         }
     }
 }

@@ -5,10 +5,12 @@
       {
         "backend": "[\"enum\",\"ipopt\"]",
         "cancellation": "[\"text\",\"value-1\"]",
+        "certifies": "[\"bool\",true]",
         "classes": "[\"list\",[]]",
         "derivatives": "[\"enum\",\"exact_hessian_or_limited_memory\"]",
         "diagnostics": "[\"text\",\"value-1\"]",
         "general_bounds": "[\"bool\",true]",
+        "native_forms": "[\"list\",[]]",
         "parallel": "[\"bool\",true]",
         "reuse": "[\"text\",\"value-1\"]",
         "sign_bounds": "[\"bool\",true]",

@@ -428,12 +428,14 @@ impl MathService {
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         self.own_preparation(owned)
     }
-    /// Value-only rebind of a prepared view (A6). Nothing runs when no value the
-    /// value-dependent products consumed changed; otherwise only those products are rebuilt,
-    /// on an admitted worker, and the structure and its programs stay shared.
+    /// Value-only rebind of a prepared view (A6). Nothing runs when no value the derived
+    /// realization parameters (ADR-0104) or the value-dependent products consumed changed;
+    /// otherwise only those are rebuilt, on an admitted worker, and the structure, its
+    /// derivation rules and its programs stay shared.
     ///
     /// # Errors
-    /// Values that do not bind the structure, a failed projection or cancellation.
+    /// Values that do not bind the structure, a refused derived parameter, a failed
+    /// projection or cancellation.
     pub async fn rebind(
         self: &Arc<Self>,
         prepared: &super::Preparation,
@@ -444,12 +446,15 @@ impl MathService {
         let compiled = prepared.prepared.clone();
         if compiled.values_match(&values) {
             self.preparations.shared.fetch_add(1, Relaxed);
+            // Derived realization parameters are unchanged (ADR-0104); they complete the
+            // values the recorded assumptions are compared with.
+            let completed = compiled.derived.complete(&values);
             if compiled
                 .coefficient_values
                 .iter()
-                .all(|(id, bits)| values.scalars.get(id).map(|v| v.to_bits()) == Some(*bits))
+                .all(|(id, bits)| completed.scalars.get(id).map(|v| v.to_bits()) == Some(*bits))
             {
-                compiled.plan.structure().validate_frozen_values(&values)?;
+                compiled.plan.structure().validate_frozen_values(&completed)?;
                 return Ok(prepared.clone());
             }
             // Every product is shared; only the recorded fixed and parameter values follow
@@ -469,7 +474,8 @@ impl MathService {
             move |flag| {
                 let rebound = compiled.rebind(&values, &flag)?;
                 let bytes = rebound.presolve.bytes()
-                    + rebound.coefficients.as_ref().map_or(0, |c| c.retained_bytes());
+                    + rebound.coefficients.as_ref().map_or(0, |c| c.retained_bytes())
+                    + rebound.derived.retained_bytes();
                 Ok((rebound, bytes))
             },
         );

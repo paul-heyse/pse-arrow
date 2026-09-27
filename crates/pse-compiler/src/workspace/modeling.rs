@@ -338,13 +338,15 @@ impl CompilerWorkspace {
 mod executable;
 mod flow;
 pub use executable::{
-    AdmittedImplicit, AdmittedModeling, ImplicitAlgorithm, ImplicitScale, ModelingCaseBindings,
-    ModelingExpectationResult, ModelingHint, ModelingOutput, ModelingTestValue,
-    ModelingVariableState, PreparedModeling,
+    AdmittedImplicit, AdmittedModeling, Derivation, Derived, ImplicitAlgorithm, ImplicitScale,
+    ModelingCaseBindings, ModelingExpectationResult, ModelingHint, ModelingOutput,
+    ModelingTestValue, ModelingVariableState, PreparedModeling,
 };
 pub use flow::ModelingFlowSelection;
 
 #[cfg(test)]
 mod domain_tests;
+#[cfg(test)]
+mod forms_tests;
 #[cfg(test)]
 mod tests;

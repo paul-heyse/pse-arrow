@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("ec68c07f664b447ab2401a63fcbde86b") package gdp_selection {
+@id("55eaa883d47144939dda4bbe411bb518") def Supply {
+@id("0ac63ce0b706454385425e2f7a9ea70c") param demand:Power=60{W};
+@id("746a61e756914a75953bc5b896336030") var output:Power;
+@id("978e5faef3e74e05aaae8279d82597be") var cost:Power;
+@id("d08915e622e94e9295eaa8d0053907c0") eq need:output>=demand;
+@id("d0d5b8811f2449768237f52d97146643") disjunction route {
+@id("5daa08712d4d424b97f280b05e88bccf") alternative small {
+@id("6d9ac9422e35429486a8322a5386af2b") eq capacity:output<=50{W};
+@id("7222696917ad4698bde0497b73e0d7b1") eq price:cost==10{W}+0.2*output;
+}
+@id("d5d12705bb854754a46a7940523948e1") alternative large {
+@id("7f6d2966955346d090e6b45981467711") eq capacity:output<=120{W};
+@id("5a2497c4950f4bafa6a7b9b01ac1570e") eq price:cost==30{W}+0.1*output;
+}
+@id("f69830787744432a8c3d16ec5bf097f7") alternative idle {
+@id("69f793ad44b942c4858f2f85656a87fb") eq capacity:output<=0{W};
+@id("f19ee9cf5c0c4591aa5845eae6ac2c67") eq price:cost==0{W};
+}
+}
+@id("7f0449878ee547dcbcf3a918d1be21ad") realize synthesis on route using hull;
+@id("d56a7a85fd5441aea32d54ebd70f8b45") annotation bounds output(0{W},150{W});
+@id("99823835316d403d99672122009504e4") annotation bounds cost(0{W},100{W});
+@id("672df701c8bf45bea9ceba683cf3b5ba") annotation start output(0{W});
+@id("23e71c9d4fff4392b735a963ca86f84d") annotation start cost(0{W});
+@id("2fb3f6cb706f4bf78ce2160f88b785e8") annotation objective cost(minimize);
+}
+@id("5dab1e9702954b9182f023a5a55c8b9c") test gdp_selection source "Synthetic unit selection; the optimum follows by enumerating the three alternatives at 60 W demand" revision "1" fixture {dof 5; run steady;} {
+@id("3b2f96864d9e414fa25dc4730f1afccc") child root:Supply=Supply();
+@id("c4a1f2e8d7b64a1e9f3c2b5d8e7a6f10") expect root.cost==36{W} tolerance 0.000001{W};
+@id("a9b8c7d6e5f44321b0a9c8d7e6f5a4b3") expect root.output==60{W} tolerance 0.000001{W};
+}
+}

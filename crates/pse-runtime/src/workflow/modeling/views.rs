@@ -59,7 +59,8 @@ impl Views {
 }
 impl ModelingPackage {
     /// The solver view of `model` under `states`, bound to `values`. The first request for a
-    /// structure prepares it; every later one rebinds values onto it (A6).
+    /// structure prepares it; every later one rebinds values onto it (A6). The returned
+    /// values are completed with the view's derived realization parameters (ADR-0104).
     pub(in crate::workflow) async fn bound_case(
         &self,
         model: &ModelingPreparation,
@@ -96,8 +97,8 @@ impl ModelingPackage {
         };
         Ok(ModelingCasePreparation {
             model: model.clone(),
+            values: case.compiled().complete(&values),
             case,
-            values,
         })
     }
     /// The value-independent program observing `rows` of `model`, compiled once per

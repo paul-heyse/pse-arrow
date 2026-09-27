@@ -542,16 +542,44 @@ impl Cursor<'_> {
                 })
             }
             "realize" => {
+                use pse_model::generated::enums::ModelingRealizationPolicy as Policy;
                 self.expect("on")?;
                 let target = self.path()?;
                 self.expect("using")?;
-                let policy = self
-                    .word()?
-                    .parse()
-                    .map_err(|_| self.error("realization policy"))?;
-                let accelerator = if policy
-                    == pse_model::generated::enums::ModelingRealizationPolicy::Accelerated
-                {
+                let spelling = self.word()?;
+                let mut argument = None;
+                let policy = match spelling.as_str() {
+                    // ADR-0104: `bigm(M)` asserts an authored M; `bigm(derived[, margin])`
+                    // derives it from the case box.
+                    "bigm" => {
+                        self.expect("(")?;
+                        let policy = if self.eat("derived") {
+                            if self.eat(",") {
+                                argument = Some(self.until(&[")"])?);
+                            }
+                            Policy::DerivedBigM
+                        } else {
+                            argument = Some(self.until(&[")"])?);
+                            Policy::BigM
+                        };
+                        self.expect(")")?;
+                        policy
+                    }
+                    "hull" => {
+                        if self.eat("(") {
+                            argument = Some(self.until(&[")"])?);
+                            self.expect(")")?;
+                        }
+                        Policy::Hull
+                    }
+                    "big_m" | "derived_big_m" => {
+                        return Err(self.error("bigm(M) or bigm(derived)"));
+                    }
+                    other => other
+                        .parse()
+                        .map_err(|_| self.error("realization policy"))?,
+                };
+                let accelerator = if policy == Policy::Accelerated {
                     self.expect("(")?;
                     let reference = self.word()?;
                     self.expect(")")?;
@@ -564,10 +592,102 @@ impl Cursor<'_> {
                     target,
                     policy,
                     accelerator,
+                    argument,
+                })
+            }
+            "sos1" | "sos2" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem { name, domain }
+                    })
+                    .collect();
+                self.expect(":")?;
+                let member = self.until(&["weight"])?;
+                self.expect("weight")?;
+                let weight = self.until(&[";"])?;
+                self.expect(";")?;
+                let set = AuthoredModelingDeclarationsFieldValueOrderedSet {
+                    indices,
+                    member,
+                    weight,
+                };
+                if keyword == "sos1" {
+                    Value::from_sos1(set)
+                } else {
+                    Value::from_sos2(set)
+                }
+            }
+            "atmost" | "atleast" | "exactly" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem { name, domain }
+                    })
+                    .collect();
+                self.expect(":")?;
+                let count = self.until(&["of"])?;
+                self.expect("of")?;
+                let member = self.until(&[";"])?;
+                self.expect(";")?;
+                let value = AuthoredModelingDeclarationsFieldValueCardinality {
+                    indices,
+                    count,
+                    member,
+                };
+                match keyword.as_str() {
+                    "atmost" => Value::from_atmost(value),
+                    "atleast" => Value::from_atleast(value),
+                    _ => Value::from_exactly(value),
+                }
+            }
+            "piecewise" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem { name, domain }
+                    })
+                    .collect();
+                self.expect(":")?;
+                let output = self.until(&["=="])?;
+                self.expect("==")?;
+                let input = self.until(&["at"])?;
+                self.expect("at")?;
+                self.expect("(")?;
+                let abscissa = self.until(&[","])?;
+                self.expect(",")?;
+                let ordinate = self.until(&[")"])?;
+                self.expect(")")?;
+                self.expect(";")?;
+                Value::from_piecewise(AuthoredModelingDeclarationsFieldValuePiecewise {
+                    indices,
+                    output,
+                    input,
+                    abscissa,
+                    ordinate,
+                })
+            }
+            "logic" => {
+                let indices = self
+                    .indices()?
+                    .into_iter()
+                    .map(|(name, domain)| {
+                        AuthoredModelingDeclarationsFieldValueLogicIndicesItem { name, domain }
+                    })
+                    .collect();
+                self.expect(":")?;
+                let proposition = self.until(&[";"])?;
+                self.expect(";")?;
+                Value::from_logic(AuthoredModelingDeclarationsFieldValueLogic {
+                    indices,
+                    proposition,
                 })
             }
             "package" | "entity_kind" | "interface" | "def" | "case" | "test" | "stage"
-            | "implicit" | "regime" => {
+            | "implicit" | "regime" | "disjunction" | "alternative" => {
                 let type_parameters = self.names("<", ">")?;
                 let parameters = self
                     .parameters()?
@@ -818,6 +938,8 @@ impl Cursor<'_> {
                     "test" => Value::from_test(scope),
                     "stage" => Value::from_stage(scope),
                     "regime" => Value::from_regime(scope),
+                    "disjunction" => Value::from_disjunction(scope),
+                    "alternative" => Value::from_alternative(scope),
                     _ => Value::from_implicit(scope),
                 }
             }
@@ -1023,12 +1145,24 @@ impl Cursor<'_> {
                         AuthoredModelingDeclarationsFieldValueEquationIndicesItem { name, domain }
                     })
                     .collect();
+                // ADR-0104: `when y` or `when not y` makes an indicator constraint.
+                let condition = if self.eat("when") {
+                    let active = !self.eat("not");
+                    let variable = self.until(&[":"])?;
+                    Some(AuthoredModelingDeclarationsFieldValueEquationCondition {
+                        variable,
+                        active,
+                    })
+                } else {
+                    None
+                };
                 self.expect(":")?;
                 let expression = self.until(&[";"])?;
                 self.expect(";")?;
                 Value::from_equation(AuthoredModelingDeclarationsFieldValueEquation {
                     indices,
                     expression,
+                    condition,
                 })
             }
             "when" => {

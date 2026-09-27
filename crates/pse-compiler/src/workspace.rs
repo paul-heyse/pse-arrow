@@ -211,9 +211,9 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
-    AdmittedImplicit, AdmittedModeling, ImplicitAlgorithm, ImplicitScale, ModelingCaseBindings,
-    ModelingExpectationResult, ModelingHint, ModelingOutput, ModelingRevision, ModelingFlowSelection, ModelingTestValue,
-    ModelingVariableState, PreparedModeling,
+    AdmittedImplicit, AdmittedModeling, Derivation, Derived, ImplicitAlgorithm, ImplicitScale,
+    ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection, ModelingHint,
+    ModelingOutput, ModelingRevision, ModelingTestValue, ModelingVariableState, PreparedModeling,
 };
 #[salsa::db]
 trait CompilerDb: Database {
@@ -867,6 +867,12 @@ pub struct PreparedCase {
     pub occurrences: BTreeMap<SemanticId, Vec<Occurrence>>,
     /// Explicit optional coefficient projection; failure is not guessed as another class.
     pub coefficients: Option<Arc<Coefficients>>,
+    /// Rules of the parameters the bound structure determines (ADR-0104), prepared with the
+    /// structure and shared by every value rebind.
+    pub derivation: Arc<Derivation>,
+    /// Their values under the bound values, in canonical units; consumers evaluate with
+    /// [`Self::complete`] values.
+    pub derived: Derived,
 }
 impl PreparedCase {
     /// Known escaping payload, excluding opaque library/container overhead. This
@@ -885,6 +891,8 @@ impl PreparedCase {
                 .map(|v| v.capacity() * size_of::<Occurrence>())
                 .sum::<usize>()
             + self.coefficients.as_ref().map_or(0, |c| c.retained_bytes())
+            + self.derivation.retained_bytes()
+            + self.derived.retained_bytes()
     }
 }
 /// The value-dependent products of a prepared plan: the library presolve projection, the
@@ -977,6 +985,8 @@ impl PreparedBlock {
             artifacts: self.artifacts.clone(),
             occurrences: BTreeMap::new(),
             coefficients: bound.coefficients,
+            derivation: Arc::default(),
+            derived: Derived::default(),
         })
     }
 }
@@ -1410,6 +1420,8 @@ impl CompilerWorkspace {
                 artifacts: requests,
                 occurrences,
                 coefficients,
+                derivation: Arc::default(),
+                derived: Derived::default(),
             })
         })
         .map_err(|_| CompileError::Cancelled)?;

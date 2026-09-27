@@ -42,8 +42,12 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("sign_bounds", flag()),
             column("parallel", flag()),
             column("certifies", flag()),
+            column(
+                "native_forms",
+                T::list(T::enumeration("NativeConstraintForm")),
+            ),
         ],
-        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances.",
+        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).",
     );
     relation(
         b,
@@ -395,6 +399,20 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "primal_dual",
             "primal_dual_and_working_set",
             "primal_dual_and_basis",
+        ],
+    );
+    // Constraint handlers a native realization leaves to the backend (ADR-0104).
+    enumeration(
+        b,
+        "NativeConstraintForm",
+        [
+            "indicator",
+            "sos1",
+            "sos2",
+            "and",
+            "or",
+            "xor",
+            "cardinality",
         ],
     );
     declare_dynamics_fitting(b);

@@ -82,6 +82,8 @@ static CAPABILITY: Capability = Capability {
     sign_bounds: true,
     parallel: false,
     certifies: true,
+    // The indicator, SOS, logic and cardinality handlers are consumed from Plan 22 G7.
+    native_forms: &[],
     reuse: "none: one SCIP instance per attempt, created and freed on the owning worker",
     cancellation: "event handler on presolve rounds, node focus and solve, and LP solves calls SCIPinterruptSolve",
     diagnostics: "raw status, primal and dual bound, gap, node count, export fidelity and readback, effective reserved options",

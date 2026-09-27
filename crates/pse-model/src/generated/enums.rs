@@ -3906,6 +3906,12 @@ pub enum ModelingDeclarationKind {
     ///regime
     #[serde(rename = "regime")]
     Regime,
+    ///disjunction
+    #[serde(rename = "disjunction")]
+    Disjunction,
+    ///alternative
+    #[serde(rename = "alternative")]
+    Alternative,
     ///parameter
     #[serde(rename = "parameter")]
     Parameter,
@@ -3942,6 +3948,27 @@ pub enum ModelingDeclarationKind {
     ///equation
     #[serde(rename = "equation")]
     Equation,
+    ///sos1
+    #[serde(rename = "sos1")]
+    Sos1,
+    ///sos2
+    #[serde(rename = "sos2")]
+    Sos2,
+    ///atmost
+    #[serde(rename = "atmost")]
+    Atmost,
+    ///atleast
+    #[serde(rename = "atleast")]
+    Atleast,
+    ///exactly
+    #[serde(rename = "exactly")]
+    Exactly,
+    ///piecewise
+    #[serde(rename = "piecewise")]
+    Piecewise,
+    ///logic
+    #[serde(rename = "logic")]
+    Logic,
     ///table
     #[serde(rename = "table")]
     Table,
@@ -4001,7 +4028,7 @@ impl crate::SemanticEq for ModelingDeclarationKind {
 }
 impl ModelingDeclarationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 40usize] = [
+    pub const ALL: [Self; 49usize] = [
         Self::Relaxation,
         Self::Continuation,
         Self::Package,
@@ -4013,6 +4040,8 @@ impl ModelingDeclarationKind {
         Self::Stage,
         Self::Implicit,
         Self::Regime,
+        Self::Disjunction,
+        Self::Alternative,
         Self::Parameter,
         Self::Variable,
         Self::Let,
@@ -4025,6 +4054,13 @@ impl ModelingDeclarationKind {
         Self::ScopeValue,
         Self::Function,
         Self::Equation,
+        Self::Sos1,
+        Self::Sos2,
+        Self::Atmost,
+        Self::Atleast,
+        Self::Exactly,
+        Self::Piecewise,
+        Self::Logic,
         Self::Table,
         Self::Dataset,
         Self::Entity,
@@ -4057,6 +4093,8 @@ impl ModelingDeclarationKind {
             Self::Stage => "stage",
             Self::Implicit => "implicit",
             Self::Regime => "regime",
+            Self::Disjunction => "disjunction",
+            Self::Alternative => "alternative",
             Self::Parameter => "parameter",
             Self::Variable => "variable",
             Self::Let => "let",
@@ -4069,6 +4107,13 @@ impl ModelingDeclarationKind {
             Self::ScopeValue => "scope_value",
             Self::Function => "function",
             Self::Equation => "equation",
+            Self::Sos1 => "sos1",
+            Self::Sos2 => "sos2",
+            Self::Atmost => "atmost",
+            Self::Atleast => "atleast",
+            Self::Exactly => "exactly",
+            Self::Piecewise => "piecewise",
+            Self::Logic => "logic",
             Self::Table => "table",
             Self::Dataset => "dataset",
             Self::Entity => "entity",
@@ -4102,35 +4147,44 @@ impl ModelingDeclarationKind {
             Self::Stage => 8usize,
             Self::Implicit => 9usize,
             Self::Regime => 10usize,
-            Self::Parameter => 11usize,
-            Self::Variable => 12usize,
-            Self::Let => 13usize,
-            Self::Alias => 14usize,
-            Self::Attribute => 15usize,
-            Self::Set => 16usize,
-            Self::Child => 17usize,
-            Self::Port => 18usize,
-            Self::Preset => 19usize,
-            Self::ScopeValue => 20usize,
-            Self::Function => 21usize,
-            Self::Equation => 22usize,
-            Self::Table => 23usize,
-            Self::Dataset => 24usize,
-            Self::Entity => 25usize,
-            Self::Enum => 26usize,
-            Self::Import => 27usize,
-            Self::When => 28usize,
-            Self::Accumulator => 29usize,
-            Self::Contribution => 30usize,
-            Self::Connection => 31usize,
-            Self::Annotation => 32usize,
-            Self::Requirement => 33usize,
-            Self::Expectation => 34usize,
-            Self::Continuous => 35usize,
-            Self::DifferenceScheme => 36usize,
-            Self::CollocationScheme => 37usize,
-            Self::Discretization => 38usize,
-            Self::Realization => 39usize,
+            Self::Disjunction => 11usize,
+            Self::Alternative => 12usize,
+            Self::Parameter => 13usize,
+            Self::Variable => 14usize,
+            Self::Let => 15usize,
+            Self::Alias => 16usize,
+            Self::Attribute => 17usize,
+            Self::Set => 18usize,
+            Self::Child => 19usize,
+            Self::Port => 20usize,
+            Self::Preset => 21usize,
+            Self::ScopeValue => 22usize,
+            Self::Function => 23usize,
+            Self::Equation => 24usize,
+            Self::Sos1 => 25usize,
+            Self::Sos2 => 26usize,
+            Self::Atmost => 27usize,
+            Self::Atleast => 28usize,
+            Self::Exactly => 29usize,
+            Self::Piecewise => 30usize,
+            Self::Logic => 31usize,
+            Self::Table => 32usize,
+            Self::Dataset => 33usize,
+            Self::Entity => 34usize,
+            Self::Enum => 35usize,
+            Self::Import => 36usize,
+            Self::When => 37usize,
+            Self::Accumulator => 38usize,
+            Self::Contribution => 39usize,
+            Self::Connection => 40usize,
+            Self::Annotation => 41usize,
+            Self::Requirement => 42usize,
+            Self::Expectation => 43usize,
+            Self::Continuous => 44usize,
+            Self::DifferenceScheme => 45usize,
+            Self::CollocationScheme => 46usize,
+            Self::Discretization => 47usize,
+            Self::Realization => 48usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -4152,6 +4206,8 @@ impl ModelingDeclarationKind {
             Self::Stage => None,
             Self::Implicit => None,
             Self::Regime => None,
+            Self::Disjunction => None,
+            Self::Alternative => None,
             Self::Parameter => None,
             Self::Variable => None,
             Self::Let => None,
@@ -4164,6 +4220,13 @@ impl ModelingDeclarationKind {
             Self::ScopeValue => None,
             Self::Function => None,
             Self::Equation => None,
+            Self::Sos1 => None,
+            Self::Sos2 => None,
+            Self::Atmost => None,
+            Self::Atleast => None,
+            Self::Exactly => None,
+            Self::Piecewise => None,
+            Self::Logic => None,
             Self::Table => None,
             Self::Dataset => None,
             Self::Entity => None,
@@ -4199,6 +4262,8 @@ impl core::str::FromStr for ModelingDeclarationKind {
             "stage" => Ok(Self::Stage),
             "implicit" => Ok(Self::Implicit),
             "regime" => Ok(Self::Regime),
+            "disjunction" => Ok(Self::Disjunction),
+            "alternative" => Ok(Self::Alternative),
             "parameter" => Ok(Self::Parameter),
             "variable" => Ok(Self::Variable),
             "let" => Ok(Self::Let),
@@ -4211,6 +4276,13 @@ impl core::str::FromStr for ModelingDeclarationKind {
             "scope_value" => Ok(Self::ScopeValue),
             "function" => Ok(Self::Function),
             "equation" => Ok(Self::Equation),
+            "sos1" => Ok(Self::Sos1),
+            "sos2" => Ok(Self::Sos2),
+            "atmost" => Ok(Self::Atmost),
+            "atleast" => Ok(Self::Atleast),
+            "exactly" => Ok(Self::Exactly),
+            "piecewise" => Ok(Self::Piecewise),
+            "logic" => Ok(Self::Logic),
             "table" => Ok(Self::Table),
             "dataset" => Ok(Self::Dataset),
             "entity" => Ok(Self::Entity),
@@ -4839,6 +4911,30 @@ pub enum ModelingRealizationPolicy {
     ///accelerated
     #[serde(rename = "accelerated")]
     Accelerated,
+    ///big_m
+    #[serde(rename = "big_m")]
+    BigM,
+    ///derived_big_m
+    #[serde(rename = "derived_big_m")]
+    DerivedBigM,
+    ///hull
+    #[serde(rename = "hull")]
+    Hull,
+    ///indicator
+    #[serde(rename = "indicator")]
+    Indicator,
+    ///linear
+    #[serde(rename = "linear")]
+    Linear,
+    ///native
+    #[serde(rename = "native")]
+    Native,
+    ///sos2
+    #[serde(rename = "sos2")]
+    Sos2,
+    ///incremental
+    #[serde(rename = "incremental")]
+    Incremental,
 }
 impl crate::SemanticEq for ModelingRealizationPolicy {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -4847,13 +4943,33 @@ impl crate::SemanticEq for ModelingRealizationPolicy {
 }
 impl ModelingRealizationPolicy {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Inline, Self::Nested, Self::Accelerated];
+    pub const ALL: [Self; 11usize] = [
+        Self::Inline,
+        Self::Nested,
+        Self::Accelerated,
+        Self::BigM,
+        Self::DerivedBigM,
+        Self::Hull,
+        Self::Indicator,
+        Self::Linear,
+        Self::Native,
+        Self::Sos2,
+        Self::Incremental,
+    ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Inline => "inline",
             Self::Nested => "nested",
             Self::Accelerated => "accelerated",
+            Self::BigM => "big_m",
+            Self::DerivedBigM => "derived_big_m",
+            Self::Hull => "hull",
+            Self::Indicator => "indicator",
+            Self::Linear => "linear",
+            Self::Native => "native",
+            Self::Sos2 => "sos2",
+            Self::Incremental => "incremental",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -4862,6 +4978,14 @@ impl ModelingRealizationPolicy {
             Self::Inline => 0usize,
             Self::Nested => 1usize,
             Self::Accelerated => 2usize,
+            Self::BigM => 3usize,
+            Self::DerivedBigM => 4usize,
+            Self::Hull => 5usize,
+            Self::Indicator => 6usize,
+            Self::Linear => 7usize,
+            Self::Native => 8usize,
+            Self::Sos2 => 9usize,
+            Self::Incremental => 10usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -4875,6 +4999,14 @@ impl ModelingRealizationPolicy {
             Self::Inline => None,
             Self::Nested => None,
             Self::Accelerated => None,
+            Self::BigM => None,
+            Self::DerivedBigM => None,
+            Self::Hull => None,
+            Self::Indicator => None,
+            Self::Linear => None,
+            Self::Native => None,
+            Self::Sos2 => None,
+            Self::Incremental => None,
         }
     }
 }
@@ -4885,6 +5017,14 @@ impl core::str::FromStr for ModelingRealizationPolicy {
             "inline" => Ok(Self::Inline),
             "nested" => Ok(Self::Nested),
             "accelerated" => Ok(Self::Accelerated),
+            "big_m" => Ok(Self::BigM),
+            "derived_big_m" => Ok(Self::DerivedBigM),
+            "hull" => Ok(Self::Hull),
+            "indicator" => Ok(Self::Indicator),
+            "linear" => Ok(Self::Linear),
+            "native" => Ok(Self::Native),
+            "sos2" => Ok(Self::Sos2),
+            "incremental" => Ok(Self::Incremental),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingRealizationPolicy).to_owned(),
@@ -5627,6 +5767,125 @@ impl core::str::FromStr for NativeCandidateKind {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeCandidateKind).to_owned(),
                     enumeration: stringify!(NativeCandidateKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NativeConstraintForm {
+    ///indicator
+    #[serde(rename = "indicator")]
+    Indicator,
+    ///sos1
+    #[serde(rename = "sos1")]
+    Sos1,
+    ///sos2
+    #[serde(rename = "sos2")]
+    Sos2,
+    ///and
+    #[serde(rename = "and")]
+    And,
+    ///or
+    #[serde(rename = "or")]
+    Or,
+    ///xor
+    #[serde(rename = "xor")]
+    Xor,
+    ///cardinality
+    #[serde(rename = "cardinality")]
+    Cardinality,
+}
+impl crate::SemanticEq for NativeConstraintForm {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativeConstraintForm {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 7usize] = [
+        Self::Indicator,
+        Self::Sos1,
+        Self::Sos2,
+        Self::And,
+        Self::Or,
+        Self::Xor,
+        Self::Cardinality,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Indicator => "indicator",
+            Self::Sos1 => "sos1",
+            Self::Sos2 => "sos2",
+            Self::And => "and",
+            Self::Or => "or",
+            Self::Xor => "xor",
+            Self::Cardinality => "cardinality",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Indicator => 0usize,
+            Self::Sos1 => 1usize,
+            Self::Sos2 => 2usize,
+            Self::And => 3usize,
+            Self::Or => 4usize,
+            Self::Xor => 5usize,
+            Self::Cardinality => 6usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Indicator => None,
+            Self::Sos1 => None,
+            Self::Sos2 => None,
+            Self::And => None,
+            Self::Or => None,
+            Self::Xor => None,
+            Self::Cardinality => None,
+        }
+    }
+}
+impl core::str::FromStr for NativeConstraintForm {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "indicator" => Ok(Self::Indicator),
+            "sos1" => Ok(Self::Sos1),
+            "sos2" => Ok(Self::Sos2),
+            "and" => Ok(Self::And),
+            "or" => Ok(Self::Or),
+            "xor" => Ok(Self::Xor),
+            "cardinality" => Ok(Self::Cardinality),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(NativeConstraintForm).to_owned(),
+                    enumeration: stringify!(NativeConstraintForm).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -9161,6 +9420,16 @@ impl crate::HeapUsage for NativeCandidateKind {
     }
 }
 impl crate::SemanticFrame for NativeCandidateKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NativeConstraintForm {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeConstraintForm {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

@@ -516,7 +516,6 @@ impl ModelingPackage {
                 &model,
                 &inner,
                 &prepared,
-                &values,
                 instance,
                 &mut numerical,
                 &solver,
@@ -646,7 +645,8 @@ impl ModelingPackage {
         Ok(states)
     }
     /// The resolved numerical policy of the bound view: observable nominal targets and
-    /// scaling-scheme row scales evaluated at the physical nominal point.
+    /// scaling-scheme row scales evaluated at the physical nominal point, which starts from
+    /// the view's values, derived realization parameters included (ADR-0104).
     #[expect(
         clippy::too_many_arguments,
         reason = "scales evaluate at the nominal point with the case's providers and profile"
@@ -656,7 +656,6 @@ impl ModelingPackage {
         model: &ModelingPreparation,
         inner: &Inner,
         prepared: &ModelingCasePreparation,
-        values: &CaseValues,
         instance: SemanticId,
         numerical: &mut NumericalInputs,
         solver: &SolverProfile,
@@ -667,7 +666,7 @@ impl ModelingPackage {
         let product = model.compiled();
         let variables = variables(product);
         let equations = equations(product);
-        let mut nominal_point = values.clone();
+        let mut nominal_point = prepared.values.clone();
         // Resolve source precedence before selecting the physical nominal point.
         let physical = prepared.case.compiled().quantities.clone();
         let mut targets = prepared
@@ -870,14 +869,15 @@ fn equations(product: &pse_compiler::workspace::PreparedModeling) -> BTreeSet<Se
         })
         .collect()
 }
-/// Every independent input needs a case value or a resolvable start.
+/// Every independent input needs a case value or a resolvable start, except the derived
+/// realization parameters the bound structure determines (ADR-0104).
 fn require_inputs(model: &ModelingPreparation, values: &CaseValues) -> Result<(), WorkflowError> {
     let product = model.compiled();
     if let Some(id) = product
         .admitted
         .inputs
         .iter()
-        .find(|id| !values.scalars.contains_key(id))
+        .find(|id| !values.scalars.contains_key(id) && !product.model.derived.contains_key(id))
     {
         let path = product
             .model

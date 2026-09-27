@@ -26,6 +26,7 @@ static CAPABILITY: Capability = Capability {
     sign_bounds: true,
     parallel: false,
     certifies: false,
+    native_forms: &[],
     reuse: "same sparse layout: retained SUNDIALS/KLU allocations",
     cancellation: "evaluation checkpoints; native factorization completes before teardown",
     diagnostics: "native nonlinear/linear iterations, setups, failures, norms and callback timing",

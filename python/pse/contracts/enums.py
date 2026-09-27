@@ -440,6 +440,8 @@ class ModelingDeclarationKind(StrEnum):
     STAGE = "stage"
     IMPLICIT = "implicit"
     REGIME = "regime"
+    DISJUNCTION = "disjunction"
+    ALTERNATIVE = "alternative"
     PARAMETER = "parameter"
     VARIABLE = "variable"
     LET = "let"
@@ -452,6 +454,13 @@ class ModelingDeclarationKind(StrEnum):
     SCOPE_VALUE = "scope_value"
     FUNCTION = "function"
     EQUATION = "equation"
+    SOS1 = "sos1"
+    SOS2 = "sos2"
+    ATMOST = "atmost"
+    ATLEAST = "atleast"
+    EXACTLY = "exactly"
+    PIECEWISE = "piecewise"
+    LOGIC = "logic"
     TABLE = "table"
     DATASET = "dataset"
     ENTITY = "entity"
@@ -532,6 +541,14 @@ class ModelingRealizationPolicy(StrEnum):
     INLINE = "inline"
     NESTED = "nested"
     ACCELERATED = "accelerated"
+    BIG_M = "big_m"
+    DERIVED_BIG_M = "derived_big_m"
+    HULL = "hull"
+    INDICATOR = "indicator"
+    LINEAR = "linear"
+    NATIVE = "native"
+    SOS2 = "sos2"
+    INCREMENTAL = "incremental"
 
 
 class ModelingVariableDomain(StrEnum):
@@ -607,6 +624,18 @@ class NativeCandidateKind(StrEnum):
     BEST_ITERATE = "best_iterate"
     FEASIBLE_POINT = "feasible_point"
     CONSTANT_EVALUATION = "constant_evaluation"
+
+
+class NativeConstraintForm(StrEnum):
+    """The declared NativeConstraintForm enumeration."""
+
+    INDICATOR = "indicator"
+    SOS1 = "sos1"
+    SOS2 = "sos2"
+    AND = "and"
+    OR = "or"
+    XOR = "xor"
+    CARDINALITY = "cardinality"
 
 
 class NativeDependencyEvidenceKind(StrEnum):

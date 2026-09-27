@@ -123,9 +123,50 @@ fn print_block(
                 v.order
             ),
             Selected::Realization(v) => {
-                format!("realize {n} on {} using {}{};", v.target, v.policy.as_str(),
+                use pse_model::generated::enums::ModelingRealizationPolicy as Policy;
+                let policy = match (v.policy, v.argument.as_deref()) {
+                    (Policy::BigM, Some(m)) => format!("bigm({m})"),
+                    (Policy::DerivedBigM, None) => "bigm(derived)".into(),
+                    (Policy::DerivedBigM, Some(margin)) => format!("bigm(derived, {margin})"),
+                    (Policy::Hull, Some(epsilon)) => format!("hull({epsilon})"),
+                    (Policy::BigM, None) => return Err(bad("an authored big-M needs its value")),
+                    (policy, None) => policy.as_str().into(),
+                    (_, Some(_)) => return Err(bad("this realization takes no argument")),
+                };
+                format!("realize {n} on {} using {policy}{};", v.target,
                     v.accelerator.as_ref().map_or(String::new(), |id| format!("({})", quoted(id))))
             }
+            Selected::Sos1(v) | Selected::Sos2(v) => format!(
+                "{} {n}{}: {} weight {};",
+                if matches!(value, Selected::Sos1(_)) { "sos1" } else { "sos2" },
+                indices(v.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str()))),
+                v.member,
+                v.weight
+            ),
+            Selected::Atmost(v) | Selected::Atleast(v) | Selected::Exactly(v) => format!(
+                "{} {n}{}: {} of {};",
+                match value {
+                    Selected::Atmost(_) => "atmost",
+                    Selected::Atleast(_) => "atleast",
+                    _ => "exactly",
+                },
+                indices(v.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str()))),
+                v.count,
+                v.member
+            ),
+            Selected::Piecewise(v) => format!(
+                "piecewise {n}{}: {} == {} at ({}, {});",
+                indices(v.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str()))),
+                v.output,
+                v.input,
+                v.abscissa,
+                v.ordinate
+            ),
+            Selected::Logic(v) => format!(
+                "logic {n}{}: {};",
+                indices(v.indices.iter().map(|i| (i.name.as_str(), i.domain.as_str()))),
+                v.proposition
+            ),
             Selected::Package(v)
             | Selected::EntityKind(v)
             | Selected::Interface(v)
@@ -134,6 +175,8 @@ fn print_block(
             | Selected::Test(v)
             | Selected::Stage(v)
             | Selected::Regime(v)
+            | Selected::Disjunction(v)
+            | Selected::Alternative(v)
             | Selected::Implicit(v) => {
                 block = true;
                 let keyword = match value {
@@ -145,6 +188,8 @@ fn print_block(
                     Selected::Test(_) => "test",
                     Selected::Stage(_) => "stage",
                     Selected::Regime(_) => "regime",
+                    Selected::Disjunction(_) => "disjunction",
+                    Selected::Alternative(_) => "alternative",
                     _ => "implicit",
                 };
                 format!(
@@ -263,12 +308,17 @@ fn print_block(
                     .join(", ")
             ),
             Selected::Equation(v) => format!(
-                "eq {n}{}: {};",
+                "eq {n}{}{}: {};",
                 indices(
                     v.indices
                         .iter()
                         .map(|i| (i.name.as_str(), i.domain.as_str()))
                 ),
+                v.condition.as_ref().map_or_else(String::new, |c| format!(
+                    " when {}{}",
+                    if c.active { "" } else { "not " },
+                    c.variable
+                )),
                 v.expression
             ),
             Selected::When(v) => {

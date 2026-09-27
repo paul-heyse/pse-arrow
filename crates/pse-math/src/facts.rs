@@ -50,6 +50,8 @@ pub struct ProblemFacts {
     pub bound_assumptions: pse_ids::ContentHash,
     /// Extracted objective has nonzero quadratic entries; does not prove convexity.
     pub quadratic: bool,
+    /// Native constraint handlers the structure requires (ADR-0104), sorted and unique.
+    pub native: Vec<pse_model::generated::enums::NativeConstraintForm>,
 }
 impl ProblemFacts {
     /// Derive facts from a plan and its optional, current coefficient snapshot.
@@ -108,6 +110,14 @@ impl ProblemFacts {
             objective_degree: facts.objective_degree,
             bound_assumptions: facts.key,
             quadratic: coefficients.is_some_and(|c| c.hessian.val().iter().any(|v| *v != 0.0)),
+            native: plan
+                .structure()
+                .native()
+                .iter()
+                .map(pse_model::forms::NativeConstraint::form)
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect(),
         })
     }
 }

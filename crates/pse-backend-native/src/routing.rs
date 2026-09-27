@@ -11,7 +11,7 @@ use crate::{
     },
 };
 use pse_kernels::DerivativeOrder;
-use pse_model::generated::enums::ModelingVariableDomain;
+use pse_model::generated::enums::{ModelingVariableDomain, NativeConstraintForm};
 use pse_math::{
     facts::{BoundShape, ProblemFacts},
 };
@@ -51,6 +51,12 @@ pub enum Ineligible {
         /// The adapter still represents exact sign bounds.
         signs: bool,
     },
+    /// The structure leaves constraint forms to native handlers the adapter's record does
+    /// not consume (ADR-0104); there is no silent linear conversion.
+    NativeForms {
+        /// Required forms outside the adapter's record, in order.
+        missing: Vec<NativeConstraintForm>,
+    },
 }
 impl std::fmt::Display for Ineligible {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -87,6 +93,11 @@ impl std::fmt::Display for Ineligible {
                 f.write_str("cannot represent general bounds; only exact sign bounds")
             }
             Self::Bounds { signs: false } => f.write_str("cannot represent variable bounds"),
+            Self::NativeForms { missing } => write!(
+                f,
+                "native {} realization needs constraint handlers this adapter lacks",
+                native_forms(missing)
+            ),
         }
     }
 }
@@ -97,6 +108,29 @@ pub struct Eligibility {
     pub backend: Backend,
     /// Every applicable refusal; empty means eligible.
     pub reasons: Vec<Ineligible>,
+}
+impl std::fmt::Display for Eligibility {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: ", self.backend.as_str())?;
+        if self.reasons.is_empty() {
+            return f.write_str("eligible");
+        }
+        for (i, reason) in self.reasons.iter().enumerate() {
+            if i > 0 {
+                f.write_str("; ")?;
+            }
+            write!(f, "{reason}")?;
+        }
+        Ok(())
+    }
+}
+/// Every assessment, one adapter per line segment.
+fn assessed(choices: &[Eligibility]) -> String {
+    choices
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(" | ")
 }
 /// Requirements established by the selected mathematical representation and policy.
 #[derive(Debug)]
@@ -141,6 +175,7 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
         objective_degree: None,
         bound_assumptions: c.identity,
         quadratic: false,
+        native: vec![],
     }
 }
 fn continuous(f: &ProblemFacts) -> bool {
@@ -229,6 +264,15 @@ pub fn admit(capability: &Capability, linked: bool, r: &Requirements<'_>) -> Vec
             signs: capability.sign_bounds,
         });
     }
+    let missing: Vec<_> = f
+        .native
+        .iter()
+        .filter(|form| !capability.native_forms.contains(form))
+        .copied()
+        .collect();
+    if !missing.is_empty() {
+        reasons.push(Ineligible::NativeForms { missing });
+    }
     reasons
 }
 impl Requirements<'_> {
@@ -270,6 +314,13 @@ impl Requirements<'_> {
                         .into(),
                 ));
             }
+            // Nor does it enforce a constraint left to a native handler (ADR-0104).
+            if !self.facts.native.is_empty() {
+                return Err(ProblemError::Unsupported(format!(
+                    "native {} realization has no constant evaluation",
+                    native_forms(&self.facts.native)
+                )));
+            }
             return Ok(Route::Constant);
         }
         let selected = match selection {
@@ -283,7 +334,10 @@ impl Requirements<'_> {
                     .collect();
                 automatic.sort_by_key(|(rank, _)| *rank);
                 automatic.first().map(|(_, b)| *b).ok_or_else(|| {
-                    ProblemError::Unsupported(format!("no eligible native route: {choices:?}"))
+                    ProblemError::Unsupported(format!(
+                        "no eligible native route: {}",
+                        assessed(&choices)
+                    ))
                 })?
             }
         };
@@ -299,7 +353,9 @@ impl Requirements<'_> {
         }
         if !admitted(selected) {
             return Err(ProblemError::Unsupported(format!(
-                "selected {selected:?} is ineligible: {choices:?}"
+                "selected {} is ineligible: {}",
+                selected.as_str(),
+                assessed(&choices)
             )));
         }
         Ok(Route::Native(selected))
@@ -307,6 +363,14 @@ impl Requirements<'_> {
     fn available(&self, backend: Backend) -> bool {
         self.table.get(backend).is_some_and(|a| a.linked())
     }
+}
+/// Diagnostic spelling of native constraint forms.
+fn native_forms(forms: &[NativeConstraintForm]) -> String {
+    forms
+        .iter()
+        .map(|form| form.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 #[cfg(test)]
 mod tests {
@@ -369,6 +433,7 @@ mod tests {
             objective_degree: Some(0),
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
             quadratic: false,
+            native: vec![],
         }
     }
     #[test]
@@ -449,7 +514,54 @@ mod tests {
             affine_rows: vec![true],
             objective_degree: Some(2),
             bound_assumptions: pse_ids::ContentHash::from_bytes([0; 32]),
+            native: vec![],
         }
+    }
+    #[test]
+    fn native_forms_are_admitted_only_by_a_record_that_consumes_them() {
+        // An LP every coefficient adapter represents, except that it leaves an indicator
+        // row to a native handler (ADR-0104).
+        let mut f = miqp_facts();
+        f.domains.fill(ModelingVariableDomain::Continuous);
+        f.quadratic = false;
+        f.objective_degree = Some(1);
+        f.native = vec![NativeConstraintForm::Indicator];
+        let requirements = Requirements {
+            table: &LINKED,
+            facts: &f,
+            intent: SolveIntent::Optimize,
+            convex: true,
+            controls: &crate::solve::Controls::default(),
+        };
+        let missing = Ineligible::NativeForms {
+            missing: vec![NativeConstraintForm::Indicator],
+        };
+        for choice in requirements.eligibility() {
+            assert!(choice.reasons.contains(&missing), "{choice:?}");
+        }
+        assert!(matches!(
+            requirements.select(SolverSelection::Auto),
+            Err(ProblemError::Unsupported(_))
+        ));
+        // The rule reads the record: one that consumes the handler admits the form.
+        let highs = adapter(Backend::Highs).capability();
+        let consuming = Capability {
+            native_forms: &[NativeConstraintForm::Indicator],
+            ..*highs
+        };
+        assert!(admit(highs, true, &requirements).contains(&missing));
+        assert!(admit(&consuming, true, &requirements).is_empty());
+        // Without free variables the constant route cannot enforce the form either.
+        f.variables = 0;
+        assert!(matches!(
+            select(&f, SolveIntent::Optimize, SolverSelection::Auto, true),
+            Err(ProblemError::Unsupported(_))
+        ));
+        f.native.clear();
+        assert_eq!(
+            select(&f, SolveIntent::Optimize, SolverSelection::Auto, true).unwrap(),
+            Route::Constant
+        );
     }
     #[test]
     fn class_refusals_do_not_relax_discrete_or_square_requirements() {

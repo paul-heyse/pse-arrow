@@ -319,6 +319,32 @@ pub fn infer_with_evidence(
         }
         OpRequest::Mul | OpRequest::Div => {
             count(operands, 2)?;
+            // Units in operation times a per-unit capacity is a capacity, and a total over a
+            // count of units is a per-unit value: a declared count or indicator scales the
+            // other operand without changing its physical contract. It precedes neutral
+            // scaling, so a neutral quantity switched by an indicator stays neutral.
+            {
+                let right = registry.discrete_category(operands[1].quantity_type)?;
+                let left = registry.discrete_category(operands[0].quantity_type)?;
+                let kept = match request {
+                    _ if right.is_some() => Some(0),
+                    OpRequest::Mul if left.is_some() => Some(1),
+                    _ => None,
+                };
+                if let Some(kept) = kept {
+                    let indices = operands[kept]
+                        .indices
+                        .union(operands[1 - kept].indices)
+                        .map_err(|_| {
+                            invariant("discrete_scaling.binders", "conflicting coordinate binders")
+                        })?;
+                    return Ok(built(
+                        operands[kept].quantity_type,
+                        indices,
+                        BuiltInRule::DiscreteScaling,
+                    ));
+                }
+            }
             let neutral = registry.neutral_dimensionless();
             let left_neutral =
                 neutral == Some(operands[0].quantity_type) && operands[0].indices.is_empty();
@@ -337,32 +363,6 @@ pub fn infer_with_evidence(
                     operands[position].indices.clone(),
                     BuiltInRule::NeutralScaling,
                 ));
-            }
-            // Units in operation times a per-unit capacity is a capacity: a declared count or
-            // indicator scales the other operand without changing its physical contract.
-            if matches!(request, OpRequest::Mul) {
-                let right = registry.discrete_category(operands[1].quantity_type)?;
-                let left = registry.discrete_category(operands[0].quantity_type)?;
-                let kept = if right.is_some() {
-                    Some(0)
-                } else if left.is_some() {
-                    Some(1)
-                } else {
-                    None
-                };
-                if let Some(kept) = kept {
-                    let indices = operands[kept]
-                        .indices
-                        .union(operands[1 - kept].indices)
-                        .map_err(|_| {
-                            invariant("discrete_scaling.binders", "conflicting coordinate binders")
-                        })?;
-                    return Ok(built(
-                        operands[kept].quantity_type,
-                        indices,
-                        BuiltInRule::DiscreteScaling,
-                    ));
-                }
             }
             registered(request, operands, registry, checker)
         }

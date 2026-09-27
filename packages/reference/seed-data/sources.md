@@ -119,3 +119,11 @@ only the third period runs, at 100 W, for a 70 W margin. The linear relaxation r
 85 W with a half-committed second period, so the fixture checks that integrality is
 enforced rather than relaxed. It runs only under an optimization intent; a root solve
 refuses the free indicators (ADR-0103).
+
+`gdp.pse` is a synthetic generalized disjunctive program, not equipment data. A supply
+of at least 60 W is met by exactly one alternative: a small unit (up to 50 W, cost
+10 W + 0.2·output), a large unit (up to 120 W, cost 30 W + 0.1·output) or staying idle.
+Enumerating the alternatives gives the optimum: the large unit at 60 W, cost 36 W; the
+small unit cannot meet the demand and idling produces nothing. The disjunction is
+realized by the convex hull over the declared output and cost boxes (ADR-0104); the
+fixture runs under an optimization intent.

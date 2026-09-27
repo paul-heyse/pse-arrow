@@ -29,6 +29,7 @@ static STUB_CAPABILITY: Capability = Capability {
     sign_bounds: true,
     parallel: false,
     certifies: false,
+    native_forms: &[],
     reuse: "test session counter",
     cancellation: "none",
     diagnostics: "none",
@@ -293,6 +294,7 @@ fn from_row(row: &pse_model::generated::runtime::solver_capabilities::Row) -> &'
         sign_bounds: row.sign_bounds,
         parallel: row.parallel,
         certifies: row.certifies,
+        native_forms: Box::leak(row.native_forms.clone().into_boxed_slice()),
         reuse: "",
         cancellation: "",
         diagnostics: "",
@@ -316,7 +318,11 @@ fn grid() -> Vec<ProblemFacts> {
                 for (objective, equalities, rows) in
                     [(false, true, 1), (true, false, 1), (true, true, 2)]
                 {
-                    for (coefficients, quadratic) in [(false, false), (true, false), (true, true)] {
+                    for ((coefficients, quadratic), native) in
+                        [(false, false), (true, false), (true, true)]
+                            .into_iter()
+                            .flat_map(|c| [(c, vec![]), (c, vec![NativeConstraintForm::Indicator])])
+                    {
                         out.push(ProblemFacts {
                             variables: 1,
                             rows,
@@ -332,6 +338,7 @@ fn grid() -> Vec<ProblemFacts> {
                             objective_degree: Some(if quadratic { 2 } else { 1 }),
                             bound_assumptions: ContentHash::from_bytes([0; 32]),
                             quadratic,
+                            native,
                         });
                     }
                 }
