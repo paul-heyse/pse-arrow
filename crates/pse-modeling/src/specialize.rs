@@ -29,6 +29,8 @@ mod fixture;
 pub use fixture::{Fixture, FixtureValue};
 mod regimes;
 pub use regimes::{Regime, RegimeSelection};
+mod forms;
+pub use forms::{DEFAULT_BIG_M_MARGIN, Derived, DerivedRule, Equivalence, Lowering};
 use value::{Evaluator, value_type};
 
 /// Explicit limits checked before expansion/allocation.
@@ -272,6 +274,14 @@ pub struct SpecializedModel {
     pub functions: BTreeMap<String, crate::Function>,
     /// Typed authored annotations and their instantiated owner.
     pub annotations: Vec<crate::annotation::Annotation>,
+    /// Named lowerings of constraint forms and disjunctions, inner-first (ADR-0104).
+    pub lowerings: Vec<Lowering>,
+    /// Constraints left to a backend's native handlers; routing refuses them elsewhere.
+    pub native: Vec<pse_model::forms::NativeConstraint>,
+    /// Parameters the case box determines at preparation.
+    pub derived: BTreeMap<SemanticId, Derived>,
+    /// Kernel-derived continuous variables confined to the unit interval.
+    pub unit_interval: BTreeSet<SemanticId>,
 }
 /// A declared port aliases an existing physical coordinate without losing its owner.
 #[derive(Clone, Debug, PartialEq)]
@@ -324,6 +334,7 @@ pub(crate) struct Engine<'a, 'b> {
     local_serial: usize,
     continuity_done: BTreeSet<SemanticId>,
     relaxations: BTreeMap<SemanticId, (Type, Value, Lineage)>,
+    form_realizations: BTreeMap<SemanticId, (forms::Realized, SemanticId)>,
     facts: Environment,
     cancel: &'a dyn Fn() -> bool,
     discretizer: &'a dyn crate::continuous::Discretizer,
@@ -401,6 +412,7 @@ pub fn specialize_with_discretizer(
         local_serial: 0,
         continuity_done: BTreeSet::new(),
         relaxations: BTreeMap::new(),
+        form_realizations: BTreeMap::new(),
         facts: crate::analysis::facts(&bindings.facts)?,
         discretizer,
         cancel,
@@ -925,6 +937,10 @@ impl Engine<'_, '_> {
                     .p
                     .resolve(*member, &policy.target)
                     .ok_or_else(|| invalid(*member, "implicit target absent"))?;
+                if self.p.declarations[&target].value.kind != Kind::Implicit {
+                    self.register_form_realization(target, *member)?;
+                    continue;
+                }
                 if realizations
                     .insert(target, Realization::from_contract(policy, *member)?)
                     .is_some()
@@ -1006,6 +1022,10 @@ impl Engine<'_, '_> {
                             &coordinates_env(&env, &coordinates),
                             &[*member],
                         )?;
+                        if e.condition.is_some() {
+                            self.indicator_equation(id, &r, &coordinates, equation, &env)?;
+                            continue;
+                        }
                         self.reserve(1)?;
                         self.model.equations.push(Row {
                             id: member_id(id, *member, &coordinates),
@@ -1014,6 +1034,23 @@ impl Engine<'_, '_> {
                         });
                     }
                 }
+                Selected::Sos1(_) | Selected::Sos2(_) => self.ordered_set(id, &r, &env)?,
+                Selected::Atmost(_) | Selected::Atleast(_) | Selected::Exactly(_) => {
+                    self.cardinality(id, &r, &env)?;
+                }
+                Selected::Piecewise(_) => self.piecewise(id, &r, &env)?,
+                Selected::Logic(l) => {
+                    for coordinates in self.coordinates(
+                        *member,
+                        &env,
+                        l.indices
+                            .iter()
+                            .map(|i| (i.name.as_str(), i.domain.as_str())),
+                    )? {
+                        self.logic(id, &r, &coordinates, &env)?;
+                    }
+                }
+                Selected::Disjunction(_) => self.disjunction(id, *member, &env, None)?,
                 Selected::Requirement(r) => {
                     if !self.predicate(*member, &env, &r.predicate)? {
                         return Err(invalid(*member, &r.message));
@@ -1309,6 +1346,56 @@ impl Engine<'_, '_> {
             self.states
                 .get_mut(&instance)
                 .ok_or_else(|| invalid(member, "accounting owner absent"))?
+                .symbols
+                .insert(key, id);
+            return Ok(id);
+        }
+        if row.value.kind == Kind::Alternative {
+            // ADR-0104: an alternative is selected by its own binary indicator.
+            self.reserve(1)?;
+            let id = member_id(instance, member, coordinates);
+            let ty = self
+                .p
+                .types
+                .get(&member)
+                .cloned()
+                .ok_or_else(|| invalid(member, "alternative indicator type absent"))?;
+            let zero = self.typed_zero(&ty, member)?;
+            let mut lineage = self.lineage(instance, &row, &[member]);
+            // Name the indicator by its disjunction path, as authors reference it.
+            let mut names = Vec::new();
+            let mut cursor = Some(member);
+            while let Some(id) = cursor.filter(|id| {
+                matches!(
+                    self.p.declarations[id].value.kind,
+                    Kind::Alternative | Kind::Disjunction
+                )
+            }) {
+                names.push(self.p.declarations[&id].name.clone());
+                cursor = self.p.declarations[&id].parent_id;
+            }
+            names.reverse();
+            lineage.path = format!("{}.{}", self.states[&instance].path, names.join("."));
+            self.model.symbols.insert(
+                id,
+                Symbol {
+                    id,
+                    ty,
+                    role: Kind::Variable,
+                    domain: Domain::Binary,
+                    expression: None,
+                    initial: None,
+                    lineage: lineage.clone(),
+                },
+            );
+            self.model.annotations.push(crate::annotation::Annotation {
+                target: id,
+                value: crate::annotation::AnnotationValue::Start(zero),
+                lineage,
+            });
+            self.states
+                .get_mut(&instance)
+                .ok_or_else(|| invalid(instance, "instance missing"))?
                 .symbols
                 .insert(key, id);
             return Ok(id);
@@ -1660,6 +1747,49 @@ impl Contribution {
     }
 }
 impl SpecializedModel {
+    /// The typed refusal of a derived parameter's realization, naming its subject (ADR-0104).
+    pub fn realization_refusal(
+        &self,
+        parameter: SemanticId,
+        subject: SemanticId,
+        reason: crate::RealizationRefusal,
+    ) -> ModelingError {
+        let derived = self.derived.get(&parameter);
+        let source = derived.map_or(parameter, |d| d.source);
+        let path = |id: &SemanticId| {
+            self.symbols
+                .get(id)
+                .map(|s| s.lineage.path.clone())
+                .or_else(|| {
+                    self.lowerings
+                        .iter()
+                        .find(|l| l.source == *id)
+                        .and_then(|l| l.rows.first())
+                        .and_then(|row| self.equations.iter().find(|r| r.id == *row))
+                        .map(|r| r.lineage.path.clone())
+                })
+                .unwrap_or_else(|| id.to_string())
+        };
+        ModelingError::Realization {
+            declaration: source,
+            form: self
+                .symbols
+                .get(&parameter)
+                .map(|s| {
+                    s.lineage
+                        .path
+                        .rsplit_once('.')
+                        .map_or(s.lineage.path.clone(), |(head, _)| head.to_owned())
+                })
+                .unwrap_or_else(|| path(&source)),
+            subject: path(&subject),
+            realization: derived.map_or(
+                pse_model::generated::enums::ModelingRealizationPolicy::DerivedBigM,
+                |d| d.realization,
+            ),
+            reason,
+        }
+    }
     /// The typed refusal of a variable's declared domain, naming the variable (ADR-0103).
     pub fn domain_refusal(
         &self,

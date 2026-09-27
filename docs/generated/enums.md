@@ -441,6 +441,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `stage` | `` | false |
 | `implicit` | `` | false |
 | `regime` | `` | false |
+| `disjunction` | `` | false |
+| `alternative` | `` | false |
 | `parameter` | `` | false |
 | `variable` | `` | false |
 | `let` | `` | false |
@@ -453,6 +455,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `scope_value` | `` | false |
 | `function` | `` | false |
 | `equation` | `` | false |
+| `sos1` | `` | false |
+| `sos2` | `` | false |
+| `atmost` | `` | false |
+| `atleast` | `` | false |
+| `exactly` | `` | false |
+| `piecewise` | `` | false |
+| `logic` | `` | false |
 | `table` | `` | false |
 | `dataset` | `` | false |
 | `entity` | `` | false |
@@ -533,6 +542,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `inline` | `` | false |
 | `nested` | `` | false |
 | `accelerated` | `` | false |
+| `big_m` | `` | false |
+| `derived_big_m` | `` | false |
+| `hull` | `` | false |
+| `indicator` | `` | false |
+| `linear` | `` | false |
+| `native` | `` | false |
+| `sos2` | `` | false |
+| `incremental` | `` | false |
 
 ## `ModelingVariableDomain`
 

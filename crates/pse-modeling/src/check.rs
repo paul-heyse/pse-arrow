@@ -344,6 +344,36 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         .collect::<BTreeMap<_, _>>();
     let mut siblings = BTreeSet::new();
     for row in rows {
+        {
+            // ADR-0104: constraint forms belong to a definition's own rows (possibly guarded),
+            // never to an implicit residual, a regime, a stage overlay or an alternative.
+            use pse_model::generated::enums::ModelingDeclarationKind as Kind;
+            let form = matches!(
+                row.value.kind,
+                Kind::Sos1
+                    | Kind::Sos2
+                    | Kind::Atmost
+                    | Kind::Atleast
+                    | Kind::Exactly
+                    | Kind::Piecewise
+                    | Kind::Logic
+            ) || row
+                .value
+                .equation
+                .as_ref()
+                .is_some_and(|e| e.condition.is_some());
+            let mut owner = row.parent_id.and_then(|id| p.declarations.get(&id));
+            while let Some(guard) = owner.filter(|r| r.value.kind == Kind::When) {
+                owner = guard.parent_id.and_then(|id| p.declarations.get(&id));
+            }
+            let owner = owner.map(|r| r.value.kind);
+            if form && !matches!(owner, Some(Kind::Definition | Kind::Test | Kind::Case)) {
+                return Err(invalid(
+                    row.declaration_id,
+                    "constraint forms belong to definitions, tests and cases",
+                ));
+            }
+        }
         if let Some(scope) = &row.value.scope {
             use pse_model::generated::enums::ModelingDeclarationKind as Kind;
             if scope.selection.is_some() && row.value.kind != Kind::Implicit
@@ -352,6 +382,28 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 return Err(invalid(
                     row.declaration_id,
                     "implicit selection or regime eligibility owner",
+                ));
+            }
+            let parent_kind = row
+                .parent_id
+                .and_then(|id| p.declarations.get(&id))
+                .map(|r| r.value.kind);
+            if row.value.kind == Kind::Alternative
+                && (parent_kind != Some(Kind::Disjunction)
+                    || !scope.parameters.is_empty()
+                    || !scope.bases.is_empty()
+                    || !scope.type_parameters.is_empty())
+                || row.value.kind == Kind::Disjunction
+                    && (!matches!(
+                        parent_kind,
+                        Some(Kind::Definition | Kind::Test | Kind::Case | Kind::Alternative)
+                    ) || !scope.parameters.is_empty()
+                        || !scope.bases.is_empty()
+                        || !scope.type_parameters.is_empty())
+            {
+                return Err(invalid(
+                    row.declaration_id,
+                    "disjunctions belong to definitions and own their alternatives",
                 ));
             }
             if row.value.kind == Kind::Regime
@@ -637,6 +689,11 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 }
             }
             owner = p.declarations[&at].parent_id;
+        }
+        if row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Alternative {
+            // An alternative is referenced by its binary indicator (ADR-0104).
+            p.types
+                .insert(id, crate::indicator_type(context.quantities, id)?);
         }
         if let Some(v) = &row.value.binding {
             if !v.type_name.is_empty() {
@@ -1139,6 +1196,30 @@ impl CheckedPackage {
             if let Some(v) = &row.value.equation {
                 texts.push(&v.expression);
                 texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
+                texts.extend(v.condition.as_ref().map(|c| c.variable.as_str()));
+            }
+            if let Some(v) = &row.value.ordered_set {
+                texts.extend([v.member.as_str(), v.weight.as_str()]);
+                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
+            }
+            if let Some(v) = &row.value.cardinality {
+                texts.extend([v.count.as_str(), v.member.as_str()]);
+                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
+            }
+            if let Some(v) = &row.value.piecewise {
+                texts.extend([
+                    v.output.as_str(),
+                    v.input.as_str(),
+                    v.abscissa.as_str(),
+                    v.ordinate.as_str(),
+                ]);
+                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
+            }
+            if let Some(v) = &row.value.logic {
+                texts.extend(v.indices.iter().map(|i| i.domain.as_str()));
+            }
+            if let Some(v) = &row.value.realization {
+                texts.extend(v.argument.as_deref());
             }
             if let Some(v) = &row.value.guard {
                 texts.push(&v.predicate);

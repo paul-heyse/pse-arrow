@@ -55,6 +55,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 "stage",
                 "implicit",
                 "regime",
+                "disjunction",
+                "alternative",
             ],
             vec![
                 parameters("parameters"),
@@ -167,8 +169,37 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         (
             "equation",
             vec!["equation"],
-            vec![indices(), text("expression")],
+            vec![
+                indices(),
+                text("expression"),
+                // ADR-0104: an indicator constraint holds only when the binary takes `active`.
+                T::structure(vec![text("variable"), flag("active")])
+                    .with_name("condition")
+                    .optional(),
+            ],
         ),
+        (
+            "ordered_set",
+            vec!["sos1", "sos2"],
+            vec![indices(), text("member"), text("weight")],
+        ),
+        (
+            "cardinality",
+            vec!["atmost", "atleast", "exactly"],
+            vec![indices(), text("count"), text("member")],
+        ),
+        (
+            "piecewise",
+            vec!["piecewise"],
+            vec![
+                indices(),
+                text("output"),
+                text("input"),
+                text("abscissa"),
+                text("ordinate"),
+            ],
+        ),
+        ("logic", vec!["logic"], vec![indices(), text("proposition")]),
         (
             "table",
             vec!["table"],
@@ -293,6 +324,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 text("target"),
                 T::enumeration("ModelingRealizationPolicy").with_name("policy"),
                 text("accelerator").optional(),
+                // An authored big-M, a derived big-M's relative margin or a hull's epsilon.
+                text("argument").optional(),
             ],
         ),
     ];
@@ -357,10 +390,23 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "simultaneous",
         ],
     );
+    // ADR-0104: constraint forms and disjunctions name their realization.
     enumeration(
         builder,
         "ModelingRealizationPolicy",
-        ["inline", "nested", "accelerated"],
+        [
+            "inline",
+            "nested",
+            "accelerated",
+            "big_m",
+            "derived_big_m",
+            "hull",
+            "indicator",
+            "linear",
+            "native",
+            "sos2",
+            "incremental",
+        ],
     );
     let alternative = TaggedAlternative::new(
         "kind",
@@ -376,7 +422,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "modeling_declarations",
-        2,
+        3,
         S::Model,
         &["declaration_id"],
         vec![
@@ -393,7 +439,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::structure(payload).with_alternative(&alternative),
             ),
         ],
-        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none.",
+        "Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104).",
     );
     enumeration(
         builder,

@@ -126,4 +126,54 @@ mod tests {
         }
         assert!(divide(delta_h, quantity("c64b96975a4a59755f8711d3bf628bc9")).is_err());
     }
+
+    #[test]
+    fn discrete_scaling_keeps_the_scaled_contract() {
+        use crate::infer::{BuiltInRule, OperationSelection};
+        let registry = standard_registry().expect("source package projection");
+        let quantity = |hex| QuantityTypeId::from_id(pse_ids::SemanticId::parse_hex(hex).unwrap());
+        let power = quantity("e1f2106da9eb4fe0aa2749fa5469fa1a");
+        let count = quantity("3a8f6d2c9b1e4f7a8c5d0e3b6a9f2c18");
+        let indicator = quantity("b5d9e1c4a7f2483e9d6c1b0a5e8f3d27");
+        let neutral = registry.neutral_dimensionless().unwrap();
+        let indices = IndexSet::new();
+        let apply = |request: OpRequest<'_>, left, right| {
+            infer_with_evidence(
+                &request,
+                &[
+                    Operand {
+                        quantity_type: left,
+                        indices: &indices,
+                    },
+                    Operand {
+                        quantity_type: right,
+                        indices: &indices,
+                    },
+                ],
+                &registry,
+                &StandardInvariantChecker,
+            )
+        };
+        let discrete = OperationSelection::BuiltIn(BuiltInRule::DiscreteScaling);
+        for (request, left, right, result) in [
+            (OpRequest::Mul, power, indicator, power),
+            (OpRequest::Mul, indicator, power, power),
+            (OpRequest::Mul, count, power, power),
+            (OpRequest::Div, power, count, power),
+            // A neutral quantity switched by an indicator stays neutral.
+            (OpRequest::Mul, neutral, indicator, neutral),
+            (OpRequest::Mul, indicator, neutral, neutral),
+            (OpRequest::Mul, indicator, indicator, indicator),
+        ] {
+            let inferred = apply(request, left, right).unwrap();
+            assert_eq!((inferred.result, &inferred.selected), (result, &discrete));
+        }
+        // A count is not a divisor's reciprocal: dividing by a quantity stays registered-only.
+        assert!(apply(OpRequest::Div, count, power).is_err());
+        assert!(registry.discrete_category(power).unwrap().is_none());
+        assert_eq!(
+            registry.discrete_category(indicator).unwrap(),
+            Some(crate::QuantityKindCategory::Indicator)
+        );
+    }
 }

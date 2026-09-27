@@ -12,6 +12,8 @@ pub mod artifact;
 pub mod diagnostic;
 /// Declared variable-domain semantics over the generated registry enum (ADR-0103).
 pub mod domain;
+/// Constraint forms left to native constraint handlers (ADR-0104).
+pub mod forms;
 /// Resolved numerical meaning, independent of native solver implementations.
 pub mod numerics;
 /// An invalid declared semantic enum member.

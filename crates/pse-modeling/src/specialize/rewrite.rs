@@ -109,6 +109,44 @@ impl Engine<'_, '_> {
             })
             .collect::<Result<Vec<_>>>()?;
         if !rest.is_empty() {
+            // `route.left` names an alternative's binary indicator (ADR-0104); nested
+            // alternatives continue through their disjunctions.
+            if let Some(disjunction) = state
+                .members
+                .get(&first.name)
+                .filter(|id| self.p.declarations[*id].value.kind == Kind::Disjunction)
+            {
+                let mut owner = *disjunction;
+                let mut alternative = None;
+                for segment in rest {
+                    let child = self
+                        .p
+                        .children
+                        .get(&owner)
+                        .into_iter()
+                        .flatten()
+                        .copied()
+                        .find(|id| {
+                            self.p.declarations[id].name == segment.name
+                                && matches!(
+                                    self.p.declarations[id].value.kind,
+                                    Kind::Alternative | Kind::Disjunction
+                                )
+                        })
+                        .ok_or_else(|| {
+                            invalid(at, format!("unknown alternative {}", segment.name))
+                        })?;
+                    if !segment.indices.is_empty() {
+                        return Err(invalid(at, "an alternative is not indexed"));
+                    }
+                    alternative = (self.p.declarations[&child].value.kind == Kind::Alternative)
+                        .then_some(child);
+                    owner = child;
+                }
+                let alternative =
+                    alternative.ok_or_else(|| invalid(at, "path must end at an alternative"))?;
+                return Ok((instance, alternative, Vec::new()));
+            }
             if state.members.contains_key(&first.name) {
                 let child = self.child_instance(instance, at, first, env)?;
                 return self.resolve_path(
