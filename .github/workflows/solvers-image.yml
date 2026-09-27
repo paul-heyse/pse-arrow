@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The solver container: Ipopt 3.14.20 + MUMPS 5.9.1 + ASL, built from pinned source
-# tarballs verified against docker/solvers/checksums.sha256.
+# The solver container: Ipopt 3.14.20 with MUMPS 5.9.1 (METIS 5.1.0), SPRAL 2025.09.18 and
+# oneMKL 2026.1.0 Pardiso, ASL, and the SCIP Optimization Suite 10.0.2 (ADR-0108, ADR-0105),
+# built from pinned sources verified against docker/solvers/checksums.sha256.
 #
 # Manual dispatch builds all three stages and runs the smoke test. Publishing to GHCR
 # and opening a pin update pull request requires an explicit input on `main`.
@@ -42,7 +43,7 @@ env:
   # The human-readable recipe tag. Bumped by hand (…-r2, -r3) when the recipe changes in
   # a way that keeps the same upstream versions; the upstream versions themselves come
   # from docker/solvers/checksums.sha256 and moving one is an ADR.
-  RECIPE_TAG: ipopt3.14.20-mumps5.9.1-asl20241108-r1
+  RECIPE_TAG: ipopt3.14.20-mumps5.9.1-metis5.1.0-spral2025.09.18-onemkl2026.1.0-scip10.0.2-r1
 
 jobs:
   build:
