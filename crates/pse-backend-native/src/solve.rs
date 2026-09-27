@@ -51,6 +51,19 @@ pub enum HessianMode {
     /// Library-owned quasi-Newton approximation.
     LimitedMemory,
 }
+/// Preconditioner of a native Krylov linear solve (KINSOL `KINSetPreconditioner`, IDAS
+/// `IDASetPreconditioner`). It is built from the compiled analytic Jacobian, never from
+/// finite differences.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Preconditioner {
+    /// Unpreconditioned Krylov iterations.
+    #[default]
+    None,
+    /// Diagonal (Jacobi) scaling by the compiled Newton-matrix diagonal; a zero diagonal
+    /// entry leaves its row unscaled.
+    Jacobi,
+}
 /// Compatible native state retention requirement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum ReusePolicy {

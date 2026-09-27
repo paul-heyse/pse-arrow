@@ -144,12 +144,49 @@ impl ModelingPackage {
                 .await?;
             identity.hash(&next.key);
             if let Some(result) = &mut prepared {
-                let physical_ports=|model:&ModelingPreparation|model.compiled().admitted.case.variables().iter().map(|v|(v.port.id,(v.port.quantity,v.port.unit))).chain(model.compiled().admitted.case.parameters().iter().map(|p|(p.id,(p.quantity,p.unit)))).collect::<BTreeMap<_,_>>();
+                let physical_ports = |model: &ModelingPreparation| {
+                    model
+                        .compiled()
+                        .admitted
+                        .case
+                        .variables()
+                        .iter()
+                        .map(|v| (v.port.id, (v.port.quantity, v.port.unit)))
+                        .chain(
+                            model
+                                .compiled()
+                                .admitted
+                                .case
+                                .parameters()
+                                .iter()
+                                .map(|p| (p.id, (p.quantity, p.unit))),
+                        )
+                        .collect::<BTreeMap<_, _>>()
+                };
                 if physical_ports(result.model()) != physical_ports(next.model())
                     || result.contract.states != next.contract.states
                     || result.contract.parameters != next.contract.parameters
                     || result.contract.outputs != next.contract.outputs
-                    || result.contract.outputs.iter().any(|id|result.model().compiled().admitted.case.rows().iter().find(|r|r.id==*id).map(|r|r.quantity)!=next.model().compiled().admitted.case.rows().iter().find(|r|r.id==*id).map(|r|r.quantity))
+                    || result.contract.outputs.iter().any(|id| {
+                        result
+                            .model()
+                            .compiled()
+                            .admitted
+                            .case
+                            .rows()
+                            .iter()
+                            .find(|r| r.id == *id)
+                            .map(|r| r.quantity)
+                            != next
+                                .model()
+                                .compiled()
+                                .admitted
+                                .case
+                                .rows()
+                                .iter()
+                                .find(|r| r.id == *id)
+                                .map(|r| r.quantity)
+                    })
                     || result.contract.differential != next.contract.differential
                     || result.contract.quadratures != next.contract.quadratures
                     || result.coordinates != next.coordinates
@@ -251,6 +288,8 @@ pub(super) fn resolve_events(
             terminal: event.terminal,
             next_mode,
             tolerance: event.tolerance,
+            // Authored events are zero crossings in either direction.
+            direction: native::Crossing::Either,
         });
         if !event.terminal {
             let mut rows = states

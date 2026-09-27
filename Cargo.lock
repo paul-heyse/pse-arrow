@@ -2438,6 +2438,7 @@ dependencies = [
  "petgraph",
  "serde",
  "serde_json",
+ "suitesparse_sys",
  "thiserror 2.0.20",
 ]
 
@@ -2451,6 +2452,7 @@ dependencies = [
  "faer-traits",
  "nalgebra",
  "num-traits",
+ "suitesparse_sys",
  "thiserror 2.0.20",
 ]
 

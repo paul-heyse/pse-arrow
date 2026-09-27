@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Finite semi-explicit dynamics. Numerical algorithms belong to Diffsol.
+//! Finite semi-explicit dynamics. Numerical algorithms belong to Diffsol and SUNDIALS IDAS
+//! (ADR-0084, ADR-0093, ADR-0110).
 use crate::ProblemError;
 use pse_ids::{ContentHash, SemanticId};
 use std::{
@@ -35,6 +36,155 @@ pub enum TrialPolicy {
     Terminal,
     /// The native method must support rejecting and retrying a trial.
     Recoverable,
+}
+/// Diffsol time-stepping scheme (ADR-0110 item 2). Every scheme is library-owned.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffsolMethod {
+    /// Variable-order variable-step BDF.
+    #[default]
+    Bdf,
+    /// Two-stage SDIRK TR-BDF2.
+    TrBdf2,
+    /// Four-stage ESDIRK 3(4).
+    Esdirk34,
+    /// Explicit Tsitouras 4(5); only a mass-free ODE is admitted.
+    Tsit45,
+}
+/// Sparse factorization of Diffsol's Newton iteration matrices.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffsolLinear {
+    /// faer sparse LU.
+    #[default]
+    FaerLu,
+    /// SuiteSparse KLU (Diffsol `suitesparse` backend).
+    Klu,
+}
+/// Typed Diffsol-only method controls.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DiffsolSettings {
+    /// Time-stepping scheme.
+    #[serde(default)]
+    pub method: DiffsolMethod,
+    /// Newton linear solver of the implicit schemes.
+    #[serde(default)]
+    pub linear: DiffsolLinear,
+}
+/// IDAS Newton linear solver.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
+pub enum IdasLinear {
+    /// SuiteSparse KLU over the compiled analytic Jacobian.
+    #[default]
+    Klu,
+    /// Matrix-free GMRES over analytic Jacobian-vector products.
+    Spgmr {
+        /// Maximum Krylov subspace dimension.
+        dimension: usize,
+        /// Left preconditioner built from the compiled Jacobian.
+        #[serde(default)]
+        preconditioner: crate::solve::Preconditioner,
+    },
+    /// Matrix-free flexible GMRES over analytic Jacobian-vector products.
+    Spfgmr {
+        /// Maximum Krylov subspace dimension.
+        dimension: usize,
+        /// Left preconditioner built from the compiled Jacobian.
+        #[serde(default)]
+        preconditioner: crate::solve::Preconditioner,
+    },
+}
+/// IDAS forward-sensitivity corrector (`IDASensInit`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SensitivityCorrector {
+    /// State and sensitivity corrections in one Newton iteration (`IDA_SIMULTANEOUS`).
+    #[default]
+    Simultaneous,
+    /// Sensitivities corrected after each converged state step (`IDA_STAGGERED`).
+    Staggered,
+}
+/// Consistent initialization at the start of the horizon (`IDACalcIC`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum IdasInitialization {
+    /// Keep the requested differential states; compute algebraic states and all rates
+    /// (`IDA_YA_YDP_INIT`).
+    #[default]
+    AlgebraicAndRates,
+    /// Every rate is zero and every state is computed (`IDA_Y_INIT`): a steady start. The
+    /// requested initial values are only the Newton guess.
+    SteadyStates,
+}
+/// Declared sign of one normalized state, enforced by IDAS at every step (`IDASetConstraints`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StateSign {
+    /// Unconstrained.
+    #[default]
+    Free,
+    /// `x >= 0`.
+    NonNegative,
+    /// `x > 0`.
+    Positive,
+    /// `x <= 0`.
+    NonPositive,
+    /// `x < 0`.
+    Negative,
+}
+impl StateSign {
+    /// The native IDAS/KINSOL constraint code.
+    pub const fn code(self) -> f64 {
+        match self {
+            Self::Free => 0.0,
+            Self::NonNegative => 1.0,
+            Self::Positive => 2.0,
+            Self::NonPositive => -1.0,
+            Self::Negative => -2.0,
+        }
+    }
+}
+/// Typed IDAS-only method controls (ADR-0110 item 1).
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdasSettings {
+    /// Newton linear solver.
+    #[serde(default)]
+    pub linear: IdasLinear,
+    /// Forward-sensitivity corrector.
+    #[serde(default)]
+    pub sensitivity: SensitivityCorrector,
+    /// Consistent initialization at the start of the horizon; scheduled changes and resets
+    /// always keep their differential states.
+    #[serde(default)]
+    pub initialization: IdasInitialization,
+    /// Empty, or one declared sign per state in state order.
+    #[serde(default)]
+    pub constraints: Vec<StateSign>,
+}
+/// Guard crossing detected by an event (`IDASetRootDirection`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Crossing {
+    /// Every sign change.
+    #[default]
+    Either,
+    /// Only a guard increasing through zero.
+    Rising,
+    /// Only a guard decreasing through zero.
+    Falling,
+}
+impl Crossing {
+    /// The native IDAS root direction.
+    pub const fn code(self) -> i32 {
+        match self {
+            Self::Either => 0,
+            Self::Rising => 1,
+            Self::Falling => -1,
+        }
+    }
 }
 
 /// Dispatch only after checking the complete integration requirements.
@@ -105,6 +255,8 @@ pub struct Event {
     pub next_mode: usize,
     /// Absolute normalized guard tolerance for ambiguity detection.
     pub tolerance: f64,
+    /// Guard crossings that trigger the event; Diffsol detects every sign change.
+    pub direction: Crossing,
 }
 /// One conserved state whose signed flux is integrated by the native solver.
 #[derive(Clone, Debug)]
@@ -144,9 +296,11 @@ impl Contract {
     /// Validate finite layout and the concrete supported mass/event profile.
     pub fn validate(&self) -> Result<(), ProblemError> {
         let unique = |ids: &[SemanticId]| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
-        if !unique(&self.quadratures) || !unique(&self.balances.iter().map(|b| b.id).collect::<Vec<_>>())
+        if !unique(&self.quadratures)
+            || !unique(&self.balances.iter().map(|b| b.id).collect::<Vec<_>>())
             || self.balances.iter().any(|b| {
-                !self.quadratures.contains(&b.id) || b.state >= self.states.len()
+                !self.quadratures.contains(&b.id)
+                    || b.state >= self.states.len()
                     || !self.differential.get(b.state).copied().unwrap_or(false)
                     || !positive(b.scale)
                     || !positive(b.tolerance)
@@ -218,6 +372,12 @@ pub struct Profile {
     pub parameter_scales: Vec<f64>,
     /// Fixed-time replacement of all parameters; carried-state sensitivities remain active.
     pub changes: Vec<InputChange>,
+    /// Typed Diffsol scheme and linear solver.
+    #[serde(default)]
+    pub diffsol: DiffsolSettings,
+    /// Typed IDAS linear solver, sensitivity corrector, start and sign constraints.
+    #[serde(default)]
+    pub idas: IdasSettings,
     /// Native initialization controls, available in the linked profile.
     #[cfg(feature = "diffsol")]
     #[serde(with = "initial_options")]
@@ -261,20 +421,64 @@ impl Profile {
     /// Validate before allocation or native construction; arithmetic overflow is a refusal.
     pub fn validate(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
         c.validate()?;
-        #[cfg(feature = "diffsol")]
-        if self.resolved_method()? == Method::Idas
-            && settings_identity(self) != settings_identity(&Self::default())
-        {
-            return Err(contract(
-                "Diffsol-specific controls cannot be applied to IDAS",
-            ));
-        }
-        if self.resolved_method()? == Method::Idas
-            && (!self.changes.is_empty() || c.events.iter().any(|e| !e.is_empty()))
-        {
-            return Err(contract(
-                "IDAS currently admits smooth fixed-mass systems only",
-            ));
+        let n = c.states.len();
+        match self.resolved_method()? {
+            Method::Idas => {
+                #[cfg(feature = "diffsol")]
+                if settings_identity(self) != settings_identity(&Self::default()) {
+                    return Err(contract(
+                        "Diffsol-specific controls cannot be applied to IDAS",
+                    ));
+                }
+                // ADR-0110 item 1: Diffsol owns reset sensitivities; IDAS has no saltation.
+                if self.sensitivities && c.events.iter().any(|e| !e.is_empty()) {
+                    return Err(ProblemError::unsupported(
+                        "IDAS forward sensitivities do not cross events; Diffsol owns reset sensitivities",
+                    ));
+                }
+                let i = &self.idas;
+                if !(i.constraints.is_empty() || i.constraints.len() == n)
+                    || (!i.constraints.is_empty()
+                        && i.constraints.iter().all(|s| *s == StateSign::Free))
+                    || match i.linear {
+                        IdasLinear::Klu => false,
+                        IdasLinear::Spgmr { dimension, .. }
+                        | IdasLinear::Spfgmr { dimension, .. } => {
+                            dimension == 0 || i32::try_from(dimension).is_err()
+                        }
+                    }
+                {
+                    return Err(contract("invalid IDAS constraint or Krylov control"));
+                }
+            }
+            Method::Diffsol => {
+                if self.idas != IdasSettings::default() {
+                    return Err(contract(
+                        "IDAS-specific controls cannot be applied to Diffsol",
+                    ));
+                }
+                if c.events
+                    .iter()
+                    .flatten()
+                    .any(|e| e.direction != Crossing::Either)
+                {
+                    return Err(ProblemError::unsupported(
+                        "Diffsol detects every guard sign change; a directional event needs IDAS",
+                    ));
+                }
+                if self.diffsol.method == DiffsolMethod::Tsit45 {
+                    // ADR-0110 item 2: the explicit scheme is admitted for mass-free ODEs only.
+                    if c.differential.contains(&false) {
+                        return Err(ProblemError::unsupported(
+                            "explicit tsit45 integrates mass-free ODEs only; algebraic states need an implicit scheme",
+                        ));
+                    }
+                    if self.diffsol.linear != DiffsolLinear::default() {
+                        return Err(contract("explicit tsit45 has no Newton linear solver"));
+                    }
+                }
+            }
+            Method::Auto => return Err(ProblemError::internal("unresolved dynamic method")),
         }
         if self.sensitivities && c.events.iter().flatten().any(|e| e.terminal) {
             return Err(contract(
@@ -283,9 +487,7 @@ impl Profile {
         }
         if c.quadratures.is_empty() {
             if self.out_rtol.is_some() || !self.out_atol.is_empty() {
-                return Err(contract(
-                    "output integration tolerance without quadratures",
-                ));
+                return Err(contract("output integration tolerance without quadratures"));
             }
         } else if self.out_rtol.is_none_or(|v| !positive(v))
             || self.out_atol.len() != c.quadratures.len()
@@ -336,7 +538,6 @@ impl Profile {
                 return Err(contract("invalid native Diffsol control"));
             }
         }
-        let n = c.states.len();
         let m = c.outputs.len();
         let np = c.parameters.len();
         if !self.start.is_finite()
@@ -551,24 +752,83 @@ impl std::fmt::Debug for Profile {
     }
 }
 
-/// Exact native controls included in source/profile identity and reporting.
+/// Every Diffsol-only control, in the serde encoding of the profile (F09): the remote
+/// definitions fail to compile when a pinned option type gains a field, and no field
+/// list is written by hand.
+#[cfg(feature = "diffsol")]
+#[derive(serde::Serialize)]
+struct DiffsolIdentity<'a> {
+    #[serde(with = "initial_options")]
+    initialization: Arc<diffsol::InitialConditionSolverOptions<f64>>,
+    #[serde(with = "ode_options")]
+    native: Arc<diffsol::OdeSolverOptions<f64>>,
+    diffsol: &'a DiffsolSettings,
+}
+/// Exact Diffsol-only controls included in environment identity and reporting.
 #[cfg(feature = "diffsol")]
 pub fn settings_identity(p: &Profile) -> String {
-    serde_json::json!({"initialization":{"use_linesearch":p.initialization.use_linesearch,"max_linesearch_iterations":p.initialization.max_linesearch_iterations,"max_newton_iterations":p.initialization.max_newton_iterations,"max_linear_solver_setups":p.initialization.max_linear_solver_setups,"step_reduction_factor":p.initialization.step_reduction_factor,"armijo_constant":p.initialization.armijo_constant},"native":{"max_nonlinear_solver_iterations":p.native.max_nonlinear_solver_iterations,"max_error_test_failures":p.native.max_error_test_failures,"max_nonlinear_solver_failures":p.native.max_nonlinear_solver_failures,"nonlinear_solver_tolerance":p.native.nonlinear_solver_tolerance,"min_timestep":p.native.min_timestep,"max_timestep_growth":p.native.max_timestep_growth,"min_timestep_growth":p.native.min_timestep_growth,"max_timestep_shrink":p.native.max_timestep_shrink,"min_timestep_shrink":p.native.min_timestep_shrink,"update_jacobian_after_steps":p.native.update_jacobian_after_steps,"update_rhs_jacobian_after_steps":p.native.update_rhs_jacobian_after_steps,"threshold_to_update_jacobian":p.native.threshold_to_update_jacobian,"threshold_to_update_rhs_jacobian":p.native.threshold_to_update_rhs_jacobian,"pi_control_proportional":p.native.pi_control_proportional,"pi_control_integral":p.native.pi_control_integral}}).to_string()
+    encoded(&DiffsolIdentity {
+        initialization: p.initialization.clone(),
+        native: p.native.clone(),
+        diffsol: &p.diffsol,
+    })
+    .to_string()
 }
 
-/// All effective finite integration controls for durable provenance.
+/// All effective integration controls for durable provenance and profile identity: the
+/// complete serde encoding of the profile plus the resolved method (F09).
 pub fn profile_json(p: &Profile) -> serde_json::Value {
-    let value = serde_json::json!({"method":p.method,"resolved_method":p.resolved_method().ok(),"trial_failures":p.trial_failures,"start":p.start,"end":p.end,"samples":p.samples,"rtol":p.rtol,"out_rtol":p.out_rtol,"out_atol":p.out_atol,"atol":p.atol,"initial_step":p.initial_step,"max_steps":p.max_steps,"max_events":p.max_events,"time_limit_seconds":p.time_limit.as_secs_f64(),"max_cells":p.max_cells,"sensitivities":p.sensitivities,"parameter_scales":p.parameter_scales,"changes":p.changes.iter().map(|c|serde_json::json!({"time":c.time,"parameters":c.parameters})).collect::<Vec<_>>()});
-    #[cfg(feature = "diffsol")]
-    let value = {
-        let mut value = value;
-        if p.resolved_method().ok() == Some(Method::Diffsol) {
-            value["native"] = serde_json::Value::String(settings_identity(p));
-        }
-        value
-    };
+    let mut value = encoded(p);
+    if let serde_json::Value::Object(fields) = &mut value {
+        fields.insert("resolved_method".into(), encoded(&p.resolved_method().ok()));
+    }
     value
+}
+/// These encodings have only string map keys, so serialization cannot fail; a failure
+/// still yields a distinct value rather than a shared placeholder.
+fn encoded<T: serde::Serialize>(value: &T) -> serde_json::Value {
+    serde_json::to_value(value)
+        .unwrap_or_else(|e| serde_json::Value::String(format!("unencodable: {e}")))
+}
+/// The typed trajectory transitions at `time` receive their post-transition state. A
+/// conserved state may jump only by its declared event impulse (shared by both
+/// integrators).
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) fn settle_transitions(
+    layout: &Contract,
+    events: &mut [EventRecord],
+    time: f64,
+    state: &[f64],
+) -> Result<(), ProblemError> {
+    for event in events
+        .iter_mut()
+        .rev()
+        .take_while(|e| e.time == time && e.after.is_none())
+    {
+        for balance in &layout.balances {
+            let jump = (state[balance.state] - event.before[balance.state]) * balance.scale;
+            let declared = event
+                .event
+                .and_then(|id| balance.impulses.get(&id).copied())
+                .unwrap_or(0.0);
+            if !jump.is_finite() || (jump - declared).abs() > balance.tolerance {
+                return Err(contract(
+                    "conserved state jump differs from its declared event impulse",
+                ));
+            }
+        }
+        event.after = Some(state.to_vec());
+    }
+    Ok(())
+}
+/// Number of guards within their declared ambiguity tolerance.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+pub(crate) fn guards_at_zero(guards: &[f64], events: &[Event]) -> usize {
+    guards
+        .iter()
+        .zip(events)
+        .filter(|(g, e)| g.abs() <= e.tolerance)
+        .count()
 }
 
 #[cfg(feature = "diffsol")]
@@ -656,6 +916,8 @@ impl Default for Profile {
             sensitivities: false,
             parameter_scales: vec![],
             changes: vec![],
+            diffsol: DiffsolSettings::default(),
+            idas: IdasSettings::default(),
             #[cfg(feature = "diffsol")]
             initialization: Arc::new(Default::default()),
             #[cfg(feature = "diffsol")]

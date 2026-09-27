@@ -51,8 +51,17 @@ impl PreparedExperiments {
         let q = &quantities;
         let experiment_metadata = experiments.iter().try_fold(0usize, |total, experiment| {
             let bytes = match experiment {
-                Experiment::Steady(s) => s.providers.len().checked_mul(256)
-                    .and_then(|n|n.checked_add(s.values.scalars.len()*128+s.coordinates.capacity()*size_of::<(SemanticId,usize)>()+s.variables.capacity()*size_of::<pse_math::binding::Variable>()))
+                Experiment::Steady(s) => s
+                    .providers
+                    .len()
+                    .checked_mul(256)
+                    .and_then(|n| {
+                        n.checked_add(
+                            s.values.scalars.len() * 128
+                                + s.coordinates.capacity() * size_of::<(SemanticId, usize)>()
+                                + s.variables.capacity() * size_of::<pse_math::binding::Variable>(),
+                        )
+                    })
                     .ok_or_else(|| contract("fit experiment metadata"))?,
                 Experiment::Transient(s) => s
                     .program
@@ -155,7 +164,7 @@ impl PreparedExperiments {
         h.hash(&source_identity);
         d.frame(&mut h);
         let source = h.finish_hash();
-        let mut h = FramedHasher::new("pse.fit.profile.v1");
+        let mut h = FramedHasher::new("pse.fit.profile.v2");
         h.hash(
             &crate::math::solves::profile_key(&profile.solver)
                 .map_err(crate::math::MathRuntimeError::from)?,
@@ -166,22 +175,18 @@ impl PreparedExperiments {
             h.id(id)
                 .hash(&crate::workflow::dynamics::profile_identity(p));
         }
-        for (id,modes) in &profile.modes {
-            h.id(id).u64(modes.len() as u64);
-            for mode in modes {
-                h.str(&mode.name).u64(mode.facts.len() as u64);
-                for (name,value) in &mode.facts { h.str(name).bool(*value); }
-                h.u64(mode.events.len() as u64);
-                for event in &mode.events {
-                    h.str(&event.guard).bool(event.terminal).u64(event.tolerance.to_bits());
-                    h.bool(event.next_mode.is_some()); if let Some(next)=&event.next_mode {h.str(next);}
-                    h.u64(event.reset.len() as u64); for (state,expression) in &event.reset {h.str(state).str(expression);}
-                }
-            }
+        // Mode identity is the complete serde encoding, never a hand-written field list (F09).
+        for (id, modes) in &profile.modes {
+            let encoded = serde_json::to_string(modes)
+                .map_err(|e| contract(format!("fit mode encoding: {e}")))?;
+            h.id(id).str(&encoded);
         }
         let profile_key = h.finish_hash();
         let mut h = FramedHasher::new("pse.fit.prepared.v1");
-        h.hash(&source).hash(&profile_key).hash(&numerics.key).hash(&execution_identity);
+        h.hash(&source)
+            .hash(&profile_key)
+            .hash(&numerics.key)
+            .hash(&execution_identity);
         let contract = OracleContract {
             identity: source,
             variables: vars,
