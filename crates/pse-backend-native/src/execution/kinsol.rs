@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! KINSOL adapter: typed method controls with policy-derived scales, retained SUNDIALS/KLU
-//! allocations for compatible layouts, root starts.
+//! allocations for compatible layouts, root starts. One-sided bounds reach KINSOL as sign
+//! constraints on shifted coordinates.
 use super::{
     BackendExecution, BackendSettings, Budgets, Capability, Input, Representation, Retained,
 };
@@ -27,7 +28,7 @@ static CAPABILITY: Capability = Capability {
     parallel: false,
     reuse: "same sparse layout: retained SUNDIALS/KLU allocations",
     cancellation: "evaluation checkpoints; native factorization completes before teardown",
-    diagnostics: "native nonlinear/linear iterations, setups, failures, norms and callback timing",
+    diagnostics: "native nonlinear/linear iterations, setups, failures, norms, Krylov and preconditioner counters and callback timing",
 };
 /// Policy-derived native settings of this request's method controls.
 #[cfg(feature = "kinsol")]

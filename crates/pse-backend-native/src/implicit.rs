@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! KINSOL child execution on an already admitted outer worker. No runtime admission occurs here.
+//! Native sessions are cached per worker thread and problem layout (Plan 22 Y6, L-D7): a
+//! nested solve refreshes the retained SUNDIALS context, vectors and KLU analysis with the
+//! call's parameters instead of allocating them again.
 use crate::{
     NleOracle, OracleContract, ProblemError, Variable, kinsol, quality::Tolerances, solve::*,
 };
@@ -9,28 +12,110 @@ use pse_math::{
     MathError,
     implicit::{InnerSolver, Options, Problem},
 };
-use std::sync::{Arc, atomic::AtomicBool};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, atomic::AtomicBool},
+};
 
 /// Native root capability injected into generic implicit evaluation.
 #[derive(Debug)]
 pub struct Kinsol;
+/// Per-worker KINSOL sessions keyed by problem identity. A session is taken out of the
+/// cache for the duration of its solve, so a nested solve on the same worker never
+/// aliases it; it returns afterwards, least recently used first out.
+mod sessions {
+    use super::{ProblemError, kinsol};
+    use std::cell::{Cell, RefCell};
+    /// Retained sessions per worker thread.
+    const CAPACITY: usize = 8;
+    thread_local! {
+        static SESSIONS: RefCell<Vec<(pse_ids::ContentHash, kinsol::Session)>> =
+            const { RefCell::new(Vec::new()) };
+        static CREATED: Cell<u64> = const { Cell::new(0) };
+    }
+    /// A compatible retained session refreshed with this call's function, or a new one.
+    pub(super) fn take(
+        key: pse_ids::ContentHash,
+        function: kinsol::Function,
+        settings: kinsol::Settings,
+        execution: crate::solve::Execution,
+        compatibility: crate::solve::Compatibility,
+    ) -> Result<kinsol::Session, ProblemError> {
+        let retained = SESSIONS.with(|s| {
+            let mut s = s.borrow_mut();
+            s.iter()
+                .position(|(k, _)| *k == key)
+                .map(|i| s.remove(i).1)
+        });
+        if let Some(mut session) = retained
+            && session.matches_layout(&compatibility)
+            && session.matches_settings(&settings)
+        {
+            session.replace(function, settings, compatibility)?;
+            return Ok(session);
+        }
+        CREATED.with(|c| c.set(c.get() + 1));
+        kinsol::Session::new(function, settings, execution, compatibility)
+    }
+    /// Return a session after its solve.
+    pub(super) fn give(key: pse_ids::ContentHash, session: kinsol::Session) {
+        SESSIONS.with(|s| {
+            let mut s = s.borrow_mut();
+            s.push((key, session));
+            if s.len() > CAPACITY {
+                s.remove(0);
+            }
+        });
+    }
+    /// Sessions this worker thread has allocated.
+    #[cfg(test)]
+    pub(super) fn created() -> u64 {
+        CREATED.with(Cell::get)
+    }
+}
+/// The trial problem is lent to the native session for one solve only: the implicit
+/// evaluator reconfigures trial problems in place and needs unique ownership back, so a
+/// cached session never retains it.
+type Lent = Rc<RefCell<Option<Arc<Problem>>>>;
+/// Returns the lent problem on every exit path of a solve.
+struct Loan(Lent);
+impl Drop for Loan {
+    fn drop(&mut self) {
+        if let Ok(mut slot) = self.0.try_borrow_mut() {
+            slot.take();
+        }
+    }
+}
 #[derive(Debug)]
 struct Oracle {
-    problem: Arc<Problem>,
+    problem: Lent,
+    /// The problem's structural Jacobian support, owned so the session keeps its layout
+    /// after the problem is returned.
+    pattern: faer::sparse::SymbolicSparseColMat<usize>,
+    inputs: usize,
     parameters: Vec<f64>,
     contract: OracleContract,
     cancel: Arc<AtomicBool>,
+}
+impl Oracle {
+    fn problem(&self) -> Result<Arc<Problem>, ProblemError> {
+        self.problem
+            .borrow()
+            .clone()
+            .ok_or_else(|| ProblemError::internal("implicit trial problem already returned"))
+    }
 }
 impl NleOracle for Oracle {
     fn contract(&self) -> &OracleContract {
         &self.contract
     }
     fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
-        self.problem.pattern()
+        self.pattern.as_ref()
     }
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         let jet =
-            self.problem
+            self.problem()?
                 .evaluate(&self.parameters, x, DerivativeOrder::Value, &self.cancel)?;
         if jet.values.len() != out.len() {
             return Err(ProblemError::internal("implicit residual extent"));
@@ -39,12 +124,12 @@ impl NleOracle for Oracle {
         Ok(())
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let n = self.problem.unknowns.len();
-        let width = n + self.problem.inputs;
+        let n = self.contract.variables.len();
+        let width = n + self.inputs;
         let jet =
-            self.problem
+            self.problem()?
                 .evaluate(&self.parameters, x, DerivativeOrder::First, &self.cancel)?;
-        let pattern = self.problem.pattern();
+        let pattern = self.pattern.as_ref();
         if jet.jacobian.len() != n * width || out.len() != pattern.compute_nnz() {
             return Err(ProblemError::internal("implicit Jacobian extent"));
         }
@@ -62,14 +147,14 @@ impl NleOracle for Oracle {
         direction: &[f64],
         out: &mut [f64],
     ) -> Result<(), ProblemError> {
-        let n = self.problem.unknowns.len();
+        let n = self.contract.variables.len();
         if direction.len() != n || out.len() != n {
             return Err(ProblemError::internal("implicit JVP extent"));
         }
-        let mut values = vec![0.0; self.problem.pattern().compute_nnz()];
+        let mut values = vec![0.0; self.pattern.compute_nnz()];
         self.jacobian(x, &mut values)?;
         out.fill(0.);
-        let pattern = self.problem.pattern();
+        let pattern = self.pattern.as_ref();
         for (slot, (i, j)) in (0..n)
             .flat_map(|j| pattern.row_idx_of_col(j).map(move |i| (i, j)))
             .enumerate()
@@ -118,27 +203,46 @@ impl InnerSolver for Kinsol {
                 .fold(f64::INFINITY, f64::min),
         )
         .map_err(map)?;
+        // One-sided bounds are exact (KINSOL shifts them to sign constraints); a two-sided
+        // interval keeps only its sign information, and `Problem::verify` rechecks it.
         let contract = OracleContract {
             identity: problem.identity,
             variables: problem
                 .unknowns
                 .iter()
-                .map(|u| Variable {
-                    id: u.id,
-                    lower: if u.lower >= 0.0 {
-                        0.0
-                    } else {
-                        f64::NEG_INFINITY
-                    },
-                    upper: if u.upper <= 0.0 { 0.0 } else { f64::INFINITY },
+                .map(|u| {
+                    let (lower, upper) = match (u.lower.is_finite(), u.upper.is_finite()) {
+                        (true, false) => (u.lower, f64::INFINITY),
+                        (false, true) => (f64::NEG_INFINITY, u.upper),
+                        _ => (
+                            if u.lower >= 0.0 {
+                                0.0
+                            } else {
+                                f64::NEG_INFINITY
+                            },
+                            if u.upper <= 0.0 { 0.0 } else { f64::INFINITY },
+                        ),
+                    };
+                    Variable {
+                        id: u.id,
+                        lower,
+                        upper,
+                    }
                 })
                 .collect(),
             rows: problem.rows.clone(),
             derivatives: DerivativeOrder::Second,
             smoothness: DerivativeOrder::Second,
         };
+        let pattern = problem
+            .pattern()
+            .to_owned()
+            .map_err(|_| MathError::Limit("implicit Jacobian support allocation"))?;
+        let loan = Loan(Rc::new(RefCell::new(Some(problem.clone()))));
         let oracle = Oracle {
-            problem: problem.clone(),
+            problem: loan.0.clone(),
+            pattern,
+            inputs: problem.inputs,
             parameters: parameters.to_vec(),
             contract,
             cancel: cancel.clone(),
@@ -169,23 +273,25 @@ impl InnerSolver for Kinsol {
             backend: Backend::Kinsol,
         };
         let execution = Execution::new(cancel.clone(), &controls);
-        let mut session = kinsol::Session::new(
+        let mut session = sessions::take(
+            problem.identity,
             kinsol::Function::Equations(Box::new(oracle)),
             settings,
             execution.clone(),
             compatibility,
         )
         .map_err(map)?;
-        let report = session
-            .solve(
-                &options.start,
-                &controls,
-                &accuracy,
-                execution,
-                &tolerances,
-                None,
-            )
-            .map_err(map)?;
+        let report = session.solve(
+            &options.start,
+            &controls,
+            &accuracy,
+            execution,
+            &tolerances,
+            None,
+        );
+        sessions::give(problem.identity, session);
+        drop(loan);
+        let report = report.map_err(map)?;
         match report.termination.category {
             Termination::Cancelled => return Err(MathError::Cancelled),
             Termination::TimeLimit => return Err(MathError::Limit("implicit solve time")),
@@ -213,6 +319,9 @@ impl InnerSolver for Kinsol {
 mod tests {
     use super::*;
     fn problem(deficient: bool) -> Result<Problem, MathError> {
+        problem_with(96, deficient)
+    }
+    fn problem_with(identity: u8, deficient: bool) -> Result<Problem, MathError> {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = registry.neutral_dimensionless().unwrap();
         let id = pse_ids::SemanticId::from_bytes([96; 16]);
@@ -259,7 +368,7 @@ mod tests {
             );
             Problem::new(
                 id,
-                pse_ids::ContentHash::from_bytes([96; 32]),
+                pse_ids::ContentHash::from_bytes([identity; 32]),
                 vec![
                     pse_math::implicit::Unknown {
                         id: pse_ids::named_id(id, "x"),
@@ -347,6 +456,38 @@ mod tests {
                     .is_err()
             );
         }
+    }
+    /// L-D7: repeated nested solves of one problem layout on a worker reuse its native
+    /// session with each call's parameters; another layout allocates its own. The trial
+    /// problem is returned to unique ownership after every solve.
+    #[test]
+    fn nested_inner_solver_reuses_session() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut problem = Arc::new(problem(false).unwrap());
+        // The test thread starts with its own empty cache.
+        let before = sessions::created();
+        for p in [3.0, 5.0, -2.0, 3.0] {
+            let root = Kinsol
+                .solve(problem.clone(), &[p], &options(), &cancel)
+                .unwrap();
+            assert!(root.iter().all(|x| (*x - p).abs() < 1e-8), "{root:?} for {p}");
+            assert!(Arc::get_mut(&mut problem).is_some(), "a cached session kept the problem");
+        }
+        assert_eq!(sessions::created() - before, 1);
+        // A different layout identity allocates, and both are retained afterwards.
+        let other = Arc::new(problem_with(97, false).unwrap());
+        Kinsol.solve(other.clone(), &[4.0], &options(), &cancel).unwrap();
+        Kinsol.solve(problem.clone(), &[4.0], &options(), &cancel).unwrap();
+        Kinsol.solve(other, &[1.0], &options(), &cancel).unwrap();
+        assert_eq!(sessions::created() - before, 2);
+        // A cancelled call still returns its session: the next call reuses it.
+        let stopped = Arc::new(AtomicBool::new(true));
+        assert!(matches!(
+            Kinsol.solve(problem.clone(), &[3.0], &options(), &stopped),
+            Err(MathError::Cancelled)
+        ));
+        Kinsol.solve(problem, &[3.0], &options(), &cancel).unwrap();
+        assert_eq!(sessions::created() - before, 2);
     }
     #[test]
     fn implicit_kinsol_uses_physical_variable_nominals() {
