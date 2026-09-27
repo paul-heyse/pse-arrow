@@ -124,25 +124,17 @@ impl ModelingPackage {
                 _owner: owner,
             });
         }
-        let prepared = service
-            .prepare_modeling_observations(
-                self.workspace.clone(),
-                model,
-                rows,
-                values.clone(),
-                profile,
-                cancel,
-            )
+        // One value-independent program per observed structure; values bind per call (A6).
+        let assembly = self
+            .observation_program(&model, &rows, profile, cancel)
             .await?;
-        let ids = prepared
-            .compiled()
-            .plan
+        let ids = assembly
+            .assembly
             .structure()
             .rows()
             .iter()
             .map(|r| r.id)
             .collect::<Vec<_>>();
-        let assembly = service.assemble(prepared).await?;
         let retained = owner.clone();
         let (values, owner) = service
             .with_worker(assembly, providers, cancel, move |worker| {
@@ -335,13 +327,13 @@ impl ModelingPackage {
         &self,
         root: SemanticId,
         instance: SemanticId,
-        mut bindings: Bindings,
+        bindings: Bindings,
         limits: Limits,
         case: ModelingCaseBindings,
         order: DerivativeOrder,
         compiler: Profile,
         solver: SolverProfile,
-        mut numerical: NumericalInputs,
+        numerical: NumericalInputs,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         self.prepare_solve_seed(
@@ -421,6 +413,10 @@ impl ModelingPackage {
             providers,
         })
     }
+    /// Resolve an authored case into its bound solver view and numerical policy. The
+    /// responsibilities are separate steps: specification values and starts, variable
+    /// states from bound hints and case overrides, the bound structure (prepared once per
+    /// structure and rebound per values, A6), and the numerical policy.
     pub(in crate::workflow) async fn resolve_case(
         &self,
         root: SemanticId,
@@ -445,19 +441,7 @@ impl ModelingPackage {
         let model = self
             .prepare(root, instance, bindings, limits, cancel)
             .await?;
-        let product = model.compiled();
-        let inner_unknowns = product
-            .admitted
-            .implicit
-            .values()
-            .flat_map(|i| i.unknowns.iter().copied())
-            .collect::<BTreeSet<_>>();
-        let inner_rows = product
-            .admitted
-            .implicit
-            .values()
-            .flat_map(|i| i.residuals.iter().flat_map(|r| r.rows.iter().copied()))
-            .collect::<BTreeSet<_>>();
+        let inner = Inner::of(model.compiled());
         let (values, starts) = self
             .resolve_starts(
                 &model,
@@ -469,39 +453,8 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        let hints = product
-            .admitted
-            .outputs
-            .iter()
-            .filter_map(|o| {
-                if let ModelingOutput::Hint {
-                    target,
-                    declaration,
-                    kind,
-                } = o
-                {
-                    Some((*target, *declaration, *kind, o.row_id()))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
-        if !allow_missing_free
-            && let Some(id) = product
-                .admitted
-                .inputs
-                .iter()
-                .find(|id| !values.scalars.contains_key(id))
-        {
-            let path = product
-                .model
-                .symbols
-                .get(id)
-                .map(|symbol| symbol.lineage.path.as_str())
-                .unwrap_or("<unattributed>");
-            return Err(contract(format!(
-                "missing case value or resolvable start for {id} ({path})"
-            )));
+        if !allow_missing_free {
+            require_inputs(&model, &values)?;
         }
         let providers = self
             .inner_registrations(
@@ -516,18 +469,96 @@ impl ModelingPackage {
                 None,
             )
             .await?;
-        let hints = hints
-            .into_iter()
-            .filter(|(id, _, _, _)| !inner_unknowns.contains(id) && !inner_rows.contains(id))
-            .collect::<Vec<_>>();
-        numerical.declarations.retain(|r| {
-            !inner_unknowns.contains(&r.declaration.target_id)
-                && !inner_rows.contains(&r.declaration.target_id)
-        });
+        numerical
+            .declarations
+            .retain(|r| !inner.contains(&r.declaration.target_id));
         let mut solver = solver;
-        solver.numerics.requirements.retain(|r| {
-            !inner_unknowns.contains(&r.target_id) && !inner_rows.contains(&r.target_id)
-        });
+        solver
+            .numerics
+            .requirements
+            .retain(|r| !inner.contains(&r.target_id));
+        let states = self
+            .variable_states(
+                &model,
+                &inner,
+                &case,
+                &values,
+                instance,
+                &mut numerical,
+                compiler,
+                &providers,
+                cancel,
+            )
+            .await?;
+        let prepared = self
+            .bound_case(&model, values.clone(), &states, order, compiler, cancel)
+            .await?;
+        // ADR-0103 item 6: a root or initialization solve cannot decide a discrete variable.
+        let analysis = match solver.intent {
+            pse_backend_native::solve::SolveIntent::Root => Some(DomainAnalysis::Root),
+            pse_backend_native::solve::SolveIntent::Initialize => {
+                Some(DomainAnalysis::Initialization)
+            }
+            _ => None,
+        };
+        if let Some(analysis) = analysis {
+            model
+                .compiled()
+                .model
+                .require_fixed_discrete(
+                    prepared.case.compiled().plan.columns().iter().copied(),
+                    analysis,
+                )
+                .map_err(crate::workflow::modeling_error)?;
+        }
+        let numerics = self
+            .resolve_numerics(
+                &model,
+                &inner,
+                &prepared,
+                &values,
+                instance,
+                &mut numerical,
+                &solver,
+                compiler,
+                &providers,
+                cancel,
+            )
+            .await?;
+        Ok(ModelingCaseResolution {
+            compiler,
+            instance,
+            numerics,
+            model: prepared,
+            starts,
+            providers,
+            numerical,
+            solver,
+        })
+    }
+    /// Variable states of the solver view: evaluated bound hints, nominal declarations for
+    /// the numerical policy, and the case's fixed/free and bound overrides.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "hints evaluate at the resolved values with the case's providers and profile"
+    )]
+    async fn variable_states(
+        &self,
+        model: &ModelingPreparation,
+        inner: &Inner,
+        case: &ModelingCaseBindings,
+        values: &CaseValues,
+        instance: SemanticId,
+        numerical: &mut NumericalInputs,
+        compiler: Profile,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        cancel: &crate::CancelSource,
+    ) -> Result<BTreeMap<SemanticId, ModelingVariableState>, WorkflowError> {
+        let product = model.compiled();
+        let hints = hints(product)
+            .into_iter()
+            .filter(|(id, _, _, _)| !inner.contains(id))
+            .collect::<Vec<_>>();
         let bound_rows = hints
             .iter()
             .filter(|(_, _, k, _)| {
@@ -548,27 +579,10 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
+        let variables = variables(product);
+        let equations = equations(product);
         let mut states = BTreeMap::<SemanticId, ModelingVariableState>::new();
         let mut hint_keys = BTreeSet::new();
-        let variables = product
-            .admitted
-            .case
-            .variables()
-            .iter()
-            .map(|v| v.port.id)
-            .collect::<BTreeSet<_>>();
-        let equations = product
-            .admitted
-            .outputs
-            .iter()
-            .filter_map(|o| {
-                if let ModelingOutput::Equation { id, .. } = o {
-                    Some(*id)
-                } else {
-                    None
-                }
-            })
-            .collect::<BTreeSet<_>>();
         for (target, declaration, kind, row) in &hints {
             let Some(value) = observed.get(row).copied() else {
                 continue;
@@ -615,7 +629,7 @@ impl ModelingPackage {
                 .paths
                 .get(path)
                 .ok_or_else(|| contract(format!("unknown case specification {path}")))?;
-            if inner_unknowns.contains(&id) {
+            if inner.unknowns.contains(&id) {
                 continue;
             }
             let state = states.entry(id).or_default();
@@ -629,35 +643,30 @@ impl ModelingPackage {
                 state.upper = Some(v);
             }
         }
-        let service = self.runtime.shared.math();
-        let prepared = service
-            .prepare_modeling_bound_case(
-                self.workspace.clone(),
-                model.clone(),
-                values.clone(),
-                states,
-                order,
-                compiler,
-                cancel,
-            )
-            .await?;
-        // ADR-0103 item 6: a root or initialization solve cannot decide a discrete variable.
-        let analysis = match solver.intent {
-            pse_backend_native::solve::SolveIntent::Root => Some(DomainAnalysis::Root),
-            pse_backend_native::solve::SolveIntent::Initialize => {
-                Some(DomainAnalysis::Initialization)
-            }
-            _ => None,
-        };
-        if let Some(analysis) = analysis {
-            product
-                .model
-                .require_fixed_discrete(
-                    prepared.case.compiled().plan.columns().iter().copied(),
-                    analysis,
-                )
-                .map_err(crate::workflow::modeling_error)?;
-        }
+        Ok(states)
+    }
+    /// The resolved numerical policy of the bound view: observable nominal targets and
+    /// scaling-scheme row scales evaluated at the physical nominal point.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "scales evaluate at the nominal point with the case's providers and profile"
+    )]
+    async fn resolve_numerics(
+        &self,
+        model: &ModelingPreparation,
+        inner: &Inner,
+        prepared: &ModelingCasePreparation,
+        values: &CaseValues,
+        instance: SemanticId,
+        numerical: &mut NumericalInputs,
+        solver: &SolverProfile,
+        compiler: Profile,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        cancel: &crate::CancelSource,
+    ) -> Result<std::sync::Arc<pse_model::numerics::ResolvedNumericalPolicy>, WorkflowError> {
+        let product = model.compiled();
+        let variables = variables(product);
+        let equations = equations(product);
         let mut nominal_point = values.clone();
         // Resolve source precedence before selecting the physical nominal point.
         let physical = prepared.case.compiled().quantities.clone();
@@ -670,8 +679,7 @@ impl ModelingPackage {
         // Observable hints retain their own typed targets, outside the solver row inventory.
         for annotation in &product.model.annotations {
             if !matches!(annotation.value, AnnotationValue::Nominal(_))
-                || inner_unknowns.contains(&annotation.target)
-                || inner_rows.contains(&annotation.target)
+                || inner.contains(&annotation.target)
                 || variables.contains(&annotation.target)
                 || equations.contains(&annotation.target)
             {
@@ -729,7 +737,7 @@ impl ModelingPackage {
             .iter()
             .filter_map(|a| {
                 if let AnnotationValue::Scale(s) = a.value
-                    && !inner_rows.contains(&a.target)
+                    && !inner.rows.contains(&a.target)
                 {
                     Some((a.target, s, a.lineage.declaration))
                 } else {
@@ -780,7 +788,7 @@ impl ModelingPackage {
                 ));
             }
         }
-        let numerics = std::sync::Arc::new(
+        Ok(std::sync::Arc::new(
             pse_math::numerics::resolve(
                 &physical,
                 &targets,
@@ -788,18 +796,100 @@ impl ModelingPackage {
                 &solver.numerics,
             )
             .map_err(crate::math::MathRuntimeError::from)?,
-        );
-        Ok(ModelingCaseResolution {
-            compiler,
-            instance,
-            numerics,
-            model: prepared,
-            starts,
-            providers,
-            numerical,
-            solver,
-        })
+        ))
     }
+}
+/// Coordinates owned by nested implicit realizations; the outer case never binds them.
+struct Inner {
+    unknowns: BTreeSet<SemanticId>,
+    rows: BTreeSet<SemanticId>,
+}
+impl Inner {
+    fn of(product: &pse_compiler::workspace::PreparedModeling) -> Self {
+        Self {
+            unknowns: product
+                .admitted
+                .implicit
+                .values()
+                .flat_map(|i| i.unknowns.iter().copied())
+                .collect(),
+            rows: product
+                .admitted
+                .implicit
+                .values()
+                .flat_map(|i| i.residuals.iter().flat_map(|r| r.rows.iter().copied()))
+                .collect(),
+        }
+    }
+    fn contains(&self, id: &SemanticId) -> bool {
+        self.unknowns.contains(id) || self.rows.contains(id)
+    }
+}
+/// Every numerical hint: target, declaration, purpose and observation row.
+fn hints(
+    product: &pse_compiler::workspace::PreparedModeling,
+) -> Vec<(SemanticId, SemanticId, ModelingHint, SemanticId)> {
+    product
+        .admitted
+        .outputs
+        .iter()
+        .filter_map(|o| {
+            if let ModelingOutput::Hint {
+                target,
+                declaration,
+                kind,
+            } = o
+            {
+                Some((*target, *declaration, *kind, o.row_id()))
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+fn variables(product: &pse_compiler::workspace::PreparedModeling) -> BTreeSet<SemanticId> {
+    product
+        .admitted
+        .case
+        .variables()
+        .iter()
+        .map(|v| v.port.id)
+        .collect()
+}
+fn equations(product: &pse_compiler::workspace::PreparedModeling) -> BTreeSet<SemanticId> {
+    product
+        .admitted
+        .outputs
+        .iter()
+        .filter_map(|o| {
+            if let ModelingOutput::Equation { id, .. } = o {
+                Some(*id)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+/// Every independent input needs a case value or a resolvable start.
+fn require_inputs(model: &ModelingPreparation, values: &CaseValues) -> Result<(), WorkflowError> {
+    let product = model.compiled();
+    if let Some(id) = product
+        .admitted
+        .inputs
+        .iter()
+        .find(|id| !values.scalars.contains_key(id))
+    {
+        let path = product
+            .model
+            .symbols
+            .get(id)
+            .map(|symbol| symbol.lineage.path.as_str())
+            .unwrap_or("<unattributed>");
+        return Err(contract(format!(
+            "missing case value or resolvable start for {id} ({path})"
+        )));
+    }
+    Ok(())
 }
 pub(in crate::workflow) fn requirement(
     model_id: SemanticId,
@@ -834,7 +924,7 @@ pub(in crate::workflow) fn requirement(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::math::solves::{Outcome, SolveSequence};
+    use crate::math::solves::Outcome;
     #[tokio::test]
     async fn kernel_starts_numerics_and_constant_solver_share_the_existing_pipeline() {
         let rt = super::super::super::tests::runtime();

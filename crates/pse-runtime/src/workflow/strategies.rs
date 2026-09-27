@@ -4,7 +4,7 @@
 use super::{PhysicalContext, Runtime, WorkflowError, contract};
 use crate::math::{
     MathRuntimeError,
-    solves::{PreparedSolve, SolveHandle, SolveSequence, SolverProfile},
+    solves::{PreparedSolve, SolveHandle, SolverProfile},
 };
 use pse_backend_native as native;
 #[cfg(any(feature = "solver-kinsol", test))]
@@ -71,11 +71,7 @@ impl PreparedConic {
     }
     /// Submit to the existing finite solve lifecycle, including native destruction and join.
     pub fn start(&self) -> Result<SolveHandle, WorkflowError> {
-        Ok(self.runtime.native().solve(SolveSequence {
-            steps: vec![self.solve.clone()],
-            continue_independent: false,
-            result_limit: 1,
-        })?)
+        Ok(self.runtime.native().solve(self.solve.clone())?)
     }
 }
 impl Runtime {

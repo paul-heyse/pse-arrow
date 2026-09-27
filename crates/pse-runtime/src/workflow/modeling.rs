@@ -29,7 +29,8 @@ pub use engines::{
 };
 pub(super) mod analysis_tables;
 pub(super) mod results;
-pub(super) mod sequence;
+pub(super) mod assessment;
+mod views;
 use super::{PhysicalContext, Runtime, WorkflowError, contract, relation};
 use crate::math::{
     Workspace,
@@ -57,6 +58,8 @@ pub struct ModelingPackage {
     providers: std::sync::Arc<BTreeMap<String, pse_kernels::Registration>>,
     pub(in crate::workflow) physical: PhysicalContext,
     pub(in crate::workflow) quantities: std::sync::Arc<pse_quantity::QuantityRegistry>,
+    /// Prepared solver views and observation programs, shared by every analysis (A6).
+    pub(in crate::workflow) views: std::sync::Arc<views::Views>,
 }
 fn compiler_inputs(
     physical: &PhysicalContext,
@@ -199,6 +202,7 @@ impl Runtime {
             providers: std::sync::Arc::new(providers),
             physical: physical.clone(),
             quantities: physical.quantities,
+            views: Default::default(),
         })
     }
 }
@@ -573,6 +577,7 @@ impl ModelingPackage {
             providers: self.providers.clone(),
             physical: self.physical.clone(),
             quantities: self.quantities.clone(),
+            views: Default::default(),
         })
     }
     /// Finite K3 admission and inspection; solver orchestration belongs to the subsequent lowering packets.

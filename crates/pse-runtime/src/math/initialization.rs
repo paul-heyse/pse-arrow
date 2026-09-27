@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Conditional initialization and finite supplied continuation; KINSOL owns iteration.
+//! Conditional block initialization and finite supplied continuation on the staged
+//! sequence primitive (A6): each stage is an overlay over the immutable original values,
+//! each block a solve step on one native session, and a stage commits only when every
+//! block's candidate is a result. Libraries own iteration.
 use super::{
-    ExecutableCase, ExecutionWorker, MathRuntimeError, MathService, WorkerBudget, Workspace,
-    solves::SolveHandle,
+    ExecutableCase, MathRuntimeError, MathService, Preparation, WorkerBudget, Workspace,
+    solves::{Predecessor, SolveHandle, SolverProfile},
 };
 use pse_backend_native::{
     self as native,
-    execution::{self, BackendExecution, BackendSettings, Retained},
+    execution::{self, BackendSettings},
     kinsol,
     quality::Tolerances,
     solve::*,
 };
 use pse_columnar::flight::FlightCancellation;
 use pse_compiler::workspace::Profile;
-use pse_ids::{FramedHasher, SemanticId};
+use pse_ids::SemanticId;
 use pse_math::binding::CaseValues;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::Arc,
 };
 
 /// Compiled predecessor-ordered blocks, with explicit conditional input coordinates.
@@ -30,8 +30,16 @@ pub struct PreparedInitialization {
     quantities: Arc<pse_quantity::QuantityRegistry>,
     targets: Vec<pse_math::numerics::TargetSpec>,
     requirements: Arc<Vec<pse_math::numerics::SourcedRequirement>>,
-    blocks: Vec<(pse_structural::initialization::Block, Arc<ExecutableCase>)>,
+    blocks: Vec<ConditionalBlock>,
     _owner: Arc<super::products::ProductOwner>,
+}
+/// One conditional block: its boundary, its value-independent view and its assembled
+/// programs, prepared once and rebound to each stage's values.
+#[derive(Clone, Debug)]
+struct ConditionalBlock {
+    boundary: pse_structural::initialization::Block,
+    view: pse_compiler::workspace::PreparedBlock,
+    executable: Arc<ExecutableCase>,
 }
 impl PreparedInitialization {
     /// Resolve every conditional block before worker acquisition. No fallback follows a failed attempt.
@@ -42,8 +50,8 @@ impl PreparedInitialization {
     ) -> Result<Vec<native::routing::Route>, native::ProblemError> {
         self.blocks
             .iter()
-            .map(|(_, case)| {
-                let c = native::assembled::contract(&case.assembly);
+            .map(|block| {
+                let c = native::assembled::contract(&block.executable.assembly);
                 let facts = native::routing::oracle_facts(&c, false, true);
                 native::routing::Requirements {
                     table: &execution::LINKED,
@@ -69,10 +77,12 @@ impl PreparedInitialization {
         MathRuntimeError,
     > {
         profile.controls.validate()?;
+        // Blocks differ in coordinates, so reuse cannot be required; a stage's block may
+        // reuse its predecessor stage's retained session when allowed.
         if profile.controls.start == StartPolicy::Explicit
-            || profile.controls.reuse != ReusePolicy::Fresh
+            || profile.controls.reuse == ReusePolicy::RequireReuse
         {
-            return Err(native::ProblemError::Contract("initialization uses declared guesses or previous accepted stages, with fresh native allocation".into()).into());
+            return Err(native::ProblemError::Contract("initialization uses declared guesses or previous accepted stages; blocks cannot require native reuse".into()).into());
         }
         let strategies = self.strategies(&profile.controls, profile.selection)?;
         // Typed settings must belong to every block's route; KINSOL scales stay per block.
@@ -113,7 +123,7 @@ impl PreparedInitialization {
                 .into());
             }
         }
-        for (boundary, _) in &self.blocks {
+        for ConditionalBlock { boundary, .. } in &self.blocks {
             Tolerances::from_policy(&numerics, &boundary.members.columns, &boundary.members.rows)?;
             if boundary
                 .inputs
@@ -131,7 +141,7 @@ impl PreparedInitialization {
     }
     /// Inspect the immutable conditional boundaries before executing native work.
     pub fn boundaries(&self) -> impl Iterator<Item = &pse_structural::initialization::Block> {
-        self.blocks.iter().map(|(b, _)| b)
+        self.blocks.iter().map(|b| &b.boundary)
     }
 }
 /// One source-attributed block attempt. A failed block never commits trial coordinates.
@@ -201,22 +211,6 @@ pub struct DeclaredRootReport {
     /// Native root outcome with original residual validation.
     pub report: SolveReport,
     _owner: Arc<pse_columnar::AllocationLease>,
-}
-/// Inputs of one conditional block attempt.
-struct Block<'a> {
-    boundary: &'a pse_structural::initialization::Block,
-    case: &'a Arc<ExecutableCase>,
-    strategy: native::routing::Route,
-    values: &'a CaseValues,
-    providers: &'a BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-    profile: &'a InitializationProfile,
-    numerics: &'a pse_model::numerics::ResolvedNumericalPolicy,
-    flag: &'a Arc<AtomicBool>,
-    progress: &'a Arc<Progress>,
-    started: std::time::Instant,
-    previous_attempt: Option<usize>,
-    owner: &'a Arc<pse_columnar::AllocationLease>,
-    budget: &'a Arc<WorkerBudget>,
 }
 impl MathService {
     /// Execute a declared root/map factory on its owning admitted worker. Causal
@@ -366,7 +360,7 @@ impl MathService {
     pub async fn prepare_modeling_initialization(
         self: &Arc<Self>,
         workspace: Workspace,
-        case: super::Preparation,
+        case: Preparation,
         profile: Profile,
         numerical: super::solves::NumericalInputs,
         driver: &crate::CancelSource,
@@ -437,14 +431,17 @@ impl MathService {
             let plan = Arc::new(block.plan.as_ref().clone().with_owner(owner.clone()));
             let assembly =
                 Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
-            blocks.push((
-                block.boundary.clone(),
-                Arc::new(ExecutableCase {
+            let mut view = block.clone();
+            view.plan = plan;
+            blocks.push(ConditionalBlock {
+                boundary: block.boundary.clone(),
+                view,
+                executable: Arc::new(ExecutableCase {
                     assembly,
                     _artifacts: artifacts,
                     _owner: owner.clone(),
                 }),
-            ));
+            });
         }
         Ok(PreparedInitialization {
             quantities,
@@ -454,8 +451,10 @@ impl MathService {
             _owner: owner,
         })
     }
-    /// Admit the complete finite schedule once; each block is solved and validated by
-    /// KINSOL before its values become predecessor inputs. No iteration is differentiated.
+    /// Admit the complete finite schedule once, then run it as one staged sequence on one
+    /// native session: each stage composes its overlay over the immutable original values,
+    /// each block is a solve step bound to those values, and a block's solved coordinates
+    /// become its successors' inputs only after its candidate is a result.
     pub fn initialize(
         self: &Arc<Self>,
         prepared: PreparedInitialization,
@@ -466,11 +465,12 @@ impl MathService {
         let (strategies, numerics) = prepared.validate_profile(&values, &profile)?;
         let size = prepared.blocks.iter().try_fold(
             values.scalars.len().saturating_mul(64),
-            |total, (b, _)| {
-                b.members
+            |total, b| {
+                b.boundary
+                    .members
                     .columns
                     .len()
-                    .checked_add(b.members.rows.len())
+                    .checked_add(b.boundary.members.rows.len())
                     .and_then(|v| v.checked_mul(512))
                     .and_then(|v| v.checked_add(profile.controls.report_allowance().ok()?))
                     .and_then(|v| v.checked_mul(profile.stages.len()))
@@ -479,138 +479,102 @@ impl MathService {
             },
         )?;
         let owner = self.reserve("math:initialization-results", size)?;
-        let cancel = FlightCancellation::default();
-        let control = cancel.clone();
         let progress = Arc::new(Progress::new(profile.controls.history));
-        let events = progress.clone();
+        let session = self.open_session()?;
         let service = self.clone();
-        let (tx, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(async move {
-            let runner = service.clone();
-            let bytes = service.policy.worker_bytes;
-            // Each block attempt's evaluator is charged to this job's reservation (F31).
-            let budget = WorkerBudget::new(bytes);
-            let result = service
-                .job(1, bytes, control, move |flag| {
-                    runner.run_initialization(
-                        prepared, values, providers, profile, strategies, numerics, flag, events,
-                        owner, budget,
-                    )
-                })
-                .await;
-            let _ = tx.send(result);
-        });
-        Ok(SolveHandle {
-            cancel,
-            receiver: Some(receiver),
-            progress,
-        })
+        let events = progress.clone();
+        Ok(SolveHandle::supervise(progress, move |cancel| async move {
+            let mut run = Blocks {
+                service: &service,
+                session: &session,
+                prepared: &prepared,
+                providers: &providers,
+                profile: &profile,
+                strategies: &strategies,
+                numerics: &numerics,
+                progress: &events,
+                owner: &owner,
+                cancel: &cancel,
+                bound: vec![None; prepared.blocks.len()],
+                attempts: Vec::new(),
+            };
+            let report = run.stages(values).await;
+            session.close().await;
+            report
+        }))
     }
-    fn run_initialization(
-        &self,
-        prepared: PreparedInitialization,
+}
+/// The block initialization planner over one native session.
+struct Blocks<'a> {
+    service: &'a Arc<MathService>,
+    session: &'a super::NativeSession,
+    prepared: &'a PreparedInitialization,
+    providers: &'a BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    profile: &'a InitializationProfile,
+    strategies: &'a [native::routing::Route],
+    numerics: &'a Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    progress: &'a Arc<Progress>,
+    owner: &'a Arc<pse_columnar::AllocationLease>,
+    cancel: &'a crate::CancelSource,
+    /// Each block's view as last bound; later stages rebind its values (A6).
+    bound: Vec<Option<Preparation>>,
+    attempts: Vec<BlockAttempt>,
+}
+impl Blocks<'_> {
+    async fn stages(
+        &mut self,
         original: CaseValues,
-        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        profile: InitializationProfile,
-        strategies: Vec<native::routing::Route>,
-        numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
-        flag: Arc<AtomicBool>,
-        progress: Arc<Progress>,
-        owner: Arc<pse_columnar::AllocationLease>,
-        budget: Arc<WorkerBudget>,
     ) -> Result<InitializationReport, MathRuntimeError> {
-        let adapters: Vec<&dyn BackendExecution> = strategies
-            .iter()
-            .filter_map(|s| match s {
-                native::routing::Route::Native(backend) => Some(execution::adapter(*backend)),
-                native::routing::Route::Constant => None,
-            })
-            .collect();
-        execution::scoped(
-            &adapters,
-            profile.controls.threads,
-            self.policy.stack_bytes,
-            || {
-                self.run_initialization_inner(
-                    prepared, original, providers, profile, strategies, numerics, flag, progress,
-                    owner, &budget,
-                )
-            },
-        )
-    }
-    fn run_initialization_inner(
-        &self,
-        prepared: PreparedInitialization,
-        original: CaseValues,
-        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        profile: InitializationProfile,
-        strategies: Vec<native::routing::Route>,
-        numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
-        flag: Arc<AtomicBool>,
-        progress: Arc<Progress>,
-        owner: Arc<pse_columnar::AllocationLease>,
-        budget: &Arc<WorkerBudget>,
-    ) -> Result<InitializationReport, MathRuntimeError> {
-        let mut attempts = vec![];
         let mut completed_stages = 0;
         let mut stages = Vec::new();
         let mut committed = CaseValues {
             scalars: BTreeMap::new(),
         };
-        let solved: BTreeSet<_> = prepared
+        let solved: BTreeSet<_> = self
+            .prepared
             .boundaries()
             .flat_map(|b| b.members.columns.iter().copied())
             .collect();
-        let started = std::time::Instant::now();
-        for (stage, updates) in profile.stages.iter().enumerate() {
+        let previous_accepted = self.profile.controls.start == StartPolicy::PreviousAccepted;
+        for (stage, updates) in self.profile.stages.iter().enumerate() {
+            // The stage overlay exists only in this stage's working values; the original
+            // specification is never written.
             let mut values = original.clone();
-            if profile.controls.start == StartPolicy::PreviousAccepted {
+            if previous_accepted {
                 values
                     .scalars
                     .extend(committed.scalars.iter().map(|(k, v)| (*k, *v)));
             }
             values.scalars.extend(updates.iter().map(|(k, v)| (*k, *v)));
-            let attempt_start = attempts.len();
+            let first = self.attempts.len();
             let mut completed = true;
-            for ((boundary, case), strategy) in prepared.blocks.iter().zip(&strategies) {
-                if flag.load(Ordering::Acquire) {
+            for index in 0..self.prepared.blocks.len() {
+                if self.cancel.token().is_cancelled() {
                     completed = false;
                     break;
                 }
-                let previous_attempt = (profile.controls.start == StartPolicy::PreviousAccepted
-                    && stage > 0)
+                let previous = (previous_accepted && stage > 0)
                     .then(|| {
-                        attempts.iter().rposition(|a: &BlockAttempt| {
-                            a.boundary.id == boundary.id && a.committed
-                        })
+                        let id = self.prepared.blocks[index].boundary.id;
+                        self.attempts
+                            .iter()
+                            .rposition(|a| a.boundary.id == id && a.committed)
                     })
                     .flatten();
                 let result = self
-                    .attempt_block(Block {
-                        boundary,
-                        case,
-                        strategy: *strategy,
-                        values: &values,
-                        providers: &providers,
-                        profile: &profile,
-                        numerics: &numerics,
-                        flag: &flag,
-                        progress: &progress,
-                        started,
-                        previous_attempt,
-                        owner: &owner,
-                        budget,
-                    })
+                    .attempt(index, &values, previous)
+                    .await
                     .map_err(Arc::new);
-                let committed = commit_block(&mut values, boundary, result.as_deref().ok());
-                attempts.push(BlockAttempt {
+                let boundary = &self.prepared.blocks[index].boundary;
+                let committed_block = commit_block(&mut values, boundary, result.as_deref().ok());
+                self.attempts.push(BlockAttempt {
                     stage,
-                    strategy: *strategy,
+                    strategy: self.strategies[index],
                     boundary: boundary.clone(),
                     result,
-                    committed,
+                    committed: committed_block,
                 });
-                if !committed {
+                if !committed_block {
                     completed = false;
                     break;
                 }
@@ -624,7 +588,7 @@ impl MathService {
                     .collect();
                 completed_stages += 1;
             } else {
-                for attempt in &mut attempts[attempt_start..] {
+                for attempt in &mut self.attempts[first..] {
                     attempt.committed = false;
                 }
             }
@@ -649,164 +613,110 @@ impl MathService {
             values: committed,
             stages,
             original_bindings_restored,
-            attempts,
+            attempts: std::mem::take(&mut self.attempts),
             completed_stages,
-            cancelled: flag.load(Ordering::Acquire),
-            _owner: owner,
+            cancelled: self.cancel.token().is_cancelled(),
+            _owner: self.owner.clone(),
         })
     }
-    /// One block attempt: its original-coordinate oracle, the route's representation
-    /// runner and the submitted-start receipt. A failure commits nothing.
-    fn attempt_block(&self, block: Block<'_>) -> Result<Box<SolveReport>, MathRuntimeError> {
-        let Block {
-            boundary,
-            case,
-            strategy,
-            values,
-            providers,
-            profile,
-            numerics,
-            flag,
-            progress,
-            started,
-            previous_attempt,
-            owner,
-            budget,
-        } = block;
-        let ExecutionWorker {
-            worker,
-            _case,
-            _charge,
-        } = self.worker(case.clone(), providers, flag.clone(), budget)?;
-        let facts = Arc::new(case.assembly.presolve_facts(
-            &values,
-            self.policy.worker_bytes / 256,
-            &flag,
-        )?);
-        let oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
-            .with_presolve_facts(facts)?;
-        oracle.admit_nle()?;
-        let tolerances =
-            Tolerances::from_policy(&numerics, &boundary.members.columns, &boundary.members.rows)?;
-        let initial: Vec<_> = boundary
-            .members
-            .columns
-            .iter()
-            .map(|id| values.scalars[id])
-            .collect();
-        let normalization = pse_math::normalization::Normalization::from_policy(
-            &numerics,
-            &boundary.members.columns,
-            &boundary.members.rows,
-        )?;
-        let controls = profile.controls.clone();
-        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-        let mut execution = Execution::new(flag.clone(), &controls);
-        execution.progress = progress.clone();
-        execution.started = started;
-        let mut h = FramedHasher::new("pse.initialization.block.v1");
-        for id in &boundary.members.columns {
-            h.id(id);
-        }
-        for id in &boundary.members.rows {
-            h.id(id);
-        }
-        h.hash(&numerics.key).hash(&boundary.id.0);
-        let layout = h.finish_hash();
-        let mut value_key = FramedHasher::new("pse.initialization.values.v1");
-        for (id, value) in &values.scalars {
-            value_key.id(id).u64(value.to_bits());
-        }
-        let data = value_key.finish_hash();
-        let mut session = FramedHasher::new("pse.initialization.session.v1");
-        session
-            .hash(&numerics.key)
-            .hash(&controls.identity()?)
-            .hash(&profile.backend.identity()?);
-        let native::routing::Route::Native(backend) = strategy else {
-            return Err(native::ProblemError::Unsupported(
-                "unsupported conditional initialization route".into(),
-            )
-            .into());
-        };
-        let adapter = execution::adapter(backend);
-        let compatibility = Compatibility {
-            layout,
-            profile: session.finish_hash(),
-            data,
-            backend,
-        };
-        // Fresh native allocation per block: nothing is retained across blocks.
-        let mut retained = Retained::default();
-        let run = execution::Step {
-            adapter,
-            settings: &profile.backend,
-            controls: &controls,
-            accuracy: &accuracy,
-            execution,
-            tolerances: &tolerances,
-            normalization: &normalization,
-            compatibility: compatibility.clone(),
-            warm: None,
-        };
-        let mut report = match adapter.representation() {
-            execution::Representation::Roots => execution::roots(
-                run,
-                &mut retained,
-                execution::Roots {
-                    oracle: Box::new(oracle),
-                    initial: &initial,
-                    owner: None,
-                },
-            )?,
-            execution::Representation::Nlp => execution::nlp(
-                run,
-                &mut retained,
-                execution::Nlp {
-                    oracle: Box::new(oracle.with_normalization(normalization.clone())?),
-                    initial: &initial,
-                    presolve: &native::presolve::Policy::Off,
-                    intent: SolveIntent::Initialize,
-                    sense: pse_math::binding::ObjectiveSense::Minimize,
-                    limit: self.policy.worker_bytes / 256,
-                },
-            )?,
-            execution::Representation::Coefficients
-            | execution::Representation::Cone
-            | execution::Representation::Trajectory => {
-                return Err(native::ProblemError::Unsupported(
-                    "unsupported conditional initialization route".into(),
-                )
-                .into());
+    /// One block attempt: the block's view rebound to the stage values, the shared step
+    /// executor on the session, and, in a later stage, the block's committed predecessor as
+    /// its submitted start. A failure commits nothing.
+    async fn attempt(
+        &mut self,
+        index: usize,
+        values: &CaseValues,
+        previous: Option<usize>,
+    ) -> Result<Box<SolveReport>, MathRuntimeError> {
+        let block = &self.prepared.blocks[index];
+        let bound = match &self.bound[index] {
+            Some(view) => {
+                self.service
+                    .rebind(view, values.clone(), self.cancel)
+                    .await?
+            }
+            None => {
+                self.service
+                    .bind_block(
+                        block,
+                        self.prepared.quantities.clone(),
+                        values.clone(),
+                        self.cancel,
+                    )
+                    .await?
             }
         };
-        drop(retained);
-        // The block starts from its staged values. Only a predecessor stage's committed
-        // values make that start a seed, submitted as the native initial point; the
-        // authored initial point is not a warm start (F25).
-        let seed = previous_attempt
-            .map(|attempt| -> Result<WarmStart, native::ProblemError> {
-                Ok(WarmStart {
-                    origin: Some(SeedOrigin { run: None, attempt }),
-                    compatibility,
-                    payload: adapter.primal_start(initial)?,
-                })
-            })
-            .transpose()?;
-        report.start_receipt = Some(StartReceipt {
-            previous_attempt,
-            transformations: if seed.is_some() {
-                SeedTransformation::path(normalization.key(), report.preprocessing.as_ref())
-            } else {
-                vec![]
+        self.bound[index] = Some(bound.clone());
+        let step = self.service.prepare_conditional(
+            bound,
+            block.executable.clone(),
+            values.clone(),
+            self.providers.clone(),
+            SolverProfile {
+                presolve: native::presolve::Policy::Off,
+                numerics: self.profile.numerics.clone(),
+                convexity: pse_math::convexity::ConvexityPolicy::Exact,
+                intent: SolveIntent::Initialize,
+                selection: self.profile.selection,
+                controls: self.profile.controls.clone(),
+                backend: self.profile.backend.clone(),
             },
-            submitted: seed.is_some(),
-            seed,
-            sparse_seed: None,
-        });
-        drop(_case);
-        drop(_charge);
-        Ok(Box::new(report.with_owner(owner.clone())))
+            self.numerics.clone(),
+            self.strategies[index],
+        )?;
+        // The block starts from its staged values. Only a predecessor stage's committed
+        // values make that start a seed; the authored initial point is not a warm start (F25).
+        let previous = previous
+            .map(|attempt| step.primal_seed().map(|seed| Predecessor { attempt, seed }))
+            .transpose()?;
+        let (outcome, ()) = self
+            .session
+            .step(
+                step,
+                previous,
+                self.attempts.len(),
+                self.progress.clone(),
+                self.owner.clone(),
+                self.cancel,
+                |outcome, _, _| ((), outcome.candidate_use().permits_use()),
+            )
+            .await?;
+        match outcome {
+            super::solves::Outcome::Native(report) => Ok(report),
+            super::solves::Outcome::Rejected(error) => Err(MathRuntimeError::Shared(error)),
+            super::solves::Outcome::Constant(_) => Err(native::ProblemError::Internal(
+                "conditional block evaluated without free coordinates".into(),
+            )
+            .into()),
+        }
+    }
+}
+impl MathService {
+    /// Bind a conditional block's view to its first values; its programs are the block's own.
+    async fn bind_block(
+        self: &Arc<Self>,
+        block: &ConditionalBlock,
+        quantities: Arc<pse_quantity::QuantityRegistry>,
+        values: CaseValues,
+        driver: &crate::CancelSource,
+    ) -> Result<Preparation, MathRuntimeError> {
+        let view = block.view.clone();
+        let control = FlightCancellation::default();
+        let operation =
+            self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
+                let bound = view.bind(quantities, &values, &flag)?;
+                let bytes = bound.presolve.bytes()
+                    + bound
+                        .coefficients
+                        .as_ref()
+                        .map_or(0, |c| c.retained_bytes());
+                Ok((bound, bytes))
+            });
+        tokio::pin!(operation);
+        let (bound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let prepared = self.own_preparation((bound, lease))?;
+        let _ = prepared.executable.set(block.executable.clone());
+        Ok(prepared)
     }
 }
 
@@ -838,6 +748,7 @@ pub(crate) fn commit_block(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicBool;
     fn id(v: u8) -> SemanticId {
         SemanticId::from_bytes([v; 16])
     }

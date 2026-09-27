@@ -5,6 +5,7 @@ mod completion;
 mod diagnostics;
 pub use completion::Completion;
 pub(crate) mod numerics;
+mod staged;
 mod strategies;
 mod time;
 pub use strategies::{AnalysisPort, ConicRequest, PreparedConic};

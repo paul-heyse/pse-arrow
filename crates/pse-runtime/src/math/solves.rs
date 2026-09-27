@@ -6,7 +6,7 @@ use super::{
 };
 use pse_backend_native::{
     self as native, ProblemError,
-    execution::{self, BackendExecution, BackendSettings, Retained},
+    execution::{self, BackendSettings, Retained},
     quality::{self, Quality, Tolerances, Violation},
     routing::{self, Route},
     solve::*,
@@ -29,7 +29,7 @@ pub struct NumericalInputs {
     /// Observable and physical closure targets beyond the algebraic coordinates.
     pub targets: Vec<pse_math::numerics::TargetSpec>,
 }
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, future::Future, sync::Arc};
 
 /// Unified solver request policy; physical tolerances are never inferred from trial magnitudes.
 #[derive(Clone, Debug)]
@@ -220,6 +220,79 @@ impl PreparedSolve {
     pub fn compatibility(&self) -> Option<&Compatibility> {
         self.compatibility.as_ref()
     }
+    /// Retained result allowance of one attempt of this step.
+    pub(crate) fn result_bytes(&self) -> Result<usize, MathRuntimeError> {
+        let (n, m) = match &self.representation {
+            Representation::Algebraic(a) => (
+                a.prepared.prepared.facts.variables,
+                a.prepared.prepared.facts.rows,
+            ),
+            Representation::Conic { problem, .. } => (
+                problem.contract.variables.len(),
+                problem.contract.rows.len(),
+            ),
+        };
+        let sources = match &self.representation {
+            Representation::Algebraic(a) => a
+                .prepared
+                .prepared
+                .plan
+                .structure()
+                .instances()
+                .iter()
+                .try_fold(0usize, |n, i| n.checked_add(i.contributions.len()))
+                .ok_or(MathRuntimeError::Limit("source observation extent"))?,
+            Representation::Conic { .. } => 0,
+        };
+        n.checked_add(m)
+            .and_then(|v| v.checked_add(sources))
+            .and_then(|v| v.checked_mul(512))
+            .and_then(|v| v.checked_add(self.profile.controls.report_allowance().ok()?))
+            .ok_or(MathRuntimeError::Limit("solve result allowance"))
+    }
+    /// The step's own starting point as a primal seed for its coordinates: what a later
+    /// stage of a conditional block receives from the block's committed predecessor.
+    #[cfg(feature = "solver-kinsol")]
+    pub(crate) fn primal_seed(&self) -> Result<WarmStart, ProblemError> {
+        let compatibility = self.compatibility.clone().ok_or_else(|| {
+            ProblemError::Contract("constant evaluation has no numerical start".into())
+        })?;
+        let Representation::Algebraic(a) = &self.representation else {
+            return Err(ProblemError::Contract(
+                "a cone step has no primal seed".into(),
+            ));
+        };
+        let primal = a
+            .prepared
+            .prepared
+            .plan
+            .columns()
+            .iter()
+            .map(|id| {
+                a.values
+                    .scalars
+                    .get(id)
+                    .copied()
+                    .ok_or_else(|| ProblemError::Contract("missing start coordinate".into()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(WarmStart {
+            origin: None,
+            payload: execution::adapter(compatibility.backend).primal_start(primal)?,
+            compatibility,
+        })
+    }
+    /// Native threads this step is admitted with.
+    pub(crate) fn threads(&self) -> usize {
+        self.profile.controls.threads
+    }
+    /// The adapter whose scope this step's native state lives in.
+    pub(crate) fn backend(&self) -> Option<Backend> {
+        match self.route {
+            Route::Native(backend) => Some(backend),
+            Route::Constant => None,
+        }
+    }
 }
 /// Direct original-model validation when there are no free variables.
 #[derive(Clone, Debug)]
@@ -254,47 +327,24 @@ impl Outcome {
         }
     }
 }
-/// Owned finite batch result; unattempted steps are counted rather than fabricated.
+/// Owned result of one prepared step, retaining its result allowance through the last reader.
 #[derive(Debug)]
-pub struct SequenceReport {
-    /// Completed step outcomes in request order.
-    pub outcomes: Vec<Outcome>,
-    /// Steps not started after failure/cancellation.
-    pub unattempted: usize,
-    // Returned owned vectors retain their allocation allowance through the last reader.
+pub struct StepReport {
+    /// The step's native attempt, constant evaluation or typed refusal.
+    pub outcome: Outcome,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
-impl SequenceReport {
-    /// Transfer the native result allocation to the workflow's retained assessment.
-    pub(crate) fn into_parts(self) -> (Vec<Outcome>, usize, Arc<pse_columnar::AllocationLease>) {
-        (self.outcomes, self.unattempted, self._owner)
-    }
-}
-/// A finite batch and its explicit failure-continuation policy.
-#[derive(Debug)]
-pub struct SolveSequence {
-    /// Finite fully prepared steps.
-    pub steps: Vec<PreparedSolve>,
-    /// Continue after failure only when steps are independent.
-    pub continue_independent: bool,
-    /// Explicit ceiling for retained result entries.
-    pub result_limit: usize,
-}
-/// A prepared, bounded original-contract check executed between native attempts.
-/// Implementations consume the current worker's admission and cannot schedule nested work.
-pub(crate) trait SequenceAssessment: Send + std::fmt::Debug {
-    /// Assess one attempt against the original model. Any evaluator it builds observes
-    /// the attempt's `cancel` flag and is charged to the sequence job's `budget`.
-    fn accepted(
-        &mut self,
-        attempt: usize,
-        outcome: &Outcome,
-        cancel: &Arc<std::sync::atomic::AtomicBool>,
-        budget: &Arc<WorkerBudget>,
-    ) -> bool;
+/// The output seed of an earlier accepted step, offered to a step whose start policy is
+/// `PreviousAccepted` (§17.6).
+#[derive(Clone, Debug)]
+pub(crate) struct Predecessor {
+    /// The accepted step, recorded in the receipt.
+    pub attempt: usize,
+    /// Its output seed.
+    pub seed: WarmStart,
 }
 /// Dropping the handle requests cancellation; awaiting it witnesses native destruction and join.
-pub struct SolveHandle<T = SequenceReport> {
+pub struct SolveHandle<T = StepReport> {
     pub(super) cancel: FlightCancellation,
     pub(super) receiver: Option<tokio::sync::oneshot::Receiver<Result<T, MathRuntimeError>>>,
     pub(super) progress: Arc<Progress>,
@@ -308,6 +358,40 @@ impl<T> Drop for SolveHandle<T> {
     fn drop(&mut self) {
         if self.receiver.is_some() {
             self.cancel.cancel();
+        }
+    }
+}
+impl<T: Send + 'static> SolveHandle<T> {
+    /// Supervise asynchronous native work under this handle's lifecycle: cancelling or
+    /// dropping the handle cancels `work`'s source, and finishing waits until `work` has
+    /// completed, including every native join it awaits.
+    pub(crate) fn supervise<F>(
+        progress: Arc<Progress>,
+        work: impl FnOnce(crate::CancelSource) -> F,
+    ) -> Self
+    where
+        F: Future<Output = Result<T, MathRuntimeError>> + Send + 'static,
+    {
+        let cancel = FlightCancellation::default();
+        let control = cancel.clone();
+        let source = crate::CancelSource::new();
+        let operation = work(source.clone());
+        let (sender, receiver) = tokio::sync::oneshot::channel();
+        tokio::spawn(async move {
+            tokio::pin!(operation);
+            let result = tokio::select! {
+                result = &mut operation => result,
+                () = control.cancelled() => {
+                    source.cancel();
+                    operation.await
+                }
+            };
+            let _ = sender.send(result);
+        });
+        Self {
+            cancel,
+            receiver: Some(receiver),
+            progress,
         }
     }
 }
@@ -457,8 +541,34 @@ impl MathService {
         values: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         profile: SolverProfile,
-        mut certificate: Option<Arc<dyn QuadraticEvidence>>,
+        certificate: Option<Arc<dyn QuadraticEvidence>>,
         numerical: NumericalInputs,
+    ) -> Result<PreparedSolve, MathRuntimeError> {
+        profile.controls.validate()?;
+        let mut targets = prepared
+            .prepared
+            .plan
+            .numerical_targets(&prepared.prepared.quantities)?;
+        targets.extend(numerical.targets);
+        let numerics = Arc::new(pse_math::numerics::resolve(
+            &prepared.prepared.quantities,
+            &targets,
+            &numerical.declarations,
+            &profile.numerics,
+        )?);
+        self.prepare_resolved(prepared, values, providers, profile, certificate, numerics)
+            .await
+    }
+    /// Admission of a bound case under an already resolved numerical policy. A conditional
+    /// initialization block resolves its policy once for the whole case and passes it here.
+    pub(crate) async fn prepare_resolved(
+        self: &Arc<Self>,
+        prepared: Preparation,
+        values: CaseValues,
+        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        profile: SolverProfile,
+        mut certificate: Option<Arc<dyn QuadraticEvidence>>,
+        numerics: Arc<ResolvedNumericalPolicy>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
         // Per-solve overlays are separate from the shared compiler product.
@@ -467,7 +577,7 @@ impl MathService {
             .variables()
             .len()
             .checked_add(structure.rows().len())
-            .and_then(|n| n.checked_add(numerical.targets.len()))
+            .and_then(|n| n.checked_add(numerics.targets.len()))
             .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
         let bytes = entries
             .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
@@ -488,18 +598,10 @@ impl MathService {
             .presolve
             .matches(&prepared.prepared.plan, &values)
         {
-            return Err(ProblemError::Contract("fixed/parameter values differ from compiler assumptions; prepare the selected revision again".into()).into());
+            return Err(ProblemError::Contract("fixed/parameter values differ from compiler assumptions; rebind the prepared structure to these values".into()).into());
         }
         let f = &prepared.prepared.facts;
         let plan = &prepared.prepared.plan;
-        let mut targets = plan.numerical_targets(&prepared.prepared.quantities)?;
-        targets.extend(numerical.targets);
-        let numerics = Arc::new(pse_math::numerics::resolve(
-            &prepared.prepared.quantities,
-            &targets,
-            &numerical.declarations,
-            &profile.numerics,
-        )?);
         let rows: Vec<_> = plan.structure().rows().iter().map(|r| r.id).collect();
         let normalization = Normalization::from_policy(&numerics, plan.columns(), &rows)?;
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
@@ -631,6 +733,80 @@ impl MathService {
             explicit_start: None,
             eligibility,
             _owner: owner,
+        })
+    }
+    /// A conditional initialization block as a solve step (A6): the block's bound view, its
+    /// assembled programs, the case-level numerical policy and the route resolved for the
+    /// block before execution ([`super::initialization::PreparedInitialization::strategies`]).
+    /// The block's acceptance budgets and transport come from that policy over its own
+    /// columns and rows, as for any solve.
+    #[cfg(feature = "solver-kinsol")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a block step binds its view, programs, values, providers, profile, policy and route"
+    )]
+    pub(crate) fn prepare_conditional(
+        &self,
+        prepared: Preparation,
+        executable: Arc<ExecutableCase>,
+        values: CaseValues,
+        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        profile: SolverProfile,
+        numerics: Arc<ResolvedNumericalPolicy>,
+        route: Route,
+    ) -> Result<PreparedSolve, MathRuntimeError> {
+        profile.controls.validate()?;
+        let plan = &prepared.prepared.plan;
+        plan.structure().validate_values(&values)?;
+        if !prepared.prepared.presolve.matches(plan, &values) {
+            return Err(ProblemError::Internal(
+                "conditional block values differ from its bound view".into(),
+            )
+            .into());
+        }
+        let Route::Native(backend) = route else {
+            return Err(ProblemError::Unsupported(
+                "unsupported conditional initialization route".into(),
+            )
+            .into());
+        };
+        if !matches!(
+            execution::adapter(backend).representation(),
+            execution::Representation::Roots | execution::Representation::Nlp
+        ) {
+            return Err(ProblemError::Unsupported(
+                "unsupported conditional initialization route".into(),
+            )
+            .into());
+        }
+        admit_profile(&profile, route)?;
+        let rows: Vec<_> = plan.structure().rows().iter().map(|r| r.id).collect();
+        let normalization = Normalization::from_policy(&numerics, plan.columns(), &rows)?;
+        let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
+        let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+        let stamp = compatibility(plan, &values, &profile, &numerics, backend, &providers)?;
+        let bytes = (plan.structure().variables().len() + rows.len())
+            .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
+            .and_then(|n| n.checked_add(size_of::<PreparedSolve>()))
+            .ok_or(MathRuntimeError::Limit("solve metadata extent"))?;
+        Ok(PreparedSolve {
+            representation: Representation::Algebraic(AlgebraicCase {
+                prepared,
+                case: Some(executable),
+                values,
+                providers,
+                certificate: None,
+            }),
+            profile,
+            numerics,
+            normalization,
+            tolerances,
+            accuracy,
+            route,
+            compatibility: Some(stamp),
+            explicit_start: None,
+            eligibility: vec![],
+            _owner: self.reserve("math:prepared-block", bytes)?,
         })
     }
     /// Explicit conic representation enters the same bounded worker/report lifecycle.
@@ -800,244 +976,128 @@ impl MathService {
             _owner: owner,
         })
     }
-    /// Start one finite batch. All CPU permits are acquired once; nested native work
-    /// inherits this admission. Only immutable artifact compilation is shared.
+    /// Start one prepared step on its own native session: the job lifecycle every single
+    /// solve shares with staged sequences (A6). Dropping the handle requests cancellation;
+    /// finishing witnesses native teardown and join.
+    ///
+    /// # Errors
+    /// An explicit start policy without a seed, or no admission capacity.
     pub fn solve(
         self: &Arc<Self>,
-        sequence: SolveSequence,
-    ) -> Result<SolveHandle, MathRuntimeError> {
-        self.solve_assessed(sequence, None)
-    }
-    /// Keep allocation and seed decisions in the sequence owner, after an optional original-contract check.
-    pub(crate) fn solve_assessed(
-        self: &Arc<Self>,
-        sequence: SolveSequence,
-        assessment: Option<Box<dyn SequenceAssessment>>,
-    ) -> Result<SolveHandle, MathRuntimeError> {
-        if sequence.steps.is_empty()
-            || sequence.steps.len() > sequence.result_limit
-            || sequence.result_limit > 4096
-        {
-            return Err(MathRuntimeError::Limit(
-                "finite solve sequence/result bound",
-            ));
+        step: PreparedSolve,
+    ) -> Result<SolveHandle<StepReport>, MathRuntimeError> {
+        if step.profile.controls.start == StartPolicy::Explicit && step.explicit_start.is_none() {
+            return Err(ProblemError::Contract(
+                "explicit start policy requires a seed before submission".into(),
+            )
+            .into());
         }
-        let result_bytes = sequence.steps.iter().try_fold(0usize, |total, s| {
-            if s.profile.controls.start == StartPolicy::Explicit && s.explicit_start.is_none() {
-                return Err(ProblemError::Contract(
-                    "explicit start policy requires a seed before submission".into(),
-                )
-                .into());
-            }
-            let (n, m) = match &s.representation {
-                Representation::Algebraic(a) => (
-                    a.prepared.prepared.facts.variables,
-                    a.prepared.prepared.facts.rows,
-                ),
-                Representation::Conic { problem, .. } => (
-                    problem.contract.variables.len(),
-                    problem.contract.rows.len(),
-                ),
-            };
-            let sources = match &s.representation {
-                Representation::Algebraic(a) => a
-                    .prepared
-                    .prepared
-                    .plan
-                    .structure()
-                    .instances()
-                    .iter()
-                    .try_fold(0usize, |n, i| n.checked_add(i.contributions.len()))
-                    .ok_or(MathRuntimeError::Limit("source observation extent"))?,
-                Representation::Conic { .. } => 0,
-            };
-            n.checked_add(m)
-                .and_then(|v| v.checked_add(sources))
-                .and_then(|v| v.checked_mul(512))
-                .and_then(|v| v.checked_add(s.profile.controls.report_allowance().ok()?))
-                .and_then(|v| total.checked_add(v))
-                .ok_or(MathRuntimeError::Limit("solve result allowance"))
-        })?;
-        let result_owner = self.reserve("math:solve-results", result_bytes)?;
-        let cores = sequence
-            .steps
-            .iter()
-            .map(|s| s.profile.controls.threads)
-            .max()
-            .unwrap_or(1);
-        let history = sequence
-            .steps
-            .iter()
-            .map(|s| s.profile.controls.history)
-            .max()
-            .unwrap_or(0);
-        let progress = Arc::new(Progress::new(history));
+        let owner = self.reserve("math:solve-results", step.result_bytes()?)?;
+        let progress = Arc::new(Progress::new(step.profile.controls.history));
+        let session = self.open_session()?;
         let events = progress.clone();
-        let cancel = FlightCancellation::default();
-        let control = cancel.clone();
-        let service = self.clone();
-        let (receive_tx, receiver) = tokio::sync::oneshot::channel();
-        let bytes = self.policy.worker_bytes;
-        // Every evaluator the sequence builds (steps, original re-checks and assessments)
-        // is charged to this job's reservation (F31).
-        let budget = WorkerBudget::new(bytes);
-        tokio::spawn(async move {
-            let runner = service.clone();
-            let result = service
-                .job(cores, bytes, control, move |flag| {
-                    runner.run_sequence(sequence, flag, events, result_owner, assessment, budget)
+        Ok(SolveHandle::supervise(progress, move |cancel| async move {
+            let result = session
+                .step(step, None, 0, events, owner.clone(), &cancel, |_, _, _| {
+                    ((), true)
                 })
                 .await;
-            let _ = receive_tx.send(result);
-        });
-        Ok(SolveHandle {
-            cancel,
-            receiver: Some(receiver),
-            progress,
-        })
-    }
-    fn run_sequence(
-        self: &Arc<Self>,
-        sequence: SolveSequence,
-        flag: Arc<std::sync::atomic::AtomicBool>,
-        progress: Arc<Progress>,
-        owner: Arc<pse_columnar::AllocationLease>,
-        assessment: Option<Box<dyn SequenceAssessment>>,
-        budget: Arc<WorkerBudget>,
-    ) -> Result<SequenceReport, MathRuntimeError> {
-        // Every adapter the sequence executes provides its scope (for example an admitted
-        // local pool) around the whole sequence, so retained sessions live inside it.
-        let adapters: Vec<&dyn BackendExecution> = sequence
-            .steps
-            .iter()
-            .filter_map(|s| match s.route {
-                Route::Native(backend) => Some(execution::adapter(backend)),
-                Route::Constant => None,
+            session.close().await;
+            result.map(|(outcome, ())| StepReport {
+                outcome,
+                _owner: owner,
             })
-            .collect();
-        let threads = sequence
-            .steps
-            .iter()
-            .map(|s| s.profile.controls.threads)
-            .max()
-            .unwrap_or(1);
-        execution::scoped(&adapters, threads, self.policy.stack_bytes, move || {
-            self.run_sequence_inner(sequence, flag, progress, owner, assessment, &budget)
-        })
+        }))
     }
-    fn run_sequence_inner(
-        self: &Arc<Self>,
-        sequence: SolveSequence,
-        flag: Arc<std::sync::atomic::AtomicBool>,
-        progress: Arc<Progress>,
-        owner: Arc<pse_columnar::AllocationLease>,
-        mut assessment: Option<Box<dyn SequenceAssessment>>,
+    /// One bound step on a session's retained native state (A6): the seed its start policy
+    /// selects, checked against its coordinates, the selected adapter's representation
+    /// runner and the submitted-start receipt. A `Fresh` reuse policy drops retained state
+    /// first; a refused seed drops it as well.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the session supplies its retained state, stop flag, progress, worker share and result owner"
+    )]
+    pub(crate) fn execute(
+        &self,
+        step: PreparedSolve,
+        previous: Option<Predecessor>,
+        attempt: usize,
+        retained: &mut Retained,
+        flag: &Arc<std::sync::atomic::AtomicBool>,
+        progress: &Arc<Progress>,
         budget: &Arc<WorkerBudget>,
-    ) -> Result<SequenceReport, MathRuntimeError> {
-        let total = sequence.steps.len();
-        let mut outcomes = Vec::new();
-        let mut warm: Option<WarmStart> = None;
-        let mut retained = Retained::default();
-        for (attempt, step) in sequence.steps.into_iter().enumerate() {
-            if flag.load(std::sync::atomic::Ordering::Acquire) {
-                break;
+        owner: &Arc<pse_columnar::AllocationLease>,
+    ) -> Result<Outcome, MathRuntimeError> {
+        let controls = step.profile.controls.clone();
+        if controls.reuse == ReusePolicy::Fresh {
+            retained.clear();
+        }
+        let (chosen, previous_attempt) = match controls.start {
+            StartPolicy::NoPriorStart => (None, None),
+            StartPolicy::Explicit => match step.explicit_start.clone() {
+                Some(seed) => (Some(seed), None),
+                None => {
+                    return Ok(Outcome::Rejected(Arc::new(
+                        ProblemError::Contract("explicit start policy requires a seed".into())
+                            .into(),
+                    )));
+                }
+            },
+            StartPolicy::PreviousAccepted => {
+                previous.map_or((None, None), |p| (Some(p.seed), Some(p.attempt)))
             }
-            let controls = &step.profile.controls;
-            let mut execution = Execution::new(flag.clone(), controls);
-            execution.progress = progress.clone();
-            if controls.reuse == ReusePolicy::Fresh {
+        };
+        if let Some(seed) = &chosen {
+            let validation = step
+                .compatibility
+                .as_ref()
+                .ok_or_else(|| {
+                    ProblemError::Contract("constant evaluation cannot consume a seed".into())
+                })
+                .and_then(|target| seed.validate(target));
+            if let Err(error) = validation {
                 retained.clear();
-            }
-            let chosen = match controls.start {
-                StartPolicy::NoPriorStart => None,
-                StartPolicy::Explicit => Some(step.explicit_start.clone().ok_or_else(|| {
-                    ProblemError::Contract("explicit start policy requires a seed".into())
-                })?),
-                StartPolicy::PreviousAccepted => warm.clone(),
-            };
-            if let Some(seed) = &chosen {
-                let validation = step
-                    .compatibility
-                    .as_ref()
-                    .ok_or_else(|| {
-                        ProblemError::Contract("constant evaluation cannot consume a seed".into())
-                    })
-                    .and_then(|target| seed.validate(target));
-                if let Err(error) = validation {
-                    outcomes.push(Outcome::Rejected(Arc::new(error.into())));
-                    warm = None;
-                    retained.clear();
-                    if sequence.continue_independent {
-                        continue;
-                    }
-                    break;
-                }
-            }
-            let receipt = StartReceipt {
-                previous_attempt: (controls.start == StartPolicy::PreviousAccepted
-                    && chosen.is_some())
-                .then(|| attempt.saturating_sub(1)),
-                seed: chosen.clone(),
-                sparse_seed: step.profile.backend.partial_start().cloned(),
-                transformations: vec![],
-                submitted: chosen.is_some(),
-            };
-            let normalization = step.normalization.key();
-            let outcome = self
-                .run_step(step, execution, chosen.as_ref(), &mut retained, budget)
-                .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
-            let outcome = match outcome {
-                Outcome::Native(mut r) => {
-                    if r.failure_bytes() > 0 {
-                        let failure_owner =
-                            self.reserve("math:solve-failure", r.failure_bytes())?;
-                        r = Box::new((*r).with_failure_owner(failure_owner));
-                    }
-                    if let Some(seed) = &mut r.warm_start {
-                        seed.origin = Some(SeedOrigin { run: None, attempt });
-                    }
-                    let mut receipt = receipt;
-                    receipt.submitted = r.evidence.start_submitted;
-                    // The recorded path is what this step's transport and library presolve
-                    // actually applied, never a constant label (F25).
-                    if receipt.seed.is_some() || receipt.sparse_seed.is_some() {
-                        receipt.transformations =
-                            SeedTransformation::path(normalization, r.preprocessing.as_ref());
-                    }
-                    r.start_receipt = Some(receipt);
-                    Outcome::Native(Box::new((*r).with_owner(owner.clone())))
-                }
-                Outcome::Constant(mut r) => {
-                    r.owner = Some(owner.clone());
-                    Outcome::Constant(r)
-                }
-                other => other,
-            };
-            let original_accepted = assessment
-                .as_mut()
-                .is_none_or(|a| a.accepted(attempt, &outcome, &flag, budget));
-            // `PreviousAccepted` seeds only from a result; a seed-only candidate is
-            // offered to explicit consumers such as a study's dependent point.
-            let successful = outcome.candidate_use().permits_use() && original_accepted;
-            warm = match &outcome {
-                Outcome::Native(r) if successful => r.warm_start.clone(),
-                Outcome::Native(_) | Outcome::Constant(_) | Outcome::Rejected(_) => None,
-            };
-            // Terminal native failures cannot poison the next independent step.
-            if !successful {
-                retained.clear();
-            }
-            outcomes.push(outcome);
-            if !successful && !sequence.continue_independent {
-                break;
+                return Ok(Outcome::Rejected(Arc::new(error.into())));
             }
         }
-        drop(retained);
-        let unattempted = total - outcomes.len();
-        Ok(SequenceReport {
-            outcomes,
-            unattempted,
-            _owner: owner,
+        let mut execution = Execution::new(flag.clone(), &controls);
+        execution.progress = progress.clone();
+        let receipt = StartReceipt {
+            previous_attempt,
+            seed: chosen.clone(),
+            sparse_seed: step.profile.backend.partial_start().cloned(),
+            transformations: vec![],
+            submitted: chosen.is_some(),
+        };
+        let normalization = step.normalization.key();
+        let outcome = self
+            .run_step(step, execution, chosen.as_ref(), retained, budget)
+            .unwrap_or_else(|e| Outcome::Rejected(Arc::new(e)));
+        Ok(match outcome {
+            Outcome::Native(mut r) => {
+                if r.failure_bytes() > 0 {
+                    let failure_owner = self.reserve("math:solve-failure", r.failure_bytes())?;
+                    r = Box::new((*r).with_failure_owner(failure_owner));
+                }
+                if let Some(seed) = &mut r.warm_start {
+                    seed.origin = Some(SeedOrigin { run: None, attempt });
+                }
+                let mut receipt = receipt;
+                receipt.submitted = r.evidence.start_submitted;
+                // The recorded path is what this step's transport and library presolve
+                // actually applied, never a constant label (F25).
+                if receipt.seed.is_some() || receipt.sparse_seed.is_some() {
+                    receipt.transformations =
+                        SeedTransformation::path(normalization, r.preprocessing.as_ref());
+                }
+                r.start_receipt = Some(receipt);
+                Outcome::Native(Box::new((*r).with_owner(owner.clone())))
+            }
+            Outcome::Constant(mut r) => {
+                r.owner = Some(owner.clone());
+                Outcome::Constant(r)
+            }
+            other => other,
         })
     }
     /// One prepared step: constant evaluation, or the selected adapter's representation

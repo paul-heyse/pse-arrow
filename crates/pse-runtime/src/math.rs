@@ -10,6 +10,7 @@ mod jobs;
 pub mod modeling;
 mod products;
 pub mod solves;
+mod staged;
 pub use artifacts::Artifact;
 use artifacts::{Key, Value};
 use datafusion::execution::{
@@ -25,6 +26,7 @@ use pse_engine::cache_service::CacheComponent;
 use pse_ids::SemanticId;
 use pse_kernels::{DerivativeOrder, Provider, ProviderKey};
 use pse_math::assembly::{CaseAssembly, CaseWorker};
+pub(crate) use staged::NativeSession;
 use std::{
     collections::BTreeMap,
     sync::{
@@ -163,6 +165,29 @@ pub struct MathService {
     hits: AtomicUsize,
     misses: AtomicUsize,
     products: Mutex<BTreeMap<Vec<usize>, std::sync::Weak<products::ProductOwner>>>,
+    preparations: Preparations,
+}
+/// Compiler preparations and value rebinds this service performed (A6). Observation only:
+/// nothing decides on them.
+#[derive(Debug, Default)]
+struct Preparations {
+    views: AtomicUsize,
+    observations: AtomicUsize,
+    rebuilt: AtomicUsize,
+    shared: AtomicUsize,
+}
+/// A snapshot of [`MathService::preparations`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PreparationCounts {
+    /// Structural solver-view preparations: a case plan, structural analysis and artifact
+    /// requests built from a bound structure.
+    pub views: usize,
+    /// Value-independent observation programs compiled.
+    pub observations: usize,
+    /// Value rebinds that rebuilt value-dependent products because a consumed value changed.
+    pub rebuilt: usize,
+    /// Value rebinds that shared every product because no consumed value changed.
+    pub shared: usize,
 }
 impl MathService {
     /// Admitted worker stack, also used by nested native pools.
@@ -188,6 +213,8 @@ pub struct Workspace {
 pub struct Preparation {
     prepared: Arc<PreparedCase>,
     owner: Arc<products::ProductOwner>,
+    /// The assembled programs of this structure, shared by every value rebind (A6).
+    executable: Arc<std::sync::OnceLock<Arc<ExecutableCase>>>,
 }
 impl Preparation {
     /// Immutable compiler products, including source maps and proof assumptions.
@@ -256,6 +283,7 @@ impl MathService {
             hits: AtomicUsize::new(0),
             misses: AtomicUsize::new(0),
             products: Mutex::default(),
+            preparations: Preparations::default(),
         });
         let component: Arc<dyn CacheComponent> = service.clone();
         native.register_component(&component);
@@ -367,8 +395,30 @@ impl MathService {
         tokio::pin!(operation);
         tokio::select! {result=&mut operation=>self.own_preparation(result?),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
     }
-    /// Resolve the exact compiler requests and bind immutable programs.
+    /// Structural preparations and value rebinds performed so far (A6).
+    pub fn preparations(&self) -> PreparationCounts {
+        let read = |n: &AtomicUsize| n.load(std::sync::atomic::Ordering::Relaxed);
+        PreparationCounts {
+            views: read(&self.preparations.views),
+            observations: read(&self.preparations.observations),
+            rebuilt: read(&self.preparations.rebuilt),
+            shared: read(&self.preparations.shared),
+        }
+    }
+    /// Resolve the exact compiler requests and bind immutable programs once per structure;
+    /// every value rebind of the structure shares them.
     pub async fn assemble(
+        self: &Arc<Self>,
+        prepared: Preparation,
+    ) -> Result<Arc<ExecutableCase>, MathRuntimeError> {
+        if let Some(executable) = prepared.executable.get() {
+            return Ok(executable.clone());
+        }
+        let memo = prepared.executable.clone();
+        let executable = self.assemble_programs(prepared).await?;
+        Ok(memo.get_or_init(|| executable).clone())
+    }
+    async fn assemble_programs(
         self: &Arc<Self>,
         prepared: Preparation,
     ) -> Result<Arc<ExecutableCase>, MathRuntimeError> {

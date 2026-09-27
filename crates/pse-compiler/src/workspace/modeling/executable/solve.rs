@@ -169,6 +169,59 @@ impl PreparedModeling {
             CaseLimits::default(),
         )?))
     }
+    /// Complete identity of a prepared view of `structure` (A6, DP-09): the bound case
+    /// structure (fixed/free state, bounds, instances, rows and objective), every admitted
+    /// body the plan may bind with its source occurrences, the derivative order, the
+    /// evaluator profile and the physical context. Equal keys give equal plans, structural
+    /// analyses, artifact requests and provenance, so a view prepared once serves every
+    /// value rebind of the same structure. Values are not part of it: they reach only the
+    /// value-dependent products ([`PreparedCase::rebind`]).
+    pub fn view_key(
+        &self,
+        structure: &CaseStructure,
+        order: DerivativeOrder,
+        profile: Profile,
+        context: &ContentHash,
+    ) -> ContentHash {
+        let mut h = FramedHasher::new("pse.compiler.modeling-view.v1");
+        h.hash(&structure.key())
+            .hash(context)
+            .u64(order as u64)
+            .u64(self.admitted.bodies.len() as u64);
+        for (key, body) in &self.admitted.bodies {
+            h.hash(key).u64(body.occurrences.len() as u64);
+            for o in &body.occurrences {
+                h.id(&o.id)
+                    .id(&o.definition)
+                    .u64(u64::from(o.span.start))
+                    .u64(u64::from(o.span.end));
+            }
+        }
+        for x in [
+            profile.optimization.cores,
+            profile.optimization.horner_iterations,
+            profile.optimization.cpe_iterations,
+            profile.evaluation.derivative_components,
+            profile.evaluation.operations,
+            profile.evaluation.scratch_bytes,
+            profile.evaluation.provider_calls,
+        ] {
+            h.u64(x as u64);
+        }
+        h.finish_hash()
+    }
+    /// Source occurrences of the admitted bodies, by definition. They are provenance, not
+    /// structure, so a reused view takes them from the current model.
+    pub fn occurrences(&self) -> BTreeMap<SemanticId, Vec<Occurrence>> {
+        self.admitted
+            .bodies
+            .values()
+            .flat_map(|b| b.occurrences.iter().cloned())
+            .fold(BTreeMap::new(), |mut map, o| {
+                map.entry(o.definition).or_insert_with(Vec::new).push(o);
+                map
+            })
+    }
     fn prepare_view(
         &self,
         structure: Arc<CaseStructure>,
@@ -179,7 +232,7 @@ impl PreparedModeling {
         environment: &ContentHash,
         cancel: &Arc<AtomicBool>,
     ) -> Result<PreparedCase> {
-        structure.validate_frozen_values(&values)?;
+        structure.validate_frozen_values(values)?;
         let plan = Arc::new(CasePlan::prepare(
             structure,
             self.admitted
@@ -190,52 +243,53 @@ impl PreparedModeling {
             &quantities,
             order,
             AssemblyLimits::default(),
-            &cancel,
+            cancel,
         )?);
-        let presolve = Arc::new(plan.presolve_facts(&values, 100_000, &cancel)?);
-        let coefficients = if presolve.coefficient_eligible() {
-            Some(Arc::new(plan.coefficients_with_facts(
-                &values, &presolve, 100_000, &cancel,
-            )?))
-        } else {
-            None
-        };
-        let facts =
-            pse_math::facts::ProblemFacts::from_plan(&plan, coefficients.as_deref(), &presolve)?;
-        let assumptions = plan
-            .structure()
-            .parameters()
-            .iter()
-            .map(|p| p.id)
-            .chain(
-                plan.structure()
-                    .variables()
-                    .iter()
-                    .filter(|v| v.fixed)
-                    .map(|v| v.port.id),
-            )
-            .map(|id| (id, values.scalars[&id].to_bits()))
-            .collect();
-        let prepared = PreparedCase {
-            quantities: quantities.clone(),
-            presolve,
-            coefficient_values: assumptions,
-            facts,
-            structure: structural_plan(SemanticId::NIL, &plan, &cancel)?,
+        let bound = ValueProducts::bind(&plan, values, cancel)?;
+        Ok(PreparedCase {
+            quantities,
+            presolve: bound.presolve,
+            coefficient_values: bound.assumptions,
+            facts: bound.facts,
+            structure: structural_plan(SemanticId::NIL, &plan, cancel)?,
             artifacts: artifact_requests(&plan, profile, environment),
-            occurrences: self
-                .admitted
-                .bodies
-                .values()
-                .flat_map(|b| b.occurrences.iter().cloned())
-                .fold(BTreeMap::new(), |mut map, o| {
-                    map.entry(o.definition).or_insert_with(Vec::new).push(o);
-                    map
-                }),
-            coefficients,
+            occurrences: self.occurrences(),
+            coefficients: bound.coefficients,
             plan,
-        };
-        Ok(prepared)
+        })
+    }
+}
+impl PreparedCase {
+    /// Whether every value the value-dependent products consumed is unchanged in `values`
+    /// (DP-09): the dependencies the presolve projection recorded and, with a coefficient
+    /// snapshot, the fixed and parameter values it assumed. Free-variable starts are never
+    /// among them.
+    pub fn values_match(&self, values: &CaseValues) -> bool {
+        self.presolve.matches(&self.plan, values)
+            && (self.coefficients.is_none()
+                || self
+                    .coefficient_values
+                    .iter()
+                    .all(|(id, bits)| values.scalars.get(id).map(|v| v.to_bits()) == Some(*bits)))
+    }
+    /// Value-only rebind (A6). The plan, structural analysis, artifact requests and source
+    /// occurrences depend on structure only and are shared. The presolve projection,
+    /// coefficient snapshot and problem facts are rebuilt only when a value they consumed
+    /// changed ([`Self::values_match`]); the recorded assumptions always follow `values`.
+    ///
+    /// # Errors
+    /// Values that do not bind this structure, a failed projection, or cancellation.
+    pub fn rebind(&self, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        self.plan.structure().validate_frozen_values(values)?;
+        let mut rebound = self.clone();
+        rebound.coefficient_values = fixed_values(&self.plan, values)?;
+        if !self.values_match(values) {
+            let bound = ValueProducts::bind(&self.plan, values, cancel)?;
+            rebound.presolve = bound.presolve;
+            rebound.coefficients = bound.coefficients;
+            rebound.facts = bound.facts;
+        }
+        Ok(rebound)
     }
 }
 /// Finite-bound admission of free discrete variables after case binding (ADR-0103 item 4).
@@ -278,17 +332,18 @@ fn admit_domains(model: &PreparedModeling, variables: &mut [Variable]) -> Result
     }
     Ok(())
 }
-impl CompilerWorkspace {
-    /// Apply case specifications to an already resolved, immutable kernel revision.
-    pub fn prepare_modeling_bound_case(
+impl PreparedModeling {
+    /// The solver structure of this model under case specifications: variable states
+    /// applied, discrete domains admitted and observation rows excluded. It depends on no
+    /// value and is cheap; [`Self::view_key`] identifies the view prepared from it (A6).
+    ///
+    /// # Errors
+    /// Integrated derivatives, unknown specification targets or refused discrete domains.
+    pub fn bound_structure(
         &self,
-        model: &PreparedModeling,
-        values: &CaseValues,
         states: &BTreeMap<SemanticId, ModelingVariableState>,
-        order: DerivativeOrder,
-        profile: Profile,
-        cancel: &Arc<AtomicBool>,
-    ) -> Result<PreparedCase> {
+    ) -> Result<Arc<CaseStructure>> {
+        let model = self;
         if !model.model.integrated.is_empty() {
             return Err(CompileError::Missing(
                 "integrated time derivatives require the dynamic consumer".into(),
@@ -349,58 +404,78 @@ impl CompilerWorkspace {
                 (!i.contributions.is_empty()).then_some(i)
             })
             .collect::<Vec<_>>();
-        let structure = Arc::new(CaseStructure::new(
+        Ok(Arc::new(CaseStructure::new(
             variables,
             model.admitted.case.parameters().to_vec(),
             instances,
             rows,
             model.admitted.case.objective().cloned(),
             CaseLimits::default(),
-        )?);
-        let prepared = model.prepare_view(
+        )?))
+    }
+}
+impl CompilerWorkspace {
+    /// Apply case specifications to an already resolved, immutable kernel revision.
+    pub fn prepare_modeling_bound_case(
+        &self,
+        model: &PreparedModeling,
+        values: &CaseValues,
+        states: &BTreeMap<SemanticId, ModelingVariableState>,
+        order: DerivativeOrder,
+        profile: Profile,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PreparedCase> {
+        let structure = model.bound_structure(states)?;
+        self.prepare_modeling_view(model, structure, values, order, profile, cancel)
+    }
+    /// Prepare the solver view of a bound structure ([`PreparedModeling::bound_structure`])
+    /// and bind its first values. Later values rebind it ([`PreparedCase::rebind`]).
+    pub fn prepare_modeling_view(
+        &self,
+        model: &PreparedModeling,
+        structure: Arc<CaseStructure>,
+        values: &CaseValues,
+        order: DerivativeOrder,
+        profile: Profile,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PreparedCase> {
+        model.prepare_view(
             structure,
-            &values,
+            values,
             self.inputs.quantities.clone(),
             order,
             profile,
             self.inventory.environment(&self.db),
-            &cancel,
-        )?;
-        Ok(prepared)
+            cancel,
+        )
     }
-    /// Compile selected observations under the same library environment and quantity authority.
+    /// Compile selected observations under the same library environment and quantity
+    /// authority. The program depends on no value: every evaluation binds its own (A6), so
+    /// no presolve or coefficient projection is built for it.
     pub fn prepare_modeling_observations(
         &self,
         model: &PreparedModeling,
         rows: &BTreeSet<SemanticId>,
-        values: &CaseValues,
         profile: Profile,
         cancel: &Arc<AtomicBool>,
-    ) -> Result<PreparedCase> {
-        let structure = model.observation_structure(rows)?;
-        let ids = structure
-            .parameters()
-            .iter()
-            .map(|p| p.id)
-            .chain(structure.variables().iter().map(|v| v.port.id))
-            .collect::<BTreeSet<_>>();
-        let values = CaseValues {
-            scalars: values
-                .scalars
+    ) -> Result<PreparedFunctions> {
+        let plan = Arc::new(CasePlan::prepare(
+            model.observation_structure(rows)?,
+            model
+                .admitted
+                .bodies
                 .iter()
-                .filter(|(id, _)| ids.contains(id))
-                .map(|(id, v)| (*id, *v))
+                .map(|(k, b)| (*k, b.math.clone()))
                 .collect(),
-        };
-        model.prepare_view(
-            structure,
-            &values,
-            self.inputs.quantities.clone(),
+            &self.inputs.quantities,
             DerivativeOrder::Value,
-            profile,
-            self.inventory.environment(&self.db),
+            AssemblyLimits::default(),
             cancel,
-        )
+        )?);
+        Ok(PreparedFunctions {
+            artifacts: artifact_requests(&plan, profile, self.inventory.environment(&self.db)),
+            plan,
+        })
     }
 }
 

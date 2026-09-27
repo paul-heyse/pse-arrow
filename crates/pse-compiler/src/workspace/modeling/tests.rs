@@ -1604,6 +1604,111 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
     );
 }
 
+#[test]
+fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
+    let (mut w, _, _, root) =
+        setup("package p { def Root { param p: Scalar = 2; var x: Scalar; eq e: x*p == 6; } }");
+    let cancel = Arc::new(AtomicBool::new(false));
+    let bindings = Bindings {
+        demand: vec!["p".into(), "x".into()],
+        ..Bindings::default()
+    };
+    let model = w
+        .prepare_modeling_cancellable(
+            root,
+            SemanticId::NIL,
+            bindings,
+            Limits::default(),
+            cancel.clone(),
+        )
+        .unwrap();
+    let (x, p) = (model.model.paths["x"], model.model.paths["p"]);
+    let values = |x_value: f64, p_value: f64| CaseValues {
+        scalars: BTreeMap::from([(x, x_value), (p, p_value)]),
+    };
+    let structure = model.bound_structure(&BTreeMap::new()).unwrap();
+    let context = ContentHash::from_bytes([7; 32]);
+    let key = model.view_key(
+        &structure,
+        DerivativeOrder::First,
+        Profile::default(),
+        &context,
+    );
+    let first = w
+        .prepare_modeling_view(
+            &model,
+            structure.clone(),
+            &values(1.0, 2.0),
+            DerivativeOrder::First,
+            Profile::default(),
+            &cancel,
+        )
+        .unwrap();
+    // A changed free start is not among the consumed values: everything is shared.
+    assert!(first.values_match(&values(5.0, 2.0)));
+    let start = first.rebind(&values(5.0, 2.0), &cancel).unwrap();
+    assert!(Arc::ptr_eq(&start.presolve, &first.presolve));
+    assert!(Arc::ptr_eq(&start.plan, &first.plan));
+    // A changed parameter rebuilds only the value-dependent products.
+    assert!(!first.values_match(&values(1.0, 3.0)));
+    let rebound = first.rebind(&values(1.0, 3.0), &cancel).unwrap();
+    assert!(Arc::ptr_eq(&rebound.plan, &first.plan));
+    assert!(Arc::ptr_eq(&rebound.structure, &first.structure));
+    assert!(Arc::ptr_eq(&rebound.artifacts, &first.artifacts));
+    assert!(rebound.values_match(&values(1.0, 3.0)));
+    let fresh = w
+        .prepare_modeling_view(
+            &model,
+            structure,
+            &values(1.0, 3.0),
+            DerivativeOrder::First,
+            Profile::default(),
+            &cancel,
+        )
+        .unwrap();
+    assert_eq!(rebound.coefficient_values, fresh.coefficient_values);
+    assert_eq!(
+        rebound.coefficients.as_ref().map(|c| c.assumptions),
+        fresh.coefficients.as_ref().map(|c| c.assumptions)
+    );
+    assert_eq!(rebound.presolve.values, fresh.presolve.values);
+    assert_eq!(rebound.facts, fresh.facts);
+    // Structure, not values, keys the view.
+    let fixed = model
+        .bound_structure(&BTreeMap::from([(
+            x,
+            ModelingVariableState {
+                fixed: Some(true),
+                ..Default::default()
+            },
+        )]))
+        .unwrap();
+    assert_eq!(
+        key,
+        model.view_key(
+            &model.bound_structure(&BTreeMap::new()).unwrap(),
+            DerivativeOrder::First,
+            Profile::default(),
+            &context
+        )
+    );
+    assert_ne!(
+        key,
+        model.view_key(&fixed, DerivativeOrder::First, Profile::default(), &context)
+    );
+    // Values that do not bind the structure are refused.
+    assert!(
+        first
+            .rebind(
+                &CaseValues {
+                    scalars: BTreeMap::from([(x, 1.0)]),
+                },
+                &cancel,
+            )
+            .is_err()
+    );
+}
+
 struct Fixture {
     admitted: AdmittedModeling,
     assembly: Arc<pse_math::assembly::CaseAssembly>,

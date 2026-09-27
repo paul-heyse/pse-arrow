@@ -614,21 +614,11 @@ async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() 
         .await
         .unwrap();
     assert_eq!(p.route(), pse_backend_native::routing::Route::Constant);
-    let report = s
-        .solve(SolveSequence {
-            steps: vec![p],
-            continue_independent: false,
-            result_limit: 1,
-        })
-        .unwrap()
-        .finish()
-        .await
-        .unwrap();
-    assert_eq!(report.unattempted, 0);
-    assert!(matches!(&report.outcomes[0],Outcome::Constant(c)if c.quality.feasible()));
+    let report = s.solve(p).unwrap().finish().await.unwrap();
+    assert!(matches!(&report.outcome,Outcome::Constant(c)if c.quality.feasible()));
     s.invalidate();
     assert!(s.pool.reserved() > 0);
-    let retained = report.outcomes[0].clone();
+    let retained = report.outcome.clone();
     drop(report);
     assert!(s.pool.reserved() > 0);
     drop(retained);
@@ -865,56 +855,8 @@ async fn nested_worker_observes_attempt_cancel() {
     assert_eq!(budget.used(), 0);
 }
 
-/// A sequence assessment that builds two evaluators at once on the sequence job.
-#[derive(Debug)]
-struct TwoEvaluators {
-    service: Arc<MathService>,
-    case: Arc<ExecutableCase>,
-    registrations: BTreeMap<ProviderKey, pse_kernels::Registration>,
-    seen: Arc<Mutex<Vec<(usize, usize, usize, bool)>>>,
-}
-impl solves::SequenceAssessment for TwoEvaluators {
-    fn accepted(
-        &mut self,
-        _: usize,
-        _: &solves::Outcome,
-        cancel: &Arc<AtomicBool>,
-        budget: &Arc<WorkerBudget>,
-    ) -> bool {
-        let first = self
-            .service
-            .worker(
-                self.case.clone(),
-                &self.registrations,
-                cancel.clone(),
-                budget,
-            )
-            .unwrap();
-        let second = self
-            .service
-            .worker(
-                self.case.clone(),
-                &self.registrations,
-                cancel.clone(),
-                budget,
-            )
-            .unwrap();
-        let both = budget.used();
-        // No further evaluator fits once the job's worker share is spent.
-        let overflow = budget.charge(budget.capacity() - both + 1).is_err();
-        self.seen.lock().unwrap().push((
-            budget.capacity(),
-            both,
-            self.service.pool.reserved(),
-            overflow,
-        ));
-        drop((first, second));
-        true
-    }
-}
-
 #[tokio::test]
-async fn sequence_reserves_per_worker() {
+async fn session_step_reserves_per_worker() {
     use super::solves::*;
     use pse_backend_native::{execution::BackendSettings, solve::*};
     // The budget refuses a worker beyond its capacity and releases a dropped one.
@@ -982,33 +924,49 @@ async fn sequence_reserves_per_worker() {
         )
         .await
         .unwrap();
-    let seen = Arc::new(Mutex::new(vec![]));
-    let report = s
-        .solve_assessed(
-            SolveSequence {
-                steps: vec![step],
-                continue_independent: false,
-                result_limit: 1,
+    let session = s.open_session().unwrap();
+    let owner = s
+        .reserve("test:results", step.result_bytes().unwrap())
+        .unwrap();
+    let assessor = s.clone();
+    let (_, seen) = session
+        .step(
+            step,
+            None,
+            0,
+            Arc::new(Progress::new(0)),
+            owner,
+            &crate::CancelSource::new(),
+            move |_, cancel, budget| {
+                // The step's assessment builds two evaluators at once on the session worker.
+                let first = assessor
+                    .worker(case.clone(), &registrations, cancel.clone(), budget)
+                    .unwrap();
+                let second = assessor
+                    .worker(case.clone(), &registrations, cancel.clone(), budget)
+                    .unwrap();
+                let both = budget.used();
+                // No further evaluator fits once the session's worker share is spent.
+                let overflow = budget.charge(budget.capacity() - both + 1).is_err();
+                let seen = (
+                    budget.capacity(),
+                    both,
+                    case.assembly.numeric_worker_bytes(),
+                    assessor.pool.reserved(),
+                    overflow,
+                );
+                drop((first, second));
+                (seen, true)
             },
-            Some(Box::new(TwoEvaluators {
-                service: s.clone(),
-                case: case.clone(),
-                registrations,
-                seen: seen.clone(),
-            })),
         )
-        .unwrap()
-        .finish()
         .await
         .unwrap();
-    assert_eq!(report.unattempted, 0);
-    let seen = seen.lock().unwrap().clone();
-    assert_eq!(seen.len(), 1);
-    let (capacity, both, reserved, overflow) = seen[0];
-    // Every evaluator the sequence builds is charged to the job's worker share, and the
-    // job's pool reservation covers that whole share.
+    session.close().await;
+    let (capacity, both, worker, reserved, overflow) = seen;
+    // Every evaluator the step builds is charged to the session's worker share, and the
+    // session's pool reservation covers that whole share.
     assert_eq!(capacity, s.policy.worker_bytes);
-    assert_eq!(both, 2 * case.assembly.numeric_worker_bytes());
+    assert_eq!(both, 2 * worker);
     assert!(reserved >= capacity + s.policy.stack_bytes + s.policy.foreign_bytes);
     assert!(overflow);
 }

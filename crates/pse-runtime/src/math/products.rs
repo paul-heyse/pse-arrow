@@ -58,6 +58,25 @@ impl MathService {
         Ok(Preparation {
             prepared: Arc::new(prepared),
             owner,
+            executable: Arc::default(),
         })
+    }
+    /// Own the value-dependent products of a rebind (A6). The structure, its artifact
+    /// owners and its assembled programs stay those of `structure`; `lease` covers only the
+    /// rebuilt value products.
+    pub(super) fn own_rebind(
+        structure: &Preparation,
+        prepared: PreparedCase,
+        lease: Arc<pse_columnar::AllocationLease>,
+    ) -> Preparation {
+        let prepared = Arc::new(prepared);
+        Preparation {
+            owner: Arc::new(ProductOwner {
+                _lease: lease,
+                _payload: prepared.clone(),
+            }),
+            prepared,
+            executable: structure.executable.clone(),
+        }
     }
 }

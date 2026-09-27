@@ -3,7 +3,7 @@
 //! Knowledge checks supplement original-space solver qualification without rewriting termination.
 use super::cases::ModelingSolvePreparation;
 use super::*;
-use crate::math::solves::{Outcome, SolveSequence};
+use crate::math::solves::Outcome;
 use pse_compiler::workspace::{ModelingHint, ModelingOutput, Profile};
 use pse_math::binding::CaseValues;
 use pse_modeling::annotation::AnnotationValue;
@@ -167,13 +167,13 @@ impl ModelingResult {
         run_id: SemanticId,
         attempt: usize,
         mut outcome: Outcome,
-        point: sequence::AssessedPoint,
+        point: assessment::AssessedPoint,
         native_owner: Arc<pse_columnar::AllocationLease>,
     ) -> Self {
         let completion = crate::workflow::numerics::complete(
             outcome.candidate_use(),
             &point.checks,
-            point.error.is_none(),
+            point.complete && point.error.is_none(),
             prepared.solve.numerics().policy.closure,
         );
         stamp_start(&mut outcome, run_id, attempt);
@@ -218,163 +218,6 @@ impl ModelingPackage {
             Err(error) => Err(WorkflowError::Shared(error.clone())),
             _ => Err(contract("authored solve report mismatch")),
         }
-    }
-    /// Intermediate specifications retain their model checks; final-fixture oracles
-    /// apply only to the separate original-specification solve.
-    pub(in crate::workflow) async fn solve_initialization_trial(
-        &self,
-        prepared: ModelingSolvePreparation,
-        compiler: Profile,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingResult, WorkflowError> {
-        self.solve_assessed(prepared, compiler, false, cancel).await
-    }
-    async fn solve_assessed(
-        &self,
-        prepared: ModelingSolvePreparation,
-        compiler: Profile,
-        include_expectations: bool,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingResult, WorkflowError> {
-        let handle = self.runtime.shared.math().solve(SolveSequence {
-            steps: vec![prepared.solve.clone()],
-            continue_independent: false,
-            result_limit: 1,
-        })?;
-        let control = handle.cancellation();
-        let finish = handle.finish();
-        tokio::pin!(finish);
-        let sequence = tokio::select! {
-            result=&mut finish=>result?,
-            ()=cancel.cancelled()=>{control.cancel();finish.await?}
-        };
-        let (mut outcomes, _, native_owner) = sequence.into_parts();
-        let outcome = outcomes
-            .pop()
-            .ok_or_else(|| contract("solve completed without an outcome"))?;
-        self.finish_assessed(
-            prepared,
-            compiler,
-            include_expectations,
-            pse_authoring::ids::uuid_v7(),
-            outcome,
-            native_owner,
-            cancel,
-        )
-        .await
-    }
-    pub(in crate::workflow) async fn finish_assessed(
-        &self,
-        prepared: ModelingSolvePreparation,
-        compiler: Profile,
-        include_expectations: bool,
-        run_id: SemanticId,
-        outcome: Outcome,
-        native_owner: Arc<pse_columnar::AllocationLease>,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingResult, WorkflowError> {
-        let mut values = prepared.model.values.clone();
-        if let Outcome::Native(r) = &outcome
-            && let Some(candidate) = &r.candidate
-        {
-            if r.variables.len() != candidate.primal.len() {
-                return Err(contract("native candidate coordinate extent"));
-            }
-            for (id, v) in r.variables.iter().zip(&candidate.primal) {
-                values.scalars.insert(*id, *v);
-            }
-        }
-        let native = outcome.candidate_use();
-        let policy = prepared.solve.numerics().policy.closure;
-        let bytes = result_bytes(&prepared)?;
-        let owner = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:qualified-result", bytes)?;
-        let mut result = ModelingResultData {
-            run_id,
-            runtime: self.runtime.clone(),
-            outcome,
-            values,
-            checks: vec![],
-            reports: vec![],
-            accepted: false,
-            completion: crate::workflow::numerics::complete(native, &[], false, policy),
-            validation_error: None,
-            prepared,
-            _owner: owner,
-            _native_owner: native_owner,
-        };
-        let has_candidate = matches!(&result.outcome, Outcome::Constant(_))
-            || matches!(&result.outcome,Outcome::Native(r) if r.candidate.is_some());
-        if has_candidate {
-            match self
-                .qualify(
-                    result.run_id,
-                    &result.prepared,
-                    &result.values,
-                    compiler,
-                    include_expectations,
-                    cancel,
-                )
-                .await
-            {
-                Ok((checks, reports)) => {
-                    result.checks = checks;
-                    result.reports = reports;
-                }
-                Err(error) => result.validation_error = Some(error.boundary_diagnostic()),
-            }
-        }
-        result.completion = crate::workflow::numerics::complete(
-            native,
-            &result.checks,
-            has_candidate && result.validation_error.is_none(),
-            policy,
-        );
-        result.accepted = result.completion.permits_use();
-        stamp_start(&mut result.outcome, run_id, 0);
-        Ok(ModelingResult(Arc::new(result)))
-    }
-    async fn qualify(
-        &self,
-        run_id: SemanticId,
-        prepared: &ModelingSolvePreparation,
-        values: &CaseValues,
-        compiler: Profile,
-        include_expectations: bool,
-        cancel: &crate::CancelSource,
-    ) -> Result<(Vec<ModelingCheck>, Vec<ModelingReport>), WorkflowError> {
-        let product = prepared.model.model.compiled();
-        let mut units = assessment_units(product);
-        if !include_expectations {
-            for expectation in product.model.expectations.values() {
-                units.remove(&(expectation.id, expectation.lineage.declaration));
-            }
-        }
-        let scope = units.keys().copied().collect();
-        let rows = units.into_values().flatten().collect();
-        let observed = self
-            .observe_registered(
-                prepared.model.model.clone(),
-                rows,
-                values.clone(),
-                compiler,
-                prepared.providers.clone(),
-                cancel,
-            )
-            .await?;
-        assess_observations(
-            run_id,
-            product,
-            values,
-            &observed,
-            prepared.solve.numerics(),
-            &self.quantities,
-            true,
-            Some(&scope),
-        )
     }
 }
 /// Shared demand and interpretation for steady candidates and trajectory samples.

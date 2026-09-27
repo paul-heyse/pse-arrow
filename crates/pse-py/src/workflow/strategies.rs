@@ -3,7 +3,7 @@
 //! Mechanical owned analysis requests. Native preparation owns all eligibility and iteration.
 use super::*;
 use pse_backend_native::solve::SolveReport;
-use pse_runtime::math::solves::{Outcome, SequenceReport};
+use pse_runtime::math::solves::{Outcome, StepReport};
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -146,7 +146,7 @@ impl NativePreparedStrategy {
 #[derive(Debug)]
 enum StrategyResult {
     Tears(Box<pse_runtime::math::flows::TearResult>),
-    Cone(Box<SequenceReport>),
+    Cone(Box<StepReport>),
     #[cfg(feature = "native-solvers")]
     Recycle(Box<pse_runtime::math::initialization::DeclaredRootReport>),
     #[cfg(feature = "native-solvers")]
@@ -163,17 +163,10 @@ impl NativeStrategyResult {
     fn attempts(&self) -> Vec<NativeAttempt> {
         let reports: Vec<&SolveReport> = match self.inner.as_ref() {
             StrategyResult::Tears(r) => r.attempt.iter().collect(),
-            StrategyResult::Cone(r) => r
-                .outcomes
-                .iter()
-                .filter_map(|o| {
-                    if let Outcome::Native(r) = o {
-                        Some(r.as_ref())
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
+            StrategyResult::Cone(r) => match &r.outcome {
+                Outcome::Native(r) => vec![r.as_ref()],
+                Outcome::Constant(_) | Outcome::Rejected(_) => vec![],
+            },
             #[cfg(feature = "native-solvers")]
             StrategyResult::Recycle(r) => vec![&r.report],
             #[cfg(feature = "native-solvers")]
@@ -191,18 +184,10 @@ impl NativeStrategyResult {
     fn failures(&self) -> Vec<(usize, String)> {
         match self.inner.as_ref() {
             StrategyResult::Tears(_) => vec![],
-            StrategyResult::Cone(r) => r
-                .outcomes
-                .iter()
-                .enumerate()
-                .filter_map(|(i, o)| {
-                    if let Outcome::Rejected(e) = o {
-                        Some((i, e.to_string()))
-                    } else {
-                        None
-                    }
-                })
-                .collect(),
+            StrategyResult::Cone(r) => match &r.outcome {
+                Outcome::Rejected(e) => vec![(0, e.to_string())],
+                Outcome::Native(_) | Outcome::Constant(_) => vec![],
+            },
             #[cfg(feature = "native-solvers")]
             StrategyResult::Initialization(r) => r
                 .attempts
