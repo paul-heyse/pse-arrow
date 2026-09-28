@@ -28,6 +28,13 @@ records now own them:
 - [ADR-0115](../adr/0115-registry-typed-identities-and-vocabularies.md) (D22-14): entity identities, vocabularies and the frame catalog.
 - [ADR-0116](../adr/0116-typed-boundary-documents.md) (D22-15): typed boundary documents. It supersedes ADR-0113.
 
+**As implemented (2026-09-28).** The store and typed-data track (B1–B7, O3–O9, G8) has
+landed; the [store and typed-data packet](22-store-and-typed-data-execution.md) owns its
+progress and evidence. §5.3, §9 and §12 carry "As implemented" notes that record where the
+build differs from the text above them. The current contract is owned by blueprint §20.6
+(the operational store and durable execution), §20–§20.5 (publication), §4.1–§4.2, §5.1,
+§5.3 and §21.5 (blueprint revision 67).
+
 ## 1. Target, drivers and scenarios
 
 **Target.** A process simulator that solves every problem class an engineer can author, from
@@ -459,11 +466,44 @@ contract. Relative to the text above:
 - **Capabilities built.** Incumbent injection (`SCIPaddSolFree`, partial when auxiliaries or
   an epigraph exist) from any compatible primal seed, and export-equivalence readback at
   10⁻⁹ relative deviation. Not yet: native indicator, SOS and logic handlers, the solution
-  pool, reoptimization, exact rational MILP (G7), IIS (G5) and the operational-store stream
-  (G8).
+  pool, reoptimization, exact rational MILP (G7) and IIS (G5); the operational-store
+  stream (G8) is described below.
 - **Registry.** `NativeBackend::scip`; the classes `nonconvex_quadratic`,
   `mixed_integer_quadratic` and `mixed_integer_nonlinear`; the four assurances; the
   `factorable` derivative capability; and a `certifies` column in `runtime.solver_capabilities`.
+
+**As implemented (G8 with O5's incumbents, merge `b80f8d4c`; O9, merge `3a097532`).**
+Blueprint §18.10.1 and §20.6 own the current contract.
+
+- **Typed incumbent events.** The native `Event` carries an `IncumbentEvent`: the objective
+  in post-solve convention with the export offset applied, the dual bound, gap, node count,
+  native seconds and a throttled primal in original coordinates. Nonfinite values are
+  absent. The first solution of an attempt is captured at once, later ones at most once
+  per second, and the last incumbent always keeps its solution.
+- **Sources.** SCIP reads its best solution (`SCIPgetBestSol`) over the export's program
+  columns, including the solution it holds at `initsol`, and only between the INITSOLVE and
+  SOLVED stages, because `SCIPgetGap` aborts earlier. HiGHS emits one on MIP callback kind
+  4, scaled to original coordinates. Kind 3 is not an incumbent: it also fires for
+  feasible solutions that do not improve.
+- **Durable sink.** The durable streamer stores each captured primal as a seed of its step
+  (NLP seeds from SCIP, HiGHS seeds from HiGHS) and an `incumbents` row in one transaction,
+  by binary `COPY`; recording an incumbent also notifies the progress channel. O9 added the
+  progress context to the row (`step`, `phase`, `elapsed_seconds`) and the search's
+  `nodes` and `seconds`, so a followed stream returns complete typed incumbents.
+- **Resume.** A claimed job honours `JobStart::ResumeFromParent`, the latest incumbent in
+  its parent attempt chain (`latest_in_attempt_chain`), and `JobStart::StoredSolution`,
+  through `with_stored_start` (`StartSource::Stored`): SCIP injects the seed and HiGHS
+  takes it as a start. The try's `job.start` event records which. A killed worker's
+  successor resumes the search (`killed_worker_attempt_goes_stale_and_resumes_from_incumbent`,
+  two processes).
+- **Reading.** `Runtime::progress` merges an attempt's progress events and incumbents in
+  time order and follows the listener until the attempt ends; Python's `ProgressEvent`
+  carries the incumbent as `pse.Incumbent`.
+- **Deleted.** `SolveReport::incumbents` and the duplicated bound metrics.
+- **Not built.** Durable incumbents are not published to Delta (§9.2's `runtime.incumbents`
+  does not exist); captured solutions are never pruned (register R-36); `StoredStart::Latest`
+  may pick an incumbent capture; SCIP's concurrent mode is untested with the stream; for a
+  nonlinear objective SCIP reports the epigraph value.
 
 ### 5.4 One solver image: Ipopt linear algebra, MKL and OpenMP
 
@@ -657,11 +697,20 @@ The division is: **PostgreSQL owns what changes; Delta owns what is published.**
 **As first built (ADR-0112):** enums are stored as text and parsed into registry enum types at
 the boundary, and there are no database enum types.
 
-**Target (ADR-0114, §12):** the registry generates one PostgreSQL ENUM type per registry enum, one
-domain per entity identity, and the tables with their invariants, so no type can drift. ENUM
+**Target (ADR-0114, §12), as implemented (B1):** the registry generates one PostgreSQL ENUM type per registry enum, one
+domain per entity identity, and the tables with their row checks, so no type can drift. ENUM
 types add a check text cannot give: a misspelled literal in a statement fails at `PREPARE`,
 while against a text CHECK column it prepares and silently matches nothing. That was measured
 on PostgreSQL 18.6; see the [review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md).
+
+**As implemented (B1, O7, O8, G8).** In the table's last row, the physical representation is
+the generated DDL, not migrations, and no conformance test remains. Published operational facts are
+`runtime.computation_runs`, `runtime.run_lineage` and `runtime.solve_metrics` (progress
+under namespace `event.<seq>.<phase>`); durable incumbents are not published, so the
+`runtime.incumbents` named above does not exist. A study's published relation is
+`runtime.study_outcomes`, one row per point, written by the study's finalization. The
+offline copy of a publication record is the one-row Delta relation
+`runtime.publication_manifests`.
 
 ### 9.3 Schema sketch (`pse_ops`)
 
@@ -689,6 +738,39 @@ row R-35 holds the trigger for versioned migrations.
 | `studies`, `study_points` | Point `binding_hash`, `state`, `attempt_id`, `result_ref` |
 | `workspaces`, `publication_heads`, `publications` (attempt identity unique), `publication_members`, `settlements`, `reader_leases`, `retention_marks` | The catalog, reader leases and two-phase deletion state |
 
+**As implemented (B1, O7, O8, O9; 21 tables).** The registry declares every table in
+`pse-schema::catalog::operations` as `runtime.operational_<t>`, and `just codegen` renders
+the DDL; the sketch above is historical. Differences from it:
+
+- **Attempts.** The typed termination is `termination_class` (`TerminationClass`) plus one
+  column per class (`termination_native`, `_run_state`, `_trajectory`, `_runtime`,
+  `_rule`), with a generated `one_termination` check (X4); `termination_rule` is the
+  `DiagnosticCode` ENUM and the violated named rule goes in `termination_detail.rule`.
+  `AttemptKind` gains `study` and `study_finalization`.
+- **Jobs.** `JobState` gains `waiting`, for work released by other work. The payload is
+  version 3: a typed `JobPayload` whose `ModelingJob` carries the typed `SolveSettings`,
+  a `JobStart` and an optional `StudyPointBinding`, or a study finalization.
+- **Streams.** `incumbents` carries `step`, `elapsed_seconds`, `phase`, `nodes` and
+  `seconds` beside the bound columns and `solution_id` (O9).
+- **Studies.** `studies` gains `attempt_id` (the coordinating attempt), `publication_id`
+  (its intent) and `finalization_job`; `StudyState` is open, concluded, published.
+  `study_points` gains `predecessor` (a composite self-reference, checked earlier) and
+  `job_id`, and drops `attempt_id` and `result_ref`. New `study_point_members` records the
+  members a completed point wrote.
+- **Catalog.** New `publication_intents` (X9) and `publication_windows` (T16).
+  `publication_members` flattens the registry `MemberDescriptor` with a
+  `PublicationMemberRole` (output or input); `publications` records its `kind`;
+  `workspaces` has a unique `root_uri` and a `maintenance_epoch` (X10); `SettlementOutcome`
+  is committed, proved_noncommit, conflict.
+- **Checks.** Every former CHECK is a named row check. Every `double precision` column has
+  a finiteness check and every array column one over its elements, so an incumbent's
+  `objective`, `dual_bound` and `gap` are finite and "no bound" is NULL. There is no
+  `finite` facet: X3's facet was unnecessary, because a registry `Float64` is already
+  finite. Optional text is `x IS NULL OR x <> ''`.
+- **Identities.** One domain per identity over `uuid`; the source bundle's domain is over
+  `content_hash`. Job, settlement and reader-lease identities are minted by the runtime,
+  like every other.
+
 ### 9.4 Lifecycle, queue and leases
 
 - **State machine:** planned → queued → running → {completed, partial, failed, cancelled}. From running, lease expiry gives stale, and a stale attempt is superseded by a new attempt.
@@ -700,6 +782,34 @@ row R-35 holds the trigger for versioned migrations.
 - **Cancellation** sets `cancel_requested` and sends `NOTIFY`. The column is the authority and the heartbeat returns it; `NOTIFY` only shortens latency, because notifications are not durable across a dropped listener. A worker issues `LISTEN`, commits, then re-reads state, as PostgreSQL's delivery rule requires, and re-reads again whenever `PgListener::try_recv` reports a lost connection ([T03](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t03)). The owning worker maps cancellation onto the existing cooperative cancellation lease.
 - **`MathService` admission** queues through the store instead of refusing, when durability is requested.
 
+**As implemented (O3, O4, B2, O7).**
+- **Two transition tables.** `pse-operations::lifecycle` holds two pure tables, selected
+  by the attempt's kind (`lifecycle::table`): `TRANSITIONS` for attempts that execute, and
+  `COORDINATING` for a study's own attempt (`AttemptKind::study`). A coordinating attempt
+  holds no lease and does no work: it goes planned → queued, stays queued while its points
+  run, and ends from queued (completed, partial, failed or cancelled) in the transaction
+  that makes its last point terminal; it may be cancelled before that. It is never running,
+  so it never goes stale, and the publication that names it can always commit. **This is a
+  deliberate deviation from ADR-0114 Outcome 12's "one pure Rust transition table".** A
+  study attempt run under a lease would go stale if its finalization crashed; its intent
+  would then become reclaimable and its points' members deletable. One owner and a pure,
+  testable authority remain (`illegal_transition_rejected`, the lifecycle unit tests).
+- **Claim.** Queued jobs by priority, then availability (`FOR UPDATE SKIP LOCKED`, partial
+  index on `state = 'queued'`). A job with work it depends on is `waiting` until released
+  (a study point behind its predecessor, a finalization behind its study's last point).
+- **Leases.** The lease is on the attempt, not the job. `Operations::connect` runs the
+  stale sweep (requeue expired jobs as new attempts; mark other expired running attempts
+  stale) and applies stream retention; `pse-worker` repeats the sweep periodically.
+- **Cancellation.** Planned and queued attempts are cancelled at once. The listener of
+  §9.8 replaces `PgListener`: a watcher re-reads `cancel_requested` on a notification, on
+  every resynchronization after a reconnect and when it lags (T03;
+  `cancel_survives_listener_reconnect`, `listener_resyncs_after_connection_loss`,
+  `cross_process_cancel_stops_scip`). NOTIFY payloads are 32-character hexadecimal ids.
+- **Identity.** The runtime mints every identity, jobs, settlements and reader leases
+  included. A study's request and point bindings have frames of their own
+  (`pse.durable.study_request.v1`, `pse.durable.study_point_binding.v1`); a v3 job's request
+  identity still uses `pse.durable.job_request.v2`.
+
 ### 9.5 Publication through the catalog
 
 1. **Members are unchanged:** written to Delta at attempt-scoped paths, with provisioned and written receipts.
@@ -710,6 +820,49 @@ row R-35 holds the trigger for versioned migrations.
    - The Delta control table, its code and the file leases are deleted once the catalog path is proven (DP-16).
    - An export command writes a read-only manifest with the member tables for offline readers.
 
+**As implemented (O8, merge `4487adfc`).** The PostgreSQL catalog is the only publication
+authority; blueprint §20–§20.4 own the contract.
+- **Intents (X9).** The publication attempt *is* the run's durable attempt. A
+  `publication_intents` row (publication, workspace, attempt, member prefix
+  `{root}members/{attempt}/{publication}/`) is registered before the first member write, so
+  unpublished members are reclaimable and `ProvedNoncommit` is provable before any effect.
+  `ArtifactPlan::with_operation(attempt_id)` names the member writes, so a conflict loser
+  re-prepares without rewriting its members.
+- **Commit.** One lock order: attempt (FOR SHARE), intent (FOR UPDATE), every live
+  publication a retained member or input selects (FOR SHARE), head (FOR UPDATE); a lock
+  waited for is followed by a new statement, because READ COMMITTED does not recheck a row
+  that was only locked. The complete request is compared, and an attempt already
+  published as another publication is `PublicationIdentityReused`. A retained member or
+  input no live publication protects is refused (`InputRetired`).
+- **Settlement.** committed, proved_noncommit (no intent, an abandoned intent, or the head
+  still at the parent with the intent locked) or conflict with its reason and head; only
+  an unreachable catalog is unresolved.
+- **Readers (T02).** A reader lease is taken in one short transaction that returns the
+  record and the workspace's maintenance epoch; `ReaderLeaseGuard` renews it at a third of
+  its 60-second lifetime and cancels the reader on lapse. `ReadScope` (workspace, epoch)
+  replaces the file-lease `Generation` as the only cache key (X10). An export is a lease held
+  by `export:<destination>`, written as a one-row `runtime.publication_manifests` Delta
+  table that opens offline (X12); it replaces `runtime.publications`.
+- **Retention (T16).** Retention reasons are `publication`, `attempt` (a live intent's
+  prefix) and `changes` (`publication_windows`); `output` is gone. Maintainers serialize
+  on a transaction advisory lock and advance `maintenance_epoch` before any effect. Retire
+  (never the head) waits for leases, removes the tables only it selects (also inputs whose
+  writer is already deleted, so a table written by a retired publication and read by a live
+  one does not leak) and marks deleted; collect fixes protected ranges and checkpoints and
+  vacuums; reclaim fences and removes intents that can never commit. Every step is
+  idempotent (`interrupted_deletion_resumes`). The `pse-publication` binary runs export,
+  release, retire, collect and reclaim. No policy retires publications automatically
+  (register R-36).
+- **Members (X11).** `MemberDescriptor` is one registry named structure, emitted once;
+  member receipts are v4, and v3 is refused as migration-required.
+- **Deleted.** `runtime.publications` and `release_checkpoints`; `publish.rs`, `lease.rs`,
+  `.pse-retention.lock`, `retention.rs`, ticket `settle`/`observe`, `PublicationRoot`;
+  `prepare_checkpoint` (no caller); Python `pse.open(location, version)`, `PublicationRoot`
+  and `PublicationRequest`; the control-mechanism tests.
+- **Qualification scope.** Local file tables and the in-memory object store only
+  (`maintenance_waits_for_reader_leases` on `memory://`); remote object stores wait for
+  register R-37 (maintainer, 2026-09-28: not a priority for this locally run project).
+
 ### 9.6 Durability classes
 
 | Class | Registry | Can publish | Queue and progress | Use |
@@ -718,6 +871,14 @@ row R-35 holds the trigger for versioned migrations.
 | `Durable` | Registered attempt | Yes | Durable | Everything that publishes, queues, studies or runs long |
 
 The class is an explicit policy, not a fallback (DP-15). Publication without the catalog is refused.
+
+**As implemented (O3).** `Durability::{Ephemeral, Durable}` is a policy of the runtime
+(`pse-runtime::workflow::durable`). A durable runtime registers every run as an attempt
+before any effect; an ephemeral run asked to publish is refused with `EphemeralPublication`
+(`ephemeral_cannot_publish`). Python chooses with `pse.Runtime(settings,
+store=pse.OperationalStore())`, and `Runtime.runs()` lists attempts
+(`durable_run_listed_after_restart`). ADR-0016's stale `runs.status` is realized by
+`pse_ops.attempts`.
 
 ### 9.7 Deployment
 
@@ -738,6 +899,17 @@ The class is an explicit policy, not a fallback (DP-15). Publication without the
 - **Configuration:** defaults, plus `idle_in_transaction_session_timeout` and a pool size below `max_connections`. `pg_stat_statements` is optional, for measurement.
 - **Backups** are dump-based. Point-in-time recovery is out of scope until a remote deployment needs it.
 
+**As implemented (O1, B1).** The role is peer-authenticated over the local socket and
+named after the OS user, not the `pse` SCRAM role of ADR-0114 Outcome 21, so no secret
+exists; a remote deployment would use SCRAM with the password outside the repository.
+Configuration is by URL only (`PSE_DATABASE_URL`, default the local socket and database
+`pse`): tokio-postgres reads neither `~/.pgpass` nor service files, and the store honours
+`PGUSER` when the URL names no user. `db-migrate` and the migrations are deleted;
+`db-reset` (confirmed; `just --yes db-reset` without a terminal) drops and recreates
+`pse_ops`, `db-status` and the doctor compare the recorded schema fingerprint, and
+`db-test` runs the store tests. `db-status` and `db-reset` run the `pse-ops` binary (`status`, `reset`).
+The [operational-store guide](../dev/operational-store.md) is the operator's reference.
+
 ### 9.8 Code placement
 
 **A crate, `pse-operations`** (ADR-0112, restated by ADR-0114):
@@ -750,7 +922,7 @@ The class is an explicit policy, not a fallback (DP-15). Publication without the
   - As built, `pse-schema` is a development dependency only, used by the conformance test, and `pse-engine` is not a dependency.
 - **Workers.** `pse-worker` is a binary target of `pse-runtime`, the composition root that already owns `MathService` and the workflows (decided in ADR-0112; ADR-0114 Outcome 18). It sets the process-level OpenMP environment SPRAL needs (§5.4).
 
-**As built (O2–O6, ADR-0112).**
+**As first built (O2–O6, ADR-0112; replaced by B2).**
 - `sqlx` =0.9.0 with runtime-typed `query`/`query_as` and hand-written `FromRow`.
 - Embedded `sqlx::migrate!` migrations, `PgPool` and `PgListener`.
 - `#[sqlx::test]`.
@@ -789,6 +961,36 @@ nothing (TD01–TD03).
 - **Tests.** The `testing.rs` harness creates one database per test from the generated schema and drops it afterwards. Value mapping and lifecycle legality are pure tests (S25).
 - **Removed:** sqlx, its migrations, `#[sqlx::test]` and `PgListener`; `codec.rs`; the hand-written records and `FromRow`; the column macros; positional binds.
 
+**As implemented (B1, merge `fa5a075c`; B2, merge `c664106e`).** The target above is built,
+with these refinements:
+- **Generation (X6, X7).** Cornucopia 1.0.1 runs as an `xtask` library dependency under the
+  workspace lockfile. xtask renders the generated crate's manifest (workspace inheritance,
+  `[lints] workspace = true`) and a `lib.rs` with a reasoned crate-level `allow`, and
+  re-prints every other file with prettyplease for byte stability. Whole rows decode into
+  registry rows through a generated composite `FromSql`; projections carry hand-written
+  nullability. The fingerprint is recorded as `COMMENT ON SCHEMA pse_ops`.
+- **Generation order.** The full generator's build links `pse-runtime` and therefore the
+  query crate, so when the store schema changes the query crate is regenerated first
+  (`cargo run -p xtask --no-default-features -- codegen --only queries`), then the rest.
+- **Cornucopia limits, worked around.** A `void` result is refused, so advisory-lock
+  statements select `true` from `pg_advisory_xact_lock`; a projection mixing a whole
+  mapped row with another column generates uncompilable code, so catalog statements
+  project columns.
+- **Pool.** deadpool with verified recycling: a cancelled call can leave its statement
+  running, and under fast recycling the next caller queued behind it
+  (`dropped_statement_does_not_block_the_pool`).
+- **Listener (X8).** One task per `Store` on a dedicated connection
+  (`pse-operations-listener`) reconnects with capped backoff, re-issues `LISTEN` and
+  broadcasts `Resync`.
+- **Bulk inserts.** Binary `COPY` (generated `copy.rs`) for progress events and values,
+  incumbents, source documents, publication members and change windows.
+- **Errors.** Class 08, 57P01–57P03 and 53300 (too many connections), or a closed
+  connection, are `Unavailable`; anything unclassified is `Internal`.
+- **Tests.** `testing::TestDatabase` creates one database per test from the generated
+  schema; the nextest `store` group bounds concurrency; `testing::FaultProxy` drops the
+  connection around `COMMIT` to reproduce a lost acknowledgement. `cargo tree -i sqlx` is
+  empty.
+
 **Libraries not adopted for the store** (the maintainer's [external reviews](../external-review-postgresl-options.md), reassessed in the [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md) slot 8):
 
 | Library | Reason | Revisit |
@@ -808,11 +1010,35 @@ blocked: its postgres crate requires datafusion ^54 and arrow ^58, breaking the 
 universe, and brings a second driver stack. Revisit when a release matches
 `datafusion =55.1.0`. Python gains runs, jobs, studies and a progress stream.
 
+**As implemented (O9, merge `3a097532`).** The generated builders are chosen; **ADBC is not
+adopted**, because it would add a C driver manager and a second client for tables the
+builders already serve (the [operational-store guide](../dev/operational-store.md) records
+the decision). `pse-runtime::workflow::operational_tables` serves thirteen relations under
+`pse_ops`, each running a generated statement from `queries/tables.sql`, paging in
+primary-key order after a keyset position without holding a connection between pages.
+Identity and state equality or `IN`, and time comparisons, push down `Inexact`; everything
+else is `Unsupported`, and a filter that cannot match runs no statement. The providers are
+crate-private: the surface is `Runtime::operational_tables`, `with_operational_tables`,
+`query_session` and `OPERATIONAL_SCHEMA`. Publication sessions do not include them by
+default, because an observed source disables the cache for the whole session. Python has
+`Runtime.jobs`, `Runtime.studies`, `Runtime.query` and `Runtime.progress(attempt_id,
+follow=True)`. Open: pages are read at READ COMMITTED, not one snapshot, and statement
+performance at scale is unmeasured.
+
 ### 9.9 Failure behaviour
 
 - **Database unavailable:** durable operations fail with the infrastructure class, naming the connection target. Ephemeral solves are unaffected. There is no fallback to Delta control.
 - **Crash:** leases expire, attempts become stale, and unpublished members remain reclaimable through the catalog.
 - **Catalog commit ambiguity** (lost acknowledgement): settle by querying the catalog for the attempt's publication.
+
+**As implemented.** An unreachable store is `OperationsError::Unavailable`, naming the
+connection target without credentials; durable workflows report it as infrastructure. A
+lost commit acknowledgement is `WorkflowError::PublicationUnresolved`, never retried
+implicitly, and settlement resolves it (`lost_ack_settles_via_catalog`). A crashed worker's
+attempt goes stale on lease expiry and its job requeues; an intent that can never commit is
+fenced and reclaimed. Known gaps (owned by the store packet): a crashed study point try's
+partial member tables are never collected, and a finalization that exhausts its retries
+leaves its study concluded with no automatic recovery.
 
 ## 10. Alternatives
 
@@ -863,6 +1089,19 @@ owns the argument and the library ledger. This section states the target.
 | Physical quantities (PS-01) | `pse-quantity` at run time (dimension vectors, bases, reference states, gauge/absolute) | None at compile time: authored quantities are not known to Rust at compile time |
 | Hash-frame contexts | One `Frame` enum in `pse-ids` (B3) | Listed in the generated docs |
 
+**As implemented (B1–B5).** The table holds, with two refinements. The authoring JSON
+Schema keeps its own emitter: the schemars view of the generated authoring structs
+describes them after parsing and hydration (required span and integrity columns, no `id`
+alias), so it is not the authoring format; the shared fields agree
+(`authoring_schema_equivalent_under_schemars`) and the reason is recorded on
+`jsonschema::generate`. The Python document types are generated under
+`python/pse/contracts/documents/` by a closed emitter in `pse-codegen`
+(`codegen/documents.rs`), not datamodel-code-generator, which emitted `Any`, duplicate
+enums and unfrozen structs and relied on external formatters. Nine schemas are published
+under `docs/generated/schema/`: eight Rust-owned documents (backend, solve, Diffsol and IDAS
+settings, job payload, termination detail, source manifest, study definition) and the
+authoring schema. The frame catalog is `docs/generated/frames.md`.
+
 ### 12.2 Typed identities
 
 - A registry relation's key column may declare an **entity identity** (run, attempt, job, publication, workspace, study, solution, source bundle; then root, instance, definition, member, block).
@@ -870,6 +1109,34 @@ owns the argument and the library ledger. This section states the target.
 - The generator emits one typed id per entity through the typed-id macro, moved from `pse-quantity` into `pse-ids` so there is one mechanism. Generated rows use the typed ids.
 - The store represents each identity as a domain over `uuid`.
 - Consumers adopt them in B3 (operational and workflow) and B7 (modeling and compiler). A swap of two different identities fails to compile.
+
+**As implemented (B1, B3a, B3b, B7).**
+- **Declaration.** `declare_identity` defines an identity; a column carries it with
+  `with_identity` (field facet `pse.domain.identity`, Arrow metadata
+  `pse.semantic.identity`); a foreign key inherits it; each identity has at most one owner
+  key; `reference.schema_identities` describes them. The macro moved to `pse-ids` with serde
+  delegation and `const` byte access; serde and framing are unchanged, so no identity byte
+  moved.
+- **Identities declared.** Operational and publication: run, attempt, job, study,
+  solution, settlement, reader lease, workspace, publication and source bundle. Modeling:
+  package, declaration, instance and fit. **Deviations from ADR-0115 Outcome 1–2's list:**
+  B7 declared no root, definition, member or block identity, because roots, definitions and
+  members are declarations (`DeclarationId`) in a role and blocks are instances
+  (`InstanceId`), so a root/instance swap still fails to compile; and `source_bundle`
+  wraps `ContentHash`, not `SemanticId`, because a source bundle is content-addressed by
+  the §6.1 package content hash (X2).
+- **Consumers.** `pse-operations` public signatures take typed ids only. pse-modeling
+  converted 29 of 31 multi-id signatures, pse-compiler 6 of 6 and runtime modeling 12 of 13;
+  B3b typed the catalog receipts, fitting, the dynamics and fitting oracles'
+  coordinates and 22 Python annotations (`RunId`, `AttemptId`, `PublicationId`,
+  `WorkspaceId`, `FitId`, `InstanceId`). `compile_fail` doctests pin representative swaps.
+  The remaining `run_id` columns and runtime entry points are B3c, owned by the store
+  packet.
+- **Frames (B3a).** `pse_ids::Frame` declares every `derive_key` context once:
+  104 production contexts at capture (the review's 119 counted metadata and preimage
+  version strings as well), unchanged against the captured oracle. Later additions are
+  `pse.ops.schema.v1` (B1) and two durable-study frames (O7); B5 replaced six frames by new
+  versions. The catalog now declares 107 variants.
 
 ### 12.3 Typed index spaces
 
@@ -880,11 +1147,42 @@ At coordinate boundaries, dense indices are typed per space:
 
 These use typed-index-collections `TiVec`/`TiSlice`. A HiGHS ranging key is a typed value, not a string prefix. Enum-indexed storage uses enum-map. FFI and faer interiors keep `usize`/`i32`, converted at the adapter (B6).
 
+**As implemented (B6, merge `8934a521`; B3b).** `pse_math::index` types original,
+presolved and reduced rows and columns, slots, global rows and columns, addends, and typed
+entries and triplets. They cover the presolve report and pipeline (separate typed Jacobian
+and Hessian builders; the transformation hash unchanged), KKT assembly, the assembly
+entries and refill map, assembly instances and rows, the diagnostics' parallel pairs and the
+fitting mapping. HiGHS ranging uses a typed `RangeFamily` in an `EnumMap`, with published
+spellings and order unchanged (`ranging_unscaling_uses_typed_keys`); enum-map also serves
+demand groups and compiled programs. B3b typed the dynamics and fitting oracles'
+support entries (`Entry<OriginalRow, OriginalCol>`).
+
 ### 12.4 Vocabularies
 
 - Every decision vocabulary that crosses a boundary is a registry enum (B4). This covers the Ipopt linear solver, orderings, Hessian mode, reuse policy, `ExtrapolationPolicy`, termination code, retention phase and settlement outcome.
 - It is generated for Rust, Python and PostgreSQL, so no decision compares strings.
 - A vocabulary whose source is hand-written Rust (diagnostic codes, failure classes, platform enums) has one Rust type: the generator re-exports it instead of emitting a second enum.
+
+**As implemented (B4, merge `ba5f9676`; B5).**
+- **`pse-vocabulary`** (ADR-0117) owns the ten platform vocabularies. The generator
+  re-exports 28 source-owned vocabularies through a declared enum source
+  (`EnumDecl::sourced`): 16 from `pse-quantity`, 2 from `pse-diagnostics`, 10 from
+  `pse-vocabulary`, removing twelve duplicate generated enums
+  (`source_owned_vocabularies_have_one_rust_type`). **Deviation from ADR-0117 Outcome 1:**
+  the crate depends on `pse-diagnostics` for its typed parse error, beyond "serde and
+  thiserror/miette only".
+- **Settings vocabularies.** 24 backend and dynamics settings enums are registry enums with
+  unchanged serde spellings; their native codes and option values are adapter functions in
+  `pse-backend-native`. B5 added the presolve pass and policy kind, the tear method and the
+  FERAL ordering and scaling. The variant `PardisoMkl` became `Pardisomkl`, and
+  `OperationEffect`'s serde spelling now equals `as_str`.
+- **Typed decisions.** `ExtrapolationPolicy` (`extrapolation_policy_typed`) and
+  `NumericalProvenanceField` (`provenance_field_typed`) replace the string comparisons.
+- **Store.** `termination_rule` is the `DiagnosticCode` ENUM, mapped by optional
+  `postgres` features on `pse-diagnostics` and `pse-vocabulary`. **Deviation from ADR-0114
+  and ADR-0115's `TerminationCode` enumeration:** the registry declares `TerminationClass`
+  plus typed per-class columns (X4); `TerminationCode` is the Rust type over them in
+  `pse-operations`.
 
 ### 12.5 Documents and validated values
 
@@ -898,6 +1196,35 @@ These use typed-index-collections `TiVec`/`TiSlice`. A HiGHS ranging key is a ty
 - Python sees generated types instead of `**fields: object`.
 - `pse.governance` applies its `Any` lint to them, with a msgspec branch beside the attrs walk.
 - Postponed annotations (`from __future__ import annotations`) are allowed: the lint resolves them first (maintainer, 2026-09-28).
+
+**As implemented (B5, merge `d26bdebe`; O7).**
+- **Documents.** Every backend's settings type lives in an always-compiled
+  `pse_backend_native::settings` module with schemars 1.2.2; `BackendSettings` is tagged by
+  `backend` and every data-carrying choice by `kind`. `SolveSettings`, `DiffsolSettings` and
+  `IdasSettings` are versioned documents, version fields required; `Controls` takes its time
+  limit in seconds. `TerminationDetail` and `SourceManifest` are typed and versioned
+  (`termination_detail_versioned_and_typed`).
+- **Job payload.** Version 2 carried the whole `SolveSettings` plus a `JobStart` (`Fresh`,
+  `ResumeFromParent`, `StoredSolution`); O7's version 3 wraps a `JobTask` (a `ModelingJob`
+  with an optional `StudyPointBinding`, or a study finalization). Version 1, `JobProfile`
+  and `JobPresolve` are deleted, **so ADR-0116 Outcome 6's `JobProfile` no longer exists**:
+  its content is the typed `SolveSettings` document. `enqueue` takes the typed job, and
+  unknown versions are refused (`unknown_payload_version_refused`).
+- **Identity.** **Deviation from ADR-0116's consequence "settings identity unchanged":**
+  the identity serializer framed Rust type names, which B4's registry renames had moved for
+  HiGHS, POUNCE, KINSOL and Clarabel. It now frames field names, serde spellings and exact
+  float bits only (`settings_identity_is_type_name_independent`), and six frames moved to
+  new versions: `backend.settings.v4`, `native.controls.v2`, `native.accuracy.v3`,
+  `cone.layout.v3`, `explicit-conic.v3`, `durable.job_request.v2`. The request identity is
+  independent of key order (`job_request_identity_independent_of_key_order`).
+- **Validated scalars.** nutype 0.8 with `derive_unchecked` schemars: `Tolerance`,
+  `Fraction`, `PositiveCount`, `FiniteBound` (`invalid_tolerance_refused_at_decode`).
+  `NumericalPolicy` budgets keep `validate()`.
+- **Python (X13).** The Python settings are the generated msgspec types; the pyo3 keyword
+  classes and `**fields: object` signatures are deleted (`test_backend_settings_typed`,
+  `test_solve_settings_enum_types`). `SimulationSettings` and `ModelingFixturePolicy` remain
+  native classes that take encoded documents as `bytes`. JSON shapes changed: `kind` tags,
+  `Eta::Constant { value }`, an untagged `OptionValue`.
 
 ### 12.6 Libraries assessed and not adopted
 
