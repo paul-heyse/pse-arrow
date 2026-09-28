@@ -272,7 +272,7 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | Step | Packets | State |
 |---|---|---|
 | W0 | D2: ADR-0117 accepted, with the review addendum; this packet written | complete (2026-09-28) |
-| W1 | B1 (R); B3a → B6 (T) | not started |
+| W1 | B1 (R); B3a → B6 (T) | running (2026-09-28): the two track agents work in separate worktrees |
 | W2 | B2 (R); B4 (V); B7 (T) | not started |
 | W3 | O8 (R); B5 (V) | not started |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | not started |
@@ -281,5 +281,6 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 
 ## Current checkpoint (2026-09-28)
 
-W0 is complete: ADR-0117 is accepted, and `just adr-lint` passes. W1 starts next, with B1 on
-track R and B3a then B6 on track T.
+W0 is complete (`48fd7f33`): ADR-0117 is accepted, and `just adr-lint` passes. W1 is running,
+with B1 on track R and B3a then B6 on track T. Each track works in its own worktree; the
+coordinator merges it into `main` after review and re-runs its targeted tests.
