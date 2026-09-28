@@ -14,7 +14,7 @@ use pse_ids::{ContentHash, FramedHasher, SemanticId};
 pub type NumericalRequirement = numerical_requirements::Row;
 
 /// Distinct normalized optimality requirements; no scalar means every stopping test.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KktTolerances {
     /// Normalized stationarity budget.
@@ -31,7 +31,7 @@ impl Default for KktTolerances {
     }
 }
 /// Shared semantic controls resolved before invoking any native adapter.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
 pub struct NumericalPolicy {
     /// ID-keyed analysis overrides, using the same declaration as model/case sources.

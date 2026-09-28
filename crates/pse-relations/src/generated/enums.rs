@@ -11,9 +11,9 @@ pub use pse_model::generated::r#enums::{
     DerivationGranularity, Determinism, DiagnosticCode, DiagnosticSeverity,
     DiffsolLinear, DiffsolMethod, DualQualification, DynamicsMethod, EntityKind,
     EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
-    FailureClass, FindingSeverity, HessianMode, HighsMethod, IdPolicy,
-    IdasInitialization, InputConsumptionKind, InvariantKind, IpoptLinearSolver, JobState,
-    KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
+    FailureClass, FeralOrdering, FeralScaling, FindingSeverity, HessianMode, HighsMethod,
+    IdPolicy, IdasInitialization, InputConsumptionKind, InvariantKind, IpoptLinearSolver,
+    JobState, KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
     ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingCheckKind,
     ModelingConformanceKind, ModelingConformanceStatus, ModelingContributionRole,
     ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingElasticObservation,
@@ -27,14 +27,14 @@ pub use pse_model::generated::r#enums::{
     NativeWarmCapability, NumericalCoordinates, NumericalProvenanceField,
     NumericalSource, NumericalTarget, ObservationTimeBasis, Opcode, OperationEffect,
     PackageKind, PardisoMatching, PardisoOrdering, PounceMethod, Preconditioner,
-    PublicationKind, QuantityAdditionKind, QuantityKindCategory,
-    QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
-    ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase, RetentionReason,
-    ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector, SettlementOutcome,
-    Severity, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability,
-    StateSign, StoredSeedKind, StudyPointState, StudyState, SubjectRule,
-    TerminationClass, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
-    WeightNormalization,
+    PresolvePass, PresolvePolicyKind, PublicationKind, QuantityAdditionKind,
+    QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule,
+    RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase,
+    RetentionReason, ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector,
+    SettlementOutcome, Severity, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
+    Stability, StateSign, StoredSeedKind, StudyPointState, StudyState, SubjectRule,
+    TearMethod, TerminationClass, TimeCoordinateKind, TrajectoryTermination, TrialPolicy,
+    TruthValue, WeightNormalization,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -721,6 +721,44 @@ impl crate::columnar::ArrowValue for FailureClass {
                 enumeration: stringify!(FailureClass).to_owned(),
                 value: value.to_owned(),
             })
+    }
+}
+impl crate::columnar::ArrowValue for FeralOrdering {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for FeralScaling {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
 impl crate::columnar::ArrowValue for FindingSeverity {
@@ -1906,6 +1944,44 @@ impl crate::columnar::ArrowValue for Preconditioner {
         crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
+impl crate::columnar::ArrowValue for PresolvePass {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for PresolvePolicyKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for PublicationKind {
     fn append(
         &self,
@@ -2514,6 +2590,25 @@ impl crate::columnar::ArrowValue for SubjectRule {
                 enumeration: stringify!(SubjectRule).to_owned(),
                 value: value.to_owned(),
             })
+    }
+}
+impl crate::columnar::ArrowValue for TearMethod {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
 impl crate::columnar::ArrowValue for TerminationClass {

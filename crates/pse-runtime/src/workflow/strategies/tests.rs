@@ -239,7 +239,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
             outputs: BTreeSet::from([output]),
         }],
         anderson: 1,
-        damping: 1.0,
+        damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
     let prepared = package
         .prepare_recycle(&analysis, selection.clone(), request.clone(), &cancel)

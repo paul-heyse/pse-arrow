@@ -391,27 +391,35 @@ impl Table {
 }
 
 /// Typed backend settings of a request. Each variant is its adapter's pse-owned settings
-/// type, and identity derives from serde, never from a hand-written field list (F09).
-#[derive(Clone, Debug, Default, serde::Serialize)]
+/// type (`crate::settings`), present in every build, and identity derives from serde, never
+/// from a hand-written field list (F09). The document form is tagged by the registry
+/// `backend` spelling; the routed backend's native defaults have no document form, so a
+/// document states them by omitting its settings. A backend this build does not link is
+/// refused at admission, never at decoding.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(tag = "backend", rename_all = "snake_case")]
 pub enum BackendSettings {
     /// Native defaults and the common semantic controls on the routed backend.
     #[default]
+    #[serde(skip)]
     Default,
     /// Ipopt linear solver with its parameters, barrier strategy and initial-point push.
-    #[cfg(feature = "ipopt")]
-    Ipopt(crate::ipopt::Settings),
+    #[schemars(title = "IpoptSettings")]
+    Ipopt(crate::settings::ipopt::Settings),
     /// POUNCE method and complete native FERAL configuration.
-    #[cfg(feature = "pounce")]
-    Pounce(crate::pounce::Settings),
+    #[schemars(title = "PounceSettings")]
+    Pounce(crate::settings::pounce::Settings),
     /// KINSOL method controls; scales and the step tolerance derive from policy.
-    #[cfg(feature = "kinsol")]
-    Kinsol(crate::kinsol::Method),
+    #[schemars(title = "KinsolSettings")]
+    Kinsol(crate::settings::kinsol::Method),
     /// HiGHS method, opt-in diagnostics and partial MIP start.
-    #[cfg(feature = "highs")]
-    Highs(crate::highs::Settings),
+    #[schemars(title = "HighsSettings")]
+    Highs(crate::settings::highs::Settings),
     /// The pse-owned Clarabel settings: mode and every admitted native control.
+    #[schemars(title = "ClarabelSettings")]
     Clarabel(crate::conic::Settings),
     /// SCIP's nested Ipopt linear solver, seed and node budget.
+    #[schemars(title = "ScipSettings")]
     Scip(ScipSettings),
 }
 impl BackendSettings {
@@ -419,145 +427,50 @@ impl BackendSettings {
     pub fn backend(&self) -> Option<Backend> {
         match self {
             Self::Default => None,
-            #[cfg(feature = "ipopt")]
             Self::Ipopt(_) => Some(Backend::Ipopt),
-            #[cfg(feature = "pounce")]
             Self::Pounce(_) => Some(Backend::Pounce),
-            #[cfg(feature = "kinsol")]
             Self::Kinsol(_) => Some(Backend::Kinsol),
-            #[cfg(feature = "highs")]
             Self::Highs(_) => Some(Backend::Highs),
             Self::Clarabel(_) => Some(Backend::Clarabel),
             Self::Scip(_) => Some(Backend::Scip),
         }
     }
+    /// The document form of these settings: `None` for native defaults.
+    pub fn document(&self) -> Option<&Self> {
+        match self {
+            Self::Default => None,
+            settings => Some(settings),
+        }
+    }
+    /// The settings a document states; its absence is the routed backend's native defaults.
+    pub fn from_document(document: Option<Self>) -> Self {
+        document.unwrap_or_default()
+    }
     /// The selected method relaxes every constraint row (the ℓ1 exact penalty, ADR-0109), so
     /// no presolve pass may assume the rows hold.
     pub fn relaxes_rows(&self) -> bool {
         match self {
-            #[cfg(feature = "pounce")]
-            Self::Pounce(settings) => settings.method == crate::pounce::Method::L1ExactPenalty,
+            Self::Pounce(settings) => {
+                settings.method == crate::settings::pounce::Method::L1ExactPenalty
+            }
             _ => false,
         }
     }
     /// The partial explicit start these settings submit, in original coordinates.
     pub fn partial_start(&self) -> Option<&BTreeMap<SemanticId, f64>> {
         match self {
-            #[cfg(feature = "highs")]
             Self::Highs(settings) => settings.sparse_start.as_ref(),
             _ => None,
         }
     }
-    /// Complete settings identity, derived from serde. Version 2 frames the Ipopt
-    /// settings, the POUNCE restart and the HiGHS node budget (DP-24).
+    /// Complete settings identity, derived from the serde encoding of the document form
+    /// (registry and serde spellings, never Rust type names; ADR-0116 Outcome 9).
     ///
     /// # Errors
     /// A native settings serializer refused its value.
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of(pse_ids::Frame::BackendSettingsV3, self)
+        crate::identity::of(pse_ids::Frame::BackendSettingsV4, &self.document())
     }
-    /// The typed settings of `backend`, from its adapter settings type's serde fields.
-    /// Absent fields take that type's defaults and unknown fields are refused, so neither
-    /// names nor defaults are restated at the boundary (ADR-0113). Projecting a further
-    /// backend's settings is its one arm here.
-    ///
-    /// # Errors
-    /// Fields the adapter type refuses, a backend without typed settings, or an adapter
-    /// this binary does not link.
-    pub fn from_fields(backend: Backend, fields: serde_json::Value) -> Result<Self, ProblemError> {
-        fn typed<T: serde::de::DeserializeOwned>(
-            backend: Backend,
-            fields: serde_json::Value,
-        ) -> Result<T, ProblemError> {
-            serde_json::from_value(fields)
-                .map_err(|e| ProblemError::Contract(format!("{} settings: {e}", backend.as_str())))
-        }
-        match backend {
-            #[cfg(feature = "ipopt")]
-            Backend::Ipopt => typed(backend, fields).map(Self::Ipopt),
-            #[cfg(feature = "pounce")]
-            Backend::Pounce => typed(backend, fields).map(Self::Pounce),
-            #[cfg(feature = "kinsol")]
-            Backend::Kinsol => typed(backend, fields).map(Self::Kinsol),
-            #[cfg(feature = "highs")]
-            Backend::Highs => typed(backend, fields).map(Self::Highs),
-            Backend::Clarabel => typed(backend, fields).map(Self::Clarabel),
-            Backend::Scip => typed(backend, fields).map(Self::Scip),
-            Backend::Diffsol | Backend::Idas => Err(ProblemError::Contract(format!(
-                "{} settings belong to the simulation profile",
-                backend.as_str()
-            ))),
-            #[allow(
-                unreachable_patterns,
-                reason = "the adapters whose features are not linked are refused here"
-            )]
-            _ => Err(ProblemError::Unavailable {
-                backend,
-                alternatives: vec![],
-            }),
-        }
-    }
-    /// The serde fields of these settings' adapter type; empty for native defaults.
-    ///
-    /// # Errors
-    /// A settings serializer refused its value.
-    pub fn fields(&self) -> Result<serde_json::Value, ProblemError> {
-        let value = match self {
-            Self::Default => return Ok(serde_json::Value::Object(serde_json::Map::new())),
-            #[cfg(feature = "ipopt")]
-            Self::Ipopt(settings) => serde_json::to_value(settings),
-            #[cfg(feature = "pounce")]
-            Self::Pounce(settings) => serde_json::to_value(settings),
-            #[cfg(feature = "kinsol")]
-            Self::Kinsol(settings) => serde_json::to_value(settings),
-            #[cfg(feature = "highs")]
-            Self::Highs(settings) => serde_json::to_value(settings),
-            Self::Clarabel(settings) => serde_json::to_value(settings),
-            Self::Scip(settings) => serde_json::to_value(settings),
-        };
-        value.map_err(|e| ProblemError::Internal(format!("backend settings fields: {e}")))
-    }
-    /// The versioned boundary document of these settings.
-    ///
-    /// # Errors
-    /// Native defaults, which name no backend, or a refused serializer.
-    pub fn document(&self) -> Result<SettingsDocument, ProblemError> {
-        let backend = self.backend().ok_or_else(|| {
-            ProblemError::Contract("native default settings have no settings document".into())
-        })?;
-        Ok(SettingsDocument {
-            version: SETTINGS_VERSION,
-            backend,
-            settings: self.fields()?,
-        })
-    }
-    /// Admit a boundary document: its version must be [`SETTINGS_VERSION`].
-    ///
-    /// # Errors
-    /// An unknown version, or fields [`Self::from_fields`] refuses.
-    pub fn from_document(document: SettingsDocument) -> Result<Self, ProblemError> {
-        if document.version != SETTINGS_VERSION {
-            return Err(ProblemError::Contract(format!(
-                "unknown backend settings document version {}",
-                document.version
-            )));
-        }
-        Self::from_fields(document.backend, document.settings)
-    }
-}
-/// Version of the settings document that crosses the Python boundary (ADR-0113 §5).
-pub const SETTINGS_VERSION: u32 = 1;
-/// The versioned boundary document of typed backend settings: the registry backend and
-/// the serde fields of its adapter's settings type. Unknown fields are refused.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SettingsDocument {
-    /// Document version; must equal [`SETTINGS_VERSION`].
-    pub version: u32,
-    /// Registry backend whose adapter owns the settings type.
-    pub backend: Backend,
-    /// The adapter settings type's serde fields.
-    pub settings: serde_json::Value,
 }
 
 /// Worker-owned native state retained from the previous step of a finite sequence.

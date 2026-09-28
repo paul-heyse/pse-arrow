@@ -286,7 +286,9 @@ fn interior_point_warm_profile_recorded() {
     // A stated barrier replaces the seed's, and the raw options cannot bypass the profile.
     let stated = BackendSettings::Ipopt(crate::ipopt::Settings {
         restart: WarmRestart {
-            barrier: RestartBarrier::Value(1e-3),
+            barrier: RestartBarrier::Value {
+                value: pse_model::scalars::Tolerance::try_new(1e-3).unwrap(),
+            },
             ..WarmRestart::default()
         },
         ..Default::default()

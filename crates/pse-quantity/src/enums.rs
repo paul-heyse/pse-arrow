@@ -111,6 +111,19 @@ macro_rules! closed_enum {
                 })
             }
         }
+
+        // A boundary document states the member spellings, which are the serde form.
+        impl ::schemars::JsonSchema for $name {
+            fn schema_name() -> ::std::borrow::Cow<'static, str> {
+                ::std::borrow::Cow::Borrowed(stringify!($name))
+            }
+            fn schema_id() -> ::std::borrow::Cow<'static, str> {
+                ::std::borrow::Cow::Borrowed(concat!(module_path!(), "::", stringify!($name)))
+            }
+            fn json_schema(_: &mut ::schemars::SchemaGenerator) -> ::schemars::Schema {
+                ::schemars::json_schema!({ "type": "string", "enum": [$($text),+] })
+            }
+        }
     };
 
     (

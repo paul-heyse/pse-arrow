@@ -4,6 +4,7 @@
 //! (ADR-0084, ADR-0093, ADR-0110).
 use crate::ProblemError;
 use pse_ids::{ContentHash, SemanticId};
+use pse_model::{document::Version, scalars::PositiveCount};
 use std::{
     collections::BTreeSet,
     sync::{Arc, atomic::AtomicBool},
@@ -25,27 +26,45 @@ pub use pse_model::generated::enums::{
     DiffsolLinear, DiffsolMethod, DynamicsMethod as Method, IdasInitialization,
     SensitivityCorrector, StateSign, TrialPolicy,
 };
-/// Typed Diffsol-only method controls; absent fields take these defaults.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
+/// Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):
+/// the version is required, and absent fields take these defaults.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
 pub struct DiffsolSettings {
+    /// Document version.
+    pub version: Version<1>,
     /// Time-stepping scheme.
+    #[serde(default = "DiffsolSettings::default_method")]
     pub method: DiffsolMethod,
     /// Newton linear solver of the implicit schemes.
+    #[serde(default = "DiffsolSettings::default_linear")]
     pub linear: DiffsolLinear,
+}
+impl DiffsolSettings {
+    const fn default_method() -> DiffsolMethod {
+        DiffsolMethod::Bdf
+    }
+    const fn default_linear() -> DiffsolLinear {
+        DiffsolLinear::FaerLu
+    }
 }
 impl Default for DiffsolSettings {
     /// Variable-order BDF over faer sparse LU.
     fn default() -> Self {
         Self {
-            method: DiffsolMethod::Bdf,
-            linear: DiffsolLinear::FaerLu,
+            version: Version,
+            method: Self::default_method(),
+            linear: Self::default_linear(),
         }
     }
 }
 /// IDAS Newton linear solver.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum IdasLinear {
     /// SuiteSparse KLU over the compiled analytic Jacobian.
     #[default]
@@ -53,7 +72,7 @@ pub enum IdasLinear {
     /// Matrix-free GMRES over analytic Jacobian-vector products.
     Spgmr {
         /// Maximum Krylov subspace dimension.
-        dimension: usize,
+        dimension: PositiveCount,
         /// Left preconditioner built from the compiled Jacobian; none when absent.
         #[serde(default = "unpreconditioned")]
         preconditioner: crate::solve::Preconditioner,
@@ -61,7 +80,7 @@ pub enum IdasLinear {
     /// Matrix-free flexible GMRES over analytic Jacobian-vector products.
     Spfgmr {
         /// Maximum Krylov subspace dimension.
-        dimension: usize,
+        dimension: PositiveCount,
         /// Left preconditioner built from the compiled Jacobian; none when absent.
         #[serde(default = "unpreconditioned")]
         preconditioner: crate::solve::Preconditioner,
@@ -84,28 +103,44 @@ pub(crate) const fn state_sign_code(sign: StateSign) -> f64 {
         StateSign::Negative => -2.0,
     }
 }
-/// Typed IDAS-only method controls (ADR-0110 item 1); absent fields take these defaults.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
+/// Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document
+/// (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct IdasSettings {
+    /// Document version.
+    pub version: Version<1>,
     /// Newton linear solver.
+    #[serde(default)]
     pub linear: IdasLinear,
     /// Forward-sensitivity corrector.
+    #[serde(default = "IdasSettings::default_sensitivity")]
     pub sensitivity: SensitivityCorrector,
     /// Consistent initialization at the start of the horizon; scheduled changes and resets
     /// always keep their differential states.
+    #[serde(default = "IdasSettings::default_initialization")]
     pub initialization: IdasInitialization,
     /// Empty, or one declared sign per state in state order.
+    #[serde(default)]
     pub constraints: Vec<StateSign>,
+}
+impl IdasSettings {
+    const fn default_sensitivity() -> SensitivityCorrector {
+        SensitivityCorrector::Simultaneous
+    }
+    const fn default_initialization() -> IdasInitialization {
+        IdasInitialization::AlgebraicAndRates
+    }
 }
 impl Default for IdasSettings {
     /// KLU over the analytic Jacobian, the simultaneous corrector, an initialization that
     /// keeps the requested differential states, and no declared signs.
     fn default() -> Self {
         Self {
+            version: Version,
             linear: IdasLinear::Klu,
-            sensitivity: SensitivityCorrector::Simultaneous,
-            initialization: IdasInitialization::AlgebraicAndRates,
+            sensitivity: Self::default_sensitivity(),
+            initialization: Self::default_initialization(),
             constraints: Vec::new(),
         }
     }
@@ -390,7 +425,7 @@ impl Profile {
                         IdasLinear::Klu => false,
                         IdasLinear::Spgmr { dimension, .. }
                         | IdasLinear::Spfgmr { dimension, .. } => {
-                            dimension == 0 || i32::try_from(dimension).is_err()
+                            i32::try_from(dimension.into_inner()).is_err()
                         }
                     }
                 {

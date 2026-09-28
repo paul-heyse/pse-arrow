@@ -5,11 +5,13 @@
 //! claims jobs, runs them under its lease and ends each try through the job's retry
 //! policy.
 //!
-//! A job payload names its authored sources by the §6.1 package content hash, never by a
-//! path, plus the case and a serialized solver profile. A worker refuses a payload version
-//! it does not know. The durable `cancel_requested` flag is the cancellation authority: the
-//! claimed attempt's heartbeat returns it, and a `LISTEN` watcher that re-reads it after
-//! every reconnect only shortens latency.
+//! A job payload is a typed, versioned document (ADR-0116 Outcome 6): it names its authored
+//! sources by the §6.1 package content hash, never by a path, plus the case, the typed
+//! solve settings and a start policy. Its request identity is framed from the typed
+//! document, never from the text of a JSON value (Outcome 9). A worker refuses a payload
+//! version it does not know. The durable `cancel_requested` flag is the cancellation
+//! authority: the claimed attempt's heartbeat returns it, and a `LISTEN` watcher that
+//! re-reads it after every reconnect only shortens latency.
 use super::{
     Durability, ModelingAnalysis, Operations, PhysicalContext, RunDurability, Runtime,
     WorkflowError, contract,
@@ -18,107 +20,48 @@ use super::{
 use crate::authoring_driver::document::{
     OwnedDocumentSet, load_package_texts_owned, package_checksum,
 };
-use crate::math::solves::SolverProfile;
-use pse_backend_native::{
-    execution::BackendSettings,
-    solve::{Backend, Controls, SolveIntent, SolverSelection},
-};
-use pse_ids::{ContentHash, FramedHasher, SemanticId};
-use pse_model::generated::enums::ModelingAnalysisRoute;
+use crate::math::settings::SolveSettings;
+use pse_ids::{ContentHash, SemanticId};
+use pse_model::{document::Version, generated::enums::ModelingAnalysisRoute};
 use pse_operations::{
     attempts::{AttemptKind, NewAttempt},
     jobs::{ClaimedJob, Enqueued, NewJob, RetryPolicy},
     lifecycle::AttemptState,
+    solutions::SolutionId,
     sources::{SourceBundle, SourceDocument},
 };
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-/// The payload version of [`ModelingJob`] this build executes.
-pub const MODELING_JOB_VERSION: i32 = 1;
+/// The payload version of [`ModelingJob`] this build executes: the store's
+/// `payload_version` column and the document's own `version`.
+pub const MODELING_JOB_VERSION: i32 = 2;
 
-/// The library presolve a job requests.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum JobPresolve {
-    /// Preserve source coordinates through an identity transport.
-    Off,
-    /// Only qualified source-backed passes.
+/// How a job's solve is started.
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[schemars(rename = "JobStart")]
+pub enum JobStart {
+    /// From the case's authored starts.
     #[default]
-    Auto,
+    Fresh,
+    /// From the latest incumbent in the parent attempt chain (Plan 22 G8).
+    ResumeFromParent,
+    /// From one stored solution (Plan 22 G8).
+    StoredSolution {
+        /// The stored solution.
+        solution: SolutionId,
+    },
 }
 
-/// The shared solver controls a job carries; backend settings are the adapter defaults.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct JobProfile {
-    /// Mathematical purpose.
-    pub intent: SolveIntent,
-    /// An explicit backend, or deterministic routing when absent.
-    pub backend: Option<Backend>,
-    /// The library presolve.
-    pub presolve: JobPresolve,
-    /// Wall-clock allowance of each step, in seconds.
-    pub time_limit_seconds: f64,
-    /// Native iteration limit.
-    pub iterations: u32,
-    /// Admitted native threads.
-    pub threads: usize,
-    /// Progress events retained in memory; the durable stream keeps every event.
-    pub history: usize,
-}
-
-impl Default for JobProfile {
-    fn default() -> Self {
-        let controls = Controls::default();
-        Self {
-            intent: SolveIntent::Root,
-            backend: None,
-            presolve: JobPresolve::Auto,
-            time_limit_seconds: controls.time_limit.as_secs_f64(),
-            iterations: controls.iterations,
-            threads: controls.threads,
-            history: controls.history,
-        }
-    }
-}
-
-impl JobProfile {
-    /// The solver profile this job runs under.
-    ///
-    /// # Errors
-    /// A time limit that is not a positive finite number of seconds.
-    pub fn solver(&self) -> Result<SolverProfile, WorkflowError> {
-        let time_limit = Duration::try_from_secs_f64(self.time_limit_seconds)
-            .ok()
-            .filter(|d| !d.is_zero())
-            .ok_or_else(|| contract("job time limit must be a positive number of seconds"))?;
-        Ok(SolverProfile {
-            presolve: match self.presolve {
-                JobPresolve::Off => pse_backend_native::presolve::Policy::Off,
-                JobPresolve::Auto => pse_backend_native::presolve::Policy::Auto,
-            },
-            numerics: Default::default(),
-            convexity: Default::default(),
-            intent: self.intent,
-            selection: self
-                .backend
-                .map_or(SolverSelection::Auto, SolverSelection::Explicit),
-            controls: Controls {
-                time_limit,
-                iterations: self.iterations,
-                threads: self.threads,
-                history: self.history,
-                ..Controls::default()
-            },
-            backend: BackendSettings::Default,
-        })
-    }
-}
-
-/// Version 1 of a modeling job: one authored case of a package closure, solved once.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+/// Version 2 of a modeling job: one authored case of a package closure, solved once under
+/// typed solve settings. Unknown fields and versions are refused.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingJob {
+    /// Document version.
+    pub version: Version<2>,
     /// The source bundle of the physical package.
     pub physical: ContentHash,
     /// The source bundles of the modeling package closure, in load order.
@@ -127,10 +70,35 @@ pub struct ModelingJob {
     pub case: SemanticId,
     /// Its analysis route.
     pub route: ModelingAnalysisRoute,
-    /// The solver profile.
-    pub profile: JobProfile,
+    /// The solve settings.
+    pub settings: SolveSettings,
+    /// How the solve starts.
+    #[serde(default)]
+    pub start: JobStart,
 }
 
+impl ModelingJob {
+    /// The request identity of this job: its typed document framed through the serde
+    /// data model, so neither key order nor the build graph's JSON features move it.
+    ///
+    /// # Errors
+    /// A settings serializer refused its value.
+    pub fn request_identity(&self) -> Result<ContentHash, WorkflowError> {
+        pse_backend_native::identity::of(pse_ids::Frame::DurableJobRequestV2, self).map_err(
+            |e| WorkflowError::Math(crate::math::MathRuntimeError::from(e)),
+        )
+    }
+}
+
+/// Version 1 of a source bundle's manifest: the path of every document, in order.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SourceManifest {
+    /// Document version.
+    pub version: Version<1>,
+    /// The document paths, relative to the package root.
+    pub paths: Vec<String>,
+}
 /// What one pass of a worker did.
 #[derive(Clone, Debug)]
 pub enum Processed {
@@ -211,7 +179,11 @@ impl Operations {
             .sources()
             .put(&SourceBundle {
                 bundle_hash: bundle_hash.into(),
-                manifest: serde_json::json!({ "paths": texts.keys().collect::<Vec<_>>() }),
+                manifest: serde_json::to_value(SourceManifest {
+                    version: Version,
+                    paths: texts.keys().cloned().collect(),
+                })
+                .map_err(|e| contract(format!("source manifest: {e}")))?,
                 documents,
             })
             .await?;
@@ -250,45 +222,21 @@ impl Operations {
     }
 
     /// Enqueue a modeling job with its first attempt. The idempotency key names the logical
-    /// request: enqueuing the same key again returns the existing job.
+    /// request: enqueuing the same key again returns the existing job. The request identity
+    /// is the typed payload's ([`ModelingJob::request_identity`]).
     ///
     /// # Errors
-    /// Store failures and an invalid retry policy.
-    pub async fn enqueue_modeling(
+    /// Store failures, an invalid retry policy, or a payload that has no document form.
+    pub async fn enqueue(
         &self,
         job: &ModelingJob,
         idempotency_key: &str,
         retry: RetryPolicy,
         priority: i32,
     ) -> Result<Enqueued, WorkflowError> {
+        let request_identity = job.request_identity()?;
         let payload =
             serde_json::to_value(job).map_err(|e| contract(format!("job payload: {e}")))?;
-        self.enqueue(
-            MODELING_JOB_VERSION,
-            payload,
-            idempotency_key,
-            retry,
-            priority,
-        )
-        .await
-    }
-
-    /// Enqueue a job payload of an explicit version, which a worker may refuse.
-    ///
-    /// # Errors
-    /// Store failures and an invalid retry policy or version.
-    pub async fn enqueue(
-        &self,
-        payload_version: i32,
-        payload: serde_json::Value,
-        idempotency_key: &str,
-        retry: RetryPolicy,
-        priority: i32,
-    ) -> Result<Enqueued, WorkflowError> {
-        let mut identity = FramedHasher::new(pse_ids::Frame::DurableJobRequestV1);
-        identity
-            .u64(u64::try_from(payload_version).unwrap_or(0))
-            .str(&payload.to_string());
         Ok(self
             .store()
             .jobs()
@@ -297,12 +245,12 @@ impl Operations {
                     attempt_id: pse_operations::mint_id(),
                     run_id: pse_operations::mint_id(),
                     kind: AttemptKind::Modeling,
-                    request_identity: identity.finish_hash(),
+                    request_identity,
                     preparation_identity: None,
                     parent_attempt: None,
                 },
                 idempotency_key: idempotency_key.to_owned(),
-                payload_version,
+                payload_version: MODELING_JOB_VERSION,
                 payload,
                 priority,
                 retry,
@@ -431,6 +379,13 @@ impl Runtime {
         }
         let job: ModelingJob = serde_json::from_value(claimed.payload.clone())
             .map_err(|e| contract(format!("job payload version {MODELING_JOB_VERSION}: {e}")))?;
+        if job.start != JobStart::Fresh {
+            return Err(contract(
+                "a job start from a parent incumbent or a stored solution is not yet served \
+                 (Plan 22 G8)",
+            ));
+        }
+        let solver = job.settings.profile().map_err(WorkflowError::Math)?;
         let physical = self
             .physical_from_sources(&operations.sources(&job.physical).await?, cancel)
             .await?;
@@ -444,7 +399,7 @@ impl Runtime {
                 job.case.into(),
                 job.route,
                 Default::default(),
-                job.profile.solver()?,
+                solver,
                 Default::default(),
                 pse_modeling::Limits::default(),
                 cancel,

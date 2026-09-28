@@ -20,6 +20,8 @@ workspace = true
 pse-diagnostics.workspace = true
 blake3.workspace = true
 serde.workspace = true
+# The JSON Schema of an identity inside a boundary document (ADR-0116 Outcome 7).
+schemars.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 postgres-types = { workspace = true, optional = true }

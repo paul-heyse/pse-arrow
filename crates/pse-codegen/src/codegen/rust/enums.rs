@@ -79,6 +79,15 @@ fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
             #[allow(clippy::match_same_arms, clippy::unnecessary_wraps, reason = "uniform optional parity-name projection follows one member declaration per arm")]
             pub const fn idaes_name(self) -> Option<&'static str> { match self { #(Self::#variants => #idaes,)* } }
         }
+        /// A boundary document states this vocabulary as its registry spellings, which are
+        /// its serde spellings (ADR-0116 Outcome 7).
+        impl schemars::JsonSchema for #name {
+            fn schema_name() -> std::borrow::Cow<'static, str> { std::borrow::Cow::Borrowed(stringify!(#name)) }
+            fn schema_id() -> std::borrow::Cow<'static, str> { std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(#name))) }
+            fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+                schemars::json_schema!({ "type": "string", "enum": [#(#members),*] })
+            }
+        }
         impl core::str::FromStr for #name {
             type Err = crate::RelationError;
             fn from_str(value: &str) -> Result<Self, Self::Err> {

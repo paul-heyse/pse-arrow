@@ -22,7 +22,7 @@ workspace = true
 default = []
 ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
 highs = ["dep:highs", "dep:highs-sys"]
-pounce = ["dep:pounce-rs", "dep:pounce-feral", "dep:rayon", "pounce-nlp/serde"]
+pounce = ["dep:pounce-rs", "dep:rayon", "pounce-nlp/serde"]
 kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
 # Clarabel's SDP cones call BLAS/LAPACK through provider-less `blas-src`/`lapack-src`; the
 # build script links the solver image's oneMKL (LP64, GNU threading), the process's one
@@ -61,11 +61,13 @@ thiserror.workspace = true
 miette.workspace = true
 serde_json.workspace = true
 serde.workspace = true
+schemars.workspace = true
 pse-ipopt-sys = { workspace = true, optional = true }
 highs = { workspace = true, optional = true }
 highs-sys = { workspace = true, optional = true }
 pounce-rs = { workspace = true, optional = true }
-pounce-feral = { workspace = true, optional = true }
+# The FERAL configuration of the POUNCE settings document, compiled in every build (Plan 22 B5).
+pounce-feral.workspace = true
 feral.workspace = true
 rayon = { workspace = true, optional = true }
 sundials-sys = { workspace = true, optional = true }

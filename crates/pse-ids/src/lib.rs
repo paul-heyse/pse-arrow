@@ -25,5 +25,9 @@ pub use id::{ContentHash, EncodingChecksum, LogicalHash, SchemaVersion, Semantic
 #[doc(hidden)]
 pub use serde as __serde;
 
+/// The schemars paths [`semantic_id_newtype!`] expands to; not a public interface.
+#[doc(hidden)]
+pub use schemars as __schemars;
+
 /// Declaration-key steps in authored instance paths.
 pub mod source_path;

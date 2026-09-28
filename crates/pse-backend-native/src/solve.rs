@@ -3,6 +3,10 @@
 //! Library-neutral execution controls and faithful result envelopes.
 use crate::ProblemError;
 use pse_ids::{ContentHash, SemanticId};
+use pse_model::{
+    scalar,
+    scalars::{Fraction, Tolerance},
+};
 use std::{
     collections::BTreeMap,
     sync::{
@@ -40,16 +44,19 @@ pub enum SolverSelection {
     Explicit(Backend),
 }
 /// Native option type; each adapter validates registration, type and protected controls.
-#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+/// A document states the value itself: a JSON Boolean, integer, other number or string
+/// decodes as the Boolean, integer, real or text option of that value.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(untagged)]
 pub enum OptionValue {
-    /// Native text/enumeration.
-    Text(String),
-    /// Finite native real.
-    Real(f64),
-    /// Native integer.
-    Integer(i32),
     /// Native Boolean.
     Bool(bool),
+    /// Native integer.
+    Integer(i32),
+    /// Finite native real.
+    Real(f64),
+    /// Native text/enumeration.
+    Text(String),
 }
 /// Effective options retain origin, including native defaults when queried.
 pub type Options = BTreeMap<String, OptionValue>;
@@ -131,7 +138,7 @@ impl ResolvedAccuracy {
     /// # Errors
     /// The identity serializer refused a value.
     pub fn key(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of(pse_ids::Frame::NativeAccuracyV2, self)
+        crate::identity::of(pse_ids::Frame::NativeAccuracyV3, self)
     }
     /// Derive semantic native controls; physical arrays remain the final acceptance authority.
     ///
@@ -227,10 +234,15 @@ impl ResolvedAccuracy {
 }
 /// Finite shared attempt controls chosen by the caller; solver-specific settings remain
 /// native typed values. Accuracy is not among them: it is resolved from the numerical
-/// policy ([`ResolvedAccuracy`]).
-#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+/// policy ([`ResolvedAccuracy`]). A document states the time limit in seconds; absent
+/// fields take these defaults and unknown fields are refused.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+#[schemars(rename = "SolveControls")]
 pub struct Controls {
-    /// Positive wall-clock allowance, including callbacks.
+    /// Positive wall-clock allowance, including callbacks, in seconds.
+    #[serde(with = "seconds")]
+    #[schemars(with = "Tolerance")]
     pub time_limit: Duration,
     /// Positive native iteration limit.
     pub iterations: u32,
@@ -261,13 +273,33 @@ impl Default for Controls {
         }
     }
 }
+/// A duration as its seconds: the wall-clock allowances of a document. Decoding refuses a
+/// negative, non-finite or unrepresentable number of seconds.
+pub(crate) mod seconds {
+    use serde::{Deserialize, de, ser};
+    use std::time::Duration;
+
+    pub(crate) fn serialize<S: ser::Serializer>(
+        value: &Duration,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        serializer.serialize_f64(value.as_secs_f64())
+    }
+    pub(crate) fn deserialize<'de, D: de::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Duration, D::Error> {
+        let seconds = f64::deserialize(deserializer)?;
+        Duration::try_from_secs_f64(seconds)
+            .map_err(|e| de::Error::custom(format!("{seconds} seconds: {e}")))
+    }
+}
 impl Controls {
     /// Complete identity of these controls, derived from serde (F09).
     ///
     /// # Errors
     /// The identity serializer refused a value.
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of(pse_ids::Frame::NativeControlsV1, self)
+        crate::identity::of(pse_ids::Frame::NativeControlsV2, self)
     }
     /// Conservative retained reporting allowance, separate from worker/native scratch.
     /// Native option readback, explicit strings and bounded event copies are included.
@@ -523,64 +555,65 @@ pub struct Basis {
 /// cold-start defaults a seeded restart is pushed back towards the analytic centre and loses
 /// most of its benefit, so a restart states its barrier and its pushes. Absent fields take
 /// these defaults across the Python boundary (ADR-0113).
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(default, deny_unknown_fields)]
 pub struct WarmRestart {
     /// Initial barrier parameter of the restart (`mu_init`).
     pub barrier: RestartBarrier,
     /// Absolute push of the primal seed from its bounds (`warm_start_bound_push`).
-    pub bound_push: f64,
-    /// Relative push of the primal seed from its bounds (`warm_start_bound_frac`).
-    pub bound_frac: f64,
+    pub bound_push: Tolerance,
+    /// Relative push of the primal seed from its bounds (`warm_start_bound_frac`); at most
+    /// one half.
+    pub bound_frac: Fraction,
     /// Absolute push of the slack seed from its bounds (`warm_start_slack_bound_push`).
-    pub slack_bound_push: f64,
-    /// Relative push of the slack seed from its bounds (`warm_start_slack_bound_frac`).
-    pub slack_bound_frac: f64,
+    pub slack_bound_push: Tolerance,
+    /// Relative push of the slack seed from its bounds (`warm_start_slack_bound_frac`); at
+    /// most one half.
+    pub slack_bound_frac: Fraction,
     /// Push of the bound multipliers from zero (`warm_start_mult_bound_push`).
-    pub mult_bound_push: f64,
+    pub mult_bound_push: Tolerance,
 }
 impl Default for WarmRestart {
     /// The seed's own final barrier and pushes of 1e-9: the restart stays near the seed.
     fn default() -> Self {
         Self {
             barrier: RestartBarrier::Seed,
-            bound_push: 1e-9,
-            bound_frac: 1e-9,
-            slack_bound_push: 1e-9,
-            slack_bound_frac: 1e-9,
-            mult_bound_push: 1e-9,
+            bound_push: scalar!(Tolerance(1e-9)),
+            bound_frac: scalar!(Fraction(1e-9)),
+            slack_bound_push: scalar!(Tolerance(1e-9)),
+            slack_bound_frac: scalar!(Fraction(1e-9)),
+            mult_bound_push: scalar!(Tolerance(1e-9)),
         }
     }
 }
 /// The initial barrier parameter of an interior-point restart.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RestartBarrier {
     /// The final barrier value the producing interior-point solve recorded with the seed. A
     /// seed without one (an authored seed) leaves the native default in force, and the
     /// receipt says so.
     Seed,
     /// A stated positive value.
-    Value(f64),
+    Value {
+        /// The initial barrier parameter.
+        value: Tolerance,
+    },
 }
 impl WarmRestart {
-    /// Finite positive pushes and barrier inside the native option ranges.
+    /// The rule the scalar types cannot state: relative pushes inside the native range
+    /// (0, 0.5].
     ///
     /// # Errors
-    /// A value outside its native range.
+    /// A relative push above one half.
     pub fn validate(&self) -> Result<(), ProblemError> {
-        let positive = |v: f64| v.is_finite() && v > 0.0;
-        let fraction = |v: f64| v > 0.0 && v <= 0.5;
-        if !positive(self.bound_push)
-            || !positive(self.slack_bound_push)
-            || !positive(self.mult_bound_push)
-            || !fraction(self.bound_frac)
-            || !fraction(self.slack_bound_frac)
-            || matches!(self.barrier, RestartBarrier::Value(v) if !positive(v))
-        {
+        if self.bound_frac.into_inner() > 0.5 || self.slack_bound_frac.into_inner() > 0.5 {
             return Err(ProblemError::Contract(
-                "warm restart pushes must be positive, fractions in (0, 0.5] and the barrier positive"
-                    .into(),
+                "warm restart relative pushes must be at most 0.5".into(),
             ));
         }
         Ok(())
@@ -592,29 +625,29 @@ impl WarmRestart {
     pub(crate) fn apply(&self, barrier: Option<f64>, monotone: bool) -> (Options, AppliedRestart) {
         let mu_init = match self.barrier {
             RestartBarrier::Seed => barrier.filter(|v| v.is_finite() && *v > 0.0),
-            RestartBarrier::Value(v) => Some(v),
+            RestartBarrier::Value { value } => Some(value.into_inner()),
         }
         .filter(|_| monotone);
         let mut options = Options::from([
             (
                 "warm_start_bound_push".into(),
-                OptionValue::Real(self.bound_push),
+                OptionValue::Real(self.bound_push.into_inner()),
             ),
             (
                 "warm_start_bound_frac".into(),
-                OptionValue::Real(self.bound_frac),
+                OptionValue::Real(self.bound_frac.into_inner()),
             ),
             (
                 "warm_start_slack_bound_push".into(),
-                OptionValue::Real(self.slack_bound_push),
+                OptionValue::Real(self.slack_bound_push.into_inner()),
             ),
             (
                 "warm_start_slack_bound_frac".into(),
-                OptionValue::Real(self.slack_bound_frac),
+                OptionValue::Real(self.slack_bound_frac.into_inner()),
             ),
             (
                 "warm_start_mult_bound_push".into(),
-                OptionValue::Real(self.mult_bound_push),
+                OptionValue::Real(self.mult_bound_push.into_inner()),
             ),
         ]);
         if let Some(mu) = mu_init {

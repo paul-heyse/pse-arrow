@@ -598,11 +598,11 @@ fn idas_krylov_matches_klu() {
         for preconditioner in [Preconditioner::None, Preconditioner::Jacobi] {
             for linear in [
                 IdasLinear::Spgmr {
-                    dimension: 4,
+                    dimension: pse_model::scalars::PositiveCount::try_new(4).unwrap(),
                     preconditioner,
                 },
                 IdasLinear::Spfgmr {
-                    dimension: 4,
+                    dimension: pse_model::scalars::PositiveCount::try_new(4).unwrap(),
                     preconditioner,
                 },
             ] {
@@ -635,13 +635,11 @@ fn idas_krylov_matches_klu() {
             }
         }
     }
-    let mut p = profile(false);
-    p.method = Method::Idas;
-    p.idas.linear = IdasLinear::Spgmr {
-        dimension: 0,
-        preconditioner: Preconditioner::None,
-    };
-    assert!(p.validate(&Toy::new(false, false).c, &[2.0]).is_err());
+    // A zero Krylov dimension cannot be decoded, so no profile carries one.
+    assert!(
+        serde_json::from_value::<IdasLinear>(serde_json::json!({"kind": "spgmr", "dimension": 0}))
+            .is_err()
+    );
 }
 /// `x0' = -p x0 + p` forces `x0 = 1` at steady state; the algebraic `x1 = 2 x0`.
 #[cfg(feature = "idas")]

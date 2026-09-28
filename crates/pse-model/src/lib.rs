@@ -10,6 +10,10 @@ pub mod generated;
 pub mod artifact;
 /// Source-attributed public failure structure.
 pub mod diagnostic;
+/// Versioned boundary documents (ADR-0116 Outcome 6).
+pub mod document;
+/// Validated single-value setting domains (ADR-0116 Outcome 8).
+pub mod scalars;
 /// Declared variable-domain semantics over the generated registry enum (ADR-0103).
 pub mod domain;
 /// Constraint forms left to native constraint handlers (ADR-0104).

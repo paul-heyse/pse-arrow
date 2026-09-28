@@ -20,7 +20,72 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_ipopt(builder);
     declare_controls(builder);
     declare_backend_methods(builder);
+    declare_feral(builder);
+    declare_presolve(builder);
     declare_dynamics(builder);
+}
+
+/// FERAL's fill-reducing orderings and matrix scalings in the POUNCE settings (Plan 22 B5).
+/// FERAL's caller-supplied permutation and scaling vector are problem data of one KKT
+/// dimension, not settings, so they are not members.
+fn declare_feral(builder: &mut RegistryBuilder) {
+    vocabulary(
+        builder,
+        "FeralOrdering",
+        &[
+            ("amd", "Approximate minimum degree."),
+            ("amf", "Approximate minimum fill."),
+            ("metis_nd", "METIS multilevel nested dissection."),
+            ("scotch_nd", "SCOTCH nested dissection."),
+            ("kahip_nd", "KaHIP nested dissection."),
+            ("auto", "FERAL's size- and shape-based choice."),
+            ("auto_race", "Race the candidate orderings and keep the least fill."),
+        ],
+    );
+    vocabulary(
+        builder,
+        "FeralScaling",
+        &[
+            ("inf_norm", "Knight–Ruiz infinity-norm equilibration."),
+            ("mc64_symmetric", "MC64-style symmetric matching scaling."),
+            ("identity", "No scaling."),
+            ("auto", "MC64 for arrow-KKT shapes, infinity-norm otherwise."),
+        ],
+    );
+}
+
+/// The library presolve passes and policy kinds of the solve settings, and the tear
+/// selection method (Plan 22 B5): vocabularies that cross the Python boundary.
+fn declare_presolve(builder: &mut RegistryBuilder) {
+    vocabulary(
+        builder,
+        "PresolvePass",
+        &[
+            ("linear_bounds", "Propagation using proved affine rows."),
+            ("redundant_rows", "Library redundancy analysis."),
+            ("affine_elimination", "Library affine column elimination and recovery."),
+            ("fbbt", "Native expression-tape interval propagation."),
+            ("rank_diagnostics", "Equality-rank diagnostics, without objective-changing remedies."),
+            ("auxiliary", "Explicit safe auxiliary nonlinear reduction."),
+        ],
+    );
+    vocabulary(
+        builder,
+        "PresolvePolicyKind",
+        &[
+            ("off", "Identity transport: source coordinates are preserved."),
+            ("auto", "Only qualified source-backed passes."),
+            ("explicit", "Complete library controls; required ineligible passes fail admission."),
+        ],
+    );
+    vocabulary(
+        builder,
+        "TearMethod",
+        &[
+            ("highs", "Exact weighted feedback-edge MILP with native incumbent, bound and gap reporting."),
+            ("unweighted_heuristic", "Explicit unweighted greedy feedback arc set."),
+        ],
+    );
 }
 
 /// One vocabulary from its spellings and member documentation, in declaration order.

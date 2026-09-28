@@ -21,16 +21,9 @@ impl PreparedFlow {
         &self.graph
     }
 }
-/// Tear policy is explicit; a heuristic never substitutes for an unavailable optimizer.
-/// The serde spelling is the boundary name of each method (ADR-0113).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TearMethod {
-    /// Exact weighted feedback-edge MILP with native incumbent/bound/gap reporting.
-    Highs,
-    /// Explicit unweighted petgraph greedy feedback arc set.
-    UnweightedHeuristic,
-}
+/// Tear policy is explicit; a heuristic never substitutes for an unavailable optimizer. A
+/// registry vocabulary whose spelling is its boundary name (ADR-0115 Outcome 3).
+pub use pse_model::generated::enums::TearMethod;
 /// Native attempt and independently checked graph result retain accounted ownership.
 #[derive(Debug)]
 pub struct TearResult {

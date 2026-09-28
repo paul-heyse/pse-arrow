@@ -71,7 +71,7 @@ pub struct RecycleRequest {
     /// Native Anderson history; zero means unaccelerated fixed point.
     pub anderson: usize,
     /// Native fixed-point damping in (0,1].
-    pub damping: f64,
+    pub damping: pse_model::scalars::Fraction,
 }
 #[derive(Clone, Debug)]
 struct UnitProgram {

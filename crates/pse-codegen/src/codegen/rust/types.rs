@@ -69,7 +69,7 @@ pub(super) fn structure(name: &str, fields: &[(String, TokenStream, String)]) ->
     };
     quote! {
             /// A row or nested value projected from the registry declaration.
-            #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+            #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
             #[serde(deny_unknown_fields)]
             #[allow(clippy::struct_field_names, reason = "field names are the authoritative relation contract")]
             pub struct #name { #(#[doc = #docs] pub #names: #types,)* }

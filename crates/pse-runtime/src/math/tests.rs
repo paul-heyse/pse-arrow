@@ -753,7 +753,7 @@ async fn initialization_admission_in_rust() {
     // method on another route (here SCIP, eligible for this first-order block), or another
     // backend's settings on the KINSOL route, is refused, never applied.
     let kinsol =
-        BackendSettings::from_fields(Backend::Kinsol, serde_json::json!({"strategy": "newton"}))
+        serde_json::from_value::<BackendSettings>(serde_json::json!({"backend": "kinsol", "strategy": "newton"}))
             .unwrap();
     assert_eq!(
         admit(SolverProfile {
@@ -768,7 +768,7 @@ async fn initialization_admission_in_rust() {
         selection: SolverSelection::Explicit(Backend::Scip),
         ..initialize.clone()
     }));
-    let highs = BackendSettings::from_fields(Backend::Highs, serde_json::json!({})).unwrap();
+    let highs = serde_json::from_value::<BackendSettings>(serde_json::json!({"backend": "highs"})).unwrap();
     assert!(refused(SolverProfile {
         backend: highs,
         ..initialize

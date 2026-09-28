@@ -18,110 +18,7 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
-/// Complete native FERAL configuration, with thread/FMA policy applied at execution.
-pub type LinearSettings = pounce_feral::FeralConfig;
-/// The POUNCE adapter's settings type. Its identity derives from serde; the native FERAL
-/// configuration serializes through a remote definition checked against every upstream
-/// field, so a FERAL upgrade that adds a field fails to compile instead of leaving
-/// identity (F09).
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Settings {
-    /// NLP method.
-    pub method: Method,
-    /// Native linear settings.
-    #[serde(with = "FeralIdentity")]
-    pub linear: LinearSettings,
-    /// Interior-point restart of a submitted primal-dual seed (L-N3).
-    pub restart: WarmRestart,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(
-    remote = "pounce_feral::FeralConfig",
-    default = "pounce_feral::FeralConfig::default",
-    deny_unknown_fields
-)]
-struct FeralIdentity {
-    cascade_break: Option<bool>,
-    fma: bool,
-    refine: bool,
-    increase_quality: bool,
-    refine_max_steps: usize,
-    refine_target: f64,
-    singular_pivot_floor: f64,
-    inertia_pivot_floor: Option<f64>,
-    pivtol: f64,
-    #[serde(with = "OrderingIdentity")]
-    ordering: pounce_feral::OrderingMethod,
-    #[serde(with = "ScalingIdentity")]
-    scaling: pounce_feral::ScalingStrategy,
-    parallel: Option<bool>,
-    min_par_flops: Option<u64>,
-    static_pivoting: Option<bool>,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(remote = "pounce_feral::OrderingMethod", rename_all = "snake_case")]
-enum OrderingIdentity {
-    Amd,
-    Amf,
-    #[serde(rename = "metis_nd")]
-    MetisND,
-    #[serde(rename = "scotch_nd")]
-    ScotchND,
-    #[serde(rename = "kahip_nd")]
-    KahipND,
-    Auto,
-    AutoRace,
-    External(Vec<usize>),
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(remote = "pounce_feral::ScalingStrategy", rename_all = "snake_case")]
-enum ScalingIdentity {
-    InfNorm,
-    Mc64Symmetric,
-    Identity,
-    External(Vec<f64>),
-    Auto,
-}
-/// Upgrade check: an exhaustive destructuring fails to compile when FERAL adds a field
-/// that the serde remote above does not frame.
-const _: fn(&LinearSettings) = |c| {
-    let pounce_feral::FeralConfig {
-        cascade_break: _,
-        fma: _,
-        refine: _,
-        increase_quality: _,
-        refine_max_steps: _,
-        refine_target: _,
-        singular_pivot_floor: _,
-        inertia_pivot_floor: _,
-        pivtol: _,
-        ordering: _,
-        scaling: _,
-        parallel: _,
-        min_par_flops: _,
-        static_pivoting: _,
-    } = c;
-};
-/// The NLP method, a registry vocabulary (ADR-0115 Outcome 3). The algorithm is
-/// explicit; POUNCE never silently changes the selected problem class. The Thierry–Biegler
-/// ℓ1 exact penalty-barrier method (`pounce-l1penalty`, ADR-0109) is explicit only: never
-/// selected automatically and never a retry. Every row is relaxed (inequalities through
-/// bounded slacks), so an infeasible model returns a least-infeasible point and a feasible
-/// one a point the penalty makes exact. Presolve `Auto` resolves to `Off` for it, recorded
-/// in the presolve report; explicit passes are refused, since every pass assumes the rows
-/// hold.
-pub use pse_model::generated::enums::PounceMethod as Method;
-impl Default for Settings {
-    /// The interior-point method with FERAL's own defaults and the default restart.
-    fn default() -> Self {
-        Self {
-            method: Method::InteriorPoint,
-            linear: LinearSettings::default(),
-            restart: WarmRestart::default(),
-        }
-    }
-}
+pub use crate::settings::pounce::{LinearSettings, Method, Settings};
 /// Worker count of FERAL's own factorization pool, by the rule feral 0.18 applies when it
 /// builds that pool (`Solver::pool_num_threads`): `RAYON_NUM_THREADS` when it parses as a
 /// positive count, else the available parallelism, else one. The pool cannot be injected,
@@ -710,7 +607,7 @@ impl Session {
             "POUNCE 0.12.0; FERAL; shared preprocessing is applied before this adapter".into(),
         );
         // The effective FERAL configuration through its identity encoding (F30).
-        let effective = FeralIdentity::serialize(&feral, serde_json::value::Serializer)
+        let effective = crate::settings::pounce::record(&feral)
             .map_err(|e| ProblemError::Internal(format!("FERAL settings record: {e}")))?;
         report
             .provenance
@@ -859,15 +756,15 @@ mod tests {
         assert_eq!(out, [44.0]);
     }
     #[test]
-    fn settings_identity_preserves_external_order_and_float_bits() {
-        let key = |s: &Settings| crate::identity::of(pse_ids::Frame::BackendSettingsV3, s).unwrap();
+    fn settings_identity_frames_float_bits_and_refuses_external_ordering() {
+        let key = |s: &Settings| crate::identity::of(pse_ids::Frame::BackendSettingsV4, s).unwrap();
         let a = Settings::default();
         let mut b = a.clone();
-        b.linear.ordering = pounce_feral::OrderingMethod::External(vec![1, 0]);
+        b.linear.ordering = feral::symbolic::OrderingMethod::MetisND;
         assert_ne!(key(&a), key(&b));
-        let k = key(&b);
-        b.linear.ordering = pounce_feral::OrderingMethod::External(vec![0, 1]);
-        assert_ne!(k, key(&b));
+        // A caller-supplied permutation is problem data: it has no settings encoding.
+        b.linear.ordering = feral::symbolic::OrderingMethod::External(vec![1, 0]);
+        assert!(crate::identity::of(pse_ids::Frame::BackendSettingsV4, &b).is_err());
         let mut c = a.clone();
         c.linear.pivtol = -0.0;
         let mut d = a.clone();

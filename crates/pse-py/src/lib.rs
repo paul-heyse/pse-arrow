@@ -71,7 +71,7 @@ mod _native {
         },
         registry_fingerprint,
         workflow::{
-            BackendSettings, DiffsolSettings, IdasSettings, ModelingDiagnosticSettings,
+            ModelingDiagnosticSettings,
             ModelingEventSettings, ModelingFixturePolicy, ModelingLimits, ModelingModeSettings,
             NativeAttempt, NativeEligibility, NativeIneligible, NativeModelingConformance,
             NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
@@ -82,7 +82,7 @@ mod _native {
             NativePreparedFlow, NativePreparedOperation, NativePreparedStrategy,
             NativePublicationAttempt, NativeRoute, NativeRunHandle, NativeRunResult, NativeRuntime,
             NativeStart, NativeStrategyAttempt, NativeStrategyResult, OperationalStore,
-            ProgressEvent, SimulationSettings, SolveSettings,
+            ProgressEvent, SimulationSettings,
         },
     };
 

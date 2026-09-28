@@ -14,7 +14,7 @@ pub(crate) use strategies::{
 use crate::inspection::{self, errors, runtime};
 use pse_runtime::{CancelSource, workflow as native};
 use pyo3::prelude::*;
-pub(crate) use settings::{BackendSettings, DiffsolSettings, IdasSettings, SolveSettings};
+
 use std::{
     future::Future,
     sync::{Arc, Mutex},
@@ -124,8 +124,9 @@ impl NativeRuntime {
         py: Python<'_>,
         request: &[u8],
         physical: &NativePhysicalContext,
-        settings: &SolveSettings,
+        settings: &[u8],
     ) -> PyResult<NativePreparedStrategy> {
+        let settings = settings::solve_profile(py, settings)?;
         if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
             return Err(invalid(py, "cone request exceeds workspace allowance"));
         }
@@ -137,7 +138,7 @@ impl NativeRuntime {
             py,
             &self.owner,
             self.inner
-                .prepare_conic(request, &physical.inner, settings.profile.clone()),
+                .prepare_conic(request, &physical.inner, settings.clone()),
             || {},
         )?;
         Ok(NativePreparedStrategy {
@@ -594,8 +595,8 @@ impl SimulationSettings {
         method: Option<&str>,
         trial_failures: Option<&str>,
         numerics: Option<&Bound<'_, pyo3::types::PyDict>>,
-        diffsol: Option<&DiffsolSettings>,
-        idas: Option<&IdasSettings>,
+        diffsol: Option<&[u8]>,
+        idas: Option<&[u8]>,
     ) -> PyResult<Self> {
         let mut profile = native::SimulationProfile {
             start,
@@ -639,26 +640,22 @@ impl SimulationSettings {
             profile.trial_failures = settings::named(py, "trial failure policy", trial_failures)?;
         }
         if let Some(diffsol) = diffsol {
-            profile.diffsol = diffsol.inner;
+            profile.diffsol = settings::diffsol(py, diffsol)?;
         }
         if let Some(idas) = idas {
-            profile.idas = idas.inner.clone();
+            profile.idas = settings::idas(py, idas)?;
         }
         Ok(Self { profile })
     }
-    /// Typed Diffsol scheme and linear solver in effect.
+    /// The encoded Diffsol settings document in effect.
     #[getter]
-    fn diffsol(&self) -> DiffsolSettings {
-        DiffsolSettings {
-            inner: self.profile.diffsol,
-        }
+    fn diffsol(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        serde_json::to_vec(&self.profile.diffsol).map_err(|e| invalid(py, e.to_string()))
     }
-    /// Typed IDAS controls in effect.
+    /// The encoded IDAS settings document in effect.
     #[getter]
-    fn idas(&self) -> IdasSettings {
-        IdasSettings {
-            inner: self.profile.idas.clone(),
-        }
+    fn idas(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        serde_json::to_vec(&self.profile.idas).map_err(|e| invalid(py, e.to_string()))
     }
     /// Round-trip the complete pinned native BDF and initialization options.
     fn to_json(&self, py: Python<'_>) -> PyResult<String> {
