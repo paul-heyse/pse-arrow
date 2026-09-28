@@ -275,7 +275,7 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | W1 | B1 (R); B3a → B6 (T) | complete: B3a and B6 in merge `8934a521`, B1 in merge `fa5a075c` |
 | W2 | B2 (R); B4 (V); B7 (T) | complete: B4 in merge `ba5f9676`, B7 in merge `057ade3b`, B2 in merge `c664106e` |
 | W3 | O8 (R); B5 (V) | complete: B5 in merge `d26bdebe`, O8 in merge `4487adfc` |
-| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | G8 complete (merge `b80f8d4c`); O7 and B3b running |
+| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | G8 complete (merge `b80f8d4c`); O7 complete (merge in the next commit); B3b running |
 | W5 | O9; docs step | not started |
 | W6 | Scoped qualification | not started |
 
@@ -640,3 +640,57 @@ The xtask inspection fixture is now an export manifest, so it needs PostgreSQL t
 | `just native-test -E 'binary_id(pse-tests-conformance) and test(/coefficient_conic/)'` | 2 passed |
 | `just codegen-check` | exit 0 |
 | `just governance-tests` | 87 passed |
+
+### W4, track R: O7 landed
+
+**Commits:** `79661d4d`, `512f4444`, `353dd8e9`, `829b040e`, `8ba49bce`.
+
+**Design as built:**
+- **The study's own attempt.** `AttemptKind::study`, a *coordinating* attempt. It holds no lease and never runs; it stays `queued` while its points run, and ends as completed, partial, failed or cancelled in the transaction that makes its last point terminal. It is the attempt the study's one publication intent names (X9).
+- **Finalization.** A job of its own (`AttemptKind::study_finalization`), created `waiting` when the study is created and released by the last-point transaction. It writes `runtime.study_outcomes` (one row per point) and commits the one publication.
+- **Points.** Each point is a job with a typed `StudyPointBinding` in **job payload v3** (`JobPayload { version: 3, task }`: a modeling job with an optional binding, or a finalization).
+  - A point with a predecessor waits (`JobState::waiting`, attempt `planned`) and is released when the predecessor completes.
+  - If the predecessor fails or is cancelled, its dependents are cancelled transitively (`unattempted`, with a job error naming the predecessor).
+  - A dependent point seeds from the predecessor's newest compatible stored solution (`latest_of_attempt`, `with_stored_start`), falling back to fresh with the reason recorded.
+- **Member layout.** Point members go to `{prefix}points/{index}/{attempt}/…` (catalog `point_{index}`), and the summary to `{prefix}summary/` (catalog `study`); the publication kind is `relations`.
+- **Cancellation.** Cancelling stops pending points, asks running tries to stop, and still publishes whatever completed.
+- **Registry and store changes:**
+  - `StudyState` becomes open, concluded, published.
+  - `operational_studies` gains `attempt_id`, `publication_id` and `finalization_job`.
+  - `operational_study_points` gains `predecessor` (composite self-reference, checked to be earlier) and `job_id`, and drops `attempt_id` and `result_ref`.
+  - New `operational_study_point_members`.
+  - New frames `DurableStudyRequestV1` and `DurableStudyPointBindingV1`.
+- **Runtime and Python:** `Runtime::start_study`, `StudyHandle`, `Runtime.studies()`, `Runtime.work()` (an in-process worker loop), and a durable `ModelingPackage.study(..., runtime=…, workspace=…)` beside the ephemeral in-process path.
+
+**Deliberate deviation from ADR-0114 Outcome 12** (accepted by the coordinator under the maintainer's standing direction):
+- **What.** Legality now comes from two pure tables in `pse-operations` `lifecycle`, selected by the attempt kind's class: `TRANSITIONS` for executing attempts and `COORDINATING` for study attempts.
+- **Why.** A study attempt run under a lease would go stale if its finalization crashed; its intent would then become reclaimable and the point members deletable.
+- **Why the ADR's intent still holds.** One owner and a pure, testable authority remain.
+- **Follow-up.** The docs step describes this in architecture §9.4.
+
+**Other deviations:**
+- `runtime.study_outcomes` is a new durable relation rather than a reuse of `runtime.modeling_studies`.
+- A durable study needs the package's authored documents, so packages changed with `with_declarations`, `with_fit_data` or `with_limits` are refused.
+- The v3 job request identity still uses the `DurableJobRequestV2` frame.
+
+**Open issues** (for W6 or later):
+- a crashed point try's partial member tables are never collected;
+- a finalization that exhausts its retries leaves the study `concluded`, with no automatic recovery;
+- the S15 10 000-point scale is unmeasured (creation is about six statements per point with no COPY, and each point transition serializes on the study row);
+- a rare, retryable deadlock between a direct cancel of a waiting point and its predecessor's completion.
+
+**Tests on `main` after the merge** (zero baseline, `PSE_SOLVER_IMAGE` set; the dev store was reset):
+
+| Command | Result |
+|---|---|
+| `just db-test` | 59 passed |
+| Runtime native units | 161 passed: `predecessor_waits_and_seeds`, `failed_point_does_not_contaminate`, `study_cancel_stops_pending_points` |
+| `just worker-test` | 4 passed, including `study_parallel_workers_publish_once` with two worker processes |
+| `just publication-test` | 9 passed |
+| `just governance-tests` | 87 passed |
+| schema and codegen | 69 passed |
+| pse-ids frames | 46 passed |
+| `just codegen-check` | exit 0 |
+| `just family-check` | OK |
+| Python unit and component (inspection fixture built) | 157 passed |
+| Python `test_studies.py`, native workflow, modeling run, Plan 14 acceptance | 24 passed |
