@@ -59,6 +59,16 @@ fn ddl_covers_store_relations_enums_identities() {
     for name in ddl::enums(registry) {
         assert!(mapping.contains(&format!("\"pse_ops.{}\"", names::enum_type(name))));
     }
+    // Every table's row type maps to the registry row it stores, owned (X7).
+    for (table, _) in &relations {
+        assert!(
+            mapping.contains(&format!("\"pse_ops.{table}\" = {{ rust-type = ")),
+            "{table} row type is not mapped"
+        );
+    }
+    assert!(mapping.contains(
+        "\"pse_ops.attempts\" = { rust-type = \"pse_model::generated::runtime::operational_attempts::RuntimeOperationalAttemptsRow\", is-copy = false }"
+    ));
     assert!(text(&tree, "mod.rs").contains("include_str!(\"schema.sql\")"));
 }
 

@@ -16,6 +16,9 @@ pub mod domain;
 pub mod forms;
 /// Resolved numerical meaning, independent of native solver implementations.
 pub mod numerics;
+/// Reading store rows from their PostgreSQL composite values (ADR-0114 Outcome 25).
+#[cfg(feature = "postgres")]
+pub mod postgres;
 #[cfg(all(test, feature = "postgres"))]
 mod postgres_tests;
 /// An invalid declared semantic enum member.
