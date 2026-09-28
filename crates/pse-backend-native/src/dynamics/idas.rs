@@ -746,7 +746,7 @@ impl<'a> Session<'a> {
                 .idas
                 .constraints
                 .iter()
-                .map(|v| super::state_sign_code(*v))
+                .map(|v| state_sign_code(*v))
                 .collect();
             let constraints = s.vector(&codes)?;
             unsafe {
