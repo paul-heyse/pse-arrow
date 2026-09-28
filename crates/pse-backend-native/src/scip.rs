@@ -809,14 +809,18 @@ pub(crate) fn configure(
             ("parallel/minnthreads", OptionValue::Integer(threads)),
         ]);
     }
-    // Bounds stay in the subsystem: with bound removal, SCIP 10.0.2's post-processing
+    // Two SCIP 10.0.2 behaviours are avoided. With bound removal, its post-processing
     // deletes any linear constraint whose single-use variables lost both bounds, which
-    // can leave a feasible "subsystem".
+    // can leave a feasible "subsystem"; so bounds stay in the subsystem. After the
+    // greedy finder's additive phase, constraints it re-added carry an extra use, the
+    // deletion phase skips them as ineligible and still reports the result irreducible;
+    // so the finder runs the deletion filter alone.
     if settings.iis {
         reserved.extend([
             ("iis/irreducible", OptionValue::Bool(true)),
             ("iis/removebounds", OptionValue::Bool(false)),
             ("iis/removeunusedvars", OptionValue::Bool(true)),
+            ("iis/greedy/additive", OptionValue::Bool(false)),
             ("iis/silent", OptionValue::Bool(true)),
         ]);
     }
@@ -2402,6 +2406,19 @@ pub(crate) fn solve(
         Metric::Integer(i64::try_from(r.controls.threads).unwrap_or(i64::MAX)),
     );
     metrics.insert("scip.exact".into(), Metric::Bool(exact));
+    // The conditions every global claim holds under (ADR-0106 §9-§10): tolerances, the
+    // identity of the declared box and the export fidelity below.
+    for (key, value) in [
+        ("global.feasibility", feasibility(r.accuracy)),
+        ("global.gap_relative", r.accuracy.mip_relative_gap),
+        ("global.gap_absolute", gap_absolute),
+    ] {
+        metrics.insert(key.into(), Metric::Real(value));
+    }
+    metrics.insert(
+        "global.domain".into(),
+        Metric::Text(plan.domain.to_string()),
+    );
     metrics.insert("scip.reoptimized".into(), Metric::Bool(reoptimized));
     metrics.insert(
         "export.fidelity".into(),

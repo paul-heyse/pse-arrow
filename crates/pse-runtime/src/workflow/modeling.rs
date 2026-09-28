@@ -15,11 +15,14 @@ pub use dynamics::{
 mod diagnostics;
 #[cfg(all(test, feature = "solver-highs"))]
 mod forms_tests;
+#[cfg(all(test, feature = "solver-scip", feature = "solver-ipopt"))]
+mod global_tests;
 mod implicit;
 pub use diagnostics::{
     DiagnosticSampleStop, ElasticObservation, ModelingDiagnosticPolicy,
     ModelingDiagnosticPreparation, ModelingDiagnosticSamples, ModelingDiagnostics,
-    ModelingElasticAttempt, ModelingNonlinearExplanation, ModelingNonlinearPolicy,
+    ModelingElasticAttempt, ModelingInfeasibilityCertificate, ModelingNonlinearExplanation,
+    ModelingNonlinearPolicy,
 };
 #[cfg(feature = "solver-highs")]
 pub use diagnostics::{ModelingJacobianOptimization, ModelingLinearDiagnostics};

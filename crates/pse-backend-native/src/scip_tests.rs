@@ -1650,3 +1650,59 @@ fn concurrent_mode_under_admitted_permits() {
     assert!((objective - 6.5).abs() < 1e-5, "{objective}");
     assert_eq!(report.qualification, Qualification::GapQualified);
 }
+/// SCIP 10.0.2's additive IIS phase can leave a redundant row while reporting the
+/// subsystem irreducible when the redundant row comes first; the deletion filter alone
+/// minimizes it. Rows: x·x ≤ 100 (redundant), x·x ≤ 1 and x·x ≥ 4.
+#[test]
+fn iis_irreducible_whatever_the_row_order() {
+    let registry = standard_registry().unwrap();
+    let mut b = Body::new(&registry, 1);
+    let x = b.x[0].clone();
+    let xx = b.op(Binary::Mul, &x, &x);
+    let one = b.c(1.0);
+    let hundred = b.c(100.0);
+    let four = b.c(4.0);
+    let hi = b.op(Binary::Sub, &xx, &one);
+    let spare = b.op(Binary::Sub, &xx, &hundred);
+    let lo = b.op(Binary::Sub, &xx, &four);
+    let body = b.b.prepare(&[spare, hi, lo]).unwrap();
+    let case = case(
+        &registry,
+        body,
+        &[(ModelingVariableDomain::Continuous, Some(-3.0), Some(3.0), 1.5)],
+        &[
+            (f64::NEG_INFINITY, 0.0),
+            (f64::NEG_INFINITY, 0.0),
+            (0.0, f64::INFINITY),
+        ],
+        None,
+        DerivativeOrder::Second,
+    );
+    let program = case.program(&FactorableRequest::default());
+    let settings = ScipSettings {
+        iis: true,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Certify,
+        false,
+        false,
+        &settings,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    let iis = report.global.as_ref().unwrap().iis.clone().unwrap();
+    assert!(iis.irreducible);
+    assert_eq!(
+        iis.members,
+        vec![
+            IisMember::Row(id(102)),
+            IisMember::Row(id(103)),
+            IisMember::VariableLower(id(1)),
+            IisMember::VariableUpper(id(1)),
+        ]
+    );
+}

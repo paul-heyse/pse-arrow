@@ -273,6 +273,87 @@ impl ModelingPackage {
         Ok(report)
     }
 }
+/// A global infeasibility conclusion beside the local elastic explanation (ADR-0106 §9):
+/// the certifying backend's verdict over the declared box for the exported program, and
+/// its infeasible subsystem when one was found. `assurance` is `proven_infeasible` (or an
+/// `exact_certificate`) only when infeasibility was proved; it is never a local
+/// observation and the local explanation never falls back to it.
+#[derive(Clone, Debug)]
+pub struct ModelingInfeasibilityCertificate {
+    /// The certifying solve's assurance.
+    pub assurance: pse_backend_native::solve::Assurance,
+    /// Worst export fidelity: a relaxed export keeps an infeasibility proof sound.
+    pub fidelity: Option<pse_math::factorable::Fidelity>,
+    /// Rows of the infeasible subsystem.
+    pub rows: BTreeSet<SemanticId>,
+    /// Every member of the infeasible subsystem, including obligations, implicit
+    /// residuals, native forms and kept bounds.
+    pub members: Vec<pse_backend_native::solve::IisMember>,
+    /// The backend reports the subsystem irreducible.
+    pub irreducible: bool,
+    /// The certifying solve.
+    pub result: ModelingResult,
+}
+impl ModelingInfeasibilityCertificate {
+    /// Infeasibility of the exported program was proved over the declared box.
+    pub fn proven(&self) -> bool {
+        use pse_backend_native::solve::Assurance;
+        matches!(
+            self.assurance,
+            Assurance::ProvenInfeasible | Assurance::ExactCertificate
+        )
+    }
+}
+impl ModelingPackage {
+    /// Certify infeasibility globally through the certify intent and a certifying backend,
+    /// computing an irreducible infeasible subsystem of the true program when infeasible.
+    /// The analysis keeps its original formulation; a feasible model yields no proof.
+    pub async fn certify_infeasibility(
+        &self,
+        analysis: &ModelingAnalysis,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingInfeasibilityCertificate, WorkflowError> {
+        use pse_backend_native::{
+            execution::{BackendSettings, ScipSettings},
+            solve::{Backend, SolverSelection},
+        };
+        if analysis.bindings.formulation != Formulation::default() {
+            return Err(contract(
+                "global infeasibility certification requires an original formulation",
+            ));
+        }
+        let mut trial = analysis.clone();
+        trial.solver.intent = SolveIntent::Certify;
+        trial.solver.selection = SolverSelection::Explicit(Backend::Scip);
+        trial.solver.backend = BackendSettings::Scip(ScipSettings {
+            iis: true,
+            ..ScipSettings::default()
+        });
+        let prepared = self.prepare_analysis(&trial, cancel).await?;
+        let result = self.solve_case(prepared, trial.compiler, cancel).await?;
+        let Outcome::Native(native) = &result.outcome else {
+            return Err(contract(
+                "global infeasibility certification needs a native certifying solve",
+            ));
+        };
+        let iis = native.global.as_ref().and_then(|g| g.iis.clone());
+        let members = iis.as_ref().map(|i| i.members.clone()).unwrap_or_default();
+        Ok(ModelingInfeasibilityCertificate {
+            assurance: native.termination.assurance,
+            fidelity: native.evidence.global.map(|g| g.fidelity),
+            rows: members
+                .iter()
+                .filter_map(|m| match m {
+                    pse_backend_native::solve::IisMember::Row(id) => Some(*id),
+                    _ => None,
+                })
+                .collect(),
+            members,
+            irreducible: iis.is_some_and(|i| i.irreducible),
+            result: result.clone(),
+        })
+    }
+}
 fn classify(
     result: &ModelingResult,
     policy: &ModelingNonlinearPolicy,
