@@ -140,7 +140,7 @@ set), and deletes what it replaces in the same change.
 - the ADR-0112 citations in the rewritten modules.
 
 ### B3a — frame catalog (W1, Track T)
-- A `pse_ids::Frame` enum declares every one of the 119 spellings. `FramedHasher::new`, `derive_id`, `derive_hash` and `pse-backend-native` `identity::of` take a `Frame`.
+- A `pse_ids::Frame` enum declares every production frame spelling (104 at B3a; 107 after `pse.ops.schema.v1` and the two durable-study frames). `FramedHasher::new`, `derive_id`, `derive_hash` and `pse-backend-native` `identity::of` take a `Frame`.
 - Parameterized contexts (`tears.rs:23`, `fingerprint.rs:277`) become variants that render the identical string.
 - The generated `facts.rs` frames come from the generator.
 - **Tests:**
@@ -328,7 +328,7 @@ The agent's worktree runs covered the rest:
 - `pse-compiler` 96 passed; runtime fitting, diagnostics and native-analysis units 33 passed; runtime dynamics units 12 passed.
 
 **Follow-ups:**
-- The plan and review text say "119 spellings". The real catalog is 104 frames; the other literals are metadata and preimage version strings. The text is corrected in the docs step.
+- The plan and review text say "119 spellings". The real catalog is 104 frames; the other literals are metadata and preimage version strings. The plan text and TD08 are corrected; the review and ADR-0115 keep their original wording.
 - Listing the frame catalog in the generated docs (ADR-0115 Outcome 4) touches the generator track R owns. It moves to B3b.
 - Still untyped: the dynamics oracle's `(row, coordinate)` support and the fitting oracle's coordinate and constraint tuples. They were outside B6's listed boundaries; B3b sweeps them.
 - The Python ranging test (`test_modeling_kernel`) runs after `just py-sync-native`, once B1 lands.
