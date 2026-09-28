@@ -45,6 +45,7 @@ _NativePublication = _native.Publication
 _NativeTableStream = _native.TableStream
 _NativePhysicalContext = _native.NativePhysicalContext
 _NativeRuntime = _native.NativeRuntime
+OperationalStore = _native.OperationalStore
 _NativeModelingNativeAnalysis = _native.NativeModelingNativeAnalysis
 _NativeModelingNonlinearExplanation = _native.NativeModelingNonlinearExplanation
 _NativeModelingElasticAttempt = _native.NativeModelingElasticAttempt

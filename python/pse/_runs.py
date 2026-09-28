@@ -164,6 +164,12 @@ class RunResult:
         return SemanticId.from_hex(self._handle.run_id)
 
     @property
+    def attempt_id(self) -> SemanticId | None:
+        """Durable attempt that recorded this run; ``None`` for an ephemeral run."""
+        attempt = self._handle.attempt_id
+        return None if attempt is None else SemanticId.from_hex(attempt)
+
+    @property
     def usable(self) -> bool:
         """Whether every requested candidate satisfies its final usability policy."""
         return self._handle.usable
@@ -223,6 +229,12 @@ class RunHandle:
     def cancel(self) -> None:
         """Request stop; join and terminal report ownership remain native."""
         self._handle.cancel()
+
+    @property
+    def attempt_id(self) -> SemanticId | None:
+        """Durable attempt minted before any effect; ``None`` for an ephemeral run."""
+        attempt = self._handle.attempt_id
+        return None if attempt is None else SemanticId.from_hex(attempt)
 
     def wait(self) -> RunResult:
         """Release Python while waiting; join cancellation before a signal escapes."""

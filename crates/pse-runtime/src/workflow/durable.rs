@@ -195,6 +195,34 @@ impl Operations {
     }
 }
 
+impl super::Runtime {
+    /// The durable attempts of this runtime's operational store, newest first, as the
+    /// registry relation `runtime.operational_attempts`. They survive a restart of the
+    /// process that ran them (ADR-0112 Outcome 16).
+    ///
+    /// # Errors
+    /// An ephemeral runtime, which records no attempts; store failures; a stored value
+    /// outside the registry contract.
+    pub async fn runs(
+        &self,
+        filter: &AttemptFilter,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        use pse_relations::generated::runtime::operational_attempts as attempts;
+        let Durability::Durable(operations) = &self.durability else {
+            return Err(super::contract(
+                "the run listing needs a durable runtime (ADR-0112 Outcome 16)",
+            ));
+        };
+        let records = operations.runs(filter).await?;
+        let mut rows = attempts::Builder::with_registry(&self.registry, records.len())
+            .map_err(super::relation)?;
+        for record in &records {
+            rows.push(record.row()?).map_err(super::relation)?;
+        }
+        rows.finish().map_err(super::relation)
+    }
+}
+
 /// How a runtime keeps its runs (ADR-0112 Outcome 16): an explicit policy.
 #[derive(Clone, Debug, Default)]
 pub enum Durability {

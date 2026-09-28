@@ -18,7 +18,7 @@ import pyarrow as pa
 import pyarrow.ipc
 import pytest
 
-from pse._build import CacheSettings, EngineSettings, build_info
+from pse._build import CacheSettings, EngineSettings, OperationalStore, build_info
 from pse.contracts.extension_types import EXTENSION_NAMES
 
 #: Modules `pse` itself must not pull in at import (blueprint §21.6, §3.1).
@@ -214,3 +214,13 @@ def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSetti
             inspection_bytes=4 << 20,
         ),
     )
+
+
+@pytest.fixture(scope="session")
+def operational_store() -> OperationalStore:
+    """The operational store durable runs register in (ADR-0112 Outcome 16).
+
+    ``PSE_DATABASE_URL``, else the development default: the local socket with
+    peer authentication, migrated by ``just db-migrate``.
+    """
+    return OperationalStore()

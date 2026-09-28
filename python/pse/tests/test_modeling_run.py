@@ -9,14 +9,18 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts.enums import AttemptState
 from pse.contracts.values import SemanticId
 
 
 @pytest.mark.integration
 def test_authored_solve_join_warm_start_checks_and_publication(
-    inspection_settings: pse.EngineSettings, tmp_path: Path
+    inspection_settings: pse.EngineSettings,
+    operational_store: pse.OperationalStore,
+    tmp_path: Path,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    # Only durable runs publish (ADR-0112 Outcome 16); every run is a stored attempt.
+    runtime = pse.Runtime(inspection_settings, store=operational_store)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -65,6 +69,11 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     assert any(row["name"] == "Scalar" for row in aliases)
     documents = pa.table(result.table("authored.documents")).to_pylist()
     assert any(row["source_text"] == source for row in documents), documents
+    assert result.attempt_id is not None
+    assert result.attempt_id == handle.attempt_id
+    (listed,) = runtime.runs(run_id=result.run_id)
+    assert listed.attempt_id == result.attempt_id
+    assert listed.state == AttemptState.COMPLETED
     command = result.prepare_publication(tmp_path.as_uri() + "/", case)
     ticket = command.ticket
     location, version = command.commit()
@@ -90,6 +99,13 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     sequence_partial = sequence_cancelled.wait()
     assert sequence_partial.run_id == sequence_cancelled.wait().run_id
     assert pa.table(sequence_partial.table("runtime.solve_runs")).num_rows == 2
+    (stopped,) = runtime.runs(run_id=sequence_partial.run_id)
+    assert stopped.attempt_id == sequence_cancelled.attempt_id
+    assert stopped.state in {
+        AttemptState.CANCELLED,
+        AttemptState.PARTIAL,
+        AttemptState.COMPLETED,
+    }
     rejected = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/root.pse": source.replace("check x(x>1)", "check x(x<1)")}], physical
     ).prepare_solve(case, settings).start().wait()

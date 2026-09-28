@@ -7,6 +7,9 @@ mod durable;
 pub use completion::Completion;
 pub use durable::{Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability};
 pub use pse_operations::attempts::{AttemptFilter, AttemptRecord};
+/// The operational store a process connects to: `PSE_DATABASE_URL`, else the development
+/// default (ADR-0112 Outcome 20).
+pub use pse_operations::database_url_from_env;
 mod worker;
 pub use worker::{
     JobPresolve, JobProfile, MODELING_JOB_VERSION, ModelingJob, Processed, WorkerSettings,

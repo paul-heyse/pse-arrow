@@ -38,6 +38,7 @@ from pse._build import (
     NativeIneligible,
     NativeRoute,
     NativeStrategyAttempt,
+    OperationalStore,
     ProgressEvent,
     ResourceConsumer,
     ResourceReport,
@@ -52,6 +53,7 @@ from pse._inspection import Publication, TableStream, open
 from pse._modeling import (ModelingNativeAnalysis, ModelingElasticAttempt, ModelingNonlinearExplanation, ModelingLimits, ModelingFixturePolicy, ModelingEventSettings, ModelingModeSettings, ModelingTrajectory, ModelingDiagnostics, ModelingDiagnosticSamples, ModelingDiagnosticSettings, ModelingPackage, ModelingResult, ModelingConformance, ModelingInitialization, ModelingInitializationAttempt, ModelingStudy)
 from pse._transfer import FieldTransfer
 from pse._workflow import (
+    OperationalAttempt,
     PhysicalContext,
     PreparedFlow,
     PreparedOperation,
@@ -114,6 +116,8 @@ __all__ = [
     "NativeIneligible",
     "NativeRoute",
     "NativeStrategyAttempt",
+    "OperationalAttempt",
+    "OperationalStore",
     "PhysicalContext",
     "PreparedFlow",
     "PreparedOperation",

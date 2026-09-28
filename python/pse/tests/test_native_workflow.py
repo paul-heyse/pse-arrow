@@ -20,7 +20,7 @@ from pse import codec
 from pse import modeling as w
 from pse.contracts import authored as a
 from pse.contracts import runtime as result_contracts
-from pse.contracts.enums import ModelingAnalysisRoute
+from pse.contracts.enums import AttemptKind, AttemptState, ModelingAnalysisRoute
 from pse.contracts.values import ContentHash, SemanticId, SourceSpan
 
 
@@ -133,6 +133,13 @@ def test_explicit_primal_seed_and_transactional_initialization(
 @pytest.fixture(scope="module")
 def runtime(inspection_settings: pse.EngineSettings) -> pse.Runtime:
     return pse.Runtime(inspection_settings)
+
+
+@pytest.fixture(scope="module")
+def durable_runtime(
+    inspection_settings: pse.EngineSettings, operational_store: pse.OperationalStore
+) -> pse.Runtime:
+    return pse.Runtime(inspection_settings, store=operational_store)
 
 
 @pytest.fixture(scope="module")
@@ -435,14 +442,41 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
 
 @pytest.mark.unit
 def test_completion_projection_and_pre_effect_publication_ticket(
-    runtime: pse.Runtime, physical: pse.PhysicalContext, tmp_path: Path
+    runtime: pse.Runtime,
+    durable_runtime: pse.Runtime,
+    physical: pse.PhysicalContext,
+    tmp_path: Path,
 ) -> None:
-    result = (
-        revision(runtime, physical)
+    prepared = revision(runtime, physical).prepare_solve(
+        identity(101), pse.SolveSettings(intent="root")
+    )
+    # An ephemeral run records nothing and cannot publish (ADR-0112 Outcome 16).
+    assert not runtime.durable
+    ephemeral = prepared.start().wait()
+    assert ephemeral.attempt_id is None
+    with pytest.raises(pse.InspectionError, match="ephemeral"):
+        ephemeral.prepare_publication(tmp_path.as_uri() + "/", identity(240))
+    with pytest.raises(pse.InspectionError, match="durable runtime"):
+        runtime.runs()
+    assert durable_runtime.durable
+    handle = (
+        revision(durable_runtime, physical)
         .prepare_solve(identity(101), pse.SolveSettings(intent="root"))
         .start()
-        .wait()
     )
+    result = handle.wait()
+    assert result.attempt_id is not None
+    assert handle.attempt_id == result.attempt_id
+    # The durable attempt is listed from the store, as the registry relation.
+    (listed,) = durable_runtime.runs(run_id=result.run_id)
+    assert isinstance(listed, pse.OperationalAttempt)
+    assert listed.attempt_id == result.attempt_id
+    assert listed.run_id == result.run_id
+    assert listed.kind == AttemptKind.MODELING
+    assert listed.state == AttemptState.COMPLETED
+    assert listed.finished_at is not None
+    failed = durable_runtime.runs(run_id=result.run_id, states=[AttemptState.FAILED])
+    assert failed == ()
     completion = result.completion
     assert completion == result.completion
     converter = codec.converter()
@@ -467,7 +501,7 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert completion.solves[0].candidate_kind == "constant_evaluation"
     assert completion.lineage[0].model_id == identity(101)
     assert not result.diagnostics()
-    runtime.clear_program_cache()
+    durable_runtime.clear_program_cache()
     assert result.completion == completion
     request = pse.PublicationRequest(
         tmp_path.as_uri() + "/", identity(240), identity(241), identity(242)
@@ -481,9 +515,9 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert candidate["attempt_id"] == request.attempt_id.to_hex()
     assert candidate["publication_id"] == request.publication_id.to_hex()
     assert not tuple(tmp_path.iterdir())
-    settled = runtime.settle_publication(ticket)
+    settled = durable_runtime.settle_publication(ticket)
     assert isinstance(settled, pse.PublicationUnresolved)
-    assert settled == runtime.settle_publication(ticket)
+    assert settled == durable_runtime.settle_publication(ticket)
     assert not tuple(tmp_path.iterdir())
 
 

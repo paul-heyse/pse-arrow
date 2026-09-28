@@ -6,14 +6,17 @@ from collections.abc import Mapping, Sequence
 
 import attrs
 import msgspec
+import pyarrow as pa
 
 from pse import codec
 from pse._build import (
     EngineSettings,
+    OperationalStore,
     SolveSettings,
     _NativePhysicalContext,
     _NativeRuntime,
 )
+from pse._inspection import TableStream
 from pse._modeling import ModelingPackage
 from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult, _AnalysisDocument
 from pse._runs import (
@@ -23,9 +26,11 @@ from pse._runs import (
 )
 
 from pse.contracts import runtime as result_contracts
-from pse.contracts.values import ContentHash
+from pse.contracts.enums import AttemptState
+from pse.contracts.values import ContentHash, SemanticId
 
 SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
+OperationalAttempt = result_contracts.RuntimeOperationalAttemptsRow
 
 @attrs.frozen(init=False)
 class Runtime:
@@ -33,8 +38,51 @@ class Runtime:
 
     _handle: _NativeRuntime
 
-    def __init__(self, settings: EngineSettings) -> None:
-        object.__setattr__(self, "_handle", _NativeRuntime(settings))
+    def __init__(
+        self, settings: EngineSettings, *, store: OperationalStore | None = None
+    ) -> None:
+        """Attach to the shared deployment under an explicit durability class.
+
+        Args:
+            settings: The deployment budget shared with publication inspection.
+            store: With a store, every run is a durable attempt registered in it
+                and may be published; without one, runs are ephemeral and cannot
+                publish (ADR-0112 Outcome 16).
+        """
+        object.__setattr__(self, "_handle", _NativeRuntime(settings, store=store))
+
+    @property
+    def durable(self) -> bool:
+        """Whether runs are durable attempts in an operational store."""
+        return self._handle.durable
+
+    def runs(
+        self,
+        *,
+        run_id: SemanticId | None = None,
+        states: Sequence[AttemptState] = (),
+        limit: int = 100,
+    ) -> tuple[OperationalAttempt, ...]:
+        """List the store's durable attempts, newest first; they survive restarts.
+
+        Args:
+            run_id: Only the attempts of this run.
+            states: Only attempts in these lifecycle states; every state when empty.
+            limit: At most this many attempts.
+
+        Returns:
+            One registry ``runtime.operational_attempts`` row per attempt.
+        """
+        stream = TableStream(
+            self._handle.runs(
+                run_id=None if run_id is None else run_id.to_hex(),
+                states=[AttemptState(state).value for state in states],
+                limit=limit,
+            )
+        )
+        return tuple(
+            codec.structure_rows(pa.table(stream).to_pylist(), OperationalAttempt)
+        )
 
     def physical_from_documents(
         self, documents: Mapping[str, str]

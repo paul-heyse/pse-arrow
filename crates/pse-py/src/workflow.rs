@@ -68,6 +68,40 @@ fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + S
         }
     }
 }
+/// The PostgreSQL operational store a durable runtime registers its runs in (ADR-0112).
+/// `url` defaults to `PSE_DATABASE_URL`, else the development default (the local socket
+/// with peer authentication); `worker` names the lease owner and defaults to this process.
+/// Nothing connects until a runtime is created with it.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct OperationalStore {
+    url: String,
+    worker: String,
+}
+#[pymethods]
+impl OperationalStore {
+    #[new]
+    #[pyo3(signature = (url=None, *, worker=None))]
+    fn new(url: Option<String>, worker: Option<String>) -> Self {
+        Self {
+            url: url.unwrap_or_else(native::database_url_from_env),
+            worker: worker.unwrap_or_else(|| native::Operations::process_worker("python")),
+        }
+    }
+    /// Connection URL.
+    #[getter]
+    fn url(&self) -> &str {
+        &self.url
+    }
+    /// The worker identity that owns this process's leases.
+    #[getter]
+    fn worker(&self) -> &str {
+        &self.worker
+    }
+    fn __repr__(&self) -> String {
+        format!("OperationalStore(worker={:?})", self.worker)
+    }
+}
 /// Borrow the same budget, services and executor as exact publication inspection.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -111,8 +145,16 @@ impl NativeRuntime {
             inner: strategies::Strategy::Cone(inner),
         })
     }
+    /// A runtime over the shared deployment. With `store`, every run is a durable attempt
+    /// registered in that operational store and may be published; without it runs are
+    /// ephemeral and cannot publish (ADR-0112 Outcome 16).
     #[new]
-    fn new(py: Python<'_>, settings: &inspection::EngineSettings) -> PyResult<Self> {
+    #[pyo3(signature = (settings, *, store=None))]
+    fn new(
+        py: Python<'_>,
+        settings: &inspection::EngineSettings,
+        store: Option<&OperationalStore>,
+    ) -> PyResult<Self> {
         let owner = py
             .detach(|| runtime::acquire(settings))
             .map_err(|e| errors::diagnostic(py, &e))?;
@@ -121,7 +163,49 @@ impl NativeRuntime {
             owner.registry.clone(),
             owner.sessions.clone(),
         );
+        let inner = match store {
+            None => inner,
+            Some(store) => {
+                let operations = blocking(
+                    py,
+                    &owner,
+                    native::Operations::connect(
+                        &store.url,
+                        store.worker.clone(),
+                        native::LeasePolicy::default(),
+                    ),
+                    || {},
+                )?;
+                inner.with_durability(native::Durability::Durable(operations))
+            }
+        };
         Ok(Self { owner, inner })
+    }
+    /// Whether runs are durable attempts in an operational store.
+    #[getter]
+    fn durable(&self) -> bool {
+        matches!(self.inner.durability(), native::Durability::Durable(_))
+    }
+    /// Durable attempts of the store, newest first, as `runtime.operational_attempts`:
+    /// optionally those of one run and in the given registry `AttemptState` names.
+    #[pyo3(signature = (*, run_id=None, states=Vec::new(), limit=100))]
+    fn runs(
+        &self,
+        py: Python<'_>,
+        run_id: Option<&str>,
+        states: Vec<String>,
+        limit: i64,
+    ) -> PyResult<inspection::TableStream> {
+        let filter = native::AttemptFilter {
+            run: run_id.map(|r| id(py, r)).transpose()?,
+            states: states
+                .iter()
+                .map(|s| settings::named(py, "attempt state", s))
+                .collect::<PyResult<_>>()?,
+            limit,
+        };
+        let batch = blocking(py, &self.owner, self.inner.runs(&filter), || {})?;
+        Ok(inspection::TableStream::from_batch(batch))
     }
     fn physical_from_documents(
         &self,
@@ -253,6 +337,11 @@ impl NativeRunHandle {
             })
         })
     }
+    /// The durable attempt of this run, minted before any effect; `None` when ephemeral.
+    #[getter]
+    fn attempt_id(&self) -> Option<String> {
+        self.inner.attempt_id().map(|id| id.to_hex())
+    }
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
         let (events, dropped) = self.inner.progress();
         (events.into_iter().map(ProgressEvent).collect(), dropped)
@@ -295,6 +384,14 @@ impl NativeRunResult {
     #[getter]
     fn run_id(&self) -> String {
         self.inner.run_id.to_hex()
+    }
+    /// The durable attempt that recorded this run; `None` when the run is ephemeral.
+    #[getter]
+    fn attempt_id(&self) -> Option<String> {
+        match self.inner.durability() {
+            native::RunDurability::Ephemeral => None,
+            native::RunDurability::Durable(record) => Some(record.attempt_id.to_hex()),
+        }
     }
     fn completion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         let completed = self

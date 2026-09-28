@@ -16,6 +16,7 @@ import pse
 from pse import codec
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
+from pse.contracts.enums import AttemptKind, AttemptState
 from pse.contracts.values import SemanticId
 
 @pytest.mark.integration
@@ -63,9 +64,11 @@ def test_public_native_process_and_exact_results(
 @pytest.mark.integration
 def test_public_dynamic_and_transient_fit(
     inspection_settings: pse.EngineSettings,
+    operational_store: pse.OperationalStore,
     tmp_path: Path,
 ) -> None:
-    runtime = pse.Runtime(inspection_settings)
+    # Only durable runs publish (ADR-0112 Outcome 16); every run is a stored attempt.
+    runtime = pse.Runtime(inspection_settings, store=operational_store)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents({str(p.relative_to(primitives)):p.read_text() for p in primitives.rglob("*") if p.is_file()})
@@ -107,6 +110,11 @@ def test_public_dynamic_and_transient_fit(
         {**row, "run_id": bytes.fromhex(joined.run_id.to_hex())} for row in samples
     ]
     assert pa.table(joined.table("authored.modeling_declarations")).num_rows > 0
+    (listed,) = runtime.runs(run_id=joined.run_id)
+    assert joined.attempt_id is not None
+    assert listed.attempt_id == joined.attempt_id
+    assert listed.kind == AttemptKind.SIMULATION
+    assert listed.state == AttemptState.COMPLETED
     command = joined.prepare_publication(tmp_path.as_uri() + "/", identity(110))
     ticket = command.ticket
     location, version = command.commit()

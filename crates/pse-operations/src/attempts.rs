@@ -16,6 +16,7 @@ use crate::error::{Classify, OperationsError, Target};
 use crate::lifecycle::{self, AttemptState, Lifecycle};
 use crate::store::Store;
 pub use pse_model::generated::enums::AttemptKind;
+pub use pse_model::generated::runtime::operational_attempts::RuntimeOperationalAttemptsRow;
 
 /// An attempt registered before any effect; the runtime mints its identity.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -101,12 +102,18 @@ pub struct AttemptRecord {
     pub worker: Option<String>,
     /// The lease expiry while running.
     pub lease_expires_at: Option<DateTime<Utc>>,
+    /// The latest heartbeat of the lease owner.
+    pub heartbeat_at: Option<DateTime<Utc>>,
     /// The durable cancellation request (finding T03): the authority, not the notification.
     pub cancel_requested: bool,
+    /// When cancellation was requested.
+    pub cancel_requested_at: Option<DateTime<Utc>>,
     /// The termination, once work ended.
     pub termination: Option<Termination>,
     /// Registration time.
     pub created_at: DateTime<Utc>,
+    /// The latest change of the stored row.
+    pub updated_at: DateTime<Utc>,
     /// When work started.
     pub started_at: Option<DateTime<Utc>>,
     /// When work ended.
@@ -135,11 +142,59 @@ impl FromRow<'_, PgRow> for AttemptRecord {
             parent_attempt: codec::opt_id(row, "parent_attempt")?,
             worker: row.try_get("worker")?,
             lease_expires_at: row.try_get("lease_expires_at")?,
+            heartbeat_at: row.try_get("heartbeat_at")?,
             cancel_requested: row.try_get("cancel_requested")?,
+            cancel_requested_at: row.try_get("cancel_requested_at")?,
             termination,
             created_at: row.try_get("created_at")?,
+            updated_at: row.try_get("updated_at")?,
             started_at: row.try_get("started_at")?,
             finished_at: row.try_get("finished_at")?,
+        })
+    }
+}
+
+impl AttemptRecord {
+    /// This attempt as a `runtime.operational_attempts` row, the registry's reading of the
+    /// stored columns: timestamps in UTC nanoseconds and the termination detail as JSON text.
+    ///
+    /// # Errors
+    ///
+    /// [`OperationsError::CorruptValue`] for a timestamp outside the nanosecond range.
+    pub fn row(&self) -> Result<RuntimeOperationalAttemptsRow, OperationsError> {
+        fn at(column: &'static str, value: DateTime<Utc>) -> Result<i64, OperationsError> {
+            value
+                .timestamp_nanos_opt()
+                .ok_or_else(|| OperationsError::CorruptValue {
+                    column,
+                    detail: format!("{value} is outside the nanosecond timestamp range"),
+                })
+        }
+        let opt = |column, value: Option<DateTime<Utc>>| value.map(|v| at(column, v)).transpose();
+        Ok(RuntimeOperationalAttemptsRow {
+            attempt_id: self.attempt_id,
+            run_id: self.run_id,
+            kind: self.kind,
+            request_identity: self.request_identity,
+            preparation_identity: self.preparation_identity,
+            state: self.state,
+            state_version: self.state_version,
+            parent_attempt: self.parent_attempt,
+            worker: self.worker.clone(),
+            lease_expires_at: opt("lease_expires_at", self.lease_expires_at)?,
+            heartbeat_at: opt("heartbeat_at", self.heartbeat_at)?,
+            cancel_requested: self.cancel_requested,
+            cancel_requested_at: opt("cancel_requested_at", self.cancel_requested_at)?,
+            termination: self.termination.as_ref().map(|t| t.code.clone()),
+            termination_detail: self
+                .termination
+                .as_ref()
+                .and_then(|t| t.detail.as_ref())
+                .map(ToString::to_string),
+            created_at: at("created_at", self.created_at)?,
+            updated_at: at("updated_at", self.updated_at)?,
+            started_at: opt("started_at", self.started_at)?,
+            finished_at: opt("finished_at", self.finished_at)?,
         })
     }
 }
@@ -212,8 +267,9 @@ pub struct HeartbeatAck {
 macro_rules! attempt_columns {
     () => {
         "attempt_id, run_id, kind, request_identity, preparation_identity, state, \
-         state_version, parent_attempt, worker, lease_expires_at, cancel_requested, \
-         termination, termination_detail, created_at, started_at, finished_at"
+         state_version, parent_attempt, worker, lease_expires_at, heartbeat_at, \
+         cancel_requested, cancel_requested_at, termination, termination_detail, created_at, \
+         updated_at, started_at, finished_at"
     };
 }
 
