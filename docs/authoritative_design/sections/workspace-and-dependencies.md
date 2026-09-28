@@ -108,7 +108,7 @@ register crates.
 | `pse-structural` | Complete immutable graph projections; incidence, matching/DM/BTF, flowsheet and initialization projections ([§15](numerical-execution.md#section-15)) |
 | `pse-math` | Physically admitted Symbolica bodies, guarded evaluation, coefficients, sparse assembly and library bindings ([§7](mathematics-and-compilation.md#section-7)) |
 | `pse-compiler` | The single Salsa workspace, admitted revision reuse, mathematical lowering and bounded preparation ([§14](mathematics-and-compilation.md#section-14)) |
-| `pse-backend-native` | Class-specific native adapters: Ipopt, POUNCE, KINSOL, HiGHS, Clarabel, Diffsol and IDAS, plus tears, presolve and quality ([§18](numerical-execution.md#section-18)) |
+| `pse-backend-native` | Class-specific native adapters: Ipopt, POUNCE, KINSOL, HiGHS, Clarabel, SCIP, Diffsol and IDAS, plus tears, presolve and quality ([§18](numerical-execution.md#section-18)) |
 | `pse-ipopt-sys` | Generated raw Ipopt C bindings; the build script emits link directives only |
 | `pse-columnar` | Arrow canonicalization, owned buffers, reservations, cancellation and native error adapters |
 | `pse-schema` | The semantic registry, native field contracts, resolved contracts, compatibility and Delta layouts ([§4](schema-and-relations.md#section-4)) |
@@ -178,10 +178,11 @@ units, identity, schemas or canonical encoding merely because it is present.
 | FeOS, `feos-core`, num-dual, `quantity`, nalgebra | optional conformance reference tests | Independent thermodynamic and derivative comparisons | No production property route or physical-type authority |
 | Ipopt (C ABI), POUNCE | `pse-backend-native` | Local NLP through one shared oracle | Separate native routes; no fallback between them |
 | pounce-presolve | `pse-math`, `pse-structural`, `pse-backend-native` | Matching, DM, BTF and qualified presolve/postsolve | Original-coordinate recovery is validated independently |
-| SUNDIALS KINSOL/IDAS (+ KLU) | `pse-backend-native` | Square roots, declared fixed-point iteration; IDAS for a narrow smooth recovery profile | Optional features; arbitrary boxes and unsupported profiles are refused |
+| SUNDIALS KINSOL/IDAS (+ KLU) | `pse-backend-native` | Square roots, including one-sided bounds, and declared fixed-point iteration; IDAS for recoverable trials, scheduled inputs, directional events and sign constraints | Optional features; two-sided boxes on KINSOL and unsupported profiles are refused |
 | HiGHS | `pse-backend-native` | LP, MILP, certified convex QP and tear MILPs | Integrality is never relaxed silently |
 | Clarabel | `pse-backend-native` | Explicit cones, with SDP under an optional feature | No implicit cone recognition |
-| Diffsol | `pse-backend-native` | BDF dynamics for the admitted mass-matrix profile, events and forward sensitivities | No second model language |
+| SCIP 10.0.2 (`scip-sys`) | `pse-backend-native` | MIQP, MINLP and explicit global certification over the factorable projection | Raw binding against the solver image, checked at build and run time; serial; every claim re-qualified in original coordinates ([§18.10.1](numerical-execution.md#section-18-10-1)) |
+| Diffsol | `pse-backend-native` | BDF, SDIRK and explicit dynamics for the admitted mass-matrix profile, with faer LU or KLU, events and forward sensitivities | No second model language |
 | Salsa | `pse-compiler` | Synchronous semantic reuse over admitted values | No I/O, native state or effects in tracked queries |
 | rustworkx-core, petgraph | `pse-structural` | Deterministic ordering, acyclicity and graph projections | Graph indices never cross the projection boundary |
 | BLAKE3 | `pse-ids` only | Content hashing and derived identity | The canonicalizer, not the hash, defines coverage |
@@ -196,9 +197,9 @@ A library's presence does not grant capability. A feature that is compiled in st
 needs an admitted operation, profile and test before a workflow advertises it
 ([§18](numerical-execution.md#section-18)). JIT and SIMD evaluation and GPU execution are
 not admitted. Mixed-integer nonlinear solving and global certification through SCIP
-(ADR-0102, ADR-0105) are admitted into the design target and not yet implemented. The same
-holds for any library that has no current consumer. That is a limit of the present scope,
-not a prohibition
+(ADR-0102, ADR-0105) are implemented for factorable problems over finite boxes; the SCIP
+extensions of Plan 22 G4–G8 are not yet implemented, as is any library that has no current
+consumer. That is a limit of the present scope, not a prohibition
 ([§25](scope-and-open-design.md#section-25)).
 
 #### 3.3.1 Arrow and DataFusion roles and capability eligibility

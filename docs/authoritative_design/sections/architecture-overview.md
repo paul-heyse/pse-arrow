@@ -75,11 +75,12 @@ admitted lifecycle ([§18](numerical-execution.md#section-18)):
 | Class | Library |
 |---|---|
 | Nonlinear programs | Ipopt C API (`pse-ipopt-sys`) and POUNCE, sharing one NLP oracle |
-| Square roots and declared fixed-point maps | KINSOL with KLU |
+| Square roots and declared fixed-point maps | KINSOL with KLU, dense or Krylov linear solvers |
 | Matching, Dulmage–Mendelsohn, block triangularization, presolve | pounce-presolve, with independent original-coordinate validation |
 | LP, MILP, certified convex QP, tear selection | HiGHS |
 | Explicit cones, including SDP | Clarabel |
-| ODE/index-1 dynamics | Diffsol BDF; IDAS for smooth recoverable residual trials |
+| Mixed-integer quadratic and nonlinear programs; explicit global certification | SCIP 10.0.2 over the factorable projection |
+| ODE/index-1 dynamics | Diffsol BDF, SDIRK or explicit schemes; IDAS for recoverable residual trials, scheduled inputs, directional events and sign constraints |
 
 Unsupported integrality, convexity, representation, derivative or root-domain
 combinations are refused before execution; there is no solver fallback. Native termination,
@@ -196,7 +197,7 @@ pins live in `Cargo.toml`, rationale in [§3.3](workspace-and-dependencies.md#se
 | pounce-presolve | Matching, DM/BTF, qualified presolve | `pse-structural`, `pse-math`, `pse-backend-native` |
 | petgraph, rustworkx-core | Flowsheet SCCs, deterministic ordering | `pse-structural` |
 | FeOS, num-dual | Independent thermodynamic reference only; absent from production | conformance test feature |
-| Ipopt, POUNCE, KINSOL, HiGHS, Clarabel, Diffsol, IDAS | Class-specific native solving ([§0.5](#section-0-5)) | `pse-backend-native` |
+| Ipopt, POUNCE, KINSOL, HiGHS, Clarabel, SCIP, Diffsol, IDAS | Class-specific native solving ([§0.5](#section-0-5)) | `pse-backend-native` |
 | pyo3, pyo3-async-runtimes, tokio | Python extension, async joined jobs | `pse-py`, `pse-runtime` |
 | blake3 | Identity hashing, only through `pse-ids` | `pse-ids` |
 

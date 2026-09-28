@@ -84,8 +84,8 @@ declared parts of the prepared profile:
 | Need | Current operation |
 |---|---|
 | Change parameter values or horizon | `PreparedSimulation::rebind` prepares new immutable case bindings; unaffected bodies and artifacts are shared by semantic identity |
-| Piecewise-constant inputs | Profile `changes`: fixed-time replacement of the complete selected parameter vector; carried-state sensitivities continue |
-| Mode switches and state jumps | Declared events: guard row, complete reset rows, `terminal`, `next_mode` and a guard tolerance, all within one state/parameter layout |
+| Piecewise-constant inputs | Profile `changes`: fixed-time replacement of the complete selected parameter vector on either integrator; carried-state sensitivities continue, and IDAS restarts in place ([§13.6](#section-13-6)) |
+| Mode switches and state jumps | Declared events: guard row, complete reset rows, `terminal`, `next_mode` and a guard tolerance, all within one state/parameter layout; on IDAS only without forward sensitivities |
 | Different initial state | Initial rows evaluated from time and parameters; change the parameters or declaration, not a stored trajectory |
 
 Located roots rewind to the native root time, apply the reset and mode change together
@@ -97,20 +97,44 @@ between time points or deactivating a model at selected points have no counterpa
 
 > Decision: [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — IDAS scheduled
 > inputs with recoverable trials, events without sensitivities, constraints and Krylov;
-> Diffsol SDIRK, `tsit45` and KLU; adjoint and second-order sensitivities; shooting routes
-> (Plan 22 Y1–Y5; not yet implemented).
+> Diffsol SDIRK, `tsit45` and KLU (Plan 22 Y1 and Y2, implemented); adjoint and
+> second-order sensitivities and shooting routes (Plan 22 Y3–Y5; not yet implemented).
 
 | Route | Admitted profile | Owner |
 |---|---|---|
-| Diffsol BDF (default) | Fixed `diag(I,0)` ODE/index-1, events, resets, input changes, smooth forward sensitivities and library-owned reset sensitivities | `dynamics/integrator.rs` |
-| IDAS residual BDF | Smooth fixed-mass ODE/index-1 with recoverable trial failures, consistent initialization and forward sensitivities; no events or input changes | `dynamics/idas.rs` |
+| Diffsol (default) | Fixed `diag(I,0)` ODE/index-1 by BDF (default), SDIRK `tr_bdf2` or `esdirk34`, or explicit `tsit45` for mass-free ODEs only; faer sparse LU or SuiteSparse KLU for the implicit schemes' Newton matrices; events on every guard sign change, resets, input changes, smooth forward sensitivities and library-owned reset sensitivities | `dynamics/integrator.rs` |
+| IDAS residual BDF | Fixed-mass ODE/index-1 with recoverable trial failures; consistent initialization of the algebraic states and rates, or a steady start (`IDA_Y_INIT`: every rate zero, every state computed, the requested values only a guess); scheduled input changes, across which forward sensitivities continue; events and resets without sensitivities, each with a crossing direction (either, rising or falling); per-state sign constraints (`IDASetConstraints`); KLU, or matrix-free SPGMR or SPFGMR with an optional Jacobi preconditioner from the diagonal of the compiled Newton matrix; simultaneous or staggered sensitivity correction | `dynamics/idas.rs` |
 
-`Method::Auto` selects IDAS only when the profile declares recoverable trial failures,
-because Diffsol cannot recover a typed residual trial failure. Explicitly requesting
-Diffsol with recoverable trials, applying Diffsol-specific controls to IDAS, or
-requesting an unlinked backend is refused before allocation. Both routes consume the
-same compiled functions (`Rhs`, `Initial`, `Output`, `BalanceFlux`, `Roots`, `Reset`);
-IDAS is a residual adapter, not a second compiler.
+The methods are typed profile fields: `Profile::diffsol` (`DiffsolSettings`: the scheme and
+the Newton linear solver) and `Profile::idas` (`IdasSettings`: the linear solver, the
+sensitivity corrector, the initialization and one sign per state). `Method::Auto` selects
+IDAS only when the profile declares recoverable trial failures, because Diffsol cannot
+recover a typed residual trial failure. Before allocation the profile refuses recoverable
+trials on Diffsol; Diffsol-specific controls on IDAS and IDAS-specific controls on Diffsol;
+a directional event on Diffsol; `tsit45` with an algebraic state or a Newton linear solver;
+IDAS events together with forward sensitivities, because Diffsol owns reset sensitivities; a
+sign-constraint vector that is neither empty nor one entry per state, or that constrains
+nothing; a zero or oversized Krylov dimension; and an unlinked backend. At each scheduled
+change or reset IDAS restarts the same native memory (`IDAReInit`, `IDASensReInit`,
+`IDAQuadReInit` and `IDACalcIC`, with consistent sensitivity starts from
+`IDAGetSensConsistentIC`); each segment keeps its own native statistics, and output
+quadratures continue across the restart. Both routes consume the same compiled functions
+(`Rhs`, `Initial`, `Output`, `BalanceFlux`, `Roots`, `Reset`); IDAS is a residual adapter,
+not a second compiler.
+
+Profile identity comes from serde, never from a hand-written field list. `profile_json` is
+the complete encoding of the profile plus the resolved method; Diffsol's native option types
+enter through remote serde definitions, so a new field in a pinned option type fails to
+compile rather than escaping identity. `pse.dynamic.profile.v3` frames that encoding with the
+numerical policy key. Fitting's `pse.fit.profile.v2` frames the solver profile key, the rank
+tolerance, the cell cap, each simulation's dynamic profile identity and each experiment's
+declared modes by their serde encoding.
+
+Authored workflows do not yet reach every native control: authored events detect crossings
+in either direction, IDAS sign constraints come from the profile rather than from authored
+bounds, and authored scheduled inputs have no kernel fixture field (recorded Plan 22
+follow-ups). A singular KLU factorization inside Diffsol ends the trajectory with a contained
+`panic` termination rather than a typed numerical failure (also a recorded follow-up).
 
 The integrator computes the consistent initial state from requested values and guesses;
 the report keeps both. Sensitivities cover initial and direct output parameter terms.
@@ -128,11 +152,11 @@ actual event records only; output completed before a later failure survives, wit
 last completed time and sample count in `runtime.computation_runs`. Integration inside
 fitting runs inline under the outer job's admission, without nested executor permits.
 
-**Limits.** Higher-index or general implicit DAEs, variable-layout modes, hybrid IDAS
-sensitivities and adjoint sensitivities are not supported by native integration (sensitivities
-across scheduled IDAS input changes and adjoint sensitivities are in the target, ADR-0110;
-not yet implemented);
-declarations outside the admitted profile are refused before native work. The
+**Limits.** Higher-index or general implicit DAEs, variable-layout modes, IDAS
+sensitivities across events (hybrid IDAS sensitivities), adjoint and second-order
+sensitivities and shooting routes are not supported by native integration (adjoint and
+second-order sensitivities and shooting are in the target, ADR-0110, Plan 22 Y3–Y5; not yet
+implemented); declarations outside the admitted profile are refused before native work. The
 qualification basis for the admitted profiles is
 [§24.2](operations-and-validation.md#section-24-2).
 
@@ -148,13 +172,15 @@ solves, simulations, fits or strategies. Starting work returns a supervised `Run
 waiters share the joined result and cancellation joins native destruction. Preparation does
 not publish or own a mutable solver. Publication remains explicit
 ([§20](identity-and-publication.md#section-20)). Owners are `workflow/modeling`,
-`workflow/run`, `workflow/completion`, `workflow/modeling_results` and fitting preparation.
+`workflow/staged`, `workflow/run`, `workflow/completion`, `workflow/modeling_results` and
+fitting preparation.
 
 ### 19.1 Cases and overlays
 
 > Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
 > restates D13 (superseding ADR-0016): cases and results never mutate the model; a
-> cancelled or failed attempt is distinguished by its typed lifecycle state.
+> cancelled or failed attempt is distinguished by its typed lifecycle state. Plan 22 A6
+> (implemented) scopes every overlay to one staged step.
 
 Authored case and fixture specifications resolve source paths against the selected concrete
 instance. They bind values, fixed/free state and physical bounds without changing symbol
@@ -162,13 +188,24 @@ roles. Every selected scalar requires an admitted finite value; ambiguous, missi
 incompatible targets refuse. `with_declarations` returns a newly checked package revision;
 failed admission leaves earlier packages usable.
 
-Initialization and continuation apply immutable overlays. Only independently accepted
-solved values become a committed warm start; final acceptance evaluates the original
+Initialization, continuation and every other staged step apply immutable overlays. A step's
+`Overlay` (`workflow/staged.rs`) holds specialization facts (such as a selected
+initialization stage), replacements of declared parameters (such as continuation values),
+temporary fixes and relaxations by case path, whose set fields replace the original's, and
+temporary case values. It is composed over the original specification for that step only, so
+nothing it changes survives the step, whether the step succeeds, fails, is refused or is
+cancelled, and the original specification stays in force for the next step and for the
+package (PS-08; `initialization_restores_overlays_on_failure`). Only independently accepted
+solved values become a committed start; final acceptance evaluates the original
 specification and original model checks. An algebraic start carries its source identity and
 compatibility independently of native allocation reuse. A stage, start or result never
 mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
+
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
+> completion owns candidate use and records the actual request and start. Plan 22 A6
+> (implemented) runs every algebraic run as one staged sequence.
 
 `RunResult` retains the authored outcome and the typed report, the original request (including unattempted steps)
 and a `Completion` computed once at join: candidate assessments, source-attributed
@@ -177,6 +214,21 @@ Lineage records model revision, case, request, preparation, profile, numerical p
 physical context and actual environment identities, separately from the unique run ID.
 Arrow tables, Python objects and publication copy this product; reading it never
 evaluates or reclassifies the model.
+
+**Staged sequences.** Every algebraic run is one staged sequence
+(`workflow::staged::Staged`). `ModelingSolvePreparation::start` runs a one-step authored
+sequence, and `Runtime::start_modeling` runs a finite authored sequence of at most 4,096
+prepared steps from one physical context. The steps share one native session
+([§18.8](numerical-execution.md#section-18-8)) and one progress stream. Each is assessed
+against the original model on the session's worker, recorded with its typed outcome and
+candidate-use decision, and offered the previous step's output seed, which it consumes under
+`PreviousAccepted` only when that step's candidate is a result
+([§17.6](numerical-execution.md#section-17-6)). An unaccepted step ends the sequence unless
+the steps are declared independent; cancelling the run stops the current step and joins
+native teardown. Initialization, homotopy and studies are sequences of the same primitive
+([§17.5](numerical-execution.md#section-17-5), [§19.3](#section-19-3)). Below the modeling
+workflow, `MathService::solve` runs one prepared step, without the modeling assessment, as a
+one-step session.
 
 These facts stay distinct in every result:
 
@@ -218,13 +270,26 @@ Clones and exported Arrow buffers share allocation ownership through the last re
 
 ### 19.3 Sweeps and reuse
 
-Authored studies execute finite case inventories with explicit predecessor relationships,
-point caps and interruption policy. Failures retain structured causes and do not suppress
-independent points; unattempted points remain visible. The compiler reuses equal checked
-structure and library programs while values and requested analyses remain explicit inputs
-([§14.4](mathematics-and-compilation.md#section-14-4)). Dynamic rebinding retains the same
-ownership contract. Runtime cache clearing removes retained programs without invalidating
-active workers; historical campaign measurements do not qualify the new seed.
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — a
+> dependent point starts only from a predecessor whose candidate permits it. Plan 22 A6
+> (implemented) runs a study as one staged sequence over package views.
+
+`ModelingPackage::study` executes a finite inventory of points, at most 4,096 and at most the
+caller's cap, as one staged sequence with explicit predecessor relationships; a predecessor
+must be an earlier point. Each point is one step: it starts from its specification, or,
+when it names a predecessor, from that point's solved values (`Start::Seed`,
+[§17.6](numerical-execution.md#section-17-6)), which must come from a result or a
+`seed_only` candidate ([§16.6](numerical-execution.md#section-16-6)); otherwise the point is
+refused with `modeling.study.predecessor`. A failed point is recorded and isolated: it drops
+the retained native session and seeds nothing, independent points continue, and only the
+points that name it are refused (`failed_point_isolated_in_study`). Points not attempted
+after cancellation remain visible as a count. Points of one structure share the package's
+prepared view and rebind values ([§14.4](mathematics-and-compilation.md#section-14-4)), so a
+study whose points differ only in values prepares one view; the compiler reuses equal checked
+structure and library programs while values and requested analyses remain explicit inputs.
+Dynamic rebinding retains the same ownership contract. Runtime cache clearing removes
+retained programs without invalidating active workers; historical campaign measurements do
+not qualify the new seed.
 
 ### 19.4 Parameter estimation
 
@@ -294,18 +359,83 @@ exists.
 > domains, disjunctions and indicator, SOS, cardinality, piecewise and logic declarations
 > enter the design target (Plan 22 M1–M5);
 > [ADR-0103](../../adr/0103-variable-domain-facet.md) — the declared domain facet (Plan 22
-> M1, implemented). The M2 fixed-assignment stage and M3–M5 are not yet implemented.
+> M1, implemented). Plan 22 M3 and M4 (implemented) lower the constraint forms and
+> disjunctions; the M2 fixed-assignment initialization stage and M5 (complementarity and
+> discrete phase modes) are not yet implemented.
 
 Authored discrete domains are implemented: a variable declares `integer`, `binary`,
 `semicontinuous` or `semiinteger` ([§6.8](schema-and-relations.md#section-6-8)), and a
 linear model over such decisions is an authored MILP that routes to HiGHS
-([§18.1](numerical-execution.md#section-18-1)). Not yet implemented as modeling
-constructs: alternative sets, disjunctions, and indicator, SOS, cardinality, piecewise and
-logic declarations have no declaration or lowering today. Disjunctions with declared
-realizations (big-M, derived big-M, hull, indicator) and the resulting MIQP and MINLP
-classes are in the design target
-([ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
-[ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md)).
+([§18.1](numerical-execution.md#section-18-1)); mixed-integer quadratic and nonlinear
+programs route to SCIP ([§18.10.1](numerical-execution.md#section-18-10-1)).
+
+**Constraint forms and disjunctions.** The declarations of
+[§6.8](schema-and-relations.md#section-6-8) are lowered during generic specialization
+(`pse-modeling::specialize::forms`) by named transformations, never during a solve. The
+authored revision is unchanged (D13), and every derived row and variable keeps the authored
+lineage. The specialized model records each lowering (`Lowering`: source, instance,
+realization, declared `Equivalence`, derived rows and variables) in lowering order.
+Structural and degree-of-freedom analysis see the lowered problem. No result relation
+publishes the lowering record yet.
+
+| Realization | Lowering | Declared equivalence |
+|---|---|---|
+| `bigm(M)` | With the residual `r = lhs − rhs` and a factor `f` that is zero exactly when the row must hold (`1 − y` for an active indicator or a selected alternative, `y` for `when not y`): `r ≤ M·f` and `r ≥ −M·f`, only the sides the row's sense needs. `M` becomes a member with the row's physical type | Exact only if the authored M is valid, which is the author's assertion (`AuthoredBigM`) |
+| `bigm(derived[, margin])` | The same rows, with derived upper and lower bounds of the residual in place of `±M` | Exact over the admitted case box |
+| `hull`, `hull(ε)` | For every variable of the disjuncts: derived bounds `L`, `U` from its case bounds, one disaggregated copy `v_k` per alternative with `L·y_k ≤ v_k ≤ U·y_k`, and the link `x = Σ v_k`. An affine disjunct row with `g = lhs − rhs` becomes `g(v_k) − g(0) + g(0)·y_k` related to zero; a nonlinear one becomes the ε-perspective `(y_k + ε)·g(v_k/(y_k + ε))` and needs a declared ε | Exact for affine rows; O(ε) for nonlinear rows (`Perspective`) |
+| `indicator` | The rows unchanged, with native indicator metadata ([§7.5](mathematics-and-compilation.md#section-7-5)) | Left to a native handler (`Native`) |
+| `linear` (sets, cardinality, logic) | SOS1 and SOS2: `L·z ≤ x ≤ U·z` over finite case bounds with binary selectors that admit one member, or two neighbours. Cardinality over binary members: one count row; over other members only `atmost`, by switched bounds and a count of their selectors. Logic: auxiliary binary resultants with exact linear rows | Exact |
+| `sos2`, `incremental` (piecewise) | `sos2`: convex weights with `x = Σ λ_k X_k`, `y = Σ λ_k Y_k`, `Σ λ_k = 1` and segment binaries that restrict the weights to one segment. `incremental`: segment fill variables `δ_j` ordered by binaries, with `x = X_0 + Σ δ_j (X_{j+1} − X_j)` and likewise for `y` | Exact |
+| `native` (sets, cardinality, piecewise, logic) | SOS, cardinality or `and`/`or`/`xor` metadata over the same variables; for a piecewise function, the convex-combination rows with SOS2 metadata on the weights. A cardinality over binary members stays one count row | Left to a native handler (`Native`) |
+
+**Derived realization parameters.** Hull and linear lowerings take the bounds of their
+variables from the case, and a derived big-M takes each side from the library's interval
+enclosure of the residual. Both are parameters that the bound structure determines
+(`workspace/modeling/executable/derived.rs`): their rules are prepared with the view and
+enter its identity ([§14.4](mathematics-and-compilation.md#section-14-4)), and their values
+are computed per binding.
+
+- A bound of a free variable is its case bound, fixed by the structure; an infinite one
+  refuses the lowering (`InfiniteBound`). A fixed variable or parameter contributes its value
+  in that binding.
+- A derived big-M side is the outward-rounded FBBT enclosure of the disjunct residual over
+  the case box, from `pounce-presolve`'s forward pass over an enclosure program that is built
+  once per view; a semi domain's box includes its zero branch. The needed side is extended
+  to include zero, because the residual of an inactive row may be zero; it is widened outward
+  by the relative margin and then by one more ULP. A side within the enclosure's own
+  rounding resolution of zero (its largest finite end times machine epsilon) is exactly zero,
+  never a subnormal. A residual whose tape is not FBBT-complete (`IncompleteInterval`) or
+  whose needed side is not finite (`UnboundedInterval`) refuses the lowering, naming the row;
+  no default M is ever used.
+
+Derived values complete the values every consumer of the view evaluates with. A value
+rebind recomputes them only when a fixed or parameter value they consumed changed, and a
+study point that changes such a value never prepares the structure again
+(`derived_big_m_follows_value_only_study_points`). Under plain `hull` a nonlinear disjunct
+row is refused (`Nonlinear`). Every realization refusal is `ModelingError::Realization`
+([§23.2](operations-and-validation.md#section-23-2)).
+
+**Nesting.** Disjunctions nest through alternatives and are lowered inner-first. An inner
+disjunction selects exactly one alternative while its owner is selected
+(`Σ y_k = y_owner`; at top level `Σ y_k = 1`). Under `hull`, the link rows of a nested
+disjunction let its copies vanish and its variables keep their own box when the owner is not
+selected: `L·(1 − y_owner) ≤ x − Σ v_k ≤ U·(1 − y_owner)`. Lowering records follow the same
+order.
+
+**Routing.** Linear realizations produce ordinary rows over binary variables, which HiGHS
+solves when they are linear and SCIP when a quadratic objective or nonlinear row remains. The
+linear lowering of an indicator on HiGHS 1.15 matches an enumerated oracle, including a charge
+at which idling is optimal (`indicator_linear_lowering_matches_native`, the regression guard
+for the HiGHS 1.14.3 presolve defect). A native realization is eligible only on an adapter
+whose record consumes the handler, and no linked record does yet (SCIP's handlers arrive with
+Plan 22 G7), so a `native` or `indicator` realization is refused before any solve
+([§18.7](numerical-execution.md#section-18-7)). The seed GDP fixture
+([§6.10](schema-and-relations.md#section-6-10)) reaches its enumerated optimum through the
+hull realization.
+
+Not yet implemented: complementarity declarations and discrete phase-appearance modes (Plan
+22 M5), a lowering of semi domains for backends without native semi variables, and the M2
+fixed-assignment initialization stage.
 
 ### 19.8 Uncertainty
 
@@ -358,7 +488,9 @@ The removed model builders have no compatibility facade.
 interrupt requests cancellation and joins the native supervisor before the signal
 propagates. `wait_async()` uses `pyo3-async-runtimes` on the process Tokio executor;
 cancelling an async waiter requests native stop while the handle keeps the eventual
-terminal result. Repeated waits never rerun a solver.
+terminal result. Repeated waits never rerun a solver. A run handle supervises one staged
+sequence ([§19.2](#section-19-2)); a single solve is a one-step sequence on its own native
+session.
 
 `pse.open(location, version=..., settings=...)` selects one exact Delta publication;
 later writes cannot change the selection ([§20](identity-and-publication.md#section-20)).

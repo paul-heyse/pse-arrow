@@ -157,8 +157,12 @@ as constants, not model inputs.
 
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — `FactorableProgram`,
 > the library-neutral factorable projection with per-row fidelity, from which presolve
-> derives its tapes and obligation admission (Plan 22 G2, implemented; its SCIP binding,
-> Plan 22 G1 and G3, is not yet implemented);
+> derives its tapes and obligation admission (Plan 22 G2, implemented; its SCIP binding and
+> runner, Plan 22 G1 and G3, are implemented,
+> [§18.10.1](numerical-execution.md#section-18-10-1));
+> [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — constraint forms
+> left to native handlers are structure metadata in `CaseStructure` and `ProblemFacts` (Plan
+> 22 M3 and M4, implemented);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — several
 > objectives with priority, weight and degradation tolerances (Plan 22 C3; not yet
 > implemented).
@@ -176,7 +180,8 @@ specialization ([§10](models-and-composition.md#section-10)).
 
 **Domain admission.** The compiler's grouped case projection carries each free variable's
 declared domain; a binary variable brings the unit box, which case bounds may only narrow.
-`prepare_modeling_bound_case` then admits every free discrete variable after case binding.
+`PreparedModeling::bound_structure` ([§14.4](#section-14-4)) then admits every free discrete
+variable after case binding.
 Integer and semi domains need finite lower and upper bounds, and bounds that leave no value
 of the domain are refused: a binary box containing neither 0 nor 1, an integer range with
 no integer, or a semi active interval that is not positive. Integer and binary variables
@@ -185,8 +190,24 @@ also need a count or indicator quantity kind
 (`modeling.domain`, analysis `preparation`). Non-integral bounds on an integer variable are
 passed on unchanged: the recorded inward tightening of ADR-0103 is not implemented. A fixed
 variable needs no search range; its value is checked for exact domain membership instead
-([§7.6](#section-7-6)). `CaseStructure::key` frames each domain by its registry spelling
-(`pse.math.case-structure.v2`).
+([§7.6](#section-7-6)). `CaseStructure::key` frames each domain by its registry spelling,
+and every native constraint form below (`pse.math.case-structure.v2`).
+
+**Native constraint forms.** A constraint form or disjunction realized `native` or
+`indicator` ([§6.8](schema-and-relations.md#section-6-8),
+[§19.7](workflows-and-results.md#section-19-7)) keeps its authored structure as
+`pse_model::forms::NativeConstraint` metadata, attached by `CaseStructure::with_native`: an
+indicator (the conditional row, its binary variable and the value that activates the row),
+an SOS1 or SOS2 set (members with strictly increasing weights), a logic `and`, `or` or `xor`
+(a binary resultant and possibly negated binary operands) or a cardinality bound (members
+and the largest nonzero count). Every row and variable a form names must be selected. The
+conditional row of an indicator is also an ordinary row, which an adapter without the
+handler would enforce unconditionally. `CaseStructure::key` frames every form, so a native
+and a linear realization of one form are different structures. `ProblemFacts.native` lists
+the handlers the structure requires, sorted and unique, by the registry enum
+`NativeConstraintForm` (`indicator`, `sos1`, `sos2`, `and`, `or`, `xor`, `cardinality`);
+routing admits the structure only on an adapter whose capability record consumes every
+listed handler ([§18.7](numerical-execution.md#section-18-7)).
 
 Mathematical class is established from the admitted program, never from authored hints:
 `ProblemFacts` records admitted derivative order, bound shapes, guarded status, proved
@@ -219,9 +240,10 @@ and original-coordinate qualification remain the authority for every candidate.
   in {±1, ±2, ±½}: minimum, maximum and absolute value in either guard orientation. Any
   other branch follows the declared `BranchPolicy`. The default, `Auxiliary`, makes its
   result an auxiliary, bounded by the branch values when all of them are constant.
-  `Disjunctive` is a typed refusal (`FactorableError::DisjunctiveBranch`) until the
-  discrete-decision packets land. A guard that is constant under the consumed values
-  selects its region statically.
+  `Disjunctive` is a typed refusal (`FactorableError::DisjunctiveBranch`) until Plan 22
+  G7; authored disjunctions are lowered to rows at specialization
+  ([§19.7](workflows-and-results.md#section-19-7)) and do not use this policy. A guard
+  that is constant under the consumed values selects its region statically.
 - `Require` and `Domain` stages are obligations, never value dependencies. Each becomes a
   conjunction of closed constraints, marked `strict` where the original condition excludes
   the finite bound; the conjunction is the obligation's closure. A part without a closed
@@ -234,6 +256,11 @@ and original-coordinate qualification remain the authority for every candidate.
   Other provider outputs become auxiliaries within the envelope their evaluation enforces,
   which makes the dependent rows `Relaxed`. An exhausted node budget leaves the affected
   rows `Unavailable` and records the instance as incomplete.
+
+The SCIP route ([§18.10.1](numerical-execution.md#section-18-10-1)) projects under the
+default request as well: supplying implicit definitions and provider envelopes to it is
+Plan 22 G4 and not yet implemented, so a provider output inside a nonlinear term has no
+finite box and that export is refused.
 
 **Presolve facts.** `CasePlan::presolve_facts` derives FBBT tapes and obligation admission
 from this projection, under the default request (no implicit definitions or envelopes;
@@ -279,8 +306,9 @@ consumers cannot mutate a checked product or substitute a foreign physical revis
 
 The language admits packages, entity kinds/entities, enumerations, sets, tables, functions,
 interfaces, definitions, presets, children, equations, accumulators, contributions, ports,
-connections, annotations, requirements, tests, cases and analyses. Expressions include
-physical literals, lexical bindings, indexed paths, finite reductions/folds, conditionals,
+connections, annotations, requirements, tests, cases and analyses, and the constraint forms,
+disjunctions and realizations of [§6.8](schema-and-relations.md#section-6-8). Expressions
+include physical literals, lexical bindings, indexed paths, finite reductions/folds, conditionals,
 function calls, partial derivatives and continuous derivatives/integrals. Parse/render/parse
 preserves declaration structure and IDs; diagnostic spans refer to original bytes.
 
@@ -310,16 +338,20 @@ lifetimes, and each has a distinct identity scope
 ### 14.1 Preparation stages and contracts
 
 > Decision: [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) —
-> named lowerings of indicator, SOS, cardinality, piecewise, logic, disjunction and
-> complementarity declarations join preparation (Plan 22 M3–M5; not yet implemented).
+> named lowerings of indicator, SOS, cardinality, piecewise, logic and disjunction
+> declarations join generic specialization, and their derived realization parameters join
+> view preparation (Plan 22 M3 and M4, implemented;
+> [§19.7](workflows-and-results.md#section-19-7)); complementarity (M5) is not yet
+> implemented.
 
 | Stage | Owner | Consumes | Produces | Effects |
 |---|---|---|---|---|
 | Package admission | runtime modeling admission ([§22](models-and-composition.md#section-22)) | exact package closure, generic declarations, physical inventory and aliases | immutable checked revision | source loading and bounded admission |
-| Generic specialization | `pse-modeling`, tracked by compiler modeling queries | checked package, root/instance, bindings, analysis and limits | demanded members, equations, lineage, checks and reports | none |
+| Generic specialization | `pse-modeling`, tracked by compiler modeling queries | checked package, root/instance, bindings, analysis and limits | demanded members, equations, named lowerings of constraint forms and disjunctions, lineage, checks and reports | none |
 | Input publication | `CompilerWorkspace` | checked package/context and lowered case inputs | Salsa input revisions | validated before setters |
 | Definition admission | `admitted` query → `typed_math::Request::admit` | definition source, formals, domains, groups, providers, units, physical registry | `AdmittedBody`: `BodySpec`, types, occurrences, `PreparedBody` | none |
 | Case planning | `plan` query → `CasePlan::prepare` | case structure, semantic bodies | immutable `CasePlan` with faer patterns and local demands | none; no evaluators |
+| Modeling view and rebind | `PreparedModeling::bound_structure`, `CompilerWorkspace::prepare_modeling_view`, `PreparedCase::rebind` | bound case structure, derivation rules, case values | a `PreparedCase` view identified by `view_key`, whose value products are rebound per values ([§14.4](#section-14-4)) | none; no evaluators |
 | Structure and facts | `structure`, `coefficients`, `presolve_facts`, `problem_facts` queries | plan, consumed fixed/parameter values | `StructuralAnalysis`, coefficient/presolve/class facts | none |
 | Artifact requests | `artifacts` query | plan demands, `Profile`, math environment | keyed `ArtifactRequest`s | none |
 | Program construction | `pse-runtime::math` | artifact request | `CompiledBody` | native build, retained under runtime policy |
@@ -448,6 +480,10 @@ or measure process RSS.
 
 ### 14.4 Incrementality
 
+> Decision: [ADR-0089](../../adr/0089-semantic-identity-projections.md) — complete identity
+> projections. Plan 22 A6 (implemented) adds value-only rebind of prepared views and bounded
+> package views keyed on bound structure.
+
 Salsa reuse is valid only when a fresh workspace given the same admitted inputs would
 produce an equal product. Queries depend on exact fields, including absence; unchanged
 results backdate so unrelated edits do not propagate. Durability follows semantic
@@ -458,11 +494,46 @@ providers, cases and flows are medium; values are low.
 |---|---|---|
 | Free-variable case value | value-reading fact queries re-check and backdate; they consume only fixed/parameter values | bodies, case plan, structure, artifacts |
 | Fixed or parameter value | coefficient, presolve and class facts that consumed it | bodies, case plan, structure, artifacts |
+| A value that a derived realization parameter consumed ([§19.7](workflows-and-results.md#section-19-7)) | that parameter, then the value products that consumed it | view, derivation rules, bodies, plan, artifacts |
 | Fixed/free status, bounds, rows, bindings or contributions | case plan and its dependents | admitted bodies |
 | One definition's source, formals, units or literal contracts | that definition's body and dependent plans | other bodies with equal keys |
 | Domain membership, group tuples or provider descriptor | definitions that read them | independent definitions |
 | Quantity registry or physical preconditions | every body (complete physical identity) | nothing semantic |
 | Optimizer or evaluation profile | artifact requests and programs | bodies and plans |
+
+**Prepared views and value-only rebind.** Solver views of a modeling analysis separate
+structure from values. `PreparedModeling::bound_structure` applies the case's variable
+states, admits discrete domains ([§7.5](#section-7-5)) and excludes observation rows; it
+reads no value. `PreparedModeling::view_key` (`pse.compiler.modeling-view.v2`) is the
+complete identity of the view prepared from that structure: the bound structure key,
+including native constraint forms; every admitted body with its source occurrences; the rules
+of the derived realization parameters; the derivative order; the evaluator profile; and the
+physical context. Equal keys give equal plans, structural analyses, derivations, artifact
+requests and provenance. `CompilerWorkspace::prepare_modeling_view` prepares the view and
+binds its first values.
+
+`PreparedCase::rebind` binds later values to the same view. The plan, structural analysis,
+artifact requests, source occurrences and derivation rules are shared. Derived realization
+parameters are recomputed only when a value they consumed changed. The presolve projection,
+coefficient snapshot and problem facts are rebuilt only when a value they consumed changed,
+derived or not (`PreparedCase::values_match`: the dependencies the presolve projection
+recorded and, with a coefficient snapshot, the fixed and parameter values it assumed).
+Free-variable starts are never among them. The recorded fixed and parameter assumptions
+always follow the new values, and every consumer evaluates with the values completed by the
+derived parameters (`PreparedCase::complete`). `PreparedBlock::bind` binds a conditional
+initialization block the same way: the block's plan, structural analysis and artifact
+requests are its own and shared, and only the value products are built. Observation
+programs are value-free: `prepare_modeling_observations` returns a plan with its artifact
+requests (`PreparedFunctions`) and builds no presolve or coefficient projection, because
+every evaluation binds its own values.
+
+The runtime keeps these products per package revision (`workflow/modeling/views.rs`): up to
+16 solver views and 16 observation programs, each keyed by its view key and evicted least
+recently used first. The first request for a structure prepares it; every later one rebinds
+(`MathService::rebind`), which runs no job when no consumed value changed and otherwise
+rebuilds only the value products on one admitted worker. A new package revision starts with
+no views. A study of five points that differ only in values therefore prepares one view
+(`value_only_study_prepares_once`).
 
 A complete physical-inventory identity conservatively re-admits all bodies after any
 registry change; a finer consumed-physical fingerprint would be an optimization, not a

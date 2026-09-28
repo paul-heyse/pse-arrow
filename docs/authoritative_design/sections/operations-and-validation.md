@@ -59,7 +59,9 @@ propagation beyond `tracing` task propagation inside the engine.
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > `numerical` and `inconclusive` boundary classes, diagnostic severity and typed
-> `ProblemError` variants (Plan 22 A1, implemented).
+> `ProblemError` variants (Plan 22 A1, implemented);
+> [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — the typed
+> realization refusal `modeling.realization` (Plan 22 M3 and M4, implemented).
 
 **Ownership.** `pse-diagnostics` declares one vocabulary: `FailureClass` (coarse class)
 and `DiagnosticCode` (detailed code, each mapped to one class). The registry projects
@@ -150,6 +152,19 @@ the reason as observations and its declaration and variable identities as source
 quantity kind that is not a count or indicator, and bounds that admit no value of the
 domain, are `invalid_model` (`validation.invariant`); missing finite bounds and a free
 discrete variable that the analysis cannot decide are `unsupported` (`capability.backend`).
+
+**Modeling realization refusals.** `pse_modeling::ModelingError::Realization` is the typed
+refusal of a constraint-form or disjunction lowering that the bound case cannot admit
+([§19.7](workflows-and-results.md#section-19-7)). It names the authored form or disjunction
+(declaration and path), the subject row or variable, the declared realization and one of four
+reasons (`RealizationRefusal`): `InfiniteBound`, a hull or linear lowering that needs a finite
+case bound on the named variable; `IncompleteInterval`, a derived big-M row whose interval is
+not FBBT-complete; `UnboundedInterval`, a derived big-M row whose interval is not finite over
+the case box; and `Nonlinear`, a nonlinear disjunct row under `hull` without an ε. Its code is
+`capability.backend`, and its boundary rule is `modeling.realization`, class `unsupported`,
+with the form, subject, realization and reason as observations and the declaration as
+source. A malformed declaration (a misplaced form, a wrong type or argument, competing
+realizations) is an ordinary checking refusal (`validation.invariant`).
 
 **Native failures.** `pse-backend-native::ProblemError` classifies a refused request or an
 attributable native failure by cause; each variant keeps its cause and structural

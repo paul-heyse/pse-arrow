@@ -261,7 +261,9 @@ survive name edits; names and source byte ranges are separate from identity.
 The reference relations declare dimensions, units, unit sets, quantity kinds, bases,
 reference states, quantity types, conversions, quantity operations and constants.
 `quantity_kinds` (version 2) carries the optional count or indicator category of a
-dimensionless kind ([§8.1](physical-semantics.md#section-8-1)).
+dimensionless kind ([§8.1](physical-semantics.md#section-8-1)); quantity inference reads it
+for discrete scaling, which takes precedence over neutral scaling
+([§8.3](physical-semantics.md#section-8-3)).
 `quantity_preconditions` and `quantity_operation_reductions` carry the prerequisites
 checked against actual operands. `math_context` explicitly names the neutral scalar
 and Boolean kind.
@@ -317,7 +319,11 @@ The old instance/composition/connection relation families have no remaining prod
 > Decision: [ADR-0103](../../adr/0103-variable-domain-facet.md) — variables gain a
 > declared domain facet (`continuous`, `integer`, `binary`, `semicontinuous`,
 > `semiinteger`) with per-mode semantics (Plan 22 M1 and the M2 refusals, implemented;
-> the M2 fixed-assignment stage is not yet implemented).
+> the M2 fixed-assignment stage is not yet implemented);
+> [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — indicator,
+> SOS, cardinality, piecewise-linear, logic and disjunction declarations with named
+> realizations (Plan 22 M3 and M4, implemented; complementarity, M5, is not yet
+> implemented).
 
 Variables, parameters and value members are tagged modeling declarations. Specialized
 scalar identities derive from declaration, instance and admitted membership, never display
@@ -331,8 +337,8 @@ or `semiinteger`. `continuous` is the default: omitting the facet and writing
 `in continuous` are the same declaration, and rendering prints no facet for it. Only `var`
 takes a facet; one on a parameter or value member is a parse error. The registry enum
 `ModelingVariableDomain` is the single authority from source to the native boundary. The
-binding arm of `authored.modeling_declarations` (version 2) stores it, present exactly on a
-variable; the compiler, `ProblemFacts` and HiGHS consume the generated type directly; and
+binding arm of `authored.modeling_declarations` (since version 2) stores it, present exactly
+on a variable; the compiler, `ProblemFacts` and HiGHS consume the generated type directly; and
 `runtime.solve_variables` (version 3) states it in its `domain` column on every variable
 row, while parameter rows carry none. An interface member's override or implementation
 keeps the member's domain; a different one is refused at checking.
@@ -350,7 +356,7 @@ with one:
 
 | Analysis | Free discrete variable |
 |---|---|
-| Steady optimization | A decision: an authored MILP routes to HiGHS ([§18.1](numerical-execution.md#section-18-1)); MIQP and MINLP routes are not yet implemented |
+| Steady optimization | A decision: an authored MILP routes to HiGHS, and MIQP and MINLP route to SCIP ([§18.1](numerical-execution.md#section-18-1)); a semicontinuous or semiinteger variable has no SCIP export yet |
 | Root solve | Refused; when the case fixes every discrete variable, the solve is continuous |
 | Initialization | Refused; the stage that fixes discrete variables as a scoped overlay (Plan 22 M2) is not yet implemented |
 | Fitting | Refused unless the experiment's case fixes it |
@@ -364,6 +370,51 @@ variable (identity, declaration and instance path), its domain, the analysis
 violated rule; its diagnostic rule is `modeling.domain`
 ([§23.2](operations-and-validation.md#section-23-2)).
 
+**Constraint forms and disjunctions.** Version 3 of `authored.modeling_declarations` adds the
+declarations of ADR-0104. Each is lowered at specialization by a named realization
+([§19.7](workflows-and-results.md#section-19-7)):
+
+| Declaration | Syntax | Default realization | Admitted realizations |
+|---|---|---|---|
+| Indicator constraint | `eq name[i in s] when y[i]: lhs <= rhs;`, or `when not y[i]` for the complement; any relation sense | `bigm(derived)` | `bigm(M)`, `bigm(derived[, margin])`, `indicator` |
+| Special ordered set | `sos1 name[i in s]: x[i] weight w[i];`, likewise `sos2` | `linear` | `linear`, `native` |
+| Cardinality | `atmost name[i in s]: k of y[i];`, likewise `atleast` and `exactly` | `linear` | `linear`, `native` |
+| Piecewise-linear function | `piecewise name[k in s]: y == x at (X[k], Y[k]);` | `sos2` | `sos2`, `incremental`, `native` |
+| Logic proposition | `logic name[i in s]: a implies (b or not c);` | `linear` | `linear`, `native` |
+| Disjunction | `disjunction name { alternative a { … } alternative b { … } }` | none; a realization is required | `bigm(M)`, `bigm(derived[, margin])`, `hull`, `hull(epsilon)`, `indicator` |
+
+A realization is declared as `realize r on target using policy;`, at most one per target;
+competing realizations are refused. The target is an implicit block, a constraint form or a
+disjunction. The policy is the registry enum `ModelingRealizationPolicy` (`big_m`,
+`derived_big_m`, `hull`, `indicator`, `linear`, `native`, `sos2` and `incremental`, beside the
+implicit-block policies), and its argument is stored as text (`value.realization.argument`).
+Authors write `bigm(M)`, where `M` is an expression with the row's physical type, and
+`bigm(derived)` or `bigm(derived, margin)` with a finite nonnegative relative margin (default
+10⁻⁶); the registry spellings `big_m` and `derived_big_m` are refused in source. `hull(epsilon)`
+takes a finite positive ε; plain `hull` admits only affine disjunct rows.
+
+In a proposition `implies` binds loosest and associates to the right, then `or`, `xor` and
+`and`; `not` binds tightest; `exactly(k, p, q, …)` counts true operands; atoms are paths to
+binary variables. An indicator condition names a binary variable of the indicator type.
+Set and cardinality members are physical variables; SOS weights are finite and distinct, and
+members are ordered by weight; a cardinality count is a nonnegative integer. A piecewise
+function has exactly one breakpoint index, at least two breakpoints, and breakpoints of the
+input's and output's physical types.
+
+**Placement.** Constraint forms (indicator constraints, sets, cardinality, piecewise and
+logic declarations) belong to the rows of a definition, possibly under a `when` guard, or of
+a test or case. They never appear in an implicit residual, a regime, a stage or an
+alternative. A disjunction belongs to a definition, test, case or alternative (a nested
+disjunction) and takes no parameters, bases or type parameters. An alternative belongs to a
+disjunction, and a disjunction has at least two. An alternative declares relations (never
+indicator constraints), `annotation bounds` (conditional bounds that become rows of the
+alternative), start and nominal annotations (numerical hints), nested disjunctions and
+realizations; nothing else. Each alternative is a binary decision typed by the registry's
+unique indicator quantity and referenced by its disjunction path (for example
+`route.large`). A declaration that breaks these rules is a checking error; a lowering the
+bound case cannot admit is `ModelingError::Realization` (`modeling.realization`,
+[§23.2](operations-and-validation.md#section-23-2)).
+
 ### 6.10 Cases, observations, dynamics and fitting
 
 Case and test scopes in the modeling IR carry root bindings, values, fixed/free state,
@@ -373,7 +424,10 @@ physical/relative tolerances. Conformance records derivative sampling as not app
 while free discrete variables remain: sampling perturbs a continuous oracle, and
 integrality is never relaxed implicitly. The seed price-taker fixture
 (`packages/reference/seed-data/models/price-taker.pse`) is an authored MILP whose linear
-relaxation exceeds its optimum, so it shows that integrality is enforced.
+relaxation exceeds its optimum, so it shows that integrality is enforced. The seed GDP fixture
+(`packages/reference/seed-data/models/gdp.pse`) chooses one of three supply alternatives
+through a disjunction realized by `hull`; its optimum follows by enumerating the
+alternatives.
 
 `authored.datasets` and `authored.observations` supply measurements. `authored.fit_cases`
 binds authored modeling experiments and source paths to the existing sparse fitting engine.
