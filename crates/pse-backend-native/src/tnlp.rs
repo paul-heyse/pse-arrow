@@ -524,6 +524,6 @@ impl TNLP for Adapter {
                 pounce_nlp::return_codes::AlgorithmMode::RegularMode => "RegularMode",
                 pounce_nlp::return_codes::AlgorithmMode::RestorationPhaseMode => "RestorationPhaseMode",
             }.into()));
-            execution.progress.push(Event{phase:"pounce.iteration".into(),elapsed:execution.started.elapsed(),values});Ok(())}).is_some()
+            execution.progress.push(Event{phase:"pounce.iteration".into(),elapsed:execution.started.elapsed(),values,incumbent:None});Ok(())}).is_some()
     }
 }

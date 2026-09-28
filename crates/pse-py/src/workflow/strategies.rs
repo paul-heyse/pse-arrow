@@ -340,6 +340,7 @@ impl NativeAttempt {
             phase: "final".into(),
             elapsed: Duration::ZERO,
             values: self.inner.metrics.clone(),
+            incumbent: None,
         })
     }
     fn provenance(&self) -> std::collections::BTreeMap<String, String> {

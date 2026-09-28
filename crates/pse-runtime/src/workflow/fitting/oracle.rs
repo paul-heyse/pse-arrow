@@ -271,6 +271,7 @@ impl FitOracle {
                 "experiments".into(),
                 native::solve::Metric::Integer(p.experiments.len() as i64),
             )]),
+            incumbent: None,
         });
         self.point = Some(point);
         self.point

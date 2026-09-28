@@ -190,6 +190,10 @@ pub fn solve(
     };
     let report = session.solve(
         &p.problem,
+        &pse_math::normalization::Normalization::identity(
+            p.problem.contract.variables.len(),
+            p.problem.contract.rows.len(),
+        ),
         controls,
         &accuracy,
         &crate::highs::Settings::default(),

@@ -1178,6 +1178,7 @@ impl<'a> Session<'a> {
                         crate::solve::Metric::Integer(long_counter(steps)),
                     ),
                 ]),
+                incumbent: None,
             });
             if flag == ffi::IDA_ROOT_RETURN {
                 let events = self.callback.contract.events[self.callback.mode].len();

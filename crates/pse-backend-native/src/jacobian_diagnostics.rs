@@ -355,7 +355,7 @@ pub fn analyze(matrix:SparseColMatRef<'_,usize,f64>,rows:&[SemanticId],policy:Po
                 None=>{report.sessions+=1;highs::Session::new(&p,None,stamp)?}
             };
             let t=Tolerances{variables:vec![policy.tolerance;p.contract.variables.len()],rows:vec![policy.tolerance;p.contract.rows.len()],integrality:policy.tolerance};
-            let outcome=session.solve(&p,controls,&accuracy,&settings,execution.clone(),&t,None)?;
+            let outcome=session.solve(&p,&pse_math::normalization::Normalization::identity(p.contract.variables.len(),p.contract.rows.len()),controls,&accuracy,&settings,execution.clone(),&t,None)?;
             current=Some(session);
             let optimal=outcome.termination.category==Termination::Success && outcome.quality.as_ref().is_some_and(crate::quality::Quality::feasible);
             if optimal && let Some(point)=outcome.candidate.as_ref().map(|c|&c.primal) {

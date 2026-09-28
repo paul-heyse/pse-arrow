@@ -183,6 +183,7 @@ fn history_is_bounded_and_deadline_is_distinct_from_cancellation() {
             phase: "unit".into(),
             elapsed: std::time::Duration::ZERO,
             values: Default::default(),
+            incumbent: None,
         });
     }
     let (v, d) = e.progress.snapshot();
@@ -218,6 +219,7 @@ fn native_extensions_cannot_override_nested_semantics_or_unbound_history_strings
         phase: "x".repeat(8192),
         elapsed: std::time::Duration::ZERO,
         values: BTreeMap::new(),
+        incumbent: None,
     });
     assert_eq!(progress.snapshot().1, 1);
     assert!(progress.snapshot().0.is_empty());

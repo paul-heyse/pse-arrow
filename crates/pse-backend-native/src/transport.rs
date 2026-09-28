@@ -296,10 +296,6 @@ pub fn recover(
         recover_certificate(c, n, contract)?;
         report.provenance.insert("certificate.coordinates".into(),"original physical homogeneous ray; native accuracy qualifier retained, no unit-length claim".into());
     }
-    for incumbent in &mut report.incumbents.recorded {
-        values(&mut incumbent.primal, &n.variables, false)?;
-        incumbent.objective = mul(incumbent.objective, n.objective)?;
-    }
     if let Some(c) = &mut report.candidate {
         values(&mut c.primal, &n.variables, false)?;
         if let Some(f) = &mut c.objective {

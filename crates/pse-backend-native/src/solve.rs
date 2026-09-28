@@ -11,7 +11,7 @@ use std::{
     collections::BTreeMap,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -387,6 +387,95 @@ pub struct Event {
     pub elapsed: Duration,
     /// Native event values with backend-specific keys.
     pub values: BTreeMap<String, Metric>,
+    /// A new incumbent of a branch-and-bound search, typed; its bounds are not repeated
+    /// among `values`.
+    pub incumbent: Option<IncumbentEvent>,
+}
+/// A new incumbent of a branch-and-bound search, reported while it runs (Plan 22 G8): the
+/// objective in original units under the post-solve convention (authored sense, the
+/// objective constant and the export offset applied), the search's bounds at that moment,
+/// and, when the adapter's capture throttle admits it, the solution itself in original
+/// source coordinates, the coordinates a primal warm start of the same layout takes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct IncumbentEvent {
+    /// The incumbent's objective value; always finite.
+    pub objective: f64,
+    /// The global dual bound, in the objective's units; absent while none is finite.
+    pub dual_bound: Option<f64>,
+    /// The native relative gap; absent while it is not finite.
+    pub gap: Option<f64>,
+    /// Branch-and-bound nodes explored by then.
+    pub nodes: i64,
+    /// Native running time when it was reported, in seconds.
+    pub seconds: f64,
+    /// The solution in source order; absent when the capture throttle deferred it.
+    pub primal: Option<Vec<f64>>,
+}
+impl IncumbentEvent {
+    /// The shortest interval between two captured solutions of one attempt. A solution
+    /// found sooner is reported without its primal, and the adapter captures the incumbent
+    /// once the interval has passed (or when the search ends), so a large problem that
+    /// improves often never stalls on copies while the latest incumbent still reaches the
+    /// stream.
+    pub const CAPTURE_INTERVAL: Duration = Duration::from_secs(1);
+    /// Retained bytes of the event's own data, the primal included.
+    fn bytes(&self) -> usize {
+        self.primal
+            .as_ref()
+            .map_or(0, |p| p.len().saturating_mul(8))
+            .saturating_add(64)
+    }
+}
+/// When an adapter captures an incumbent's solution: the first incumbent of an attempt at
+/// once, later ones at most once per [`IncumbentEvent::CAPTURE_INTERVAL`]. A deferred
+/// capture stays pending until the interval passes or the search ends.
+#[derive(Debug)]
+pub(crate) struct CaptureThrottle {
+    started: Instant,
+    /// Nanoseconds after `started` of the last capture; `u64::MAX` before the first.
+    last: AtomicU64,
+    pending: AtomicBool,
+}
+impl CaptureThrottle {
+    pub(crate) fn new() -> Self {
+        Self {
+            started: Instant::now(),
+            last: AtomicU64::new(u64::MAX),
+            pending: AtomicBool::new(false),
+        }
+    }
+    fn now(&self) -> u64 {
+        u64::try_from(self.started.elapsed().as_nanos()).unwrap_or(u64::MAX - 1)
+    }
+    fn due(&self) -> bool {
+        let last = self.last.load(Ordering::Acquire);
+        last == u64::MAX
+            || self.now().saturating_sub(last)
+                >= u64::try_from(IncumbentEvent::CAPTURE_INTERVAL.as_nanos()).unwrap_or(u64::MAX)
+    }
+    /// A new incumbent: whether to capture its solution now. Otherwise the capture is
+    /// pending.
+    pub(crate) fn admit(&self) -> bool {
+        let due = self.due();
+        if due {
+            self.last.store(self.now(), Ordering::Release);
+        }
+        self.pending.store(!due, Ordering::Release);
+        due
+    }
+    /// Whether a deferred capture is due now; if so it is taken.
+    pub(crate) fn deferred(&self) -> bool {
+        if self.pending.load(Ordering::Acquire) && self.due() {
+            self.pending.store(false, Ordering::Release);
+            self.last.store(self.now(), Ordering::Release);
+            return true;
+        }
+        false
+    }
+    /// Whether a deferred capture is outstanding when the search ends; if so it is taken.
+    pub(crate) fn outstanding(&self) -> bool {
+        self.pending.swap(false, Ordering::AcqRel)
+    }
 }
 /// Receives every event pushed to a [`Progress`], whether or not the bounded in-memory
 /// stream retains it: a durable stream bounded by its own retention policy instead of an
@@ -402,6 +491,22 @@ pub struct Progress {
     limit: usize,
     events: Mutex<(Vec<Event>, u64)>,
     tap: Option<Arc<dyn ProgressTap>>,
+}
+impl Event {
+    /// Retained bytes: the phase, the values and the incumbent.
+    fn retained_bytes(&self) -> usize {
+        self.values
+            .iter()
+            .fold(self.phase.len().saturating_add(64), |n, (k, v)| {
+                n.saturating_add(k.len())
+                    .saturating_add(128)
+                    .saturating_add(match v {
+                        Metric::Text(v) => v.len(),
+                        _ => 0,
+                    })
+            })
+            .saturating_add(self.incumbent.as_ref().map_or(0, IncumbentEvent::bytes))
+    }
 }
 impl Metric {
     /// Stable type tag; raw nonfinite native values are observations, not missing sentinels.
@@ -433,25 +538,20 @@ impl Progress {
             ..Self::new(limit)
         }
     }
-    /// Copy an owned event into the bounded stream, after offering it to the tap.
-    pub fn push(&self, event: Event) {
+    /// Copy an owned event into the bounded stream, after offering it to the tap. A
+    /// retained event holds at most 4 KiB: an incumbent whose solution is larger is
+    /// retained without it (the tap received it whole).
+    pub fn push(&self, mut event: Event) {
         if let Some(tap) = &self.tap {
             tap.observe(&event);
         }
         if let Ok(mut s) = self.events.lock() {
-            let bytes =
-                event
-                    .values
-                    .iter()
-                    .fold(event.phase.len().saturating_add(64), |n, (k, v)| {
-                        n.saturating_add(k.len())
-                            .saturating_add(128)
-                            .saturating_add(match v {
-                                Metric::Text(v) => v.len(),
-                                _ => 0,
-                            })
-                    });
-            if s.0.len() < self.limit && bytes <= 4096 {
+            if event.retained_bytes() > 4096
+                && let Some(incumbent) = event.incumbent.as_mut()
+            {
+                incumbent.primal = None;
+            }
+            if s.0.len() < self.limit && event.retained_bytes() <= 4096 {
                 s.0.push(event);
             } else {
                 s.1 = s.1.saturating_add(1);
@@ -1255,30 +1355,6 @@ pub struct LeastInfeasible {
     /// Original rows violated beyond their acceptance budget, with the physical violation.
     pub violated: Vec<crate::quality::Violation>,
 }
-/// A feasible MIP solution reported while the search ran (callback kinds 3 and 4), in the
-/// native model's coordinates until transport recovers them.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Incumbent {
-    /// It improved the incumbent (kind 4), rather than only being feasible (kind 3).
-    pub improving: bool,
-    /// Native running time when it was reported.
-    pub seconds: f64,
-    /// Its objective value in the native model's sense.
-    pub objective: f64,
-    /// Branch-and-bound nodes explored by then.
-    pub nodes: i64,
-    /// The solution itself.
-    pub primal: Vec<f64>,
-}
-/// Incumbents in the order HiGHS reported them. Retention is bounded by the report
-/// allowance: the most recent are kept and the earlier ones only counted.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct Incumbents {
-    /// Retained incumbents, oldest first.
-    pub recorded: std::collections::VecDeque<Incumbent>,
-    /// Earlier incumbents dropped to stay within the retention bound.
-    pub dropped: u64,
-}
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
 pub struct SolveReport {
@@ -1336,8 +1412,6 @@ pub struct SolveReport {
     pub qualification: Qualification,
     /// Set when the candidate is a least-infeasible point.
     pub least_infeasible: Option<LeastInfeasible>,
-    /// MIP incumbents reported during the search, in order.
-    pub incumbents: Incumbents,
 }
 impl SolveReport {
     /// Original typed cause of a failed native evaluation, independent of event retention.
@@ -1415,7 +1489,6 @@ impl SolveReport {
             start_receipt: None,
             qualification: Qualification::Unqualified,
             least_infeasible: None,
-            incumbents: Incumbents::default(),
         }
     }
 }
