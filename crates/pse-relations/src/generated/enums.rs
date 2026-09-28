@@ -10,29 +10,31 @@ pub use pse_model::generated::r#enums::{
     CompositionBasis, ComputationKind, ConstraintScalingScheme, ConversionKind,
     DerivationGranularity, Determinism, DiagnosticCode, DiagnosticSeverity,
     DiffsolLinear, DiffsolMethod, DualQualification, DynamicsMethod, EntityKind,
-    EvidenceUnavailableReason, ExternalDerivativeSource, FailureClass, FindingSeverity,
-    HessianMode, HighsMethod, IdPolicy, IdasInitialization, InputConsumptionKind,
-    InvariantKind, IpoptLinearSolver, JobState, KinsolOrthogonalization, KinsolStrategy,
-    MemberSelectionKind, MigrationOp, ModelingAccumulatorMode, ModelingAnalysisRoute,
-    ModelingCheckKind, ModelingConformanceKind, ModelingConformanceStatus,
-    ModelingContributionRole, ModelingDeclarationKind, ModelingDiagnosticSampleStop,
-    ModelingElasticObservation, ModelingFixtureBinding, ModelingFixtureExecution,
-    ModelingInitializationStep, ModelingRealValueKind, ModelingRealizationPolicy,
-    ModelingVariableDomain, MuStrategy, MumpsOrdering, Namespace, NativeAssurance,
-    NativeBackend, NativeBoundaryClass, NativeCandidateKind, NativeConstraintForm,
-    NativeDependencyEvidenceKind, NativeDependencyKind, NativeDerivativeCapability,
-    NativeIneligibility, NativeMetricKind, NativeObjectiveSense, NativeProblemClass,
-    NativeQualification, NativeRunState, NativeSolveIntent, NativeStartPolicy,
-    NativeTermination, NativeWarmCapability, NumericalCoordinates, NumericalSource,
-    NumericalTarget, ObservationTimeBasis, Opcode, OperationEffect, PackageKind,
-    PardisoMatching, PardisoOrdering, PounceMethod, Preconditioner, PublicationKind,
-    QuantityAdditionKind, QuantityKindCategory, QuantityPreconditionKind,
-    QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule,
-    ReferenceStateKind, RetentionPhase, RetentionReason, ReusePolicy, RuntimeTermination,
-    ScaleKind, SensitivityCorrector, SettlementOutcome, Severity, SnapshotClass,
-    SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign, StoredSeedKind,
-    StudyPointState, StudyState, SubjectRule, TerminationClass, TimeCoordinateKind,
-    TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization,
+    EvidenceUnavailableReason, ExternalDerivativeSource, ExtrapolationPolicy,
+    FailureClass, FindingSeverity, HessianMode, HighsMethod, IdPolicy,
+    IdasInitialization, InputConsumptionKind, InvariantKind, IpoptLinearSolver, JobState,
+    KinsolOrthogonalization, KinsolStrategy, MemberSelectionKind, MigrationOp,
+    ModelingAccumulatorMode, ModelingAnalysisRoute, ModelingCheckKind,
+    ModelingConformanceKind, ModelingConformanceStatus, ModelingContributionRole,
+    ModelingDeclarationKind, ModelingDiagnosticSampleStop, ModelingElasticObservation,
+    ModelingFixtureBinding, ModelingFixtureExecution, ModelingInitializationStep,
+    ModelingRealValueKind, ModelingRealizationPolicy, ModelingVariableDomain, MuStrategy,
+    MumpsOrdering, Namespace, NativeAssurance, NativeBackend, NativeBoundaryClass,
+    NativeCandidateKind, NativeConstraintForm, NativeDependencyEvidenceKind,
+    NativeDependencyKind, NativeDerivativeCapability, NativeIneligibility,
+    NativeMetricKind, NativeObjectiveSense, NativeProblemClass, NativeQualification,
+    NativeRunState, NativeSolveIntent, NativeStartPolicy, NativeTermination,
+    NativeWarmCapability, NumericalCoordinates, NumericalProvenanceField,
+    NumericalSource, NumericalTarget, ObservationTimeBasis, Opcode, OperationEffect,
+    PackageKind, PardisoMatching, PardisoOrdering, PounceMethod, Preconditioner,
+    PublicationKind, QuantityAdditionKind, QuantityKindCategory,
+    QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
+    ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase, RetentionReason,
+    ReusePolicy, RuntimeTermination, ScaleKind, SensitivityCorrector, SettlementOutcome,
+    Severity, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability,
+    StateSign, StoredSeedKind, StudyPointState, StudyState, SubjectRule,
+    TerminationClass, TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
+    WeightNormalization,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -659,6 +661,25 @@ impl crate::columnar::ArrowValue for EvidenceUnavailableReason {
     }
 }
 impl crate::columnar::ArrowValue for ExternalDerivativeSource {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for ExtrapolationPolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -1646,6 +1667,25 @@ impl crate::columnar::ArrowValue for NativeWarmCapability {
     }
 }
 impl crate::columnar::ArrowValue for NumericalCoordinates {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NumericalProvenanceField {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

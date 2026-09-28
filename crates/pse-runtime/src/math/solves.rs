@@ -1015,7 +1015,7 @@ impl MathService {
                     .push(pse_model::numerics::NumericalProvenance {
                         declaration: None,
                         source: pse_model::generated::enums::NumericalSource::CanonicalFallback,
-                        field: "coordinate_scale",
+                        field: pse_model::generated::enums::NumericalProvenanceField::CoordinateScale,
                         selected: true,
                         value: *scale,
                         description: "common positive scale preserving the declared cone geometry"

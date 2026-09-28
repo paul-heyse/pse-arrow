@@ -346,6 +346,13 @@ class ExternalDerivativeSource(StrEnum):
     IMPLICIT = "implicit"
 
 
+class ExtrapolationPolicy(StrEnum):
+    """The declared ExtrapolationPolicy enumeration."""
+
+    REJECT = "reject"
+    EXTRAPOLATE = "extrapolate"
+
+
 class FailureClass(StrEnum):
     """The declared FailureClass enumeration."""
 
@@ -936,6 +943,15 @@ class NumericalCoordinates(StrEnum):
 
     PHYSICAL = "physical"
     NORMALIZED = "normalized"
+
+
+class NumericalProvenanceField(StrEnum):
+    """The declared NumericalProvenanceField enumeration."""
+
+    NOMINAL = "nominal"
+    ABSOLUTE_TOLERANCE = "absolute_tolerance"
+    RELATIVE_TOLERANCE = "relative_tolerance"
+    COORDINATE_SCALE = "coordinate_scale"
 
 
 class NumericalSource(StrEnum):

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    184u8, 5u8, 184u8, 66u8, 113u8, 69u8, 240u8, 219u8, 8u8, 136u8, 221u8, 232u8, 47u8,
-    203u8, 218u8, 131u8, 26u8, 166u8, 88u8, 182u8, 158u8, 189u8, 202u8, 2u8, 248u8, 63u8,
-    64u8, 85u8, 239u8, 29u8, 46u8, 231u8,
+    216u8, 111u8, 196u8, 179u8, 123u8, 154u8, 29u8, 173u8, 145u8, 124u8, 229u8, 0u8,
+    138u8, 84u8, 28u8, 25u8, 201u8, 62u8, 17u8, 211u8, 246u8, 145u8, 193u8, 85u8, 85u8,
+    122u8, 147u8, 201u8, 44u8, 192u8, 33u8, 133u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeResolvedNumericsFieldProvenanceItem {
     fn append(
@@ -63,7 +63,9 @@ impl crate::columnar::ArrowValue for RuntimeResolvedNumericsFieldProvenanceItem 
         <crate::generated::enums::NumericalSource as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <crate::generated::enums::NumericalProvenanceField as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
         <bool as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <f64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
@@ -87,7 +89,7 @@ impl crate::columnar::ArrowValue for RuntimeResolvedNumericsFieldProvenanceItem 
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#field: <String as crate::columnar::ArrowValue>::read(
+            r#field: <crate::generated::enums::NumericalProvenanceField as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -432,7 +434,10 @@ impl crate::columnar::RelationRow for RuntimeResolvedNumericsRow {
                             )?;
                             bytes = crate::columnar::allocation_add(
                                 bytes,
-                                crate::columnar::allocation_add(8, ((item).r#field).len())?,
+                                crate::columnar::allocation_add(
+                                    8,
+                                    ((item).r#field).as_str().len(),
+                                )?,
                             )?;
                             bytes = crate::columnar::allocation_add(
                                 bytes,

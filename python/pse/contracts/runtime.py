@@ -1486,7 +1486,7 @@ class RuntimeResolvedNumericsFieldProvenanceItem:
 
     declaration: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     source: e.NumericalSource = attrs.field(validator=attrs.validators.instance_of(e.NumericalSource))
-    field: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    field: e.NumericalProvenanceField = attrs.field(validator=attrs.validators.instance_of(e.NumericalProvenanceField))
     selected: b.bool = attrs.field(validator=v.exact_type(b.bool))
     value: b.float = attrs.field(validator=v.finite_float)
     description: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))

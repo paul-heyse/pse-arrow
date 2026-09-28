@@ -390,6 +390,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "simultaneous",
         ],
     );
+    // An `annotation valid` range either refuses a value outside it or, explicitly
+    // selected, accepts it as an extrapolation (ADR-0115 Outcome 3).
+    enumeration(builder, "ExtrapolationPolicy", ["reject", "extrapolate"]);
     // ADR-0104: constraint forms and disjunctions name their realization.
     enumeration(
         builder,

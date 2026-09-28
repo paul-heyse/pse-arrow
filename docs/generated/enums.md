@@ -346,6 +346,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `supplied` | `` | false |
 | `implicit` | `` | false |
 
+## `ExtrapolationPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `reject` | `` | false |
+| `extrapolate` | `` | false |
+
 ## `FailureClass`
 
 | Member | IDAES name | Deprecated |
@@ -937,6 +944,15 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `physical` | `` | false |
 | `normalized` | `` | false |
+
+## `NumericalProvenanceField`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `nominal` | `` | false |
+| `absolute_tolerance` | `` | false |
+| `relative_tolerance` | `` | false |
+| `coordinate_scale` | `` | false |
 
 ## `NumericalSource`
 

@@ -563,7 +563,7 @@ fn settings_identity_bytes_unchanged() {
             settings.identity().unwrap().to_prefixed(),
         ));
     }
-    let controls = crate::solve::Controls {
+    let controls = Controls {
         hessian: HessianMode::LimitedMemory,
         reuse: ReusePolicy::AllowRebuild,
         ..Default::default()

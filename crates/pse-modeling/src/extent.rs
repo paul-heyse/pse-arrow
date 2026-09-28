@@ -376,11 +376,7 @@ fn annotation(v: &crate::annotation::AnnotationValue) -> usize {
         A::Bounds(a, b) => expression(a) + expression(b),
         A::Scale(_) | A::Objective(_) => 0,
         A::Report(s) => s.capacity(),
-        A::Valid {
-            lower,
-            upper,
-            policy,
-        } => expression(lower) + expression(upper) + policy.capacity(),
+        A::Valid { lower, upper, .. } => expression(lower) + expression(upper),
         A::Check(p) => predicate(p),
     }
 }

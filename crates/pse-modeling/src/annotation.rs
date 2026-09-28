@@ -23,6 +23,18 @@ pub(crate) fn objective_sense(source: &str, at: SemanticId) -> Result<ObjectiveS
         _ => Err(invalid(at, "objective sense must be minimize or maximize")),
     }
 }
+/// The declared extrapolation policy of an `annotation valid` range (ADR-0115 Outcome 3).
+pub(crate) fn extrapolation_policy(
+    source: &str,
+    at: SemanticId,
+) -> Result<pse_model::generated::enums::ExtrapolationPolicy> {
+    label(source, at)?.parse().map_err(|e| {
+        invalid(
+            at,
+            format!("validity policy must be reject or explicitly selected extrapolate: {e}"),
+        )
+    })
+}
 /// Checked annotation meaning. A start never fixes a variable and a bound is not a start.
 #[derive(Clone, Debug, PartialEq)]
 pub enum AnnotationValue {
@@ -42,7 +54,7 @@ pub enum AnnotationValue {
     Valid {
         lower: Expr,
         upper: Expr,
-        policy: String,
+        policy: pse_model::generated::enums::ExtrapolationPolicy,
     },
     /// Knowledge-specific post-solve check, not a new equation.
     Check(Predicate),
@@ -176,13 +188,7 @@ impl Engine<'_, '_> {
                 ("objective", 1) => AnnotationValue::Objective(objective_sense(&a.arguments[0], at)?),
                 ("report", 1) => AnnotationValue::Report(label(&a.arguments[0], at)?),
                 ("valid", 3) => {
-                    let policy = label(&a.arguments[2], at)?;
-                    if !matches!(policy.as_str(), "reject" | "extrapolate") {
-                        return Err(invalid(
-                            at,
-                            "validity policy must be reject or explicitly selected extrapolate",
-                        ));
-                    }
+                    let policy = extrapolation_policy(&a.arguments[2], at)?;
                     AnnotationValue::Valid {
                         lower: expression(self, 0)?,
                         upper: expression(self, 1)?,
@@ -338,4 +344,34 @@ pub(crate) fn target_type(
     }
     let expression = dsl::parse_expr(source).map_err(|e| invalid(at, e.to_string()))?;
     crate::expression::infer(&expression, env, p, c, at, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use pse_model::generated::enums::ExtrapolationPolicy;
+
+    /// The policy of `annotation valid` is the registry enumeration; any other label is
+    /// refused at parse, so no consumer compares its spelling (ADR-0115 Outcome 3).
+    #[test]
+    fn extrapolation_policy_typed() {
+        let at = pse_ids::SemanticId::NIL;
+        assert_eq!(
+            super::extrapolation_policy("reject", at).ok(),
+            Some(ExtrapolationPolicy::Reject)
+        );
+        assert_eq!(
+            super::extrapolation_policy("extrapolate", at).ok(),
+            Some(ExtrapolationPolicy::Extrapolate)
+        );
+        for refused in ["clamp", "Reject", "\"extrapolate \""] {
+            assert!(
+                super::extrapolation_policy(refused, at).is_err(),
+                "{refused}"
+            );
+        }
+        assert_eq!(
+            ExtrapolationPolicy::ALL.map(ExtrapolationPolicy::as_str),
+            ["reject", "extrapolate"]
+        );
+    }
 }

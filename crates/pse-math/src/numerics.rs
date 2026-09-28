@@ -5,7 +5,9 @@ use crate::MathError;
 use pse_ids::{FramedHasher, SemanticId};
 use pse_model::{
     SemanticFrame,
-    generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget},
+    generated::enums::{
+        NumericalCoordinates, NumericalProvenanceField, NumericalSource, NumericalTarget,
+    },
     numerics::*,
 };
 use pse_quantity::{QuantityRegistry, QuantityTypeId, UnitId};
@@ -107,7 +109,7 @@ pub fn project(
             ));
         }
         for p in &mut result.provenance {
-            if p.field != "relative_tolerance" {
+            if p.field != NumericalProvenanceField::RelativeTolerance {
                 p.value *= scale;
             }
         }
@@ -299,7 +301,7 @@ pub fn resolve(
             )
         });
         let mut provenance = Vec::new();
-        let mut choose = |field: &'static str,
+        let mut choose = |field: NumericalProvenanceField,
                           values: Vec<(&SourcedRequirement, f64)>,
                           default: f64,
                           default_source|
@@ -322,8 +324,10 @@ pub fn resolve(
                     return Err(failure(
                         target.id,
                         &format!(
-                            "conflicting {field}: {} and {}",
-                            first.declaration.requirement_id, candidate.declaration.requirement_id
+                            "conflicting {}: {} and {}",
+                            field.as_str(),
+                            first.declaration.requirement_id,
+                            candidate.declaration.requirement_id
                         ),
                     ));
                 }
@@ -360,7 +364,7 @@ pub fn resolve(
             ));
         }
         let nominal = choose(
-            "nominal",
+            NumericalProvenanceField::Nominal,
             nominals,
             fallback,
             if quantity.nominal_magnitude.is_some() {
@@ -385,7 +389,7 @@ pub fn resolve(
             })
             .collect::<Result<Vec<_>, MathError>>()?;
         let absolute = choose(
-            "absolute_tolerance",
+            NumericalProvenanceField::AbsoluteTolerance,
             absolute,
             target.declared_tolerance.unwrap_or(1e-8 * nominal),
             if target.declared_tolerance.is_some() {
@@ -395,7 +399,7 @@ pub fn resolve(
             },
         )?;
         let relative = choose(
-            "relative_tolerance",
+            NumericalProvenanceField::RelativeTolerance,
             candidates
                 .iter()
                 .filter_map(|r| r.declaration.relative_tolerance.map(|v| (*r, v)))
@@ -415,7 +419,7 @@ pub fn resolve(
                 r.declaration.required
                     && r.declaration.scaling_factor.is_some_and(|v| v != 1.0)
                     && provenance.iter().any(|p| {
-                        p.field == "nominal"
+                        p.field == NumericalProvenanceField::Nominal
                             && p.selected
                             && p.declaration == Some(r.declaration.requirement_id)
                     })
@@ -436,7 +440,8 @@ pub fn resolve(
         for p in &provenance {
             p.declaration.frame(&mut key);
             p.source.frame(&mut key);
-            key.str(p.field)
+            // The framed spelling is the member's registry spelling, as before.
+            key.str(p.field.as_str())
                 .bool(p.selected)
                 .u64(p.value.to_bits())
                 .str(&p.description);
@@ -452,7 +457,7 @@ pub fn resolve(
                 r.declaration.required
                     && (r.declaration.nominal.is_some() || r.declaration.scaling_factor.is_some())
                     && provenance.iter().any(|p| {
-                        p.field == "nominal"
+                        p.field == NumericalProvenanceField::Nominal
                             && p.selected
                             && p.declaration == Some(r.declaration.requirement_id)
                     })
@@ -599,6 +604,50 @@ mod tests {
         projection.source = id(1);
         projection.target.quantity = ids::quantity("neutral");
         assert!(project(&registry, &source, &[projection]).is_err());
+    }
+    /// Each provenance entry names its field by the registry enumeration, never by text,
+    /// and the resolution key frames the member's registry spelling, as it framed the text
+    /// before (ADR-0115 Outcome 3).
+    #[test]
+    fn provenance_field_typed() {
+        use NumericalProvenanceField as F;
+        let registry = standard_registry().unwrap();
+        let resolved = resolve(
+            &registry,
+            &[target()],
+            &[requirement(2, NumericalSource::Model, 20.0)],
+            &NumericalPolicy::default(),
+        )
+        .unwrap();
+        let fields = resolved.targets[0]
+            .provenance
+            .iter()
+            .map(|p| (p.field, p.selected))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            fields,
+            [
+                (F::Nominal, true),
+                (F::AbsoluteTolerance, true),
+                (F::RelativeTolerance, true)
+            ]
+        );
+        assert_eq!(
+            F::ALL.map(F::as_str),
+            [
+                "nominal",
+                "absolute_tolerance",
+                "relative_tolerance",
+                "coordinate_scale"
+            ]
+        );
+        let defaults = resolve(&registry, &[target()], &[], &NumericalPolicy::default()).unwrap();
+        assert!(
+            defaults.targets[0]
+                .provenance
+                .iter()
+                .all(|p| p.declaration.is_none() && p.field != F::CoordinateScale)
+        );
     }
     #[test]
     fn numerical_policy_precedence_frozen_budget_and_affine_unit_magnitudes() {

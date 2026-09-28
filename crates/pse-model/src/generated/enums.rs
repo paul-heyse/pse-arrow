@@ -2179,6 +2179,82 @@ impl core::str::FromStr for ExternalDerivativeSource {
         }
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ExtrapolationPolicy {
+    ///reject
+    #[serde(rename = "reject")]
+    Reject,
+    ///extrapolate
+    #[serde(rename = "extrapolate")]
+    Extrapolate,
+}
+impl crate::SemanticEq for ExtrapolationPolicy {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ExtrapolationPolicy {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Reject, Self::Extrapolate];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Reject => "reject",
+            Self::Extrapolate => "extrapolate",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Reject => 0usize,
+            Self::Extrapolate => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Reject => None,
+            Self::Extrapolate => None,
+        }
+    }
+}
+impl core::str::FromStr for ExtrapolationPolicy {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "reject" => Ok(Self::Reject),
+            "extrapolate" => Ok(Self::Extrapolate),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ExtrapolationPolicy).to_owned(),
+                    enumeration: stringify!(ExtrapolationPolicy).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
 /// A vocabulary owned by its source type; the registry declares its members.
 pub type FailureClass = pse_diagnostics::FailureClass;
 impl crate::SemanticEq for FailureClass {
@@ -7616,6 +7692,101 @@ impl core::str::FromStr for NumericalCoordinates {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NumericalProvenanceField {
+    ///nominal
+    #[serde(rename = "nominal")]
+    Nominal,
+    ///absolute_tolerance
+    #[serde(rename = "absolute_tolerance")]
+    AbsoluteTolerance,
+    ///relative_tolerance
+    #[serde(rename = "relative_tolerance")]
+    RelativeTolerance,
+    ///coordinate_scale
+    #[serde(rename = "coordinate_scale")]
+    CoordinateScale,
+}
+impl crate::SemanticEq for NumericalProvenanceField {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NumericalProvenanceField {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = [
+        Self::Nominal,
+        Self::AbsoluteTolerance,
+        Self::RelativeTolerance,
+        Self::CoordinateScale,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Nominal => "nominal",
+            Self::AbsoluteTolerance => "absolute_tolerance",
+            Self::RelativeTolerance => "relative_tolerance",
+            Self::CoordinateScale => "coordinate_scale",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Nominal => 0usize,
+            Self::AbsoluteTolerance => 1usize,
+            Self::RelativeTolerance => 2usize,
+            Self::CoordinateScale => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Nominal => None,
+            Self::AbsoluteTolerance => None,
+            Self::RelativeTolerance => None,
+            Self::CoordinateScale => None,
+        }
+    }
+}
+impl core::str::FromStr for NumericalProvenanceField {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "nominal" => Ok(Self::Nominal),
+            "absolute_tolerance" => Ok(Self::AbsoluteTolerance),
+            "relative_tolerance" => Ok(Self::RelativeTolerance),
+            "coordinate_scale" => Ok(Self::CoordinateScale),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(NumericalProvenanceField).to_owned(),
+                    enumeration: stringify!(NumericalProvenanceField).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NumericalSource {
     ///analysis
     #[serde(rename = "analysis")]
@@ -10663,6 +10834,16 @@ impl crate::SemanticFrame for ExternalDerivativeSource {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ExtrapolationPolicy {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ExtrapolationPolicy {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for FindingSeverity {
     fn heap_bytes(&self) -> usize {
         0
@@ -11139,6 +11320,16 @@ impl crate::HeapUsage for NumericalCoordinates {
     }
 }
 impl crate::SemanticFrame for NumericalCoordinates {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NumericalProvenanceField {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NumericalProvenanceField {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

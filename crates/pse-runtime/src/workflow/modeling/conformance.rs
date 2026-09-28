@@ -10,9 +10,9 @@ use crate::math::{
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingHint, ModelingOutput, Profile};
 use pse_kernels::DerivativeOrder;
 use pse_model::generated::enums::{
-    ModelingAnalysisRoute as Route, ModelingCheckKind, ModelingConformanceKind as Kind,
-    ModelingConformanceStatus as Status, ModelingDeclarationKind as DeclarationKind,
-    ModelingFixtureExecution as Execution,
+    ExtrapolationPolicy, ModelingAnalysisRoute as Route, ModelingCheckKind,
+    ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
+    ModelingDeclarationKind as DeclarationKind, ModelingFixtureExecution as Execution,
 };
 pub use pse_model::generated::runtime::modeling_conformance::Row as ModelingConformanceCheck;
 use pse_modeling::annotation::AnnotationValue;
@@ -763,7 +763,7 @@ impl ModelingPackage {
                             }
                             for range in ranges {
                                 let check_index = report.checks.len();
-                                let (status, message, failure) = if matches!(&range.value, AnnotationValue::Valid {policy, ..} if policy == "extrapolate")
+                                let (status, message, failure) = if matches!(&range.value, AnnotationValue::Valid { policy: ExtrapolationPolicy::Extrapolate, .. })
                                 {
                                     (
                                         Status::NotApplicable,
@@ -1041,7 +1041,7 @@ impl ModelingPackage {
                     report.complete = false;
                     break;
                 }
-                if matches!(&range.value,AnnotationValue::Valid{policy,..} if policy=="extrapolate")
+                if matches!(&range.value, AnnotationValue::Valid { policy: ExtrapolationPolicy::Extrapolate, .. })
                 {
                     report.record(fixture,range.target,range.lineage.declaration,Kind::Envelope,Status::NotApplicable,"extrapolation explicitly selected; validity membership is reported separately",oracle,cap);
                     continue;
@@ -1305,7 +1305,7 @@ impl ModelingPackage {
         let AnnotationValue::Valid { policy, .. } = &range.value else {
             return Err(contract("validity sample contract"));
         };
-        if policy == "extrapolate" {
+        if *policy == ExtrapolationPolicy::Extrapolate {
             return Ok(None);
         }
         if !values.scalars.contains_key(&range.target) {

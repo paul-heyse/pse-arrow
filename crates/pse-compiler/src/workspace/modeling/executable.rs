@@ -173,7 +173,7 @@ fn projection(
                     "competing validity intervals for a model member".into(),
                 ));
             }
-            if policy == "reject" {
+            if *policy == pse_model::generated::enums::ExtrapolationPolicy::Reject {
                 validity.insert(
                     symbol_name(a.target),
                     crate::typed_math::Validity {

@@ -1396,7 +1396,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, 
 | `provenance.item` | `Struct` | false | `payload` | — | — |
 | `provenance.item.declaration` | `semantic_id` | true | `payload` | — | — |
 | `provenance.item.source` | `enum:NumericalSource` | false | `payload` | — | — |
-| `provenance.item.field` | `Utf8` | false | `payload` | — | — |
+| `provenance.item.field` | `enum:NumericalProvenanceField` | false | `payload` | — | — |
 | `provenance.item.selected` | `Boolean` | false | `payload` | — | — |
 | `provenance.item.value` | `Float64` | false | `payload` | — | — |
 | `provenance.item.description` | `Utf8` | false | `payload` | — | — |

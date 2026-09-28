@@ -115,6 +115,17 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "canonical_fallback",
         ],
     );
+    // The numerical field a provenance entry resolved (ADR-0115 Outcome 3).
+    enumeration(
+        b,
+        "NumericalProvenanceField",
+        [
+            "nominal",
+            "absolute_tolerance",
+            "relative_tolerance",
+            "coordinate_scale",
+        ],
+    );
     enumeration(b, "ClosurePolicy", ["require_closed", "allow_unclosed"]);
     enumeration(
         b,
@@ -175,7 +186,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
                 T::list(record(vec![
                     ("declaration", T::id().optional()),
                     ("source", T::enumeration("NumericalSource")),
-                    ("field", text()),
+                    ("field", T::enumeration("NumericalProvenanceField")),
                     ("selected", flag()),
                     ("value", real()),
                     ("description", text()),
