@@ -70,8 +70,8 @@ class AuthoredFitCasesFieldExperimentsItemBindingsItem:
 class AuthoredFitCasesFieldExperimentsItem:
     """Declared relation row or nested value."""
 
-    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    experiment_id: i.InstanceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    case_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     route: e.ModelingAnalysisRoute = attrs.field(validator=attrs.validators.instance_of(e.ModelingAnalysisRoute))
     bindings: b.tuple[AuthoredFitCasesFieldExperimentsItemBindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredFitCasesFieldExperimentsItemBindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
@@ -81,7 +81,7 @@ class AuthoredFitCasesFieldObservationsItem:
     """Declared relation row or nested value."""
 
     observation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    experiment_id: i.InstanceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     output_path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     time_basis: e.ObservationTimeBasis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ObservationTimeBasis)))
@@ -94,7 +94,7 @@ class AuthoredFitCasesFieldObservationsItem:
 class AuthoredFitCasesRow:
     """Declared relation row or nested value."""
 
-    fit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    fit_id: i.FitId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     parameters: b.tuple[AuthoredFitCasesFieldParametersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredFitCasesFieldParametersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     experiments: b.tuple[AuthoredFitCasesFieldExperimentsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredFitCasesFieldExperimentsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     observations: b.tuple[AuthoredFitCasesFieldObservationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredFitCasesFieldObservationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))

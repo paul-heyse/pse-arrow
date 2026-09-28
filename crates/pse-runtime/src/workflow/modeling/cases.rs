@@ -614,7 +614,7 @@ impl ModelingPackage {
                         NumericalTarget::Observable
                     };
                     numerical.declarations.push(requirement(
-                        ModelId::from_id(instance.as_id()),
+                        pse_model::lineage::model_of_instance(instance),
                         *target,
                         kind,
                         *declaration,
@@ -781,7 +781,7 @@ impl ModelingPackage {
                 let scale = pse_math::numerics::term_scale(scheme, &terms)
                     .map_err(crate::math::MathRuntimeError::from)?;
                 numerical.declarations.push(requirement(
-                    ModelId::from_id(instance.as_id()),
+                    pse_model::lineage::model_of_instance(instance),
                     id,
                     NumericalTarget::Row,
                     source,

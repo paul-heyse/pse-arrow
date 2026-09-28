@@ -34,7 +34,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
     identity(
         b,
         "instance",
-        "One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity; a nested instance is derived from its parent and member",
+        "One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity unless it is a fit experiment, which prepares its case under the experiment's own identity; a nested instance is derived from its parent and member",
     );
     enumeration(
         b,

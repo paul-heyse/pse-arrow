@@ -69,7 +69,7 @@ impl RunResult {
                             .and_then(|(_, col)| {
                                 report
                                     .and_then(|r| r.candidate.as_ref())
-                                    .and_then(|c| c.get(*col).copied())
+                                    .and_then(|c| c.get(col.get()).copied())
                             })
                     };
                     states
@@ -87,6 +87,7 @@ impl RunResult {
                         .map_err(relation)?;
                 }
                 for &(local, global) in &s.constraints {
+                    let (local, global) = (local.get(), global.get());
                     let row = &s.case.assembly.structure().rows()[local];
                     constraints
                         .push(fit_constraints::Row {
@@ -115,7 +116,7 @@ impl RunResult {
             } else {
                 report
                     .and_then(|r| r.candidate.as_ref())
-                    .and_then(|v| p.parameter_columns[i].and_then(|c| v.get(c).copied()))
+                    .and_then(|v| p.parameter_columns[i].and_then(|c| v.get(c.get()).copied()))
             };
             parameters
                 .push(fit_parameters::Row {
@@ -128,10 +129,10 @@ impl RunResult {
                     at_bound: value.map(|v| {
                         param.lower.is_some_and(|b| {
                             (v - b).abs()
-                                <= p.parameter_columns[i].map_or(0.0, |c| p.tolerances.variables[c])
+                                <= p.parameter_columns[i].map_or(0.0, |c| p.tolerances.variables[c.get()])
                         }) || param.upper.is_some_and(|b| {
                             (v - b).abs()
-                                <= p.parameter_columns[i].map_or(0.0, |c| p.tolerances.variables[c])
+                                <= p.parameter_columns[i].map_or(0.0, |c| p.tolerances.variables[c.get()])
                         })
                     }),
                 })
@@ -211,7 +212,7 @@ impl RunResult {
         for (id, profile) in &p.profile.simulations {
             metric(
                 "profile.simulation",
-                &id.to_hex(),
+                &id.as_id().to_hex(),
                 Metric::Text(native::dynamics::profile_json(profile).to_string()),
             )?;
         }
@@ -219,7 +220,7 @@ impl RunResult {
             if let Experiment::Transient(s) = experiment {
                 metric(
                     "effective.simulation",
-                    &p.declaration.experiments[i].experiment_id.to_hex(),
+                    &p.declaration.experiments[i].experiment_id.as_id().to_hex(),
                     Metric::Text(native::dynamics::profile_json(&s.profile).to_string()),
                 )?;
             }

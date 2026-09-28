@@ -46,9 +46,9 @@ impl Oracle for Toy {
     fn contract(&self) -> &Contract {
         &self.c
     }
-    fn support(&self, _: usize, f: Function) -> Vec<(usize, usize)> {
+    fn support(&self, _: usize, f: Function) -> Vec<SupportEntry> {
         let n = self.c.states.len();
-        match f {
+        entries(match f {
             Function::Initial => vec![(0, n)],
             Function::Rhs => {
                 let mut s = vec![(0, 0), (0, n)];
@@ -61,7 +61,7 @@ impl Oracle for Toy {
             Function::Output => vec![(0, 0), (0, n)],
             Function::Roots => vec![],
             Function::Reset(_) => (0..n).map(|i| (i, i)).collect(),
-        }
+        })
     }
     fn evaluate(
         &mut self,
@@ -569,11 +569,11 @@ impl Oracle for ResetToy {
     fn contract(&self) -> &Contract {
         self.0.contract()
     }
-    fn support(&self, m: usize, f: Function) -> Vec<(usize, usize)> {
+    fn support(&self, m: usize, f: Function) -> Vec<SupportEntry> {
         match f {
             Function::Roots => {
                 if m == 0 {
-                    vec![(0, 0)]
+                    entries([(0, 0)])
                 } else {
                     vec![]
                 }
@@ -655,7 +655,7 @@ impl Oracle for TrialToy {
     fn contract(&self) -> &Contract {
         self.toy.contract()
     }
-    fn support(&self, m: usize, f: Function) -> Vec<(usize, usize)> {
+    fn support(&self, m: usize, f: Function) -> Vec<SupportEntry> {
         self.toy.support(m, f)
     }
     fn evaluate(
@@ -750,7 +750,7 @@ impl Oracle for Unsolvable {
     fn contract(&self) -> &Contract {
         self.0.contract()
     }
-    fn support(&self, m: usize, f: Function) -> Vec<(usize, usize)> {
+    fn support(&self, m: usize, f: Function) -> Vec<SupportEntry> {
         self.0.support(m, f)
     }
     fn evaluate(

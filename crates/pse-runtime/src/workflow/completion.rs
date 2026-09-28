@@ -4,7 +4,7 @@
 use super::{RunReport, RunRequest, RunResult, WorkflowError};
 use crate::math::solves::Outcome;
 use pse_ids::{ContentHash, FramedHasher};
-use pse_model::generated::identities::{CaseId, ModelId};
+use pse_model::lineage::{case_of_fit, case_of_instance, model_of_fit, model_of_instance};
 use pse_model::generated::{
     enums::*,
     runtime::{computation_runs, run_lineage, solve_runs},
@@ -70,9 +70,9 @@ impl RunResult {
                     product.solves.push(solve_runs::Row {
                         run_id: self.run_id,
                         step,
-                        model_id: Some(ModelId::from_id(request.instance.as_id())),
+                        model_id: Some(model_of_instance(request.instance)),
                         revision: Some(request.source.revision.identity()),
-                        case_id: Some(CaseId::from_id(request.instance.as_id())),
+                        case_id: Some(case_of_instance(request.instance)),
                         backend: native.map(|r| r.backend),
                         native_code: native.map(|r| r.termination.code),
                         native_status: native.map(|r| r.termination.name.clone()),
@@ -137,7 +137,7 @@ impl RunResult {
                     for (name,value) in &native.provenance {actual_environment.str(name).str(value);}
                 }
                 product.lineage.push(run_lineage::Row {
-                    run_id:self.run_id,step,model_id:ModelId::from_id(request.instance.as_id()),revision:request.source.revision.identity(),case_id:CaseId::from_id(request.instance.as_id()),
+                    run_id:self.run_id,step,model_id:model_of_instance(request.instance),revision:request.source.revision.identity(),case_id:case_of_instance(request.instance),
                     request_identity:identity.finish_hash(),preparation_identity:preparation,profile_identity:profile,
                     numerical_identity:request.solve.numerics().key,physical_identity:request.source.physical.key,environment_identity:actual_environment.finish_hash(),
                 });
@@ -196,9 +196,9 @@ impl RunResult {
                 product.lineage.push(run_lineage::Row {
                     run_id: self.run_id,
                     step: 0,
-                    model_id: ModelId::from_id(p.instance.as_id()),
+                    model_id: model_of_instance(p.instance),
                     revision: p.source.revision.identity(),
-                    case_id: CaseId::from_id(p.instance.as_id()),
+                    case_id: case_of_instance(p.instance),
                     request_identity: p.identity(),
                     preparation_identity: p.identity(),
                     profile_identity: profile,
@@ -259,9 +259,9 @@ impl RunResult {
                 product.lineage.push(run_lineage::Row {
                     run_id: self.run_id,
                     step: 0,
-                    model_id: ModelId::from(p.declaration.fit_id),
+                    model_id: model_of_fit(p.declaration.fit_id),
                     revision: p.source_identity,
-                    case_id: CaseId::from(p.declaration.fit_id),
+                    case_id: case_of_fit(p.declaration.fit_id),
                     request_identity: p.key,
                     preparation_identity: p.key,
                     profile_identity: p.profile_key,

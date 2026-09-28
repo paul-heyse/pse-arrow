@@ -16,7 +16,10 @@ CaseId = NewType("CaseId", v.SemanticId)
 # One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`).
 DeclarationId = NewType("DeclarationId", v.SemanticId)
 
-# One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity; a nested instance is derived from its parent and member (entity identity `instance`).
+# One authored shared-parameter fit over its experiments (entity identity `fit`).
+FitId = NewType("FitId", v.SemanticId)
+
+# One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity unless it is a fit experiment, which prepares its case under the experiment's own identity; a nested instance is derived from its parent and member (entity identity `instance`).
 InstanceId = NewType("InstanceId", v.SemanticId)
 
 # One durable job claimed by workers (entity identity `job`).

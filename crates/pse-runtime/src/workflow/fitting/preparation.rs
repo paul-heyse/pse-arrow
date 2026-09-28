@@ -13,7 +13,7 @@ pub(super) struct PreparedExperiments {
     pub bounds: Vec<(f64, f64)>,
     pub initial: Vec<f64>,
     pub parameter_ports: Vec<Port>,
-    pub parameter_columns: Vec<Option<usize>>,
+    pub parameter_columns: Vec<Option<OriginalCol>>,
     pub experiments: Vec<Experiment>,
     pub measurements: Vec<Measurement>,
     pub targets: Vec<TargetSpec>,
@@ -58,7 +58,7 @@ impl PreparedExperiments {
                     .and_then(|n| {
                         n.checked_add(
                             s.values.scalars.len() * 128
-                                + s.coordinates.capacity() * size_of::<(SemanticId, usize)>()
+                                + s.coordinates.capacity() * size_of::<(SemanticId, OriginalCol)>()
                                 + s.variables.capacity() * size_of::<pse_math::binding::Variable>(),
                         )
                     })
@@ -172,14 +172,14 @@ impl PreparedExperiments {
         h.u64(profile.rank_tolerance.to_bits())
             .u64(profile.max_cells as u64);
         for (id, p) in &profile.simulations {
-            h.id(id)
+            h.id(&id.as_id())
                 .hash(&crate::workflow::dynamics::profile_identity(p));
         }
         // Mode identity is the complete serde encoding, never a hand-written field list (F09).
         for (id, modes) in &profile.modes {
             let encoded = serde_json::to_string(modes)
                 .map_err(|e| contract(format!("fit mode encoding: {e}")))?;
-            h.id(id).str(&encoded);
+            h.id(&id.as_id()).str(&encoded);
         }
         let profile_key = h.finish_hash();
         let mut h = FramedHasher::new(pse_ids::Frame::FitPreparedV1);

@@ -140,7 +140,14 @@ impl<'o> Operator<'o> {
         let n = shared.contract.states.len();
         let np = shared.contract.parameters.len();
         let m = shared.nout_mode(mode, function);
-        let mut pairs = shared.oracle.borrow().support(mode, function);
+        // The oracle's typed support becomes faer positions here.
+        let mut pairs = shared
+            .oracle
+            .borrow()
+            .support(mode, function)
+            .into_iter()
+            .map(|entry| (entry.row.get(), entry.col.get()))
+            .collect::<Vec<_>>();
         if function == Function::Initial {
             pairs.extend((0..n).flat_map(|r| (n..n + np).map(move |c| (r, c))));
         }

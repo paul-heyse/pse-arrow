@@ -67,13 +67,13 @@ impl Oracle for Vessel {
     fn contract(&self) -> &Contract {
         &self.c
     }
-    fn support(&self, _: usize, f: Function) -> Vec<(usize, usize)> {
-        match (f, self.dae()) {
+    fn support(&self, _: usize, f: Function) -> Vec<SupportEntry> {
+        entries(match (f, self.dae()) {
             (Function::Rhs, false) => vec![(0, 0), (0, 1)],
             (Function::Rhs, true) => vec![(0, 1), (1, 0), (1, 1), (1, 2)],
             (Function::Output, _) => vec![(0, 0)],
             _ => vec![],
-        }
+        })
     }
     fn evaluate(
         &mut self,
@@ -278,8 +278,8 @@ impl Oracle for Tank {
     fn contract(&self) -> &Contract {
         &self.c
     }
-    fn support(&self, _: usize, f: Function) -> Vec<(usize, usize)> {
-        match f {
+    fn support(&self, _: usize, f: Function) -> Vec<SupportEntry> {
+        entries(match f {
             Function::Rhs => vec![
                 (0, 3),
                 (0, 4),
@@ -304,7 +304,7 @@ impl Oracle for Tank {
             ],
             Function::Output => vec![(0, 2), (1, 6), (1, 7), (2, 5), (3, 3)],
             _ => vec![],
-        }
+        })
     }
     fn evaluate(
         &mut self,

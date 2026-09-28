@@ -4,6 +4,7 @@
 //! (ADR-0084, ADR-0093, ADR-0110).
 use crate::ProblemError;
 use pse_ids::{ContentHash, SemanticId};
+use pse_math::index::{OriginalCol, OriginalRow};
 use pse_model::{document::Version, scalars::PositiveCount};
 use std::{
     collections::BTreeSet,
@@ -594,12 +595,42 @@ pub struct Evaluation {
     /// Canonical sparse raw partials, present only on derivative demand.
     pub jacobian: Option<faer::sparse::SparseColMat<usize, f64>>,
 }
+/// One structural entry of a dynamic function's raw partials: a row of the function's
+/// values and a coordinate of the state followed by the parameters, both positions as
+/// the oracle states them. Integrator adapters convert to native indices at their edge.
+///
+/// ```
+/// use pse_backend_native::dynamics::SupportEntry;
+/// use pse_math::index::{OriginalCol, OriginalRow};
+///
+/// let entry = SupportEntry::new(OriginalRow::new(0), OriginalCol::new(2));
+/// assert_eq!((entry.row.get(), entry.col.get()), (0, 2));
+/// ```
+///
+/// ```compile_fail,E0308
+/// use pse_backend_native::dynamics::SupportEntry;
+/// use pse_math::index::OriginalCol;
+///
+/// // A coordinate is not a function row.
+/// let entry = SupportEntry::new(OriginalCol::new(2), OriginalCol::new(0));
+/// ```
+pub type SupportEntry = pse_math::index::Entry<OriginalRow, OriginalCol>;
+
+/// Support entries from `(row, coordinate)` positions, for test oracles.
+#[cfg(test)]
+pub(crate) fn entries(pairs: impl IntoIterator<Item = (usize, usize)>) -> Vec<SupportEntry> {
+    pairs
+        .into_iter()
+        .map(|(row, column)| SupportEntry::new(OriginalRow::new(row), OriginalCol::new(column)))
+        .collect()
+}
+
 /// Worker-local compiled mathematical operations. No library state enters compiler queries.
 pub trait Oracle: std::fmt::Debug {
     /// Immutable source layout.
     fn contract(&self) -> &Contract;
     /// Complete all-branch sparse support for the selected function and mode.
-    fn support(&self, mode: usize, function: Function) -> Vec<(usize, usize)>;
+    fn support(&self, mode: usize, function: Function) -> Vec<SupportEntry>;
     /// Evaluate exact compiled functions and requested raw partials.
     fn evaluate(
         &mut self,

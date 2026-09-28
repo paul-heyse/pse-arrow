@@ -591,6 +591,10 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
 
 fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
     enumeration(b, "ObservationTimeBasis", ["elapsed", "model_clock"]);
+    identity(b, "fit", "One authored shared-parameter fit over its experiments");
+    // An experiment prepares its case under its own instance identity, so two experiments
+    // of one case are two instances: experiment columns carry `instance`, and an
+    // experiment's case is the root declaration it prepares.
     relation_version(
         b,
         N::Authored,
@@ -599,7 +603,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Case,
         &["fit_id"],
         vec![
-            column("fit_id", T::id()),
+            column("fit_id", T::id()).with_identity("fit"),
             column(
                 "parameters",
                 T::list(record(vec![
@@ -614,8 +618,8 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             column(
                 "experiments",
                 T::list(record(vec![
-                    ("experiment_id", T::id()),
-                    ("case_id", T::id()),
+                    ("experiment_id", T::id().with_identity("instance")),
+                    ("case_id", T::id().with_identity("declaration")),
                     ("route", T::enumeration("ModelingAnalysisRoute")),
                     (
                         "bindings",
@@ -627,7 +631,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                 "observations",
                 T::list(record(vec![
                     ("observation_id", T::id()),
-                    ("experiment_id", T::id()),
+                    ("experiment_id", T::id().with_identity("instance")),
                     ("output_path", text()),
                     ("time", real().optional()),
                     (
@@ -727,7 +731,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         ],
         vec![
             column("run_id", T::id()),
-            column("experiment_id", T::id()),
+            column("experiment_id", T::id()).with_identity("instance"),
             column("sample", ordinal()),
             column("time", real()).optional(),
             column("output_id", T::id()),
@@ -746,7 +750,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         &["run_id", "experiment_id", "symbol_id"],
         vec![
             column("run_id", T::id()),
-            column("experiment_id", T::id()),
+            column("experiment_id", T::id()).with_identity("instance"),
             column("symbol_id", T::id()),
             column("quantity_id", T::id()),
             column("unit_id", T::id()),
@@ -765,7 +769,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         &["run_id", "experiment_id", "row_id"],
         vec![
             column("run_id", T::id()),
-            column("experiment_id", T::id()),
+            column("experiment_id", T::id()).with_identity("instance"),
             column("row_id", T::id()),
             column("quantity_id", T::id()),
             column("unit_id", T::id()),
@@ -802,7 +806,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         vec![
             column("run_id", T::id()),
             column("observation_id", T::id()),
-            column("experiment_id", T::id()),
+            column("experiment_id", T::id()).with_identity("instance"),
             column("included", flag()),
             column("prediction", real()).optional(),
             column("residual", real()).optional(),
