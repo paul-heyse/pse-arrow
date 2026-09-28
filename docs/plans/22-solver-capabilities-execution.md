@@ -71,22 +71,14 @@ dispositions stay in the plan.
 | E2 | A1 typed outcomes and failures | `CandidateUse` has one owner (`workflow/numerics.rs`), with `seed_only`/`diagnostic_only` per ADR-0106. Typed `Evidence`. Six new `ProblemError` variants (186 sites retyped). Exhaustive IDAS, Diffsol, HiGHS and POUNCE status maps. Fit deadlines stay TimeLimit; one typed validation failure; HiGHS interrupt only for kinds 1, 2 and 6; `DiagnosticSeverity` and the numerical/inconclusive classes (registry + codegen). Tests: backend native lib 93/0, runtime native lib 111/0, `py-unit-native` 130/0 (2 collection errors: `pyomo` parity group not installed); coordinator spot check 4/4; `codegen-contracts-check` exit 0. Warnings 503→490. Commit `59249b06` | complete (architecture text for §16.6, §18.6 and §23.2 follows in a docs pass) |
 | E3 | A2 backend-execution adapter and one NLP runner | `BackendExecution` trait with a static table (`pse-backend-native/src/execution*.rs`). One capability record per backend drives routing and published rows. One NLP runner serves solve, initialization and fitting; the four copies' divergences are resolved (terminal report, POUNCE settings, transport order). `NativeSolveIntent` with `certify` refused. `kinsol::Settings::from_policy`; `Facts::coefficient_eligible`; settings identity from serde. Tests: backend 99/0, runtime 112/0, pse-math 67/0, pse-compiler 82/0, `py-unit-native` 130/0; the coordinator re-ran the key tests (4/4). Commit `18182734`. **Deviation:** the shared runners live in `pse-backend-native` (`execution::{nlp,roots,coefficients,cone}`), not `pse-runtime` as architecture §4 said, so the stub test exercises the real runner. The docs pass adopts this | complete |
 | E4 | A3, A4, A7 (+C1) | A3: FERAL threads bounded; options in the reuse key or reset; POUNCE `mu_strategy_fallback` and `dual_divergence_retry` pinned off, l1 fallbacks reserved, options snapshotted; HiGHS QP explicit method refused; every evaluator via `MathService::worker` (cancel flag, per-job budget). A4: typed `StartSource`; layout vs profile stamps; typed seed transformations; seeds and reuse in lineage identity; `ResolvedAccuracy`; controls identity from serde. A7: KINSOL Dense/SPGMR/Picard solve tests; PDLP time-limit-only; normalized metric names; native `Scaling` deleted. C1: highs-sys =1.15.0 with QP hot start and basis export. Tests: backend 108/0, runtime 118/0; coordinator spot checks 10/10; warnings 478. Commit `bca4dfd7`. Not done from A4: Diffsol `settings_identity`/`profile_json` and fit-mode hashing (moved to Y1) | complete |
-| E5 | A5 boundary contracts; A6 staged-sequence primitive | A6 (`4c9c2e43`): `NativeSession` + `MathService::execute` + `workflow::staged::Staged` with per-step overlays (restored on failure), typed `Start`, and isolated failed points. Initialization (stage, homotopy, block), studies, authored sequences and single solves all run on it; `SolveSequence`, `run_sequence*`, `solve_assessed`, the old block loop and `bounded_work` are deleted. `PreparedCase::rebind`/`values_match` and package views keyed on bound structure mean a 5-point value-only study prepares one view. Runtime 127/0, compiler 122/0, conformance acceptance 7/0; warnings 478→444. A5 next | A6 complete; A5 running |
+| E5 | A5 boundary contracts; A6 staged-sequence primitive | A6 `4c9c2e43`; A5 `b1655a45`: typed settings projection, pse-owned conic types, typed routes, eligibility and attempts, `NativeIneligibility`, initialization admission in Rust. The Ipopt projection landed with the NLP merge (`7c216968`) | complete |
 | E6 | T3: METIS, MUMPS+METIS, SPRAL, oneMKL (Pardiso) and SCIP in the solver image; skill receipts | Image built locally in 231 s. `docker/solvers/test/run.sh` passes: Ipopt lists exactly mumps/spral/pardisomkl and HS071 solves with each; `ma57` refused; SPRAL refused without `OMP_CANCELLATION`; the SCIP 10.0.2 MINLP reaches −2√2; one BLAS and one OpenMP runtime; MKL `CBWR=COMPATIBLE` in force. A `--no-cache` rebuild is byte-identical. `just setup-test` 89 passed; `just unit-ipopt-abi` (override) passed. Skill receipts `ipopt-linear-solver-runtime` (7/0) and `scip-native-runtime` (7/0). Commit `7fc817d1` | image complete; **publication pending** |
 | E7 | T4: O1 deployment; O2 `pse-operations` crate | Store tests: 33 run, 33 passed against PostgreSQL 18.6, by `just db-test` and `just unit-package pse-operations 'package(pse-operations)'` (`DATABASE_URL` exported by the justfile). `just governance-tests`: 87 passed. `db-status`/`db-migrate` are idempotent; the `db-backup`/`db-restore` round trip preserves data. Deviations: peer-auth role named after the OS user; the lease lives on the attempt; early cancellation of planned or queued attempts; `progress_events.payload`; URL-only configuration. Commits `9ac684ac` and the follow-up | complete (registry declarations and the conformance test move to O3) |
-| E8 | N1–N5, C1–C2, Y6, N4 | Their tests | not started |
+| E8 | N1–N5, C1–C2, Y6, N4 | Merged in `7c216968`: N1 (MUMPS/SPRAL/MKL Pardiso typed and admitted against the image, one BLAS provider), N2 (warm restarts, SQP working set through presolve), N3 (explicit ℓ1 route; Auto presolve resolves to Off, recorded), N4 (FERAL conditioning, `Evidence::second_order`), C2 (fixed-commitment duals, incumbents, node budget, views, gap-derived QP regularization, DegeneracyHunter session reuse). N5 not started | N1–N4, C1, C2, Y6 complete; N5 open |
 | E9 | M1–M5 | M3/M4 merged (`177c4ec9`): constraint forms (indicator, SOS1/2, cardinality, piecewise, logic); disjunctions with `bigm`, `bigm(derived)` (FBBT enclosure, margin plus ULP, snap to zero), `hull` (ε-perspective for nonlinear rows), `indicator`; nesting; native forms as structural metadata; native-form eligibility from capability records (registry `NativeConstraintForm`, `solver_capabilities.native_forms`); derived parameters tracked by `rebind`; the authored GDP fixture; the indicator test covers the off-optimal charge on HiGHS 1.15. Compiler 130/0, runtime 135/0. M1 + M2 refusals merged (`b929d896`): `var … in integer|binary|semicontinuous|semiinteger`; registry `ModelingVariableDomain` used directly (the pse-math enum deleted); `modeling_declarations` v2, `solve_variables` v3, `quantity_kinds` v2 with count/indicator categories; typed `ModelingError::Domain` with rule `modeling.domain`; finite-bound admission; free-discrete refusals for root, initialization, fitting, dynamics and nested implicit blocks; authored price-taker MILP fixture solved by HiGHS (70 W optimum; the relaxation reaches 85 W). Post-merge: authoring 45, model 36, quantity 73, modeling 84, math 108, compiler 121, schema 75, backend 108, runtime 122, all passing; `codegen-contracts-check` and `conformance-fixtures-check` exit 0. M3/M4 are running on the M branch | M1 complete; M3/M4 running |
 | E10 | S1–S4; Y1–Y5 | Y1/Y2/Y6 merged (`754049f8`). IDAS: scheduled inputs with recoverable trials, events without sensitivities (typed refusal with them), `IDASetConstraints`, staggered sensitivities, SPGMR/SPFGMR with a preconditioner, `IDA_Y_INIT`; F12 sparse products; F09 serde dynamics identity. Diffsol: TR-BDF2, ESDIRK34, Tsit45 (mass-free), KLU. KINSOL: typed Newton, eta, preconditioner, Krylov and Anderson options; one-sided bounds shifted to signs; a per-worker session cache for nested solves. A PID test with piecewise inputs is comparable to the IDAES PETSc example. After the merge: backend 136/0, runtime 135/0, governance 87/0. Follow-ups: the Diffsol KLU singular-factorization panic should become a typed numerical failure; the KINSOL cache memory needs squaring with job budgets; authored event direction and sign constraints from authored bounds; authored scheduled inputs need a kernel fixture field | Y1, Y2, Y6 complete; S, Y3–Y5 next |
-| E11 | G1 binding through G8 | G2 complete: `FactorableProgram` (merge `49df7d0e`). 1,830 of 1,845 steady rows are Exact; the other 15 are Relaxed regime outputs (M4/G7). The PC-SAFT opacity was the expression-flattening limit, not the validity guard (census correction). G1 binding and G3 merged (`e781060c`, then re-integrated with A6):
-- `scip.rs`: FFI with build-time `SCIP_APIVERSION` 156 asserts and a run-time version check; one SCIP instance per attempt, freed on unwind.
-- `execution/factorable.rs`: the Factorable runner.
-- Reserved options read back, including `misc/catchctrlc=FALSE`, memory from the foreign allowance, and the nested Ipopt linear solver.
-- Event-handler cancellation; an exhaustive status map.
-- `GapQualified` + `global_bound` only from a read-back-equivalent exact export; the fixed-assignment re-solve for relaxed or mixed-integer candidates.
-- Registry: `scip`, three problem classes, four assurances, a `certifies` column.
-
-Tests: backend 120/0 (13 SCIP), runtime 128/0 (certify end-to-end). G4–G8 next |
-| E12 | C3–C5; O3–O9 | Their tests; Delta control table deleted | not started |
+| E11 | G1 binding through G8 | G2 (merge `49df7d0e`): `FactorableProgram`; 1,830 of 1,845 steady rows Exact, the other 15 Relaxed regime outputs; the census attribution is corrected (flattening limit). G1/G3 (merge `e781060c`): `scip.rs` FFI with build-time `SCIP_APIVERSION` 156 asserts and a run-time version check, one SCIP instance per attempt freed on unwind; the Factorable runner; reserved options read back (`misc/catchctrlc=FALSE`, foreign-allowance memory, nested Ipopt linear solver); event-handler cancellation; an exhaustive status map; `GapQualified` + `global_bound` only from a read-back-equivalent exact export; the fixed-assignment re-solve; registry `scip`, three problem classes, four assurances, `certifies`. G4–G7 (merge `42f5a83f`): implicit residuals and provider envelopes on certify; `proven_infeasible` and SCIP IIS (irreducibility flag; two SCIP 10.0.2 IIS bugs worked around); a certified infeasibility route beside the local explanation; SCIP consumes all seven native forms; solution pool (`runtime.solution_pool`); reoptimization; deterministic concurrency; exact rational MILP (`exact_certificate`); the TPD stability model. Open: `heater_optimization_certified` (SCIP memory allowance), PC-SAFT TPD instability (compiler body-slot limit), G8 | G1–G3, G5, G7 complete; G4 and G6 partial; G8 open |
+| E12 | C3–C5; O3–O9 | O3–O6 merged (`f17f20a1`, `e734d696`): registry-declared `runtime.operational_*` relations with a conformance test; durable and ephemeral runs, with publication requiring durable; `pse-worker` and the v1 job payload; progress streams to `solve_metrics`; stored seeds (`StartSource::Stored`); Python `OperationalStore` and `Runtime.runs()`. O7, O8, O9 and C3–C5 not started | O3–O6 complete; rest open |
 | E13 | Q1 qualification and closure (on request) | Reported against the zero baseline | not started |
 
 ## Verification
@@ -94,7 +86,79 @@ Tests: backend 120/0 (13 SCIP), runtime 128/0 (certify end-to-end). G4–G8 next
 Targeted checks per step follow Plan 22 *Verification*. Evidence is recorded here as each
 step lands: test names, the command, and the failure count against the zero baseline.
 
-## Current checkpoint
+## Current checkpoint (2026-09-28, wrap-up before a machine restart)
 
-- **Now:** A1–A4, A6, A7, C1, G1–G3, M1, M3, M4, Y1, Y2, Y6, O1 and O2 are complete; the NLP track (N1, N2 committed; N3, N4, C2) is running in a worktree. Next: A5 (main); G4–G7 and O3–O6 (worktrees); then N5, S, Y3–Y5, C3–C5, M2 completion and M5, G8, O7–O9, Q1.
-- **Next:** E3 after E2.
+**State.** All workstreams are merged into `main` and pushed. Worktrees and branches are cleaned up. The merges happened at the maintainer's request, before every integration test passed; the known failing or unrun tests are listed below.
+
+### Packet status
+
+| Status | Packets |
+|---|---|
+| Complete, on `main` | D0; A1, A2, A3, A4, A5, A6, A7; C1, C2; N1, N2, N3, N4; M1, M3, M4; G1, G2, G3, G5, G7; Y1, Y2, Y6; O1, O2, O3, O4, O5 (progress), O6 |
+| Partial | M2 (typed refusals done; the fixed-assignment stage and ADR-0103 item 4 integer-bound tightening are open); G4 (implicit residuals and envelopes wired; `heater_optimization_certified` open); G6 (TPD model authored, `tpd_certifies_stable_feed` passes; the PC-SAFT instability test is blocked by the compiler `Limit("body slots")`); O5 (incumbents are not yet streamed from solvers) |
+| Not started | N5; S1–S4; Y3, Y4, Y5; C3, C4, C5; M5; G8; O7, O8 (publication still commits through the Delta control table), O9; Q1 |
+
+### Test status at wrap-up
+All counts were run by the integration agent at `e734d696` with `PSE_SOLVER_IMAGE` set, and none failed:
+
+| Check | Result |
+|---|---|
+| `just check` | exit 0, 396 warning lines (baseline) |
+| `just check-solver-contracts`, `just check-native-python` | exit 0 |
+| Native units, pse-backend-native | 174 passed |
+| Native units, pse-runtime | 150 passed |
+| `just unit-package` pse-operations | 36 passed |
+| `just worker-test` | 1 passed |
+| `just unit-package` pse-schema / pse-math / pse-compiler | 75 / 108 / 130 passed |
+| `invariant_fixtures` | 331 passed |
+| `just governance-tests` | 87 passed |
+| `just py-unit-native` | 132 passed (plus the 2 known pyomo collection errors) |
+| Python integration (`py-unit-native -m integration`) | 4 passed |
+| `codegen-contracts-check`, `conformance-fixtures-check`, `python-stubs --check` | exit 0 |
+
+**Not run on the final state (unverified):**
+- the native-acceptance conformance suite (8 passed after merge 1, including global certification in 471 s), especially `acceptance::publication_resource::authored_publication_resource`, which now uses a durable test store, and the global-certification acceptance tests;
+- `just db-test` (the store tests passed through `unit-package`);
+- the full Python component and parity scopes;
+- the comprehensive qualification (Q1).
+
+**Review needed:** `82874e7d` changes Ipopt session reuse. A retained problem is now reused when the new step's option keys cover all of its keys; dropping a key still forces a rebuild. One assertion in the existing reuse test changed to match.
+
+**Identity-version bumps in the merges** (DP-24): `pse.math.case-structure.v3`, `pse.backend.settings.v3` (SCIP settings gained four fields), `pse.native.seed.v2`.
+
+### Environment facts for resuming
+- **Solver image (unpublished).** Native recipes need `export PSE_SOLVER_IMAGE=sha256:0d685e7e7b22e6241e448995c645b9be597ef1d9e0007bb55a33a19e6491ae15`, the local `pse-solvers:dev-local`. After a restart, check it with `docker image inspect pse-solvers:dev-local`. If it is gone, rebuild with `just --yes solver-image dev` (about 4 min) and use its new id. Publishing to GHCR and re-pinning is still a pending maintainer decision (item 8).
+- **PostgreSQL 18.6** runs as `18/main` on port 5432, with role `paul` (peer auth, `CREATEDB`) and database `pse`. The `justfile` exports `DATABASE_URL`. Run `just db-status`; if migrations are pending, run `just db-migrate` (the O3 migration `20260927120000_registry_relations.sql`).
+- **Baselines:**
+  - `just check`: 396 warning lines.
+  - `py-unit-native` has 2 known collection errors, because the pyomo parity group is not installed.
+- **Environment refresh:** the doctor reported "environment outdated" at session start. Run `just py-sync-native` after pulling to rebuild the extension with the native solvers.
+
+### Open follow-ups (owner packet in parentheses)
+- **Architecture text** is current through blueprint revision 64 (A1–A4, A6, A7, C1, G1–G3, M1, M3, M4, Y1, Y2, Y6). Still owed for work that landed after revision 64:
+  - **A5:** §21.1/§21.5 settings classes, the typed route/eligibility/attempt rows, `NativeIneligibility`; §18/§18.10 pse-owned conic types; §18.7 reason codes; §17.3 `validate_profile` initialization admission.
+  - **N1–N4 and C2:** §18.3/§18.9 Ipopt linear solvers and typed settings, warm restarts, the ℓ1 route (Auto presolve → Off), conditioning and `Evidence::second_order`, HiGHS node budget, views and QP regularization; the identity versions `case-structure` v3, `backend.settings` v2 and `native.seed` v2 (`mathematics-and-compilation.md` still cites case-structure v2).
+  - **G4–G7:** §18.10.1 (seven native forms on SCIP, `parallel: true`, reoptimization retaining one instance across a MIP sequence, concurrency, IIS semantics and the SCIP 10.0.2 workarounds, exact-mode limits); §3 exact results as `exact_certificate`; `global.*` metrics; the `runtime.solution_pool` publication; §25 global-stability wording and kernel gaps.
+  - **O3–O6:** §9 and `docs/dev/operational-store.md`: the `runtime.operational_*` ↔ `pse_ops.*` naming, the O3 migration, durability classes and publication requiring a durable run, `pse-worker`, the v1 payload and recipes, retention and the progress→`solve_metrics` mapping, the seed preparation identity, `EphemeralPublication`/`UnknownPayloadVersion`, and ADR-0016's `runs.status` realized by `pse_ops.attempts`.
+- **Kernel gaps (G6):** an `annotation check` cannot run a certify solve, and fixtures cannot select the certify intent. The typed provider-envelope contract (`ProviderFactory::envelope`) needs a short ADR note.
+- **Dynamics follow-ups (Y):**
+  - the Diffsol KLU singular-factorization panic should become a typed numerical failure;
+  - the per-worker KINSOL session cache memory needs squaring with job budgets;
+  - authored event direction and IDAS sign constraints from authored bounds;
+  - authored scheduled inputs need a kernel fixture field.
+- **SCIP (G4, G6, G8):**
+  - `heater_optimization_certified` needs a larger SCIP memory allowance than the test runtime's 64 MB;
+  - the PC-SAFT TPD needs larger compiler limits or a leaner formulation;
+  - durable incumbent and bound streaming, and resume from a stored incumbent.
+- **Upstream reports (outward; maintainer decision):** SCIP 10.0.2 IIS irreducibility bugs, the superindicator crash and cardinality null-weight copying (worked around in `scip.rs`); FERAL pool injection (F01); HiGHS 1.14.3 presolve MIP defect (fixed in 1.15; no action needed).
+- **Registry choices within accepted ADRs, to confirm:**
+  - `NativeConstraintForm` and `solver_capabilities.native_forms` (M3/M4, ADR-0104);
+  - `NativeIneligibility` (A5, ADR-0113);
+  - `runtime.operational_*` relations as runtime-namespace sidecars (O3, ADR-0112).
+
+### Next steps, in dependency order
+1. **Run the unverified suites** (native acceptance, `just db-test`) and review `82874e7d`.
+2. **Docs pass** for A5, N1–N4/C2, G4–G7 and O3–O6 (the list above).
+3. **Remaining packets:** O8 then O7 and O9 (the catalog replaces the Delta control table); S1–S4 (sensitivity, which needs N4, now done); Y3–Y5; C3–C5; N5; M2 completion and M5; G8.
+4. **Q1 qualification**, on request.
+- **Python durable runtimes.** `pse.Runtime(settings, store=pse.OperationalStore())` makes every run a durable attempt, which publication requires. `Runtime.runs()` lists attempts; `attempt_id` is on handles and results.
