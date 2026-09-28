@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Paul Heyse
 
 [package]
-name = "pse-diagnostics"
-description = "Shared diagnostic vocabulary and lossless native engine causes."
+name = "pse-vocabulary"
+description = "The platform vocabularies the registry is written in, beneath pse-schema and pse-model (ADR-0117)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,11 +17,15 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-thiserror.workspace = true
-miette.workspace = true
+# The shared refusal of an unknown spelling and its §23.2 code.
+pse-diagnostics.workspace = true
+serde.workspace = true
 postgres-types = { workspace = true, optional = true, features = ["derive"] }
 
 [features]
 # PostgreSQL values of the vocabularies a store column uses (ADR-0117 Outcome 4): each
 # maps to the store's ENUM type of its snake-case name. The value protocol only.
 postgres = ["dep:postgres-types"]
+
+[dev-dependencies]
+serde_json.workspace = true

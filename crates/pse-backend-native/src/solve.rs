@@ -21,6 +21,16 @@ pub use pse_model::generated::enums::{
     NativeStartPolicy as StartPolicy, NativeTermination as Termination,
     NativeWarmCapability as WarmCapability,
 };
+/// Registry-owned vocabularies of the solve controls and the settings documents; the serde
+/// spelling of each member is its one name across the Python boundary (ADR-0113, ADR-0115).
+/// `HessianMode` selects the Hessian representation of compatible NLP methods, and never
+/// silently enables finite differences. `Preconditioner` preconditions a native Krylov
+/// linear solve (KINSOL `KINSetPreconditioner`, IDAS `IDASetPreconditioner`) from the
+/// compiled analytic Jacobian. `ReusePolicy` states the native state retention
+/// requirement. `IpoptLinearSolver` is a symmetric-indefinite solver linked into the
+/// image's one Ipopt (ADR-0108), selected by the Ipopt settings and by SCIP's nested Ipopt
+/// (ADR-0105 §5); its spelling is Ipopt's native `linear_solver` value.
+pub use pse_model::generated::enums::{HessianMode, IpoptLinearSolver, Preconditioner, ReusePolicy};
 /// No implicit fallback is performed for an unavailable selected backend.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SolverSelection {
@@ -43,40 +53,6 @@ pub enum OptionValue {
 }
 /// Effective options retain origin, including native defaults when queried.
 pub type Options = BTreeMap<String, OptionValue>;
-/// Derivative policy does not silently enable finite differences. Its serde spelling is
-/// the one name of each value across the Python boundary (ADR-0113).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HessianMode {
-    /// Exact weighted Lagrangian Hessian.
-    Exact,
-    /// Library-owned quasi-Newton approximation.
-    LimitedMemory,
-}
-/// Preconditioner of a native Krylov linear solve (KINSOL `KINSetPreconditioner`, IDAS
-/// `IDASetPreconditioner`). It is built from the compiled analytic Jacobian, never from
-/// finite differences.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Preconditioner {
-    /// Unpreconditioned Krylov iterations.
-    #[default]
-    None,
-    /// Diagonal (Jacobi) scaling by the compiled Newton-matrix diagonal; a zero diagonal
-    /// entry leaves its row unscaled.
-    Jacobi,
-}
-/// Compatible native state retention requirement; the serde spelling is its boundary name.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ReusePolicy {
-    /// Always construct a fresh native model.
-    Fresh,
-    /// Rebuild explicitly when data updates are ineligible.
-    AllowRebuild,
-    /// Fail rather than rebuilding incompatible native state.
-    RequireReuse,
-}
 /// Native stopping budgets in normalized coordinates, resolved from the numerical policy
 /// and the solved function's acceptance budgets (F20). They are never user input: user
 /// [`Controls`] carry no accuracy, and every attempt receives the value its preparation
@@ -542,36 +518,6 @@ pub struct Basis {
     pub columns: Vec<i32>,
     /// Native row basis statuses.
     pub rows: Vec<i32>,
-}
-/// A symmetric-indefinite linear solver linked into the image's one Ipopt (ADR-0108): the
-/// solver the Ipopt adapter's typed settings select, and the one SCIP's nested Ipopt uses
-/// (ADR-0105 §5). HSL solvers and the runtime-loaded Pardiso are not representable.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum IpoptLinearSolver {
-    /// Sequential MUMPS.
-    #[default]
-    Mumps,
-    /// SPRAL SSIDS on OpenMP threads; needs `OMP_CANCELLATION=TRUE` in the process.
-    Spral,
-    /// oneMKL Pardiso on MKL threads.
-    PardisoMkl,
-}
-impl IpoptLinearSolver {
-    /// Every linked solver.
-    pub const ALL: [Self; 3] = [Self::Mumps, Self::Spral, Self::PardisoMkl];
-    /// Ipopt's `linear_solver` spelling (also SCIP's `nlpi/ipopt/linear_solver`).
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Mumps => "mumps",
-            Self::Spral => "spral",
-            Self::PardisoMkl => "pardisomkl",
-        }
-    }
-    /// Whether the solver consumes more than one admitted thread; MUMPS is sequential.
-    pub const fn parallel(self) -> bool {
-        !matches!(self, Self::Mumps)
-    }
 }
 /// How an interior-point method re-centres a complete primal-dual seed (L-N3). With the
 /// cold-start defaults a seeded restart is pushed back towards the analytic centre and loses

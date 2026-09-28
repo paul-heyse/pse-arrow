@@ -107,6 +107,21 @@ class ChangeKind(StrEnum):
     UPDATE_POSTIMAGE = "update_postimage"
 
 
+class ClarabelMergeMethod(StrEnum):
+    """The declared ClarabelMergeMethod enumeration."""
+
+    NONE = "none"
+    PARENT_CHILD = "parent_child"
+    CLIQUE_GRAPH = "clique_graph"
+
+
+class ClarabelMode(StrEnum):
+    """The declared ClarabelMode enumeration."""
+
+    SINGLE_SOLVE = "single_solve"
+    REUSABLE_DATA = "reusable_data"
+
+
 class ClosureAssessment(StrEnum):
     """The declared ClosureAssessment enumeration."""
 
@@ -265,6 +280,22 @@ class DiagnosticSeverity(StrEnum):
     INFO = "info"
 
 
+class DiffsolLinear(StrEnum):
+    """The declared DiffsolLinear enumeration."""
+
+    FAER_LU = "faer_lu"
+    KLU = "klu"
+
+
+class DiffsolMethod(StrEnum):
+    """The declared DiffsolMethod enumeration."""
+
+    BDF = "bdf"
+    TR_BDF2 = "tr_bdf2"
+    ESDIRK34 = "esdirk34"
+    TSIT45 = "tsit45"
+
+
 class DualQualification(StrEnum):
     """The declared DualQualification enumeration."""
 
@@ -272,6 +303,14 @@ class DualQualification(StrEnum):
     UNAVAILABLE_OR_INVALID = "unavailable_or_invalid"
     UNAVAILABLE = "unavailable"
     NOT_APPLICABLE_PARAMETER = "not_applicable_parameter"
+
+
+class DynamicsMethod(StrEnum):
+    """The declared DynamicsMethod enumeration."""
+
+    AUTO = "auto"
+    DIFFSOL = "diffsol"
+    IDAS = "idas"
 
 
 class EntityKind(StrEnum):
@@ -305,6 +344,13 @@ class ExternalDerivativeSource(StrEnum):
     AUTOMATIC = "automatic"
     SUPPLIED = "supplied"
     IMPLICIT = "implicit"
+
+
+class ExtrapolationPolicy(StrEnum):
+    """The declared ExtrapolationPolicy enumeration."""
+
+    REJECT = "reject"
+    EXTRAPOLATE = "extrapolate"
 
 
 class FailureClass(StrEnum):
@@ -343,11 +389,34 @@ class FindingSeverity(StrEnum):
     WARNING = "warning"
 
 
+class HessianMode(StrEnum):
+    """The declared HessianMode enumeration."""
+
+    EXACT = "exact"
+    LIMITED_MEMORY = "limited_memory"
+
+
+class HighsMethod(StrEnum):
+    """The declared HighsMethod enumeration."""
+
+    CHOOSE = "choose"
+    SIMPLEX = "simplex"
+    IPM = "ipm"
+    PDLP = "pdlp"
+
+
 class IdPolicy(StrEnum):
     """The declared IdPolicy enumeration."""
 
     EXPLICIT = "explicit"
     NAMED = "named"
+
+
+class IdasInitialization(StrEnum):
+    """The declared IdasInitialization enumeration."""
+
+    ALGEBRAIC_AND_RATES = "algebraic_and_rates"
+    STEADY_STATES = "steady_states"
 
 
 class InputConsumptionKind(StrEnum):
@@ -369,6 +438,14 @@ class InvariantKind(StrEnum):
     ACYCLIC = "acyclic"
 
 
+class IpoptLinearSolver(StrEnum):
+    """The declared IpoptLinearSolver enumeration."""
+
+    MUMPS = "mumps"
+    SPRAL = "spral"
+    PARDISOMKL = "pardisomkl"
+
+
 class JobState(StrEnum):
     """The declared JobState enumeration."""
 
@@ -377,6 +454,24 @@ class JobState(StrEnum):
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
+
+
+class KinsolOrthogonalization(StrEnum):
+    """The declared KinsolOrthogonalization enumeration."""
+
+    MODIFIED_GRAM_SCHMIDT = "modified_gram_schmidt"
+    INVERSE_COMPACT_WY = "inverse_compact_wy"
+    CLASSICAL_GRAM_SCHMIDT2 = "classical_gram_schmidt2"
+    DELAYED_CLASSICAL_GRAM_SCHMIDT2 = "delayed_classical_gram_schmidt2"
+
+
+class KinsolStrategy(StrEnum):
+    """The declared KinsolStrategy enumeration."""
+
+    PICARD = "picard"
+    NEWTON = "newton"
+    LINE_SEARCH = "line_search"
+    FIXED_POINT = "fixed_point"
 
 
 class MemberSelectionKind(StrEnum):
@@ -591,6 +686,23 @@ class ModelingVariableDomain(StrEnum):
     BINARY = "binary"
     SEMICONTINUOUS = "semicontinuous"
     SEMIINTEGER = "semiinteger"
+
+
+class MuStrategy(StrEnum):
+    """The declared MuStrategy enumeration."""
+
+    MONOTONE = "monotone"
+    ADAPTIVE = "adaptive"
+
+
+class MumpsOrdering(StrEnum):
+    """The declared MumpsOrdering enumeration."""
+
+    AMD = "amd"
+    AMF = "amf"
+    PORD = "pord"
+    METIS = "metis"
+    QAMD = "qamd"
 
 
 class Namespace(StrEnum):
@@ -833,6 +945,15 @@ class NumericalCoordinates(StrEnum):
     NORMALIZED = "normalized"
 
 
+class NumericalProvenanceField(StrEnum):
+    """The declared NumericalProvenanceField enumeration."""
+
+    NOMINAL = "nominal"
+    ABSOLUTE_TOLERANCE = "absolute_tolerance"
+    RELATIVE_TOLERANCE = "relative_tolerance"
+    COORDINATE_SCALE = "coordinate_scale"
+
+
 class NumericalSource(StrEnum):
     """The declared NumericalSource enumeration."""
 
@@ -929,6 +1050,37 @@ class PackageKind(StrEnum):
     LIBRARY = "library"
     MODEL = "model"
     CASE = "case"
+
+
+class PardisoMatching(StrEnum):
+    """The declared PardisoMatching enumeration."""
+
+    COMPLETE = "complete"
+    COMPLETE_PLUS2X2 = "complete_plus2x2"
+    CONSTRAINTS = "constraints"
+
+
+class PardisoOrdering(StrEnum):
+    """The declared PardisoOrdering enumeration."""
+
+    AMD = "amd"
+    METIS = "metis"
+    PARALLEL_METIS = "parallel_metis"
+
+
+class PounceMethod(StrEnum):
+    """The declared PounceMethod enumeration."""
+
+    INTERIOR_POINT = "interior_point"
+    ACTIVE_SET_SQP = "active_set_sqp"
+    L1_EXACT_PENALTY = "l1_exact_penalty"
+
+
+class Preconditioner(StrEnum):
+    """The declared Preconditioner enumeration."""
+
+    NONE = "none"
+    JACOBI = "jacobi"
 
 
 class PublicationKind(StrEnum):
@@ -1038,6 +1190,14 @@ class RetentionReason(StrEnum):
     CHANGES = "changes"
 
 
+class ReusePolicy(StrEnum):
+    """The declared ReusePolicy enumeration."""
+
+    FRESH = "fresh"
+    ALLOW_REBUILD = "allow_rebuild"
+    REQUIRE_REUSE = "require_reuse"
+
+
 class RuntimeTermination(StrEnum):
     """The declared RuntimeTermination enumeration."""
 
@@ -1053,6 +1213,13 @@ class ScaleKind(StrEnum):
 
     POINT = "point"
     DIFFERENCE = "difference"
+
+
+class SensitivityCorrector(StrEnum):
+    """The declared SensitivityCorrector enumeration."""
+
+    SIMULTANEOUS = "simultaneous"
+    STAGGERED = "staggered"
 
 
 class SettlementOutcome(StrEnum):
@@ -1078,12 +1245,47 @@ class SnapshotClass(StrEnum):
     SIDECAR = "sidecar"
 
 
+class SpralOrdering(StrEnum):
+    """The declared SpralOrdering enumeration."""
+
+    METIS = "metis"
+    MATCHING = "matching"
+
+
+class SpralPivot(StrEnum):
+    """The declared SpralPivot enumeration."""
+
+    AGGRESSIVE = "aggressive"
+    BLOCK = "block"
+    THRESHOLD = "threshold"
+
+
+class SpralScaling(StrEnum):
+    """The declared SpralScaling enumeration."""
+
+    NONE = "none"
+    MC64 = "mc64"
+    AUCTION = "auction"
+    MATCHING = "matching"
+    RUIZ = "ruiz"
+
+
 class Stability(StrEnum):
     """The declared Stability enumeration."""
 
     STABLE = "stable"
     EVOLVING = "evolving"
     INTERNAL = "internal"
+
+
+class StateSign(StrEnum):
+    """The declared StateSign enumeration."""
+
+    FREE = "free"
+    NON_NEGATIVE = "non_negative"
+    POSITIVE = "positive"
+    NON_POSITIVE = "non_positive"
+    NEGATIVE = "negative"
 
 
 class StoredSeedKind(StrEnum):
@@ -1148,6 +1350,13 @@ class TrajectoryTermination(StrEnum):
     EVENT_LIMIT = "event_limit"
     FAILED = "failed"
     PANIC = "panic"
+
+
+class TrialPolicy(StrEnum):
+    """The declared TrialPolicy enumeration."""
+
+    TERMINAL = "terminal"
+    RECOVERABLE = "recoverable"
 
 
 class TruthValue(StrEnum):

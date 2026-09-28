@@ -742,7 +742,12 @@ impl<'a> Session<'a> {
         }
         s.linear_solver(p.idas.linear)?;
         if p.idas.constraints.iter().any(|v| *v != StateSign::Free) {
-            let codes: Vec<_> = p.idas.constraints.iter().map(|v| v.code()).collect();
+            let codes: Vec<_> = p
+                .idas
+                .constraints
+                .iter()
+                .map(|v| state_sign_code(*v))
+                .collect();
             let constraints = s.vector(&codes)?;
             unsafe {
                 check(

@@ -490,11 +490,12 @@ crate::closed_enum! {
     }
 }
 
-/// Physical dictionaries exported to registry and code generators from their owner.
-/// Names are Rust type names; member order is the presentation dictionary order.
+/// Physical dictionaries exported to the registry from their owner. Each is named by the
+/// Rust path of its type (`pse_quantity::<Name>`), which the generator re-exports; member
+/// order is the presentation dictionary order.
 pub fn dictionaries() -> Vec<(&'static str, Vec<&'static str>)> {
     macro_rules! dictionaries {
-        ($($name:ident),* $(,)?) => { vec![$((stringify!($name), $name::ALL.iter().map(|value| value.as_str()).collect())),*] };
+        ($($name:ident),* $(,)?) => { vec![$((concat!("pse_quantity::", stringify!($name)), $name::ALL.iter().map(|value| value.as_str()).collect())),*] };
     }
     dictionaries!(
         Opcode,

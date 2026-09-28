@@ -18,6 +18,9 @@ CREATE TYPE pse_ops.attempt_kind AS ENUM ('modeling', 'simulation', 'fit');
 -- Registry enumeration AttemptState.
 CREATE TYPE pse_ops.attempt_state AS ENUM ('planned', 'queued', 'running', 'completed', 'partial', 'failed', 'cancelled', 'stale', 'superseded');
 
+-- Registry enumeration DiagnosticCode.
+CREATE TYPE pse_ops.diagnostic_code AS ENUM ('authoring.parse', 'authoring.parse.ambiguous_unary_power', 'authoring.parse.budget', 'authoring.parse.document_io', 'authoring.parse.missing_id', 'authoring.parse.nonfinite_number', 'authoring.parse.syntax', 'authoring.parse.unknown_key', 'authoring.parse.unresolved_target', 'authoring.pkg.unresolved', 'authoring.pkg.version_conflict', 'authoring.reference', 'authoring.reference.contract', 'authoring.reference.derived_write', 'authoring.reference.rename_named', 'authoring.reference.unknown_row_key', 'capability.backend', 'compile.discretization', 'compile.feature', 'compile.law', 'compile.math', 'compile.math.cyclic_expression', 'compile.math.domain_violation_static', 'compile.math.quantity_operation_unsupported', 'compile.math.unit_inconsistent', 'compile.property', 'config.invalid', 'internal.invariant', 'kernel.unbound_parameter', 'plan.initialization', 'rule.float_key', 'rule.head_schema_mismatch', 'runtime.cancelled', 'runtime.infrastructure', 'runtime.resource_limit', 'runtime.timeout', 'schema.admission', 'schema.arrow', 'schema.codegen', 'schema.contract_mismatch', 'schema.duplicate_declaration', 'schema.enum_member', 'schema.extension_metadata', 'schema.extension_type', 'schema.fingerprint_mismatch', 'schema.invalid_declaration', 'schema.invalid_key', 'schema.missing_granularity', 'schema.missing_snapshot_class', 'schema.nullability', 'schema.ordinal_range', 'schema.rule_float_key', 'schema.rule_stratification', 'schema.storage', 'schema.unknown_metadata', 'schema.unknown_reference', 'schema.unknown_registry', 'schema.unsupported_layout', 'schema.version_mismatch', 'solve.evaluation_error', 'solve.infeasible', 'solve.limit', 'solve.locally_infeasible', 'solve.solver_error', 'solve.unbounded', 'template.guard_undecidable', 'user.model', 'validation.invariant');
+
 -- Registry enumeration EvidenceUnavailableReason.
 CREATE TYPE pse_ops.evidence_unavailable_reason AS ENUM ('not_requested', 'not_computed', 'not_applicable', 'unsupported', 'failed', 'unknown', 'nonfinite');
 
@@ -124,7 +127,7 @@ CREATE TABLE pse_ops."attempts" (
     "termination_run_state" pse_ops.native_run_state,
     "termination_trajectory" pse_ops.trajectory_termination,
     "termination_runtime" pse_ops.runtime_termination,
-    "termination_rule" text,
+    "termination_rule" pse_ops.diagnostic_code,
     "termination_detail" jsonb,
     "created_at" timestamptz NOT NULL,
     "updated_at" timestamptz NOT NULL,
@@ -137,7 +140,6 @@ CREATE TABLE pse_ops."attempts" (
     CONSTRAINT attempts_running_has_worker_check CHECK ("state" <> 'running' OR "worker" IS NOT NULL),
     CONSTRAINT attempts_running_holds_lease_check CHECK (("state" = 'running') = ("lease_expires_at" IS NOT NULL)),
     CONSTRAINT attempts_state_version_nonnegative_check CHECK ("state_version" >= 0),
-    CONSTRAINT attempts_termination_rule_nonempty_check CHECK ("termination_rule" IS NULL OR "termination_rule" <> ''),
     CONSTRAINT attempts_worker_nonempty_check CHECK ("worker" IS NULL OR "worker" <> '')
 );
 

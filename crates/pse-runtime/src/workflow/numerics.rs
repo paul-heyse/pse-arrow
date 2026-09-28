@@ -376,7 +376,7 @@ impl RunResult {
                             .map(|p| resolved::RuntimeResolvedNumericsFieldProvenanceItem {
                                 declaration: p.declaration,
                                 source: p.source,
-                                field: p.field.into(),
+                                field: p.field,
                                 selected: p.selected,
                                 value: p.value,
                                 description: p.description.clone(),

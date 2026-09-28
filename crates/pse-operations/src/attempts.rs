@@ -16,8 +16,8 @@ use crate::error::{Classify, OperationsError, Target};
 use crate::lifecycle::{self, AttemptState, Lifecycle};
 use crate::store::Store;
 pub use pse_model::generated::enums::{
-    AttemptKind, NativeRunState, NativeTermination, RuntimeTermination, TerminationClass,
-    TrajectoryTermination,
+    AttemptKind, DiagnosticCode, NativeRunState, NativeTermination, RuntimeTermination,
+    TerminationClass, TrajectoryTermination,
 };
 pub use pse_model::generated::runtime::operational_attempts::RuntimeOperationalAttemptsRow;
 
@@ -50,8 +50,8 @@ pub enum TerminationCode {
     Trajectory(TrajectoryTermination),
     /// An outcome the durable runtime owns (cancellation, infrastructure, ...).
     Runtime(RuntimeTermination),
-    /// A violated named rule or a diagnostic code, by its registry spelling.
-    Rule(String),
+    /// The diagnostic code of a failure no other class owns (X4).
+    Rule(DiagnosticCode),
 }
 
 impl TerminationCode {
@@ -73,7 +73,7 @@ impl TerminationCode {
             Self::RunState(value) => value.as_str(),
             Self::Trajectory(value) => value.as_str(),
             Self::Runtime(value) => value.as_str(),
-            Self::Rule(value) => value,
+            Self::Rule(value) => value.as_str(),
         }
     }
 
@@ -109,9 +109,9 @@ impl TerminationCode {
         }
     }
 
-    fn rule(&self) -> Option<&str> {
+    const fn rule(&self) -> Option<DiagnosticCode> {
         if let Self::Rule(value) = self {
-            Some(value)
+            Some(*value)
         } else {
             None
         }
@@ -222,7 +222,7 @@ impl FromRow<'_, PgRow> for AttemptRecord {
                         TerminationCode::Runtime(codec::parsed(row, "termination_runtime")?)
                     }
                     TerminationClass::Rule => {
-                        TerminationCode::Rule(row.try_get("termination_rule")?)
+                        TerminationCode::Rule(codec::parsed(row, "termination_rule")?)
                     }
                 };
                 Ok(Termination {
@@ -281,7 +281,7 @@ impl AttemptRecord {
             termination_run_state: code.and_then(TerminationCode::run_state),
             termination_trajectory: code.and_then(TerminationCode::trajectory),
             termination_runtime: code.and_then(TerminationCode::runtime),
-            termination_rule: code.and_then(TerminationCode::rule).map(str::to_owned),
+            termination_rule: code.and_then(TerminationCode::rule),
             termination_detail: self
                 .termination
                 .as_ref()
@@ -370,7 +370,8 @@ macro_rules! attempt_columns {
          termination_native::text AS termination_native, \
          termination_run_state::text AS termination_run_state, \
          termination_trajectory::text AS termination_trajectory, \
-         termination_runtime::text AS termination_runtime, termination_rule, \
+         termination_runtime::text AS termination_runtime, \
+         termination_rule::text AS termination_rule, \
          termination_detail, created_at, updated_at, started_at, finished_at"
     };
 }
@@ -480,7 +481,8 @@ pub(crate) async fn apply(
                  ELSE termination_trajectory END, \
              termination_runtime = CASE WHEN $7 THEN $12::pse_ops.runtime_termination \
                  ELSE termination_runtime END, \
-             termination_rule = CASE WHEN $7 THEN $13 ELSE termination_rule END, \
+             termination_rule = CASE WHEN $7 THEN $13::pse_ops.diagnostic_code \
+                 ELSE termination_rule END, \
              termination_detail = CASE WHEN $7 THEN $14 ELSE termination_detail END \
          WHERE attempt_id = $1",
     )
@@ -499,7 +501,7 @@ pub(crate) async fn apply(
             .map(TrajectoryTermination::as_str),
     )
     .bind(code.and_then(TerminationCode::runtime).map(RuntimeTermination::as_str))
-    .bind(code.and_then(TerminationCode::rule))
+    .bind(code.and_then(TerminationCode::rule).map(DiagnosticCode::as_str))
     .bind(note.termination.as_ref().and_then(|t| t.detail.as_ref()))
     .execute(&mut *conn)
     .await

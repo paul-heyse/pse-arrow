@@ -985,7 +985,7 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
         OptionValue::Text("mumps".into())
     );
     let pardiso = ScipSettings {
-        nlp_linear_solver: IpoptLinearSolver::PardisoMkl,
+        nlp_linear_solver: IpoptLinearSolver::Pardisomkl,
         seed: 3,
         nodes: Some(1000),
         ..ScipSettings::default()

@@ -9,7 +9,7 @@ use pse_math::binding::CaseValues;
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 
-use pse_model::generated::enums::ModelingCheckKind as CheckKind;
+use pse_model::generated::enums::{ExtrapolationPolicy, ModelingCheckKind as CheckKind};
 /// Registry-owned check and report rows are also the public Rust values.
 pub use pse_model::generated::runtime::modeling_checks::Row as ModelingCheck;
 pub use pse_model::generated::runtime::modeling_reports::Row as ModelingReport;
@@ -489,11 +489,7 @@ pub(in crate::workflow) fn assess_observations(
                     return Err(contract("reversed validity interval"));
                 }
                 let inside = v >= lo && v <= hi;
-                if policy != "reject" && policy != "extrapolate" {
-                    return Err(contract(
-                        "validity policy must be reject or explicitly selected extrapolate",
-                    ));
-                }
+                let extrapolate = *policy == ExtrapolationPolicy::Extrapolate;
                 checks.push(ModelingCheck {
                     step: 0,
                     run_id,
@@ -504,9 +500,9 @@ pub(in crate::workflow) fn assess_observations(
                     kind: CheckKind::Validity,
                     value: v,
                     tolerance: None,
-                    satisfied: inside || policy == "extrapolate",
+                    satisfied: inside || extrapolate,
                     within_validity: Some(inside),
-                    extrapolation_allowed: Some(policy == "extrapolate"),
+                    extrapolation_allowed: Some(extrapolate),
                 });
             }
             _ => {}

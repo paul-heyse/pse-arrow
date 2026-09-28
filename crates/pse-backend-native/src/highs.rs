@@ -25,19 +25,9 @@ mod mip_tests;
 static LIFECYCLE: RwLock<()> = RwLock::new(());
 thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(false)};}
 
-/// Explicit native method; automatic remains a native class-specific decision.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Method {
-    /// Native method selection.
-    Choose,
-    /// Simplex for LP.
-    Simplex,
-    /// Interior point for LP.
-    Ipm,
-    /// First-order primal-dual LP method.
-    Pdlp,
-}
+/// Explicit native LP method, a registry vocabulary (ADR-0115 Outcome 3); automatic
+/// remains a native class-specific decision.
+pub use pse_model::generated::enums::HighsMethod as Method;
 /// The HiGHS adapter's settings type on the unified lifecycle; identity derives from serde,
 /// and absent fields take these defaults across the Python boundary (ADR-0113).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

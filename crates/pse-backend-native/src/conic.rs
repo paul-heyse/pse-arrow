@@ -186,40 +186,21 @@ fn clarabel_cones(cones: &[Cone]) -> Result<Vec<SupportedConeT<f64>>, ProblemErr
 pub fn cone_key(cones: &[Cone]) -> Result<pse_ids::ContentHash, ProblemError> {
     crate::identity::of(pse_ids::Frame::ConeLayoutV2, cones)
 }
-/// Native preprocessing and mutable-data reuse are distinct execution profiles.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Mode {
-    /// Native presolve/chordal preprocessing may change the native layout.
-    #[default]
-    SingleSolve,
-    /// Preserve structure to use Clarabel's data update API: native presolve, input
-    /// zero-dropping and chordal decomposition are disabled whatever [`Settings`] request.
-    ReusableData,
-}
-/// Clique merging of the chordal decomposition.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MergeMethod {
-    /// No merging.
-    None,
-    /// Merge a clique into its parent.
-    ParentChild,
-    /// Clique-graph merging.
-    CliqueGraph,
-}
-impl MergeMethod {
-    /// The native setting value.
-    #[cfg_attr(
-        not(feature = "sdp"),
-        expect(dead_code, reason = "the native merge setting exists only with SDP")
-    )]
-    const fn native(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::ParentChild => "parent_child",
-            Self::CliqueGraph => "clique_graph",
-        }
+/// Native preprocessing and mutable-data reuse are distinct execution profiles
+/// (`ReusableData` disables native presolve, input zero-dropping and chordal decomposition
+/// whatever [`Settings`] request), and the clique merging of the chordal decomposition:
+/// registry vocabularies (ADR-0115 Outcome 3).
+pub use pse_model::generated::enums::{ClarabelMergeMethod as MergeMethod, ClarabelMode as Mode};
+/// Clarabel's native `chordal_decomposition_merge_method` value.
+#[cfg_attr(
+    not(feature = "sdp"),
+    expect(dead_code, reason = "the native merge setting exists only with SDP")
+)]
+const fn merge_method(method: MergeMethod) -> &'static str {
+    match method {
+        MergeMethod::None => "none",
+        MergeMethod::ParentChild => "parent_child",
+        MergeMethod::CliqueGraph => "clique_graph",
     }
 }
 /// The chordal-decomposition defaults: Clarabel's `sdp` builder defaults. They are stated
@@ -457,7 +438,7 @@ fn settings(
     {
         settings.chordal_decomposition_enable = pse.chordal_decomposition_enable;
         settings.chordal_decomposition_merge_method =
-            pse.chordal_decomposition_merge_method.native().into();
+            merge_method(pse.chordal_decomposition_merge_method).into();
         settings.chordal_decomposition_compact = pse.chordal_decomposition_compact;
         settings.chordal_decomposition_complete_dual = pse.chordal_decomposition_complete_dual;
     }
@@ -1120,7 +1101,7 @@ mod tests {
                     MergeMethod::CliqueGraph
                 ]
                 .into_iter()
-                .find(|m| m.native() == library.chordal_decomposition_merge_method)
+                .find(|m| merge_method(*m) == library.chordal_decomposition_merge_method)
                 .unwrap(),
                 library.chordal_decomposition_compact,
                 library.chordal_decomposition_complete_dual,

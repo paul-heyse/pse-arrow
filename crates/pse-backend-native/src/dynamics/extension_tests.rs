@@ -639,7 +639,7 @@ fn idas_krylov_matches_klu() {
     p.method = Method::Idas;
     p.idas.linear = IdasLinear::Spgmr {
         dimension: 0,
-        preconditioner: Default::default(),
+        preconditioner: Preconditioner::None,
     };
     assert!(p.validate(&Toy::new(false, false).c, &[2.0]).is_err());
 }

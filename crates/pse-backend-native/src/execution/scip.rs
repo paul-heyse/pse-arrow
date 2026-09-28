@@ -14,7 +14,7 @@ use pse_model::generated::enums::NativeConstraintForm;
 
 /// Typed SCIP settings. Reserved native options derive from these and the shared controls;
 /// identity derives from serde.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
     /// Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`): the image's one
@@ -36,6 +36,21 @@ pub struct Settings {
     /// Retain the native search tree across a finite MIP sequence whose constraint system
     /// is unchanged and whose linear objective changes (`SCIPenableReoptimization`).
     pub reoptimize: bool,
+}
+impl Default for Settings {
+    /// Sequential MUMPS in the nested Ipopt, seed shift 0, no node budget, no pool, and
+    /// neither IIS, exact solving nor reoptimization.
+    fn default() -> Self {
+        Self {
+            nlp_linear_solver: IpoptLinearSolver::Mumps,
+            seed: 0,
+            nodes: None,
+            pool: 0,
+            iis: false,
+            exact: false,
+            reoptimize: false,
+        }
+    }
 }
 impl Settings {
     /// Refuse a nested linear solver whose process preconditions are unmet and every

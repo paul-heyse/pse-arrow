@@ -3,11 +3,32 @@
 
 //! One declaration of platform classes and detailed diagnostic codes.
 
+/// A spelling outside a closed, source-owned vocabulary (ADR-0115 Outcome 3).
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum VocabularyError {
+    /// The spelling names no member of the vocabulary.
+    #[error("`{value}` is not a member of `{vocabulary}`")]
+    UnknownMember {
+        /// The vocabulary's registry name.
+        vocabulary: &'static str,
+        /// The refused spelling.
+        value: String,
+    },
+}
+crate::impl_diagnostic! {
+    VocabularyError,
+    code(_this) { Some(DiagnosticCode::SchemaEnumMember) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+}
+
+/// The `postgres` feature maps each vocabulary to the store's ENUM type of the same
+/// snake-case name, member by member (ADR-0117 Outcome 4, ADR-0114 Outcome 25).
 macro_rules! vocabulary {
-    ($name:ident { $($variant:ident => ($text:literal, $description:literal)),* $(,)? }) => {
+    ($name:ident as $sql:literal { $($variant:ident => ($text:literal, $description:literal)),* $(,)? }) => {
         #[doc = "Stable platform diagnostic vocabulary."]
         #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-        pub enum $name { $(#[doc = $description] $variant),* }
+        #[cfg_attr(feature = "postgres", derive(postgres_types::ToSql, postgres_types::FromSql), postgres(name = $sql))]
+        pub enum $name { $(#[doc = $description] #[cfg_attr(feature = "postgres", postgres(name = $text))] $variant),* }
         impl $name {
             /// All declarations in stable order.
             pub const ALL: &'static [Self] = &[$(Self::$variant),*];
@@ -15,11 +36,29 @@ macro_rules! vocabulary {
             pub const fn as_str(self) -> &'static str { match self { $(Self::$variant => $text),* } }
             /// Declared description.
             pub const fn description(self) -> &'static str { match self { $(Self::$variant => $description),* } }
+            /// The member with this registry spelling, if any.
+            pub fn parse(value: &str) -> Option<Self> {
+                match value { $($text => Some(Self::$variant),)* _ => None }
+            }
+        }
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.as_str())
+            }
+        }
+        impl std::str::FromStr for $name {
+            type Err = VocabularyError;
+            fn from_str(value: &str) -> Result<Self, Self::Err> {
+                Self::parse(value).ok_or_else(|| VocabularyError::UnknownMember {
+                    vocabulary: stringify!($name),
+                    value: value.to_owned(),
+                })
+            }
         }
     };
 }
 
-vocabulary! { FailureClass {
+vocabulary! { FailureClass as "failure_class" {
     AuthoringParse => ("authoring.parse", "A syntax error or an unknown key."),
     AuthoringReference => ("authoring.reference", "An unknown path or a derived write."),
     ValidationInvariant => ("validation.invariant", "A declared invariant does not hold."),
@@ -50,7 +89,8 @@ macro_rules! codes {
     ($($variant:ident => ($text:literal, $class:ident, $description:literal)),* $(,)?) => {
         /// Detailed diagnostic identity; several codes can share a failure class.
         #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-        pub enum DiagnosticCode { $(#[doc = $description] $variant),* }
+        #[cfg_attr(feature = "postgres", derive(postgres_types::ToSql, postgres_types::FromSql), postgres(name = "diagnostic_code"))]
+        pub enum DiagnosticCode { $(#[doc = $description] #[cfg_attr(feature = "postgres", postgres(name = $text))] $variant),* }
         impl DiagnosticCode {
             /// All detailed codes.
             pub const ALL: &'static [Self] = &[$(Self::$variant),*];
@@ -138,6 +178,17 @@ codes! {
     TemplateGuardUndecidable => ("template.guard_undecidable", ValidationInvariant, "template guard undecidable."),
     UserModel => ("user.model", UserModel, "An authored assertion or user equation failed."),
     ValidationInvariant => ("validation.invariant", ValidationInvariant, "A declared invariant does not hold."),
+}
+
+impl std::str::FromStr for DiagnosticCode {
+    type Err = VocabularyError;
+    /// Reads the dotted registry spelling, or the miette path spelling `Display` writes.
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::parse(value).ok_or_else(|| VocabularyError::UnknownMember {
+            vocabulary: "DiagnosticCode",
+            value: value.to_owned(),
+        })
+    }
 }
 
 impl std::fmt::Display for DiagnosticCode {

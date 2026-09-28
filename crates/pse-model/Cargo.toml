@@ -20,6 +20,8 @@ workspace = true
 pse-quantity.workspace = true
 pse-ids.workspace = true
 pse-diagnostics.workspace = true
+# Platform vocabularies the generated enums re-export (ADR-0117).
+pse-vocabulary.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 miette.workspace = true
@@ -28,5 +30,12 @@ postgres-protocol = { workspace = true, optional = true }
 
 [features]
 # PostgreSQL values of the operational store's registry enums and typed ids
-# (ADR-0114 Outcome 25); only the store's query crate enables it.
-postgres = ["pse-ids/postgres", "dep:postgres-types", "dep:postgres-protocol"]
+# (ADR-0114 Outcome 25); only the store's query crate enables it. A source-owned
+# vocabulary's mapping lives in its owning crate's `postgres` feature (ADR-0117).
+postgres = [
+  "pse-ids/postgres",
+  "pse-diagnostics/postgres",
+  "pse-vocabulary/postgres",
+  "dep:postgres-types",
+  "dep:postgres-protocol",
+]

@@ -14,7 +14,7 @@ pub struct RuntimeResolvedNumericsFieldProvenanceItem {
     ///source
     pub r#source: crate::generated::enums::NumericalSource,
     ///field
-    pub r#field: String,
+    pub r#field: crate::generated::enums::NumericalProvenanceField,
     ///selected
     pub r#selected: bool,
     ///value

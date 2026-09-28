@@ -125,7 +125,8 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
     enumeration(b, "StoredSeedKind", ["root", "nlp", "highs"]);
     // Which typed column names an attempt's termination (X4): the last native solver
     // termination, the last run state when no native termination was reported, a
-    // trajectory termination, a runtime-owned outcome, or a violated named rule.
+    // trajectory termination, a runtime-owned outcome, or the diagnostic code of a
+    // violated rule (a `DiagnosticCode`).
     enumeration(
         b,
         "TerminationClass",
@@ -262,7 +263,7 @@ fn declare_attempts(b: &mut RegistryBuilder) {
                 column("termination_trajectory", T::enumeration("TrajectoryTermination"))
                     .optional(),
                 column("termination_runtime", T::enumeration("RuntimeTermination")).optional(),
-                column("termination_rule", text()).optional(),
+                column("termination_rule", T::enumeration("DiagnosticCode")).optional(),
                 column("termination_detail", json()).optional(),
                 column("created_at", ts()),
                 column("updated_at", ts()),
@@ -290,8 +291,7 @@ fn declare_attempts(b: &mut RegistryBuilder) {
             "cancel_request_timed",
             "\"cancel_requested\" = (\"cancel_requested_at\" IS NOT NULL)",
         )
-        .check("one_termination", one_termination())
-        .check("termination_rule_nonempty", absent_or_nonempty("termination_rule")),
+        .check("one_termination", one_termination()),
     );
     b.declare_relation(
         store(

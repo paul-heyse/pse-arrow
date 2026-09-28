@@ -801,7 +801,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id`.
 | `termination_run_state` | `enum:NativeRunState` | true | `payload` | — | — |
 | `termination_trajectory` | `enum:TrajectoryTermination` | true | `payload` | — | — |
 | `termination_runtime` | `enum:RuntimeTermination` | true | `payload` | — | — |
-| `termination_rule` | `Utf8` | true | `payload` | — | — |
+| `termination_rule` | `enum:DiagnosticCode` | true | `payload` | — | — |
 | `termination_detail` | `Utf8` | true | `payload` | — | — |
 | `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 | `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
@@ -842,12 +842,6 @@ Native row check `state_version_nonnegative` (must be true):
 
 ```sql
 "state_version" >= 0
-```
-
-Native row check `termination_rule_nonempty` (must be true):
-
-```sql
-"termination_rule" IS NULL OR "termination_rule" <> ''
 ```
 
 Native row check `worker_nonempty` (must be true):
@@ -1402,7 +1396,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, target_kind, 
 | `provenance.item` | `Struct` | false | `payload` | — | — |
 | `provenance.item.declaration` | `semantic_id` | true | `payload` | — | — |
 | `provenance.item.source` | `enum:NumericalSource` | false | `payload` | — | — |
-| `provenance.item.field` | `Utf8` | false | `payload` | — | — |
+| `provenance.item.field` | `enum:NumericalProvenanceField` | false | `payload` | — | — |
 | `provenance.item.selected` | `Boolean` | false | `payload` | — | — |
 | `provenance.item.value` | `Float64` | false | `payload` | — | — |
 | `provenance.item.description` | `Utf8` | false | `payload` | — | — |

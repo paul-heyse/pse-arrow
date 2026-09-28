@@ -5,7 +5,7 @@ use crate::{
     SemanticFrame,
     generated::{
         authored::numerical_requirements,
-        enums::{ClosurePolicy, NumericalSource, NumericalTarget},
+        enums::{ClosurePolicy, NumericalProvenanceField, NumericalSource, NumericalTarget},
     },
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
@@ -140,8 +140,8 @@ pub struct NumericalProvenance {
     pub declaration: Option<SemanticId>,
     /// Semantic precedence category.
     pub source: NumericalSource,
-    /// Name of the numerical field resolved by this entry.
-    pub field: &'static str,
+    /// The numerical field resolved by this entry.
+    pub field: NumericalProvenanceField,
     /// Whether this candidate established the effective field.
     pub selected: bool,
     /// Candidate magnitude after conversion to this target representation.

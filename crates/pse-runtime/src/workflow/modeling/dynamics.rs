@@ -1373,7 +1373,10 @@ impl ModelingPackage {
                         )),
                     )
                 }
-                AnnotationValue::Valid { policy, .. } if policy == "reject" => {
+                AnnotationValue::Valid {
+                    policy: pse_model::generated::enums::ExtrapolationPolicy::Reject,
+                    ..
+                } => {
                     if !valid.insert(a.target) {
                         return Err(contract("competing dynamic validity ranges"));
                     }

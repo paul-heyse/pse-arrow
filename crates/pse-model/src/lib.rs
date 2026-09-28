@@ -18,6 +18,8 @@ pub mod forms;
 pub mod numerics;
 #[cfg(all(test, feature = "postgres"))]
 mod postgres_tests;
+#[cfg(test)]
+mod vocabulary_tests;
 /// An invalid declared semantic enum member.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ModelError {
