@@ -49,46 +49,77 @@ class PreparedOperation:
 
 @attrs.frozen
 class PublicationTicket:
-    """Serialized pre-effect recovery request; settlement validates native witnesses."""
+    """Serialized publication request, saved before any effect; settle it after a
+    commit whose outcome is unknown."""
 
     json: bytes
 
 
-class PublicationRoot(msgspec.Struct, frozen=True):
-    """Exact immutable control selection."""
+class Workspace(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    """A registered publication workspace: one history with one head, whose members
+    are written under ``root_uri``."""
 
-    location: str
-    version: int
+    workspace_id: str
+    name: str
+    root_uri: str
+
+    @property
+    def id(self) -> SemanticId:
+        """The workspace identity."""
+        return SemanticId.from_hex(self.workspace_id)
+
+
+class Published(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    """A committed publication: the head of its workspace when committed."""
+
+    publication_id: str
+    workspace_id: str
+    parent: str | None
+    attempt_id: str
+
+    @property
+    def id(self) -> SemanticId:
+        """The publication identity."""
+        return SemanticId.from_hex(self.publication_id)
+
+
+class ExportReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    """An export: the manifest location and the lease protecting its members until
+    ``expires_at`` (microseconds since the Unix epoch) or its release."""
+
+    publication_id: str
+    destination: str
+    lease_id: str
+    expires_at: int
 
 
 class PublicationCommitted(
     msgspec.Struct, tag="committed", tag_field="status", frozen=True
 ):
-    """Matching transaction and complete request witnesses establish this exact root."""
+    """The ticket's publication is visible."""
 
-    root: PublicationRoot
+    publication_id: str
 
 
 class PublicationNoncommit(
     msgspec.Struct, tag="proved_noncommit", tag_field="status", frozen=True
 ):
-    """Positive durable evidence excludes the conditional publication."""
-
-    reason: str
+    """Nothing was committed and nothing is in flight; the same ticket may commit."""
 
 
 class PublicationConflict(
     msgspec.Struct, tag="conflict", tag_field="status", frozen=True
 ):
-    """An observed identity or exact-parent conflict."""
+    """The ticket can never commit as prepared: re-prepare against ``head``."""
 
     reason: str
+    head: str | None
 
 
 class PublicationUnresolved(
     msgspec.Struct, tag="unresolved", tag_field="status", frozen=True
 ):
-    """Evidence is incomplete; preserve the ticket and unresolved members."""
+    """The catalog could not be reached; settle again later."""
 
     reason: str
 
@@ -102,19 +133,8 @@ PublicationSettlement: TypeAlias = (
 
 
 @attrs.frozen
-class PublicationRequest:
-    """Caller-stable identities and exact parent for one intended publication."""
-
-    base: str
-    workspace_id: SemanticId
-    publication_id: SemanticId
-    attempt_id: SemanticId
-    parent: SemanticId | None = None
-
-
-@attrs.frozen
 class PublicationAttempt:
-    """Explicit single-use write command over immutable results."""
+    """Explicit single-use publication of immutable results."""
 
     _handle: _NativePublicationAttempt
 
@@ -125,17 +145,21 @@ class PublicationAttempt:
 
     @property
     def attempt_id(self) -> SemanticId:
-        """Native settlement identity retained after a failed commit."""
+        """The durable attempt published: the publication attempt itself."""
         return SemanticId.from_hex(self._handle.attempt_id)
 
     @property
     def publication_id(self) -> SemanticId:
-        """Identity of the proposed control publication."""
+        """Identity of the proposed publication."""
         return SemanticId.from_hex(self._handle.publication_id)
 
-    def commit(self) -> tuple[str, int]:
-        """Return exact control URI/version for pse.open; never retry implicitly."""
-        return self._handle.commit()
+    def commit(self) -> Published:
+        """Register the intent, write the members and commit once; never retried.
+
+        A conflict raises; re-prepare with the same ``publication_id`` against the new
+        head. An unresolved outcome raises; settle the ticket.
+        """
+        return msgspec.json.decode(self._handle.commit(), type=Published)
 
 
 @attrs.frozen
@@ -194,28 +218,27 @@ class RunResult:
         return TableStream(self._handle.table(name))
 
     def prepare_publication(
-        self, base: str, workspace_id: SemanticId, *, parent: SemanticId | None = None
+        self,
+        workspace: Workspace,
+        *,
+        parent: SemanticId | None = None,
+        publication_id: SemanticId | None = None,
     ) -> PublicationAttempt:
-        """Prepare control-last publication; this call does not write."""
-        return PublicationAttempt(
-            self._handle.prepare_publication(
-                base,
-                workspace_id.to_hex(),
-                parent=None if parent is None else parent.to_hex(),
-            )
-        )
+        """Prepare the publication of this durable run in ``workspace``; no write.
 
-    def prepare_publication_request(
-        self, request: PublicationRequest
-    ) -> PublicationAttempt:
-        """Prepare a retained request identity without performing any writes."""
+        Args:
+            workspace: A registered workspace.
+            parent: The exact expected head; ``None`` for the first publication.
+            publication_id: Reuse an identity when re-preparing after a conflict.
+
+        Returns:
+            A single-use attempt whose ticket exists before any effect.
+        """
         return PublicationAttempt(
             self._handle.prepare_publication(
-                request.base,
-                request.workspace_id.to_hex(),
-                parent=None if request.parent is None else request.parent.to_hex(),
-                publication_id=request.publication_id.to_hex(),
-                attempt_id=request.attempt_id.to_hex(),
+                msgspec.json.encode(workspace),
+                parent=None if parent is None else parent.to_hex(),
+                publication_id=None if publication_id is None else publication_id.to_hex(),
             )
         )
 

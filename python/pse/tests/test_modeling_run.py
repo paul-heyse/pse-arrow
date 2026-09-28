@@ -74,12 +74,13 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     (listed,) = runtime.runs(run_id=result.run_id)
     assert listed.attempt_id == result.attempt_id
     assert listed.state == AttemptState.COMPLETED
-    command = result.prepare_publication(tmp_path.as_uri() + "/", case)
+    workspace = runtime.register_workspace(f"modeling-{result.run_id.to_hex()}", tmp_path)
+    command = result.prepare_publication(workspace)
     ticket = command.ticket
-    location, version = command.commit()
+    published = command.commit()
     settled = runtime.settle_publication(ticket)
     assert isinstance(settled, pse.PublicationCommitted)
-    assert settled.root.location == location and settled.root.version == version
+    assert settled.publication_id == published.publication_id
     following = package.prepare_solve(case, pse.SolveSettings(backend="ipopt", intent="feasible_point", presolve="off", reuse="require_reuse", start="previous_accepted"))
     sequence = runtime.start([prepared, following]).wait()
     assert sequence.usable
@@ -88,12 +89,13 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     assert {row["step"] for row in sequence_checks} == {0, 1}
     assert {row["sample_index"] for row in sequence_checks} == {0}
     assert sequence.available_start(1) is not None
-    sequence_command = sequence.prepare_publication((tmp_path / "sequence").as_uri() + "/", case)
-    sequence_location, sequence_version = sequence_command.commit()
+    sequence_command = sequence.prepare_publication(workspace, parent=published.id)
+    sequence_published = sequence_command.commit()
     sequence_settled = runtime.settle_publication(sequence_command.ticket)
     assert isinstance(sequence_settled, pse.PublicationCommitted)
-    assert sequence_settled.root.location == sequence_location
-    assert sequence_settled.root.version == sequence_version
+    assert sequence_settled.publication_id == sequence_published.publication_id
+    assert sequence_published.parent == published.publication_id
+    assert runtime.head(workspace.id) == sequence_published.id
     sequence_cancelled = runtime.start([prepared, following])
     sequence_cancelled.cancel()
     sequence_partial = sequence_cancelled.wait()

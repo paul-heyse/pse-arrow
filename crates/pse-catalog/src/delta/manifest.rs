@@ -145,6 +145,8 @@ pub async fn read_manifest(
     if batch.num_rows() != 1 {
         return Err(invalid("an export manifest holds exactly one row"));
     }
+    // The row's SQL checks run on the engine's validation planner.
+    pse_engine::validation::bind_defaults(registry).map_err(external)?;
     publication_manifests::View::try_from_batch_with_registry(registry, &batch)
         .map_err(external)?
         .row(0)

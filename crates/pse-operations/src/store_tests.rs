@@ -2298,13 +2298,14 @@ async fn catalog_protects_published_versions() {
         .await
         .unwrap();
 
-    // Collection maintains the tables undeleted publications select as outputs, each
-    // with the ranges it must keep.
+    // Collection maintains the tables undeleted publications select, as members or
+    // inputs (b, written by the deleted P1, is P2's input), each with the ranges it must
+    // keep.
     let plan = catalog.begin_collect(space.id).await.unwrap();
     assert_eq!(
         plan.tables.keys().cloned().collect::<Vec<_>>(),
         {
-            let mut tables = vec![a.table_uri.clone(), c.table_uri.clone()];
+            let mut tables = vec![a.table_uri.clone(), b.table_uri.clone(), c.table_uri.clone()];
             tables.sort();
             tables
         }
@@ -2760,21 +2761,23 @@ async fn deletion_plan_excludes_shared_tables() {
     let (foreign, foreign_commit) = publish(&store, &elsewhere, None).await;
     let e = foreign_commit.members[0].clone();
 
-    // P1 writes a, b and d, and retains e from the other workspace.
+    // P1 writes a, b, d and g, and retains e from the other workspace.
     let first = intent(&store, &space).await;
-    let (a, b, d) = (
+    let (a, b, d, g) = (
         member(&table(&first, "a"), "a", 1),
         member(&table(&first, "b"), "b", 1),
         member(&table(&first, "d"), "d", 1),
+        member(&table(&first, "g"), "g", 1),
     );
     let mut p1 = commit_of(&first, None);
-    p1.members = vec![a.clone(), b.clone(), d.clone(), e.clone()];
+    p1.members = vec![a.clone(), b.clone(), d.clone(), e.clone(), g.clone()];
     catalog.commit(&p1).await.unwrap();
-    // P2 writes c and retains a.
+    // P2 writes c, retains a and reads g.
     let second = intent(&store, &space).await;
     let c = member(&table(&second, "c"), "c", 1);
     let mut p2 = commit_of(&second, Some(first.publication_id));
     p2.members = vec![c.clone(), a.clone()];
+    p2.inputs = vec![g.clone()];
     catalog.commit(&p2).await.unwrap();
     // P3, the head, writes f and read b's change window.
     let third = intent(&store, &space).await;
@@ -2786,8 +2789,8 @@ async fn deletion_plan_excludes_shared_tables() {
     }];
     catalog.commit(&p3).await.unwrap();
 
-    // Retiring P1 removes only d: a is selected by P2, b is covered by P3's window, and
-    // e belongs to the other workspace.
+    // Retiring P1 removes only d: a and g are selected by P2 (as a member and an input),
+    // b is covered by P3's window, and e belongs to the other workspace.
     catalog
         .mark_expiring(space.id, first.publication_id)
         .await
@@ -2803,7 +2806,8 @@ async fn deletion_plan_excludes_shared_tables() {
         .mark_deleted(space.id, first.publication_id)
         .await
         .unwrap();
-    // Once P1 is deleted, retiring P2 removes a (only deleted P1 selected it too) and c.
+    // Once P1 is deleted, retiring P2 removes c, and a and g (which only the deleted P1
+    // selected besides P2).
     catalog
         .mark_expiring(space.id, second.publication_id)
         .await
@@ -2813,7 +2817,7 @@ async fn deletion_plan_excludes_shared_tables() {
         .await
         .unwrap();
     planned.sort();
-    let mut expected = vec![a.table_uri.clone(), c.table_uri.clone()];
+    let mut expected = vec![a.table_uri.clone(), c.table_uri.clone(), g.table_uri.clone()];
     expected.sort();
     assert_eq!(planned, expected);
     // The other workspace's publication is untouched and still protects e.

@@ -17,9 +17,7 @@ def test_resident_reads_keep_exported_buffers_after_publication_close(
     native_inspection_publication: Path, inspection_settings: pse.EngineSettings
 ) -> None:
     index = publication_index(native_inspection_publication)
-    publication = pse.open(
-        index.root.location, version=index.root.version, settings=inspection_settings
-    )
+    publication = pse.open_export(index.manifest, settings=inspection_settings)
     for _ in range(2):
         with (
             publication.table("workspace", "reference", "schema_relations") as stream,

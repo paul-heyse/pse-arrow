@@ -19,13 +19,8 @@ from pse.contracts.reference import (
 )
 
 
-class PublicationRoot(msgspec.Struct, forbid_unknown_fields=True):
-    location: str
-    version: int
-
-
 class PublicationIndex(msgspec.Struct, forbid_unknown_fields=True):
-    root: PublicationRoot
+    manifest: str
     tables: list[tuple[str, str, str]]
 
 
@@ -36,9 +31,9 @@ def publication_index(path: Path) -> PublicationIndex:
 def stored_rows(
     path: Path, name: str, settings: pse.EngineSettings
 ) -> list[dict[str, object]]:
-    root = publication_index(path).root
+    manifest = publication_index(path).manifest
     with (
-        pse.open(root.location, version=root.version, settings=settings) as publication,
+        pse.open_export(manifest, settings=settings) as publication,
         publication.table("workspace", "reference", name) as stream,
         pa.RecordBatchReader.from_stream(stream) as reader,
     ):

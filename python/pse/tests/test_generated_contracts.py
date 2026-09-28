@@ -94,12 +94,12 @@ def test_member_descriptor_is_one_named_structure() -> None:
     # Every relation that lists members references the one registry structure.
     from pse.contracts import runtime
 
-    members = attrs.fields_dict(runtime.RuntimePublicationsRow)["members"].type
-    inputs = attrs.fields_dict(runtime.RuntimePublicationsRow)["inputs"].type
+    manifest = attrs.fields_dict(runtime.RuntimePublicationManifestsRow)
     release = attrs.fields_dict(runtime.RuntimeArtifactDescriptorsRow)["release_members"].type
-    for annotation in (members, inputs, release):
+    for annotation in (manifest["members"].type, manifest["inputs"].type, release):
         assert "MemberDescriptor" in str(annotation)
-    assert not hasattr(runtime, "RuntimePublicationsFieldMembersItem")
+    assert "VersionWindow" in str(manifest["windows"].type)
+    assert not hasattr(runtime, "RuntimePublicationManifestsFieldMembersItem")
     assert attrs.fields_dict(MemberDescriptor)["selection"].type is MemberDescriptorSelection
 
 

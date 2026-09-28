@@ -79,14 +79,12 @@ pub struct MarkDeletedParams {
 #[derive(Clone, Copy, Debug)]
 pub struct DeletionCandidatesParams {
     pub publication_id: pse_model::generated::identities::PublicationId,
-    pub output: pse_model::generated::enums::PublicationMemberRole,
     pub workspace_id: pse_model::generated::identities::WorkspaceId,
     pub deleted: pse_model::generated::enums::RetentionPhase,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct CollectedTablesParams {
     pub workspace_id: pse_model::generated::identities::WorkspaceId,
-    pub output: pse_model::generated::enums::PublicationMemberRole,
     pub deleted: pse_model::generated::enums::RetentionPhase,
 }
 #[derive(Clone, Copy, Debug)]
@@ -3244,7 +3242,7 @@ impl<
 pub struct DeletionCandidatesStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn deletion_candidates() -> DeletionCandidatesStmt {
     DeletionCandidatesStmt(
-        "SELECT DISTINCT m.table_uri FROM pse_ops.publication_members AS m WHERE m.publication_id = $1::pse_ops.publication_id AND m.role = $2 AND EXISTS ( SELECT 1 FROM pse_ops.publication_intents AS i WHERE i.workspace_id = $3::pse_ops.workspace_id AND starts_with(m.table_uri, i.member_prefix)) AND NOT EXISTS ( SELECT 1 FROM pse_ops.publication_members AS o LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = o.publication_id WHERE o.table_uri = m.table_uri AND o.publication_id <> m.publication_id AND (r.phase IS NULL OR r.phase <> $4)) AND NOT EXISTS ( SELECT 1 FROM pse_ops.publication_windows AS w LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = w.publication_id WHERE w.table_uri = m.table_uri AND w.publication_id <> m.publication_id AND (r.phase IS NULL OR r.phase <> $4)) ORDER BY m.table_uri",
+        "SELECT DISTINCT m.table_uri FROM pse_ops.publication_members AS m WHERE m.publication_id = $1::pse_ops.publication_id AND EXISTS ( SELECT 1 FROM pse_ops.publication_intents AS i WHERE i.workspace_id = $2::pse_ops.workspace_id AND starts_with(m.table_uri, i.member_prefix)) AND NOT EXISTS ( SELECT 1 FROM pse_ops.publication_members AS o LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = o.publication_id WHERE o.table_uri = m.table_uri AND o.publication_id <> m.publication_id AND (r.phase IS NULL OR r.phase <> $3)) AND NOT EXISTS ( SELECT 1 FROM pse_ops.publication_windows AS w LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = w.publication_id WHERE w.table_uri = m.table_uri AND w.publication_id <> m.publication_id AND (r.phase IS NULL OR r.phase <> $3)) ORDER BY m.table_uri",
         None,
     )
 }
@@ -3260,13 +3258,12 @@ impl DeletionCandidatesStmt {
         &'s self,
         client: &'c C,
         publication_id: &'a pse_model::generated::identities::PublicationId,
-        output: &'a pse_model::generated::enums::PublicationMemberRole,
         workspace_id: &'a pse_model::generated::identities::WorkspaceId,
         deleted: &'a pse_model::generated::enums::RetentionPhase,
-    ) -> StringQuery<'c, 'a, 's, C, String, 4> {
+    ) -> StringQuery<'c, 'a, 's, C, String, 3> {
         StringQuery {
             client,
-            params: [publication_id, output, workspace_id, deleted],
+            params: [publication_id, workspace_id, deleted],
             query: self.0,
             cached: self.1.as_ref(),
             extractor: |row| Ok(row.try_get(0)?),
@@ -3284,27 +3281,21 @@ impl<
     'a,
     's,
     DeletionCandidatesParams,
-    StringQuery<'c, 'a, 's, C, String, 4>,
+    StringQuery<'c, 'a, 's, C, String, 3>,
     C,
 > for DeletionCandidatesStmt {
     fn params(
         &'s self,
         client: &'c C,
         params: &'a DeletionCandidatesParams,
-    ) -> StringQuery<'c, 'a, 's, C, String, 4> {
-        self.bind(
-            client,
-            &params.publication_id,
-            &params.output,
-            &params.workspace_id,
-            &params.deleted,
-        )
+    ) -> StringQuery<'c, 'a, 's, C, String, 3> {
+        self.bind(client, &params.publication_id, &params.workspace_id, &params.deleted)
     }
 }
 pub struct CollectedTablesStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn collected_tables() -> CollectedTablesStmt {
     CollectedTablesStmt(
-        "SELECT DISTINCT m.table_uri FROM pse_ops.publication_members AS m JOIN pse_ops.publication_intents AS i ON starts_with(m.table_uri, i.member_prefix) LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = m.publication_id WHERE i.workspace_id = $1::pse_ops.workspace_id AND m.role = $2 AND (r.phase IS NULL OR r.phase <> $3) ORDER BY m.table_uri",
+        "SELECT DISTINCT m.table_uri FROM pse_ops.publication_members AS m JOIN pse_ops.publication_intents AS i ON starts_with(m.table_uri, i.member_prefix) LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = m.publication_id WHERE i.workspace_id = $1::pse_ops.workspace_id AND (r.phase IS NULL OR r.phase <> $2) ORDER BY m.table_uri",
         None,
     )
 }
@@ -3320,12 +3311,11 @@ impl CollectedTablesStmt {
         &'s self,
         client: &'c C,
         workspace_id: &'a pse_model::generated::identities::WorkspaceId,
-        output: &'a pse_model::generated::enums::PublicationMemberRole,
         deleted: &'a pse_model::generated::enums::RetentionPhase,
-    ) -> StringQuery<'c, 'a, 's, C, String, 3> {
+    ) -> StringQuery<'c, 'a, 's, C, String, 2> {
         StringQuery {
             client,
-            params: [workspace_id, output, deleted],
+            params: [workspace_id, deleted],
             query: self.0,
             cached: self.1.as_ref(),
             extractor: |row| Ok(row.try_get(0)?),
@@ -3343,15 +3333,15 @@ impl<
     'a,
     's,
     CollectedTablesParams,
-    StringQuery<'c, 'a, 's, C, String, 3>,
+    StringQuery<'c, 'a, 's, C, String, 2>,
     C,
 > for CollectedTablesStmt {
     fn params(
         &'s self,
         client: &'c C,
         params: &'a CollectedTablesParams,
-    ) -> StringQuery<'c, 'a, 's, C, String, 3> {
-        self.bind(client, &params.workspace_id, &params.output, &params.deleted)
+    ) -> StringQuery<'c, 'a, 's, C, String, 2> {
+        self.bind(client, &params.workspace_id, &params.deleted)
     }
 }
 pub struct ProtectedMembersStmt(&'static str, Option<tokio_postgres::Statement>);

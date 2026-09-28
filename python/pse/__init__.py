@@ -49,7 +49,7 @@ from pse._build import (
     build_info,
     native_version,
 )
-from pse._inspection import Publication, TableStream, open
+from pse._inspection import Publication, TableStream, open_export
 from pse._modeling import (ModelingNativeAnalysis, ModelingElasticAttempt, ModelingNonlinearExplanation, ModelingLimits, ModelingFixturePolicy, ModelingEventSettings, ModelingModeSettings, ModelingTrajectory, ModelingDiagnostics, ModelingDiagnosticSamples, ModelingDiagnosticSettings, ModelingPackage, ModelingResult, ModelingConformance, ModelingInitialization, ModelingInitializationAttempt, ModelingStudy)
 from pse._transfer import FieldTransfer
 from pse._workflow import (
@@ -58,21 +58,22 @@ from pse._workflow import (
     PreparedFlow,
     PreparedOperation,
     PreparedStrategy,
+    ExportReceipt,
     PublicationAttempt,
     PublicationCommitted,
     PublicationConflict,
     PublicationNoncommit,
-    PublicationRequest,
-    PublicationRoot,
     PublicationSettlement,
     PublicationTicket,
     PublicationUnresolved,
+    Published,
     RunCompletion,
     RunHandle,
     RunResult,
     Runtime,
     SolverCapability,
     StrategyResult,
+    Workspace,
 )
 from pse.contracts import extension_types
 
@@ -123,16 +124,16 @@ __all__ = [
     "PreparedOperation",
     "PreparedStrategy",
     "ProgressEvent",
+    "ExportReceipt",
     "Publication",
     "PublicationAttempt",
     "PublicationCommitted",
     "PublicationConflict",
     "PublicationNoncommit",
-    "PublicationRequest",
-    "PublicationRoot",
     "PublicationSettlement",
     "PublicationTicket",
     "PublicationUnresolved",
+    "Published",
     "ResourceConsumer",
     "ResourceReport",
     "RunCompletion",
@@ -145,9 +146,10 @@ __all__ = [
     "StrategyResult",
     "TableName",
     "TableStream",
+    "Workspace",
     "__version__",
     "build_info",
-    "open",
+    "open_export",
 ]
 
 

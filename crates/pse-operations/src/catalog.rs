@@ -1460,9 +1460,10 @@ impl<'s> Catalog<'s> {
         }
     }
 
-    /// The tables retiring an expiring publication removes: its outputs written by a
-    /// publication of this workspace that no other undeleted publication selects and no
-    /// undeleted publication's change window covers. Empty for a deleted publication.
+    /// The tables retiring an expiring publication removes: the tables it selects (its
+    /// outputs, and inputs whose writer was already deleted) written under one of this
+    /// workspace's intents, that no other undeleted publication selects and no undeleted
+    /// publication's change window covers. Empty for a deleted publication.
     ///
     /// # Errors
     ///
@@ -1502,7 +1503,6 @@ impl<'s> Catalog<'s> {
                 &tx,
                 &statements::DeletionCandidatesParams {
                     publication_id: publication,
-                    output: PublicationMemberRole::Output,
                     workspace_id: workspace,
                     deleted: RetentionPhase::Deleted,
                 },
@@ -1580,7 +1580,6 @@ impl<'s> Catalog<'s> {
                 &tx,
                 &statements::CollectedTablesParams {
                     workspace_id: workspace,
-                    output: PublicationMemberRole::Output,
                     deleted: RetentionPhase::Deleted,
                 },
             )

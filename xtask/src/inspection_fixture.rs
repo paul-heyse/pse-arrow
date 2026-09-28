@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Fresh target Delta publications for cold Rust/Python inspection.
+//! Fresh exported publications for cold Rust/Python inspection.
 use anyhow::{Context, Result, ensure};
 use pse_relations::generated::enums::PublicationKind;
 use std::{path::Path, process::Command};
@@ -23,14 +23,14 @@ pub(crate) fn run(path: &Path) -> Result<()> {
             .source_plan(&[])
             .await
             .context("compose native inspection source plan")?;
-        let root = environment
+        let manifest = environment
             .publish(path, &plan, PublicationKind::Relations)
             .await
             .context("publish native inspection source plan")?;
         drop((plan, environment));
         let reader = Environment::new(path)?;
         let publication = reader
-            .open(root.clone())
+            .open(manifest.clone())
             .await
             .context("reopen native inspection source publication")?;
         let tables = publication.session().inspection_tables();
@@ -38,7 +38,7 @@ pub(crate) fn run(path: &Path) -> Result<()> {
             !tables.is_empty(),
             "source publication omitted its complete typed inventory"
         );
-        let index = Index { root, tables };
+        let index = Index { manifest, tables };
         let mut bytes = serde_json::to_vec_pretty(&index)?;
         bytes.push(b'\n');
         std::fs::write(path.join("publication-index.json"), bytes)?;

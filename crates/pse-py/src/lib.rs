@@ -67,7 +67,7 @@ mod _native {
             CacheReport, CacheSettings, DiagnosticAnnotation, DiagnosticCause, DiagnosticContext,
             DiagnosticNote, DiagnosticObservation, DiagnosticReport, DiagnosticSourceLocation,
             DiagnosticSpan, EngineSettings, InspectionError, Publication, ResourceConsumer,
-            ResourceReport, TableName, TableStream, open_publication,
+            ResourceReport, TableName, TableStream, open_export,
         },
         registry_fingerprint,
         workflow::{

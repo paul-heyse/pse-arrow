@@ -218,13 +218,13 @@ ON CONFLICT (publication_id) DO NOTHING;
 UPDATE pse_ops.retention_marks SET phase = :phase, deleted_at = coalesce(deleted_at, now())
 WHERE publication_id = :publication_id::pse_ops.publication_id;
 
--- The tables a deletion removes: the publication's outputs written by a publication of
--- this workspace (under one of its intents' prefixes) that no other undeleted publication
--- selects and no undeleted publication's change window covers.
+-- The tables a deletion removes: the tables the publication selects (its outputs, and
+-- inputs whose writer is already deleted) that a publication of this workspace wrote
+-- (under one of its intents' prefixes), that no other undeleted publication selects and
+-- no undeleted publication's change window covers.
 --! deletion_candidates
 SELECT DISTINCT m.table_uri FROM pse_ops.publication_members AS m
 WHERE m.publication_id = :publication_id::pse_ops.publication_id
-  AND m.role = :output
   AND EXISTS (
       SELECT 1 FROM pse_ops.publication_intents AS i
       WHERE i.workspace_id = :workspace_id::pse_ops.workspace_id
@@ -243,14 +243,14 @@ WHERE m.publication_id = :publication_id::pse_ops.publication_id
         AND (r.phase IS NULL OR r.phase <> :deleted))
 ORDER BY m.table_uri;
 
--- The tables collection maintains: every output a publication of this workspace wrote
--- (under one of its intents' prefixes) that an undeleted publication still selects.
+-- The tables collection maintains: every table a publication of this workspace wrote
+-- (under one of its intents' prefixes) that an undeleted publication still selects, as a
+-- member or an input.
 --! collected_tables
 SELECT DISTINCT m.table_uri FROM pse_ops.publication_members AS m
 JOIN pse_ops.publication_intents AS i ON starts_with(m.table_uri, i.member_prefix)
 LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = m.publication_id
 WHERE i.workspace_id = :workspace_id::pse_ops.workspace_id
-  AND m.role = :output
   AND (r.phase IS NULL OR r.phase <> :deleted)
 ORDER BY m.table_uri;
 

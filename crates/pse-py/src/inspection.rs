@@ -21,6 +21,6 @@ pub(crate) use errors::{
     DiagnosticObservation, DiagnosticReport, DiagnosticSourceLocation, DiagnosticSpan,
     InspectionError,
 };
-pub(crate) use handles::{Publication, open_publication};
+pub(crate) use handles::{Publication, open_export};
 pub(crate) use settings::EngineSettings;
 pub(crate) use stream::TableStream;

@@ -115,12 +115,20 @@ def test_public_dynamic_and_transient_fit(
     assert listed.attempt_id == joined.attempt_id
     assert listed.kind == AttemptKind.SIMULATION
     assert listed.state == AttemptState.COMPLETED
-    command = joined.prepare_publication(tmp_path.as_uri() + "/", identity(110))
+    workspace = runtime.register_workspace(f"plan14-{joined.run_id.to_hex()}", tmp_path)
+    command = joined.prepare_publication(workspace)
     ticket = command.ticket
-    location, version = command.commit()
+    published = command.commit()
     settled = runtime.settle_publication(ticket)
     assert isinstance(settled, pse.PublicationCommitted)
-    assert settled.root.location == location and settled.root.version == version
+    assert settled.publication_id == published.publication_id
+    assert runtime.head(workspace.id) == published.id
+    with runtime.open(published.id) as publication:
+        assert publication.publication_id == published.id
+        assert publication.attempt_id == joined.attempt_id
+        assert ("artifact", "authored", "modeling_declarations") in {
+            (name.catalog, name.schema, name.table) for name in publication.tables()
+        }
     converter = codec.converter()
     fit = converter.structure({
         "fit_id":identity(101),

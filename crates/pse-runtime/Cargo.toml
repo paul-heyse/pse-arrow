@@ -61,6 +61,7 @@ pse-schema.workspace = true
 serde_json.workspace = true
 datafusion.workspace = true
 futures-util.workspace = true
+object_store.workspace = true
 pse-columnar.workspace = true
 pse-engine.workspace = true
 pse-catalog.workspace = true
@@ -77,6 +78,7 @@ clap.workspace = true
 [dev-dependencies]
 pse-operations = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true
+deltalake.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
 url.workspace = true
 pse-testkit.workspace = true
@@ -89,3 +91,9 @@ tokio.workspace = true
 # `MathService` and the workflows claims jobs from the operational store.
 name = "pse-worker"
 path = "src/bin/pse-worker.rs"
+
+[[bin]]
+# Catalog-owned publication maintenance (ADR-0114 Outcome 7): export, retire, collect
+# and reclaim for one registered workspace.
+name = "pse-publication"
+path = "src/bin/pse-publication.rs"

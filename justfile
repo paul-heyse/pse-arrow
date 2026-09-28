@@ -157,6 +157,14 @@ pse-worker *args:
     cargo run --quiet --locked -p pse-runtime --bin pse-worker --features native-solvers -- --url {{ quote(db_url) }} {{ args }}
 
 [group('local')]
+[doc('Publication catalog maintenance (ADR-0114) against the operational store: export | release | retire | collect | reclaim')]
+pse-publication *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    cargo run --quiet --locked -p pse-runtime --bin pse-publication -- --url {{ quote(db_url) }} {{ args }}
+
+[group('local')]
 [doc('The pse-worker journey: the worker binary runs an authored case in a child process against an isolated store')]
 worker-test *args:
     #!/usr/bin/env bash
@@ -165,6 +173,14 @@ worker-test *args:
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers,pse-relations/force-validate {{ args }}
+
+[group('local')]
+[doc('The publication catalog journeys (Plan 22 O8): durable attempts publish, read, export, collect and retire against isolated stores; one test runs two publisher processes')]
+publication-test *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-math-env.sh
+    PSE_DATABASE_URL={{ quote(db_url) }} cargo nextest {{ nextest_action }} -p pse-runtime --test publication_catalog --locked {{ validate }} {{ args }}
 
 # ---------------------------------------------------------------- discovery --
 
