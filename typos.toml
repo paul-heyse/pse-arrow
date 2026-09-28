@@ -30,6 +30,11 @@ extend-exclude = [
   "LICENSE-*",
 ]
 
+[default]
+# Native library C symbols (SCIPaddSol, SCIPreleaseCons, SCIPeventGetType, IDA_NO_BCK,
+# POUNCE's OT_String) split into fragments that look like misspellings.
+extend-ignore-identifiers-re = ["^SCIP[A-Za-z0-9_]*$", "^IDA_[A-Z0-9_]+$", "^OT_[A-Za-z]+$"]
+
 [default.extend-words]
 # Domain vocabulary and identifiers that are not typos.
 IDAES = "IDAES"
@@ -63,3 +68,12 @@ Serializeable = "Serializeable"
 # Exact crate/feature name retained from Cargo metadata, not prose.
 flate2 = "flate2"
 writeable = "writeable"
+# SCIP's interval-evaluation callback suffix (SCIP_DECL_EXPRINTEVAL).
+INTEVAL = "INTEVAL"
+# The plural of the SQL keyword, not a truncation.
+CHECKs = "CHECKs"
+# Deliberate misspellings in tests that assert a misspelled literal or key is refused.
+runing = "runing"
+methd = "methd"
+# Accepted spelling variant.
+requeueing = "requeueing"
