@@ -118,6 +118,9 @@ enum Target {
     Python,
     /// `pse-schema` output: the reference tables in the book.
     Docs,
+    /// `pse-schema` output: the operational store's DDL, Cornucopia mapping and schema
+    /// fingerprint (ADR-0114 Outcome 22).
+    Postgres,
     /// `bindgen` output for the Ipopt C API.
     Bindgen,
 }

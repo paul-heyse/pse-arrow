@@ -2781,6 +2781,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "fallible-iterator"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
+
+[[package]]
 name = "fastrand"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4917,6 +4923,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "postgres-protocol"
+version = "0.6.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08808e3c483c46e999108051c78334f473d5adb59d78bb80a1268c7e6aa6c514"
+dependencies = [
+ "base64 0.22.1",
+ "byteorder",
+ "bytes",
+ "fallible-iterator",
+ "hmac",
+ "md-5 0.11.0",
+ "memchr",
+ "rand 0.10.2",
+ "sha2 0.11.0",
+ "stringprep",
+]
+
+[[package]]
+name = "postgres-types"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "851ca9db4932932d69f3ea811b1abe63087a0f740a47692619dd40d4899b68be"
+dependencies = [
+ "bytes",
+ "fallible-iterator",
+ "postgres-protocol",
+]
+
+[[package]]
 name = "potential_utf"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5460,7 +5495,9 @@ name = "pse-ids"
 version = "0.0.1"
 dependencies = [
  "blake3",
+ "bytes",
  "miette",
+ "postgres-types",
  "proptest",
  "pse-diagnostics",
  "serde",
@@ -5512,6 +5549,8 @@ name = "pse-model"
 version = "0.0.1"
 dependencies = [
  "miette",
+ "postgres-protocol",
+ "postgres-types",
  "pse-diagnostics",
  "pse-ids",
  "pse-quantity",
@@ -5537,7 +5576,6 @@ dependencies = [
 name = "pse-operations"
 version = "0.0.1"
 dependencies = [
- "arrow-schema",
  "chrono",
  "clap",
  "miette",

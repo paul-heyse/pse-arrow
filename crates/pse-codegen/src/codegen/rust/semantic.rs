@@ -235,6 +235,11 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
             pub mod enums;
             /// Declared extension values.
             pub mod extension_values;
+            /// Typed entity ids declared by the registry (ADR-0115).
+            pub mod identities;
+            /// PostgreSQL values of store enums and typed ids (ADR-0114 Outcome 25).
+            #[cfg(feature = "postgres")]
+            pub mod postgres;
         },
     )?;
     Ok(())

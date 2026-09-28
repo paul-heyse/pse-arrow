@@ -270,6 +270,11 @@ sqlx = { version = "=0.9.0", default-features = false, features = [
 # "anonymous" on every platform. Enabling `std` here (feature unification) restores the
 # OS user name that peer authentication over the local socket needs.
 whoami = { version = "=2.1.3", default-features = false, features = ["std"] }
+# The PostgreSQL value protocol (ADR-0114 Outcome 25): registry enums and typed ids
+# encode to their ENUM types and identity domains behind the `postgres` features of
+# pse-ids and pse-model. A value protocol, never a driver.
+postgres-types = "=0.2.14"
+postgres-protocol = "=0.6.12"
 
 # ---- optional providers enter here WITH their consumer crate (blueprint §9.8, §13.6,
 # §7.4): FeOS uses the pinned num-dual 0.14 trait universe; native dynamics uses Diffsol.

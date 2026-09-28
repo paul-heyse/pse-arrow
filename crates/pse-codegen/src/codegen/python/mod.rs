@@ -37,35 +37,50 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     emit(&mut tree, "enums", &enumerations(reg));
     emit(&mut tree, "values", &values()?);
     emit(&mut tree, "extension_types", &extensions::render(reg)?);
-    let mut namespaces = std::collections::BTreeMap::<&str, String>::new();
+    emit(&mut tree, "identities", &identities(reg));
+    let mut namespaces = std::collections::BTreeMap::<&str, (String, bool)>::new();
     for spec in reg.relations() {
         let namespace = spec.key.namespace.as_str();
         let stem = format!("{}{}", pascal(namespace), pascal(spec.key.name));
         let mut declarations = String::new();
+        let mut typed_ids = false;
         let fields = spec
             .columns
             .iter()
             .map(|column| {
+                let ty = match column.identity().and_then(|name| reg.identity(name)) {
+                    // A typed id annotates as its alias and validates as its base value.
+                    Some(identity) => {
+                        typed_ids = true;
+                        types::Type {
+                            annotation: format!(
+                                "i.{}",
+                                super::rust::identities::type_name(identity.name)
+                            ),
+                            validator: format!(
+                                "attrs.validators.instance_of(v.{})",
+                                base_class(identity.base)
+                            ),
+                        }
+                    }
+                    None => types::logical(
+                        &column.value_type(),
+                        &format!("{stem}Field{}", pascal(column.name())),
+                        &mut declarations,
+                    )?,
+                };
                 Ok((
                     column.name().to_owned(),
-                    types::optional(
-                        types::logical(
-                            &column.value_type(),
-                            &format!("{stem}Field{}", pascal(column.name())),
-                            &mut declarations,
-                        )?,
-                        column.nullable(),
-                    ),
+                    types::optional(ty, column.nullable()),
                 ))
             })
             .collect::<Result<Vec<_>, SchemaError>>()?;
         declarations.push_str(&types::structure(&format!("{stem}Row"), &fields));
-        namespaces
-            .entry(namespace)
-            .or_default()
-            .push_str(&declarations);
+        let entry = namespaces.entry(namespace).or_default();
+        entry.0.push_str(&declarations);
+        entry.1 |= typed_ids;
     }
-    for (namespace, declarations) in namespaces {
+    for (namespace, (declarations, typed_ids)) in namespaces {
         let mut source = format!(
             "\"\"\"Typed rows in the {namespace} namespace.\"\"\"\n\nimport builtins as b\n"
         );
@@ -75,6 +90,9 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         source.push_str("\nimport attrs\n\n");
         if declarations.contains("e.") {
             source.push_str("from pse.contracts import enums as e\n");
+        }
+        if typed_ids {
+            source.push_str("from pse.contracts import identities as i\n");
         }
         if declarations.contains("v.") {
             source.push_str("from pse.contracts import values as v\n");
@@ -91,6 +109,37 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         ),
     );
     Ok(tree)
+}
+
+/// The Python class of an identity's base value.
+const fn base_class(base: crate::model::IdentityBase) -> &'static str {
+    match base {
+        crate::model::IdentityBase::SemanticId => "SemanticId",
+        crate::model::IdentityBase::ContentHash => "ContentHash",
+    }
+}
+
+/// One `NewType` per declared entity identity: the alias a type checker keeps apart
+/// from every other identity, over the validated base class (ADR-0115).
+fn identities(reg: &Registry) -> String {
+    let mut source = String::from(
+        "\"\"\"Declared entity identities: distinct aliases of their base identity values.\"\"\"\n",
+    );
+    if reg.identities().is_empty() {
+        return source;
+    }
+    source.push_str("\nfrom typing import NewType\n\nfrom pse.contracts import values as v\n");
+    for identity in reg.identities() {
+        let name = super::rust::identities::type_name(identity.name);
+        let _ = write!(
+            source,
+            "\n# {} (entity identity `{}`).\n{name} = NewType({name:?}, v.{})\n",
+            identity.doc.trim_end_matches('.'),
+            identity.name,
+            base_class(identity.base)
+        );
+    }
+    source
 }
 
 fn enumerations(reg: &Registry) -> String {

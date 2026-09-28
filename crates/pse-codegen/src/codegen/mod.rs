@@ -22,6 +22,7 @@ mod consolidation_unit;
 pub mod jsonschema;
 pub mod markdown;
 mod native;
+pub mod postgres;
 pub mod python;
 pub mod rust;
 
@@ -40,11 +41,13 @@ pub enum Language {
     Python,
     /// `docs/generated/`, including `schema/authoring.schema.json`.
     Markdown,
+    /// The operational store's DDL and Cornucopia mapping (ADR-0114 Outcome 22).
+    Postgres,
 }
 
 impl Language {
     /// Every target.
-    pub const ALL: [Self; 3] = [Self::Rust, Self::Python, Self::Markdown];
+    pub const ALL: [Self; 4] = [Self::Rust, Self::Python, Self::Markdown, Self::Postgres];
 
     /// The target's name, as `cargo xtask codegen --only <name>` spells it.
     pub const fn as_str(self) -> &'static str {
@@ -52,6 +55,7 @@ impl Language {
             Self::Rust => "rust",
             Self::Python => "python",
             Self::Markdown => "markdown",
+            Self::Postgres => "postgres",
         }
     }
 
@@ -71,6 +75,7 @@ impl Language {
             ],
             Self::Python => vec![PathBuf::from("python/pse/contracts")],
             Self::Markdown => vec![PathBuf::from("docs/generated")],
+            Self::Postgres => vec![PathBuf::from(postgres::ROOT)],
         }
     }
 }
@@ -104,6 +109,7 @@ pub fn generate(reg: &Registry, language: Language) -> Result<GeneratedTree, Sch
         Language::Rust => rust::generate(reg),
         Language::Python => python::generate(reg),
         Language::Markdown => markdown::generate(reg),
+        Language::Postgres => postgres::generate(reg),
     }
 }
 
@@ -147,6 +153,10 @@ mod tests {
         assert_eq!(
             Language::Markdown.roots(),
             vec![PathBuf::from("docs/generated")]
+        );
+        assert_eq!(
+            Language::Postgres.roots(),
+            vec![PathBuf::from("crates/pse-operations/src/generated")]
         );
     }
 }

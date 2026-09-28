@@ -52,7 +52,9 @@ pub(super) fn make(
         | DataType::Float64
         | DataType::Utf8
         | DataType::FixedSizeBinary(16 | 32)
-        | DataType::Timestamp(TimeUnit::Nanosecond, _) => make_builder(kind, capacity),
+        | DataType::Timestamp(TimeUnit::Nanosecond | TimeUnit::Microsecond, _) => {
+            make_builder(kind, capacity)
+        }
         _ => return Err(super::mismatch("a registered generated Arrow storage type")),
     })
 }
