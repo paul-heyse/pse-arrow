@@ -365,6 +365,13 @@ pub trait ProviderFactory: std::fmt::Debug + Send + Sync {
     ) -> Result<Box<dyn Provider>, ProviderError> {
         self.create()
     }
+    /// Closed output intervals every evaluation of this provider enforces, one per output
+    /// in output order: a sound envelope a global export may relax the provider to
+    /// (ADR-0105 §1). `None` when evaluation enforces none. A factory that declares an
+    /// envelope includes it in [`Self::configuration_key`].
+    fn envelope(&self) -> Option<Vec<(f64, f64)>> {
+        None
+    }
 }
 /// Physically admitted registration backed by an executable factory.
 #[derive(Clone, Debug)]
@@ -427,6 +434,25 @@ impl Registration {
     pub fn configuration_key(&self) -> ContentHash {
         self.factory.configuration_key()
     }
+    /// The output envelope the factory declares, checked against the contract.
+    /// # Errors
+    /// An envelope whose length differs from the outputs, or an interval that is empty or
+    /// not a number.
+    pub fn envelope(&self) -> Result<Option<Vec<(f64, f64)>>, ProviderError> {
+        let Some(envelope) = self.factory.envelope() else {
+            return Ok(None);
+        };
+        if envelope.len() != self.spec().outputs.len()
+            || envelope
+                .iter()
+                .any(|(lower, upper)| lower.is_nan() || upper.is_nan() || lower > upper)
+        {
+            return Err(ProviderError::Contract(
+                "provider envelope must hold one closed, nonempty interval per output".into(),
+            ));
+        }
+        Ok(Some(envelope))
+    }
     /// Factory-free immutable compiler input.
     pub fn descriptor(&self) -> AdmittedProvider {
         self.descriptor.clone()
@@ -451,3 +477,6 @@ impl Registration {
         Ok(worker)
     }
 }
+
+#[cfg(test)]
+mod envelope_tests;

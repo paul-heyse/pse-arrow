@@ -472,6 +472,7 @@ impl ModelingPackage {
         numerical
             .declarations
             .retain(|r| !inner.contains(&r.declaration.target_id));
+        numerical.implicit = implicit::factorable_definitions(&model, &case);
         let mut solver = solver;
         solver
             .numerics
