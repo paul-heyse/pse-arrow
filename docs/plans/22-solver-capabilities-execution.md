@@ -94,6 +94,7 @@ dispositions stay in the plan.
 
 B order: B1 and B2 before O7–O9; B3 after B1; B4 → B5; B6 independent; B7 after B3. Acceptance and deletions are per the plan's B table | D1 complete; B1–B7 not started |
 | E13 | Q1 qualification and closure (after all functional packets) | Reported against the zero baseline | not started |
+| E15 | The remaining solver scope and Q1 (waves W7–W13) | The [solver scope packet](22-solver-scope-execution.md) owns this step's packets, decisions, waves and progress, including E13's Q1 | planned (2026-09-28) |
 
 ## Verification
 
@@ -184,6 +185,6 @@ All counts were run by the integration agent at `e734d696` with `PSE_SOLVER_IMAG
    - W6: scoped qualification.
 
    Each B packet repoints the code comments that cite ADR-0112 or ADR-0113 in the modules it rewrites: `pse-operations`, `Cargo.toml`, `justfile`, `scripts/doctor.py`, the Python settings tests and `_workflow.py`.
-4. **Remaining solver packets, after W6:** S1–S4 (sensitivity, which needs N4, now done); Y3–Y5; C3–C5; N5; M2 completion and M5; the G4 and G6 remainders; the solver docs pass (A5, N1–N4/C2, G4–G7).
+4. **Remaining solver packets, after W6:** planned on 2026-09-28 in the [solver scope packet](22-solver-scope-execution.md) (E15), which owns them and Q1 from here on.
 5. **Q1 qualification** — formatting, lint and integrated suites — once steps 2–4 are done.
 - **Python durable runtimes.** `pse.Runtime(settings, store=pse.OperationalStore())` makes every run a durable attempt, which publication requires. `Runtime.runs()` lists attempts; `attempt_id` is on handles and results.

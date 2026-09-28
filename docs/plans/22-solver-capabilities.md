@@ -26,7 +26,7 @@ tokio-postgres is acceptable where advantageous; the operational store holds onl
 data; and programmatic derivation is preferred to static declarations. B1 and B2 precede O7–O9,
 so the catalog, studies and query surface are written once, on the typed stack.
 
-**Progress** is owned by the [execution packet](22-solver-capabilities-execution.md), except for the store and typed-data track (D2, B1–B7, O5's incumbents, O7–O9, G8), which the [store and typed-data packet](22-store-and-typed-data-execution.md) owns. By the maintainer's decision of 2026-09-28, that track runs before the remaining solver scope. Its *Current checkpoint* (2026-09-28) records what is complete, partial and open, the test status, and how to resume.
+**Progress** is owned by the [execution packet](22-solver-capabilities-execution.md), except for the store and typed-data track (D2, B1–B7, O5's incumbents, O7–O9, G8), which the [store and typed-data packet](22-store-and-typed-data-execution.md) owns. By the maintainer's decision of 2026-09-28, that track ran before the remaining solver scope and closed with its W6 scoped qualification. The remaining solver scope (S1–S4, Y3–Y5, C3–C5, N5, M2 completion, M5, the G4 and G6 remainders, the solver docs pass, Q1 and the solver-owned follow-ups) is owned by the [solver scope packet](22-solver-scope-execution.md), which refines those packets as summarized in *Remaining solver scope* below.
 
 **Companion documents:**
 - [Target architecture](22-solver-capabilities-architecture.md): the design argument, the PostgreSQL evaluation, and scenarios S10–S18.
@@ -120,6 +120,13 @@ Phase 4  G8   Q1
 Amendment (2026-09-28): the store and typed-data track runs first, in waves W0–W6 on
 three parallel tracks (see the [store and typed-data packet](22-store-and-typed-data-execution.md)):
   W0 D2 · W1 B1 ‖ B3a → B6 · W2 B2 ‖ B4 ‖ B7 · W3 O8 ‖ B5 · W4 O7 ‖ G8+O5 ‖ B3b · W5 O9, docs · W6 scoped qualification
+
+Amendment (2026-09-28, remaining solver scope): waves W7–W13 in worktrees, at most four tracks
+compiling at once (see the [solver scope packet](22-solver-scope-execution.md)):
+  W7 ADR-0118–0121 · R82874 → S0 ‖ Y0a → Y0b → Y4a → Y0c ‖ C4 ‖ M2a → G6r kernel · DOCS-a
+  W8 S1 ‖ Y3a → Y3b ‖ G-semi → epigraph → G4r → G8f ‖ C3 authoring → M5a
+  W9 S3 → S4 ‖ Y4b → Y5b ‖ C5 → M5b → N5 ‖ M2b → M2c → C3 engine
+  W10 G6r tests ‖ Y0c kernel + Y0d ‖ Y5a · W11 Y5c1 → Y5c2 · W12 DOCS-z, image publication · W13 Q1
 ```
 
 **Plan 21 coordination.** K8 is complete (maintainer, 2026-09-27), so nothing waits on it. M packets follow Plan 21's kernel discipline: synthetic tests, and no special-casing.
@@ -173,7 +180,7 @@ ADR-0114–ADR-0116 decide the target; architecture §9.8 and §12 describe it. 
 | Packet | Responsibility / dependencies | Scenarios / acceptance | Replaced code / deletion | Status or status-owner link |
 |---|---|---|---|---|
 | S1 | **Parametric sensitivity and reduced Hessian, POUNCE route** (D22-06, L-N1). Fetch and verify `pounce-sensitivity` 0.12.0 into the skill corpus first; if the API does not fit, use `pounce-sens-core` as in S2. A sensitivity entry beside `pounce::Session`. Presolve column and normalization back-maps. Typed validity: activity class, reduced-Hessian eigenvalues for second-order sufficiency, LICQ, strict complementarity. New registry relations for sensitivities and reduced Hessians. Depends: A2, N4 | S02, S13. Tests: `sensitivity_matches_analytic_nlp`; `sensitivity_withheld_when_sosc_fails`; `sensitivity_agrees_with_ipopt_sens` (parity-container oracle) | — | see execution packet |
-| S2 | **Ipopt-route sensitivity**: `pounce-sens-core` `SensApplication` and `parametric_step` over a barrier-replica KKT with a FERAL LDLᵀ backsolver. Depends: S1 | Tests: `ipopt_route_sensitivity_matches_pounce_route` | Plan 20 §6 "faer sparse LU on the KKT" (plan text, D0) | see execution packet |
+| S2 | **Ipopt-route sensitivity**: `pounce-sens-core` `SensApplication` and `parametric_step` over a barrier-replica KKT with a FERAL LDLᵀ backsolver. Depends: S1 | Tests: `ipopt_route_sensitivity_matches_pounce_route` | Plan 20 §6 "faer sparse LU on the KKT" (plan text, D0) | superseded (2026-09-28): one KKT-point analysis serves every route (S0, S1; ADR-0118 to be written); see the [solver scope packet](22-solver-scope-execution.md) |
 | S3 | **Covariance and confidence intervals**: steady fits from the reduced Hessian; transient fits Gauss–Newton from the response SVD, and exact via Y4; profile-likelihood intervals as a study; relations for covariance and intervals; withheld when validity fails. Depends: S1, A6 | S13. Tests: `linear_regression_covariance_analytic`; `unidentifiable_fit_withholds_covariance` (existing unidentifiable fixture) | §25 "Covariance…" refusal (text, D0) | see execution packet |
 | S4 | **Uncertainty propagation** (the counterpart of IDAES `sens.py`): output covariance through sensitivities. Depends: S3 | Tests: `uncertainty_propagation_linear_exact`; the parity case against `sens.py` in Q1 | — | see execution packet |
 
@@ -241,6 +248,31 @@ ADR-0114–ADR-0116 decide the target; architecture §9.8 and §12 describe it. 
 |---|---|---|---|---|
 | Q1 | **After all functional packets.** New `.config/process-cases.json` cases: authored MILP, small MINLP and GDP, SCIP certify, TPD check, IDAS PID, large KKT (MUMPS+METIS, SPRAL, MKL Pardiso, FERAL), a large conic case, sensitivity and covariance, a 10 000-point study on four workers, an NMPC horizon. Parity additions: DegeneracyHunter, PETSc PID, `sens.py`, parmest covariance. The relevant AGENTS.md checks. The Outcome. Move enduring meaning into the architecture sections, then retire this plan and the review (ADR-0096). Depends: all | Reported against the zero baseline with commands and conditions | — | see execution packet |
 
+### Remaining solver scope (amendment 2026-09-28)
+
+The [solver scope packet](22-solver-scope-execution.md) owns the detailed definition, tests,
+waves and progress of the remaining solver packets. It adopts improvements I1–I16 to the target
+design, each grounded in the core principles. The ones that change an accepted decision are
+decision records written before their dependent packets start:
+- ADR-0118 (one KKT-point analysis; supersedes ADR-0107);
+- ADR-0119 (kernel fixtures declare analysis selections);
+- ADR-0120 (provider envelope contract);
+- ADR-0121 (convexity and cone recognition as compiler facts);
+- ADR-0122, only if Clarabel's MKL Pardiso changes the image composition.
+
+Relative to the tables above:
+
+| Packet(s) above | Now | Change |
+|---|---|---|
+| S1, S2 | S0, S1 | One active-set KKT analysis in original coordinates (FERAL factor, `pounce-sens-core`) for every NLP and QP route. S2 is superseded, and the presolve restriction goes |
+| S3, S4 | S3, S4 | Covariance by one rule (exact or Gauss–Newton) from the response SVD; profile likelihood as adaptive pin chains; one `LocalValidity` relation |
+| N5 | N5 | Batched QP and SOS bounds; QP sensitivity comes from S1 |
+| Y1 follow-ups, Y3, Y4, Y5 | Y0a–Y0d, Y3a/b, Y4a/b, Y5a, Y5b, Y5c1, Y5c2 | Typed factorization failure; KINSOL cache in bytes; scheduled inputs with live sensitivities; authored events and modes; Gauss–Newton before the adjoints; a shared `IntegratedExperiment`; NMPC as one durable attempt |
+| C4, C5 | C4, C5 | Per-class automatic ownership; typed, verified infeasibility certificates; MKL Pardiso instead of `faer-sparse`; convexity as a compiler fact (DCP over `FactorableProgram`, exact rational LDLᵀ) |
+| M2, M5 | M2a, M2b, M2c; M5a, M5b | Integer bound tightening recorded; initialization fixes and restores discrete values; one `Commitment` and one pin transformation; complementarity through SOS1, `smooth_min` and an ℓ1 fact |
+| G4, G6, G8 remainders | G4r, G6r, G-semi, epigraph fix, G8f, SCIP concurrency | Heater certification with a declared allowance; fixture solve intent and certified-bound checks; the `semi(indicator)` lowering; typed solution origin with pruning and published incumbents |
+| — | R82874, DOCS-a, DOCS-z | Review of `82874e7d`; the solver docs pass; image publication before Q1 |
+
 ## Capability coverage
 
 Every capability the review identified as missing, and where this plan delivers it. The review
@@ -302,6 +334,10 @@ and DP-16.
 | `scip-sys` `bundled` / `from-source`; `russcip` | Unverified downloads, a second Ipopt, missing NLP subsolver and exact mode; panicking conversions | — |
 | Parsing Ipopt's timing journal | Violates PS-10 (status strings are never parsed); POUNCE timings are captured natively | Ipopt exposes timings through its C API |
 | SCIP for DegeneracyHunter and tear selection | No capability gain; HiGHS retains them. SCIP remains an explicit MILP alternative after G7 | — |
+| `pounce-sensitivity` `SensSolve` and an Ipopt barrier-replica KKT (amendment 2026-09-28, with ADR-0118) | Duplicate the one KKT-point analysis (S0, S1). `pounce-sensitivity` is also absent from the registry cache and the lockfile | `sensitivity_agrees_with_ipopt_sens` fails on a nondegenerate fixture |
+| `pounce_convex::QpSensitivity` (amendment 2026-09-28) | Duplicates S1's analysis on QP routes | As above |
+| Clarabel `faer-sparse` (amendment 2026-09-28) | Pulls faer 0.21.9 beside the pinned 0.24.4, and duplicates the threaded direct solve MKL Pardiso provides (C4) | Clarabel moves to faer ≥ 0.24 |
+| SCIP `bounddisjunction` for semi domains (amendment 2026-09-28) | ADR-0103 Outcome 7 selects the `semi(indicator)` lowering; no benefit measured | A measured case where the indicator lowering dominates SCIP time |
 
 ## Finding dispositions
 
@@ -361,7 +397,7 @@ execution reports. Anchors point to the
 | [T11](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t11) Gauss–Newton covariance validity label | — | open | S3 | `gauss_newton_covariance_labelled` |
 | [T12](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t12) Multi-objective degradation tolerances and normalization | — | open | C3 | `lexicographic_degradation_tolerance_respected` |
 | [T13](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t13) One Rust transition table; the runtime mints ids | — | resolved | O3 | Resolved: `illegal_transition_rejected` (O3, `f17f20a1`) |
-| [T14](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t14) An authored `penalty(l1)` is an explicit selection | — | open | M5, N3 | `l1_never_automatic`; `authored_l1_realization_selects_route` |
+| [T14](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t14) An authored `penalty(l1)` is an explicit selection | — | open | M5a, M5b ([solver scope packet](22-solver-scope-execution.md)) | `l1_never_automatic`; `authored_l1_realization_selects_route` |
 | [T15](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) Derived big-M, nonlinear hull and the domain enum | — | resolved | M1, M4 | Resolved: `bigm_derived_from_bounds`, `hull_requires_finite_bounds`, `var_domain_parses_and_renders` (M1, M4; `177c4ec9`) |
 | [T16](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t16) Retention owner once the Delta control table goes | — | resolved | O8 | Resolved: the catalog computes retention in SQL for the reasons publication, attempt and changes (`publication_windows`); `.pse-retention.lock` and `retention.rs` are deleted. *Tested:* `catalog_protects_published_versions` (store and runtime suites: `just db-test`, 53 passed; `just publication-test`, 9 passed) and `interrupted_deletion_resumes` (`just publication-test`), 0 failed on `main` after merge `4487adfc`. Evidence: [store packet](22-store-and-typed-data-execution.md), O8 checkpoint |
 
@@ -403,7 +439,7 @@ conditions and results against the zero baseline. Evidence labels go in the Outc
 
 ## Open items
 
-- **`pounce-sensitivity` 0.12.0.** Its API is unverified: it is in neither the skill corpus nor the registry. S1 starts by fetching it; the fallback is `pounce-sens-core` on both routes.
+- **`pounce-sensitivity` 0.12.0.** Resolved in planning (2026-09-28): the crate is absent from the registry cache and the lockfile, and its API is known only from the `pounce-rs` facade. `pounce-sens-core` is on disk and serves every route through one KKT-point analysis (ADR-0118, to be written; [solver scope packet](22-solver-scope-execution.md)).
 - **SCIP.** Solver-image build time and size, and the GMP/MPFR/Boost toolchain (G1).
 - **MKL Pardiso determinism.** The `MKL_CBWR` mode and thread admission are recorded in the profile key (N1). Only numerical reproducibility is claimed, never bitwise equality with the other solvers (DP-11).
 - **Solver-image publication.** Local development extracts the solver prefix from a pinned GHCR digest (`scripts/native_cache.py`). The rebuilt image (G1, N1) is published through the existing `solver-image` and `solver-pin-update` path.

@@ -19,8 +19,10 @@ execution packets retain their original evidence.
   statements on tokio-postgres, typed identities and vocabularies, and typed boundary documents
   (ADR-0114–ADR-0117, packets B1–B7), from the
   [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md).
-  That track, together with O7–O9 and G8, runs first. Its own
-  [execution packet](22-store-and-typed-data-execution.md) owns its progress.
+  That track, together with O7–O9 and G8, ran first and closed with its W6 scoped
+  qualification. Its own [execution packet](22-store-and-typed-data-execution.md) owns its progress.
+- the remaining solver scope and Q1, planned on 2026-09-28. The
+  [solver scope packet](22-solver-scope-execution.md) owns its progress.
 
 Its companion is `22-solver-capabilities-architecture.md`.
 [Plan 20](20-idaes-capability-target.md) and its companions remain capability background;
