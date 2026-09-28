@@ -8,7 +8,8 @@
 //! in have to be declarations like any other — `schema_relations.namespace` is a
 //! `pse.enum(Namespace)` column, and there is nowhere else for `Namespace` to come from.
 //! Each member list is generated from the Rust enum's `ALL` constant and `as_str`, so the
-//! declaration and the type the compiler enforces are one statement, not two.
+//! declaration and the type the compiler enforces are one statement, not two, and each such
+//! declaration names its source type, which the generator re-exports (ADR-0115 Outcome 3).
 //!
 //! The enumerations preserved from IDAES by name (§6.14) are packet A-2's
 //! `s6_14_idaes_enums`, not this module.
@@ -21,9 +22,9 @@ use crate::model::{
 
 /// Declares every platform vocabulary.
 pub fn declare(builder: &mut RegistryBuilder) {
-    super::declarations::enumeration(
+    super::declarations::sourced_enumeration(
         builder,
-        "OperationEffect",
+        "pse_vocabulary::OperationEffect",
         crate::model::provider::OperationEffect::ALL
             .map(crate::model::provider::OperationEffect::as_str),
     );
@@ -49,8 +50,8 @@ fn declare_schema_vocabularies(builder: &mut RegistryBuilder) {
 /// `Namespace` and `Authority` (blueprint §4.1).
 fn declare_namespace_and_authority(builder: &mut RegistryBuilder) {
     builder
-        .declare_enum(EnumDecl::platform(
-            "Namespace",
+        .declare_enum(EnumDecl::sourced(
+            "pse_vocabulary::Namespace",
             Namespace::ALL
                 .iter()
                 .map(|value| {
@@ -69,8 +70,8 @@ fn declare_namespace_and_authority(builder: &mut RegistryBuilder) {
                 })
                 .collect(),
         ))
-        .declare_enum(EnumDecl::platform(
-            "Authority",
+        .declare_enum(EnumDecl::sourced(
+            "pse_vocabulary::Authority",
             Authority::ALL
                 .iter()
                 .map(|value| {
@@ -90,8 +91,8 @@ fn declare_namespace_and_authority(builder: &mut RegistryBuilder) {
 /// `SnapshotClass`, `DerivationGranularity` and `Stability` (blueprint §4.1, §5.3).
 fn declare_class_and_stability(builder: &mut RegistryBuilder) {
     builder
-        .declare_enum(EnumDecl::platform(
-            "SnapshotClass",
+        .declare_enum(EnumDecl::sourced(
+            "pse_vocabulary::SnapshotClass",
             SnapshotClass::ALL
                 .iter()
                 .map(|value| {
@@ -109,8 +110,8 @@ fn declare_class_and_stability(builder: &mut RegistryBuilder) {
                 })
                 .collect(),
         ))
-        .declare_enum(EnumDecl::platform(
-            "DerivationGranularity",
+        .declare_enum(EnumDecl::sourced(
+            "pse_vocabulary::DerivationGranularity",
             DerivationGranularity::ALL
                 .iter()
                 .map(|value| {
@@ -126,8 +127,8 @@ fn declare_class_and_stability(builder: &mut RegistryBuilder) {
                 })
                 .collect(),
         ))
-        .declare_enum(EnumDecl::platform(
-            "Stability",
+        .declare_enum(EnumDecl::sourced(
+            "pse_vocabulary::Stability",
             Stability::ALL
                 .iter()
                 .map(|value| {
@@ -147,8 +148,8 @@ fn declare_class_and_stability(builder: &mut RegistryBuilder) {
 /// `ColumnRole`, `InvariantKind`, `Severity` and `MigrationOp` (blueprint §4.1).
 fn declare_column_and_invariant_vocabularies(builder: &mut RegistryBuilder) {
     builder
-        .declare_enum(EnumDecl::platform(
-            "ColumnRole",
+        .declare_enum(EnumDecl::sourced(
+            "pse_vocabulary::ColumnRole",
             ColumnRole::ALL
                 .iter()
                 .map(|value| {
@@ -166,8 +167,8 @@ fn declare_column_and_invariant_vocabularies(builder: &mut RegistryBuilder) {
                 })
                 .collect(),
         ))
-        .declare_enum(EnumDecl::platform(
-            "InvariantKind",
+        .declare_enum(EnumDecl::sourced(
+            "pse_vocabulary::InvariantKind",
             InvariantKind::ALL
                 .iter()
                 .map(|value| {
@@ -186,8 +187,8 @@ fn declare_column_and_invariant_vocabularies(builder: &mut RegistryBuilder) {
                 })
                 .collect(),
         ))
-        .declare_enum(EnumDecl::platform(
-            "Severity",
+        .declare_enum(EnumDecl::sourced(
+            "pse_vocabulary::Severity",
             Severity::ALL
                 .iter()
                 .map(|value| {
@@ -220,8 +221,8 @@ fn declare_rule_vocabularies(builder: &mut RegistryBuilder) {
 
 /// Algorithm determinism (blueprint §14.1).
 fn declare_policy_vocabularies(builder: &mut RegistryBuilder) {
-    builder.declare_enum(EnumDecl::platform(
-        "Determinism",
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_vocabulary::Determinism",
         Determinism::ALL
             .iter()
             .map(|value| {
@@ -304,18 +305,75 @@ fn declare_identity_vocabularies(builder: &mut RegistryBuilder) {
 
 /// Registry projections of the leaf's diagnostic vocabulary.
 pub(super) fn declare_failure_classes(builder: &mut RegistryBuilder) {
-    builder.declare_enum(EnumDecl::platform(
-        "FailureClass",
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::FailureClass",
         pse_diagnostics::FailureClass::ALL
             .iter()
             .map(|value| member(value.as_str(), value.description()))
             .collect(),
     ));
-    builder.declare_enum(EnumDecl::platform(
-        "DiagnosticCode",
+    builder.declare_enum(EnumDecl::sourced(
+        "pse_diagnostics::DiagnosticCode",
         pse_diagnostics::DiagnosticCode::ALL
             .iter()
             .map(|value| member(value.as_str(), value.description()))
             .collect(),
     ));
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        reason = "tests report failures by panicking"
+    )]
+
+    /// The member spellings of the source type at `path`, for every source-owned
+    /// vocabulary the registry may declare.
+    macro_rules! source_members {
+        ($path:expr; $($krate:ident :: $ty:ident),+ $(,)?) => {
+            match $path {
+                $(p if p == concat!(stringify!($krate), "::", stringify!($ty)) => Some(
+                    $krate::$ty::ALL.iter().map(|value| value.as_str()).collect::<Vec<_>>(),
+                ),)+
+                _ => None,
+            }
+        };
+    }
+
+    /// Each sourced declaration names a real vocabulary type, and its members are exactly
+    /// that type's `ALL` spellings in order: the re-exported type and the registry agree
+    /// (ADR-0115 Outcome 3, ADR-0117).
+    #[test]
+    fn sourced_vocabularies_match_their_source() {
+        let registry = crate::registry().unwrap();
+        let mut sourced = 0;
+        for spec in registry.enums() {
+            let Some(path) = spec.source else { continue };
+            sourced += 1;
+            let expected = source_members!(path;
+                pse_vocabulary::Namespace, pse_vocabulary::Authority,
+                pse_vocabulary::SnapshotClass, pse_vocabulary::DerivationGranularity,
+                pse_vocabulary::Stability, pse_vocabulary::ColumnRole,
+                pse_vocabulary::InvariantKind, pse_vocabulary::Severity,
+                pse_vocabulary::Determinism, pse_vocabulary::OperationEffect,
+                pse_diagnostics::DiagnosticCode, pse_diagnostics::FailureClass,
+                pse_quantity::Opcode, pse_quantity::ScaleKind, pse_quantity::QuantityAdditionKind,
+                pse_quantity::QuantityKindCategory, pse_quantity::BasisKind,
+                pse_quantity::CompositionBasis, pse_quantity::RateBasis,
+                pse_quantity::ReferenceStateKind, pse_quantity::ConversionKind,
+                pse_quantity::BasisRule, pse_quantity::ReferenceRule,
+                pse_quantity::QuantityScaleRule, pse_quantity::QuantityShapeRule,
+                pse_quantity::SubjectRule, pse_quantity::WeightNormalization,
+                pse_quantity::ReductionKind,
+            )
+            .unwrap_or_else(|| panic!("{} names an unknown source {path}", spec.name));
+            assert!(path.ends_with(&format!("::{}", spec.name)), "{path}");
+            let declared = spec.members.iter().map(|m| m.name).collect::<Vec<_>>();
+            assert_eq!(declared, expected, "{path}");
+        }
+        assert_eq!(sourced, 28, "every source-owned vocabulary is declared as sourced");
+    }
 }

@@ -672,6 +672,7 @@ impl RegistryBuilder {
                 id: registry_id(&format!("enum:{}", decl.name)),
                 name: decl.name,
                 idaes_source: decl.idaes_source,
+                source: decl.source,
                 members: decl.members.clone(),
             });
         }

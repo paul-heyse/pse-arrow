@@ -5602,6 +5602,7 @@ dependencies = [
  "pse-diagnostics",
  "pse-ids",
  "pse-quantity",
+ "pse-vocabulary",
  "serde",
  "thiserror 2.0.20",
 ]

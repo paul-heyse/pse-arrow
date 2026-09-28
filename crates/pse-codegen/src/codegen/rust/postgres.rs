@@ -23,6 +23,11 @@ pub(super) fn emit(
         let spec = reg
             .enum_spec(name)
             .ok_or_else(|| super::error(format!("unknown enum {name}")))?;
+        // A source-owned vocabulary carries its value mapping in its owning crate's
+        // `postgres` feature, which the pse-model feature enables (ADR-0117 Outcome 4).
+        if spec.source.is_some() {
+            continue;
+        }
         let ty = format_ident!("{}", super::types::pascal(name));
         let type_name = crate::codegen::postgres::names::enum_type(name);
         let members = spec.members.iter().map(|member| member.name);

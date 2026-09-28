@@ -29,6 +29,11 @@ pub struct EnumSpec {
     pub name: &'static str,
     /// The IDAES module the member list was taken from, for the §6.14 parity enums.
     pub idaes_source: Option<&'static str>,
+    /// The Rust path of the hand-written type that owns this vocabulary, such as
+    /// `pse_vocabulary::Namespace`. The generator re-exports that type instead of emitting
+    /// a second enum (ADR-0115 Outcome 3). It is a generation fact, not part of the
+    /// registry's self-description, so it does not enter the fingerprint.
+    pub source: Option<&'static str>,
     /// The members, in declaration order. The ordinal is the position and is presentation
     /// only: a dictionary code never carries identity (blueprint §4.5).
     pub members: Vec<EnumMember>,
@@ -77,6 +82,8 @@ pub struct EnumDecl {
     pub name: &'static str,
     /// See [`EnumSpec::idaes_source`].
     pub idaes_source: Option<&'static str>,
+    /// See [`EnumSpec::source`].
+    pub source: Option<&'static str>,
     /// See [`EnumSpec::members`].
     pub members: Vec<EnumMember>,
 }
@@ -87,6 +94,20 @@ impl EnumDecl {
         Self {
             name,
             idaes_source: None,
+            source: None,
+            members,
+        }
+    }
+
+    /// A platform vocabulary whose values are the hand-written Rust type at `path`, such
+    /// as `pse_vocabulary::Namespace`; the registry name is the path's last segment. The
+    /// members are the type's `ALL` spellings, stated here so the registry describes them
+    /// (ADR-0115 Outcome 3, ADR-0117).
+    pub fn sourced(path: &'static str, members: Vec<EnumMember>) -> Self {
+        Self {
+            name: path.rsplit_once("::").map_or(path, |(_, name)| name),
+            idaes_source: None,
+            source: Some(path),
             members,
         }
     }
@@ -96,6 +117,7 @@ impl EnumDecl {
         Self {
             name,
             idaes_source: Some(source),
+            source: None,
             members,
         }
     }

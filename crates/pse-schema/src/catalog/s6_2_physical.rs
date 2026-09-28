@@ -19,8 +19,8 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_reference_conversion_rules(builder);
     declare_reference_quantity_operations(builder);
     declare_reference_constants(builder);
-    for (name, members) in pse_quantity::enums::dictionaries() {
-        super::declarations::enumeration(builder, name, members);
+    for (path, members) in pse_quantity::enums::dictionaries() {
+        super::declarations::sourced_enumeration(builder, path, members);
     }
 }
 

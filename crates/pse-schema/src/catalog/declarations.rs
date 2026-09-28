@@ -95,6 +95,22 @@ pub(super) fn enumeration(
     ));
 }
 
+/// Declare a vocabulary owned by the hand-written Rust type at `path`
+/// ([`EnumDecl::sourced`]); each member documents itself by its spelling.
+pub(super) fn sourced_enumeration(
+    builder: &mut RegistryBuilder,
+    path: &'static str,
+    members: impl IntoIterator<Item = &'static str>,
+) {
+    builder.declare_enum(EnumDecl::sourced(
+        path,
+        members
+            .into_iter()
+            .map(|member| EnumMember::new(member, member))
+            .collect(),
+    ));
+}
+
 pub(super) fn structure(fields: Vec<(&'static str, FieldContract)>) -> FieldContract {
     FieldContract::structure(
         fields

@@ -122,7 +122,13 @@ impl crate::columnar::ArrowValue for Authority {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(Authority).to_owned(),
+                enumeration: stringify!(Authority).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for BasisKind {
@@ -305,7 +311,13 @@ impl crate::columnar::ArrowValue for ColumnRole {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(ColumnRole).to_owned(),
+                enumeration: stringify!(ColumnRole).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for CompositionBasis {
@@ -412,7 +424,13 @@ impl crate::columnar::ArrowValue for DerivationGranularity {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(DerivationGranularity).to_owned(),
+                enumeration: stringify!(DerivationGranularity).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for Determinism {
@@ -431,7 +449,13 @@ impl crate::columnar::ArrowValue for Determinism {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(Determinism).to_owned(),
+                enumeration: stringify!(Determinism).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for DiagnosticCode {
@@ -450,7 +474,13 @@ impl crate::columnar::ArrowValue for DiagnosticCode {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(DiagnosticCode).to_owned(),
+                enumeration: stringify!(DiagnosticCode).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for DiagnosticSeverity {
@@ -564,7 +594,13 @@ impl crate::columnar::ArrowValue for FailureClass {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(FailureClass).to_owned(),
+                enumeration: stringify!(FailureClass).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for FindingSeverity {
@@ -640,7 +676,13 @@ impl crate::columnar::ArrowValue for InvariantKind {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(InvariantKind).to_owned(),
+                enumeration: stringify!(InvariantKind).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for JobState {
@@ -1001,7 +1043,13 @@ impl crate::columnar::ArrowValue for Namespace {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(Namespace).to_owned(),
+                enumeration: stringify!(Namespace).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for NativeAssurance {
@@ -1463,7 +1511,13 @@ impl crate::columnar::ArrowValue for OperationEffect {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(OperationEffect).to_owned(),
+                enumeration: stringify!(OperationEffect).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for PackageKind {
@@ -1840,7 +1894,13 @@ impl crate::columnar::ArrowValue for Severity {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(Severity).to_owned(),
+                enumeration: stringify!(Severity).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for SnapshotClass {
@@ -1859,7 +1919,13 @@ impl crate::columnar::ArrowValue for SnapshotClass {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(SnapshotClass).to_owned(),
+                enumeration: stringify!(SnapshotClass).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for Stability {
@@ -1878,7 +1944,13 @@ impl crate::columnar::ArrowValue for Stability {
         input: &dyn arrow_array::Array,
         index: usize,
     ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+        let value = crate::columnar::read_string(input, index)?;
+        Self::parse(value)
+            .ok_or_else(|| crate::RelationError::EnumMember {
+                field: stringify!(Stability).to_owned(),
+                enumeration: stringify!(Stability).to_owned(),
+                value: value.to_owned(),
+            })
     }
 }
 impl crate::columnar::ArrowValue for StoredSeedKind {
