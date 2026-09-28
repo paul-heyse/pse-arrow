@@ -30,6 +30,7 @@ from pse._runs import (
 from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import SolveSettings
 from pse.contracts.enums import AttemptState, StudyState
+from pse.contracts.identities import PublicationId, RunId, WorkspaceId
 from pse.contracts.values import ContentHash, SemanticId
 
 SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
@@ -63,7 +64,7 @@ class Runtime:
     def runs(
         self,
         *,
-        run_id: SemanticId | None = None,
+        run_id: RunId | None = None,
         states: Sequence[AttemptState] = (),
         limit: int = 100,
     ) -> tuple[OperationalAttempt, ...]:
@@ -190,12 +191,12 @@ class Runtime:
         """Return a registered workspace by name."""
         return msgspec.json.decode(self._handle.workspace(name), type=Workspace)
 
-    def head(self, workspace_id: SemanticId) -> SemanticId | None:
+    def head(self, workspace_id: WorkspaceId) -> PublicationId | None:
         """Return a workspace's head; ``None`` before its first publication."""
         head = self._handle.head(workspace_id.to_hex())
-        return None if head is None else SemanticId.from_hex(head)
+        return None if head is None else PublicationId(SemanticId.from_hex(head))
 
-    def open(self, publication_id: SemanticId) -> Publication:
+    def open(self, publication_id: PublicationId) -> Publication:
         """Open an exact publication under a catalog reader lease.
 
         The lease is renewed while the publication or a stream of it is open and
@@ -203,13 +204,13 @@ class Runtime:
         """
         return Publication(self._handle.open(publication_id.to_hex()))
 
-    def open_head(self, workspace_id: SemanticId) -> Publication:
+    def open_head(self, workspace_id: WorkspaceId) -> Publication:
         """Open a workspace's head under a catalog reader lease."""
         return Publication(self._handle.open_head(workspace_id.to_hex()))
 
     def export_publication(
         self,
-        publication_id: SemanticId,
+        publication_id: PublicationId,
         destination: str | Path,
         *,
         valid_for: timedelta,

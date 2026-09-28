@@ -545,6 +545,24 @@ impl<'a> FromSql<'a> for crate::generated::identities::DeclarationId {
         <Self as ToSql>::accepts(ty)
     }
 }
+impl ToSql for crate::generated::identities::FitId {
+    fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
+    }
+    fn accepts(ty: &Type) -> bool {
+        pse_ids::postgres::accepts_domain::<pse_ids::SemanticId>(ty, "pse_ops", "fit_id")
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::identities::FitId {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
+            .map(Self::from_id)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
 impl ToSql for crate::generated::identities::InstanceId {
     fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
         ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)

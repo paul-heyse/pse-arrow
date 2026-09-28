@@ -1,0 +1,16 @@
+# Shared live library skills exposed to both Codex and Claude Code.
+# Edit enabled, then run just skills-sync. Skill sources live outside this repo.
+directory = ".codex/skills"
+enabled = [
+  "ast-grep-ripgrep",
+  "datafusion",
+  "datafusion-tracing",
+  "deltalake",
+  "native-solver-libraries",
+  "pyomo-and-solvers",
+  "rust-code-model",
+  "rust-graphs",
+  "rust-reasoning",
+  "salsa",
+  "symbolica-faer-oximo",
+]

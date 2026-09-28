@@ -659,6 +659,7 @@ impl<'a> Session<'a> {
                 oracle
                     .support(mode, Function::Rhs)
                     .into_iter()
+                    .map(|entry| (entry.row.get(), entry.col.get()))
                     .filter(|&(row, col)| col < n && row < n)
                     .map(|(row, col)| (col, row)),
             );

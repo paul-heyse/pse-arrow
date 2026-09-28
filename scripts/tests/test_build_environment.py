@@ -43,7 +43,7 @@ class BuildEnvironmentTests(unittest.TestCase):
         with patch.object(build.shutil, "which", return_value="/bin/sccache"):
             env = build.configure(build.ROOT, {"XDG_CACHE_HOME": "/tmp/example"})
         self.assertEqual(env["SCCACHE_DIR"], "/tmp/example/pse-arrow/sccache")
-        self.assertEqual(env["SCCACHE_CACHE_SIZE"], "32G")
+        self.assertEqual(env["SCCACHE_CACHE_SIZE"], "100G")
         self.assertNotIn("CARGO_INCREMENTAL", env)
         self.assertEqual(build.configure(build.ROOT, env), env)
         own = {"RUSTC_WRAPPER": "sccache", "SCCACHE_DIR": "/user/cache"}

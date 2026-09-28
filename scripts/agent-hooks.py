@@ -11,7 +11,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +19,6 @@ PATCH_HEADER = re.compile(
 )
 # Claude sends one edited file under one of these keys; Codex sends a patch.
 FILE_KEYS = ("file_path", "notebook_path")
-WRITABLE_ENV = "PSE_AGENT_WRITABLE"
 
 
 def edit_paths(payload: dict) -> list[str]:
@@ -42,39 +40,13 @@ def edit_paths(payload: dict) -> list[str]:
     raise ValueError("unrecognized edit payload; refusing an unchecked file edit")
 
 
-def agent_areas() -> list[Path]:
-    """Directories an agent runtime owns: its config, memory and scratch space.
-
-    These hold runtime state, not project state. The guard protects the working
-    copy and is not a shell sandbox, so refusing them would only add friction to
-    the sanctioned tool path while leaving shell writes untouched.
-    """
-    home = Path.home()
-    areas = [
-        Path(os.environ.get("CLAUDE_CONFIG_DIR") or home / ".claude"),
-        home / ".codex",
-        Path(tempfile.gettempdir()),
-    ]
-    areas += [
-        Path(entry)
-        for entry in os.environ.get(WRITABLE_ENV, "").split(os.pathsep)
-        if entry
-    ]
-    return [area.expanduser().resolve() for area in areas]
-
-
-def within(target: Path, base: Path) -> bool:
-    return target == base or base in target.parents
-
-
 def protected(root: Path, path: str, *, design_edit: bool = False) -> str | None:
     target = (root / path).resolve()
     try:
         relative = target.relative_to(root.resolve())
     except ValueError:
-        if any(within(target, area) for area in agent_areas()):
-            return None
-        return "edit is outside the working copy and the agent's own directories"
+        # Shared library skills and other personal projects are editable.
+        return None
     parts = relative.parts
     if not parts or ".git" in parts or parts[0] in {"target", "build", "external"}:
         return "VCS state, build output and reading copies are protected"
@@ -88,8 +60,7 @@ def protected(root: Path, path: str, *, design_edit: bool = False) -> str | None
             )
         )
         or (parts[0] == "crates" and "generated" in parts)
-        or name
-        in {"crates/pse-ipopt-sys/src/bindings.rs", "python/pse/_native.pyi"}
+        or name in {"crates/pse-ipopt-sys/src/bindings.rs", "python/pse/_native.pyi"}
     ):
         return "generator output is protected; fix the generator"
     if not design_edit:

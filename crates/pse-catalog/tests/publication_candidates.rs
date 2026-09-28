@@ -27,6 +27,7 @@ use pse_catalog::{
 use pse_columnar::CancellationToken;
 use pse_engine::session::{EngineFactory, planner::UnifiedPlanner};
 use pse_ids::SemanticId;
+use pse_model::generated::identities::{AttemptId, PublicationId, WorkspaceId};
 use pse_relations::generated::{
     authored::{entities, packages},
     enums::{EntityKind, IdPolicy, PackageKind, PublicationKind, RetentionReason},
@@ -96,9 +97,9 @@ fn name(table: &str) -> ResolvedTableReference {
 fn header() -> publication_manifests::Row {
     publication_manifests::Row {
         publication_id: identity(2),
-        workspace_id: identity(1),
+        workspace_id: identity(1).into(),
         parent_publication_id: None,
-        attempt_id: identity(3),
+        attempt_id: identity(3).into(),
         kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
@@ -147,7 +148,7 @@ async fn candidate(
         .prepare_publication(header(), destinations, vec![], &cancel)
         .unwrap();
     // The ticket exists before any effect and plans the complete member inventory.
-    assert_eq!(ticket.publication_id(), identity(2));
+    assert_eq!(ticket.publication_id(), PublicationId::from(identity(2)));
     assert_eq!(ticket.candidate().members.len(), 2);
     assert!(ticket.candidate().members.iter().all(|m| m.delta_version == 0));
     let completed = command.execute(&cancel).await?;
@@ -167,8 +168,8 @@ async fn candidate_returns_admitted_record_with_actual_versions() {
     let (factory, runtime) = fixture(&root);
     let record = candidate(&factory, &root, false).await.unwrap();
     assert_eq!(record.publication_id, identity(2));
-    assert_eq!(record.workspace_id, identity(1));
-    assert_eq!(record.attempt_id, identity(3));
+    assert_eq!(record.workspace_id, WorkspaceId::from(identity(1)));
+    assert_eq!(record.attempt_id, AttemptId::from(identity(3)));
     assert_eq!(record.parent_publication_id, None);
     // Every member carries its actual committed version (creation, then data).
     assert_eq!(
@@ -277,7 +278,7 @@ async fn selected_publication_reopens_exact_members() {
 fn exported(record: publication_manifests::Row) -> publication_manifests::Row {
     publication_manifests::Row {
         exported_at: Some(1_790_000_000_000_000),
-        export_lease_id: Some(identity(40)),
+        export_lease_id: Some(identity(40).into()),
         export_expires_at: Some(1_790_000_600_000_000),
         maintenance_epoch: Some(4),
         store_fingerprint: Some(pse_ids::ContentHash::from_bytes([5; 32])),

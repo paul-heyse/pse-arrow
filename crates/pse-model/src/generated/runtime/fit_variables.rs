@@ -12,7 +12,7 @@ pub struct RuntimeFitVariablesRow {
     ///run_id
     pub r#run_id: pse_ids::SemanticId,
     ///experiment_id
-    pub r#experiment_id: pse_ids::SemanticId,
+    pub r#experiment_id: crate::generated::identities::InstanceId,
     ///symbol_id
     pub r#symbol_id: pse_ids::SemanticId,
     ///quantity_id

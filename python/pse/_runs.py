@@ -13,6 +13,7 @@ from pse._build import (DiagnosticReport, NativeEligibility, NativeRoute,
 from pse._inspection import TableStream
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import AttemptState, JobState, StudyPointState, StudyState
+from pse.contracts.identities import AttemptId, PublicationId, RunId, WorkspaceId
 from pse.contracts.values import ContentHash, SemanticId
 
 @attrs.frozen
@@ -66,9 +67,9 @@ class Workspace(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
     root_uri: str
 
     @property
-    def id(self) -> SemanticId:
+    def id(self) -> WorkspaceId:
         """The workspace identity."""
-        return SemanticId.from_hex(self.workspace_id)
+        return WorkspaceId(SemanticId.from_hex(self.workspace_id))
 
 
 class Published(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
@@ -80,9 +81,9 @@ class Published(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
     attempt_id: str
 
     @property
-    def id(self) -> SemanticId:
+    def id(self) -> PublicationId:
         """The publication identity."""
-        return SemanticId.from_hex(self.publication_id)
+        return PublicationId(SemanticId.from_hex(self.publication_id))
 
 
 class ExportReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
@@ -146,14 +147,14 @@ class PublicationAttempt:
         return PublicationTicket(self._handle.ticket())
 
     @property
-    def attempt_id(self) -> SemanticId:
+    def attempt_id(self) -> AttemptId:
         """The durable attempt published: the publication attempt itself."""
-        return SemanticId.from_hex(self._handle.attempt_id)
+        return AttemptId(SemanticId.from_hex(self._handle.attempt_id))
 
     @property
-    def publication_id(self) -> SemanticId:
+    def publication_id(self) -> PublicationId:
         """Identity of the proposed publication."""
-        return SemanticId.from_hex(self._handle.publication_id)
+        return PublicationId(SemanticId.from_hex(self._handle.publication_id))
 
     def commit(self) -> Published:
         """Register the intent, write the members and commit once; never retried.
@@ -185,15 +186,15 @@ class RunResult:
         return self._handle.available_start(step)
 
     @property
-    def run_id(self) -> SemanticId:
+    def run_id(self) -> RunId:
         """Unique execution identity."""
-        return SemanticId.from_hex(self._handle.run_id)
+        return RunId(SemanticId.from_hex(self._handle.run_id))
 
     @property
-    def attempt_id(self) -> SemanticId | None:
+    def attempt_id(self) -> AttemptId | None:
         """Durable attempt that recorded this run; ``None`` for an ephemeral run."""
         attempt = self._handle.attempt_id
-        return None if attempt is None else SemanticId.from_hex(attempt)
+        return None if attempt is None else AttemptId(SemanticId.from_hex(attempt))
 
     @property
     def usable(self) -> bool:
@@ -223,8 +224,8 @@ class RunResult:
         self,
         workspace: Workspace,
         *,
-        parent: SemanticId | None = None,
-        publication_id: SemanticId | None = None,
+        parent: PublicationId | None = None,
+        publication_id: PublicationId | None = None,
     ) -> PublicationAttempt:
         """Prepare the publication of this durable run in ``workspace``; no write.
 
@@ -256,10 +257,10 @@ class RunHandle:
         self._handle.cancel()
 
     @property
-    def attempt_id(self) -> SemanticId | None:
+    def attempt_id(self) -> AttemptId | None:
         """Durable attempt minted before any effect; ``None`` for an ephemeral run."""
         attempt = self._handle.attempt_id
-        return None if attempt is None else SemanticId.from_hex(attempt)
+        return None if attempt is None else AttemptId(SemanticId.from_hex(attempt))
 
     def wait(self) -> RunResult:
         """Release Python while waiting; join cancellation before a signal escapes."""

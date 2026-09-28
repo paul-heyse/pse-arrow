@@ -58,6 +58,11 @@ def configure(
             ]
         )
     settings = tomllib.loads((root / ".config/build.toml").read_text())
+    cargo_settings = tomllib.loads((root / ".cargo/config.toml").read_text())
+    if jobs is not None:
+        env["CARGO_BUILD_JOBS"] = str(jobs)
+    else:
+        env.setdefault("CARGO_BUILD_JOBS", str(cargo_settings["build"]["jobs"]))
     if cache == "off":
         env.update(RUSTC_WRAPPER="", RUSTC_WORKSPACE_WRAPPER="")
         if "PSE_NATIVE_COMPILER_CACHE" in env:
@@ -102,13 +107,10 @@ def configure(
             flags.append(f"-Zthreads={frontend or settings['frontend_threads']}")
             env["CARGO_ENCODED_RUSTFLAGS"] = "\x1f".join(flags)
             env["CARGO_TARGET_DIR"] = str(root / "target" / settings["nightly"])
-            env["CARGO_BUILD_JOBS"] = str(jobs or settings["jobs"])
         elif any(flag.startswith("-Z") for flag in effective_flags(root, env)):
             raise ValueError("stable route refuses caller-supplied unstable flags")
         else:
             env["CARGO_TARGET_DIR"] = str(root / "target")
-            if jobs:
-                env["CARGO_BUILD_JOBS"] = str(jobs)
     return env
 
 

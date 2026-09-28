@@ -192,7 +192,7 @@ class RuntimeFitConstraintsRow:
     """Declared relation row or nested value."""
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    experiment_id: i.InstanceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     row_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
@@ -208,7 +208,7 @@ class RuntimeFitObservationsRow:
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     observation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    experiment_id: i.InstanceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     included: b.bool = attrs.field(validator=v.exact_type(b.bool))
     prediction: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     residual: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
@@ -235,7 +235,7 @@ class RuntimeFitVariablesRow:
     """Declared relation row or nested value."""
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    experiment_id: i.InstanceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
@@ -1256,15 +1256,15 @@ class RuntimePublicationManifestsRow:
     """Declared relation row or nested value."""
 
     publication_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    workspace_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    parent_publication_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parent_publication_id: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
     inputs: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
     members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
     windows: b.tuple[s.VersionWindow, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.VersionWindow), iterable_validator=attrs.validators.instance_of(b.tuple)))
     exported_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
-    export_lease_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    export_lease_id: i.ReaderLeaseId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     export_expires_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
     maintenance_epoch: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     store_fingerprint: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
@@ -1305,7 +1305,7 @@ class RuntimeResponseSensitivitiesRow:
     """Declared relation row or nested value."""
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    experiment_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    experiment_id: i.InstanceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     sample: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     output_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))

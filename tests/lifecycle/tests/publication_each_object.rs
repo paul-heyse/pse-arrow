@@ -148,9 +148,9 @@ impl Fixture {
         let plan = ArtifactPlan::new(session, outputs, &cancel)?;
         let header = publication_manifests::Row {
             publication_id: id(attempt),
-            workspace_id: id(1),
-            parent_publication_id: parent.map(id),
-            attempt_id: id(attempt + 100),
+            workspace_id: id(1).into(),
+            parent_publication_id: parent.map(|parent| id(parent).into()),
+            attempt_id: id(attempt + 100).into(),
             kind: PublicationKind::Relations,
             inputs: vec![],
             members: vec![],

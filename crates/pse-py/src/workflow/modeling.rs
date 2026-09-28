@@ -245,18 +245,19 @@ impl NativeModelingPackage {
         max_cells: usize,
     ) -> PyResult<NativePreparedOperation> {
         let settings = settings::solve_profile(py, settings)?;
-        let fit = id(py, fit_id)?;
+        let fit = id(py, fit_id).map(pse_model::generated::identities::FitId::from)?;
         let count = simulations.len();
+        // Experiment settings are keyed by the experiment's instance.
         let simulations = simulations
             .into_iter()
-            .map(|(key, v)| id(py, &key).map(|key| (key, v.profile.clone())))
+            .map(|(key, v)| id(py, &key).map(|key| (InstanceId::from(key), v.profile.clone())))
             .collect::<PyResult<BTreeMap<_, _>>>()?;
         if simulations.len() != count {
             return Err(invalid(py, "duplicate experiment settings"));
         }
         let modes = modes.unwrap_or_default();
         let count = modes.len();
-        let modes = modes.into_iter().map(|(key,values)|id(py,&key).map(|key|(key,values.into_iter().map(|m|m.mode.clone()).collect()))).collect::<PyResult<BTreeMap<_,_>>>()?;
+        let modes = modes.into_iter().map(|(key,values)|id(py,&key).map(|key|(InstanceId::from(key),values.into_iter().map(|m|m.mode.clone()).collect()))).collect::<PyResult<BTreeMap<_,_>>>()?;
         if modes.len()!=count {return Err(invalid(py,"duplicate experiment mode settings"));}
         let cancel = CancelSource::new();
         let profile = native::FitProfile {

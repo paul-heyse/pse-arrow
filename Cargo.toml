@@ -374,12 +374,18 @@ multiple_unsafe_ops_per_block = "deny"
 allow_attributes_without_reason = "deny"
 # ---- profiles. `force_validate` is an arrow FEATURE, not a profile (see above). ----
 [profile.dev]
+opt-level = 2
+incremental = true
 debug = "line-tables-only"
 
-# Arrow/DataFusion at -O0 make the suite crawl; float semantics are unchanged.
+# Keep imported libraries optimized in development builds.
 [profile.dev.package."*"]
-opt-level = 2
+opt-level = 3
+incremental = false
 debug = false
+
+[profile.dev.build-override]
+opt-level = 2
 
 # `--profile debugging` when you need variables in a debugger.
 [profile.debugging]
@@ -387,7 +393,8 @@ inherits = "dev"
 debug = "full"
 
 [profile.release]
-opt-level = 3
+opt-level = 2
+incremental = false
 lto = "thin"
 codegen-units = 16
 # REQUIRED: PyO3 turns unwinds into exceptions and the Ipopt callbacks `catch_unwind`;
@@ -395,6 +402,13 @@ codegen-units = 16
 panic = "unwind"
 debug = "line-tables-only"
 strip = "none"
+
+[profile.release.package."*"]
+opt-level = 3
+incremental = false
+
+[profile.release.build-override]
+opt-level = 2
 
 # samply / perf with inlined-frame information.
 [profile.profiling]

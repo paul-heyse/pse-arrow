@@ -63,7 +63,7 @@ pub fn analyze_dynamic(
         &oracle
             .support(sample.mode, sample.function)
             .into_iter()
-            .map(|(r, c)| Triplet::new(r, c, 0.))
+            .map(|entry| Triplet::new(entry.row.get(), entry.col.get(), 0.))
             .collect::<Vec<_>>(),
     )
     .map_err(|_| invalid("dynamic derivative support"))?;
@@ -205,12 +205,12 @@ mod tests {
         fn contract(&self) -> &dynamics::Contract {
             &self.contract
         }
-        fn support(&self, _: usize, _: Function) -> Vec<(usize, usize)> {
-            if self.missing {
+        fn support(&self, _: usize, _: Function) -> Vec<dynamics::SupportEntry> {
+            dynamics::entries(if self.missing {
                 vec![(0, 0)]
             } else {
                 vec![(0, 0), (0, 1)]
-            }
+            })
         }
         fn evaluate(
             &mut self,

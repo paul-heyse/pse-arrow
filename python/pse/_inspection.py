@@ -20,6 +20,7 @@ from pse._build import (
     _open_export,
 )
 from pse._transfer import FieldTransfer, compare_schemas
+from pse.contracts.identities import AttemptId, PublicationId, WorkspaceId
 from pse.contracts.values import SemanticId
 
 
@@ -81,25 +82,25 @@ class Publication:
     _handle: _NativePublication
 
     @property
-    def publication_id(self) -> SemanticId:
+    def publication_id(self) -> PublicationId:
         """The publication identity."""
-        return SemanticId.from_hex(self._handle.publication_id)
+        return PublicationId(SemanticId.from_hex(self._handle.publication_id))
 
     @property
-    def workspace_id(self) -> SemanticId:
+    def workspace_id(self) -> WorkspaceId:
         """The workspace it was published in."""
-        return SemanticId.from_hex(self._handle.workspace_id)
+        return WorkspaceId(SemanticId.from_hex(self._handle.workspace_id))
 
     @property
-    def parent_publication_id(self) -> SemanticId | None:
+    def parent_publication_id(self) -> PublicationId | None:
         """The publication it was committed on, if any."""
         parent = self._handle.parent_publication_id
-        return None if parent is None else SemanticId.from_hex(parent)
+        return None if parent is None else PublicationId(SemanticId.from_hex(parent))
 
     @property
-    def attempt_id(self) -> SemanticId:
+    def attempt_id(self) -> AttemptId:
         """The durable attempt it publishes."""
-        return SemanticId.from_hex(self._handle.attempt_id)
+        return AttemptId(SemanticId.from_hex(self._handle.attempt_id))
 
     def tables(self) -> tuple[TableName, ...]:
         """Return exact catalog, schema and table components for every member."""

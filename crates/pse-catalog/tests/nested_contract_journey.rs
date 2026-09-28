@@ -196,9 +196,9 @@ async fn new_collection_constraint_has_one_decision_across_local_native_delta_an
             .prepare_publication(
                 pse_relations::generated::runtime::publication_manifests::Row {
                     publication_id: SemanticId::from_bytes([2; 16]),
-                    workspace_id: SemanticId::from_bytes([1; 16]),
+                    workspace_id: SemanticId::from_bytes([1; 16]).into(),
                     parent_publication_id: None,
-                    attempt_id: SemanticId::from_bytes([3; 16]),
+                    attempt_id: SemanticId::from_bytes([3; 16]).into(),
                     kind: pse_relations::generated::enums::PublicationKind::Relations,
                     inputs: vec![],
                     members: vec![],

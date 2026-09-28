@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    39u8, 213u8, 17u8, 1u8, 203u8, 64u8, 204u8, 34u8, 143u8, 222u8, 104u8, 210u8, 34u8,
-    85u8, 217u8, 128u8, 235u8, 36u8, 153u8, 243u8, 116u8, 244u8, 90u8, 107u8, 128u8,
-    221u8, 102u8, 176u8, 166u8, 49u8, 234u8, 104u8,
+    218u8, 127u8, 126u8, 90u8, 101u8, 59u8, 187u8, 195u8, 9u8, 77u8, 119u8, 195u8, 115u8,
+    145u8, 63u8, 183u8, 78u8, 33u8, 243u8, 160u8, 196u8, 179u8, 104u8, 102u8, 38u8,
+    161u8, 219u8, 131u8, 68u8, 33u8, 164u8, 170u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimePublicationManifestsRow {
     fn append(
@@ -85,13 +85,13 @@ impl crate::columnar::ArrowValue for RuntimePublicationManifestsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::WorkspaceId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::PublicationId,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
         <crate::generated::enums::PublicationKind as crate::columnar::ArrowValue>::append_null(
@@ -110,7 +110,7 @@ impl crate::columnar::ArrowValue for RuntimePublicationManifestsRow {
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::ReaderLeaseId,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <Option<
             i64,
@@ -135,17 +135,17 @@ impl crate::columnar::ArrowValue for RuntimePublicationManifestsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#workspace_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#workspace_id: <crate::generated::identities::WorkspaceId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
             r#parent_publication_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::PublicationId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#attempt_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#attempt_id: <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
@@ -178,7 +178,7 @@ impl crate::columnar::ArrowValue for RuntimePublicationManifestsRow {
                 index,
             )?,
             r#export_lease_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::ReaderLeaseId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
                 index,

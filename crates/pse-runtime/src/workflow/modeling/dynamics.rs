@@ -871,7 +871,7 @@ impl ModelingPackage {
                 && let Some(t) = targets.iter().find(|t| t.id == *target)
             {
                 declarations.push(cases::requirement(
-                    ModelId::from_id(root.as_id()),
+                    pse_model::lineage::model_of_root(root),
                     *target,
                     t.kind,
                     *declaration,

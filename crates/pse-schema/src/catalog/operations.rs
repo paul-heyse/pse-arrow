@@ -176,7 +176,7 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
 }
 
 fn declare_identities(b: &mut RegistryBuilder) {
-    identity(b, "attempt", "One durable attempt: a single try of a run");
+    declare_publication_identities(b);
     identity(
         b,
         "run",
@@ -190,13 +190,20 @@ fn declare_identities(b: &mut RegistryBuilder) {
         "source_bundle",
         "An authored source bundle, content-addressed by its package content hash",
     );
+    identity(b, "settlement", "One settlement of an uncertain commit acknowledgement");
+}
+
+/// The identities a publication record references (`runtime.publication_manifests`).
+/// A registry that declares the publication contracts without the store declares these
+/// alone ([`super::declare_publications`]).
+pub(super) fn declare_publication_identities(b: &mut RegistryBuilder) {
+    identity(b, "attempt", "One durable attempt: a single try of a run");
     identity(b, "workspace", "One publication workspace in the catalog");
     identity(
         b,
         "publication",
         "One publication: registered as an intent before its first member write and committed at most once",
     );
-    identity(b, "settlement", "One settlement of an uncertain commit acknowledgement");
     identity(b, "reader_lease", "One reader lease protecting a publication");
 }
 

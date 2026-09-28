@@ -14,7 +14,7 @@ pub struct RuntimeFitObservationsRow {
     ///observation_id
     pub r#observation_id: pse_ids::SemanticId,
     ///experiment_id
-    pub r#experiment_id: pse_ids::SemanticId,
+    pub r#experiment_id: crate::generated::identities::InstanceId,
     ///included
     pub r#included: bool,
     ///prediction

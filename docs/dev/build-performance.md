@@ -2,8 +2,12 @@
 
 Ordinary local `just` commands and direnv activate an installed `sccache`. Explicit
 `RUSTC_WRAPPER` settings take precedence, including the empty string. CI retains its
-existing cache policy. Workspace incremental compilation stays enabled. The Linux
-linker is mold, as declared in `.cargo/config.toml`.
+existing cache policy. Workspace crates use O2, with incremental compilation in dev/test;
+release retains non-incremental ThinLTO. Imported dependencies use O3 without incremental
+compilation, including vendored path dependencies. Keep Cargo's target artifacts for direct
+reuse; sccache provides a fallback for eligible compilations. The Linux linker is mold,
+as declared in `.cargo/config.toml`. The existing profiles serve the daily workflows;
+no separate optimized test profile is needed.
 
 ```bash
 just build-stable unit-package pse-compiler 'test(workspace_tests::)'
@@ -14,7 +18,8 @@ just build-storage
 ```
 
 `build-dev` is an experimental, dated nightly route. `.config/build.toml` owns its
-date, frontend threads, jobs and cache/storage budgets. It has one persistent target
+date, frontend threads and cache/storage budgets. `.cargo/config.toml` owns the default
+16 Cargo jobs for stable and nightly; explicit job overrides take precedence. It has one persistent target
 tree shared by compatible recipes. `build-stable` selects `rust-toolchain.toml` and
 the ordinary stable target. Promoting nightly is a governance change backed by fresh
 `bench-builds` measurements; the retired
@@ -34,7 +39,7 @@ Cargo's precedence. Without those overrides it retains the repository target fla
 including mold. No `target-cpu=native`, fast-math, panic-abort or global incremental
 disable is introduced. Correctness recipes still request Arrow force validation.
 
-The automatic local cache has a 32 GiB budget under
+The automatic local cache has a 100 GiB budget under
 `${XDG_CACHE_HOME:-$HOME/.cache}/pse-arrow/sccache`, with a dedicated endpoint. It
 does not stop the user's default cache server. An explicit `SCCACHE_DIR` keeps the
 user's server configuration. `build-cache-probe` uses a disposable server and checks
@@ -77,6 +82,8 @@ extension → compiled stubs → native units repeatedly; those units execute.
 `--cold-cache` uses an empty compiler cache owned by that campaign. Source downloads
 and native installations remain separately cached. Candidate profile overrides live
 only in the snapshot's Cargo configuration, so nested recipes use the same policy.
+By default, measurements preserve the manifest's dependency optimization level;
+`--dependency-opt 1`, `2` or `3` explicitly selects a candidate override.
 
 Reports retain source/command identity, Cargo artifact JSON and timing HTML, cache
 statistics, wall/CPU time, disk availability, and Linux process-tree RSS samples.

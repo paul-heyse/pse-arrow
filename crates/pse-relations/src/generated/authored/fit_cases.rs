@@ -22,9 +22,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    178u8, 160u8, 154u8, 80u8, 227u8, 233u8, 167u8, 19u8, 172u8, 50u8, 131u8, 117u8,
-    162u8, 200u8, 24u8, 169u8, 32u8, 224u8, 30u8, 186u8, 123u8, 112u8, 126u8, 198u8,
-    59u8, 217u8, 193u8, 10u8, 193u8, 135u8, 191u8, 59u8,
+    83u8, 165u8, 11u8, 245u8, 28u8, 151u8, 227u8, 0u8, 137u8, 24u8, 88u8, 33u8, 90u8,
+    0u8, 108u8, 74u8, 34u8, 49u8, 142u8, 179u8, 176u8, 181u8, 133u8, 171u8, 167u8, 226u8,
+    167u8, 179u8, 192u8, 74u8, 42u8, 43u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredFitCasesFieldParametersItem {
     fn append(
@@ -185,10 +185,10 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItem {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         <crate::generated::enums::ModelingAnalysisRoute as crate::columnar::ArrowValue>::append_null(
@@ -207,11 +207,11 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItem {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#experiment_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#experiment_id: <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#case_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#case_id: <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -279,7 +279,7 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -308,7 +308,7 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldObservationsItem {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#experiment_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#experiment_id: <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -377,7 +377,7 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::FitId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <Vec<
@@ -399,7 +399,7 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#fit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#fit_id: <crate::generated::identities::FitId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,

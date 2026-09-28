@@ -15,6 +15,9 @@
 #
 # There is no config key for `--locked`; every gate passes it explicitly.
 
+[build]
+jobs = 16
+
 [alias]
 xtask = "run --quiet --package xtask --"
 

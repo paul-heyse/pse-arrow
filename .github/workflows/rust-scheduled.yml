@@ -57,8 +57,8 @@ jobs:
         # would not finish, and pairs catch essentially all of the real breakage.
         run: cargo hack --feature-powerset --depth 2 --workspace --locked check --all-targets
 
-  # Owner: maintainer. Response: a test that passes at opt-level 0 and fails at 3 is
-  # almost always a float-comparison or an uninitialised-ordering bug in our code.
+  # Owner: maintainer. Response: release-profile tests exercise ThinLTO and
+  # release compiler defaults alongside the workspace O2/dependency O3 policy.
   test-release:
     name: test-release
     runs-on: ubuntu-24.04

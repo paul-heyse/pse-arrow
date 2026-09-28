@@ -23,6 +23,7 @@ from pse import modeling as w
 from pse.contracts import authored as a
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import AttemptKind, AttemptState, ModelingAnalysisRoute
+from pse.contracts.identities import FitId, InstanceId, PublicationId
 from pse.contracts.values import ContentHash, SemanticId, SourceSpan
 
 
@@ -387,7 +388,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         source_span=SourceSpan(document_id=identity(156), start=0, end=0),
     )
     fit = w.FitDeclaration(
-        fit_id=identity(158),
+        fit_id=FitId(identity(158)),
         parameters=(
             a.AuthoredFitCasesFieldParametersItem(
                 symbol_id=identity(153),
@@ -400,7 +401,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         ),
         experiments=(
             a.AuthoredFitCasesFieldExperimentsItem(
-                experiment_id=identity(159),
+                experiment_id=InstanceId(identity(159)),
                 case_id=case,
                 route=ModelingAnalysisRoute.STEADY,
                 bindings=(
@@ -413,7 +414,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         observations=(
             a.AuthoredFitCasesFieldObservationsItem(
                 observation_id=identity(157),
-                experiment_id=identity(159),
+                experiment_id=InstanceId(identity(159)),
                 output_path="length",
                 time=None,
                 time_basis=None,
@@ -425,7 +426,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     )
     package = package.with_fit_data((fit,), (observation,), (dataset,))
     job = package.prepare_fit(
-        identity(158),
+        FitId(identity(158)),
         pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
     ).start()
     result = job.wait()
@@ -523,7 +524,7 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert durable_runtime.workspace(workspace.name) == workspace
     assert durable_runtime.head(workspace.id) is None
     # The publication attempt is the durable attempt; the ticket exists before any effect.
-    attempt = result.prepare_publication(workspace, publication_id=identity(241))
+    attempt = result.prepare_publication(workspace, publication_id=PublicationId(identity(241)))
     ticket = attempt.ticket
     assert attempt.publication_id == identity(241)
     assert attempt.attempt_id == result.attempt_id

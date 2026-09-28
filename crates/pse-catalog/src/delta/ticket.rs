@@ -3,6 +3,7 @@
 //! Pre-effect publication tickets. A ticket is minted before any member write; its
 //! commit outcome is settled by the operational catalog, never by Delta observation.
 use super::attempt::MemberAttempt;
+use pse_model::generated::identities::{AttemptId, PublicationId, WorkspaceId};
 use pse_relations::generated::runtime::publication_manifests;
 
 /// Serializable complete publication request, minted before any native write.
@@ -33,11 +34,11 @@ impl PublicationTicket {
         }
     }
     /// The workspace the publication is prepared in.
-    pub fn workspace_id(&self) -> pse_ids::SemanticId {
+    pub const fn workspace_id(&self) -> WorkspaceId {
         self.candidate.workspace_id
     }
     /// The exact parent the publication was prepared against; never rebased.
-    pub fn parent_publication_id(&self) -> Option<pse_ids::SemanticId> {
+    pub const fn parent_publication_id(&self) -> Option<PublicationId> {
         self.candidate.parent_publication_id
     }
     /// The planned candidate record; written members carry their actual versions only
@@ -46,12 +47,34 @@ impl PublicationTicket {
         &self.candidate
     }
     /// Identity of the original attempt, not a new retry.
-    pub fn attempt_id(&self) -> pse_ids::SemanticId {
+    ///
+    /// The attempt and the publication it intends are distinct identities, so one does
+    /// not stand in for the other:
+    ///
+    /// ```
+    /// use pse_catalog::delta::ticket::PublicationTicket;
+    /// use pse_model::generated::identities::{AttemptId, PublicationId};
+    ///
+    /// fn names(ticket: &PublicationTicket) -> (AttemptId, PublicationId) {
+    ///     (ticket.attempt_id(), ticket.publication_id())
+    /// }
+    /// ```
+    ///
+    /// ```compile_fail,E0308
+    /// use pse_catalog::delta::ticket::PublicationTicket;
+    /// use pse_model::generated::identities::PublicationId;
+    ///
+    /// fn intended(ticket: &PublicationTicket) -> PublicationId {
+    ///     // An attempt is not the publication it intends.
+    ///     ticket.attempt_id()
+    /// }
+    /// ```
+    pub const fn attempt_id(&self) -> AttemptId {
         self.candidate.attempt_id
     }
     /// Intended immutable publication identity.
-    pub fn publication_id(&self) -> pse_ids::SemanticId {
-        self.candidate.publication_id
+    pub const fn publication_id(&self) -> PublicationId {
+        super::manifest::publication_of(&self.candidate)
     }
     /// Complete planned member inventory; written members receive actual versions when
     /// the candidate executes.

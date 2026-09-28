@@ -57,9 +57,9 @@ fn header() -> publication_manifests::Row {
     let id = |value| SemanticId::from_bytes([value; 16]);
     publication_manifests::Row {
         publication_id: id(2),
-        workspace_id: id(1),
+        workspace_id: id(1).into(),
         parent_publication_id: None,
-        attempt_id: id(3),
+        attempt_id: id(3).into(),
         kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],

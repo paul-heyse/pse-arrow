@@ -910,6 +910,16 @@ agent-config-sync:
     python3 scripts/agent-config.py
 
 [group('local')]
+[doc('Apply .config/library-skills.toml for Codex and Claude Code')]
+skills-sync:
+    python3 scripts/library_skills.py
+
+[group('local')]
+[doc('Check selected shared library skill links without changing files')]
+skills-check:
+    python3 scripts/library_skills.py --check
+
+[group('local')]
 [doc('Behavioral tests for repository setup and agent guards (stdlib only)')]
 setup-test:
     python3 -m unittest discover -s scripts/tests -t . -p 'test_*.py' -v

@@ -72,7 +72,13 @@ def commit_base(root: Path) -> str:
 
 def tracked_skills() -> list[str]:
     """Skill directories that `.gitignore` does not exclude (the repository-process skills)."""
-    names = sorted(p.name for p in (ROOT / ".codex/skills").iterdir() if p.is_dir())
+    # External library links are never repository-process fixtures. Git rejects
+    # check-ignore paths beyond a symlink, which otherwise made this copy them all.
+    names = sorted(
+        p.name
+        for p in (ROOT / ".codex/skills").iterdir()
+        if p.is_dir() and not p.is_symlink()
+    )
     ignored = subprocess.run(
         ["git", "check-ignore", "--no-index", "--stdin"],
         input="".join(f".codex/skills/{name}/SKILL.md\n" for name in names),
@@ -203,30 +209,18 @@ class EditPolicyTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertIsNone(hooks.protected(self.root, name))
 
-    def test_runtime_areas_are_writable_and_other_places_are_not(self) -> None:
+    def test_paths_outside_the_repository_are_writable(self) -> None:
         other = tempfile.TemporaryDirectory()
         self.addCleanup(other.cleanup)
         area = Path(other.name) / "agent-home"
-        with patch.object(hooks, "agent_areas", return_value=[area]):
-            self.assertIsNone(hooks.protected(self.root, str(area / "memory/note.md")))
-            self.assertIsNotNone(
-                hooks.protected(self.root, str(Path(other.name) / "elsewhere/a.py"))
-            )
-
-    def test_runtime_areas_follow_the_runtime_configuration(self) -> None:
-        override = {
-            "CLAUDE_CONFIG_DIR": str(self.root / "cfg"),
-            hooks.WRITABLE_ENV: str(self.root / "extra"),
-        }
-        with patch.dict(hooks.os.environ, override):
-            areas = hooks.agent_areas()
-        for expected in (
-            self.root / "cfg",
-            self.root / "extra",
-            Path(tempfile.gettempdir()),
-            Path.home() / ".codex",
-        ):
-            self.assertIn(expected.resolve(), areas)
+        self.assertIsNone(hooks.protected(self.root, str(area / "memory/note.md")))
+        self.assertIsNone(
+            hooks.protected(self.root, str(Path(other.name) / "elsewhere/a.py"))
+        )
+        shared = Path(other.name) / "library-skills"
+        shared.mkdir()
+        (self.root / "shared").symlink_to(shared, target_is_directory=True)
+        self.assertIsNone(hooks.protected(self.root, "shared/reference.md"))
 
     def test_symlink_cannot_hide_a_protected_destination(self) -> None:
         (self.root / "external").mkdir()

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    201u8, 213u8, 24u8, 135u8, 172u8, 12u8, 235u8, 152u8, 110u8, 130u8, 141u8, 76u8,
-    146u8, 127u8, 67u8, 208u8, 227u8, 18u8, 240u8, 130u8, 115u8, 86u8, 57u8, 25u8, 116u8,
-    169u8, 65u8, 183u8, 22u8, 93u8, 160u8, 42u8,
+    210u8, 28u8, 225u8, 135u8, 71u8, 245u8, 246u8, 117u8, 138u8, 160u8, 243u8, 250u8,
+    234u8, 248u8, 102u8, 197u8, 63u8, 177u8, 151u8, 117u8, 200u8, 31u8, 36u8, 34u8, 63u8,
+    212u8, 244u8, 243u8, 34u8, 182u8, 68u8, 115u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeFitConstraintsRow {
     fn append(
@@ -63,7 +63,7 @@ impl crate::columnar::ArrowValue for RuntimeFitConstraintsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
@@ -99,7 +99,7 @@ impl crate::columnar::ArrowValue for RuntimeFitConstraintsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#experiment_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#experiment_id: <crate::generated::identities::InstanceId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,

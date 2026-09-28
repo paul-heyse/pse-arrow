@@ -7,21 +7,18 @@ use datafusion::{common::Result, execution::session_state::SessionState};
 use pse_engine::session::execution::NativeExecutionContext;
 use pse_model::HeapUsage;
 use pse_relations::generated::runtime::publication_manifests;
+use pse_model::generated::identities::{AttemptId, PublicationId, WorkspaceId};
 use std::sync::{Arc, Mutex, Weak};
 
-type EvidenceKey = (
-    pse_ids::SemanticId,
-    pse_ids::SemanticId,
-    pse_ids::SemanticId,
-    u64,
-);
+/// Publication, attempt, member relation and actual Delta version.
+type EvidenceKey = (PublicationId, AttemptId, pse_ids::SemanticId, u64);
 #[derive(Debug, Default)]
 struct WriteEvidenceSet(Mutex<std::collections::BTreeMap<EvidenceKey, Vec<MemberWriteCompletion>>>);
 #[derive(Debug)]
 struct MemberWriteCompletion {
-    workspace_id: pse_ids::SemanticId,
-    publication_id: pse_ids::SemanticId,
-    attempt_id: pse_ids::SemanticId,
+    workspace_id: WorkspaceId,
+    publication_id: PublicationId,
+    attempt_id: AttemptId,
     member: pse_relations::generated::structures::MemberDescriptor,
     inputs: Vec<pse_relations::generated::structures::MemberDescriptor>,
     registry: Weak<pse_schema::Registry>,
@@ -124,7 +121,7 @@ pub(super) fn establishes(
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     Ok(values
         .get(&(
-            record.publication_id,
+            super::manifest::publication_of(record),
             record.attempt_id,
             member.relation_id,
             version,
@@ -154,7 +151,7 @@ impl MemberWriteCompletion {
                 .is_some_and(|owner| Arc::ptr_eq(&owner, registry))
             && self.contract.same_declaration(contract)
             && self.workspace_id == record.workspace_id
-            && self.publication_id == record.publication_id
+            && self.publication_id == super::manifest::publication_of(record)
             && self.attempt_id == record.attempt_id
             && self.inputs == record.inputs
     }
@@ -180,10 +177,10 @@ mod completion_unit {
             selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
         };
         let record = publication_manifests::Row {
-            workspace_id: pse_ids::SemanticId::from_bytes([1; 16]),
+            workspace_id: WorkspaceId::from_bytes([1; 16]),
             publication_id: pse_ids::SemanticId::from_bytes([2; 16]),
             parent_publication_id: None,
-            attempt_id: pse_ids::SemanticId::from_bytes([3; 16]),
+            attempt_id: AttemptId::from_bytes([3; 16]),
             kind: pse_relations::generated::enums::PublicationKind::Relations,
             inputs: vec![],
             members: vec![member.clone()],
@@ -198,7 +195,7 @@ mod completion_unit {
             Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
         let mut completion = MemberWriteCompletion {
             workspace_id: record.workspace_id,
-            publication_id: record.publication_id,
+            publication_id: super::super::manifest::publication_of(&record),
             attempt_id: record.attempt_id,
             member: member.clone(),
             inputs: vec![],
@@ -222,7 +219,7 @@ mod completion_unit {
         changed.table_uri = "memory:///other/".into();
         assert!(!completion.matches(&registry, &record, &changed, &contract));
         let mut next = record.clone();
-        next.attempt_id = pse_ids::SemanticId::from_bytes([9; 16]);
+        next.attempt_id = AttemptId::from_bytes([9; 16]);
         assert!(!completion.matches(&registry, &next, &member, &contract));
         completion.registry = Weak::new();
         assert!(

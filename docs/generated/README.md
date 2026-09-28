@@ -2,7 +2,7 @@
 
 # Generated registry reference
 
-Projected from the admitted registry `a3f5e2f87cfca991aa51c2b9877c6713f1a04f8010d46effd0a3eaeba143a7b5`. This identity is not evidence of runtime validity.
+Projected from the admitted registry `29158c42baf3df916909735cebe745eba1de58e7937a85139d454390f04fc74f`. This identity is not evidence of runtime validity.
 
 - [authored relations](relations/authored.md)
 - [normalized relations](relations/normalized.md)
@@ -13,3 +13,4 @@ Projected from the admitted registry `a3f5e2f87cfca991aa51c2b9877c6713f1a04f8010
 - [Extension types](extension_types.md)
 - [Native algorithm signatures](algorithms.md)
 - [Rules and invariants](rules.md)
+- [Hash frames](frames.md)

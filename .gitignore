@@ -34,9 +34,9 @@ coverage.xml
 htmlcov/
 lcov.info
 
-# Library capability skills are local-only until they move to their own repository.
+# Library capability skills are links to the shared library-skills store.
 # Only the repository-process skills are tracked by rule; any new skill is ignored by default.
-# Ignoring does not untrack: skills committed or staged before this rule stay as they are.
+# .config/library-skills.toml selects them; just skills-sync recreates local links.
 # The alias paths are symlinks on Linux, but `just agent-config-sync` copies the tree on
 # Windows, so the same rule covers them.
 /.codex/skills/*

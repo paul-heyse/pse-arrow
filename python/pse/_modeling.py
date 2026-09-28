@@ -41,6 +41,7 @@ from pse.contracts.documents import PointOverlay, SolveSettings
 if TYPE_CHECKING:
     from pse._workflow import Runtime
 from pse.contracts.enums import ModelingAnalysisRoute
+from pse.contracts.identities import FitId, InstanceId, RunId
 from pse.contracts.values import ContentHash, SemanticId
 
 
@@ -65,8 +66,8 @@ class ModelingResult:
         return self._handle.accepted
 
     @property
-    def run_id(self) -> SemanticId:
-        return SemanticId.from_hex(self._handle.run_id)
+    def run_id(self) -> RunId:
+        return RunId(SemanticId.from_hex(self._handle.run_id))
 
     @property
     def outcome_kind(self) -> str:
@@ -465,15 +466,18 @@ class ModelingPackage:
 
     def prepare_fit(
         self,
-        fit_id: SemanticId,
+        fit_id: FitId,
         settings: SolveSettings,
-        simulations: Mapping[SemanticId, SimulationSettings] | None = None,
+        simulations: Mapping[InstanceId, SimulationSettings] | None = None,
         *,
-        modes: Mapping[SemanticId, Sequence[ModelingModeSettings]] | None = None,
+        modes: Mapping[InstanceId, Sequence[ModelingModeSettings]] | None = None,
         rank_tolerance: float = 1e-8,
         max_cells: int = 1000000,
     ) -> "PreparedOperation":
-        """Compile shared parameters over authored algebraic or integrated experiments."""
+        """Compile shared parameters over authored algebraic or integrated experiments.
+
+        Experiment settings are keyed by the experiment's instance: its ``experiment_id``.
+        """
         profiles = [(key.to_hex(), value) for key, value in (simulations or {}).items()]
         return PreparedOperation(
             self._handle.prepare_fit(

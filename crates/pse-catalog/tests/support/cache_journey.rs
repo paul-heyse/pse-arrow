@@ -49,9 +49,9 @@ fn id(value: u8) -> SemanticId {
 fn header(publication: u8, parent: Option<u8>) -> publication_manifests::Row {
     publication_manifests::Row {
         publication_id: id(publication),
-        workspace_id: id(1),
-        parent_publication_id: parent.map(id),
-        attempt_id: id(publication + 64),
+        workspace_id: id(1).into(),
+        parent_publication_id: parent.map(|parent| id(parent).into()),
+        attempt_id: id(publication + 64).into(),
         kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],

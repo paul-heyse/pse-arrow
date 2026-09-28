@@ -392,13 +392,19 @@ def edit_body(source: Path) -> tuple[Path, str]:
     return private, original
 
 
-def profile_override(source: Path, level: int, delta_cache: bool) -> None:
+def profile_override(source: Path, level: int | None, delta_cache: bool) -> None:
     """Apply candidate policy only in the snapshot, including nested just/maturin."""
+    if level is None and not delta_cache:
+        return
     config = source / ".cargo/config.toml"
     original = config.read_text()
     if "profile" in tomllib.loads(original):
         raise ValueError("measurement expects profile policy in the workspace manifest")
-    overrides = f'\n[profile.dev.package."*"]\nopt-level = {level}\n'
+    overrides = (
+        f'\n[profile.dev.package."*"]\nopt-level = {level}\n'
+        if level is not None
+        else ""
+    )
     if delta_cache:
         overrides += "\n[profile.dev.package.deltalake-core]\nincremental = false\n"
     config.write_text(original + overrides)
@@ -440,7 +446,7 @@ def main() -> None:
     parser.add_argument("--mode", choices=("stable", "nightly"), default="stable")
     parser.add_argument("--cache", choices=("auto", "on", "off"), default="auto")
     parser.add_argument("--frontend", type=int, choices=(1, 2, 4, 8))
-    parser.add_argument("--jobs", type=int, default=16)
+    parser.add_argument("--jobs", type=int, help="override the repository Cargo job budget")
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--native", action="store_true")
     parser.add_argument(
@@ -463,7 +469,10 @@ def main() -> None:
         action="store_true",
         help="use an empty task-owned compiler cache",
     )
-    parser.add_argument("--dependency-opt", type=int, choices=(1, 2), default=2)
+    parser.add_argument(
+        "--dependency-opt", type=int, choices=(1, 2, 3),
+        help="override dependency optimization; default preserves the workspace manifest",
+    )
     parser.add_argument("--delta-cache", action="store_true")
     parser.add_argument("--recovery", action="store_true")
     parser.add_argument("--second-worktree", action="store_true")

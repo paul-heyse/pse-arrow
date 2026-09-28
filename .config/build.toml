@@ -3,6 +3,5 @@
 # Experimental until Plan 15 qualification; stable remains the canonical toolchain.
 nightly = "nightly-2026-09-13"
 frontend_threads = 1
-jobs = 16
-cache_size = "32G"
+cache_size = "100G"
 free_space_gib = 50

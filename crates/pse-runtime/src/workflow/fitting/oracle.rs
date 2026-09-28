@@ -22,7 +22,7 @@ struct Point {
     constraints: Vec<f64>,
     jacobian: AssemblyMatrix,
     blocks: Vec<Option<SparseColMat<usize, f64>>>,
-    trajectories: BTreeMap<SemanticId, Arc<native::dynamics::Report>>,
+    trajectories: BTreeMap<InstanceId, Arc<native::dynamics::Report>>,
 }
 #[derive(Debug)]
 struct FitOracle {
@@ -119,12 +119,12 @@ impl FitOracle {
                         .ok_or_else(|| ProblemError::internal("missing steady worker"))?;
                     let mut values = s.values.clone();
                     for &(id, col) in &s.coordinates {
-                        values.scalars.insert(id, x[col]);
+                        values.scalars.insert(id, x[col.get()]);
                     }
                     let outputs = worker.constraints(&values)?;
                     let j = worker.jacobian(&values)?;
                     for &(row, global) in &s.constraints {
-                        point.constraints[global] = outputs[row];
+                        point.constraints[global.get()] = outputs[row.get()];
                     }
                     let mapping = &p.layout.mappings[ei];
                     for &(source, target) in &mapping.constraints {
@@ -161,7 +161,7 @@ impl FitOracle {
                         for binding in &s.bindings {
                             let k = binding.parameter;
                             let v = p.parameter_columns[k]
-                                .map_or(p.declaration.parameters[k].value, |c| x[c]);
+                                .map_or(p.declaration.parameters[k].value, |c| x[c.get()]);
                             params[binding.local] =
                                 v * binding.conversion.scale + binding.conversion.offset;
                         }
@@ -435,7 +435,7 @@ impl NlpOracle for FitOracle {
             };
             let mut lambda = vec![0.0; s.case.assembly.structure().rows().len()];
             for &(local, global) in &s.constraints {
-                lambda[local] += multipliers[global];
+                lambda[local.get()] += multipliers[global.get()];
             }
             for (i, o) in p
                 .measurements
@@ -448,7 +448,7 @@ impl NlpOracle for FitOracle {
             }
             let mut values = s.values.clone();
             for &(id, c) in &s.coordinates {
-                values.scalars.insert(id, x[c]);
+                values.scalars.insert(id, x[c.get()]);
             }
             let local = self.workers[ei]
                 .as_mut()
@@ -808,7 +808,7 @@ impl FitOracle {
                 response[(i, j)] = point
                     .responses
                     .matrix()
-                    .get(i, *col)
+                    .get(i, col.get())
                     .copied()
                     .unwrap_or(0.0);
             }
@@ -819,14 +819,15 @@ impl FitOracle {
                 if s.constraints.len() != nx
                     || s.constraints
                         .iter()
-                        .any(|(_, g)| p.bounds[*g].0 != p.bounds[*g].1)
+                        .any(|(_, g)| p.bounds[g.get()].0 != p.bounds[g.get()].1)
                 {
                     return Err(ProblemError::unsupported(
                         "steady response needs square equality closure; fit NLP remains valid",
                     ));
                 }
                 if s.constraints.iter().any(|(_, g)| {
-                    (point.constraints[*g] - p.bounds[*g].0).abs() > p.tolerances.rows[*g]
+                    let g = g.get();
+                    (point.constraints[g] - p.bounds[g].0).abs() > p.tolerances.rows[g]
                 }) {
                     return Err(error(
                         "steady response requires a feasible physical closure",
@@ -839,11 +840,11 @@ impl FitOracle {
                     .as_ref()
                     .ok_or_else(|| ProblemError::internal("steady response partials"))?;
                 let fx = Mat::from_fn(nx, nx, |i, j| {
-                    jac.get(s.constraints[i].0, j).copied().unwrap_or(0.0)
+                    jac.get(s.constraints[i].0.get(), j).copied().unwrap_or(0.0)
                 });
                 let scaled = Mat::from_fn(nx, nx, |i, j| {
-                    fx[(i, j)] * p.tolerances.variables[s.coordinates[j].1]
-                        / p.tolerances.rows[s.constraints[i].1]
+                    fx[(i, j)] * p.tolerances.variables[s.coordinates[GlobalCol::new(j)].1.get()]
+                        / p.tolerances.rows[s.constraints[i].1.get()]
                 });
                 let spectrum = singular_values(&scaled, bytes)?;
                 if spectrum
@@ -858,15 +859,15 @@ impl FitOracle {
                     -point
                         .jacobian
                         .matrix()
-                        .get(s.constraints[i].1, free[j].1)
+                        .get(s.constraints[i].1.get(), free[j].1.get())
                         .copied()
                         .unwrap_or(0.0)
-                        / p.tolerances.rows[s.constraints[i].1]
+                        / p.tolerances.rows[s.constraints[i].1.get()]
                 });
                 let scaled_dx = solve_regular(&scaled, rhs.clone(), bytes)?;
                 check_response(&scaled, &scaled_dx, &rhs)?;
                 let dx = Mat::from_fn(nx, np, |i, j| {
-                    scaled_dx[(i, j)] * p.tolerances.variables[s.coordinates[i].1]
+                    scaled_dx[(i, j)] * p.tolerances.variables[s.coordinates[GlobalCol::new(i)].1.get()]
                 });
                 for (i, o) in p
                     .measurements
@@ -992,7 +993,7 @@ mod tests {
         let revision = source(true);
         let prepared = revision
             .prepare_fit(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler_profile(),
                 Default::default(),
@@ -1021,7 +1022,7 @@ mod tests {
         assert!(
             revision
                 .prepare_fit(
-                    id(32),
+                    id(32).into(),
                     profile(false),
                     compiler_profile(),
                     Default::default(),
@@ -1036,7 +1037,7 @@ mod tests {
     async fn compiled_weighted_loss_gradient_and_exact_hessian() {
         let p = source(false)
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler_profile(),
                 Default::default(),
@@ -1084,7 +1085,7 @@ mod tests {
     async fn sparse_fit_admission_tracks_support_and_refills_duplicates() {
         let p = source(false)
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler_profile(),
                 Default::default(),
@@ -1100,7 +1101,7 @@ mod tests {
         let experiments = (0..1000)
             .map(|column| {
                 let mut s = base.clone();
-                s.coordinates[0].1 = column;
+                s.coordinates[GlobalCol::new(0)].1 = OriginalCol::new(column);
                 Experiment::Steady(s)
             })
             .collect::<Vec<_>>();
@@ -1114,7 +1115,7 @@ mod tests {
         let layout = sparse::Layout::new(
             &experiments,
             &observations,
-            &[Some(0)],
+            &[Some(OriginalCol::new(0))],
             0,
             1000,
             DerivativeOrder::Second,
@@ -1127,7 +1128,7 @@ mod tests {
             sparse::Layout::new(
                 &experiments,
                 &observations,
-                &[Some(0)],
+                &[Some(OriginalCol::new(0))],
                 0,
                 1000,
                 DerivativeOrder::Second,
@@ -1140,7 +1141,7 @@ mod tests {
         let duplicate = sparse::Layout::new(
             &[p.experiments[0].clone()],
             &p.measurements,
-            &[Some(0)],
+            &[Some(OriginalCol::new(0))],
             0,
             1,
             DerivativeOrder::Second,
@@ -1165,7 +1166,7 @@ mod tests {
     async fn bounded_rank_diagnostic_does_not_disable_sparse_candidate_evaluation() {
         let mut p = source(false)
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler_profile(),
                 Default::default(),
@@ -1187,7 +1188,7 @@ mod tests {
     async fn all_fixed_fit_uses_joined_direct_evaluation_and_retained_sources() {
         let p = source(true)
             .prepare_fit(
-                id(32),
+                id(32).into(),
                 profile(true),
                 compiler_profile(),
                 Default::default(),
@@ -1222,7 +1223,7 @@ mod tests {
         .unwrap();
         let error = revision
             .prepare_fit(
-                id(32),
+                id(32).into(),
                 controls,
                 compiler_profile(),
                 Default::default(),
@@ -1239,7 +1240,7 @@ mod tests {
     async fn variable_fit_requires_a_linked_adapter() {
         let error = source(false)
             .prepare_fit(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler_profile(),
                 Default::default(),
@@ -1267,7 +1268,7 @@ mod tests {
         let r = b;
         let error = r
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler_profile(),
                 Default::default(),
@@ -1279,11 +1280,11 @@ mod tests {
             matches!(error, WorkflowError::Contract(ref message) if message == "included observations require finite values, positive difference-unit standard deviations and importance")
         );
         let mut b = source(false);
-        Arc::make_mut(&mut b.fit_data).fits[0].observations[0].experiment_id = id(99);
+        Arc::make_mut(&mut b.fit_data).fits[0].observations[0].experiment_id = id(99).into();
         let r = b;
         let error = r
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler_profile(),
                 Default::default(),
@@ -1304,7 +1305,7 @@ mod tests {
         let fixed_profile = profile.clone();
         let fixed_problem = fixed
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 fixed_profile.clone(),
                 compiler_profile(),
                 Default::default(),
@@ -1319,7 +1320,7 @@ mod tests {
         {
             let error = fixed
                 .prepare_fit(
-                    id(32),
+                    id(32).into(),
                     fixed_profile,
                     compiler_profile(),
                     Default::default(),
@@ -1342,7 +1343,7 @@ mod tests {
         }
         let p = b
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile,
                 compiler_profile(),
                 Default::default(),
@@ -1368,7 +1369,7 @@ mod tests {
         let body = "param p: Scalar = 2; var n: Count in integer; annotation start n(1{1}); annotation bounds n(0{1}, 5{1}); eq e: n >= 1{1}; let y: Scalar = p*p;";
         let error = source_body(false, body)
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler_profile(),
                 Default::default(),
@@ -1391,7 +1392,7 @@ mod tests {
         );
         let result = package
             .prepare_fit(
-                id(32),
+                id(32).into(),
                 profile(true),
                 compiler_profile(),
                 Default::default(),
@@ -1418,7 +1419,7 @@ mod tests {
         Arc::make_mut(&mut package.fit_data).fits[0].observations[0].output_path = "p".into();
         let result = package
             .prepare_fit(
-                id(32),
+                id(32).into(),
                 profile(true),
                 compiler_profile(),
                 Default::default(),
@@ -1445,7 +1446,7 @@ mod tests {
         );
         let prepared = package
             .prepare_fit(
-                id(32),
+                id(32).into(),
                 profile(true),
                 compiler_profile(),
                 Default::default(),
@@ -1477,7 +1478,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let (first, _) = package
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(true),
                 compiler_profile(),
                 Default::default(),
@@ -1489,7 +1490,7 @@ mod tests {
         other.rank_tolerance = 1e-6;
         let (second, _) = package
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 other,
                 compiler_profile(),
                 Default::default(),
@@ -1505,7 +1506,7 @@ mod tests {
         let edited = package.clone().with_fit_data(data).unwrap();
         let (third, _) = edited
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(true),
                 compiler_profile(),
                 Default::default(),
@@ -1520,7 +1521,7 @@ mod tests {
         let changed = package.clone().with_fit_data(data).unwrap();
         let (fourth, _) = changed
             .prepare_fit_problem(
-                id(32),
+                id(32).into(),
                 profile(true),
                 compiler_profile(),
                 Default::default(),
@@ -1539,7 +1540,7 @@ mod tests {
         assert!(
             invalid
                 .prepare_fit_problem(
-                    id(32),
+                    id(32).into(),
                     profile(true),
                     compiler_profile(),
                     Default::default(),
@@ -1645,7 +1646,7 @@ mod tests {
         // A parameter fit.
         let fitted = source(false)
             .prepare_fit(
-                id(32),
+                id(32).into(),
                 profile(false),
                 compiler,
                 Default::default(),

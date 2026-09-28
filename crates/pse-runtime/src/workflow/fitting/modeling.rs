@@ -6,8 +6,7 @@ use crate::math::modeling::ModelingPreparation;
 use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
 use pse_compiler::workspace::{ModelingOutput, Profile};
 use pse_model::{HeapUsage, generated::enums::ModelingAnalysisRoute as Route};
-use pse_model::generated::identities::ModelId;
-use pse_modeling::{DeclarationId, InstanceId, Limits};
+use pse_modeling::Limits;
 use pse_relations::{
     columnar::{FieldCheckedBatch, RelationRow},
     generated::authored::{datasets, fit_cases, observations},
@@ -107,7 +106,7 @@ impl ModelingPackage {
     /// Attach generated measurement relations to this immutable source revision.
     pub fn with_fit_data(mut self, mut data: FitData) -> Result<Self, WorkflowError> {
         let unique = |ids: Vec<SemanticId>| ids.iter().collect::<BTreeSet<_>>().len() == ids.len();
-        if !unique(data.fits.iter().map(|r| r.fit_id).collect())
+        if !unique(data.fits.iter().map(|r| r.fit_id.as_id()).collect())
             || !unique(data.observations.iter().map(|r| r.observation_id).collect())
             || !unique(data.datasets.iter().map(|r| r.dataset_id).collect())
             || data
@@ -137,7 +136,7 @@ impl ModelingPackage {
     /// Compile authored case paths once; trial parameter values never enter source queries.
     pub async fn prepare_fit(
         &self,
-        id: SemanticId,
+        id: FitId,
         profile: FitProfile,
         compiler: Profile,
         limits: Limits,
@@ -171,7 +170,7 @@ impl ModelingPackage {
     }
     pub(in crate::workflow::fitting) async fn prepare_fit_problem(
         &self,
-        id: SemanticId,
+        id: FitId,
         profile: FitProfile,
         compiler: Profile,
         limits: Limits,
@@ -252,7 +251,7 @@ impl ModelingPackage {
         let mut parameter_ports: Vec<Option<Port>> = vec![None; d.parameters.len()];
         for e in &d.experiments {
             let (mut bindings, mut case) = self
-                .declared_case(DeclarationId::from(e.case_id), e.route, limits, cancel)
+                .declared_case(e.case_id, e.route, limits, cancel)
                 .await?;
             bindings
                 .demand
@@ -267,8 +266,8 @@ impl ModelingPackage {
             bindings.demand.dedup();
             let model = self
                 .prepare(
-                    DeclarationId::from(e.case_id),
-                    InstanceId::from(e.experiment_id),
+                    e.case_id,
+                    e.experiment_id,
                     bindings.clone(),
                     limits,
                     cancel,
@@ -331,10 +330,10 @@ impl ModelingPackage {
                 source: NumericalSource::Model,
                 declaration: NumericalRequirement {
                     requirement_id: pse_ids::named_id(
-                        d.fit_id,
+                        d.fit_id.as_id(),
                         &format!("nominal.{}", p.symbol_id),
                     ),
-                    model_id: ModelId::from(d.fit_id),
+                    model_id: pse_model::lineage::model_of_fit(d.fit_id),
                     case_id: None,
                     target_id: p.symbol_id,
                     target_kind: NumericalTarget::Variable,
@@ -352,7 +351,7 @@ impl ModelingPackage {
             parameter_columns.push(if p.fixed {
                 None
             } else {
-                let col = vars.len();
+                let col = OriginalCol::new(vars.len());
                 vars.push(Variable {
                     id: p.symbol_id,
                     lower: p.lower.unwrap_or(f64::NEG_INFINITY),
@@ -400,7 +399,7 @@ impl ModelingPackage {
                 {
                     profile.clone()
                 } else {
-                    let data=model.compiled().model.fixtures.get(&InstanceId::from(e.experiment_id)).ok_or_else(||contract("transient experiment needs explicit or authored integration controls"))?;
+                    let data=model.compiled().model.fixtures.get(&e.experiment_id).ok_or_else(||contract("transient experiment needs explicit or authored integration controls"))?;
                     self.integration_profile(&model, data, &profile.solver.numerics)?
                 };
                 for o in &local_observations {
@@ -450,8 +449,8 @@ impl ModelingPackage {
                 integration.sensitivities = local.keys().any(|p| parameter_columns[*p].is_some());
                 let simulation = if let Some(modes) = profile.modes.get(&e.experiment_id) {
                     self.prepare_simulation_modes(
-                        DeclarationId::from(e.case_id),
-                        InstanceId::from(e.experiment_id),
+                        e.case_id,
+                        e.experiment_id,
                         bindings,
                         limits,
                         case,
@@ -463,8 +462,8 @@ impl ModelingPackage {
                     .await?
                 } else {
                     self.prepare_simulation(
-                        DeclarationId::from(e.case_id),
-                        InstanceId::from(e.experiment_id),
+                        e.case_id,
+                        e.experiment_id,
                         bindings,
                         limits,
                         case,
@@ -549,8 +548,8 @@ impl ModelingPackage {
                 }
                 let resolved = self
                     .resolve_case(
-                        DeclarationId::from(e.case_id),
-                        InstanceId::from(e.experiment_id),
+                        e.case_id,
+                        e.experiment_id,
                         bindings,
                         limits,
                         case,
@@ -571,7 +570,7 @@ impl ModelingPackage {
                 }
                 execution_identity.hash(&source.key());
                 let mut values = resolved.model.values.clone();
-                let mut coordinates = Vec::new();
+                let mut coordinates = TiVec::<GlobalCol, _>::new();
                 // ADR-0103 item 6: estimation refuses a discrete variable the case leaves free.
                 model
                     .compiled()
@@ -606,7 +605,7 @@ impl ModelingPackage {
                             .get(&v.port.id)
                             .ok_or_else(|| contract("missing experiment initial state"))?,
                     );
-                    coordinates.push((v.port.id, col));
+                    coordinates.push((v.port.id, OriginalCol::new(col)));
                 }
                 let local_states = coordinates.len();
                 for (parameter, id) in &local {
@@ -661,7 +660,7 @@ impl ModelingPackage {
                             integer: false,
                             declared_tolerance: None,
                         });
-                        constraints.push((i, rows.len()));
+                        constraints.push((GlobalRow::new(i), OriginalRow::new(rows.len())));
                         rows.push(alias(e.experiment_id, r.id));
                         bounds.push((original.lower, original.upper));
                     }
@@ -875,7 +874,7 @@ impl PreparedFit {
                 match (source,experiment) {
                     (Assessment::Steady{model,program,numerics},Experiment::Steady(s))=>{
                         let mut values=s.values.clone();
-                        for (id,col) in &s.coordinates {values.scalars.insert(*id,candidate[*col]);}
+                        for (id,col) in &s.coordinates {values.scalars.insert(*id,candidate[col.get()]);}
                         let observed=if let Some(program)=program {
                             let providers=s.providers.values().map(|p|p.worker_scoped(flag.clone()).map(|w|(p.spec().key(),w)).map_err(|e|WorkflowError::from(crate::math::MathRuntimeError::from(native::ProblemError::Provider(e))))).collect::<Result<_,_>>()?;
                             let mut worker=program.assembly.worker(providers,flag.clone());
@@ -888,7 +887,7 @@ impl PreparedFit {
                     (Assessment::Transient(simulation),Experiment::Transient(s))=>{
                         let mut parameters=s.parameters.clone();
                         for binding in &s.bindings {
-                            let value=self.problem.parameter_columns[binding.parameter].map_or(self.problem.declaration.parameters[binding.parameter].value,|col|candidate[col]);
+                            let value=self.problem.parameter_columns[binding.parameter].map_or(self.problem.declaration.parameters[binding.parameter].value,|col|candidate[col.get()]);
                             parameters[binding.local]=value*binding.conversion.scale+binding.conversion.offset;
                         }
                         let trajectory=report.trajectories.get(&self.problem.declaration.experiments[ei].experiment_id).ok_or_else(||contract("final original trajectory unavailable"))?;

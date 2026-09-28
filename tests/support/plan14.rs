@@ -10,6 +10,7 @@ mod workflow_runtime;
 use pse_backend_native::execution::BackendSettings;
 use pse_backend_native::solve::{Backend, Controls, SolveIntent, SolverSelection};
 use pse_ids::SemanticId;
+use pse_model::generated::identities::{FitId, InstanceId};
 use pse_runtime::math::solves::SolverProfile;
 use pse_runtime::workflow::{RunReport, RunResult, Runtime};
 use std::collections::BTreeMap;
@@ -252,7 +253,7 @@ pub(crate) fn seed_limits() -> pse_modeling::Limits {
 pub(crate) async fn heat_fit(
     package: &pse_runtime::workflow::ModelingPackage,
     kind: &str,
-) -> (SemanticId, pse_runtime::workflow::FitProfile) {
+) -> (FitId, pse_runtime::workflow::FitProfile) {
     let id = match kind {
         "steady" => "d8e1e58d1db25d97b8c66a4503e12c8e",
         "transient" => "5f011b848cb65d76ad4f40a0feee0125",
@@ -287,10 +288,13 @@ pub(crate) async fn heat_fit(
         integration.method = pse_backend_native::dynamics::Method::Idas;
         integration.rtol = 1e-8;
         integration.atol.fill(1e-10);
-        simulations.insert(SemanticId::parse_hex(experiment).unwrap(), integration);
+        simulations.insert(
+            InstanceId::from(SemanticId::parse_hex(experiment).unwrap()),
+            integration,
+        );
     }
     (
-        SemanticId::parse_hex(id).unwrap(),
+        FitId::from(SemanticId::parse_hex(id).unwrap()),
         pse_runtime::workflow::FitProfile {
             solver,
             simulations,

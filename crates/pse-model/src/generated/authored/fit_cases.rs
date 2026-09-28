@@ -71,9 +71,9 @@ impl PartialEq for AuthoredFitCasesFieldExperimentsItemBindingsItem {
 )]
 pub struct AuthoredFitCasesFieldExperimentsItem {
     ///experiment_id
-    pub r#experiment_id: pse_ids::SemanticId,
+    pub r#experiment_id: crate::generated::identities::InstanceId,
     ///case_id
-    pub r#case_id: pse_ids::SemanticId,
+    pub r#case_id: crate::generated::identities::DeclarationId,
     ///route
     pub r#route: crate::generated::enums::ModelingAnalysisRoute,
     ///bindings
@@ -103,7 +103,7 @@ pub struct AuthoredFitCasesFieldObservationsItem {
     ///observation_id
     pub r#observation_id: pse_ids::SemanticId,
     ///experiment_id
-    pub r#experiment_id: pse_ids::SemanticId,
+    pub r#experiment_id: crate::generated::identities::InstanceId,
     ///output_path
     pub r#output_path: String,
     ///time
@@ -148,7 +148,7 @@ impl PartialEq for AuthoredFitCasesFieldObservationsItem {
 )]
 pub struct AuthoredFitCasesRow {
     ///fit_id
-    pub r#fit_id: pse_ids::SemanticId,
+    pub r#fit_id: crate::generated::identities::FitId,
     ///parameters
     pub r#parameters: Vec<AuthoredFitCasesFieldParametersItem>,
     ///experiments

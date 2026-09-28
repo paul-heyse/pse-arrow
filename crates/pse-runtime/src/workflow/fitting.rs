@@ -20,10 +20,12 @@ use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, Port};
 use pse_math::{
     binding::CaseValues,
+    index::{GlobalCol, GlobalRow, OriginalCol, OriginalRow, TiVec},
     normalization::Normalization,
     numerics::{SourcedRequirement, TargetSpec},
 };
 use pse_model::SemanticFrame;
+use pse_model::generated::identities::{FitId, InstanceId};
 use pse_model::{
     generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget},
     numerics::{NumericalRequirement, ResolvedNumericalPolicy},
@@ -38,10 +40,11 @@ use std::{
 pub struct FitProfile {
     /// Ordinary native NLP controls and original-space quality tolerances.
     pub solver: SolverProfile,
-    /// Smooth integration controls keyed by experiment identity.
-    pub simulations: BTreeMap<SemanticId, super::SimulationProfile>,
-    /// Authored dynamic modes keyed by experiment; absence selects one smooth mode.
-    pub modes: BTreeMap<SemanticId, Vec<super::ModelingDynamicMode>>,
+    /// Smooth integration controls keyed by the experiment's instance.
+    pub simulations: BTreeMap<InstanceId, super::SimulationProfile>,
+    /// Authored dynamic modes keyed by the experiment's instance; absence selects one
+    /// smooth mode.
+    pub modes: BTreeMap<InstanceId, Vec<super::ModelingDynamicMode>>,
     /// Relative local response singular-value cutoff; not a confidence level.
     pub rank_tolerance: f64,
     /// Separate cap for sparse derivative contributions and optional dense rank cells.
@@ -72,8 +75,11 @@ struct Steady {
     variables: Vec<pse_math::binding::Variable>,
     case: Arc<ExecutableCase>,
     values: CaseValues,
-    coordinates: Vec<(SemanticId, usize)>,
-    constraints: Vec<(usize, usize)>,
+    /// Each derivative column of the experiment case: the source coordinate it binds and
+    /// the fit column that feeds it. Local states come first.
+    coordinates: TiVec<GlobalCol, (SemanticId, OriginalCol)>,
+    /// Each bounded row of the experiment case and the fit row it becomes.
+    constraints: Vec<(GlobalRow, OriginalRow)>,
     local_states: usize,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
 }
@@ -118,7 +124,8 @@ pub(crate) struct FitProblem {
     bounds: Vec<(f64, f64)>,
     initial: Vec<f64>,
     parameter_ports: Vec<Port>,
-    parameter_columns: Vec<Option<usize>>,
+    /// The fit column of each shared parameter; `None` when it is fixed.
+    parameter_columns: Vec<Option<OriginalCol>>,
     experiments: Vec<Experiment>,
     measurements: Vec<Measurement>,
     _owner: Arc<pse_columnar::AllocationLease>,
@@ -156,7 +163,7 @@ pub struct FitReport {
     pub predictions: Vec<Option<f64>>,
     /// Final original experiment trajectories, retained under the fit result's allocation owner.
     /// Source interpretation can inspect these without repeating native integration.
-    pub(crate) trajectories: BTreeMap<SemanticId, Arc<native::dynamics::Report>>,
+    pub(crate) trajectories: BTreeMap<InstanceId, Arc<native::dynamics::Report>>,
     /// Local response derivatives in observation by free-parameter order.
     pub responses: Option<pse_columnar::Leased<faer::Mat<f64>>>,
     /// Singular values of the weighted, parameter-scaled response Jacobian.
@@ -287,8 +294,11 @@ impl PreparedFit {
         &self.problem.declaration
     }
 }
-fn alias(experiment: SemanticId, source: SemanticId) -> SemanticId {
+/// The fit coordinate of an experiment's source coordinate (a variable, row or
+/// requirement of its case): distinct per experiment, so experiments sharing a case do
+/// not share its coordinates.
+fn alias(experiment: InstanceId, source: SemanticId) -> SemanticId {
     let mut h = FramedHasher::new(pse_ids::Frame::FitCoordinateV1);
-    h.id(&experiment).id(&source);
+    h.id(&experiment.as_id()).id(&source);
     h.finish_id()
 }

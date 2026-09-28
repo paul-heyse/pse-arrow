@@ -15,6 +15,7 @@ use deltalake::{
     kernel::{Action, Transaction, transaction::CommitProperties},
 };
 use pse_ids::SemanticId;
+use pse_model::generated::identities::{AttemptId, PublicationId, WorkspaceId};
 use pse_relations::generated::structures::MemberDescriptor as Member;
 use serde::{Deserialize, Serialize};
 
@@ -58,9 +59,9 @@ pub enum MemberAttemptError {
 #[serde(deny_unknown_fields)]
 pub(crate) struct MemberAttempt {
     pub operation_id: SemanticId,
-    pub workspace_id: SemanticId,
-    pub publication_id: SemanticId,
-    pub attempt_id: SemanticId,
+    pub workspace_id: WorkspaceId,
+    pub publication_id: PublicationId,
+    pub attempt_id: AttemptId,
     pub member: Member,
     pub inputs: Vec<Member>,
     pub dependencies: Vec<pse_relations::generated::runtime::native_dependencies::Row>,
@@ -328,9 +329,9 @@ mod tests {
     fn request() -> MemberAttempt {
         MemberAttempt {
             operation_id: SemanticId::from_bytes([1; 16]),
-            workspace_id: SemanticId::from_bytes([2; 16]),
-            publication_id: SemanticId::from_bytes([3; 16]),
-            attempt_id: SemanticId::from_bytes([4; 16]),
+            workspace_id: WorkspaceId::from_bytes([2; 16]),
+            publication_id: PublicationId::from_bytes([3; 16]),
+            attempt_id: AttemptId::from_bytes([4; 16]),
             member: Member {
                 catalog_name: "artifact".into(), schema_name: "authored".into(), table_name: "a".into(),
                 relation_id: SemanticId::from_bytes([5; 16]), relation_version: 1,

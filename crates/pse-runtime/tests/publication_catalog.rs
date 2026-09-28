@@ -815,10 +815,7 @@ async fn exported_publication_opens_offline() {
         record.publication_id,
         pse_ids::SemanticId::from(published.publication_id)
     );
-    assert_eq!(
-        record.export_lease_id,
-        Some(pse_ids::SemanticId::from(receipt.lease_id))
-    );
+    assert_eq!(record.export_lease_id, Some(receipt.lease_id));
     assert_eq!(record.export_expires_at, Some(receipt.expires_at));
     assert_eq!(record.members.len(), 2);
     assert_eq!(rows(&publication, "authored", "entities").await, 1);

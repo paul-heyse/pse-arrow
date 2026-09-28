@@ -19,7 +19,12 @@ pse_ids::semantic_id_newtype! {
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
-    "One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity; a nested instance is derived from its parent and member (entity identity `instance`, ADR-0115)."]
+    "One authored shared-parameter fit over its experiments (entity identity `fit`, ADR-0115)."]
+    FitId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
+    "One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity unless it is a fit experiment, which prepares its case under the experiment's own identity; a nested instance is derived from its parent and member (entity identity `instance`, ADR-0115)."]
     InstanceId
 }
 pse_ids::semantic_id_newtype! {
@@ -115,6 +120,21 @@ impl crate::HeapUsage for DeclarationId {
     }
 }
 impl crate::SemanticFrame for DeclarationId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for FitId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for FitId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for FitId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }

@@ -209,6 +209,8 @@ impl DynamicWorker {
                 .ok_or_else(|| ProblemError::Internal("dynamic function mode absent".into()))?;
             let providers = provider_workers(&mode.providers, &cancel)?;
             let source = program.case.assembly.jacobian_pattern();
+            // The dynamic oracle's support: `(row, coordinate)` entries over the
+            // function's rows and the state followed by the parameters.
             let mut pairs = Vec::new();
             let mut refill = Vec::new();
             for (c, scale) in chain.iter().enumerate() {
@@ -221,20 +223,18 @@ impl DynamicWorker {
                                 pse_math::index::Addend::new(pairs.len()),
                                 program.scales[row] * scale,
                             ));
-                            pairs.push((row, c));
+                            pairs.push(native::SupportEntry::new(
+                                pse_math::index::OriginalRow::new(row),
+                                pse_math::index::OriginalCol::new(c),
+                            ));
                         }
                     }
                 }
             }
-            // The dynamic oracle's support speaks `(row, coordinate)` positions.
-            let entries = pairs
-                .iter()
-                .map(|&(row, c)| pse_math::index::Entry::new(row, c))
-                .collect::<Vec<_>>();
             let jacobian = pse_math::sparse::AssemblyMatrix::new(
                 program.rows.len(),
                 chain.len(),
-                &entries,
+                &pairs,
                 max_cells,
             )?;
             functions.insert(
@@ -288,7 +288,7 @@ struct FunctionWorker {
     worker: CaseWorker,
     jacobian: pse_math::sparse::AssemblyMatrix,
     refill: Vec<(usize, pse_math::index::Addend, f64)>,
-    pairs: Vec<(usize, usize)>,
+    pairs: Vec<native::SupportEntry>,
     // Mode/function and provider/build identity are fixed by this worker. Every
     // varying time/state/parameter bit participates, including signed zero.
     cache: Option<(Vec<u64>, native::Evaluation)>,
@@ -312,7 +312,7 @@ impl Oracle for DynamicWorker {
     fn contract(&self) -> &native::Contract {
         &self.contract
     }
-    fn support(&self, mode: usize, function: Function) -> Vec<(usize, usize)> {
+    fn support(&self, mode: usize, function: Function) -> Vec<native::SupportEntry> {
         self.functions
             .get(&(mode, function))
             .map_or_else(Vec::new, |w| w.pairs.clone())

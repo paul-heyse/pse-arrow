@@ -71,8 +71,10 @@ pub fn declare_diagnostics(builder: &mut RegistryBuilder) {
 }
 
 /// Add the publication record, artifact, dependency and retention contracts to an
-/// explicit registry. They are the same declarations the complete platform catalog uses.
+/// explicit registry, with the entity identities the publication record references.
+/// They are the same declarations the complete platform catalog uses.
 pub fn declare_publications(builder: &mut RegistryBuilder) {
+    operations::declare_publication_identities(builder);
     publication::declare(builder);
 }
 

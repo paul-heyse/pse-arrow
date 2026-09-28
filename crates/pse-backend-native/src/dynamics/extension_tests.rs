@@ -17,7 +17,7 @@ impl Oracle for LateTrial {
     fn contract(&self) -> &Contract {
         self.toy.contract()
     }
-    fn support(&self, m: usize, f: Function) -> Vec<(usize, usize)> {
+    fn support(&self, m: usize, f: Function) -> Vec<SupportEntry> {
         self.toy.support(m, f)
     }
     fn evaluate(
@@ -293,9 +293,9 @@ impl Oracle for Decay {
     fn contract(&self) -> &Contract {
         &self.c
     }
-    fn support(&self, _: usize, f: Function) -> Vec<(usize, usize)> {
+    fn support(&self, _: usize, f: Function) -> Vec<SupportEntry> {
         match f {
-            Function::Rhs | Function::Output => vec![(0, 0)],
+            Function::Rhs | Function::Output => entries([(0, 0)]),
             _ => vec![],
         }
     }
@@ -454,9 +454,9 @@ impl Oracle for Chain {
     fn contract(&self) -> &Contract {
         &self.c
     }
-    fn support(&self, _: usize, f: Function) -> Vec<(usize, usize)> {
+    fn support(&self, _: usize, f: Function) -> Vec<SupportEntry> {
         let n = self.n();
-        match f {
+        let pairs: Vec<(usize, usize)> = match f {
             Function::Rhs => (0..n)
                 .flat_map(|i| {
                     let mut s = vec![(i, i), (i, n)];
@@ -471,7 +471,8 @@ impl Oracle for Chain {
                 .flat_map(|k| [(k, 3 * k), (k, n + 2)])
                 .collect(),
             _ => vec![],
-        }
+        };
+        entries(pairs)
     }
     fn evaluate(
         &mut self,
@@ -650,7 +651,7 @@ impl Oracle for Forced {
     fn contract(&self) -> &Contract {
         self.0.contract()
     }
-    fn support(&self, m: usize, f: Function) -> Vec<(usize, usize)> {
+    fn support(&self, m: usize, f: Function) -> Vec<SupportEntry> {
         self.0.support(m, f)
     }
     fn evaluate(

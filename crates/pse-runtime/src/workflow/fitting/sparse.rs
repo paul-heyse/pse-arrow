@@ -95,7 +95,7 @@ impl Layout {
     pub(super) fn new(
         experiments: &[Experiment],
         measurements: &[Measurement],
-        parameter_columns: &[Option<usize>],
+        parameter_columns: &[Option<OriginalCol>],
         rows: usize,
         columns: usize,
         order: DerivativeOrder,
@@ -120,19 +120,16 @@ impl Layout {
                     {
                         observations.entry(obs.row).or_default().push(oi);
                     }
-                    for (local_col, (_, global_col)) in s.coordinates.iter().enumerate() {
-                        for k in j.col_range(local_col) {
+                    for (local_col, &(_, global_col)) in s.coordinates.iter_enumerated() {
+                        for k in j.col_range(local_col.get()) {
                             let row = j.row_idx()[k];
-                            if let Some(global_row) = constraints.get(&row) {
-                                let entry = Entry::new(
-                                    OriginalRow::new(*global_row),
-                                    OriginalCol::new(*global_col),
-                                );
+                            if let Some(&global_row) = constraints.get(&GlobalRow::new(row)) {
+                                let entry = Entry::new(global_row, global_col);
                                 let c = push(&mut constraint_pairs, entry, limit)?;
                                 mapping.constraints.push((k, c));
                             }
                             for &observation in observations.get(&row).into_iter().flatten() {
-                                let entry = Entry::new(observation, OriginalCol::new(*global_col));
+                                let entry = Entry::new(observation, global_col);
                                 let c = push(&mut response_pairs, entry, limit)?;
                                 mapping.responses.push(ResponseTerm {
                                     observation,
@@ -144,13 +141,10 @@ impl Layout {
                     }
                     if order >= DerivativeOrder::Second {
                         let h = s.case.assembly.hessian_pattern();
-                        for (local_col, (_, gc)) in s.coordinates.iter().enumerate() {
-                            for k in h.col_range(local_col) {
-                                let gr = s.coordinates[h.row_idx()[k]].1;
-                                let entry = Entry::new(
-                                    OriginalCol::new(gr.max(*gc)),
-                                    OriginalCol::new(gr.min(*gc)),
-                                );
+                        for (local_col, &(_, gc)) in s.coordinates.iter_enumerated() {
+                            for k in h.col_range(local_col.get()) {
+                                let gr = s.coordinates[GlobalCol::new(h.row_idx()[k])].1;
+                                let entry = Entry::new(gr.max(gc), gr.min(gc));
                                 let c = push(&mut hessian_pairs, entry, limit)?;
                                 mapping.hessian.push((k, c));
                             }
@@ -165,7 +159,7 @@ impl Layout {
                                 .enumerate()
                                 .filter(|(_, o)| o.experiment == ei && o.included)
                             {
-                                let entry = Entry::new(observation, OriginalCol::new(column));
+                                let entry = Entry::new(observation, column);
                                 let c = push(&mut response_pairs, entry, limit)?;
                                 mapping.responses.push(ResponseTerm {
                                     observation,

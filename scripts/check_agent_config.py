@@ -205,8 +205,8 @@ def check_link(link: Path, target: Path, problems: list[str]) -> None:
         return
     problems.append(
         f"{rel} is neither a symlink nor a directory. A Windows checkout without "
-        f"developer mode writes the link target as a text file; copy {target_rel} "
-        f"over it instead."
+        f"developer mode writes the link target as a text file; enable directory symlinks "
+        f"and run just agent-config-sync. Do not copy shared library bundles."
     )
 
 

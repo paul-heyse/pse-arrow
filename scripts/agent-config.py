@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Materialize native Codex roles from canonical Claude instructions."""
+# ruff: noqa: N999 -- executable script name, not an importable module
 
 from __future__ import annotations
 
@@ -66,7 +67,8 @@ def skill_alias(root: Path, directory: str) -> None:
             pass  # Windows without symlink privileges uses a checked materialization.
         else:
             return
-    shutil.copytree(target, alias, dirs_exist_ok=True)
+    # Keep shared library links as links; never materialize multi-GB bundles here.
+    shutil.copytree(target, alias, dirs_exist_ok=True, symlinks=True)
 
 
 def synchronize(root: Path, *, check: bool) -> list[str]:

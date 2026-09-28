@@ -67,16 +67,23 @@ fn declare_manifests(builder: &mut RegistryBuilder) {
         .pk(&["publication_id"])
         .granularity(crate::model::DerivationGranularity::Row)
         .columns(vec![
+            // The key names the operational catalog's publication but cannot carry the
+            // `publication` identity: a single-column key that declares an identity owns
+            // it, and the catalog's intents own it. The other references carry theirs.
             T::key("publication_id", T::id(), "Publication identity."),
-            column("workspace_id", T::id()),
-            column("parent_publication_id", T::id()).optional(),
-            column("attempt_id", T::id()),
+            column("workspace_id", T::id()).with_identity("workspace"),
+            column("parent_publication_id", T::id())
+                .with_identity("publication")
+                .optional(),
+            column("attempt_id", T::id()).with_identity("attempt"),
             column("kind", T::enumeration("PublicationKind")),
             column("inputs", T::list(member())),
             column("members", T::list(member())),
             column("windows", T::list(window())),
             column("exported_at", micros()).optional(),
-            column("export_lease_id", T::id()).optional(),
+            column("export_lease_id", T::id())
+                .with_identity("reader_lease")
+                .optional(),
             column("export_expires_at", micros()).optional(),
             column("maintenance_epoch", T::nonnegative(i64::MAX)).optional(),
             column("store_fingerprint", T::hash()).optional(),

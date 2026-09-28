@@ -83,10 +83,10 @@ fn batch(schema: &SchemaRef, left: &[i64], right: &[i64], approved: Option<bool>
 fn candidate(registry: &Registry) -> publication_manifests::Row {
     let spec = registry.relation("authored.pairs").unwrap();
     publication_manifests::Row {
-        workspace_id: SemanticId::NIL,
+        workspace_id: SemanticId::NIL.into(),
         publication_id: SemanticId::NIL,
         parent_publication_id: None,
-        attempt_id: SemanticId::NIL,
+        attempt_id: SemanticId::NIL.into(),
         kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![pse_relations::generated::structures::MemberDescriptor {
