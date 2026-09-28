@@ -6,5 +6,6 @@ pub mod attempts;
 pub mod cancellation;
 pub mod jobs;
 pub mod solutions;
+pub mod sources;
 pub mod store;
 pub mod streams;

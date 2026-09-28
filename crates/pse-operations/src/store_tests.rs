@@ -588,6 +588,40 @@ async fn sqlstate_errors_map_to_typed_variants() {
 }
 
 #[tokio::test]
+async fn dropped_statement_does_not_block_the_pool() {
+    let database = TestDatabase::create().await.unwrap();
+    // One pooled connection: the next operation gets the very connection whose
+    // statement was abandoned, unless it is replaced.
+    let options = crate::StoreOptions {
+        max_connections: 1,
+        ..crate::StoreOptions::for_tests()
+    };
+    let store = Store::connect_with(database.url(), &options).await.unwrap();
+    let lock = database.session().await.unwrap();
+    lock.execute("BEGIN; LOCK TABLE pse_ops.attempts IN ACCESS EXCLUSIVE MODE")
+        .await
+        .unwrap();
+    // A reader cancelled while it waits on the lock: its statement still runs on the
+    // server when the future is dropped.
+    let abandoned = tokio::time::timeout(
+        Duration::from_millis(200),
+        store.attempts().get(mint_id()),
+    )
+    .await;
+    assert!(abandoned.is_err(), "the read waits on the lock");
+    // The pool does not hand that connection out again while it is busy.
+    let server = tokio::time::timeout(Duration::from_secs(10), store.server())
+        .await
+        .expect("a busy connection is replaced, not waited for")
+        .unwrap();
+    assert!(server.is_supported());
+    lock.execute("ROLLBACK").await.unwrap();
+    store.close().await;
+    drop(lock);
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
 async fn unreachable_server_is_unavailable_naming_the_target() {
     let options = crate::StoreOptions {
         acquire_timeout: Duration::from_secs(2),

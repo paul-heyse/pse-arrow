@@ -18,6 +18,7 @@
 //! `Durable`) are a runtime policy and do not appear here.
 
 pub mod attempts;
+mod bulk;
 pub mod cancellation;
 pub mod catalog;
 mod codec;

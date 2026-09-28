@@ -210,7 +210,7 @@ impl Operations {
         self.store()
             .sources()
             .put(&SourceBundle {
-                bundle_hash,
+                bundle_hash: bundle_hash.into(),
                 manifest: serde_json::json!({ "paths": texts.keys().collect::<Vec<_>>() }),
                 documents,
             })
@@ -226,7 +226,7 @@ impl Operations {
         &self,
         bundle: &ContentHash,
     ) -> Result<BTreeMap<String, String>, WorkflowError> {
-        let stored = self.store().sources().get(bundle).await?;
+        let stored = self.store().sources().get(&(*bundle).into()).await?;
         let mut texts = BTreeMap::new();
         for document in stored.documents {
             if pse_ids::encoding_checksum(document.content.as_bytes()).content_hash()

@@ -7,11 +7,15 @@
 //! them again when it loads a bundle.
 
 use pse_ids::ContentHash;
-use sqlx::Row;
+use pse_operations_queries::client::Params as _;
+use pse_operations_queries::queries::sources as statements;
+use tokio_postgres::types::ToSql;
 
-use crate::codec;
+use crate::bulk::{Cells, copy_in};
 use crate::error::{Classify, OperationsError, Target};
+use crate::generated::copy;
 use crate::store::Store;
+pub use pse_model::generated::identities::SourceBundleId;
 
 /// One authored document of a bundle.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,7 +32,7 @@ pub struct SourceDocument {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SourceBundle {
     /// The package content hash over the bundle's path/text pairs.
-    pub bundle_hash: ContentHash,
+    pub bundle_hash: SourceBundleId,
     /// A JSON manifest naming the documents.
     pub manifest: serde_json::Value,
     /// The documents, by path.
@@ -58,48 +62,30 @@ impl<'s> Sources<'s> {
     /// Classified driver failures.
     pub async fn put(&self, bundle: &SourceBundle) -> Result<(), OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        let created = sqlx::query(
-            "INSERT INTO pse_ops.source_bundles (bundle_hash, manifest) VALUES ($1, $2) \
-             ON CONFLICT (bundle_hash) DO NOTHING",
-        )
-        .bind(codec::hash_bytes(&bundle.bundle_hash))
-        .bind(&bundle.manifest)
-        .execute(&mut *tx)
-        .await
-        .classify(target)?
-        .rows_affected();
-        if created == 1 {
-            sqlx::query(
-                "INSERT INTO pse_ops.source_documents (bundle_hash, path, content_hash, content) \
-                 SELECT $1, d.path, d.content_hash, d.content \
-                 FROM UNNEST($2::text[], $3::bytea[], $4::text[]) AS d (path, content_hash, content)",
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let created = statements::insert_bundle()
+            .params(
+                &tx,
+                &statements::InsertBundleParams {
+                    bundle_hash: bundle.bundle_hash,
+                    manifest: &bundle.manifest,
+                },
             )
-            .bind(codec::hash_bytes(&bundle.bundle_hash))
-            .bind(
-                bundle
-                    .documents
-                    .iter()
-                    .map(|d| d.path.as_str())
-                    .collect::<Vec<_>>(),
-            )
-            .bind(
-                bundle
-                    .documents
-                    .iter()
-                    .map(|d| codec::hash_bytes(&d.content_hash))
-                    .collect::<Vec<_>>(),
-            )
-            .bind(
-                bundle
-                    .documents
-                    .iter()
-                    .map(|d| d.content.as_str())
-                    .collect::<Vec<_>>(),
-            )
-            .execute(&mut *tx)
             .await
             .classify(target)?;
+        if created == 1 {
+            let hash: &(dyn ToSql + Sync) = &bundle.bundle_hash;
+            let mut rows: Vec<Cells<'_>> = Vec::with_capacity(bundle.documents.len());
+            for document in &bundle.documents {
+                rows.push(vec![
+                    hash,
+                    &document.path,
+                    &document.content_hash,
+                    &document.content,
+                ]);
+            }
+            copy_in(&tx, target, &copy::SOURCE_DOCUMENTS, &rows).await?;
         }
         tx.commit().await.classify(target)?;
         Ok(())
@@ -109,41 +95,40 @@ impl<'s> Sources<'s> {
     ///
     /// # Errors
     ///
-    /// [`OperationsError::NotFound`] for an unknown hash; classified driver failures.
-    pub async fn get(&self, bundle: &ContentHash) -> Result<SourceBundle, OperationsError> {
+    /// [`OperationsError::NotFound`] for an unknown hash; [`OperationsError::CorruptValue`]
+    /// for a manifest that is not JSON; classified driver failures.
+    pub async fn get(&self, bundle: &SourceBundleId) -> Result<SourceBundle, OperationsError> {
         let target = self.target();
-        let manifest: serde_json::Value = sqlx::query_scalar(
-            "SELECT manifest FROM pse_ops.source_bundles WHERE bundle_hash = $1",
-        )
-        .bind(codec::hash_bytes(bundle))
-        .fetch_optional(self.store.pool())
-        .await
-        .classify(target)?
-        .ok_or_else(|| OperationsError::NotFound {
-            entity: "source bundle",
-            id: bundle.to_prefixed(),
-        })?;
-        let documents = sqlx::query(
-            "SELECT path, content_hash, content FROM pse_ops.source_documents \
-             WHERE bundle_hash = $1 ORDER BY path",
-        )
-        .bind(codec::hash_bytes(bundle))
-        .fetch_all(self.store.pool())
-        .await
-        .classify(target)?
-        .iter()
-        .map(|row| {
-            Ok(SourceDocument {
-                path: row.try_get("path")?,
-                content_hash: codec::hash(row, "content_hash")?,
-                content: row.try_get("content")?,
+        let client = self.store.client().await?;
+        let stored = statements::bundle()
+            .bind(&client, bundle)
+            .opt()
+            .await
+            .classify(target)?
+            .ok_or_else(|| OperationsError::NotFound {
+                entity: "source bundle",
+                id: bundle.as_id().to_prefixed(),
+            })?;
+        let documents = statements::documents()
+            .bind(&client, bundle)
+            .all()
+            .await
+            .classify(target)?
+            .into_iter()
+            .map(|document| SourceDocument {
+                path: document.path,
+                content_hash: document.content_hash,
+                content: document.content,
             })
-        })
-        .collect::<Result<Vec<_>, sqlx::Error>>()
-        .classify(target)?;
+            .collect();
         Ok(SourceBundle {
-            bundle_hash: *bundle,
-            manifest,
+            bundle_hash: stored.bundle_hash,
+            manifest: serde_json::from_str(&stored.manifest).map_err(|error| {
+                OperationsError::CorruptValue {
+                    column: "source_bundles.manifest",
+                    detail: error.to_string(),
+                }
+            })?,
             documents,
         })
     }

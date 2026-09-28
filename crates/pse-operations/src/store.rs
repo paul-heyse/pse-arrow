@@ -27,6 +27,9 @@ pub const MINIMUM_SERVER_VERSION: i32 = 180_000;
 /// The `application_name` of pooled store sessions.
 pub(crate) const APPLICATION: &str = "pse-operations";
 
+/// How long a pooled connection may take to prove it is idle before it is replaced.
+const RECYCLE_TIMEOUT: Duration = Duration::from_secs(1);
+
 /// `PSE_DATABASE_URL`, or the development default when it is unset or empty.
 pub fn database_url_from_env() -> String {
     std::env::var(DATABASE_URL_ENV)
@@ -182,11 +185,15 @@ impl Store {
         let config = configure(url, options)?;
         let target = Target::describe(&config);
         let tls = tls()?;
+        // A cancelled operation returns its connection while the server may still run its
+        // statement (a lock wait, say). A pooled connection is therefore verified before
+        // it is handed out again; one that does not answer within the recycle timeout is
+        // discarded and replaced, so nobody queues behind a dropped statement.
         let manager = deadpool_postgres::Manager::from_config(
             config.clone(),
             tls.clone(),
             deadpool_postgres::ManagerConfig {
-                recycling_method: deadpool_postgres::RecyclingMethod::Fast,
+                recycling_method: deadpool_postgres::RecyclingMethod::Verified,
             },
         );
         let size = usize::try_from(options.max_connections).unwrap_or(usize::MAX);
@@ -194,6 +201,7 @@ impl Store {
             .max_size(size)
             .wait_timeout(Some(options.acquire_timeout))
             .create_timeout(Some(options.acquire_timeout))
+            .recycle_timeout(Some(RECYCLE_TIMEOUT))
             .runtime(deadpool_postgres::Runtime::Tokio1)
             .build()
             .map_err(|error| OperationsError::Configuration {

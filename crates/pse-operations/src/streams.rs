@@ -14,12 +14,12 @@ use chrono::{DateTime, Utc};
 use pse_model::generated::enums::{EvidenceUnavailableReason, NativeMetricKind};
 use pse_operations_queries::client::Params as _;
 use pse_operations_queries::queries::streams as statements;
-use tokio_postgres::binary_copy::BinaryCopyInWriter;
-use tokio_postgres::types::{ToSql, Type};
+use tokio_postgres::types::ToSql;
 
-use crate::attempts::{self, AttemptId, Tx, micros, utc};
+use crate::attempts::{self, AttemptId, micros, utc};
+use crate::bulk::{Cells, copy_in};
 use crate::error::{Classify, OperationsError, Target};
-use crate::generated::copy::{self, CopyIn};
+use crate::generated::copy;
 use crate::listener::{Channel, Event, Subscription};
 use crate::store::Store;
 pub use pse_model::generated::runtime::operational_incumbents::RuntimeOperationalIncumbentsRow;
@@ -153,44 +153,6 @@ impl<'a> ValueCells<'a> {
             },
         }
     }
-}
-
-/// One row's cells for a binary copy, in the table's column order.
-type Cells<'v> = Vec<&'v (dyn ToSql + Sync)>;
-
-/// Copy rows into a store table in the binary format, typed by the table's probe (a
-/// domain column arrives as its base type, an ENUM column as its ENUM type). Returns the
-/// rows copied.
-async fn copy_in(
-    tx: &Tx<'_>,
-    target: &Target,
-    table: &CopyIn,
-    rows: &[Cells<'_>],
-) -> Result<u64, OperationsError> {
-    let probe = tx.prepare_cached(table.probe).await.classify(target)?;
-    let types: Vec<Type> = probe
-        .columns()
-        .iter()
-        .map(|column| column.type_().clone())
-        .collect();
-    let sink = tx.copy_in(table.statement).await.classify(target)?;
-    let writer = BinaryCopyInWriter::new(sink, &types);
-    tokio::pin!(writer);
-    for row in rows {
-        // The writer refuses a row of another width by panicking; refuse it first.
-        if row.len() != types.len() {
-            return Err(OperationsError::InvalidRequest {
-                reason: format!(
-                    "a {}-cell row copied into {} of {} columns",
-                    row.len(),
-                    table.table,
-                    types.len()
-                ),
-            });
-        }
-        writer.as_mut().write(row).await.classify(target)?;
-    }
-    writer.finish().await.classify(target)
 }
 
 /// The stream repository.
