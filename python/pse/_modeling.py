@@ -11,7 +11,6 @@ from pse import codec
 from pse._build import (
     NativeAttempt,
     EngineSettings,
-    SolveSettings,
     SimulationSettings,
     _NativeModelingTrajectory,
     _NativeModelingNonlinearExplanation,
@@ -36,6 +35,7 @@ from pse._inspection import TableStream
 from pse._runs import PreparedOperation
 from pse._strategies import PreparedFlow, PreparedStrategy, _AnalysisDocument
 from pse.contracts.authored import (AuthoredModelingDeclarationsRow, AuthoredFitCasesRow, AuthoredObservationsRow, AuthoredDatasetsRow)
+from pse.contracts.documents import SolveSettings
 from pse.contracts.enums import ModelingAnalysisRoute
 from pse.contracts.values import ContentHash, SemanticId
 
@@ -474,7 +474,7 @@ class ModelingPackage:
         return PreparedOperation(
             self._handle.prepare_fit(
                 fit_id.to_hex(),
-                settings,
+                codec.encode_json(settings),
                 profiles,
                 modes=[(key.to_hex(), list(values)) for key, values in (modes or {}).items()],
                 rank_tolerance=rank_tolerance,
@@ -501,7 +501,7 @@ class ModelingPackage:
         return ModelingDiagnosticSamples(
             self._handle.diagnose_samples(
                 case_id.to_hex(),
-                settings,
+                codec.encode_json(settings),
                 diagnostics,
                 [
                     (
@@ -529,7 +529,7 @@ class ModelingPackage:
         return ModelingNonlinearExplanation(
             self._handle.explain_nonlinear(
                 case_id.to_hex(),
-                settings,
+                codec.encode_json(settings),
                 {key.to_hex(): value for key, value in nominals.items()},
                 penalty_tolerance=penalty_tolerance,
                 maximum_attempts=maximum_attempts,
@@ -573,7 +573,7 @@ class ModelingPackage:
     ) -> ModelingDiagnostics:
         """Inspect the declared candidate without requesting a native solve."""
         return ModelingDiagnostics(
-            self._handle.diagnose(case_id.to_hex(), settings, diagnostics)
+            self._handle.diagnose(case_id.to_hex(), codec.encode_json(settings), diagnostics)
         )
 
     def diagnose_linear(
@@ -607,7 +607,7 @@ class ModelingPackage:
         return ModelingNativeAnalysis(
             self._handle.diagnose_linear(
                 case_id.to_hex(),
-                settings,
+                codec.encode_json(settings),
                 rays=rays,
                 iis=iis,
                 ranging=ranging,
@@ -635,7 +635,7 @@ class ModelingPackage:
         return ModelingNativeAnalysis(
             self._handle.diagnose_jacobian(
                 case_id.to_hex(),
-                settings,
+                codec.encode_json(settings),
                 maximum_rows=maximum_rows,
                 maximum_entries=maximum_entries,
                 maximum_attempts=maximum_attempts,
@@ -663,19 +663,19 @@ class ModelingPackage:
 
     def inspect(self, case_id: SemanticId, settings: SolveSettings) -> dict[str, object]:
         """Inspect instantiated member lineage and declared topology before execution."""
-        return codec.decode_json(self._handle.inspect(case_id.to_hex(), settings), _AnalysisDocument).payload
+        return codec.decode_json(self._handle.inspect(case_id.to_hex(), codec.encode_json(settings)), _AnalysisDocument).payload
 
     def prepare_flow(self, case_id: SemanticId, selection: Mapping[str, object], settings: SolveSettings) -> PreparedFlow:
         """Project explicitly selected authored nodes, ports and connection policies."""
-        return PreparedFlow(self._handle.prepare_flow(case_id.to_hex(), codec.encode_json(_AnalysisDocument(dict(selection))), settings))
+        return PreparedFlow(self._handle.prepare_flow(case_id.to_hex(), codec.encode_json(_AnalysisDocument(dict(selection))), codec.encode_json(settings)))
 
     def prepare_recycle(self, case_id: SemanticId, selection: Mapping[str, object], request: Mapping[str, object], settings: SolveSettings) -> PreparedStrategy:
         """Compile explicit causal directions from this immutable authored model."""
-        return PreparedStrategy(self._handle.prepare_recycle(case_id.to_hex(), codec.encode_json(_AnalysisDocument(dict(selection))), codec.encode_json(_AnalysisDocument(dict(request))), settings))
+        return PreparedStrategy(self._handle.prepare_recycle(case_id.to_hex(), codec.encode_json(_AnalysisDocument(dict(selection))), codec.encode_json(_AnalysisDocument(dict(request))), codec.encode_json(settings)))
 
     def prepare_block_initialization(self, case_id: SemanticId, settings: SolveSettings, stages: Sequence[Mapping[SemanticId, float]]) -> PreparedStrategy:
         """Prepare ordered blocks and transactional overlays over original bindings."""
-        return PreparedStrategy(self._handle.prepare_block_initialization(case_id.to_hex(), settings, [{k.to_hex(): v for k, v in stage.items()} for stage in stages]))
+        return PreparedStrategy(self._handle.prepare_block_initialization(case_id.to_hex(), codec.encode_json(settings), [{k.to_hex(): v for k, v in stage.items()} for stage in stages]))
 
     def prepare_solve(
         self,
@@ -685,7 +685,7 @@ class ModelingPackage:
         route: ModelingAnalysisRoute = ModelingAnalysisRoute.STEADY,
     ) -> PreparedOperation:
         """Prepare an authored algebraic case for owned execution and publication."""
-        return PreparedOperation(self._handle.prepare_solve(case_id.to_hex(), settings, route=route.value))
+        return PreparedOperation(self._handle.prepare_solve(case_id.to_hex(), codec.encode_json(settings), route=route.value))
 
     def solve_case(
         self,
@@ -696,7 +696,7 @@ class ModelingPackage:
     ) -> ModelingResult:
         """Use source fixture specifications and model starts through the native solver pipeline."""
         return ModelingResult(
-            self._handle.solve_case(case_id.to_hex(), settings, route=route.value)
+            self._handle.solve_case(case_id.to_hex(), codec.encode_json(settings), route=route.value)
         )
 
     def initialize(
@@ -716,7 +716,7 @@ class ModelingPackage:
         return ModelingInitialization(
             self._handle.initialize(
                 case_id.to_hex(),
-                settings,
+                codec.encode_json(settings),
                 stages=list(stages),
                 homotopy=homotopy,
                 initial_step=initial_step,
@@ -739,7 +739,7 @@ class ModelingPackage:
         return ModelingStudy(
             self._handle.study(
                 [case.to_hex() for case in case_ids],
-                settings,
+                codec.encode_json(settings),
                 predecessors=list(predecessors),
                 maximum_points=maximum_points,
             )
@@ -759,7 +759,7 @@ class ModelingPackage:
         """Discover authored tests and run bounded shared checks without importing IDAES."""
         return ModelingConformance(
             self._handle.conform(
-                settings,
+                codec.encode_json(settings),
                 maximum_fixtures=maximum_fixtures,
                 maximum_checks=maximum_checks,
                 derivative_cells=derivative_cells,

@@ -13,6 +13,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts.enums import HessianMode, NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse import codec
 from pse.contracts import authored
 from pse.contracts import runtime as runtime_contracts
@@ -30,7 +31,7 @@ def test_public_native_process_and_exact_results(
     physical = runtime.physical_from_documents(documents(root / "physical"))
     package = runtime.modeling_from_documents([documents(root / name) for name in ("seed-data", "process", "thermodynamics", "methods", "physical")], physical)
     case = SemanticId.from_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015")
-    settings = pse.SolveSettings(backend="ipopt", intent="feasible_point")
+    settings = pse.SolveSettings(backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT)
     members = cast("list[dict[str, object]]", package.inspect(case, settings)["members"])
     coordinates = {cast("str", cast("dict[str, object]", m["lineage"])["path"]): SemanticId.from_hex(cast("str", m["id"])) for m in members}
     prepared = package.prepare_solve(case, settings)
@@ -131,7 +132,7 @@ def test_public_dynamic_and_transient_fit(
     observation = converter.structure({"observation_id":identity(104),"dataset_id":identity(105),"target":"analytic total at 1 s","value":5.,"unit_id":identity(3),"std_dev":1.,"timestamp":None,"tag":None,"source_span":{"document_id":identity(105),"start":0,"end":0}},authored.AuthoredObservationsRow)
     dataset = converter.structure({"dataset_id":identity(105),"name":"analytic accumulation","source":"total(t)=2 s+3*t","content_hash":"blake3:"+"03"*32},authored.AuthoredDatasetsRow)
     package = package.with_fit_data((fit,),(observation,),(dataset,))
-    result = package.prepare_fit(fit.fit_id,pse.SolveSettings(backend="ipopt",intent="optimize",hessian="limited_memory",presolve="off"),{fit.experiments[0].experiment_id:settings}).start().wait()
+    result = package.prepare_fit(fit.fit_id,pse.SolveSettings(backend=NativeBackend.IPOPT,intent=NativeSolveIntent.OPTIMIZE,presolve=PresolvePolicyKind.OFF, controls=pse.SolveControls(hessian=HessianMode.LIMITED_MEMORY)),{fit.experiments[0].experiment_id:settings}).start().wait()
     parameters = pa.table(result.table("runtime.fit_parameters")).to_pylist()
     assert len(parameters)==1
     assert parameters[0]["value"]==pytest.approx(3.,abs=1e-5)

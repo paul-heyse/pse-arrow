@@ -1,18 +1,34 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Typed settings projection, registry names and typed eligibility (ADR-0113)."""
+"""Typed settings documents, registry names and typed eligibility (ADR-0113, ADR-0116)."""
 
 import json
 from pathlib import Path
 
+import msgspec
 import pytest
 
 import pse
+from pse import codec
+from pse.contracts import documents
 from pse.contracts.enums import (
+    ClarabelMode,
+    DiffsolMethod,
+    HessianMode,
+    HighsMethod,
+    KinsolStrategy,
+    MumpsOrdering,
+    MuStrategy,
     NativeBackend,
     NativeIneligibility,
     NativeProblemClass,
     NativeRunState,
+    NativeSolveIntent,
+    NativeStartPolicy,
+    PounceMethod,
+    PresolvePolicyKind,
+    ReusePolicy,
+    SensitivityCorrector,
 )
 from pse.contracts.values import SemanticId
 
@@ -84,69 +100,92 @@ def attempt_of(result: pse.ModelingResult) -> pse.NativeAttempt:
 
 
 @pytest.mark.unit
+def test_backend_settings_typed() -> None:
+    """Each backend's settings are a generated document type (Plan 22 X13)."""
+    typed: dict[NativeBackend, pse.BackendSettings] = {
+        NativeBackend.HIGHS: pse.HighsSettings(method=HighsMethod.SIMPLEX),
+        NativeBackend.CLARABEL: pse.ClarabelSettings(
+            mode=ClarabelMode.REUSABLE_DATA, max_step_fraction=0.9
+        ),
+        NativeBackend.POUNCE: pse.PounceSettings(method=PounceMethod.ACTIVE_SET_SQP),
+        NativeBackend.KINSOL: pse.KinsolSettings(
+            strategy=KinsolStrategy.NEWTON, linear=documents.KinsolLinearDense(limit=16)
+        ),
+        NativeBackend.SCIP: pse.ScipSettings(seed=7, nodes=1000),
+        NativeBackend.IPOPT: pse.IpoptSettings(
+            linear=documents.IpoptLinearMumps(ordering=MumpsOrdering.AMD),
+            mu_strategy=MuStrategy.ADAPTIVE,
+        ),
+    }
+    for backend, settings in typed.items():
+        # The document is tagged by the registry backend spelling, and every omitted
+        # field is present with the default the Rust type states.
+        encoded = msgspec.to_builtins(settings)
+        assert encoded["backend"] == backend.value
+        decoded = msgspec.json.decode(msgspec.json.encode(settings), type=pse.BackendSettings)
+        assert decoded == settings
+        # Each field of each document type is typed: no field is `Any` or untyped.
+        for field in msgspec.structs.fields(type(settings)):
+            assert field.type is not object, (backend, field.name)
+    # The generated types refuse what their schema refuses, before anything is native.
+    with pytest.raises(msgspec.ValidationError, match="unknown field"):
+        msgspec.json.decode(b'{"backend": "highs", "methd": "simplex"}', type=pse.BackendSettings)
+    with pytest.raises(msgspec.ValidationError):
+        msgspec.json.decode(b'{"backend": "gurobi"}', type=pse.BackendSettings)
+    with pytest.raises(msgspec.ValidationError, match="Expected `float` >= 0.0|> 0.0"):
+        msgspec.json.decode(b'{"backend": "ipopt", "bound_push": -1.0}', type=pse.BackendSettings)
+
+
+@pytest.mark.unit
+def test_solve_settings_enum_types() -> None:
+    """Every enumeration of the settings documents is the registry's generated type."""
+    hints = {field.name: field.type for field in msgspec.structs.fields(pse.SolveSettings)}
+    assert hints["intent"] is NativeSolveIntent
+    assert hints["presolve"] is PresolvePolicyKind
+    controls = {field.name: field.type for field in msgspec.structs.fields(pse.SolveControls)}
+    assert controls["hessian"] is HessianMode
+    assert controls["reuse"] is ReusePolicy
+    assert controls["start"] is NativeStartPolicy
+    ipopt = {field.name: field.type for field in msgspec.structs.fields(pse.IpoptSettings)}
+    assert ipopt["mu_strategy"] is MuStrategy
+    # Defaults are the Rust document's, stated once by the generator.
+    default = pse.SolveSettings()
+    assert (default.intent, default.backend, default.settings) == (
+        NativeSolveIntent.OPTIMIZE,
+        None,
+        None,
+    )
+    assert default.presolve is PresolvePolicyKind.AUTO
+    assert (default.controls.hessian, default.controls.reuse, default.controls.start) == (
+        HessianMode.EXACT,
+        ReusePolicy.FRESH,
+        NativeStartPolicy.NO_PRIOR_START,
+    )
+    assert default.controls.iterations > 0
+    assert default.controls.time_limit > 0
+    assert default.controls.threads == 1
+    # A misspelled member is refused where the document is decoded.
+    with pytest.raises(msgspec.ValidationError):
+        msgspec.json.decode(b'{"version": 1, "intent": "rooot"}', type=pse.SolveSettings)
+    with pytest.raises(msgspec.ValidationError):
+        msgspec.json.decode(b'{"version": 2}', type=pse.SolveSettings)
+
+
+@pytest.mark.unit
 def test_solve_settings_backend_projection(
     runtime: pse.Runtime,
     physical: pse.PhysicalContext,
     cases: tuple[pse.ModelingPackage, dict[str, SemanticId]],
 ) -> None:
-    variants: dict[str, dict[str, object]] = {
-        "highs": {"method": "simplex"},
-        "clarabel": {"mode": "reusable_data", "max_step_fraction": 0.9},
-        "pounce": {"method": "active_set_sqp"},
-        "kinsol": {"strategy": "newton", "linear": {"dense": {"limit": 16}}},
-        "scip": {"seed": 7, "nodes": 1000},
-        "ipopt": {"linear": {"mumps": {"ordering": "amd"}}, "mu_strategy": "adaptive"},
-    }
-    settings: dict[str, pse.BackendSettings] = {}
-    for backend, fields in variants.items():
-        typed = pse.BackendSettings(backend, **fields)
-        settings[backend] = typed
-        assert typed.backend == backend
-        # Omitted fields take the Rust defaults; nothing is restated in Python.
-        effective = typed.fields()
-        assert set(effective) == set(pse.BackendSettings(backend).fields())
-        assert {key: effective[key] for key in fields} == fields
-        # The versioned document and the solve settings round-trip every variant.
-        assert pse.BackendSettings.from_json(typed.to_json()) == typed
-        assert pse.BackendSettings.from_json(typed.to_json()).identity == typed.identity
-        solve = pse.SolveSettings(backend=backend, settings=typed)
-        assert solve.backend == backend
-        assert solve.settings == typed
-    # Unknown fields, versions and backends are refused natively.
-    with pytest.raises(pse.InspectionError, match="unknown field"):
-        pse.BackendSettings("highs", methd="simplex")
-    document = json.loads(settings["highs"].to_json())
-    document["version"] = document["version"] + 1
-    with pytest.raises(pse.InspectionError, match="version"):
-        pse.BackendSettings.from_json(json.dumps(document))
-    with pytest.raises(pse.InspectionError, match="simulation profile"):
-        pse.BackendSettings("idas")
-    with pytest.raises(pse.InspectionError, match="expected one of"):
-        pse.BackendSettings("gurobi")
-    # Solve defaults are read from Rust; Python passes no default of its own.
-    default = pse.SolveSettings()
-    assert (default.intent, default.backend, default.settings) == (
-        "optimize",
-        None,
-        None,
+    # Dynamics profile settings are versioned documents too.
+    idas = pse.IdasSettings(
+        linear=documents.IdasLinearSpgmr(dimension=8),
+        sensitivity=SensitivityCorrector.STAGGERED,
     )
-    assert (default.presolve, default.hessian, default.reuse, default.start) == (
-        "auto",
-        "exact",
-        "fresh",
-        "no_prior_start",
-    )
-    assert default.iterations > 0
-    assert default.time_limit > 0
-    assert default.threads == 1
-    # Dynamics profile settings project the same way.
-    idas = pse.IdasSettings(linear={"spgmr": {"dimension": 8}}, sensitivity="staggered")
-    assert pse.IdasSettings.from_json(idas.to_json()) == idas
-    assert (
-        idas.fields()["initialization"] == pse.IdasSettings().fields()["initialization"]
-    )
-    diffsol = pse.DiffsolSettings(method="tr_bdf2")
-    assert diffsol.fields()["linear"] == pse.DiffsolSettings().fields()["linear"]
+    assert msgspec.json.decode(msgspec.json.encode(idas), type=pse.IdasSettings) == idas
+    assert idas.initialization == pse.IdasSettings().initialization
+    diffsol = pse.DiffsolSettings(method=DiffsolMethod.TR_BDF2)
+    assert diffsol.linear == pse.DiffsolSettings().linear
     simulation = pse.SimulationSettings(
         start=0.0,
         end=1.0,
@@ -154,27 +193,51 @@ def test_solve_settings_backend_projection(
         atol=[1e-8],
         parameter_scales=[],
         method="idas",
-        idas=idas,
-        diffsol=diffsol,
+        idas=codec.encode_json(idas),
+        diffsol=codec.encode_json(diffsol),
     )
-    assert simulation.idas == idas
-    assert simulation.diffsol == diffsol
+    assert msgspec.json.decode(simulation.idas, type=pse.IdasSettings) == idas
+    assert msgspec.json.decode(simulation.diffsol, type=pse.DiffsolSettings) == diffsol
     assert json.loads(simulation.to_json())["idas"]["sensitivity"] == "staggered"
+    # An unknown field or version is refused natively as well.
     with pytest.raises(pse.InspectionError, match="unknown field"):
-        pse.DiffsolSettings(scheme="bdf")
+        pse.SimulationSettings(
+            start=0.0,
+            end=1.0,
+            samples=[0.0],
+            atol=[1e-8],
+            parameter_scales=[],
+            diffsol=b'{"version": 1, "scheme": "bdf"}',
+        )
+    with pytest.raises(pse.InspectionError, match="unknown document version"):
+        pse.SimulationSettings(
+            start=0.0,
+            end=1.0,
+            samples=[0.0],
+            atol=[1e-8],
+            parameter_scales=[],
+            idas=b'{"version": 2}',
+        )
 
     # Each variant reaches its backend: the report records the effective settings.
     package, ids = cases
     highs = attempt_of(
         package.solve_case(
-            ids["Lp"], pse.SolveSettings(backend="highs", settings=settings["highs"])
+            ids["Lp"],
+            pse.SolveSettings(
+                backend=NativeBackend.HIGHS, settings=pse.HighsSettings(method=HighsMethod.SIMPLEX)
+            ),
         )
     )
     assert highs.backend == "highs"
     assert highs.options()["solver"] == "simplex"
     pounce = attempt_of(
         package.solve_case(
-            ids["Nlp"], pse.SolveSettings(backend="pounce", settings=settings["pounce"])
+            ids["Nlp"],
+            pse.SolveSettings(
+                backend=NativeBackend.POUNCE,
+                settings=pse.PounceSettings(method=PounceMethod.ACTIVE_SET_SQP),
+            ),
         )
     )
     assert pounce.backend == "pounce"
@@ -183,27 +246,38 @@ def test_solve_settings_backend_projection(
         package.solve_case(
             ids["Root"],
             pse.SolveSettings(
-                intent="root",
-                backend="kinsol",
-                presolve="off",
-                settings=settings["kinsol"],
+                intent=NativeSolveIntent.ROOT,
+                backend=NativeBackend.KINSOL,
+                presolve=PresolvePolicyKind.OFF,
+                settings=pse.KinsolSettings(
+                    strategy=KinsolStrategy.NEWTON,
+                    linear=documents.KinsolLinearDense(limit=16),
+                ),
             ),
         )
     )
     assert kinsol.backend == "kinsol"
     method = json.loads(kinsol.provenance()["settings"])
     assert method["strategy"] == "newton"
-    assert method["linear"] == {"dense": {"limit": 16}}
+    assert method["linear"] == {"kind": "dense", "limit": 16}
     scip = attempt_of(
         package.solve_case(
-            ids["Nlp"], pse.SolveSettings(backend="scip", settings=settings["scip"])
+            ids["Nlp"],
+            pse.SolveSettings(backend=NativeBackend.SCIP, settings=pse.ScipSettings(seed=7, nodes=1000)),
         )
     )
     assert scip.backend == "scip"
     assert scip.options()["randomization/randomseedshift"] == 7
     ipopt = attempt_of(
         package.solve_case(
-            ids["Nlp"], pse.SolveSettings(backend="ipopt", settings=settings["ipopt"])
+            ids["Nlp"],
+            pse.SolveSettings(
+                backend=NativeBackend.IPOPT,
+                settings=pse.IpoptSettings(
+                    linear=documents.IpoptLinearMumps(ordering=MumpsOrdering.AMD),
+                    mu_strategy=MuStrategy.ADAPTIVE,
+                ),
+            ),
         )
     )
     assert ipopt.backend == "ipopt"
@@ -211,7 +285,15 @@ def test_solve_settings_backend_projection(
     assert options["linear_solver"] == "mumps"
     assert options["mumps_pivot_order"] == 0
     assert options["mu_strategy"] == "adaptive"
-    assert json.loads(ipopt.provenance()["linear"]) == {"mumps": {"ordering": "amd"}}
+    assert json.loads(ipopt.provenance()["linear"]) == {"kind": "mumps", "ordering": "amd"}
+    # A document the native decoder refuses is refused at the entry point.
+    with pytest.raises(pse.InspectionError, match="bound_push|Tolerance"):
+        package.solve_case(
+            ids["Nlp"],
+            pse.SolveSettings(
+                backend=NativeBackend.IPOPT, settings=pse.IpoptSettings(bound_push=-1.0)
+            ),
+        )
     port = {
         "quantity_id": identity(31).to_hex(),
         "unit_id": identity(10).to_hex(),
@@ -245,7 +327,12 @@ def test_solve_settings_backend_projection(
         runtime.prepare_conic(
             request,
             physical,
-            pse.SolveSettings(backend="clarabel", settings=settings["clarabel"]),
+            pse.SolveSettings(
+                backend=NativeBackend.CLARABEL,
+                settings=pse.ClarabelSettings(
+                    mode=ClarabelMode.REUSABLE_DATA, max_step_fraction=0.9
+                ),
+            ),
         )
         .run()
         .attempts()
@@ -288,7 +375,7 @@ def test_route_and_eligibility_are_typed(
     # Strategy routes are typed rows, one per initialization block, and attempts and
     # failures share one index space.
     initialization = package.prepare_block_initialization(
-        ids["Root"], pse.SolveSettings(intent="initialize"), [{}, {}]
+        ids["Root"], pse.SolveSettings(intent=NativeSolveIntent.INITIALIZE), [{}, {}]
     )
     assert [route.backend for route in initialization.routes] == ["kinsol"]
     result = initialization.run()
@@ -307,7 +394,7 @@ def test_route_and_eligibility_are_typed(
         package.prepare_block_initialization(
             ids["Root"],
             pse.SolveSettings(
-                intent="initialize", settings=pse.BackendSettings("highs")
+                intent=NativeSolveIntent.INITIALIZE, settings=pse.HighsSettings()
             ),
             [{}],
         )
@@ -316,7 +403,10 @@ def test_route_and_eligibility_are_typed(
     limited = package.solve_case(
         ids["Root"],
         pse.SolveSettings(
-            intent="root", backend="kinsol", presolve="off", iterations=1
+            intent=NativeSolveIntent.ROOT,
+            backend=NativeBackend.KINSOL,
+            presolve=PresolvePolicyKind.OFF,
+            controls=pse.SolveControls(iterations=1),
         ),
     )
     assert not limited.accepted

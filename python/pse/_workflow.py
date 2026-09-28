@@ -12,7 +12,6 @@ from pse import codec
 from pse._build import (
     EngineSettings,
     OperationalStore,
-    SolveSettings,
     _NativePhysicalContext,
     _NativeRuntime,
 )
@@ -26,6 +25,7 @@ from pse._runs import (
 )
 
 from pse.contracts import runtime as result_contracts
+from pse.contracts.documents import SolveSettings
 from pse.contracts.enums import AttemptState
 from pse.contracts.values import ContentHash, SemanticId
 
@@ -131,7 +131,7 @@ class Runtime:
             self._handle.prepare_conic(
                 codec.encode_json(_AnalysisDocument(dict(request))),
                 physical._handle,  # noqa: SLF001 - same native boundary
-                settings,
+                codec.encode_json(settings),
             )
         )
 
