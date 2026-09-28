@@ -163,10 +163,6 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     );
     emit(&mut tree, "algorithms", algorithms(reg));
     emit(&mut tree, "rules", rules(reg));
-    tree.files.insert(
-        "docs/generated/schema/authoring.schema.json".into(),
-        super::jsonschema::generate(reg)?.into_bytes(),
-    );
     Ok(tree)
 }
 

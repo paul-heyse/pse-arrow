@@ -9,6 +9,8 @@ mod physical;
 mod ipopt;
 pub(super) mod python_stubs;
 mod queries;
+#[cfg(feature = "package-fixtures")]
+mod schemas;
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -17,7 +19,7 @@ use std::path::{Component, Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail};
-use pse_codegen::codegen::{GeneratedTree, Language};
+use pse_codegen::codegen::{GeneratedTree, Language, documents};
 use sha2::{Digest, Sha256};
 
 use crate::Target;
@@ -34,6 +36,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         // generated in memory and neither written nor compared by this arm.
         Some(Target::Postgres | Target::Queries) => vec![Language::Postgres],
         Some(Target::Bindgen) => return ipopt::run(root, check),
+        Some(Target::Schemas) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
     let registry = pse_schema::registry()?;
@@ -47,7 +50,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             );
         }
         if language == Language::Python {
-            add_python_manifest(&mut tree)?;
+            add_python_manifest(&mut tree, Path::new(PYTHON_ROOT))?;
         }
         if language == Language::Postgres {
             add_schema_fingerprint(root, &mut tree)?;
@@ -61,25 +64,15 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         }
         validate_tree(&tree)?;
         if language == Language::Python {
-            // Validate the actual candidate bytes before comparison or publication.
-            let candidate = tempfile::tempdir().context("creating Python contract candidate")?;
-            write_tree(candidate.path(), &tree)?;
-            let python = root.join(if cfg!(windows) {
-                ".venv/Scripts/python.exe"
-            } else {
-                ".venv/bin/python"
-            });
-            let status = Command::new(python)
-                .arg(root.join("scripts/check_python_contracts.py"))
-                .arg("--root")
-                .arg(candidate.path())
-                .current_dir(root)
-                .status()
-                .context("checking candidate Python contract annotations")?;
-            if !status.success() {
-                bail!("candidate Python contract annotation check failed: {status}");
-            }
+            check_python_candidate(root, &tree, None)?;
         }
+        trees.push(tree);
+    }
+    if matches!(only, None | Some(Target::Schemas)) {
+        let mut tree = document_schemas(registry)?;
+        add_python_manifest(&mut tree, Path::new(documents::PYTHON_ROOT))?;
+        validate_tree(&tree)?;
+        check_python_candidate(root, &tree, Some("--documents"))?;
         trees.push(tree);
     }
     if matches!(only, None | Some(Target::Queries)) {
@@ -114,6 +107,43 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         trees.len()
     );
     Ok(())
+}
+
+/// Validate the actual candidate Python bytes before comparison or publication.
+fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>) -> Result<()> {
+    let candidate = tempfile::tempdir().context("creating Python contract candidate")?;
+    write_tree(candidate.path(), tree)?;
+    let python = root.join(if cfg!(windows) {
+        ".venv/Scripts/python.exe"
+    } else {
+        ".venv/bin/python"
+    });
+    let status = Command::new(python)
+        .arg(root.join("scripts/check_python_contracts.py"))
+        .arg("--root")
+        .arg(candidate.path())
+        .args(mode)
+        .current_dir(root)
+        .status()
+        .context("checking candidate Python contract annotations")?;
+    if !status.success() {
+        bail!("candidate Python contract annotation check failed: {status}");
+    }
+    Ok(())
+}
+
+/// The published document schemas and Python document types, derived from the owning
+/// crates' serde types (ADR-0116 Outcome 7).
+#[cfg(feature = "package-fixtures")]
+fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
+    Ok(documents::generate(registry, &schemas::documents())?)
+}
+
+#[cfg(not(feature = "package-fixtures"))]
+fn document_schemas(_: &pse_schema::Registry) -> Result<GeneratedTree> {
+    bail!(
+        "the document schemas derive from the runtime's types and require package-fixtures; run the complete generator"
+    )
 }
 
 #[cfg(feature = "package-fixtures")]
@@ -161,14 +191,14 @@ fn add_schema_fingerprint(root: &Path, tree: &mut GeneratedTree) -> Result<()> {
     Ok(())
 }
 
-fn add_python_manifest(tree: &mut GeneratedTree) -> Result<()> {
-    let root = Path::new(PYTHON_ROOT);
+/// The `GENERATED.sha256` of the Python files under `root`: one digest line per file.
+fn add_python_manifest(tree: &mut GeneratedTree, root: &Path) -> Result<()> {
     let manifest_path = root.join("GENERATED.sha256");
     if tree.files.contains_key(&manifest_path) {
         bail!("the Python generator must leave GENERATED.sha256 to the xtask writer");
     }
     let mut manifest = String::new();
-    for (path, bytes) in &tree.files {
+    for (path, bytes) in tree.files.iter().filter(|(path, _)| path.starts_with(root)) {
         let relative = path
             .strip_prefix(root)
             .context("Python output escaped its root")?;
@@ -241,7 +271,27 @@ fn inventory(root: &Path, tree: &GeneratedTree) -> Result<BTreeSet<PathBuf>> {
     // Inspect every path first: a cache directory cannot hide symlinks or other
     // non-files. Explicit generator output always remains subject to comparison.
     files.retain(|path| tree.files.contains_key(path) || !python_bytecode_path(path));
+    // A root nested inside this tree's roots belongs to another target, which compares
+    // and prunes it.
+    let foreign = nested_roots(tree);
+    files.retain(|path| !foreign.iter().any(|nested| path.starts_with(nested)));
     Ok(files)
+}
+
+/// The roots of other targets that lie inside one of `tree`'s roots.
+fn nested_roots(tree: &GeneratedTree) -> Vec<PathBuf> {
+    Language::ALL
+        .iter()
+        .flat_map(|language| language.roots())
+        .chain(documents::roots())
+        .filter(|candidate| {
+            !tree.roots.contains(candidate)
+                && tree
+                    .roots
+                    .iter()
+                    .any(|own| candidate != own && candidate.starts_with(own))
+        })
+        .collect()
 }
 
 fn python_bytecode_path(relative: &Path) -> bool {
@@ -583,10 +633,45 @@ mod tests {
         let mut tree = GeneratedTree::empty(Language::Python.roots());
         tree.files
             .insert(PathBuf::from("python/pse/contracts/a.py"), b"abc".to_vec());
-        add_python_manifest(&mut tree).unwrap();
+        add_python_manifest(&mut tree, Path::new(PYTHON_ROOT)).unwrap();
         assert_eq!(
             tree.files[Path::new("python/pse/contracts/GENERATED.sha256")],
             b"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad  a.py\n"
+        );
+    }
+
+    /// The document schemas and types live inside the Markdown and Python roots; each
+    /// target compares and prunes only its own files (ADR-0116 Outcome 7).
+    #[test]
+    fn nested_document_roots_belong_to_their_own_target() {
+        let checkout = tempfile::tempdir().unwrap();
+        for nested in [
+            "docs/generated/schema/solve-settings.schema.json",
+            "python/pse/contracts/documents/__init__.py",
+        ] {
+            let path = checkout.path().join(nested);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"owned elsewhere").unwrap();
+        }
+        let mut docs = GeneratedTree::empty(Language::Markdown.roots());
+        docs.files
+            .insert(PathBuf::from("docs/generated/enums.md"), b"# e\n".to_vec());
+        let mut contracts = GeneratedTree::empty(Language::Python.roots());
+        contracts
+            .files
+            .insert(PathBuf::from("python/pse/contracts/enums.py"), b"x = 1\n".to_vec());
+        for tree in [&docs, &contracts] {
+            write_tree(checkout.path(), tree).unwrap();
+            assert!(inventory(checkout.path(), tree).unwrap().iter().all(|path| tree.files.contains_key(path)));
+        }
+        // Writing the enclosing targets pruned nothing of the nested ones.
+        assert!(checkout.path().join("docs/generated/schema/solve-settings.schema.json").exists());
+        assert!(checkout.path().join("python/pse/contracts/documents/__init__.py").exists());
+        let documents = GeneratedTree::empty(documents::roots());
+        assert_eq!(
+            inventory(checkout.path(), &documents).unwrap().len(),
+            2,
+            "the document target still sees its own files"
         );
     }
 

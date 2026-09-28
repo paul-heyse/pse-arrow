@@ -19,6 +19,7 @@
 
 #[cfg(test)]
 mod consolidation_unit;
+pub mod documents;
 pub mod jsonschema;
 pub mod markdown;
 mod native;
@@ -37,9 +38,11 @@ use crate::error::SchemaError;
 pub enum Language {
     /// Generated contracts and explicitly selected physical package fixtures.
     Rust,
-    /// `python/pse/contracts/`, including its `GENERATED.sha256`.
+    /// `python/pse/contracts/`, including its `GENERATED.sha256`, except `documents/`,
+    /// which the document types own ([`documents`]).
     Python,
-    /// `docs/generated/`, including `schema/authoring.schema.json`.
+    /// `docs/generated/`, except `schema/`, which the document schemas own
+    /// ([`documents`]).
     Markdown,
     /// The operational store's DDL and Cornucopia mapping (ADR-0114 Outcome 22).
     Postgres,

@@ -2,8 +2,11 @@
 # Copyright (c) 2026 Paul Heyse
 """Explicit generated-contract and dynamic-hook annotation checks (blueprint §21.5).
 
-Normal quality and code generation check the complete candidate contract tree.
-Converter hooks call ``check_class`` when a dynamic attrs class enters the boundary.
+Normal quality and code generation check the complete candidate contract tree: the
+attrs row contracts and the msgspec document types (ADR-0116 Outcome 11). Converter
+hooks call ``check_class`` when a dynamic attrs class enters the boundary. Postponed
+annotations are resolved before they are inspected (``attrs.resolve_types`` and
+msgspec's own resolution), so a module may use ``from __future__ import annotations``.
 """
 
 import importlib
@@ -12,6 +15,7 @@ from types import ModuleType
 from typing import Annotated, Literal, get_args, get_origin
 
 import attrs
+import msgspec
 
 # `typing.Any` cannot be named here: the ruff banned-api rule that forbids it in
 # contracts has no exemption for this module, and an exemption would be a hole in
@@ -82,10 +86,10 @@ def _describe_offence(annotation: object) -> str | None:
 
 
 def check_class(cls: type) -> None:
-    """Assert that every attrs field of ``cls`` carries a specific type.
+    """Assert that every field of an attrs or msgspec class carries a specific type.
 
     Args:
-        cls: An attrs class to lint.
+        cls: An attrs class or a ``msgspec.Struct`` type to lint.
 
     Raises:
         ContractTypeError: If a field resolves to ``typing.Any``, a bare
@@ -94,10 +98,19 @@ def check_class(cls: type) -> None:
     _check_class(cls, set())
 
 
+def _is_struct(cls: object) -> bool:
+    return isinstance(cls, type) and issubclass(cls, msgspec.Struct)
+
+
 def _check_class(cls: type, seen: set[int]) -> None:
     if id(cls) in seen:
         return
     seen.add(id(cls))
+    if _is_struct(cls):
+        # msgspec resolves postponed annotations against the defining module.
+        for info in msgspec.structs.fields(cls):
+            _check_annotation(info.type, cls, info.name, seen)
+        return
     resolved = attrs.resolve_types(cls)
     for field in attrs.fields(resolved):
         _check_annotation(field.type, cls, field.name, seen)
@@ -111,7 +124,7 @@ def _check_annotation(
         raise ContractTypeError(cls, field_name, offence)
     if annotation is None:
         raise ContractTypeError(cls, field_name, "an absent annotation")
-    if isinstance(annotation, type) and attrs.has(annotation):
+    if isinstance(annotation, type) and (attrs.has(annotation) or _is_struct(annotation)):
         _check_class(annotation, seen)
         return
     if id(annotation) in seen:
@@ -138,14 +151,14 @@ def _check_annotation(
 
 
 def _contract_classes(module: ModuleType) -> list[type]:
-    """Collect the attrs classes a module defines itself.
+    """Collect the attrs and msgspec classes a module defines itself.
 
     Args:
         module: The module to inspect.
 
     Returns:
-        The attrs classes whose ``__module__`` is this module, so a re-export
-        is linted once, where it is defined.
+        The attrs classes and ``msgspec.Struct`` types whose ``__module__`` is this
+        module, so a re-export is linted once, where it is defined.
     """
     found: list[type] = []
     for name in dir(module):
@@ -154,7 +167,7 @@ def _contract_classes(module: ModuleType) -> list[type]:
         candidate = getattr(module, name)
         if (
             isinstance(candidate, type)
-            and attrs.has(candidate)
+            and (attrs.has(candidate) or _is_struct(candidate))
             and candidate.__module__ == module.__name__
         ):
             found.append(candidate)
@@ -162,7 +175,7 @@ def _contract_classes(module: ModuleType) -> list[type]:
 
 
 def check(module: ModuleType | None = None) -> None:
-    """Lint every attrs contract class reachable from ``module``.
+    """Lint every attrs and msgspec contract class reachable from ``module``.
 
     Args:
         module: The package to walk. Defaults to :mod:`pse.contracts`, which is
