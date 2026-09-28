@@ -445,7 +445,6 @@ impl<'a> Emitter<'a> {
         let mut source = format!("class {name}(msgspec.Struct, {options}):\n");
         let doc = text(schema, "description")
             .map_or_else(|| format!("The `{name}` document type."), ToOwned::to_owned);
-        let _ = writeln!(source, "    {}\n", docstring(&doc));
         // `version` first, so a reader meets it first; then every field by name.
         let mut names = properties
             .keys()
@@ -453,8 +452,10 @@ impl<'a> Emitter<'a> {
             .cloned()
             .collect::<Vec<_>>();
         names.sort_by_key(|field| (field != "version", field.clone()));
-        if names.is_empty() {
-            source.push_str("    pass\n");
+        // The docstring is the body of a class with no fields; `pass` would be redundant.
+        let _ = writeln!(source, "    {}", docstring(&doc));
+        if !names.is_empty() {
+            source.push('\n');
         }
         for field in names {
             let property = &properties[&field];

@@ -92,17 +92,18 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             source.push_str("from datetime import datetime\n");
         }
         source.push_str("\nimport attrs\n\n");
-        if declarations.contains("e.") {
+        // Sorted by module, as the linter's import order requires.
+        if uses_alias(&declarations, "e") {
             source.push_str("from pse.contracts import enums as e\n");
         }
         if typed_ids {
             source.push_str("from pse.contracts import identities as i\n");
         }
-        if declarations.contains("v.") {
-            source.push_str("from pse.contracts import values as v\n");
-        }
         if references_structures(reg, &declarations) {
             source.push_str("from pse.contracts import structures as s\n");
+        }
+        if uses_alias(&declarations, "v") {
+            source.push_str("from pse.contracts import values as v\n");
         }
         source.push_str(&declarations);
         emit(&mut tree, namespace, &source);
@@ -116,6 +117,18 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         ),
     );
     Ok(tree)
+}
+
+/// Whether generated declarations qualify a name through a module alias: `alias.` at an
+/// identifier boundary, so prose such as "nested value." does not import `e`.
+fn uses_alias(declarations: &str, alias: &str) -> bool {
+    let qualifier = format!("{alias}.");
+    declarations.match_indices(&qualifier).any(|(at, _)| {
+        declarations[..at]
+            .chars()
+            .next_back()
+            .is_none_or(|before| !(before.is_alphanumeric() || before == '_' || before == '.'))
+    })
 }
 
 /// Whether generated declarations reference a named structure.
@@ -143,13 +156,13 @@ fn structures(reg: &Registry) -> Result<String, SchemaError> {
         source.push_str("from datetime import datetime\n");
     }
     source.push_str("\nimport attrs\n\n");
-    if declarations.contains("e.") {
+    if uses_alias(&declarations, "e") {
         source.push_str("from pse.contracts import enums as e\n");
     }
     if typed_ids {
         source.push_str("from pse.contracts import identities as i\n");
     }
-    if declarations.contains("v.") {
+    if uses_alias(&declarations, "v") {
         source.push_str("from pse.contracts import values as v\n");
     }
     // A structure nested in another refers to it locally, not through the package.

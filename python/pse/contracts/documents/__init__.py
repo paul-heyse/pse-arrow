@@ -218,8 +218,6 @@ class HighsSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 class IdasLinearKlu(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="klu"):
     """SuiteSparse KLU over the compiled analytic Jacobian."""
 
-    pass
-
 
 class IdasLinearSpfgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spfgmr"):
     """Matrix-free flexible GMRES over analytic Jacobian-vector products."""
@@ -316,13 +314,9 @@ class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 class JobStartFresh(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh"):
     """From the case's authored starts."""
 
-    pass
-
 
 class JobStartResumeFromParent(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="resume_from_parent"):
     """From the latest incumbent in the parent attempt chain (Plan 22 G8)."""
-
-    pass
 
 
 class JobStartStoredSolution(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="stored_solution"):
@@ -364,8 +358,6 @@ class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_field
 class KinsolEtaChoice1(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice1"):
     """Eisenstat-Walker choice 1, KINSOL's default."""
 
-    pass
-
 
 class KinsolEtaChoice2(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice2"):
     """Eisenstat-Walker choice 2 (`KINSetEtaParams`)."""
@@ -392,8 +384,6 @@ class KinsolLinearDense(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
 class KinsolLinearKlu(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="klu"):
     """Vendored SuiteSparse KLU with analytic CSC Jacobian."""
-
-    pass
 
 
 class KinsolLinearSpbcgs(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="spbcgs"):
@@ -515,8 +505,6 @@ class RestartBarrierSeed(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     seed without one (an authored seed) leaves the native default in force, and the
     receipt says so.
     """
-
-    pass
 
 
 class RestartBarrierValue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="value"):

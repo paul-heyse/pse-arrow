@@ -7,7 +7,6 @@ import builtins as b
 
 import attrs
 
-from pse.contracts import enums as e
 from pse.contracts import identities as i
 from pse.contracts import values as v
 

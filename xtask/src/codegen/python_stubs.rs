@@ -89,12 +89,13 @@ fn installed_extension(root: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 fn format(root: &Path, source: &str) -> Result<Vec<u8>> {
-    // Explicit PyO3 type strings arrive quoted. The pinned Python parser can
-    // normalize these annotations without inventing a second type grammar.
+    // Explicit PyO3 type strings arrive quoted (PYI020), and the introspector lists a
+    // native `__repr__` that `object` already declares (PYI029). The pinned Python
+    // parser normalizes both without inventing a second type grammar.
     let normalized = ruff(
         root,
         source.as_bytes(),
-        &["check", "--fix", "--select", "PYI020"],
+        &["check", "--fix", "--select", "PYI020,PYI029"],
     )?;
     ruff(root, &normalized, &["format"])
 }
