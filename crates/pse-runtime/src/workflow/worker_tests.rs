@@ -524,3 +524,89 @@ async fn cancel_survives_listener_reconnect() {
     drop(runtime);
     database.remove().await.unwrap();
 }
+
+/// The `job.start` event of a durable try's stream.
+fn start_event(record: &DurableRecord) -> BTreeMap<String, pse_operations::streams::ProgressValue> {
+    record
+        .progress
+        .as_ref()
+        .unwrap()
+        .iter()
+        .find(|event| event.phase == "job.start")
+        .unwrap()
+        .values
+        .clone()
+}
+
+/// A job's start policy is applied and recorded as the try's first progress event (Plan 22
+/// G8): a resume without a parent attempt starts fresh and says why; a stored-solution
+/// start seeds every free coordinate from that solution; an unknown solution fails the
+/// try instead of starting fresh.
+#[tokio::test]
+async fn job_start_policies_applied_and_recorded() {
+    use pse_operations::streams::ProgressValue as V;
+    let database = TestDatabase::create().await.unwrap();
+    let runtime = job_durable(&database, "worker-a", quick()).await;
+    let operations = operations(&runtime);
+    let mut job = authored_job(&runtime, SQUARE, ipopt()).await;
+    job.start = JobStart::ResumeFromParent;
+    operations
+        .enqueue(&job, "resume-first-try", retry(), 0)
+        .await
+        .unwrap();
+    let (processed, _) = runtime.work_once_with_result().await.unwrap();
+    assert_eq!(processed.state(), Some(AttemptState::Completed), "{processed:?}");
+    let Processed::Ran { record, .. } = processed else {
+        panic!()
+    };
+    let start = start_event(&record);
+    assert_eq!(start["requested"], V::Text("resume_from_parent".into()));
+    assert_eq!(start["fresh"], V::Text("first try: no parent attempt".into()));
+    assert!(matches!(start["solution"], V::Unavailable(_)));
+    let [(0, solution)] = record.solutions[..] else {
+        panic!("{:?}", record.solutions)
+    };
+
+    job.start = JobStart::StoredSolution { solution };
+    operations
+        .enqueue(&job, "stored-solution", retry(), 0)
+        .await
+        .unwrap();
+    let (processed, result) = runtime.work_once_with_result().await.unwrap();
+    assert_eq!(processed.state(), Some(AttemptState::Completed), "{processed:?}");
+    let Processed::Ran { record, .. } = processed else {
+        panic!()
+    };
+    let start = start_event(&record);
+    assert_eq!(start["requested"], V::Text("stored_solution".into()));
+    assert_eq!(start["solution"], V::Text(solution.to_string()));
+    let result = result.unwrap();
+    let RunRequest::Modeling(requests) = result.request() else {
+        panic!()
+    };
+    assert!(
+        requests[0]
+            .starts
+            .values()
+            .all(|s| *s == StartSource::Stored { solution: solution.as_id() })
+    );
+    let Ok(RunReport::Modeling(steps)) = result.report() else {
+        panic!()
+    };
+    let crate::math::solves::Outcome::Native(native) = &steps[0].outcome else {
+        panic!()
+    };
+    assert!(native.start_receipt.as_ref().unwrap().submitted);
+
+    job.start = JobStart::StoredSolution {
+        solution: pse_operations::mint_id(),
+    };
+    operations
+        .enqueue(&job, "unknown-solution", retry(), 0)
+        .await
+        .unwrap();
+    let processed = runtime.work_once().await.unwrap();
+    assert_eq!(processed.state(), Some(AttemptState::Failed), "{processed:?}");
+    drop((runtime, result));
+    database.remove().await.unwrap();
+}

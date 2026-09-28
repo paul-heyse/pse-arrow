@@ -25,3 +25,24 @@ WHERE s.compatibility_stamp = :compatibility_stamp::pse_ops.content_hash
   AND s.backend = :backend
 ORDER BY s.created_at DESC, s.solution_id DESC
 LIMIT 1;
+
+-- The resume lookup (Plan 22 G8): the newest compatible solution that an incumbent of the
+-- attempt or of one of its ancestors (following parent_attempt) references. The nearest
+-- attempt of the chain wins, then its latest incumbent.
+--! latest_in_attempt_chain
+WITH RECURSIVE chain (attempt_id, depth) AS (
+    SELECT a.attempt_id, 0 FROM pse_ops.attempts AS a
+    WHERE a.attempt_id = :attempt_id::pse_ops.attempt_id
+  UNION ALL
+    SELECT a.parent_attempt, chain.depth + 1
+    FROM chain JOIN pse_ops.attempts AS a ON a.attempt_id = chain.attempt_id
+    WHERE a.parent_attempt IS NOT NULL AND chain.depth < 4096
+)
+SELECT s FROM chain
+JOIN pse_ops.incumbents AS i ON i.attempt_id = chain.attempt_id
+JOIN pse_ops.solutions AS s ON s.solution_id = i.solution_id
+WHERE s.compatibility_stamp = :compatibility_stamp::pse_ops.content_hash
+  AND s.preparation_identity = :preparation_identity::pse_ops.content_hash
+  AND s.backend = :backend
+ORDER BY chain.depth, i.seq DESC
+LIMIT 1;

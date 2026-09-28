@@ -100,6 +100,7 @@ impl ModelingPackage {
                 let mut session = highs::Session::new(&problem, None, compatibility)?;
                 let mut attempt = session.solve(
                     &problem,
+                    &normalization,
                     &controls,
                     &accuracy,
                     &highs::Settings::default(),

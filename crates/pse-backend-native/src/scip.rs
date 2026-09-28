@@ -18,10 +18,11 @@ use crate::{
     LimitKind, NativeStatus, OracleContract, ProblemError, Variable,
     execution::ScipSettings as Settings,
     solve::{
-        Assurance, Backend, BoundSource, Candidate, CandidateKind, Compatibility, Controls, Event,
-        Execution, GlobalEvidence, GlobalRecord, Iis, IisMember, Metric, NativeTermination,
-        OptionValue, Options, PoolSolution, PrimalSource, Progress, ResolvedAccuracy, SolveIntent,
-        SolveReport, Termination, WarmPayload, WarmStart,
+        Assurance, Backend, BoundSource, Candidate, CandidateKind, CaptureThrottle,
+        Compatibility, Controls, Event, Execution, GlobalEvidence, GlobalRecord, Iis, IisMember,
+        IncumbentEvent, Metric, NativeTermination, OptionValue, Options, PoolSolution,
+        PrimalSource, Progress, ResolvedAccuracy, SolveIntent, SolveReport, Termination,
+        UnavailableReason, WarmPayload, WarmStart,
     },
 };
 use pse_ids::{ContentHash, FramedHasher};
@@ -320,7 +321,7 @@ pub fn termination(status: Status) -> NativeTermination {
 /// What the event handler observes during one solve; owned by its instance. The handler
 /// is copied into sub-SCIPs, concurrent solvers and the IIS sub-problem with the same
 /// data, which those poll from their own threads, so every shared field is atomic or
-/// locked. `cancel`, `progress` and `started` change only between solves.
+/// locked. `cancel`, `progress`, `started` and `objective` change only between solves.
 #[derive(Debug)]
 struct Watch {
     cancel: Arc<AtomicBool>,
@@ -329,6 +330,121 @@ struct Watch {
     events: AtomicU64,
     interrupted: AtomicBool,
     failed: AtomicBool,
+    /// Incumbent and bound reporting of a program with an objective; only the owning
+    /// SCIP's handler reads it.
+    objective: Option<Objective>,
+}
+/// How the owning SCIP's incumbents and bounds are reported in original units: the owning
+/// SCIP (copies share the handler data), the column variables of the export, the
+/// objective constant held outside SCIP, SCIP's infinity and the capture throttle of
+/// solution vectors.
+#[derive(Debug)]
+struct Objective {
+    owner: *mut ffi::SCIP,
+    columns: Vec<*mut ffi::SCIP_VAR>,
+    offset: f64,
+    infinity: f64,
+    throttle: CaptureThrottle,
+}
+impl Objective {
+    /// A finite native value in original units, the offset applied.
+    fn original(&self, x: f64) -> Option<f64> {
+        (x.is_finite() && x.abs() < self.infinity).then_some(x + self.offset)
+    }
+    /// A finite native gap.
+    fn gap(&self, gap: f64) -> Option<f64> {
+        (gap.is_finite() && gap.abs() < self.infinity).then_some(gap)
+    }
+    /// Whether `scip` is the owning SCIP in a stage that admits every query of
+    /// [`Self::incumbent`] and [`Self::bound`]; SCIP aborts the process on a query in
+    /// another stage.
+    fn admitted(&self, scip: *mut ffi::SCIP) -> bool {
+        // SAFETY: a stage query of the live owning SCIP.
+        scip == self.owner
+            && matches!(
+                unsafe { ffi::SCIPgetStage(scip) },
+                ffi::SCIP_Stage_SCIP_STAGE_INITSOLVE
+                    | ffi::SCIP_Stage_SCIP_STAGE_SOLVING
+                    | ffi::SCIP_Stage_SCIP_STAGE_SOLVED
+            )
+    }
+    /// Report the owning SCIP's best solution as an incumbent, with its solution vector
+    /// when `capture` admits one; nothing when there is none.
+    fn incumbent(&self, scip: *mut ffi::SCIP, watch: &Watch, capture: impl FnOnce() -> bool) {
+        if !self.admitted(scip) {
+            return;
+        }
+        // SAFETY: the stage admits the queries; the solution belongs to this SCIP, and the
+        // column variables are held by its instance.
+        let best = unsafe { ffi::SCIPgetBestSol(scip) };
+        if best.is_null() {
+            return;
+        }
+        // SAFETY: as above.
+        let (objective, dual_bound, gap, nodes, seconds, primal) = unsafe {
+            let primal = capture().then(|| {
+                self.columns
+                    .iter()
+                    .map(|var| ffi::SCIPgetSolVal(scip, best, *var))
+                    .collect::<Vec<f64>>()
+            });
+            (
+                ffi::SCIPgetSolOrigObj(scip, best),
+                ffi::SCIPgetDualbound(scip),
+                ffi::SCIPgetGap(scip),
+                ffi::SCIPgetNTotalNodes(scip),
+                ffi::SCIPgetSolvingTime(scip),
+                primal,
+            )
+        };
+        let Some(objective) = self.original(objective) else {
+            return;
+        };
+        watch.progress.push(Event {
+            phase: "scip.incumbent".into(),
+            elapsed: watch.started.elapsed(),
+            values: BTreeMap::new(),
+            incumbent: Some(IncumbentEvent {
+                objective,
+                dual_bound: self.original(dual_bound),
+                gap: self.gap(gap),
+                nodes,
+                seconds,
+                primal: primal.filter(|p| p.iter().all(|v| v.is_finite())),
+            }),
+        });
+    }
+    /// Report an improved dual bound, with the primal bound and gap it leaves.
+    fn bound(&self, scip: *mut ffi::SCIP, watch: &Watch) {
+        if !self.admitted(scip) {
+            return;
+        }
+        // SAFETY: the stage admits the bound queries.
+        let (primal, dual, gap) = unsafe {
+            (
+                ffi::SCIPgetPrimalbound(scip),
+                ffi::SCIPgetDualbound(scip),
+                ffi::SCIPgetGap(scip),
+            )
+        };
+        let metric = |v: Option<f64>| {
+            v.map_or(
+                Metric::Unavailable(UnavailableReason::NotApplicable),
+                Metric::Real,
+            )
+        };
+        watch.progress.push(Event {
+            phase: "scip.bound".into(),
+            elapsed: watch.started.elapsed(),
+            values: [
+                ("primal_bound".into(), metric(self.original(primal))),
+                ("dual_bound".into(), metric(self.original(dual))),
+                ("gap".into(), metric(self.gap(gap))),
+            ]
+            .into(),
+            incumbent: None,
+        });
+    }
 }
 fn watch<'a>(eventhdlr: *mut ffi::SCIP_EVENTHDLR) -> Option<&'a Watch> {
     // SAFETY: SCIP returns the data pointer this module registered for the handler.
@@ -369,20 +485,20 @@ unsafe extern "C" fn watch_exec(
         watch.events.fetch_add(1, Ordering::Relaxed);
         // SAFETY: SCIP passes the live event being processed.
         let kind = unsafe { ffi::SCIPeventGetType(event) };
-        if kind & (event::BESTSOLFOUND | event::DUALBOUNDIMPROVED) != 0 {
-            // SAFETY: bound queries are valid in every stage that issues these events.
-            let primal = unsafe { ffi::SCIPgetPrimalbound(scip) };
-            // SAFETY: as above.
-            let dual = unsafe { ffi::SCIPgetDualbound(scip) };
-            watch.progress.push(Event {
-                phase: "scip.bound".into(),
-                elapsed: watch.started.elapsed(),
-                values: [
-                    ("primal_bound".into(), Metric::Real(primal)),
-                    ("dual_bound".into(), Metric::Real(dual)),
-                ]
-                .into(),
-            });
+        if let Some(objective) = &watch.objective {
+            // A new best solution is an incumbent (its bounds travel with it); an improved
+            // dual bound alone is a bound event. A deferred solution capture is taken at
+            // the first event after the throttle interval.
+            if kind & event::BESTSOLFOUND != 0 {
+                objective.incumbent(scip, watch, || objective.throttle.admit());
+            } else {
+                if kind & event::DUALBOUNDIMPROVED != 0 {
+                    objective.bound(scip, watch);
+                }
+                if objective.throttle.deferred() {
+                    objective.incumbent(scip, watch, || true);
+                }
+            }
         }
         poll(scip, watch)
     })
@@ -416,7 +532,7 @@ fn include_watch(
     data: *mut ffi::SCIP_EVENTHDLRDATA,
 ) -> Result<(), ProblemError> {
     let name = cstring("pse_watch")?;
-    let description = cstring("attempt cancellation and bound progress")?;
+    let description = cstring("attempt cancellation, incumbents and bound progress")?;
     let mut hdlr = ptr::null_mut();
     native!(
         "SCIPincludeEventhdlrBasic",
@@ -492,15 +608,26 @@ unsafe extern "C" fn watch_initsol(
     scip: *mut ffi::SCIP,
     eventhdlr: *mut ffi::SCIP_EVENTHDLR,
 ) -> ffi::SCIP_RETCODE {
-    // SAFETY: SCIP calls initsol before branch-and-bound, where node events are caught.
-    contained(|| unsafe {
-        ffi::SCIPcatchEvent(
-            scip,
-            event::SOLVING,
-            eventhdlr,
-            ptr::null_mut(),
-            ptr::null_mut(),
-        )
+    contained(|| {
+        // SAFETY: SCIP calls initsol before branch-and-bound, where node events are caught.
+        let code = unsafe {
+            ffi::SCIPcatchEvent(
+                scip,
+                event::SOLVING,
+                eventhdlr,
+                ptr::null_mut(),
+                ptr::null_mut(),
+            )
+        };
+        // A solution the owning SCIP already holds (a submitted start, or one found in
+        // presolve) is the search's first incumbent.
+        if code == ffi::SCIP_Retcode_SCIP_OKAY
+            && let Some(watch) = watch(eventhdlr)
+            && let Some(objective) = &watch.objective
+        {
+            objective.incumbent(scip, watch, || objective.throttle.admit());
+        }
+        code
     })
 }
 unsafe extern "C" fn watch_exitsol(
@@ -571,6 +698,7 @@ impl Instance {
             events: AtomicU64::new(0),
             interrupted: AtomicBool::new(false),
             failed: AtomicBool::new(false),
+            objective: None,
         });
         let mut instance = Self {
             scip,
@@ -627,6 +755,31 @@ impl Instance {
         watch.events.store(0, Ordering::Relaxed);
         watch.interrupted.store(false, Ordering::Relaxed);
         watch.failed.store(false, Ordering::Relaxed);
+    }
+    /// Report the next solve's incumbents and bounds for a program with an objective:
+    /// solutions in the export's column variables, objective values with the offset the
+    /// export holds outside SCIP. Called between solves.
+    fn report_incumbents(&mut self, export: &Export, columns: usize, objective: bool) {
+        let reported = objective.then(|| Objective {
+            owner: self.ptr(),
+            columns: export.coordinates[..columns].to_vec(),
+            offset: export.offset,
+            infinity: self.infinity,
+            throttle: CaptureThrottle::new(),
+        });
+        // SAFETY: no solve is running, so no handler holds the data; the box is owned
+        // exclusively by this instance.
+        unsafe { self.watch.as_mut() }.objective = reported;
+    }
+    /// Report the incumbent whose solution capture the throttle still defers, once the
+    /// solve returned.
+    fn flush_incumbent(&self) {
+        let watch = self.observed();
+        if let Some(objective) = &watch.objective
+            && objective.throttle.outstanding()
+        {
+            objective.incumbent(self.ptr(), watch, || true);
+        }
     }
     fn native(&self, x: f64) -> Result<f64, ProblemError> {
         if x.is_nan() || x.is_finite() && x.abs() >= self.infinity {
@@ -2297,12 +2450,16 @@ pub(crate) fn solve(
         }
         None => None,
     };
+    session
+        .instance
+        .report_incumbents(&session.export, columns, plan.objective.is_some());
     let s = session.instance.ptr();
     if r.controls.threads > 1 {
         native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s))?;
     } else {
         native!("SCIPsolve", ffi::SCIPsolve(s))?;
     }
+    session.instance.flush_incumbent();
     // SAFETY: a status query after the solve returned.
     let raw = unsafe { ffi::SCIPgetStatus(s) };
     let status = Status::from_raw(raw).ok_or_else(|| {
@@ -2447,7 +2604,7 @@ pub(crate) fn solve(
         metrics.insert(
             key.into(),
             value.map_or(
-                Metric::Unavailable(crate::solve::UnavailableReason::NotApplicable),
+                Metric::Unavailable(UnavailableReason::NotApplicable),
                 Metric::Real,
             ),
         );

@@ -484,10 +484,16 @@ impl Session {
     /// Run the native model and recover original coefficients, sense and source maps. The
     /// settings' method and node budget apply; its sparse start and diagnostics go through
     /// [`Self::sparse_start`] and [`Self::diagnose`], except that a requested cut pool is
-    /// captured during this solve.
+    /// captured during this solve. `normalization` maps `p`'s coordinates to the original
+    /// ones, in which the search's incumbents are reported while it runs.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one native solve binds its problem, coordinates, controls, accuracy, settings, execution, tolerances and seed"
+    )]
     pub fn solve(
         &mut self,
         p: &CoefficientProblem,
+        normalization: &pse_math::normalization::Normalization,
         controls: &Controls,
         accuracy: &ResolvedAccuracy,
         settings: &Settings,
@@ -505,6 +511,7 @@ impl Session {
         let n = p.contract.variables.len();
         let m = p.contract.rows.len();
         tolerances.validate(n, m)?;
+        normalization.validate(n, m)?;
         reject_reserved(
             &controls.options,
             &[
@@ -744,15 +751,10 @@ impl Session {
             )?;
         }
         let ptr = model.as_mut_ptr();
-        let capacity = incumbent_capacity(n, controls.history);
         let callback_binding = CallbackBinding::with_capture(
             ptr,
             execution.clone(),
-            Capture {
-                columns: n,
-                incumbents: capacity,
-                cut_pool: settings.diagnostics.cut_pool,
-            },
+            Capture::incumbents(normalization, settings.diagnostics.cut_pool),
         )?;
         let run = if execution.stopped().is_some() {
             0
@@ -760,7 +762,7 @@ impl Session {
             unsafe { ffi::Highs_run(ptr) }
         };
         let panicked = callback_binding.context.panicked.load(Ordering::Acquire);
-        let (incumbents, cut_pool) = callback_binding.take();
+        let cut_pool = callback_binding.finish();
         drop(callback_binding);
         self.cut_pool = cut_pool;
         let reused = self.solves > 0;
@@ -777,7 +779,6 @@ impl Session {
             .insert("model.discrete".into(), Metric::Bool(discrete));
         report.evidence.start_submitted = warm.is_some() || sparse.is_some();
         report.evidence.reused_native_state = reused;
-        report.incumbents = incumbents;
         report.metrics.insert(
             "start.submitted".into(),
             Metric::Bool(report.evidence.start_submitted),
@@ -1107,20 +1108,50 @@ fn qp_regularization(p: &CoefficientProblem, accuracy: &ResolvedAccuracy) -> f64
     const NATIVE_DEFAULT: f64 = 1e-7;
     (2.0 * accuracy.gap_absolute / radius).min(NATIVE_DEFAULT)
 }
-/// Incumbents retained per solve: at most the event history, and at most 2 MiB of
-/// solution vectors (half the report allowance's fixed part).
-fn incumbent_capacity(columns: usize, history: usize) -> usize {
-    let each = columns.saturating_mul(8).saturating_add(64);
-    history.min((2usize << 20) / each).max(1)
-}
 /// What the callback captures besides progress events.
 struct Capture {
-    /// Native column count; solutions of another length are not retained.
+    /// Native column count; incumbents of another length are not reported.
     columns: usize,
-    /// Incumbent retention bound.
-    incumbents: usize,
+    /// The native-to-original scale of each column and of the objective: incumbents are
+    /// reported in original coordinates and units (the model normalization).
+    scales: Vec<f64>,
+    objective: f64,
+    /// When an incumbent's solution is captured.
+    throttle: CaptureThrottle,
     /// Capture the root cut pool (callback kind 7).
     cut_pool: bool,
+}
+impl Capture {
+    /// No incumbents and no cut pool: the callbacks of a diagnostic solve.
+    fn none() -> Self {
+        Self {
+            columns: 0,
+            scales: Vec::new(),
+            objective: 1.0,
+            throttle: CaptureThrottle::new(),
+            cut_pool: false,
+        }
+    }
+    /// The incumbents of a solve over a model normalized by `normalization`.
+    fn incumbents(normalization: &pse_math::normalization::Normalization, cut_pool: bool) -> Self {
+        Self {
+            columns: normalization.variables.len(),
+            scales: normalization.variables.clone(),
+            objective: normalization.objective,
+            throttle: CaptureThrottle::new(),
+            cut_pool,
+        }
+    }
+    /// A native objective value in original units; absent when not finite.
+    fn original(&self, value: f64) -> Option<f64> {
+        let value = value * self.objective;
+        value.is_finite().then_some(value)
+    }
+    /// A native solution in original coordinates; absent when any value is not finite.
+    fn primal(&self, native: &[f64]) -> Option<Vec<f64>> {
+        let primal: Vec<f64> = native.iter().zip(&self.scales).map(|(v, s)| v * s).collect();
+        primal.iter().all(|v| v.is_finite()).then_some(primal)
+    }
 }
 struct CallbackBinding {
     ptr: *mut c_void,
@@ -1128,15 +1159,7 @@ struct CallbackBinding {
 }
 impl CallbackBinding {
     fn new(ptr: *mut c_void, execution: Execution) -> Result<Self, ProblemError> {
-        Self::with_capture(
-            ptr,
-            execution,
-            Capture {
-                columns: 0,
-                incumbents: 0,
-                cut_pool: false,
-            },
-        )
+        Self::with_capture(ptr, execution, Capture::none())
     }
     fn with_capture(
         ptr: *mut c_void,
@@ -1150,7 +1173,8 @@ impl CallbackBinding {
                 execution,
                 panicked: AtomicBool::new(false),
                 capture,
-                captured: std::sync::Mutex::new((Incumbents::default(), None)),
+                deferred: std::sync::Mutex::new(None),
+                cut_pool: std::sync::Mutex::new(None),
             }),
         };
         check(
@@ -1173,14 +1197,19 @@ impl CallbackBinding {
         }
         Ok(binding)
     }
-    /// The captured incumbents and cut pool.
-    fn take(&self) -> (Incumbents, Option<diagnostics::CutPool>) {
-        let mut captured = self
-            .context
-            .captured
+    /// Report the incumbent whose solution capture the throttle still defers, then return
+    /// the captured cut pool. Called once the run returned.
+    fn finish(&self) -> Option<diagnostics::CutPool> {
+        let c = &self.context;
+        if c.capture.throttle.outstanding()
+            && let Some(incumbent) = c.take_deferred()
+        {
+            c.report(incumbent);
+        }
+        c.cut_pool
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        std::mem::take(&mut *captured)
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()
     }
 }
 impl Drop for CallbackBinding {
@@ -1199,39 +1228,83 @@ struct Callback {
     execution: Execution,
     panicked: AtomicBool,
     capture: Capture,
-    captured: std::sync::Mutex<(Incumbents, Option<diagnostics::CutPool>)>,
+    /// The latest incumbent whose solution the throttle deferred, with that solution in
+    /// native coordinates.
+    deferred: std::sync::Mutex<Option<(IncumbentEvent, Vec<f64>)>>,
+    cut_pool: std::sync::Mutex<Option<diagnostics::CutPool>>,
 }
 impl Callback {
-    /// Record an incumbent (kinds 3 and 4) or the root cut pool (kind 7).
-    fn capture(&self, kind: i32, out: &ffi::HighsCallbackDataOut) {
-        let mut captured = self
-            .captured
+    /// An improving solution (kind 4) is a new incumbent: a typed event in original units
+    /// and coordinates, its solution captured when the throttle admits it and deferred
+    /// otherwise. A merely feasible solution (kind 3) is no incumbent; HiGHS issues it
+    /// before kind 4 for every improving one.
+    fn incumbent(&self, out: &ffi::HighsCallbackDataOut) {
+        let size = usize::try_from(out.mip_solution_size).unwrap_or(0);
+        if out.mip_solution.is_null() || size != self.capture.columns || size == 0 {
+            return;
+        }
+        let Some(objective) = self.capture.original(out.objective_function_value) else {
+            return;
+        };
+        let native = unsafe { std::slice::from_raw_parts(out.mip_solution, size) };
+        let mut incumbent = IncumbentEvent {
+            objective,
+            dual_bound: self.capture.original(out.mip_dual_bound),
+            gap: out.mip_gap.is_finite().then_some(out.mip_gap),
+            nodes: out.mip_node_count,
+            seconds: out.running_time,
+            primal: None,
+        };
+        let mut deferred = self
+            .deferred
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        match kind {
-            ffi::kHighsCallbackMipSolution | ffi::kHighsCallbackMipImprovingSolution => {
-                let size = usize::try_from(out.mip_solution_size).unwrap_or(0);
-                if out.mip_solution.is_null() || size != self.capture.columns {
-                    return;
-                }
-                let primal = unsafe { std::slice::from_raw_parts(out.mip_solution, size) };
-                let incumbents = &mut captured.0;
-                if incumbents.recorded.len() >= self.capture.incumbents {
-                    incumbents.recorded.pop_front();
-                    incumbents.dropped += 1;
-                }
-                incumbents.recorded.push_back(Incumbent {
-                    improving: kind == ffi::kHighsCallbackMipImprovingSolution,
-                    seconds: out.running_time,
-                    objective: out.objective_function_value,
-                    nodes: out.mip_node_count,
-                    primal: primal.to_vec(),
-                });
-            }
-            ffi::kHighsCallbackMipGetCutPool if self.capture.cut_pool => {
-                captured.1 = diagnostics::CutPool::from_callback(out);
-            }
-            _ => {}
+        if self.capture.throttle.admit() {
+            *deferred = None;
+            incumbent.primal = self.capture.primal(native);
+        } else {
+            *deferred = Some((incumbent.clone(), native.to_vec()));
+        }
+        drop(deferred);
+        self.report(incumbent);
+    }
+    /// A deferred incumbent whose capture is due, observed with the search's current
+    /// bounds.
+    fn capture_deferred(&self, out: &ffi::HighsCallbackDataOut) {
+        if let Some(mut incumbent) = self.take_deferred() {
+            incumbent.dual_bound = self.capture.original(out.mip_dual_bound);
+            incumbent.gap = out.mip_gap.is_finite().then_some(out.mip_gap);
+            incumbent.nodes = out.mip_node_count;
+            incumbent.seconds = out.running_time;
+            self.report(incumbent);
+        }
+    }
+    /// The deferred incumbent with its solution in original coordinates.
+    fn take_deferred(&self) -> Option<IncumbentEvent> {
+        let (mut incumbent, native) = self
+            .deferred
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take()?;
+        incumbent.primal = self.capture.primal(&native);
+        Some(incumbent)
+    }
+    fn report(&self, incumbent: IncumbentEvent) {
+        self.execution.progress.push(Event {
+            phase: "highs.incumbent".into(),
+            elapsed: self.execution.started.elapsed(),
+            values: BTreeMap::new(),
+            incumbent: Some(incumbent),
+        });
+    }
+    /// Record the root cut pool (kind 7).
+    fn capture_cut_pool(&self, kind: i32, out: &ffi::HighsCallbackDataOut) {
+        if kind == ffi::kHighsCallbackMipGetCutPool && self.capture.cut_pool {
+            *self
+                .cut_pool
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                diagnostics::CutPool::from_callback(out);
         }
     }
 }
@@ -1247,18 +1320,32 @@ unsafe extern "C" fn callback(
     };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if let Some(out) = unsafe { out.as_ref() } {
+            if kind == ffi::kHighsCallbackMipImprovingSolution {
+                // The incumbent's objective and bounds travel with it, typed.
+                c.incumbent(out);
+                return;
+            }
             let mut values = BTreeMap::from([
                 ("kind".into(), Metric::Integer(i64::from(kind))),
                 ("seconds".into(), Metric::Real(out.running_time)),
             ]);
-            if matches!(kind, 3..=6) {
-                for (k, v) in [
-                    ("primal_bound", out.mip_primal_bound),
-                    ("dual_bound", out.mip_dual_bound),
-                    ("gap", out.mip_gap),
-                ] {
-                    values.insert(k.into(), Metric::Real(v));
-                }
+            if matches!(kind, 3 | 5 | 6) {
+                let bound = |v: f64| {
+                    c.capture.original(v).map_or(
+                        Metric::Unavailable(UnavailableReason::NotApplicable),
+                        Metric::Real,
+                    )
+                };
+                values.insert("primal_bound".into(), bound(out.mip_primal_bound));
+                values.insert("dual_bound".into(), bound(out.mip_dual_bound));
+                values.insert(
+                    "gap".into(),
+                    if out.mip_gap.is_finite() {
+                        Metric::Real(out.mip_gap)
+                    } else {
+                        Metric::Unavailable(UnavailableReason::NotApplicable)
+                    },
+                );
                 values.insert("nodes".into(), Metric::Integer(out.mip_node_count));
             }
             if kind == 1 {
@@ -1277,8 +1364,12 @@ unsafe extern "C" fn callback(
                 phase: "highs.callback".into(),
                 elapsed: c.execution.started.elapsed(),
                 values,
+                incumbent: None,
             });
-            c.capture(kind, out);
+            if matches!(kind, 5 | 6) && c.capture.throttle.deferred() {
+                c.capture_deferred(out);
+            }
+            c.capture_cut_pool(kind, out);
         }
     }));
     if result.is_err() {
@@ -1446,6 +1537,10 @@ mod tests {
         };
         session.solve(
             p,
+            &pse_math::normalization::Normalization::identity(
+                p.contract.variables.len(),
+                p.contract.rows.len(),
+            ),
             &controls,
             &ResolvedAccuracy::nominal(),
             &Settings {
@@ -1638,12 +1733,9 @@ mod tests {
                 &Controls::default(),
             ),
             panicked: AtomicBool::new(false),
-            capture: Capture {
-                columns: 0,
-                incumbents: 0,
-                cut_pool: false,
-            },
-            captured: std::sync::Mutex::new((Incumbents::default(), None)),
+            capture: Capture::none(),
+            deferred: std::sync::Mutex::new(None),
+            cut_pool: std::sync::Mutex::new(None),
         };
         let data = (&raw const callback_data).cast_mut().cast::<c_void>();
         for kind in ffi::kHighsCallbackLogging..=ffi::kHighsCallbackCallbackMipUserSolution {

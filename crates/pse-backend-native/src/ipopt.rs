@@ -391,6 +391,7 @@ unsafe extern "C" fn intermediate(
                 phase: "ipopt.iteration".into(),
                 elapsed: c.state.execution.started.elapsed(),
                 values,
+                incumbent: None,
             })
         })
         .is_some()

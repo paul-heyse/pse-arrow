@@ -21,6 +21,7 @@ use crate::bulk::{Cells, copy_in};
 use crate::error::{Classify, OperationsError, Target};
 use crate::generated::copy;
 use crate::listener::{Channel, Event, Subscription};
+use crate::solutions::{self, NewSolution};
 use crate::store::Store;
 pub use pse_model::generated::runtime::operational_incumbents::RuntimeOperationalIncumbentsRow;
 use pse_model::generated::runtime::operational_progress_events::RuntimeOperationalProgressEventsRow;
@@ -362,24 +363,49 @@ impl<'s> Streams<'s> {
         Ok(removed)
     }
 
-    /// Insert a batch of incumbents of one attempt; incumbents whose sequence number is
-    /// already stored are skipped. Returns the rows inserted.
+    /// Insert a batch of incumbents of one attempt together with the solutions they
+    /// capture, in one transaction: each of `solutions` is referenced by exactly one
+    /// incumbent of the batch and is stored with it (generated statements), then the
+    /// incumbents are copied. Incumbents whose sequence number is already stored are
+    /// skipped with their solutions, so a re-sent batch is idempotent. An incumbent may
+    /// also reference a solution stored earlier. Returns the incumbents inserted.
     ///
     /// # Errors
     ///
-    /// [`OperationsError::InvalidRequest`] for a batch naming several attempts; classified
-    /// driver failures.
+    /// [`OperationsError::InvalidRequest`] for a batch naming several attempts or a
+    /// solution no incumbent (or more than one) references; classified driver failures.
     pub async fn record_incumbents(
         &self,
         incumbents: &[RuntimeOperationalIncumbentsRow],
+        solutions: &[NewSolution],
     ) -> Result<u64, OperationsError> {
         let Some(attempt) = incumbents.first().map(|incumbent| incumbent.attempt_id) else {
-            return Ok(0);
+            return if solutions.is_empty() {
+                Ok(0)
+            } else {
+                Err(OperationsError::InvalidRequest {
+                    reason: "a captured solution without its incumbent".to_owned(),
+                })
+            };
         };
         if incumbents.iter().any(|incumbent| incumbent.attempt_id != attempt) {
             return Err(OperationsError::InvalidRequest {
                 reason: "an incumbent batch belongs to one attempt".to_owned(),
             });
+        }
+        for solution in solutions {
+            let references = incumbents
+                .iter()
+                .filter(|incumbent| incumbent.solution_id == Some(solution.solution_id))
+                .count();
+            if references != 1 {
+                return Err(OperationsError::InvalidRequest {
+                    reason: format!(
+                        "captured solution {} is referenced by {references} incumbents of the batch",
+                        solution.solution_id
+                    ),
+                });
+            }
         }
         let target = self.target();
         let mut client = self.store.client().await?;
@@ -403,6 +429,15 @@ impl<'s> Streams<'s> {
             .filter(|incumbent| !stored.contains(&incumbent.seq))
             .map(|incumbent| Ok((incumbent, utc("incumbents.at", incumbent.at)?)))
             .collect::<Result<Vec<_>, OperationsError>>()?;
+        // The solutions first: the incumbents reference them.
+        for (incumbent, _) in &fresh {
+            if let Some(solution) = solutions
+                .iter()
+                .find(|solution| incumbent.solution_id == Some(solution.solution_id))
+            {
+                solutions::insert(&tx, target, solution).await?;
+            }
+        }
         let mut rows: Vec<Cells<'_>> = Vec::with_capacity(fresh.len());
         for (incumbent, at) in &fresh {
             let id: &(dyn ToSql + Sync) = &incumbent.attempt_id;

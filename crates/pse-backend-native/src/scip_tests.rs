@@ -1759,3 +1759,146 @@ fn indicator_on_nonlinear_row_unenforced_in_fixed_assignment_resolve() {
     assert!(report.quality.as_ref().unwrap().feasible());
     assert_eq!(report.qualification, Qualification::GapQualified);
 }
+
+/// A strongly correlated 0-1 knapsack, `max Σ (wᵢ + 10)·xᵢ + 100` with `Σ wᵢ·xᵢ ≤ ½·Σ wᵢ`:
+/// small, but it needs a branch-and-bound search, and its objective carries a constant.
+fn knapsack_with_constant(registry: &QuantityRegistry) -> Case {
+    const ITEMS: usize = 24;
+    let weights: Vec<f64> = (0..ITEMS).map(|i| 30.0 + ((i * 37) % 71) as f64).collect();
+    let mut b = Body::new(registry, ITEMS);
+    let x = b.x.clone();
+    let mut load = None;
+    let mut value = None;
+    for (i, w) in weights.iter().enumerate() {
+        let weight = b.c(*w);
+        let term = b.op(Binary::Mul, &weight, &x[i]);
+        load = Some(match load {
+            Some(sum) => b.op(Binary::Add, &sum, &term),
+            None => term,
+        });
+        let price = b.c(*w + 10.0);
+        let term = b.op(Binary::Mul, &price, &x[i]);
+        value = Some(match value {
+            Some(sum) => b.op(Binary::Add, &sum, &term),
+            None => term,
+        });
+    }
+    let constant = b.c(100.0);
+    let objective = b.op(Binary::Add, &value.unwrap(), &constant);
+    let body = b.b.prepare(&[load.unwrap(), objective]).unwrap();
+    let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
+    case(
+        registry,
+        body,
+        &[binary; ITEMS],
+        &[(f64::NEG_INFINITY, 0.5 * weights.iter().sum::<f64>())],
+        Some((1, ObjectiveSense::Maximize)),
+        DerivativeOrder::Value,
+    )
+}
+
+/// Collects every event a solve reports, as a durable stream would.
+#[derive(Debug, Default)]
+struct Collected(std::sync::Mutex<Vec<crate::solve::Event>>);
+impl crate::solve::ProgressTap for Collected {
+    fn observe(&self, event: &crate::solve::Event) {
+        self.0.lock().unwrap().push(event.clone());
+    }
+}
+
+/// SCIP streams typed incumbents under the post-solve objective convention (Plan 22 G8):
+/// the objective constant applied whether SCIP holds it as its objective offset or the
+/// export holds it outside SCIP (reoptimization), solutions in program columns, and the
+/// last incumbent equal to the result. Dual-bound events carry the same offset; a new best
+/// solution is reported once, typed, not also as a bound event.
+#[test]
+fn scip_incumbent_events_apply_offset() {
+    let registry = standard_registry().unwrap();
+    let case = knapsack_with_constant(&registry);
+    let program = case.program(&FactorableRequest::default());
+    let n = program.variables.len();
+    let m = program.rows.len();
+    for reoptimize in [false, true] {
+        let settings = ScipSettings {
+            reoptimize,
+            ..ScipSettings::default()
+        };
+        let controls = Controls::default();
+        let accuracy = ResolvedAccuracy::nominal();
+        let tolerances = tolerances(n, m);
+        let normalization = Normalization::identity(n, m);
+        let mut original = Original(&case);
+        let initial = case.initial();
+        let tap = Arc::new(Collected::default());
+        let mut execution = execution(false);
+        execution.progress = Arc::new(crate::solve::Progress::tapped(controls.history, tap.clone()));
+        let report = execution::factorable(
+            Step {
+                adapter: execution::adapter(Backend::Scip),
+                settings: &BackendSettings::Scip(settings),
+                controls: &controls,
+                accuracy: &accuracy,
+                execution,
+                tolerances: &tolerances,
+                normalization: &normalization,
+                compatibility: stamp(Backend::Scip),
+                warm: None,
+            },
+            &mut Retained::default(),
+            Factorable {
+                program: &program,
+                initial: &initial,
+                intent: SolveIntent::Optimize,
+                original: &mut original,
+                resolve: None,
+            },
+        )
+        .unwrap();
+        assert_eq!(report.qualification, Qualification::GapQualified, "{reoptimize}");
+        let result = report.candidate.as_ref().unwrap().objective.unwrap();
+        let events = tap.0.lock().unwrap().clone();
+        let incumbents: Vec<&crate::solve::IncumbentEvent> =
+            events.iter().filter_map(|e| e.incumbent.as_ref()).collect();
+        assert!(!incumbents.is_empty(), "{reoptimize}: {events:?}");
+        // The first solution is captured at once; each captured solution evaluates, in the
+        // original model, to its reported objective, constant included.
+        assert!(incumbents[0].primal.is_some());
+        for incumbent in &incumbents {
+            if let Some(primal) = &incumbent.primal {
+                assert_eq!(primal.len(), n);
+                let value = Original(&case).evaluate(primal).unwrap().objective.unwrap();
+                assert!(
+                    (value - incumbent.objective).abs() < 1e-6,
+                    "{reoptimize}: {value} vs {}",
+                    incumbent.objective
+                );
+            }
+            // A maximization's dual bound is an upper bound on every incumbent.
+            assert!(incumbent.dual_bound.is_none_or(|d| d >= incumbent.objective - 1e-6));
+            // The empty knapsack is worth the constant alone.
+            assert!(incumbent.objective >= 100.0 - 1e-9);
+        }
+        for pair in incumbents.windows(2) {
+            assert!(pair[1].objective >= pair[0].objective - 1e-9, "{incumbents:?}");
+        }
+        let last = incumbents.last().unwrap();
+        assert!(
+            (last.objective - result).abs() < 1e-6,
+            "{reoptimize}: {} vs {result}",
+            last.objective
+        );
+        assert_eq!(
+            report.evidence.global.as_ref().unwrap().primal_bound,
+            Some(result)
+        );
+        // Bound events: offset applied (every dual bound bounds the optimum from above)
+        // and never a new best solution restated.
+        for event in events.iter().filter(|e| e.phase == "scip.bound") {
+            assert!(event.incumbent.is_none());
+            if let Some(crate::solve::Metric::Real(dual)) = event.values.get("dual_bound") {
+                assert!(*dual >= result - 1e-6, "{reoptimize}: {dual} < {result}");
+            }
+        }
+        assert!(events.iter().all(|e| e.incumbent.is_none() || e.phase == "scip.incumbent"));
+    }
+}

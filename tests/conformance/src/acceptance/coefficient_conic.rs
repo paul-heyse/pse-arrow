@@ -4,6 +4,14 @@ use super::fixtures::near;
 use pse_backend_native::{quality::Tolerances, solve::*, *};
 use pse_ids::{ContentHash, SemanticId};
 use std::sync::{Arc, atomic::AtomicBool};
+
+/// The coordinates of a problem that is its own original.
+fn identity(p: &CoefficientProblem) -> pse_math::normalization::Normalization {
+    pse_math::normalization::Normalization::identity(
+        p.contract.variables.len(),
+        p.contract.rows.len(),
+    )
+}
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
 }
@@ -68,6 +76,7 @@ fn coefficient_conic() {
         let mut r = session
             .solve(
                 &p,
+                &identity(&p),
                 &controls,
                 &accuracy,
                 &highs::Settings::default(),
@@ -177,6 +186,7 @@ fn coefficient_conic() {
         .unwrap()
         .solve(
             &p,
+            &identity(&p),
             &controls,
             &accuracy,
             &highs::Settings::default(),
@@ -212,6 +222,7 @@ fn coefficient_conic() {
             .unwrap()
             .solve(
                 &p,
+                &identity(&p),
                 &raw,
                 &accuracy,
                 &highs::Settings::default(),

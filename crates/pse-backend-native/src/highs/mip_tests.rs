@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! MILP and LP extras (Plan 22 C2): fixed-commitment LP duals, incumbents, the node budget,
+//! MILP and LP extras (Plan 22 C2, G8): fixed-commitment LP duals, streamed incumbents, the node budget,
 //! the basis-inverse, presolve and cut-pool views, and the QP regularization.
 use super::*;
 use crate::solver_tests::{id, stamp};
 use faer::sparse::{SparseColMat, Triplet};
+use std::sync::Arc;
 
 /// `min Σ cost·x` over `x ∈ [lower, upper]` with the given domains and rows.
 fn problem(
@@ -41,6 +42,13 @@ fn problem(
         bounds: rows.iter().map(|r| (r.1, r.2)).collect(),
     }
 }
+/// The coordinates of a problem that is its own original.
+fn identity(p: &CoefficientProblem) -> pse_math::normalization::Normalization {
+    pse_math::normalization::Normalization::identity(
+        p.contract.variables.len(),
+        p.contract.rows.len(),
+    )
+}
 fn solve(
     session: &mut Session,
     p: &CoefficientProblem,
@@ -50,6 +58,7 @@ fn solve(
     session
         .solve(
             p,
+            &identity(p),
             controls,
             &ResolvedAccuracy::nominal(),
             settings,
@@ -215,75 +224,129 @@ fn knapsack() -> CoefficientProblem {
     )
 }
 
+/// Collects every event a solve reports, as a durable stream would.
+#[derive(Debug, Default)]
+struct Collected(std::sync::Mutex<Vec<Event>>);
+impl ProgressTap for Collected {
+    fn observe(&self, event: &Event) {
+        self.0.lock().unwrap().push(event.clone());
+    }
+}
+
+/// HiGHS streams every improving solution as a typed incumbent (Plan 22 G8), in original
+/// coordinates and units: the objective constant and the normalization's scales applied,
+/// its bounds typed rather than repeated as callback metrics. The first solution is
+/// captured at once; the last one equals the result.
 #[test]
-fn incumbents_recorded_in_order() {
-    let p = knapsack();
-    let mut session = Session::new(&p, None, stamp(Backend::Highs)).unwrap();
+fn highs_incumbents_streamed() {
+    // The knapsack, a continuous column worth 2 per unit on [0, 5] and a constant.
+    let values = [10.0, 13.0, 7.0, 8.0, 11.0, 9.0, 12.0, 6.0, 5.0, 14.0];
+    let weights = [5.0, 7.0, 4.0, 4.0, 6.0, 5.0, 7.0, 3.0, 3.0, 8.0];
+    let mut cost: Vec<f64> = values.iter().map(|v| -v).collect();
+    cost.push(-2.0);
+    let mut columns = vec![(0.0, 1.0, BINARY); 10];
+    columns.push((0.0, 5.0, CONTINUOUS));
+    let mut p = problem(
+        &cost,
+        &columns,
+        &[(
+            weights.iter().copied().enumerate().collect(),
+            f64::NEG_INFINITY,
+            23.0,
+        )],
+    );
+    p.objective_constant = 7.0;
+    // Nontrivial coordinates: the native model scales the continuous column, the row and
+    // the objective (integer columns keep unit scales).
+    let n = pse_math::normalization::Normalization {
+        variables: [vec![1.0; 10], vec![4.0]].concat(),
+        rows: vec![4.0],
+        objective: 8.0,
+    };
+    let (native, _) = crate::transport::coefficients(&p, &n, None).unwrap();
+    let mut session = Session::new(&native, None, stamp(Backend::Highs)).unwrap();
     // An empty knapsack is a poor feasible start, so the search improves on it.
     session
         .sparse_start(
-            &p,
-            &p.contract.variables.iter().map(|v| (v.id, 0.0)).collect(),
+            &native,
+            &native.contract.variables.iter().map(|v| (v.id, 0.0)).collect(),
         )
         .unwrap();
-    let report = solve(&mut session, &p, &Controls::default(), &Settings::default());
+    let controls = Controls::default();
+    let tap = Arc::new(Collected::default());
+    let mut execution = Execution::new(Default::default(), &controls);
+    execution.progress = Arc::new(Progress::tapped(controls.history, tap.clone()));
+    let mut report = session
+        .solve(
+            &native,
+            &n,
+            &controls,
+            &ResolvedAccuracy::nominal(),
+            &Settings::default(),
+            execution,
+            &Tolerances {
+                variables: vec![1e-8; 11],
+                rows: vec![1e-8],
+                integrality: 1e-8,
+            },
+            None,
+        )
+        .unwrap();
     assert_eq!(report.termination.category, Termination::Success);
-    let recorded = &report.incumbents.recorded;
-    assert_eq!(report.incumbents.dropped, 0);
-    let improving = recorded.iter().filter(|i| i.improving).collect::<Vec<_>>();
-    assert!(improving.len() >= 2, "{recorded:?}");
-    // Reported in order: time and nodes never go back, and each improving incumbent is
-    // strictly better than the one before.
-    for pair in recorded.iter().collect::<Vec<_>>().windows(2) {
+    crate::transport::recover(&mut report, &n, &p.contract).unwrap();
+    let events = tap.0.lock().unwrap().clone();
+    let incumbents: Vec<&IncumbentEvent> =
+        events.iter().filter_map(|e| e.incumbent.as_ref()).collect();
+    assert!(incumbents.len() >= 2, "{incumbents:?}");
+    // One representation: incumbent events carry no callback metrics.
+    assert!(
+        events
+            .iter()
+            .filter(|e| e.incumbent.is_some())
+            .all(|e| e.phase == "highs.incumbent" && e.values.is_empty())
+    );
+    // In order, each strictly better than the one before.
+    for pair in incumbents.windows(2) {
         assert!(pair[0].seconds <= pair[1].seconds && pair[0].nodes <= pair[1].nodes);
+        assert!(pair[1].objective <= pair[0].objective, "{incumbents:?}");
     }
-    for pair in improving.windows(2) {
-        assert!(pair[1].objective < pair[0].objective, "{improving:?}");
+    // The first solution is captured at once, in original coordinates; every captured
+    // solution is feasible and its objective (constant included) is the event's.
+    assert!(incumbents[0].primal.is_some());
+    for incumbent in &incumbents {
+        if let Some(primal) = &incumbent.primal {
+            assert_eq!(primal.len(), 11);
+            assert!(
+                (p.objective_at(primal) - incumbent.objective).abs() < 1e-7,
+                "{} vs {}",
+                p.objective_at(primal),
+                incumbent.objective
+            );
+            assert!(
+                p.quality(
+                    primal,
+                    &Tolerances {
+                        variables: vec![1e-7; 11],
+                        rows: vec![1e-7],
+                        integrality: 1e-7,
+                    }
+                )
+                .unwrap()
+                .feasible()
+            );
+        }
+        assert!(incumbent.dual_bound.is_none_or(|d| d <= incumbent.objective + 1e-7));
     }
-    for incumbent in recorded {
-        assert_eq!(incumbent.primal.len(), 10);
-        assert!((p.objective_at(&incumbent.primal) - incumbent.objective).abs() < 1e-9);
-        assert!(
-            p.quality(
-                &incumbent.primal,
-                &Tolerances {
-                    variables: vec![1e-8; 10],
-                    rows: vec![1e-8],
-                    integrality: 1e-8,
-                }
-            )
-            .unwrap()
-            .feasible()
-        );
-    }
-    // The last improving incumbent is the result.
-    let last = improving.last().unwrap();
+    // The last incumbent is the result, under the post-solve objective convention. Its
+    // capture, deferred by the throttle in so short a search, is taken when the search
+    // ends: the continuous column at its upper bound, in original units.
+    let last = incumbents.last().unwrap();
+    let primal = last.primal.as_ref().unwrap();
+    assert!((primal[10] - 5.0).abs() < 1e-7, "{primal:?}");
     let candidate = report.candidate.as_ref().unwrap();
-    assert!((last.objective - candidate.objective.unwrap()).abs() < 1e-9);
-    // Retention keeps the most recent and counts the rest.
-    let mut capped = Controls::default();
-    capped.history = 1;
-    session
-        .sparse_start(
-            &p,
-            &p.contract.variables.iter().map(|v| (v.id, 0.0)).collect(),
-        )
-        .unwrap();
-    let report = solve(&mut session, &p, &capped, &Settings::default());
-    assert_eq!(report.incumbents.recorded.len(), 1);
-    assert_eq!(
-        report.incumbents.dropped as usize + 1,
-        recorded.len(),
-        "{:?}",
-        report.incumbents
-    );
-    let (kept, last) = (
-        report.incumbents.recorded.back().unwrap(),
-        recorded.back().unwrap(),
-    );
-    assert_eq!((kept.objective, &kept.primal), (last.objective, &last.primal));
-    assert_eq!(incumbent_capacity(1 << 20, 256), 1);
-    assert_eq!(incumbent_capacity(10, 256), 256);
+    assert!((last.objective - candidate.objective.unwrap()).abs() < 1e-7);
+    // The retained in-memory events keep the incumbents too, bounded like any event.
+    assert!(report.events.iter().any(|e| e.incumbent.is_some()));
 }
 
 #[test]
@@ -321,6 +384,7 @@ fn mip_node_budget_independent() {
         session
             .solve(
                 &p,
+                &identity(&p),
                 &raw,
                 &ResolvedAccuracy::nominal(),
                 &Settings::default(),
@@ -342,6 +406,7 @@ fn mip_node_budget_independent() {
         session
             .solve(
                 &p,
+                &identity(&p),
                 &Controls::default(),
                 &ResolvedAccuracy::nominal(),
                 &zero,

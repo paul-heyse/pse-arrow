@@ -114,6 +114,7 @@ impl BackendExecution for Highs {
             }
             let mut report = session.solve(
                 problem,
+                normalization,
                 input.controls,
                 input.accuracy,
                 settings,

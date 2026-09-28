@@ -9,7 +9,7 @@
 
 use pse_ids::ContentHash;
 use pse_model::generated::enums::NativeBackend;
-use pse_operations_queries::client::Params as _;
+use pse_operations_queries::client::{GenericClient, Params as _};
 use pse_operations_queries::queries::solutions as statements;
 
 use crate::attempts::AttemptId;
@@ -114,6 +114,72 @@ pub struct NewSolution {
     pub created_by: Option<AttemptId>,
 }
 
+/// Store one solution through `client`, alone or inside a caller's transaction.
+pub(crate) async fn insert<C: GenericClient>(
+    client: &C,
+    target: &Target,
+    solution: &NewSolution,
+) -> Result<RuntimeOperationalSolutionsRow, OperationsError> {
+    let none: Option<&[f64]> = None;
+    let (primal, lower, upper, columns, rows, barrier, basis) = match &solution.vectors {
+        SeedVectors::Root { primal } => {
+            (Some(primal.as_slice()), none, none, none, none, None, None)
+        }
+        SeedVectors::Nlp {
+            primal,
+            bounds,
+            rows,
+            barrier,
+        } => (
+            Some(primal.as_slice()),
+            bounds.as_ref().map(|b| b.0.as_slice()),
+            bounds.as_ref().map(|b| b.1.as_slice()),
+            none,
+            rows.as_deref(),
+            *barrier,
+            None,
+        ),
+        SeedVectors::Highs {
+            primal,
+            dual,
+            basis,
+        } => (
+            primal.as_deref(),
+            none,
+            none,
+            dual.as_ref().map(|d| d.0.as_slice()),
+            dual.as_ref().map(|d| d.1.as_slice()),
+            None,
+            basis.as_ref(),
+        ),
+    };
+    statements::insert_solution()
+        .params(
+            client,
+            &statements::InsertSolutionParams {
+                solution_id: solution.solution_id,
+                compatibility_stamp: solution.compatibility_stamp,
+                preparation_identity: solution.preparation_identity,
+                kind: solution.vectors.kind(),
+                backend: solution.backend,
+                profile_stamp: solution.profile_stamp,
+                data_stamp: solution.data_stamp,
+                primal,
+                lower_bound_duals: lower,
+                upper_bound_duals: upper,
+                column_duals: columns,
+                row_duals: rows,
+                barrier,
+                basis_columns: basis.map(|b| b.0.as_slice()),
+                basis_rows: basis.map(|b| b.1.as_slice()),
+                created_by: solution.created_by,
+            },
+        )
+        .one()
+        .await
+        .classify(target)
+}
+
 /// The solution repository.
 #[derive(Clone, Copy, Debug)]
 pub struct Solutions<'s> {
@@ -140,63 +206,37 @@ impl<'s> Solutions<'s> {
         &self,
         solution: &NewSolution,
     ) -> Result<RuntimeOperationalSolutionsRow, OperationsError> {
-        let none: Option<&[f64]> = None;
-        let (primal, lower, upper, columns, rows, barrier, basis) = match &solution.vectors {
-            SeedVectors::Root { primal } => {
-                (Some(primal.as_slice()), none, none, none, none, None, None)
-            }
-            SeedVectors::Nlp {
-                primal,
-                bounds,
-                rows,
-                barrier,
-            } => (
-                Some(primal.as_slice()),
-                bounds.as_ref().map(|b| b.0.as_slice()),
-                bounds.as_ref().map(|b| b.1.as_slice()),
-                none,
-                rows.as_deref(),
-                *barrier,
-                None,
-            ),
-            SeedVectors::Highs {
-                primal,
-                dual,
-                basis,
-            } => (
-                primal.as_deref(),
-                none,
-                none,
-                dual.as_ref().map(|d| d.0.as_slice()),
-                dual.as_ref().map(|d| d.1.as_slice()),
-                None,
-                basis.as_ref(),
-            ),
-        };
         let client = self.store.client().await?;
-        statements::insert_solution()
+        insert(&client, self.target(), solution).await
+    }
+
+    /// The newest solution compatible with `stamp` under `preparation` for `backend` that
+    /// an incumbent of `attempt` or of one of its ancestors (following `parent_attempt`)
+    /// references: the seed a resumed try starts from (Plan 22 G8). The nearest attempt of
+    /// the chain wins, then its latest incumbent.
+    ///
+    /// # Errors
+    ///
+    /// Classified driver failures.
+    pub async fn latest_in_attempt_chain(
+        &self,
+        attempt: AttemptId,
+        stamp: &ContentHash,
+        preparation: &ContentHash,
+        backend: NativeBackend,
+    ) -> Result<Option<RuntimeOperationalSolutionsRow>, OperationsError> {
+        let client = self.store.client().await?;
+        statements::latest_in_attempt_chain()
             .params(
                 &client,
-                &statements::InsertSolutionParams {
-                    solution_id: solution.solution_id,
-                    compatibility_stamp: solution.compatibility_stamp,
-                    preparation_identity: solution.preparation_identity,
-                    kind: solution.vectors.kind(),
-                    backend: solution.backend,
-                    profile_stamp: solution.profile_stamp,
-                    data_stamp: solution.data_stamp,
-                    primal,
-                    lower_bound_duals: lower,
-                    upper_bound_duals: upper,
-                    column_duals: columns,
-                    row_duals: rows,
-                    barrier,
-                    basis_columns: basis.map(|b| b.0.as_slice()),
-                    basis_rows: basis.map(|b| b.1.as_slice()),
-                    created_by: solution.created_by,
+                &statements::LatestInAttemptChainParams {
+                    attempt_id: attempt,
+                    compatibility_stamp: *stamp,
+                    preparation_identity: *preparation,
+                    backend,
                 },
             )
-            .one()
+            .opt()
             .await
             .classify(self.target())
     }

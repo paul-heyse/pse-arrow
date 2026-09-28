@@ -1,25 +1,29 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! The `pse-worker` binary end to end (Plan 22 O4, O6): a job is enqueued in an isolated
-//! operational store, the worker runs it in a child process and records its attempt, and
-//! another process reuses the seed the worker stored. Run with `just worker-test`.
+//! The `pse-worker` binary end to end (Plan 22 O4, O6, G8): a job is enqueued in an
+//! isolated operational store, the worker runs it in a child process and records its
+//! attempt, and another process reuses the seed the worker stored. A worker killed in a
+//! long SCIP solve is resumed from its stored incumbent, and a cancellation from another
+//! process stops SCIP. Run with `just worker-test`.
 use pse_backend_native::{
     presolve::PolicyKind,
-    solve::{Backend, SolveIntent},
+    solve::{Backend, Metric, SolveIntent},
 };
 use pse_operations::{
-    attempts::{NativeTermination, TerminationCode},
-    jobs::{JobState, RetryPolicy},
+    attempts::{AttemptId, NativeTermination, RuntimeTermination, TerminationCode},
+    cancellation::CancelOutcome,
+    jobs::{Finished, JobState, RetryPolicy},
     lifecycle::AttemptState,
+    streams::ProgressValue,
     testing::TestDatabase,
 };
 use pse_runtime::{
     CancelSource, SharedRuntime,
     authoring_driver::document::{OwnedDocumentSet, load_package_texts_owned},
-    math::settings::SolveSettings,
+    math::{settings::SolveSettings, solves::Outcome},
     workflow::{
-        Durability, JobStart, LeasePolicy, ModelingJob, ModelingPackage, Operations,
-        RunDurability, Runtime, StartSource, StoredStart,
+        Durability, JobStart, LeasePolicy, ModelingJob, ModelingPackage, Operations, Processed,
+        RunDurability, RunReport, RunRequest, Runtime, StartSource, StoredStart,
     },
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc};
@@ -291,10 +295,10 @@ async fn stored_seed_reused_across_processes(
         AttemptState::Completed
     );
     // The native start receipt shows the stored seed was submitted.
-    let pse_runtime::workflow::RunReport::Modeling(steps) = result.report().unwrap() else {
+    let RunReport::Modeling(steps) = result.report().unwrap() else {
         panic!()
     };
-    let pse_runtime::math::solves::Outcome::Native(native) = &steps[0].outcome else {
+    let Outcome::Native(native) = &steps[0].outcome else {
         panic!()
     };
     let receipt = native.start_receipt.as_ref().unwrap();
@@ -310,4 +314,430 @@ async fn stored_seed_reused_across_processes(
     let lineage =
         |r: &pse_runtime::workflow::RunResult| r.completion().unwrap().lineage[0].request_identity;
     assert_ne!(lineage(&result), lineage(&plain));
+}
+
+// ------------------------------------------------------ durable long solves (G8) --
+
+/// The physical primitives with a dimensionless indicator kind and type, so an authored
+/// model can declare binary decisions (ADR-0103: a discrete domain needs a count or
+/// indicator quantity).
+fn physical_with_indicator() -> BTreeMap<String, String> {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
+    let mut physical = texts(&fixtures.join("physical-primitives"));
+    let document = physical.get_mut("materials/physical.yaml").unwrap();
+    let zero = r#"{"num": 0, "den": 1}"#;
+    let dimension = vec![zero; 8].join(", ");
+    let kind = format!(
+        r#""quantity_kinds": [
+    {{"quantity_kind_id": "18181818181818181818181818181818", "name": "indicator",
+      "dimension": [{dimension}], "extensive": false, "addition_kind": "additive",
+      "category": "indicator", "doc": "Zero-or-one decisions."}},"#
+    );
+    let ty = r#""quantity_types": [
+    {"quantity_type_id": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c",
+      "quantity_kind_id": "18181818181818181818181818181818", "basis_id": null,
+      "reference_state_id": null, "scale_kind": "point", "shape": [], "subject_kind": null,
+      "canonical_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a", "nominal_magnitude": null,
+      "doc": "Zero-or-one decision."},"#;
+    *document = document
+        .replacen(r#""quantity_kinds": ["#, &kind, 1)
+        .replacen(r#""quantity_types": ["#, ty, 1);
+    physical
+}
+
+/// A market-split problem with a squared deviation: `min Σᵢ sᵢ²` where
+/// `sᵢ = Σⱼ aᵢⱼ·xⱼ − bᵢ` over 30 binary decisions and four rows, `bᵢ = ⌊Σⱼ aᵢⱼ / 2⌋`.
+/// SCIP finds incumbents at once (the empty split is one) but proving optimality takes far
+/// longer than any test allows, so a time limit ends every try. Deterministic coefficients.
+fn market_split() -> String {
+    const ROWS: usize = 4;
+    const COLUMNS: usize = 30;
+    let mut state: u64 = 0x9e37_79b9_7f4a_7c15;
+    let mut next = || {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        state % 100
+    };
+    let mut body = String::new();
+    for j in 0..COLUMNS {
+        body.push_str(&format!(
+            "var x{j}: Indicator in binary; annotation start x{j}(0{{dimensionless}}); "
+        ));
+    }
+    let mut deviation = Vec::new();
+    for i in 0..ROWS {
+        let a: Vec<u64> = (0..COLUMNS).map(|_| next()).collect();
+        let b = a.iter().sum::<u64>() / 2;
+        let terms: Vec<String> = a.iter().enumerate().map(|(j, a)| format!("{a}*x{j}")).collect();
+        body.push_str(&format!(
+            "var s{i}: Scalar; annotation bounds s{i}(-5000, 5000); annotation start s{i}(0); \
+             eq split{i}: {} - s{i} == {b}; ",
+            terms.join(" + ")
+        ));
+        deviation.push(format!("s{i}*s{i}"));
+    }
+    format!(
+        "package algebraic {{ def Root {{ {body}\
+         let deviation: Scalar = {}; \
+         annotation objective deviation(minimize); annotation report deviation(\"deviation\"); }} }}",
+        deviation.join(" + ")
+    )
+}
+
+/// The modeling sources of `source` with `Scalar` and `Indicator` aliases.
+fn discrete_sources(source: &str) -> BTreeMap<String, String> {
+    let (_, mut modeling) = sources();
+    let manifest = modeling.get_mut("package.toml").unwrap();
+    manifest.push_str(
+        "\n[[quantity_aliases]]\nname = \"Indicator\"\nquantity_type_id = \"1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c\"\n",
+    );
+    modeling.insert("models/root.pse".to_owned(), source.to_owned());
+    modeling
+}
+
+/// The long SCIP job: the market split, optimized by SCIP under a time limit.
+async fn long_scip_job(
+    shared: &SharedRuntime,
+    local: &Runtime,
+    operations: &Operations,
+    start: JobStart,
+    time_limit: std::time::Duration,
+) -> ModelingJob {
+    let physical = physical_with_indicator();
+    let modeling = discrete_sources(&market_split());
+    let package = package(shared, local, &physical, &modeling).await;
+    let case = package
+        .declarations()
+        .iter()
+        .find(|d| d.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let mut settings = SolveSettings {
+        intent: SolveIntent::Optimize,
+        backend: Some(Backend::Scip),
+        ..SolveSettings::default()
+    };
+    settings.controls.time_limit = time_limit;
+    ModelingJob {
+        version: pse_model::document::Version,
+        physical: operations.put_sources(&physical).await.unwrap(),
+        modeling: vec![operations.put_sources(&modeling).await.unwrap()],
+        case: case.as_id(),
+        route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+        settings,
+        start,
+    }
+}
+
+/// Spawn the worker binary against `url`, serving until idle with a short lease.
+fn spawn_worker(url: &str, name: &str, lease_seconds: u64) -> std::process::Child {
+    std::process::Command::new(env!("CARGO_BIN_EXE_pse-worker"))
+        .args([
+            "--url",
+            url,
+            "--name",
+            name,
+            "--until-idle",
+            "--lease-seconds",
+            &lease_seconds.to_string(),
+            "--heartbeat-ms",
+            "200",
+            "--memory-mib",
+            "8192",
+            "--threads",
+            "2",
+        ])
+        .spawn()
+        .unwrap()
+}
+
+/// Poll `probe` every 100 ms until it holds, for at most `limit`.
+async fn until<F: Future<Output = bool>>(
+    limit: std::time::Duration,
+    what: &str,
+    mut probe: impl FnMut() -> F,
+) {
+    let deadline = tokio::time::Instant::now() + limit;
+    while !probe().await {
+        assert!(tokio::time::Instant::now() < deadline, "timed out: {what}");
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+}
+
+/// Refuse to keep waiting on an attempt that already ended: its search is over.
+async fn searching(operations: &Operations, attempt: AttemptId) {
+    let stored = operations.store().attempts().get(attempt).await.unwrap();
+    assert!(
+        !matches!(
+            stored.state,
+            AttemptState::Completed
+                | AttemptState::Partial
+                | AttemptState::Failed
+                | AttemptState::Cancelled
+        ),
+        "the try ended before its search was observed: {stored:?}"
+    );
+}
+
+/// The stored incumbents of an attempt, in order: objective and captured solution.
+async fn incumbents(
+    database: &TestDatabase,
+    attempt: AttemptId,
+) -> Vec<(f64, Option<String>)> {
+    let session = database.session().await.unwrap();
+    session
+        .texts(&format!(
+            "SELECT objective::text, solution_id::text FROM pse_ops.incumbents \
+             WHERE attempt_id = '{attempt}'::uuid ORDER BY seq"
+        ))
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|row| (row[0].as_deref().unwrap().parse().unwrap(), row[1].clone()))
+        .collect()
+}
+
+/// A worker process dies in a long SCIP solve once an incumbent is stored (Plan 22 S16):
+/// its lease expires, the stale sweep requeues the job as a new attempt whose parent is the
+/// dead one, and the next worker resumes from the stored incumbent: its start sources name
+/// the solution, SCIP stores it as a start, and its result is no worse.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
+    let database = TestDatabase::create().await.unwrap();
+    let policy = LeasePolicy {
+        lease: std::time::Duration::from_secs(2),
+        heartbeat: std::time::Duration::from_millis(200),
+        ..LeasePolicy::default()
+    };
+    let operations = Operations::connect(database.url(), "enqueuer", policy)
+        .await
+        .unwrap();
+    let (shared, local) = scip_runtime();
+    let job = long_scip_job(
+        &shared,
+        &local,
+        &operations,
+        JobStart::ResumeFromParent,
+        std::time::Duration::from_secs(8),
+    )
+    .await;
+    let enqueued = operations
+        .enqueue(
+            &job,
+            "market-split",
+            RetryPolicy {
+                max_tries: 2,
+                backoff: std::time::Duration::ZERO,
+                backoff_cap: std::time::Duration::ZERO,
+            },
+            0,
+        )
+        .await
+        .unwrap();
+    let first = enqueued.attempt_id();
+
+    // The first worker runs the solve in its own process; once an incumbent with its
+    // solution is stored, the process is killed.
+    let started = tokio::time::Instant::now();
+    let mut worker = spawn_worker(database.url(), "worker-killed", 2);
+    until(std::time::Duration::from_secs(40), "a captured incumbent", || async {
+        searching(&operations, first).await;
+        incumbents(&database, first).await.iter().any(|(_, s)| s.is_some())
+    })
+    .await;
+    worker.kill().unwrap();
+    let status = worker.wait().unwrap();
+    assert!(!status.success(), "{status}");
+    let stored = incumbents(&database, first).await;
+    let (objective, solution) = stored
+        .iter()
+        .rev()
+        .find_map(|(objective, solution)| solution.clone().map(|s| (*objective, s)))
+        .unwrap();
+    let store = operations.store();
+    assert_eq!(
+        store.attempts().get(first).await.unwrap().state,
+        AttemptState::Running,
+        "the killed process never ended its try"
+    );
+
+    // The lease expires: the sweep marks the attempt stale and requeues the job.
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(20);
+    let requeued = loop {
+        let recovery = operations.recover().await.unwrap();
+        if let Some(requeue) = recovery.requeued.iter().find(|r| r.stale_attempt == first) {
+            break requeue.outcome;
+        }
+        assert!(tokio::time::Instant::now() < deadline, "timed out: the stale sweep");
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    };
+    let Finished::Requeued { attempt_id: second, .. } = requeued else {
+        panic!("{requeued:?}")
+    };
+    assert_eq!(
+        store.attempts().get(first).await.unwrap().state,
+        AttemptState::Superseded
+    );
+    assert_eq!(
+        store.attempts().get(second).await.unwrap().parent_attempt,
+        Some(first)
+    );
+
+    // The next worker claims the new attempt and resumes from the stored incumbent.
+    let resumer = local.clone().with_durability(Durability::Durable(Operations::from_store(
+        store.clone(),
+        "worker-resume",
+        policy,
+    )));
+    let (processed, result) = resumer.work_once_with_result().await.unwrap();
+    let Processed::Ran { record, .. } = &processed else {
+        panic!("{processed:?}")
+    };
+    assert_eq!(record.attempt_id, second);
+    let result = result.unwrap_or_else(|| panic!("the resumed try did not run: {record:?}"));
+    // The attempt's stream records the resume and the solution it started from.
+    let progress = record.progress.as_ref().unwrap();
+    let start = progress.iter().find(|e| e.phase == "job.start").unwrap();
+    assert_eq!(
+        start.values["requested"],
+        ProgressValue::Text("resume_from_parent".into())
+    );
+    assert_eq!(start.values["solution"], ProgressValue::Text(solution.replace('-', "")));
+    let RunRequest::Modeling(requests) = result.request() else {
+        panic!()
+    };
+    let solution_id = requests[0]
+        .starts
+        .values()
+        .find_map(|s| match s {
+            StartSource::Stored { solution } => Some(*solution),
+            _ => None,
+        })
+        .expect("the start sources name the stored incumbent");
+    assert_eq!(solution_id.to_string(), solution.replace('-', ""));
+    let RunReport::Modeling(steps) = result.report().unwrap() else {
+        panic!()
+    };
+    let Outcome::Native(native) = &steps[0].outcome else {
+        panic!("{:?}", steps[0].outcome)
+    };
+    assert_eq!(native.backend, Backend::Scip);
+    assert_eq!(
+        native.metrics.get("scip.incumbent.stored"),
+        Some(&Metric::Bool(true))
+    );
+    assert!(native.start_receipt.as_ref().unwrap().submitted);
+    // Its result is no worse than the incumbent it resumed from.
+    let resumed = native.candidate.as_ref().unwrap().objective.unwrap();
+    assert!(
+        resumed <= objective + 1e-6 * objective.abs().max(1.0),
+        "resumed {resumed} vs stored {objective}"
+    );
+    let job = store.jobs().get(enqueued.job_id()).await.unwrap();
+    assert_ne!(job.state, JobState::Running);
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(60),
+        "{:?}",
+        started.elapsed()
+    );
+    drop((resumer, local, shared, operations, result));
+    database.remove().await.unwrap();
+}
+
+/// A cancellation requested from another process's connection stops a SCIP solve running
+/// in a worker process: the durable flag reaches the native interrupt through the
+/// worker's watcher, and the attempt ends cancelled long before the solve's time limit.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn cross_process_cancel_stops_scip() {
+    let database = TestDatabase::create().await.unwrap();
+    let operations = Operations::connect(database.url(), "enqueuer", LeasePolicy::default())
+        .await
+        .unwrap();
+    let (shared, local) = scip_runtime();
+    let job = long_scip_job(
+        &shared,
+        &local,
+        &operations,
+        JobStart::Fresh,
+        std::time::Duration::from_secs(120),
+    )
+    .await;
+    let enqueued = operations
+        .enqueue(&job, "market-split-cancel", RetryPolicy::ONCE, 0)
+        .await
+        .unwrap();
+    let attempt = enqueued.attempt_id();
+    let mut worker = spawn_worker(database.url(), "worker-cancelled", 30);
+    // SCIP is searching once its first incumbent is stored.
+    until(std::time::Duration::from_secs(40), "a stored incumbent", || async {
+        searching(&operations, attempt).await;
+        !incumbents(&database, attempt).await.is_empty()
+    })
+    .await;
+    let requested = tokio::time::Instant::now();
+    let store = database.store();
+    assert_eq!(
+        store.request_cancel(attempt, "test").await.unwrap(),
+        CancelOutcome::Requested
+    );
+    let status = tokio::task::spawn_blocking(move || worker.wait().unwrap())
+        .await
+        .unwrap();
+    assert!(status.success(), "{status}");
+    assert!(
+        requested.elapsed() < std::time::Duration::from_secs(30),
+        "{:?}",
+        requested.elapsed()
+    );
+    let stored = store.attempts().get(attempt).await.unwrap();
+    assert_eq!(stored.state, AttemptState::Cancelled);
+    assert_eq!(
+        TerminationCode::of(&stored).unwrap(),
+        Some(TerminationCode::Runtime(RuntimeTermination::Cancelled))
+    );
+    assert_eq!(
+        store.jobs().get(enqueued.job_id()).await.unwrap().state,
+        JobState::Cancelled
+    );
+    drop((local, shared, operations));
+    database.remove().await.unwrap();
+}
+
+/// A runtime budgeted as the worker binary is with `--memory-mib 8192`, whose native jobs
+/// admit SCIP's memory limit (the default foreign allowance).
+fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
+    let n = |v| NonZeroUsize::new(v).unwrap();
+    let memory: usize = 8 << 30;
+    let shared = SharedRuntime::build(pse_runtime::ResourceBudget {
+        memory_limit_bytes: n(memory),
+        spill_dir: std::env::temp_dir(),
+        max_temp_dir_bytes: 1 << 30,
+        top_consumers: n(5),
+        threads: pse_engine::ThreadBudget {
+            pool_threads: n(2),
+            target_partitions: n(1),
+        },
+        execution: Default::default(),
+        cache: pse_runtime::DeltaCacheBudget::disabled(1024),
+        math: pse_runtime::math::MathPolicy {
+            workspace_bytes: memory / 8,
+            worker_bytes: memory / 16,
+            artifact_bytes: memory / 8,
+            ..Default::default()
+        },
+        hashing_may_use_pool: false,
+    })
+    .unwrap();
+    let registry = pse_schema::shared_registry().unwrap();
+    pse_engine::validation::bind_defaults(&registry).unwrap();
+    let sessions = Arc::new(
+        shared
+            .session_factory(pse_engine::session::native_engine_profile())
+            .unwrap(),
+    );
+    (
+        shared.clone(),
+        Runtime::from_shared(shared, registry, sessions),
+    )
 }

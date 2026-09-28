@@ -159,6 +159,9 @@ pub struct ClaimedJob {
     pub job_id: JobId,
     /// The attempt this try runs as.
     pub attempt_id: AttemptId,
+    /// The try this one supersedes, for a requeued job: its incumbents are where a
+    /// resumed solve starts (Plan 22 G8). `None` for the first try.
+    pub parent_attempt: Option<AttemptId>,
     /// The payload format version.
     pub payload_version: i32,
     /// The payload.
@@ -481,6 +484,7 @@ impl<'s> Jobs<'s> {
         Ok(Some(ClaimedJob {
             job_id: job.job_id,
             attempt_id: job.attempt_id,
+            parent_attempt: attempt.parent_attempt,
             payload_version: job.payload_version,
             payload: serde_json::from_str(&job.payload).map_err(|error| {
                 OperationsError::CorruptValue {

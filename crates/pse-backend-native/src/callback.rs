@@ -147,6 +147,7 @@ impl CallbackState {
                     Metric::Bool(failure == Failure::Trial),
                 ),
             ]),
+            incumbent: None,
         });
         match failure {
             Failure::Trial => {}

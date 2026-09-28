@@ -566,6 +566,7 @@ impl Session {
                     phase: "clarabel.iteration".into(),
                     elapsed: callback.started.elapsed(),
                     values: metrics(info),
+                    incumbent: None,
                 });
                 callback.stopped().is_some()
             });

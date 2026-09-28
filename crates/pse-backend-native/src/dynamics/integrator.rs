@@ -881,6 +881,7 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
                 ("time".into(), crate::solve::Metric::Real(time)),
                 ("steps".into(), crate::solve::Metric::Integer(*steps as i64)),
             ]),
+            incumbent: None,
         });
         if root.is_some() {
             s.state_mut_back(time).map_err(native)?;
