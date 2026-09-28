@@ -13,11 +13,14 @@
 //! running under a heartbeat lease, then completed, partial, failed or cancelled with its
 //! typed termination. The durable `cancel_requested` flag is the cancellation authority;
 //! the heartbeat returns it and a `LISTEN` watcher only shortens latency (T03). Its
-//! progress streams to the store without an event cap, its reusable seeds are stored by
-//! coordinate-compatibility stamp, and the published relations derive from those records.
+//! progress streams to the store without an event cap; a branch-and-bound search's
+//! incumbents stream beside it, each captured solution stored as a seed of its step while
+//! the search runs, so a killed worker's successor can resume from it (Plan 22 G8). Its
+//! reusable seeds are stored by coordinate-compatibility stamp, and the published
+//! relations derive from those records.
 use super::{RunReport, RunRequest, RunResult, WorkflowError};
 use pse_backend_native::solve::{
-    Compatibility, Event, Metric, ProgressTap, WarmPayload, WarmStart,
+    Compatibility, Event, IncumbentEvent, Metric, ProgressTap, WarmPayload, WarmStart,
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_model::generated::enums::CandidateUse;
@@ -30,7 +33,7 @@ use pse_operations::{
     jobs::{Finished, JobId, JobOutcome, Requeue},
     lifecycle::AttemptState,
     solutions::{NewSolution, RuntimeOperationalSolutionsRow, SeedVectors, SolutionId},
-    streams::{ProgressEvent, ProgressValue, Retention},
+    streams::{ProgressEvent, ProgressValue, Retention, RuntimeOperationalIncumbentsRow},
 };
 use std::{
     sync::{
@@ -315,11 +318,14 @@ impl DurableAttempt {
         self.stream.tap.clone()
     }
 
-    /// The step later progress events belong to.
-    pub(super) fn set_step(&self, step: usize) {
-        self.stream
-            .tap
-            .step
+    /// The step later progress events belong to, and where its incumbents' captured
+    /// solutions are stored (none for a constant evaluation).
+    pub(super) fn set_step(&self, step: usize, seed: Option<SeedContext>) {
+        let tap = &self.stream.tap;
+        if let Ok(mut current) = tap.seed.lock() {
+            *current = seed.map(Arc::new);
+        }
+        tap.step
             .store(i32::try_from(step).unwrap_or(i32::MAX), Ordering::Release);
     }
 
@@ -771,28 +777,51 @@ impl Heartbeat {
 
 // --------------------------------------------------------------------- stream --
 
-/// One observed native event and the step it belongs to.
-type Observed = (i32, chrono::DateTime<chrono::Utc>, Event);
+/// Where a step's incumbent solutions are stored: the coordinate-compatibility stamps and
+/// the seed preparation identity a warm start of that step is keyed by.
+#[derive(Clone, Debug)]
+pub(super) struct SeedContext {
+    /// The step's compatibility stamps and backend.
+    pub(super) compatibility: Compatibility,
+    /// The step's seed preparation identity.
+    pub(super) preparation: ContentHash,
+}
+
+/// One observed native event, the step it belongs to and, for an incumbent with its
+/// solution, where that step's seeds are stored.
+type Observed = (
+    i32,
+    chrono::DateTime<chrono::Utc>,
+    Event,
+    Option<Arc<SeedContext>>,
+);
 
 /// The progress tap of a durable attempt; never blocks the native thread.
 #[derive(Debug)]
 struct Tap {
     step: AtomicI32,
+    seed: Mutex<Option<Arc<SeedContext>>>,
     sender: Mutex<Option<tokio::sync::mpsc::UnboundedSender<Observed>>>,
 }
 
 impl ProgressTap for Tap {
     fn observe(&self, event: &Event) {
         let step = self.step.load(Ordering::Acquire);
+        let seed = event
+            .incumbent
+            .as_ref()
+            .filter(|incumbent| incumbent.primal.is_some())
+            .and_then(|_| self.seed.lock().ok().and_then(|seed| seed.clone()));
         if let Ok(sender) = self.sender.lock()
             && let Some(sender) = sender.as_ref()
         {
-            let _ = sender.send((step, chrono::Utc::now(), event.clone()));
+            let _ = sender.send((step, chrono::Utc::now(), event.clone(), seed));
         }
     }
 }
 
-/// Writes a durable attempt's progress in batched inserts, numbering events in order.
+/// Writes a durable attempt's progress and incumbents in batched inserts, numbering each
+/// stream in order.
 #[derive(Debug)]
 struct Streamer {
     tap: Arc<Tap>,
@@ -809,30 +838,63 @@ fn value(metric: &Metric) -> ProgressValue {
     }
 }
 
+/// One batch of a durable attempt's streams: progress events, and incumbents with the
+/// solutions they capture.
+#[derive(Debug, Default)]
+struct Batch {
+    progress: Vec<ProgressEvent>,
+    incumbents: Vec<RuntimeOperationalIncumbentsRow>,
+    solutions: Vec<NewSolution>,
+}
+
+impl Batch {
+    fn len(&self) -> usize {
+        self.progress.len() + self.incumbents.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    fn clear(&mut self) {
+        self.progress.clear();
+        self.incumbents.clear();
+        self.solutions.clear();
+    }
+}
+
+/// The next sequence numbers of an attempt's two streams.
+#[derive(Debug, Default)]
+struct Sequences {
+    progress: i64,
+    incumbents: i64,
+}
+
 impl Streamer {
     fn spawn(operations: &Operations, attempt: AttemptId) -> Self {
         let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Observed>();
         let tap = Arc::new(Tap {
             step: AtomicI32::new(0),
+            seed: Mutex::new(None),
             sender: Mutex::new(Some(sender)),
         });
         let operations = operations.clone();
         let task = tokio::spawn(async move {
             let policy = operations.policy;
-            let mut seq = 0_i64;
-            let mut batch: Vec<ProgressEvent> = Vec::with_capacity(policy.batch);
+            let mut sequences = Sequences::default();
+            let mut batch = Batch::default();
             let mut open = true;
             while open {
                 // Wait for the first event, then gather until the batch is full, the flush
                 // interval passed or the stream closed.
                 match receiver.recv().await {
-                    Some(observed) => batch.push(event(&mut seq, observed)),
+                    Some(observed) => batch.push(attempt, &mut sequences, observed),
                     None => open = false,
                 }
                 let deadline = tokio::time::Instant::now() + policy.flush;
                 while open && batch.len() < policy.batch {
                     match tokio::time::timeout_at(deadline, receiver.recv()).await {
-                        Ok(Some(observed)) => batch.push(event(&mut seq, observed)),
+                        Ok(Some(observed)) => batch.push(attempt, &mut sequences, observed),
                         Ok(None) => open = false,
                         Err(_) => break,
                     }
@@ -867,38 +929,87 @@ impl Streamer {
     }
 }
 
-fn event(seq: &mut i64, (step, at, event): Observed) -> ProgressEvent {
-    let this = *seq;
-    *seq += 1;
-    ProgressEvent {
-        seq: this,
-        step,
-        at,
-        elapsed_seconds: event.elapsed.as_secs_f64(),
-        phase: event.phase,
-        values: event
-            .values
-            .iter()
-            .map(|(name, metric)| (name.clone(), value(metric)))
-            .collect(),
+impl Batch {
+    /// An incumbent joins the incumbent stream, its captured solution stored as a seed of
+    /// its step; every other event joins the progress stream.
+    fn push(&mut self, attempt: AttemptId, sequences: &mut Sequences, observed: Observed) {
+        let (step, at, event, seed) = observed;
+        if let Some(incumbent) = &event.incumbent {
+            let solution = captured(attempt, incumbent, seed.as_deref());
+            self.incumbents.push(RuntimeOperationalIncumbentsRow {
+                attempt_id: attempt,
+                seq: sequences.incumbents,
+                at: at.timestamp_micros(),
+                objective: incumbent.objective,
+                dual_bound: incumbent.dual_bound,
+                gap: incumbent.gap,
+                solution_id: solution.as_ref().map(|s| s.solution_id),
+            });
+            sequences.incumbents += 1;
+            self.solutions.extend(solution);
+            return;
+        }
+        self.progress.push(ProgressEvent {
+            seq: sequences.progress,
+            step,
+            at,
+            elapsed_seconds: event.elapsed.as_secs_f64(),
+            phase: event.phase,
+            values: event
+                .values
+                .iter()
+                .map(|(name, metric)| (name.clone(), value(metric)))
+                .collect(),
+        });
+        sequences.progress += 1;
     }
 }
 
-/// Append one batch, retrying transient store failures a bounded number of times.
+/// The seed an incumbent's captured solution is stored as: the primal start of its step's
+/// backend, keyed like the step's output seed. Absent without a captured solution or a
+/// seed context (a constant evaluation stores no seed).
+fn captured(
+    attempt: AttemptId,
+    incumbent: &IncumbentEvent,
+    seed: Option<&SeedContext>,
+) -> Option<NewSolution> {
+    let (primal, seed) = (incumbent.primal.as_ref()?, seed?);
+    let payload = pse_backend_native::execution::adapter(seed.compatibility.backend)
+        .primal_start(primal.clone())
+        .ok()?;
+    Some(NewSolution {
+        solution_id: pse_operations::mint_id(),
+        compatibility_stamp: seed.compatibility.layout,
+        preparation_identity: seed.preparation,
+        backend: seed.compatibility.backend,
+        profile_stamp: seed.compatibility.profile,
+        data_stamp: seed.compatibility.data,
+        vectors: seed_vectors(&payload),
+        created_by: Some(attempt),
+    })
+}
+
+/// Append one batch, retrying transient store failures a bounded number of times. Both
+/// streams are idempotent per sequence number, so a retried batch never duplicates.
 async fn append(
     operations: &Operations,
     attempt: AttemptId,
-    batch: &[ProgressEvent],
+    batch: &Batch,
 ) -> Result<(), WorkflowError> {
+    let streams = operations.store.streams();
+    let write = || async {
+        if !batch.progress.is_empty() {
+            streams.append_progress(attempt, &batch.progress).await?;
+        }
+        streams
+            .record_incumbents(&batch.incumbents, &batch.solutions)
+            .await?;
+        Ok::<(), OperationsError>(())
+    };
     let mut delay = Duration::from_millis(50);
     for _ in 0..5 {
-        match operations
-            .store
-            .streams()
-            .append_progress(attempt, batch)
-            .await
-        {
-            Ok(_) => return Ok(()),
+        match write().await {
+            Ok(()) => return Ok(()),
             Err(error) if error.is_retryable() => {
                 tokio::time::sleep(delay).await;
                 delay = delay.saturating_mul(2);
@@ -906,12 +1017,7 @@ async fn append(
             Err(error) => return Err(error.into()),
         }
     }
-    Ok(operations
-        .store
-        .streams()
-        .append_progress(attempt, batch)
-        .await
-        .map(|_| ())?)
+    Ok(write().await?)
 }
 
 // ---------------------------------------------------------------------- seeds --

@@ -80,8 +80,16 @@ fn at(seconds: i64) -> DateTime<Utc> {
 
 /// Create an attempt and drive it through the lifecycle to `completed`.
 async fn finished_attempt(store: &Store) -> AttemptId {
+    finished_try(store, None).await
+}
+
+/// [`finished_attempt`], as the retry of `parent` when one is given.
+async fn finished_try(store: &Store, parent: Option<AttemptId>) -> AttemptId {
     let attempts = store.attempts();
-    let attempt = new_attempt();
+    let attempt = NewAttempt {
+        parent_attempt: parent,
+        ..new_attempt()
+    };
     attempts.create(&attempt, Some("test")).await.unwrap();
     attempts
         .transition(
@@ -1001,6 +1009,7 @@ async fn expired_lease_requeues_as_new_attempt() {
         .unwrap()
         .unwrap();
     assert_eq!(first.attempt_id, job.attempt_id());
+    assert_eq!(first.parent_attempt, None);
     tokio::time::sleep(Duration::from_millis(20)).await;
 
     // The worker vanished: the sweep marks its attempt stale and requeues a new attempt.
@@ -1050,6 +1059,8 @@ async fn expired_lease_requeues_as_new_attempt() {
         .unwrap()
         .unwrap();
     assert_eq!((second.attempt_id, second.try_number), (next, 2));
+    // The claim names the try it supersedes: a resumed solve starts from its incumbents.
+    assert_eq!(second.parent_attempt, Some(first.attempt_id));
     tokio::time::sleep(Duration::from_millis(20)).await;
     let swept = store.jobs().requeue_expired(10, mint_id).await.unwrap();
     assert_eq!(swept.len(), 1);
@@ -1804,7 +1815,7 @@ async fn incumbents_and_solutions_round_trip() {
     assert_eq!(
         store
             .streams()
-            .record_incumbents(&incumbents)
+            .record_incumbents(&incumbents, &[])
             .await
             .unwrap(),
         2
@@ -1813,7 +1824,7 @@ async fn incumbents_and_solutions_round_trip() {
     assert_eq!(
         store
             .streams()
-            .record_incumbents(&incumbents)
+            .record_incumbents(&incumbents, &[])
             .await
             .unwrap(),
         0
@@ -1828,6 +1839,117 @@ async fn incumbents_and_solutions_round_trip() {
         pse_model::SemanticEq::semantic_eq(&latest, &incumbents[1]),
         "{latest:?}"
     );
+    database.remove().await.unwrap();
+}
+
+/// An incumbent's captured solution is stored in the incumbent's transaction; a re-sent
+/// batch stores neither again. A resumed try finds the newest compatible captured
+/// solution of its attempt chain, the nearest attempt first, and retention keeps the
+/// incumbents that reference solutions (Plan 22 G8).
+#[tokio::test]
+async fn incumbent_solutions_follow_the_attempt_chain() {
+    use pse_model::generated::enums::NativeBackend;
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let first = finished_attempt(&store).await;
+    let second = finished_try(&store, Some(first)).await;
+    let third = finished_try(&store, Some(second)).await;
+    let solution = |attempt, stamp: u8, value: f64| NewSolution {
+        solution_id: mint_id(),
+        compatibility_stamp: hash(stamp),
+        preparation_identity: hash(6),
+        backend: NativeBackend::Scip,
+        profile_stamp: hash(3),
+        data_stamp: hash(4),
+        vectors: SeedVectors::Nlp {
+            primal: vec![value, 1.0],
+            bounds: None,
+            rows: None,
+            barrier: None,
+        },
+        created_by: Some(attempt),
+    };
+    let incumbent = |attempt, seq, objective, solution: Option<&NewSolution>| {
+        RuntimeOperationalIncumbentsRow {
+            attempt_id: attempt,
+            seq,
+            at: at(seq).timestamp_micros(),
+            objective,
+            dual_bound: Some(1.0),
+            gap: None,
+            solution_id: solution.map(|s| s.solution_id.into()),
+        }
+    };
+    let (early, late) = (solution(first, 5, 9.0), solution(first, 5, 7.0));
+    let batch = [
+        incumbent(first, 0, 9.0, Some(&early)),
+        incumbent(first, 1, 8.0, None),
+        incumbent(first, 2, 7.0, Some(&late)),
+    ];
+    let captured = [early.clone(), late.clone()];
+    let streams = store.streams();
+    assert_eq!(streams.record_incumbents(&batch, &captured).await.unwrap(), 3);
+    // A re-sent batch stores nothing new, its solutions included.
+    assert_eq!(streams.record_incumbents(&batch, &captured).await.unwrap(), 0);
+    for stored in [&early, &late] {
+        let row = store.solutions().get(stored.solution_id).await.unwrap().unwrap();
+        assert!(stores(&row, stored), "{row:?}");
+    }
+    // A solution no incumbent of the batch references is refused.
+    let stray = solution(second, 5, 1.0);
+    let refused = streams
+        .record_incumbents(&[incumbent(second, 0, 1.0, None)], std::slice::from_ref(&stray))
+        .await
+        .unwrap_err();
+    assert!(matches!(refused, OperationsError::InvalidRequest { .. }), "{refused:?}");
+    // The second try captured a solution of other coordinates only.
+    let other = solution(second, 8, 6.0);
+    streams
+        .record_incumbents(&[incumbent(second, 0, 6.0, Some(&other))], std::slice::from_ref(&other))
+        .await
+        .unwrap();
+
+    let solutions = store.solutions();
+    let resume = |attempt, stamp| {
+        let solutions = solutions;
+        async move {
+            solutions
+                .latest_in_attempt_chain(attempt, &hash(stamp), &hash(6), NativeBackend::Scip)
+                .await
+                .unwrap()
+                .map(|row| row.solution_id)
+        }
+    };
+    // From the third try: the second's is of other coordinates, so the first's latest.
+    assert_eq!(resume(third, 5).await, Some(late.solution_id));
+    assert_eq!(resume(third, 8).await, Some(other.solution_id));
+    assert_eq!(resume(first, 8).await, None);
+    assert!(
+        solutions
+            .latest_in_attempt_chain(third, &hash(5), &hash(6), NativeBackend::Highs)
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    // Retention removes incumbents without a solution and keeps those that reference one.
+    streams
+        .apply_retention(crate::streams::Retention {
+            finished_for: Duration::ZERO,
+        })
+        .await
+        .unwrap();
+    let session = database.session().await.unwrap();
+    let kept = session
+        .count(&format!(
+            "SELECT count(*) FROM pse_ops.incumbents WHERE attempt_id = {}",
+            lit(first)
+        ))
+        .await
+        .unwrap();
+    assert_eq!(kept, 2);
+    assert_eq!(resume(third, 5).await, Some(late.solution_id));
+    drop(session);
     database.remove().await.unwrap();
 }
 

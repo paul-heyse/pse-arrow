@@ -417,3 +417,187 @@ async fn incompatible_seed_refused() {
     drop(runtime);
     database.remove().await.unwrap();
 }
+
+/// A strongly correlated 0-1 knapsack whose objective carries a constant:
+/// `max Σ (wᵢ + 10)·xᵢ + 7` with `Σ wᵢ·xᵢ ≤ ½·Σ wᵢ`. It needs a branch-and-bound search.
+fn knapsack() -> String {
+    let weights: Vec<usize> = (0..16).map(|i| 30 + (i * 37) % 71).collect();
+    let terms = |coefficient: &dyn Fn(usize) -> usize| {
+        weights
+            .iter()
+            .enumerate()
+            .map(|(i, w)| format!("{}*x{i}", coefficient(*w)))
+            .collect::<Vec<_>>()
+            .join(" + ")
+    };
+    let variables: String = (0..weights.len())
+        .map(|i| format!("var x{i}: Indicator in binary; annotation start x{i}(0{{1}}); "))
+        .collect();
+    format!(
+        "package p {{ def Root {{ {variables}\
+         eq capacity: {} <= {}; \
+         let total: Scalar = {} + 7; \
+         annotation objective total(maximize); annotation report total(\"total\"); }} }}",
+        terms(&|w| w),
+        weights.iter().sum::<usize>() / 2,
+        terms(&|w| w + 10),
+    )
+}
+
+/// A discrete package on a durable runtime whose native jobs admit SCIP's memory limit,
+/// optimized by `backend`.
+async fn discrete_on(
+    database: &TestDatabase,
+    source: &str,
+    backend: Backend,
+) -> (Runtime, ModelingPackage, ModelingAnalysis) {
+    let operations = Operations::connect(database.url(), "runtime-a", quick())
+        .await
+        .unwrap();
+    let runtime = super::tests::runtime_with(16 << 20, 16 << 20, 2 << 30)
+        .with_durability(Durability::Durable(operations));
+    let physical = physical();
+    let mut names = super::tests::discrete_names();
+    names.insert(
+        "Scalar".into(),
+        physical.quantities.neutral_dimensionless().unwrap(),
+    );
+    let rows = pse_authoring::language::parse(
+        source,
+        SemanticId::NIL,
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime.modeling_package(rows, physical, names).unwrap();
+    let mut solver = profile();
+    solver.intent = pse_backend_native::solve::SolveIntent::Optimize;
+    solver.selection = SolverSelection::Explicit(backend);
+    let analysis = ModelingAnalysis {
+        root,
+        instance: pse_modeling::specialize::root_instance(root),
+        bindings: Default::default(),
+        limits: Default::default(),
+        case: ModelingCaseBindings::default(),
+        order: pse_kernels::DerivativeOrder::Second,
+        compiler: compiler_profile(),
+        solver,
+        numerical: Default::default(),
+    };
+    (runtime, package, analysis)
+}
+
+/// The incumbents a durable attempt stored, in order, with their captured solutions.
+async fn stored_incumbents(
+    database: &TestDatabase,
+    attempt: pse_operations::attempts::AttemptId,
+) -> Vec<(f64, bool)> {
+    let session = database.session().await.unwrap();
+    let rows = session
+        .texts(&format!(
+            "SELECT objective::text, (solution_id IS NOT NULL)::text FROM pse_ops.incumbents \
+             WHERE attempt_id = '{attempt}'::uuid ORDER BY seq"
+        ))
+        .await
+        .unwrap();
+    rows.iter()
+        .map(|row| {
+            let text = |i: usize| row[i].as_deref().unwrap();
+            (text(0).parse().unwrap(), text(1) == "true")
+        })
+        .collect()
+}
+
+/// Solve the knapsack durably on `backend` and check what its incumbent stream stored:
+/// objectives under the post-solve convention (the constant included, the last one the
+/// result), and the captured solutions stored as seeds of the step, of the backend's
+/// payload kind. Returns the stored incumbents.
+async fn incumbents_stored_as_seeds(
+    backend: Backend,
+    kind: pse_model::generated::enums::StoredSeedKind,
+) -> Vec<(f64, bool)> {
+    let database = TestDatabase::create().await.unwrap();
+    let (runtime, package, analysis) = discrete_on(&database, &knapsack(), backend).await;
+    let Durability::Durable(operations) = runtime.durability() else {
+        panic!()
+    };
+    let cancel = crate::CancelSource::new();
+    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let compatibility = prepared.solve.compatibility().cloned().unwrap();
+    let preparation = prepared.solve.seed_preparation_identity().unwrap();
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    assert!(result.usable(), "{:?}", result.assessments());
+    let record = record(&result);
+    let Ok(RunReport::Modeling(steps)) = result.report() else {
+        panic!()
+    };
+    let crate::math::solves::Outcome::Native(native) = &steps[0].outcome else {
+        panic!("{:?}", steps[0].outcome)
+    };
+    assert_eq!(native.backend, backend);
+    let objective = native.candidate.as_ref().unwrap().objective.unwrap();
+    let total = steps[0]
+        .reports
+        .iter()
+        .find(|r| r.label == "total")
+        .unwrap()
+        .value;
+    assert!((objective - total).abs() < 1e-6, "{objective} vs {total}");
+
+    let incumbents = stored_incumbents(&database, record.attempt_id).await;
+    assert!(!incumbents.is_empty());
+    let (last, _) = *incumbents.last().unwrap();
+    assert!(
+        (last - objective).abs() < 1e-6,
+        "{backend:?}: streamed {last} vs post-solve {objective}"
+    );
+    // The first incumbent's solution is captured at once and stored as a seed of the
+    // step, keyed like its output seed.
+    assert!(incumbents[0].1, "{incumbents:?}");
+    let seed = operations
+        .store()
+        .solutions()
+        .latest_in_attempt_chain(
+            record.attempt_id,
+            &compatibility.layout,
+            &preparation,
+            backend,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(seed.kind, kind);
+    assert_eq!(seed.created_by, Some(record.attempt_id));
+    assert_eq!(seed.profile_stamp, compatibility.profile);
+    // One representation: incumbents are not also progress events.
+    let progress = record.progress.as_ref().unwrap();
+    assert!(!progress.iter().any(|e| e.phase.ends_with(".incumbent")));
+    drop(runtime);
+    database.remove().await.unwrap();
+    incumbents
+}
+
+#[tokio::test]
+async fn incumbent_stream_records_offset_objective() {
+    let incumbents = incumbents_stored_as_seeds(
+        Backend::Scip,
+        pse_model::generated::enums::StoredSeedKind::Nlp,
+    )
+    .await;
+    // The empty knapsack is worth the constant alone; nothing streams below it.
+    assert!(incumbents.iter().all(|(objective, _)| *objective >= 7.0 - 1e-9));
+}
+
+#[tokio::test]
+async fn highs_incumbents_stored_as_highs_seeds() {
+    incumbents_stored_as_seeds(
+        Backend::Highs,
+        pse_model::generated::enums::StoredSeedKind::Highs,
+    )
+    .await;
+}

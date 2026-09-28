@@ -174,6 +174,27 @@ fn push_events(
                 for (key, value) in &event.values {
                     push_metric(builder, run_id, step, &ns, key, value)?;
                 }
+                // A retained incumbent's typed values; a durable run keeps its incumbents
+                // in the store's incumbent stream instead.
+                if let Some(incumbent) = &event.incumbent {
+                    let real = |v: Option<f64>| {
+                        v.map_or(
+                            Metric::Unavailable(
+                                pse_backend_native::solve::UnavailableReason::NotApplicable,
+                            ),
+                            Metric::Real,
+                        )
+                    };
+                    for (key, value) in [
+                        ("objective", Metric::Real(incumbent.objective)),
+                        ("dual_bound", real(incumbent.dual_bound)),
+                        ("gap", real(incumbent.gap)),
+                        ("nodes", Metric::Integer(incumbent.nodes)),
+                        ("seconds", Metric::Real(incumbent.seconds)),
+                    ] {
+                        push_metric(builder, run_id, step, &ns, key, &value)?;
+                    }
+                }
             }
         }
         StepEvents::Stored(events) => {

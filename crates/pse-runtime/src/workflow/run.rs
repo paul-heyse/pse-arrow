@@ -9,7 +9,7 @@
 //! records its typed termination before its result is published to waiters.
 use super::{
     Runtime, WorkflowError, contract,
-    durable::{Canceller, Durability, DurableAttempt, RunDurability},
+    durable::{Canceller, Durability, DurableAttempt, RunDurability, SeedContext},
 };
 use crate::math::{MathRuntimeError, Submission};
 use pse_backend_native::solve::{Event, Progress};
@@ -628,7 +628,16 @@ impl Runtime {
                     break;
                 }
                 if let Some(durable) = durable.as_ref() {
-                    durable.set_step(attempt);
+                    let seed = step
+                        .solve
+                        .compatibility()
+                        .cloned()
+                        .zip(step.solve.seed_preparation_identity())
+                        .map(|(compatibility, preparation)| SeedContext {
+                            compatibility,
+                            preparation,
+                        });
+                    durable.set_step(attempt, seed);
                 }
                 let previous = staged.predecessor();
                 match staged
