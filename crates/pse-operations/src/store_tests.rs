@@ -4,22 +4,22 @@
 //! Store tests against real, isolated PostgreSQL 18 databases: `#[sqlx::test]` creates one
 //! database per test from `DATABASE_URL` (`just db-test` maps `PSE_DATABASE_URL` to it).
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use pse_ids::{ContentHash, SemanticId};
 use sqlx::PgPool;
 
-use crate::attempts::{NewAttempt, TransitionNote};
+use crate::attempts::{AttemptKind, NewAttempt, TransitionNote};
 use crate::cancellation::CancelOutcome;
 use crate::catalog::{
     Committed, Member, ProtectedVersion, PublicationCommit, ReadTarget, Settlement, Workspace,
 };
 use crate::jobs::{Enqueued, Finished, JobOutcome, JobState, NewJob, RetryPolicy};
 use crate::lifecycle::AttemptState;
-use crate::solutions::Solution;
-use crate::streams::{Incumbent, ProgressEvent};
+use crate::solutions::{SeedVectors, Solution};
+use crate::streams::{Incumbent, ProgressEvent, ProgressValue};
 use crate::{OperationsError, Store, mint_id};
 
 const LEASE: Duration = Duration::from_secs(30);
@@ -32,7 +32,7 @@ fn new_attempt() -> NewAttempt {
     NewAttempt {
         attempt_id: mint_id(),
         run_id: mint_id(),
-        kind: "simulation".to_owned(),
+        kind: AttemptKind::Simulation,
         request_identity: hash(1),
         preparation_identity: Some(hash(2)),
         parent_attempt: None,
@@ -164,6 +164,7 @@ async fn migrations_apply_to_empty_database(pool: PgPool) {
         "incumbents",
         "jobs",
         "progress_events",
+        "progress_values",
         "publication_heads",
         "publication_members",
         "publications",
@@ -1055,24 +1056,48 @@ async fn cancel_before_start_cancels_job(pool: PgPool) {
 
 // ----------------------------------------------------------------- streams --
 
+/// A progress event whose values cover every kind, including a real whose shortest
+/// decimal form a jsonb payload would round (0.1 + 0.2).
+fn progress_event(seq: i64) -> ProgressEvent {
+    let mut values = BTreeMap::from([
+        ("iteration".to_owned(), ProgressValue::Integer(seq)),
+        (
+            "inf_pr".to_owned(),
+            ProgressValue::real(seq as f64 * 0.25 + (0.1 + 0.2)),
+        ),
+        ("restored".to_owned(), ProgressValue::Boolean(seq % 2 == 0)),
+        ("mode".to_owned(), ProgressValue::Text(format!("m{seq}"))),
+    ]);
+    if seq % 7 == 0 {
+        values.insert("step_norm".to_owned(), ProgressValue::real(f64::NAN));
+    }
+    ProgressEvent {
+        seq,
+        step: i32::try_from(seq / 100).unwrap(),
+        at: at(seq),
+        elapsed_seconds: seq as f64 * 1e-3,
+        phase: if seq < 250 {
+            "restoration"
+        } else {
+            "optimality"
+        }
+        .to_owned(),
+        values,
+    }
+}
+
 #[sqlx::test(migrator = "crate::MIGRATOR")]
 async fn progress_batch_insert_roundtrip(pool: PgPool) {
     let store = Store::from_pool(pool);
     let attempt = new_attempt();
     store.attempts().create(&attempt, None).await.unwrap();
-    let events: Vec<ProgressEvent> = (0..500)
-        .map(|seq| ProgressEvent {
-            seq,
-            at: at(seq),
-            phase: if seq < 250 {
-                "restoration"
-            } else {
-                "optimality"
-            }
-            .to_owned(),
-            payload: serde_json::json!({ "iteration": seq, "inf_pr": seq as f64 * 0.25 }),
-        })
-        .collect();
+    let events: Vec<ProgressEvent> = (0..500).map(progress_event).collect();
+    assert_eq!(
+        events[7].values["step_norm"],
+        ProgressValue::Unavailable(
+            pse_model::generated::enums::EvidenceUnavailableReason::Nonfinite
+        )
+    );
 
     let mut listener = sqlx::postgres::PgListener::connect_with(store.pool())
         .await
@@ -1098,14 +1123,7 @@ async fn progress_batch_insert_roundtrip(pool: PgPool) {
         crate::codec::uuid(attempt.attempt_id).to_string()
     );
     // A re-sent overlapping batch inserts only the new tail.
-    let resent: Vec<ProgressEvent> = (495..505)
-        .map(|seq| ProgressEvent {
-            seq,
-            at: at(seq),
-            phase: "optimality".to_owned(),
-            payload: serde_json::json!({ "iteration": seq, "inf_pr": seq as f64 * 0.25 }),
-        })
-        .collect();
+    let resent: Vec<ProgressEvent> = (495..505).map(progress_event).collect();
     assert_eq!(
         store
             .streams()
@@ -1129,21 +1147,136 @@ async fn progress_batch_insert_roundtrip(pool: PgPool) {
     }
     let mut expected = events;
     expected.extend(resent.into_iter().skip(5));
+    // Every value round-trips exactly, reals bit for bit.
     assert_eq!(read, expected);
+    assert_eq!(
+        store.streams().snapshot(attempt.attempt_id).await.unwrap(),
+        expected
+    );
+}
+
+#[sqlx::test(migrator = "crate::MIGRATOR")]
+async fn progress_watcher_follows_the_stream_until_the_attempt_ends(pool: PgPool) {
+    let store = Store::from_pool(pool);
+    let attempt = new_attempt();
+    let attempts = store.attempts();
+    attempts.create(&attempt, None).await.unwrap();
+    attempts
+        .transition(
+            attempt.attempt_id,
+            AttemptState::Queued,
+            &TransitionNote::by("q"),
+        )
+        .await
+        .unwrap();
+    attempts
+        .start(attempt.attempt_id, "worker-a", LEASE)
+        .await
+        .unwrap();
+    let mut watcher = store.watch_progress(attempt.attempt_id).await.unwrap();
+    let producer = {
+        let store = store.clone();
+        let id = attempt.attempt_id;
+        tokio::spawn(async move {
+            for batch in [0..3, 3..5] {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                let events: Vec<ProgressEvent> = batch.map(progress_event).collect();
+                store.streams().append_progress(id, &events).await.unwrap();
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            store
+                .attempts()
+                .transition(id, AttemptState::Completed, &TransitionNote::by("worker-a"))
+                .await
+                .unwrap();
+        })
+    };
+    let mut seen = Vec::new();
+    loop {
+        let page = tokio::time::timeout(
+            Duration::from_secs(10),
+            watcher.next(seen.last().map(|e: &ProgressEvent| e.seq), 100),
+        )
+        .await
+        .expect("the watcher wakes on appends and on the attempt's end")
+        .unwrap();
+        if page.is_empty() {
+            break;
+        }
+        seen.extend(page);
+    }
+    producer.await.unwrap();
+    assert_eq!(seen, (0..5).map(progress_event).collect::<Vec<_>>());
+}
+
+#[sqlx::test(migrator = "crate::MIGRATOR")]
+async fn retention_removes_streams_of_finished_attempts_only(pool: PgPool) {
+    let store = Store::from_pool(pool);
+    let finished = finished_attempt(&store).await;
+    let running = new_attempt();
+    let attempts = store.attempts();
+    attempts.create(&running, None).await.unwrap();
+    attempts
+        .transition(
+            running.attempt_id,
+            AttemptState::Queued,
+            &TransitionNote::by("q"),
+        )
+        .await
+        .unwrap();
+    attempts
+        .start(running.attempt_id, "worker-a", LEASE)
+        .await
+        .unwrap();
+    let events: Vec<ProgressEvent> = (0..10).map(progress_event).collect();
+    for attempt in [finished, running.attempt_id] {
+        store
+            .streams()
+            .append_progress(attempt, &events)
+            .await
+            .unwrap();
+    }
+    let keep_long = crate::streams::Retention {
+        finished_for: Duration::from_secs(3600),
+    };
+    assert_eq!(store.streams().apply_retention(keep_long).await.unwrap(), 0);
+    let expire_now = crate::streams::Retention {
+        finished_for: Duration::ZERO,
+    };
+    assert_eq!(
+        store.streams().apply_retention(expire_now).await.unwrap(),
+        10
+    );
+    assert!(store.streams().snapshot(finished).await.unwrap().is_empty());
+    assert_eq!(
+        store
+            .streams()
+            .snapshot(running.attempt_id)
+            .await
+            .unwrap()
+            .len(),
+        10
+    );
 }
 
 #[sqlx::test(migrator = "crate::MIGRATOR")]
 async fn incumbents_and_solutions_round_trip(pool: PgPool) {
     let store = Store::from_pool(pool);
     let attempt = finished_attempt(&store).await;
+    use pse_model::generated::enums::NativeBackend;
     let solution = Solution {
         solution_id: mint_id(),
         compatibility_stamp: hash(5),
         preparation_identity: hash(6),
-        kind: "primal".to_owned(),
-        payload_format: "arrow-ipc".to_owned(),
-        payload_version: 1,
-        payload: vec![1, 2, 3, 4],
+        backend: NativeBackend::Ipopt,
+        profile_stamp: hash(3),
+        data_stamp: hash(4),
+        vectors: SeedVectors::Nlp {
+            primal: vec![0.1 + 0.2, -1.5e-300, 7.0],
+            bounds: Some((vec![0.0; 3], vec![1.0, 2.0, 3.0])),
+            rows: None,
+            barrier: Some(0.1 * 2.5e-9),
+        },
         created_by: Some(attempt),
     };
     store.solutions().put(&solution).await.unwrap();
@@ -1151,31 +1284,96 @@ async fn incumbents_and_solutions_round_trip(pool: PgPool) {
     assert!(matches!(duplicate, OperationsError::Duplicate { .. }));
     let newer = Solution {
         solution_id: mint_id(),
-        payload: vec![9, 9],
+        vectors: SeedVectors::Root {
+            primal: vec![9.0, 9.5, f64::MIN_POSITIVE],
+        },
         ..solution.clone()
     };
     store.solutions().put(&newer).await.unwrap();
-
+    let highs = Solution {
+        solution_id: mint_id(),
+        backend: NativeBackend::Highs,
+        vectors: SeedVectors::Highs {
+            primal: None,
+            dual: Some((vec![1.0], vec![2.0, 3.0])),
+            basis: Some((vec![1], vec![0, 4])),
+        },
+        ..solution.clone()
+    };
+    store.solutions().put(&highs).await.unwrap();
+    // The database enforces which vectors a kind carries, as the registry states.
+    let malformed = sqlx::query(
+        "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, preparation_identity, \
+             kind, backend, profile_stamp, data_stamp) VALUES ($1, $2, $2, 'root', 'ipopt', $2, $2)",
+    )
+    .bind(crate::codec::uuid(mint_id()))
+    .bind(hash(1).as_bytes().to_vec())
+    .execute(store.pool())
+    .await
+    .unwrap_err();
     assert_eq!(
-        store
-            .solutions()
-            .get(solution.solution_id)
-            .await
-            .unwrap()
-            .map(|s| s.solution),
-        Some(solution.clone())
+        malformed
+            .as_database_error()
+            .and_then(|e| e.code())
+            .as_deref(),
+        Some("23514")
     );
+    // Only an NLP seed carries a barrier, and only a finite positive one.
+    for (kind, barrier) in [("root", 1e-9), ("nlp", 0.0), ("nlp", f64::INFINITY)] {
+        let refused = sqlx::query(
+            "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, \
+                 preparation_identity, kind, backend, profile_stamp, data_stamp, primal, barrier) \
+             VALUES ($1, $2, $2, $3, 'ipopt', $2, $2, ARRAY[1.0]::double precision[], $4)",
+        )
+        .bind(crate::codec::uuid(mint_id()))
+        .bind(hash(1).as_bytes().to_vec())
+        .bind(kind)
+        .bind(barrier)
+        .execute(store.pool())
+        .await
+        .unwrap_err();
+        assert_eq!(
+            refused
+                .as_database_error()
+                .and_then(|e| e.code())
+                .as_deref(),
+            Some("23514"),
+            "{kind} {barrier}"
+        );
+    }
+
+    for stored in [&solution, &newer, &highs] {
+        assert_eq!(
+            store
+                .solutions()
+                .get(stored.solution_id)
+                .await
+                .unwrap()
+                .map(|s| s.solution)
+                .as_ref(),
+            Some(stored)
+        );
+    }
     let seed = store
         .solutions()
-        .latest_compatible(&hash(5), &hash(6), "primal")
+        .latest_compatible(&hash(5), &hash(6), NativeBackend::Ipopt)
         .await
         .unwrap()
         .unwrap();
     assert_eq!(seed.solution, newer);
+    assert_eq!(
+        store
+            .solutions()
+            .latest_compatible(&hash(5), &hash(6), NativeBackend::Highs)
+            .await
+            .unwrap()
+            .map(|s| s.solution),
+        Some(highs)
+    );
     assert!(
         store
             .solutions()
-            .latest_compatible(&hash(7), &hash(6), "primal")
+            .latest_compatible(&hash(7), &hash(6), NativeBackend::Ipopt)
             .await
             .unwrap()
             .is_none()

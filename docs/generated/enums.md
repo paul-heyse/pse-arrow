@@ -19,6 +19,28 @@ Member names are canonical string values; declaration order is presentation only
 | `fail` | `` | false |
 | `obsolete` | `` | false |
 
+## `AttemptKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `modeling` | `` | false |
+| `simulation` | `` | false |
+| `fit` | `` | false |
+
+## `AttemptState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `planned` | `` | false |
+| `queued` | `` | false |
+| `running` | `` | false |
+| `completed` | `` | false |
+| `partial` | `` | false |
+| `failed` | `` | false |
+| `cancelled` | `` | false |
+| `stale` | `` | false |
+| `superseded` | `` | false |
+
 ## `Authority`
 
 | Member | IDAES name | Deprecated |
@@ -346,6 +368,16 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `domain` | `` | false |
 | `closure` | `` | false |
 | `acyclic` | `` | false |
+
+## `JobState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `queued` | `` | false |
+| `running` | `` | false |
+| `completed` | `` | false |
+| `failed` | `` | false |
+| `cancelled` | `` | false |
 
 ## `MemberSelectionKind`
 
@@ -1029,6 +1061,32 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `stable` | `` | false |
 | `evolving` | `` | false |
 | `internal` | `` | false |
+
+## `StoredSeedKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `root` | `` | false |
+| `nlp` | `` | false |
+| `highs` | `` | false |
+
+## `StudyPointState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `pending` | `` | false |
+| `assigned` | `` | false |
+| `completed` | `` | false |
+| `failed` | `` | false |
+| `cancelled` | `` | false |
+
+## `StudyState`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `open` | `` | false |
+| `completed` | `` | false |
+| `cancelled` | `` | false |
 
 ## `SubjectRule`
 

@@ -13,8 +13,9 @@ use sqlx::{FromRow, PgConnection, Row};
 
 use crate::codec;
 use crate::error::{Classify, OperationsError, Target};
-use crate::lifecycle::AttemptState;
+use crate::lifecycle::{self, AttemptState, Lifecycle};
 use crate::store::Store;
+pub use pse_model::generated::enums::AttemptKind;
 
 /// An attempt registered before any effect; the runtime mints its identity.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -23,8 +24,8 @@ pub struct NewAttempt {
     pub attempt_id: SemanticId,
     /// The run the attempt belongs to.
     pub run_id: SemanticId,
-    /// The computation kind (registry enumeration spelling).
-    pub kind: String,
+    /// What the attempt computes.
+    pub kind: AttemptKind,
     /// The request identity (blueprint §5.1).
     pub request_identity: ContentHash,
     /// The preparation identity, when preparation happened before registration.
@@ -84,8 +85,8 @@ pub struct AttemptRecord {
     pub attempt_id: SemanticId,
     /// Its run.
     pub run_id: SemanticId,
-    /// The computation kind.
-    pub kind: String,
+    /// What the attempt computes.
+    pub kind: AttemptKind,
     /// The request identity.
     pub request_identity: ContentHash,
     /// The preparation identity, if known.
@@ -126,7 +127,7 @@ impl FromRow<'_, PgRow> for AttemptRecord {
         Ok(Self {
             attempt_id: codec::id(row, "attempt_id")?,
             run_id: codec::id(row, "run_id")?,
-            kind: row.try_get("kind")?,
+            kind: codec::parsed(row, "kind")?,
             request_identity: codec::hash(row, "request_identity")?,
             preparation_identity: codec::opt_hash(row, "preparation_identity")?,
             state: codec::parsed(row, "state")?,
@@ -164,26 +165,37 @@ pub struct TransitionRecord {
 
 impl FromRow<'_, PgRow> for TransitionRecord {
     fn from_row(row: &PgRow) -> Result<Self, sqlx::Error> {
-        let from: Option<String> = row.try_get("from_state")?;
         Ok(Self {
             attempt_id: codec::id(row, "attempt_id")?,
             seq: row.try_get("seq")?,
-            from: from
-                .map(|text| {
-                    text.parse()
-                        .map_err(|error: crate::lifecycle::UnknownState| {
-                            sqlx::Error::ColumnDecode {
-                                index: "from_state".to_owned(),
-                                source: Box::new(error),
-                            }
-                        })
-                })
-                .transpose()?,
+            from: codec::opt_parsed(row, "from_state")?,
             to: codec::parsed(row, "to_state")?,
             actor: row.try_get("actor")?,
             reason: row.try_get("reason")?,
             at: row.try_get("at")?,
         })
+    }
+}
+
+/// Which attempts [`Attempts::list`] returns.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AttemptFilter {
+    /// Only the attempts of this run.
+    pub run: Option<SemanticId>,
+    /// Only attempts in these states; every state when empty.
+    pub states: Vec<AttemptState>,
+    /// At most this many, newest first.
+    pub limit: i64,
+}
+
+impl AttemptFilter {
+    /// The newest `limit` attempts of every run and state.
+    pub const fn newest(limit: i64) -> Self {
+        Self {
+            run: None,
+            states: Vec::new(),
+            limit,
+        }
     }
 }
 
@@ -226,10 +238,10 @@ pub(crate) async fn insert(
     )
     .bind(codec::uuid(attempt.attempt_id))
     .bind(codec::uuid(attempt.run_id))
-    .bind(&attempt.kind)
+    .bind(attempt.kind.as_str())
     .bind(codec::hash_bytes(&attempt.request_identity))
     .bind(attempt.preparation_identity.as_ref().map(codec::hash_bytes))
-    .bind(AttemptState::INITIAL.as_str())
+    .bind(lifecycle::INITIAL.as_str())
     .bind(attempt.parent_attempt.map(codec::uuid))
     .execute(&mut *conn)
     .await
@@ -239,7 +251,7 @@ pub(crate) async fn insert(
          VALUES ($1, 0, NULL, $2, $3)",
     )
     .bind(codec::uuid(attempt.attempt_id))
-    .bind(AttemptState::INITIAL.as_str())
+    .bind(lifecycle::INITIAL.as_str())
     .bind(actor)
     .execute(&mut *conn)
     .await
@@ -326,6 +338,15 @@ pub(crate) async fn apply(
     .execute(&mut *conn)
     .await
     .classify(target)?;
+    if to.ends_work() {
+        // A stream watcher learns that no further progress will come.
+        sqlx::query("SELECT pg_notify($1, $2)")
+            .bind(crate::streams::PROGRESS_CHANNEL)
+            .bind(codec::uuid(attempt).to_string())
+            .execute(&mut *conn)
+            .await
+            .classify(target)?;
+    }
     Ok(from)
 }
 
@@ -494,6 +515,44 @@ impl<'s> Attempts<'s> {
              FROM pse_ops.attempt_transitions WHERE attempt_id = $1 ORDER BY seq",
         )
         .bind(codec::uuid(attempt))
+        .fetch_all(self.store.pool())
+        .await
+        .classify(self.target())
+    }
+
+    /// Attempts newest first: all of them, or those of one run or in the given states, at
+    /// most `filter.limit`. This is what survives a restart of the process that ran them.
+    ///
+    /// # Errors
+    ///
+    /// [`OperationsError::InvalidRequest`] for a non-positive limit; classified driver
+    /// failures.
+    pub async fn list(
+        &self,
+        filter: &AttemptFilter,
+    ) -> Result<Vec<AttemptRecord>, OperationsError> {
+        if filter.limit <= 0 {
+            return Err(OperationsError::InvalidRequest {
+                reason: format!("attempt listing limit {} is not positive", filter.limit),
+            });
+        }
+        sqlx::query_as::<_, AttemptRecord>(concat!(
+            "SELECT ",
+            attempt_columns!(),
+            " FROM pse_ops.attempts \
+             WHERE ($1::uuid IS NULL OR run_id = $1) \
+               AND (cardinality($2::text[]) = 0 OR state = ANY($2::text[])) \
+             ORDER BY created_at DESC, attempt_id DESC LIMIT $3"
+        ))
+        .bind(filter.run.map(codec::uuid))
+        .bind(
+            filter
+                .states
+                .iter()
+                .map(|state| state.as_str())
+                .collect::<Vec<_>>(),
+        )
+        .bind(filter.limit)
         .fetch_all(self.store.pool())
         .await
         .classify(self.target())

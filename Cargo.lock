@@ -5299,6 +5299,7 @@ dependencies = [
  "pse-ids",
  "pse-kernels",
  "pse-modeling",
+ "pse-operations",
  "pse-quantity",
  "pse-relations",
  "pse-rules",
@@ -5535,15 +5536,19 @@ dependencies = [
 name = "pse-operations"
 version = "0.0.1"
 dependencies = [
+ "arrow-schema",
  "chrono",
  "clap",
  "miette",
  "pse-diagnostics",
  "pse-ids",
+ "pse-model",
+ "pse-schema",
  "serde_json",
  "sqlx",
  "thiserror 2.0.20",
  "tokio",
+ "url",
  "uuid",
  "whoami",
 ]
@@ -5642,6 +5647,8 @@ dependencies = [
 name = "pse-runtime"
 version = "0.0.1"
 dependencies = [
+ "chrono",
+ "clap",
  "datafusion",
  "datafusion-common",
  "datafusion-execution",
@@ -5661,6 +5668,7 @@ dependencies = [
  "pse-math",
  "pse-model",
  "pse-modeling",
+ "pse-operations",
  "pse-quantity",
  "pse-relations",
  "pse-schema",
@@ -5669,6 +5677,7 @@ dependencies = [
  "serde",
  "serde-saphyr",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.20",
  "tokio",
  "toml",
@@ -5760,6 +5769,7 @@ dependencies = [
  "pse-math",
  "pse-model",
  "pse-modeling",
+ "pse-operations",
  "pse-quantity",
  "pse-relations",
  "pse-rules",

@@ -179,7 +179,11 @@ impl RunResult {
                     .map_err(relation)?;
             }
 
-        if let Some(native)=native {super::results::push_native_metrics(&mut metric_rows,self.run_id,step,native)?;}
+        if let Some(native)=native {
+            let stored=self.stored_events(step)?;
+            let events=stored.as_deref().map_or(super::results::StepEvents::Retained,super::results::StepEvents::Stored);
+            super::results::push_native_metrics(&mut metric_rows,self.run_id,step,native,events)?;
+        }
         // Ranked pooled solutions over the report's free variables (ADR-0105 §8).
         for solution in native.and_then(|r|r.global.as_ref()).map_or(&[][..],|g|g.pool.as_slice()) {
             let rank=i64::try_from(solution.rank).map_err(|_|contract("solution pool rank"))?;

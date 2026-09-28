@@ -747,6 +747,217 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `kind, scope, name`.
 | `evidence.projection.columns` | `List` | false | `payload` | — | — |
 | `evidence.projection.columns.item` | `Utf8` | false | `payload` | — | — |
 
+## `operational_attempt_transitions`
+
+Append-only audit of every attempt state change, written with the change; sequence 0 records creation and has no previous state.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
+| `seq` | `Int32` | false | `key` | — | — |
+| `from_state` | `enum:AttemptState` | true | `payload` | — | — |
+| `to_state` | `enum:AttemptState` | false | `payload` | — | — |
+| `actor` | `Utf8` | true | `payload` | — | — |
+| `reason` | `Utf8` | true | `payload` | — | — |
+| `at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+
+## `operational_attempts`
+
+The durable attempt registry (DP-19). Identities are minted by the runtime. A running attempt holds exactly one lease; `cancel_requested` is the cancellation authority. `termination` is the typed termination code and `termination_detail` its versioned JSON detail. Published runtime.computation_runs and runtime.run_lineage are derived snapshots of a published attempt.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `attempt_id` | `semantic_id` | false | `key` | — | — |
+| `run_id` | `semantic_id` | false | `payload` | — | — |
+| `kind` | `enum:AttemptKind` | false | `payload` | — | — |
+| `request_identity` | `content_hash` | false | `payload` | — | — |
+| `preparation_identity` | `content_hash` | true | `payload` | — | — |
+| `state` | `enum:AttemptState` | false | `payload` | — | — |
+| `state_version` | `Int32` | false | `payload` | — | — |
+| `parent_attempt` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `worker` | `Utf8` | true | `payload` | — | — |
+| `lease_expires_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+| `heartbeat_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+| `cancel_requested` | `Boolean` | false | `payload` | — | — |
+| `cancel_requested_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+| `termination` | `Utf8` | true | `payload` | — | — |
+| `termination_detail` | `Utf8` | true | `payload` | — | — |
+| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `started_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+| `finished_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+
+## `operational_incumbents`
+
+Improving feasible points and the bound at that time, numbered by the producer; `solution_id` names the stored point when it is kept for resumption.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
+| `seq` | `Int64` | false | `key` | — | — |
+| `at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `objective` | `Float64` | false | `payload` | — | — |
+| `dual_bound` | `Float64` | true | `payload` | — | — |
+| `gap` | `Float64` | true | `payload` | — | — |
+| `solution_id` | `semantic_id` | true | `payload` | `runtime.operational_solutions.solution_id` | — |
+
+## `operational_jobs`
+
+Durable work claimed with FOR UPDATE SKIP LOCKED. `attempt_id` is the current try; each try runs as a new attempt. `payload` is a JSON document of format `payload_version`; a worker refuses versions it does not know. Backoff is in microseconds, doubled per retry up to the cap.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `job_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `job_id` | `semantic_id` | false | `key` | — | — |
+| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `idempotency_key` | `Utf8` | false | `payload` | — | — |
+| `payload_version` | `Int32` | false | `payload` | — | — |
+| `payload` | `Utf8` | false | `payload` | — | — |
+| `priority` | `Int32` | false | `payload` | — | — |
+| `state` | `enum:JobState` | false | `payload` | — | — |
+| `tries` | `Int32` | false | `payload` | — | — |
+| `max_tries` | `Int32` | false | `payload` | — | — |
+| `backoff_base_us` | `Int64` | false | `payload` | — | — |
+| `backoff_cap_us` | `Int64` | false | `payload` | — | — |
+| `available_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `enqueued_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `last_error` | `Utf8` | true | `payload` | — | — |
+
+## `operational_progress_events`
+
+Live progress of a durable attempt, numbered by its producer and retained by policy instead of a fixed event cap. `step` is the step of the run; `elapsed_seconds` is measured from the step's admitted execution start.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
+| `seq` | `Int64` | false | `key` | — | — |
+| `step` | `Int32` | false | `payload` | — | — |
+| `at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `elapsed_seconds` | `Float64` | false | `payload` | — | — |
+| `phase` | `Utf8` | false | `payload` | — | — |
+
+## `operational_progress_values`
+
+Typed values of one progress event, in the value vocabulary of runtime.solve_metrics: exactly the selected value field is populated, and numeric values are stored exactly. Publication snapshots them into runtime.solve_metrics as namespace `event.<seq>.<phase>`.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq, name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
+| `seq` | `Int64` | false | `key` | — | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `kind` | `enum:NativeMetricKind` | false | `payload` | — | — |
+| `real` | `Float64` | true | `payload` | — | — |
+| `integer` | `Int64` | true | `payload` | — | — |
+| `boolean` | `Boolean` | true | `payload` | — | — |
+| `text` | `Utf8` | true | `payload` | — | — |
+| `unavailable` | `enum:EvidenceUnavailableReason` | true | `payload` | — | — |
+
+Native row check `one_evidence_value` (must be true):
+
+```sql
+(kind = 'real' AND "real" IS NOT NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'integer' AND "real" IS NULL AND "integer" IS NOT NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'boolean' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NOT NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'text' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NOT NULL AND "unavailable" IS NULL) OR (kind = 'unavailable' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NOT NULL)
+```
+
+## `operational_solutions`
+
+Reusable seeds in original source coordinates, keyed by the coordinate-compatibility stamp (the layout stamp) and the preparation identity. `kind` fixes which vectors are present; an NLP seed may carry the final barrier parameter of its interior-point producer (authored objective units); basis codes keep the native integer statuses. The seed's content identity enters the lineage of every result it seeds (F25).
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `solution_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `solution_id` | `semantic_id` | false | `key` | — | — |
+| `compatibility_stamp` | `content_hash` | false | `payload` | — | — |
+| `preparation_identity` | `content_hash` | false | `payload` | — | — |
+| `kind` | `enum:StoredSeedKind` | false | `payload` | — | — |
+| `backend` | `enum:NativeBackend` | false | `payload` | — | — |
+| `profile_stamp` | `content_hash` | false | `payload` | — | — |
+| `data_stamp` | `content_hash` | false | `payload` | — | — |
+| `primal` | `List` | true | `payload` | — | — |
+| `primal.item` | `Float64` | false | `payload` | — | — |
+| `lower_bound_duals` | `List` | true | `payload` | — | — |
+| `lower_bound_duals.item` | `Float64` | false | `payload` | — | — |
+| `upper_bound_duals` | `List` | true | `payload` | — | — |
+| `upper_bound_duals.item` | `Float64` | false | `payload` | — | — |
+| `column_duals` | `List` | true | `payload` | — | — |
+| `column_duals.item` | `Float64` | false | `payload` | — | — |
+| `row_duals` | `List` | true | `payload` | — | — |
+| `row_duals.item` | `Float64` | false | `payload` | — | — |
+| `barrier` | `Float64` | true | `payload` | — | — |
+| `basis_columns` | `List` | true | `payload` | — | — |
+| `basis_columns.item` | `Int32` | false | `payload` | — | — |
+| `basis_rows` | `List` | true | `payload` | — | — |
+| `basis_rows.item` | `Int32` | false | `payload` | — | — |
+| `created_by` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+
+## `operational_source_bundles`
+
+Authored sources stored for job execution. `bundle_hash` is the package content hash of §6.1 over the bundle's path/text pairs; `manifest` is a JSON document naming the paths.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `bundle_hash` | `content_hash` | false | `key` | — | — |
+| `manifest` | `Utf8` | false | `payload` | — | — |
+| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+
+## `operational_source_documents`
+
+One authored document of a source bundle, keyed by its path; `content_hash` is the document content hash.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash, path`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `bundle_hash` | `content_hash` | false | `key` | `runtime.operational_source_bundles.bundle_hash` | — |
+| `path` | `Utf8` | false | `key` | — | — |
+| `content_hash` | `content_hash` | false | `payload` | — | — |
+| `content` | `Utf8` | false | `payload` | — | — |
+
+## `operational_studies`
+
+Study coordination state; `definition` is the study's versioned JSON definition.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `study_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `study_id` | `semantic_id` | false | `key` | — | — |
+| `definition` | `Utf8` | false | `payload` | — | — |
+| `state` | `enum:StudyState` | false | `payload` | — | — |
+| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+
+## `operational_study_points`
+
+One study point: its value bindings by hash, its claim state and the attempt that ran it.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `study_id` | `semantic_id` | false | `key` | `runtime.operational_studies.study_id` | — |
+| `point_index` | `Int32` | false | `key` | — | — |
+| `binding_hash` | `content_hash` | false | `payload` | — | — |
+| `state` | `enum:StudyPointState` | false | `payload` | — | — |
+| `attempt_id` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `result_ref` | `Utf8` | true | `payload` | — | — |
+| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+
 ## `publications`
 
 One native Delta control row selects exact members; native transactions index publication and attempt identities.

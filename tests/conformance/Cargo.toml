@@ -54,6 +54,7 @@ diffsol = { workspace = true, optional = true }
 libtest-mimic.workspace = true
 object_store.workspace = true
 pse-runtime.workspace = true
+pse-operations = { workspace = true, features = ["test-support"] }
 pse-modeling.workspace = true
 pse-authoring.workspace = true
 pse-compiler.workspace = true

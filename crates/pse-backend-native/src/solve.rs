@@ -380,11 +380,20 @@ pub struct Event {
     /// Native event values with backend-specific keys.
     pub values: BTreeMap<String, Metric>,
 }
-/// A bounded event stream shared with an observing handle.
+/// Receives every event pushed to a [`Progress`], whether or not the bounded in-memory
+/// stream retains it: a durable stream bounded by its own retention policy instead of an
+/// event cap (ADR-0112 Outcome 17).
+pub trait ProgressTap: Send + Sync + std::fmt::Debug {
+    /// Observe one event. Called on the native thread; it must not block.
+    fn observe(&self, event: &Event);
+}
+/// A bounded event stream shared with an observing handle, optionally tapped by a
+/// durable stream.
 #[derive(Debug)]
 pub struct Progress {
     limit: usize,
     events: Mutex<(Vec<Event>, u64)>,
+    tap: Option<Arc<dyn ProgressTap>>,
 }
 impl Metric {
     /// Stable type tag; raw nonfinite native values are observations, not missing sentinels.
@@ -406,10 +415,21 @@ impl Progress {
         Self {
             limit,
             events: Mutex::new((Vec::new(), 0)),
+            tap: None,
         }
     }
-    /// Copy an owned event into the bounded stream.
+    /// A bounded stream whose every event, retained or dropped here, also reaches `tap`.
+    pub fn tapped(limit: usize, tap: Arc<dyn ProgressTap>) -> Self {
+        Self {
+            tap: Some(tap),
+            ..Self::new(limit)
+        }
+    }
+    /// Copy an owned event into the bounded stream, after offering it to the tap.
     pub fn push(&self, event: Event) {
+        if let Some(tap) = &self.tap {
+            tap.observe(&event);
+        }
         if let Ok(mut s) = self.events.lock() {
             let bytes =
                 event

@@ -275,6 +275,11 @@ impl Store {
         crate::solutions::Solutions::new(self)
     }
 
+    /// Content-addressed authored source bundles for job execution.
+    pub const fn sources(&self) -> crate::sources::Sources<'_> {
+        crate::sources::Sources::new(self)
+    }
+
     /// The publication catalog and reader leases.
     pub const fn catalog(&self) -> crate::catalog::Catalog<'_> {
         crate::catalog::Catalog::new(self)

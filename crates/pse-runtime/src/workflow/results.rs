@@ -4,14 +4,10 @@
 use super::{RunResult, WorkflowError, contract, relation};
 use pse_backend_native::solve::{Metric, OptionValue};
 use pse_ids::SemanticId;
+use pse_operations::streams::{ProgressEvent, ProgressValue};
 use pse_relations::{
     columnar::FieldCheckedBatch,
-    generated::{
-        enums::NativeMetricKind,
-        runtime::{
-            solve_metrics as metrics,
-        },
-    },
+    generated::{enums::NativeMetricKind, runtime::solve_metrics as metrics},
 };
 use std::{collections::BTreeMap, sync::Arc};
 impl RunResult {
@@ -90,12 +86,123 @@ pub(super) fn push_metric(
     builder.push(row).map_err(relation)
 }
 
+/// The progress events a step's metrics are derived from.
+#[derive(Clone, Copy, Debug)]
+pub(super) enum StepEvents<'a> {
+    /// An ephemeral run: the report's bounded in-memory copy and its dropped count.
+    Retained,
+    /// A durable run: the step's complete stream as stored (ADR-0112 Outcome 17).
+    Stored(&'a [&'a ProgressEvent]),
+}
+
+impl RunResult {
+    /// The events `step`'s metrics derive from: the stored stream of a durable run, whose
+    /// snapshot was read back after the attempt ended, or the retained copy of an
+    /// ephemeral one.
+    ///
+    /// # Errors
+    /// A durable run whose stream could not be read back; its metrics are never derived
+    /// from the bounded copy instead.
+    pub(super) fn stored_events(
+        &self,
+        step: i64,
+    ) -> Result<Option<Vec<&ProgressEvent>>, WorkflowError> {
+        match &self.durability {
+            super::RunDurability::Ephemeral => Ok(None),
+            super::RunDurability::Durable(record) => {
+                let events = record
+                    .progress
+                    .as_ref()
+                    .map_err(|error| WorkflowError::Shared(error.clone()))?;
+                Ok(Some(
+                    events
+                        .iter()
+                        .filter(|event| i64::from(event.step) == step)
+                        .collect(),
+                ))
+            }
+        }
+    }
+}
+
+/// A stored progress value as the metric vocabulary it was taken from.
+fn stored_metric(value: &ProgressValue) -> Metric {
+    match value {
+        ProgressValue::Real(v) => Metric::Real(*v),
+        ProgressValue::Integer(v) => Metric::Integer(*v),
+        ProgressValue::Boolean(v) => Metric::Bool(*v),
+        ProgressValue::Text(v) => Metric::Text(v.clone()),
+        ProgressValue::Unavailable(reason) => Metric::Unavailable(*reason),
+    }
+}
+
+/// Progress rows of one step. The identity mapping is explicit: event `seq` of phase `p`
+/// is namespace `event.<seq>.<p>`, with its elapsed time and each value by name. For a
+/// durable run `seq` is the attempt's stream sequence number and nothing is dropped; for
+/// an ephemeral run it is the index in the bounded copy.
+fn push_events(
+    builder: &mut metrics::Builder,
+    run_id: SemanticId,
+    step: i64,
+    native: &pse_backend_native::solve::SolveReport,
+    events: StepEvents<'_>,
+) -> Result<(), WorkflowError> {
+    let dropped = match events {
+        StepEvents::Retained => native.dropped_events.min(i64::MAX as u64) as i64,
+        StepEvents::Stored(_) => 0,
+    };
+    push_metric(
+        builder,
+        run_id,
+        step,
+        "progress",
+        "dropped_events",
+        &Metric::Integer(dropped),
+    )?;
+    match events {
+        StepEvents::Retained => {
+            for (i, event) in native.events.iter().enumerate() {
+                let ns = format!("event.{i}.{}", event.phase);
+                push_metric(
+                    builder,
+                    run_id,
+                    step,
+                    &ns,
+                    "elapsed_seconds",
+                    &Metric::Real(event.elapsed.as_secs_f64()),
+                )?;
+                for (key, value) in &event.values {
+                    push_metric(builder, run_id, step, &ns, key, value)?;
+                }
+            }
+        }
+        StepEvents::Stored(events) => {
+            for event in events {
+                let ns = format!("event.{}.{}", event.seq, event.phase);
+                push_metric(
+                    builder,
+                    run_id,
+                    step,
+                    &ns,
+                    "elapsed_seconds",
+                    &Metric::Real(event.elapsed_seconds),
+                )?;
+                for (key, value) in &event.values {
+                    push_metric(builder, run_id, step, &ns, key, &stored_metric(value))?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Common native options, metrics, certificates, progress and presolve receipt.
 pub(super) fn push_native_metrics(
     builder: &mut metrics::Builder,
     run_id: SemanticId,
     step: i64,
     native: &pse_backend_native::solve::SolveReport,
+    events: StepEvents<'_>,
 ) -> Result<(), WorkflowError> {
     push_metric(
         builder,
@@ -153,28 +260,7 @@ pub(super) fn push_native_metrics(
             push_metric(builder, run_id, step, namespace, name, &v)?;
         }
     }
-    push_metric(
-        builder,
-        run_id,
-        step,
-        "progress",
-        "dropped_events",
-        &Metric::Integer(native.dropped_events.min(i64::MAX as u64) as i64),
-    )?;
-    for (i, event) in native.events.iter().enumerate() {
-        let ns = format!("event.{i}.{}", event.phase);
-        push_metric(
-            builder,
-            run_id,
-            step,
-            &ns,
-            "elapsed_seconds",
-            &Metric::Real(event.elapsed.as_secs_f64()),
-        )?;
-        for (key, value) in &event.values {
-            push_metric(builder, run_id, step, &ns, key, value)?;
-        }
-    }
+    push_events(builder, run_id, step, native, events)?;
     if let Some(c) = &native.certificate {
         push_metric(
             builder,

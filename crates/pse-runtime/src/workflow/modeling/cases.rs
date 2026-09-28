@@ -48,8 +48,11 @@ pub enum StartSource {
     Predecessor,
     /// A continuation parameter override.
     Continuation,
-    /// A start read from the operational store (reserved for packet O).
-    Stored,
+    /// A seed read from the operational store's solution store (ADR-0112 Outcome 17).
+    Stored {
+        /// The stored solution; the seed's content identity enters lineage (F25).
+        solution: SemanticId,
+    },
 }
 /// One immutable case plus the numerical declarations selected for this analysis.
 #[derive(Clone, Debug)]

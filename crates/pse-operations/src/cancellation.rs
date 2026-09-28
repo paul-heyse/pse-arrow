@@ -15,7 +15,7 @@ use crate::attempts::{self, TransitionNote};
 use crate::codec;
 use crate::error::{Classify, OperationsError, Target};
 use crate::jobs::JobState;
-use crate::lifecycle::AttemptState;
+use crate::lifecycle::{AttemptState, Lifecycle};
 use crate::store::Store;
 
 /// The notification channel; the payload is the attempt identity in `uuid` text form.

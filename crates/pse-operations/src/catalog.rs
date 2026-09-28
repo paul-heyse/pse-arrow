@@ -293,7 +293,7 @@ impl<'s> Catalog<'s> {
             })?
             .parse()
             .map_err(
-                |error: crate::lifecycle::UnknownState| OperationsError::CorruptValue {
+                |error: pse_model::ModelError| OperationsError::CorruptValue {
                     column: "attempts.state",
                     detail: error.to_string(),
                 },
@@ -307,8 +307,9 @@ impl<'s> Catalog<'s> {
         ) {
             return Err(OperationsError::InvalidRequest {
                 reason: format!(
-                    "attempt {} is {state}; only a finished attempt is published",
-                    commit.attempt_id
+                    "attempt {} is {}; only a finished attempt is published",
+                    commit.attempt_id,
+                    state.as_str()
                 ),
             });
         }

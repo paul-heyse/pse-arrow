@@ -7,14 +7,11 @@
 //!
 //! Lock order is job row, then attempt row, everywhere a function takes both.
 
-use std::fmt;
-use std::str::FromStr;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use pse_ids::SemanticId;
 use sqlx::postgres::PgRow;
-use sqlx::postgres::types::PgInterval;
 use sqlx::{FromRow, PgConnection, Row};
 
 use crate::attempts::{self, Lease, NewAttempt, TransitionNote};
@@ -22,6 +19,9 @@ use crate::codec;
 use crate::error::{Classify, OperationsError, Target};
 use crate::lifecycle::AttemptState;
 use crate::store::Store;
+
+/// The notification channel for new jobs; the payload is the job identity.
+pub const JOBS_CHANNEL: &str = "pse_ops_jobs";
 
 /// How often a job may be tried and how long to wait between tries.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -73,56 +73,10 @@ impl RetryPolicy {
     }
 }
 
-/// The queue state of a job; the attempt carries the lifecycle of each try.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum JobState {
-    /// Waiting for a worker.
-    Queued,
-    /// Claimed by a worker.
-    Running,
-    /// Finished with a completed or partial attempt.
-    Completed,
-    /// Finished without a usable result, and not retried further.
-    Failed,
-    /// Cancelled.
-    Cancelled,
-}
-
-impl JobState {
-    /// The stored spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Queued => "queued",
-            Self::Running => "running",
-            Self::Completed => "completed",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-        }
-    }
-}
-
-impl fmt::Display for JobState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-impl FromStr for JobState {
-    type Err = String;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        [
-            Self::Queued,
-            Self::Running,
-            Self::Completed,
-            Self::Failed,
-            Self::Cancelled,
-        ]
-        .into_iter()
-        .find(|state| state.as_str() == text)
-        .ok_or_else(|| format!("unknown job state `{text}`"))
-    }
-}
+/// The queue state of a job (registry enumeration `JobState`): queued, running, completed
+/// (with a completed or partial attempt), failed (not retried further) or cancelled. The
+/// attempt carries the lifecycle of each try.
+pub use pse_model::generated::enums::JobState;
 
 /// Work to enqueue together with its first attempt.
 #[derive(Clone, Debug, PartialEq)]
@@ -218,19 +172,19 @@ pub struct JobRecord {
     pub last_error: Option<String>,
 }
 
+/// A backoff column: integral microseconds.
 fn duration(row: &PgRow, column: &str) -> Result<Duration, sqlx::Error> {
-    let value: PgInterval = row.try_get(column)?;
-    if value.months != 0 || value.days != 0 {
-        return Err(sqlx::Error::ColumnDecode {
-            index: column.to_owned(),
-            source: "backoff intervals are stored in microseconds only".into(),
-        });
-    }
-    let micros = u64::try_from(value.microseconds).map_err(|_| sqlx::Error::ColumnDecode {
+    let micros: i64 = row.try_get(column)?;
+    let micros = u64::try_from(micros).map_err(|_| sqlx::Error::ColumnDecode {
         index: column.to_owned(),
-        source: "negative backoff interval".into(),
+        source: "negative backoff".into(),
     })?;
     Ok(Duration::from_micros(micros))
+}
+
+/// The backoff column value of a duration: integral microseconds, saturating.
+fn micros(duration: Duration) -> i64 {
+    i64::try_from(duration.as_micros()).unwrap_or(i64::MAX)
 }
 
 fn policy(row: &PgRow) -> Result<RetryPolicy, sqlx::Error> {
@@ -240,8 +194,8 @@ fn policy(row: &PgRow) -> Result<RetryPolicy, sqlx::Error> {
             index: "max_tries".to_owned(),
             source: "negative max_tries".into(),
         })?,
-        backoff: duration(row, "backoff_base")?,
-        backoff_cap: duration(row, "backoff_cap")?,
+        backoff: duration(row, "backoff_base_us")?,
+        backoff_cap: duration(row, "backoff_cap_us")?,
     })
 }
 
@@ -313,7 +267,7 @@ async fn lock_job(
     job: SemanticId,
 ) -> Result<LockedJob, OperationsError> {
     let row = sqlx::query(
-        "SELECT job_id, attempt_id, state, tries, max_tries, backoff_base, backoff_cap \
+        "SELECT job_id, attempt_id, state, tries, max_tries, backoff_base_us, backoff_cap_us \
          FROM pse_ops.jobs WHERE job_id = $1 FOR UPDATE",
     )
     .bind(codec::uuid(job))
@@ -467,7 +421,7 @@ impl<'s> Jobs<'s> {
         let max_tries = i32::try_from(job.retry.max_tries).unwrap_or(i32::MAX);
         let created: Option<uuid::Uuid> = sqlx::query_scalar(
             "INSERT INTO pse_ops.jobs (attempt_id, idempotency_key, payload_version, payload, \
-                 priority, state, max_tries, backoff_base, backoff_cap) \
+                 priority, state, max_tries, backoff_base_us, backoff_cap_us) \
              VALUES ($1, $2, $3, $4, $5, 'queued', $6, $7, $8) \
              ON CONFLICT (idempotency_key) DO NOTHING RETURNING job_id",
         )
@@ -477,8 +431,8 @@ impl<'s> Jobs<'s> {
         .bind(&job.payload)
         .bind(job.priority)
         .bind(max_tries)
-        .bind(codec::interval(job.retry.backoff))
-        .bind(codec::interval(job.retry.backoff_cap))
+        .bind(micros(job.retry.backoff))
+        .bind(micros(job.retry.backoff_cap))
         .fetch_optional(&mut *tx)
         .await
         .classify(target)?;
@@ -493,6 +447,14 @@ impl<'s> Jobs<'s> {
                     id: job.idempotency_key.clone(),
                 });
         };
+        // Wakes idle workers when the transaction commits; workers also poll, so a lost
+        // notification only delays a claim.
+        sqlx::query("SELECT pg_notify($1, $2)")
+            .bind(JOBS_CHANNEL)
+            .bind(job_id.to_string())
+            .execute(&mut *tx)
+            .await
+            .classify(target)?;
         tx.commit().await.classify(target)?;
         Ok(Enqueued::Created {
             job_id: SemanticId::from_bytes(job_id.into_bytes()),
@@ -525,7 +487,7 @@ impl<'s> Jobs<'s> {
     pub async fn get(&self, job: SemanticId) -> Result<JobRecord, OperationsError> {
         sqlx::query_as(
             "SELECT job_id, attempt_id, idempotency_key, payload_version, priority, state, \
-                 tries, max_tries, backoff_base, backoff_cap, available_at, last_error \
+                 tries, max_tries, backoff_base_us, backoff_cap_us, available_at, last_error \
              FROM pse_ops.jobs WHERE job_id = $1",
         )
         .bind(codec::uuid(job))
@@ -627,7 +589,7 @@ impl<'s> Jobs<'s> {
                 | AttemptState::Cancelled
         ) {
             return Err(OperationsError::InvalidRequest {
-                reason: format!("a worker cannot finish a try as {}", outcome.state),
+                reason: format!("a worker cannot finish a try as {}", outcome.state.as_str()),
             });
         }
         let target = self.target();
@@ -789,18 +751,5 @@ mod retry_unit {
             .is_err()
         );
         assert!(RetryPolicy::ONCE.validate().is_ok());
-    }
-
-    #[test]
-    fn job_state_spelling_round_trips() {
-        for state in [
-            JobState::Queued,
-            JobState::Running,
-            JobState::Completed,
-            JobState::Failed,
-            JobState::Cancelled,
-        ] {
-            assert_eq!(state.as_str().parse::<JobState>(), Ok(state));
-        }
     }
 }

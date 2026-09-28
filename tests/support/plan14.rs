@@ -34,11 +34,15 @@ pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::
     let texts = BTreeMap::from([
         (
             "package.toml".into(),
-            std::fs::read_to_string(fixture("../packages/physical-primitives/package.toml")).unwrap(),
+            std::fs::read_to_string(fixture("../packages/physical-primitives/package.toml"))
+                .unwrap(),
         ),
         (
             "materials/physical.yaml".into(),
-            std::fs::read_to_string(fixture("../packages/physical-primitives/materials/physical.yaml")).unwrap(),
+            std::fs::read_to_string(fixture(
+                "../packages/physical-primitives/materials/physical.yaml",
+            ))
+            .unwrap(),
         ),
     ]);
     let pool = owner.runtime.pool();
@@ -98,9 +102,25 @@ pub(crate) fn near(a: f64, b: f64, tol: f64) {
         "{a} != {b}, tolerance {tol}"
     )
 }
+/// A durable runtime over `owner` whose runs are attempts in the operational store at
+/// `url`; only durable runs publish (ADR-0112 Outcome 16).
+pub(crate) async fn durable(owner: &WorkflowRuntime, url: &str) -> Runtime {
+    use pse_runtime::workflow::{Durability, LeasePolicy, Operations};
+    let operations = Operations::connect(url, "plan14", LeasePolicy::default())
+        .await
+        .unwrap();
+    runtime(owner).with_durability(Durability::Durable(operations))
+}
 /// Load the explicit source package closure used by authored seed acceptance and timing.
 pub(crate) async fn seed_package(
     owner: &WorkflowRuntime,
+) -> pse_runtime::workflow::ModelingPackage {
+    seed_package_on(owner, runtime(owner)).await
+}
+/// [`seed_package`] on an explicit runtime, such as a durable one.
+pub(crate) async fn seed_package_on(
+    owner: &WorkflowRuntime,
+    runtime: Runtime,
 ) -> pse_runtime::workflow::ModelingPackage {
     use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_texts_owned};
     fn documents(root: &std::path::Path) -> BTreeMap<String, String> {
@@ -194,7 +214,6 @@ pub(crate) async fn seed_package(
     .unwrap();
     let physical_documents =
         OwnedDocumentSet::try_from_bundles(vec![physical_bundle], &pool, &owner.cancel).unwrap();
-    let runtime = runtime(owner);
     let physical = runtime
         .physical_from_documents(&physical_documents, &owner.cancel)
         .await
@@ -205,7 +224,6 @@ pub(crate) async fn seed_package(
         "thermodynamics",
         "methods",
         "physical",
-
     ]
     .into_iter()
     .map(|name| {
@@ -288,10 +306,17 @@ pub(crate) async fn seed_prepare(
     solver: SolverProfile,
     cancel: &pse_runtime::CancelSource,
 ) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
-    let analysis = package.declared_analysis(
-        case, pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
-        compiler(), solver, Default::default(), seed_limits(), cancel,
-    ).await?;
+    let analysis = package
+        .declared_analysis(
+            case,
+            pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
+            compiler(),
+            solver,
+            Default::default(),
+            seed_limits(),
+            cancel,
+        )
+        .await?;
     package.prepare_analysis(&analysis, cancel).await
 }
 /// Both original physical checks and native feasibility are required.
@@ -299,10 +324,10 @@ pub(crate) fn authored_success(result: &RunResult) -> &pse_runtime::workflow::Mo
     let RunReport::Modeling(report) = result.report().unwrap() else {
         panic!("expected authored solve")
     };
-    let report=&report[0];
+    let report = &report[0];
     assert!(report.accepted, "{:?}", report.diagnostic());
     assert!(result.usable(), "{:?}", result.assessments());
     assert!(!report.checks.is_empty());
-    assert!(report.checks.iter().all(|r|r.satisfied));
+    assert!(report.checks.iter().all(|r| r.satisfied));
     report
 }

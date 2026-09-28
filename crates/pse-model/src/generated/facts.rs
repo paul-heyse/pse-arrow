@@ -171,6 +171,40 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeNativeDependencies)]
     r#RuntimeNativeDependencies(Vec<super::r#runtime::r#native_dependencies::Row>),
+    #[doc = stringify!(r#RuntimeOperationalAttemptTransitions)]
+    r#RuntimeOperationalAttemptTransitions(
+        Vec<super::r#runtime::r#operational_attempt_transitions::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalAttempts)]
+    r#RuntimeOperationalAttempts(Vec<super::r#runtime::r#operational_attempts::Row>),
+    #[doc = stringify!(r#RuntimeOperationalIncumbents)]
+    r#RuntimeOperationalIncumbents(Vec<super::r#runtime::r#operational_incumbents::Row>),
+    #[doc = stringify!(r#RuntimeOperationalJobs)]
+    r#RuntimeOperationalJobs(Vec<super::r#runtime::r#operational_jobs::Row>),
+    #[doc = stringify!(r#RuntimeOperationalProgressEvents)]
+    r#RuntimeOperationalProgressEvents(
+        Vec<super::r#runtime::r#operational_progress_events::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalProgressValues)]
+    r#RuntimeOperationalProgressValues(
+        Vec<super::r#runtime::r#operational_progress_values::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalSolutions)]
+    r#RuntimeOperationalSolutions(Vec<super::r#runtime::r#operational_solutions::Row>),
+    #[doc = stringify!(r#RuntimeOperationalSourceBundles)]
+    r#RuntimeOperationalSourceBundles(
+        Vec<super::r#runtime::r#operational_source_bundles::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalSourceDocuments)]
+    r#RuntimeOperationalSourceDocuments(
+        Vec<super::r#runtime::r#operational_source_documents::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalStudies)]
+    r#RuntimeOperationalStudies(Vec<super::r#runtime::r#operational_studies::Row>),
+    #[doc = stringify!(r#RuntimeOperationalStudyPoints)]
+    r#RuntimeOperationalStudyPoints(
+        Vec<super::r#runtime::r#operational_study_points::Row>,
+    ),
     #[doc = stringify!(r#RuntimePublications)]
     r#RuntimePublications(Vec<super::r#runtime::r#publications::Row>),
     #[doc = stringify!(r#RuntimeReleaseCheckpoints)]
@@ -626,6 +660,72 @@ impl FactBatch {
                     14u8, 123u8, 67u8, 1u8, 244u8, 89u8,
                 ])
             }
+            Self::r#RuntimeOperationalAttemptTransitions(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    52u8, 138u8, 172u8, 97u8, 141u8, 128u8, 98u8, 83u8, 217u8, 168u8,
+                    79u8, 23u8, 119u8, 236u8, 166u8, 174u8,
+                ])
+            }
+            Self::r#RuntimeOperationalAttempts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    104u8, 206u8, 80u8, 50u8, 111u8, 110u8, 106u8, 216u8, 142u8, 159u8,
+                    15u8, 136u8, 100u8, 142u8, 232u8, 209u8,
+                ])
+            }
+            Self::r#RuntimeOperationalIncumbents(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    150u8, 125u8, 99u8, 20u8, 215u8, 33u8, 223u8, 3u8, 193u8, 199u8,
+                    117u8, 120u8, 241u8, 209u8, 140u8, 186u8,
+                ])
+            }
+            Self::r#RuntimeOperationalJobs(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    205u8, 209u8, 72u8, 132u8, 178u8, 155u8, 190u8, 251u8, 158u8, 209u8,
+                    163u8, 33u8, 215u8, 114u8, 149u8, 41u8,
+                ])
+            }
+            Self::r#RuntimeOperationalProgressEvents(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    25u8, 37u8, 212u8, 48u8, 110u8, 243u8, 84u8, 132u8, 37u8, 146u8,
+                    190u8, 94u8, 123u8, 214u8, 252u8, 16u8,
+                ])
+            }
+            Self::r#RuntimeOperationalProgressValues(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    137u8, 144u8, 135u8, 75u8, 193u8, 123u8, 240u8, 70u8, 95u8, 168u8,
+                    249u8, 192u8, 234u8, 237u8, 55u8, 179u8,
+                ])
+            }
+            Self::r#RuntimeOperationalSolutions(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    131u8, 188u8, 216u8, 81u8, 206u8, 155u8, 47u8, 205u8, 222u8, 161u8,
+                    25u8, 150u8, 162u8, 61u8, 196u8, 234u8,
+                ])
+            }
+            Self::r#RuntimeOperationalSourceBundles(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    44u8, 142u8, 186u8, 22u8, 16u8, 215u8, 103u8, 210u8, 5u8, 71u8, 62u8,
+                    56u8, 214u8, 157u8, 156u8, 29u8,
+                ])
+            }
+            Self::r#RuntimeOperationalSourceDocuments(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    173u8, 163u8, 55u8, 237u8, 87u8, 213u8, 82u8, 184u8, 8u8, 254u8,
+                    76u8, 170u8, 64u8, 172u8, 194u8, 65u8,
+                ])
+            }
+            Self::r#RuntimeOperationalStudies(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    172u8, 27u8, 53u8, 220u8, 145u8, 221u8, 182u8, 196u8, 181u8, 243u8,
+                    79u8, 202u8, 104u8, 188u8, 112u8, 180u8,
+                ])
+            }
+            Self::r#RuntimeOperationalStudyPoints(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    211u8, 94u8, 213u8, 156u8, 83u8, 247u8, 225u8, 19u8, 248u8, 228u8,
+                    97u8, 58u8, 249u8, 177u8, 99u8, 207u8,
+                ])
+            }
             Self::r#RuntimePublications(_) => {
                 pse_ids::SemanticId::from_bytes([
                     95u8, 49u8, 15u8, 84u8, 201u8, 179u8, 235u8, 250u8, 192u8, 3u8,
@@ -791,6 +891,17 @@ impl FactBatch {
             Self::r#RuntimeModelingStudies(rows) => rows.len(),
             Self::r#RuntimeModelingTrajectoryModes(rows) => rows.len(),
             Self::r#RuntimeNativeDependencies(rows) => rows.len(),
+            Self::r#RuntimeOperationalAttemptTransitions(rows) => rows.len(),
+            Self::r#RuntimeOperationalAttempts(rows) => rows.len(),
+            Self::r#RuntimeOperationalIncumbents(rows) => rows.len(),
+            Self::r#RuntimeOperationalJobs(rows) => rows.len(),
+            Self::r#RuntimeOperationalProgressEvents(rows) => rows.len(),
+            Self::r#RuntimeOperationalProgressValues(rows) => rows.len(),
+            Self::r#RuntimeOperationalSolutions(rows) => rows.len(),
+            Self::r#RuntimeOperationalSourceBundles(rows) => rows.len(),
+            Self::r#RuntimeOperationalSourceDocuments(rows) => rows.len(),
+            Self::r#RuntimeOperationalStudies(rows) => rows.len(),
+            Self::r#RuntimeOperationalStudyPoints(rows) => rows.len(),
             Self::r#RuntimePublications(rows) => rows.len(),
             Self::r#RuntimeReleaseCheckpoints(rows) => rows.len(),
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
@@ -1168,6 +1279,61 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeOperationalAttemptTransitions(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalAttempts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalIncumbents(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalJobs(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalProgressEvents(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalProgressValues(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalSolutions(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalSourceBundles(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalSourceDocuments(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalStudies(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalStudyPoints(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimePublications(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1526,6 +1692,60 @@ impl FactBatch {
             Self::r#RuntimeNativeDependencies(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeNativeDependencies(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalAttemptTransitions(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalAttemptTransitions(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalAttempts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalAttempts(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalIncumbents(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalIncumbents(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalJobs(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalJobs(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalProgressEvents(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalProgressEvents(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalProgressValues(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalProgressValues(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalSolutions(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalSolutions(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalSourceBundles(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalSourceBundles(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalSourceDocuments(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalSourceDocuments(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalStudies(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalStudies(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalStudyPoints(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalStudyPoints(vec![row.clone()]))
             }
             Self::r#RuntimePublications(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimePublications(vec![row.clone()]))
@@ -2300,6 +2520,127 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeOperationalAttemptTransitions(left),
+                Self::r#RuntimeOperationalAttemptTransitions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalAttempts(left),
+                Self::r#RuntimeOperationalAttempts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalIncumbents(left),
+                Self::r#RuntimeOperationalIncumbents(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalJobs(left),
+                Self::r#RuntimeOperationalJobs(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalProgressEvents(left),
+                Self::r#RuntimeOperationalProgressEvents(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalProgressValues(left),
+                Self::r#RuntimeOperationalProgressValues(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalSolutions(left),
+                Self::r#RuntimeOperationalSolutions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalSourceBundles(left),
+                Self::r#RuntimeOperationalSourceBundles(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalSourceDocuments(left),
+                Self::r#RuntimeOperationalSourceDocuments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalStudies(left),
+                Self::r#RuntimeOperationalStudies(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalStudyPoints(left),
+                Self::r#RuntimeOperationalStudyPoints(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimePublications(left), Self::r#RuntimePublications(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -2940,6 +3281,83 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeNativeDependencies(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalAttemptTransitions(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalAttempts(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalIncumbents(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalJobs(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalProgressEvents(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalProgressValues(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalSolutions(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalSourceBundles(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalSourceDocuments(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalStudies(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalStudyPoints(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4019,6 +4437,165 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeOperationalAttemptTransitions(left),
+                Self::r#RuntimeOperationalAttemptTransitions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#attempt_id,
+                            &right.r#attempt_id,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#seq, &right.r#seq)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalAttempts(left),
+                Self::r#RuntimeOperationalAttempts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#attempt_id,
+                            &right.r#attempt_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalIncumbents(left),
+                Self::r#RuntimeOperationalIncumbents(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#attempt_id,
+                            &right.r#attempt_id,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#seq, &right.r#seq)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalJobs(left),
+                Self::r#RuntimeOperationalJobs(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#job_id, &right.r#job_id)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalProgressEvents(left),
+                Self::r#RuntimeOperationalProgressEvents(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#attempt_id,
+                            &right.r#attempt_id,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#seq, &right.r#seq)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalProgressValues(left),
+                Self::r#RuntimeOperationalProgressValues(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#attempt_id,
+                            &right.r#attempt_id,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#seq, &right.r#seq)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#name,
+                                &right.r#name,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalSolutions(left),
+                Self::r#RuntimeOperationalSolutions(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#solution_id,
+                            &right.r#solution_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalSourceBundles(left),
+                Self::r#RuntimeOperationalSourceBundles(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#bundle_hash,
+                            &right.r#bundle_hash,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalSourceDocuments(left),
+                Self::r#RuntimeOperationalSourceDocuments(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#bundle_hash,
+                            &right.r#bundle_hash,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#path, &right.r#path)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalStudies(left),
+                Self::r#RuntimeOperationalStudies(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#study_id,
+                            &right.r#study_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalStudyPoints(left),
+                Self::r#RuntimeOperationalStudyPoints(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#study_id,
+                            &right.r#study_id,
+                        )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#point_index,
+                                &right.r#point_index,
+                            )
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimePublications(left), Self::r#RuntimePublications(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4612,6 +5189,57 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#scope, &mut hash);
                 crate::SemanticFrame::frame(&row.r#name, &mut hash);
             }
+            Self::r#RuntimeOperationalAttemptTransitions(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#attempt_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#seq, &mut hash);
+            }
+            Self::r#RuntimeOperationalAttempts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#attempt_id, &mut hash);
+            }
+            Self::r#RuntimeOperationalIncumbents(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#attempt_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#seq, &mut hash);
+            }
+            Self::r#RuntimeOperationalJobs(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#job_id, &mut hash);
+            }
+            Self::r#RuntimeOperationalProgressEvents(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#attempt_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#seq, &mut hash);
+            }
+            Self::r#RuntimeOperationalProgressValues(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#attempt_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#seq, &mut hash);
+                crate::SemanticFrame::frame(&row.r#name, &mut hash);
+            }
+            Self::r#RuntimeOperationalSolutions(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#solution_id, &mut hash);
+            }
+            Self::r#RuntimeOperationalSourceBundles(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#bundle_hash, &mut hash);
+            }
+            Self::r#RuntimeOperationalSourceDocuments(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#bundle_hash, &mut hash);
+                crate::SemanticFrame::frame(&row.r#path, &mut hash);
+            }
+            Self::r#RuntimeOperationalStudies(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#study_id, &mut hash);
+            }
+            Self::r#RuntimeOperationalStudyPoints(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#study_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#point_index, &mut hash);
+            }
             Self::r#RuntimePublications(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#workspace_id, &mut hash);
@@ -5169,6 +5797,83 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeOperationalAttemptTransitions(left),
+                Self::r#RuntimeOperationalAttemptTransitions(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalAttempts(left),
+                Self::r#RuntimeOperationalAttempts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalIncumbents(left),
+                Self::r#RuntimeOperationalIncumbents(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalJobs(left),
+                Self::r#RuntimeOperationalJobs(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalProgressEvents(left),
+                Self::r#RuntimeOperationalProgressEvents(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalProgressValues(left),
+                Self::r#RuntimeOperationalProgressValues(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalSolutions(left),
+                Self::r#RuntimeOperationalSolutions(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalSourceBundles(left),
+                Self::r#RuntimeOperationalSourceBundles(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalSourceDocuments(left),
+                Self::r#RuntimeOperationalSourceDocuments(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalStudies(left),
+                Self::r#RuntimeOperationalStudies(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalStudyPoints(left),
+                Self::r#RuntimeOperationalStudyPoints(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimePublications(left),
                 Self::r#RuntimePublications(mut right),
             ) => {
@@ -5394,6 +6099,35 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeNativeDependencies(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeOperationalAttemptTransitions(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalAttempts(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalIncumbents(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalJobs(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeOperationalProgressEvents(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalProgressValues(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalSolutions(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalSourceBundles(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalSourceDocuments(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalStudies(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeOperationalStudyPoints(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimePublications(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeReleaseCheckpoints(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResolvedNumerics(rows) => crate::HeapUsage::heap_bytes(rows),

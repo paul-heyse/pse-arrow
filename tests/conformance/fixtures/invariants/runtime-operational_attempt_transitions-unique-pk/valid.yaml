@@ -1,0 +1,17 @@
+{
+  "invariant": "runtime.operational_attempt_transitions:unique:pk",
+  "rows": {
+    "runtime.operational_attempt_transitions": [
+      {
+        "actor": "[\"text\",\"value-1\"]",
+        "at": "[\"i64\",1]",
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "from_state": "[\"enum\",\"planned\"]",
+        "reason": "[\"text\",\"value-1\"]",
+        "seq": "[\"i64\",1]",
+        "to_state": "[\"enum\",\"planned\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -15,7 +15,10 @@ mod value;
 
 pub use spans::{DocPath, SpanIndex};
 
-pub use load::{Batches, BundleData, Document, DocumentBundle, load_package, load_package_texts};
+pub use load::{
+    Batches, BundleData, Document, DocumentBundle, load_package, load_package_texts,
+    package_checksum,
+};
 pub use owned::{
     OwnedDocumentBundle, OwnedDocumentSet, load_package_sources_owned, load_package_texts_owned,
 };

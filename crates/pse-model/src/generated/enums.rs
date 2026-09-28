@@ -178,6 +178,224 @@ impl core::str::FromStr for AssertionStatus {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum AttemptKind {
+    ///modeling
+    #[serde(rename = "modeling")]
+    Modeling,
+    ///simulation
+    #[serde(rename = "simulation")]
+    Simulation,
+    ///fit
+    #[serde(rename = "fit")]
+    Fit,
+}
+impl crate::SemanticEq for AttemptKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AttemptKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Modeling, Self::Simulation, Self::Fit];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Modeling => "modeling",
+            Self::Simulation => "simulation",
+            Self::Fit => "fit",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Modeling => 0usize,
+            Self::Simulation => 1usize,
+            Self::Fit => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Modeling => None,
+            Self::Simulation => None,
+            Self::Fit => None,
+        }
+    }
+}
+impl core::str::FromStr for AttemptKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "modeling" => Ok(Self::Modeling),
+            "simulation" => Ok(Self::Simulation),
+            "fit" => Ok(Self::Fit),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(AttemptKind).to_owned(),
+                    enumeration: stringify!(AttemptKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum AttemptState {
+    ///planned
+    #[serde(rename = "planned")]
+    Planned,
+    ///queued
+    #[serde(rename = "queued")]
+    Queued,
+    ///running
+    #[serde(rename = "running")]
+    Running,
+    ///completed
+    #[serde(rename = "completed")]
+    Completed,
+    ///partial
+    #[serde(rename = "partial")]
+    Partial,
+    ///failed
+    #[serde(rename = "failed")]
+    Failed,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    Cancelled,
+    ///stale
+    #[serde(rename = "stale")]
+    Stale,
+    ///superseded
+    #[serde(rename = "superseded")]
+    Superseded,
+}
+impl crate::SemanticEq for AttemptState {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl AttemptState {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 9usize] = [
+        Self::Planned,
+        Self::Queued,
+        Self::Running,
+        Self::Completed,
+        Self::Partial,
+        Self::Failed,
+        Self::Cancelled,
+        Self::Stale,
+        Self::Superseded,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Partial => "partial",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+            Self::Stale => "stale",
+            Self::Superseded => "superseded",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Planned => 0usize,
+            Self::Queued => 1usize,
+            Self::Running => 2usize,
+            Self::Completed => 3usize,
+            Self::Partial => 4usize,
+            Self::Failed => 5usize,
+            Self::Cancelled => 6usize,
+            Self::Stale => 7usize,
+            Self::Superseded => 8usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Planned => None,
+            Self::Queued => None,
+            Self::Running => None,
+            Self::Completed => None,
+            Self::Partial => None,
+            Self::Failed => None,
+            Self::Cancelled => None,
+            Self::Stale => None,
+            Self::Superseded => None,
+        }
+    }
+}
+impl core::str::FromStr for AttemptState {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "planned" => Ok(Self::Planned),
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "partial" => Ok(Self::Partial),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            "stale" => Ok(Self::Stale),
+            "superseded" => Ok(Self::Superseded),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(AttemptState).to_owned(),
+                    enumeration: stringify!(AttemptState).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum Authority {
     ///Written only through a change set.
     #[serde(rename = "authored")]
@@ -3043,6 +3261,109 @@ impl core::str::FromStr for InvariantKind {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(InvariantKind).to_owned(),
                     enumeration: stringify!(InvariantKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum JobState {
+    ///queued
+    #[serde(rename = "queued")]
+    Queued,
+    ///running
+    #[serde(rename = "running")]
+    Running,
+    ///completed
+    #[serde(rename = "completed")]
+    Completed,
+    ///failed
+    #[serde(rename = "failed")]
+    Failed,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    Cancelled,
+}
+impl crate::SemanticEq for JobState {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl JobState {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Queued,
+        Self::Running,
+        Self::Completed,
+        Self::Failed,
+        Self::Cancelled,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Queued => 0usize,
+            Self::Running => 1usize,
+            Self::Completed => 2usize,
+            Self::Failed => 3usize,
+            Self::Cancelled => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Queued => None,
+            Self::Running => None,
+            Self::Completed => None,
+            Self::Failed => None,
+            Self::Cancelled => None,
+        }
+    }
+}
+impl core::str::FromStr for JobState {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "queued" => Ok(Self::Queued),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(JobState).to_owned(),
+                    enumeration: stringify!(JobState).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -8757,6 +9078,275 @@ impl core::str::FromStr for Stability {
         }
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StoredSeedKind {
+    ///root
+    #[serde(rename = "root")]
+    Root,
+    ///nlp
+    #[serde(rename = "nlp")]
+    Nlp,
+    ///highs
+    #[serde(rename = "highs")]
+    Highs,
+}
+impl crate::SemanticEq for StoredSeedKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StoredSeedKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Root, Self::Nlp, Self::Highs];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Root => "root",
+            Self::Nlp => "nlp",
+            Self::Highs => "highs",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Root => 0usize,
+            Self::Nlp => 1usize,
+            Self::Highs => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Root => None,
+            Self::Nlp => None,
+            Self::Highs => None,
+        }
+    }
+}
+impl core::str::FromStr for StoredSeedKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "root" => Ok(Self::Root),
+            "nlp" => Ok(Self::Nlp),
+            "highs" => Ok(Self::Highs),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StoredSeedKind).to_owned(),
+                    enumeration: stringify!(StoredSeedKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyPointState {
+    ///pending
+    #[serde(rename = "pending")]
+    Pending,
+    ///assigned
+    #[serde(rename = "assigned")]
+    Assigned,
+    ///completed
+    #[serde(rename = "completed")]
+    Completed,
+    ///failed
+    #[serde(rename = "failed")]
+    Failed,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    Cancelled,
+}
+impl crate::SemanticEq for StudyPointState {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyPointState {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Pending,
+        Self::Assigned,
+        Self::Completed,
+        Self::Failed,
+        Self::Cancelled,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Assigned => "assigned",
+            Self::Completed => "completed",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Pending => 0usize,
+            Self::Assigned => 1usize,
+            Self::Completed => 2usize,
+            Self::Failed => 3usize,
+            Self::Cancelled => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Pending => None,
+            Self::Assigned => None,
+            Self::Completed => None,
+            Self::Failed => None,
+            Self::Cancelled => None,
+        }
+    }
+}
+impl core::str::FromStr for StudyPointState {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "pending" => Ok(Self::Pending),
+            "assigned" => Ok(Self::Assigned),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyPointState).to_owned(),
+                    enumeration: stringify!(StudyPointState).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StudyState {
+    ///open
+    #[serde(rename = "open")]
+    Open,
+    ///completed
+    #[serde(rename = "completed")]
+    Completed,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    Cancelled,
+}
+impl crate::SemanticEq for StudyState {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StudyState {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Open, Self::Completed, Self::Cancelled];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Open => "open",
+            Self::Completed => "completed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Open => 0usize,
+            Self::Completed => 1usize,
+            Self::Cancelled => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Open => None,
+            Self::Completed => None,
+            Self::Cancelled => None,
+        }
+    }
+}
+impl core::str::FromStr for StudyState {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "open" => Ok(Self::Open),
+            "completed" => Ok(Self::Completed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StudyState).to_owned(),
+                    enumeration: stringify!(StudyState).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
 /// Physical dictionary owned by the quantity library.
 pub type SubjectRule = pse_quantity::SubjectRule;
 impl crate::SemanticEq for SubjectRule {
@@ -9109,6 +9699,26 @@ impl crate::SemanticFrame for AssertionStatus {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for AttemptKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AttemptKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for AttemptState {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for AttemptState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for Authority {
     fn heap_bytes(&self) -> usize {
         0
@@ -9335,6 +9945,16 @@ impl crate::HeapUsage for InvariantKind {
     }
 }
 impl crate::SemanticFrame for InvariantKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for JobState {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for JobState {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -9815,6 +10435,36 @@ impl crate::HeapUsage for Stability {
     }
 }
 impl crate::SemanticFrame for Stability {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StoredSeedKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StoredSeedKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyPointState {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyPointState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StudyState {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StudyState {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

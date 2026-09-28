@@ -68,6 +68,29 @@ impl Drop for Caller {
         }
     }
 }
+/// How a submitted operation is admitted, cancelled and observed.
+#[derive(Debug)]
+pub(crate) struct Submission {
+    /// The operation's cancellation, shared with its public handle.
+    pub(crate) cancel: FlightCancellation,
+    /// Its event stream: bounded in memory, and tapped by a durable stream when durable.
+    pub(crate) progress: Arc<pse_backend_native::solve::Progress>,
+    /// Durable work waits for a job slot; other work is refused when none is free.
+    pub(crate) queue: bool,
+    /// Signalled once the operation holds its job slot, CPU permits and reservation.
+    pub(crate) admitted: Option<tokio::sync::oneshot::Sender<()>>,
+}
+impl Submission {
+    /// In-memory work: a fresh cancellation, 256 retained events, refused when full.
+    pub(crate) fn ephemeral() -> Self {
+        Self {
+            cancel: FlightCancellation::default(),
+            progress: Arc::new(pse_backend_native::solve::Progress::new(256)),
+            queue: false,
+            admitted: None,
+        }
+    }
+}
 impl MathService {
     /// Submit one finite operation under the existing admission, teardown and join owner.
     pub(crate) fn submit<T: Send + 'static>(
@@ -82,15 +105,38 @@ impl MathService {
         + 'static,
     ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
     {
+        self.submit_with(cores, bytes, Submission::ephemeral(), work)
+    }
+    /// Submit one finite operation with an explicit admission policy, cancellation and
+    /// event stream.
+    pub(crate) fn submit_with<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        submission: Submission,
+        work: impl FnOnce(
+            Arc<std::sync::atomic::AtomicBool>,
+            Arc<pse_backend_native::solve::Progress>,
+        ) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
+    {
         let service = self.clone();
-        let cancel = FlightCancellation::default();
-        let progress = Arc::new(pse_backend_native::solve::Progress::new(256));
+        let Submission {
+            cancel,
+            progress,
+            queue,
+            admitted,
+        } = submission;
         let flag = cancel.clone();
         let events = progress.clone();
         let (sender, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             let result = service
-                .job_retained(cores, bytes, flag, move |flag| work(flag, events))
+                .admitted(cores, bytes, flag, (queue, admitted), move |flag| {
+                    work(flag, events)
+                })
                 .await;
             let _ = sender.send(result);
         });
@@ -124,14 +170,38 @@ impl MathService {
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        self.admitted(cores, bytes, cancel, (false, None), work)
+            .await
+    }
+    /// [`MathService::job_retained`] under an explicit admission: a queued job waits for a
+    /// job slot (durable admission, ADR-0112 Outcome 14); otherwise a full service refuses
+    /// it.
+    async fn admitted<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        cancel: FlightCancellation,
+        (queue, admitted): (bool, Option<tokio::sync::oneshot::Sender<()>>),
+        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
         if cores == 0 || cores > self.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
-        let slot = self
-            .jobs
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| MathRuntimeError::Limit("native jobs"))?;
+        let slot = if queue {
+            tokio::select! {
+                slot = self.jobs.clone().acquire_owned() => {
+                    slot.map_err(|_| MathRuntimeError::Limit("native job admission closed"))?
+                }
+                () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
+            }
+        } else {
+            self.jobs
+                .clone()
+                .try_acquire_owned()
+                .map_err(|_| MathRuntimeError::Limit("native jobs"))?
+        };
         let mut caller = Caller(Some(cancel.clone()));
         let service = self.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
@@ -147,6 +217,7 @@ impl MathService {
                 let lease=datafusion::execution::memory_pool::MemoryConsumer::new("math:native-job").register(&service.pool);
                 lease.try_grow(bytes)?;
                 if cancel.flag().load(Ordering::Acquire){return Err(MathRuntimeError::Cancelled);}
+                if let Some(admitted)=admitted {let _=admitted.send(());}
                 let flag=cancel.flag();
                 let handle=std::thread::Builder::new().name("pse-math".into()).stack_size(service.policy.stack_bytes).spawn(move||work(flag)).map_err(|e|MathRuntimeError::Infrastructure(e.to_string()))?;
                 // Joining, not receipt of an early result, witnesses TLS destruction.

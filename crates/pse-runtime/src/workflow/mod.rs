@@ -3,7 +3,14 @@
 //! One public native workflow. Model declarations are generated; mathematics stays in Rust libraries.
 mod completion;
 mod diagnostics;
+mod durable;
 pub use completion::Completion;
+pub use durable::{Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability};
+pub use pse_operations::attempts::{AttemptFilter, AttemptRecord};
+mod worker;
+pub use worker::{
+    JobPresolve, JobProfile, MODELING_JOB_VERSION, ModelingJob, Processed, WorkerSettings,
+};
 pub(crate) mod numerics;
 mod staged;
 mod strategies;
@@ -32,31 +39,35 @@ mod modeling;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
     DiagnosticSampleStop, ElasticObservation, ModelingAnalysis, ModelingCheck,
-    conform_pure_documents, ModelingConformanceCheck, ModelingConformancePolicy, ModelingFixturePolicy, ModelingConformanceReport,
+    ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
     ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
     ModelingDiagnostics, ModelingDynamicEvent, ModelingDynamicMode, ModelingElasticAttempt,
-    ModelingInitialization, ModelingInitializationAttempt, ModelingInitializationReport,
-    ModelingInfeasibilityCertificate, ModelingInitializationStep, ModelingNonlinearExplanation,
-    ModelingNonlinearPolicy,
-    ModelingObservations, ModelingPackage, ModelingReport, ModelingResult, ModelingSimulation,
-    ModelingSolvePreparation, ModelingStudyPoint, ModelingStudyReport, ModelingTrajectory,
-    StartSource,
+    ModelingFixturePolicy, ModelingInfeasibilityCertificate, ModelingInitialization,
+    ModelingInitializationAttempt, ModelingInitializationReport, ModelingInitializationStep,
+    ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
+    ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
+    ModelingStudyPoint, ModelingStudyReport, ModelingTrajectory, StartSource,
+    conform_pure_documents,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
+#[cfg(test)]
+mod durable_tests;
+mod modeling_results;
 mod publication;
 mod results;
 mod run;
 mod simulation_results;
-mod modeling_results;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod worker_tests;
 use crate::{SharedRuntime, math::MathRuntimeError};
 use pse_engine::{EngineError, session::EngineFactory};
 pub use publication::{
     PublicationAttempt, PublicationRequest, PublicationSettlement, PublicationTicket,
 };
-pub use run::{RunHandle, RunReport, RunRequest, RunResult};
+pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 use std::sync::Arc;
 
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
@@ -80,6 +91,29 @@ pub enum WorkflowError {
     /// A complete diagnostic for invalid API input.
     #[error("native workflow contract: {0}")]
     Contract(String),
+    /// The operational store refused or failed a durable operation (ADR-0112).
+    #[error(transparent)]
+    Operations(#[from] pse_operations::OperationsError),
+    /// A run of the ephemeral durability class cannot be published: publication needs a
+    /// registered, finished attempt (ADR-0112 Outcome 16). This is a policy, never a
+    /// fallback.
+    #[error(
+        "run {run_id} is ephemeral: publication requires a durable run registered in the operational store"
+    )]
+    EphemeralPublication {
+        /// The run that was asked to publish.
+        run_id: pse_ids::SemanticId,
+    },
+    /// A stored job payload this build cannot execute (ADR-0112 Outcome 14).
+    #[error(
+        "job payload version {version} is not supported by this worker (supported: {supported})"
+    )]
+    UnknownPayloadVersion {
+        /// The stored payload version.
+        version: i32,
+        /// The version this build executes.
+        supported: i32,
+    },
 }
 impl From<pse_model::diagnostic::BoundaryDiagnostic> for WorkflowError {
     fn from(error: pse_model::diagnostic::BoundaryDiagnostic) -> Self {
@@ -88,8 +122,8 @@ impl From<pse_model::diagnostic::BoundaryDiagnostic> for WorkflowError {
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),_=>None}},
-    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),_=>None}},
+    code(this) {match this {Self::Contract(_)=>Some(pse_diagnostics::DiagnosticCode::CompileMath),Self::EphemeralPublication{..}|Self::UnknownPayloadVersion{..}=>Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),_=>None}},
+    forward(this) {match this {Self::Boundary(e)=>Some(e.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::Operations(e)=>Some(e),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {
@@ -112,6 +146,8 @@ pub struct Runtime {
     pub(crate) shared: Arc<SharedRuntime>,
     pub(crate) registry: Arc<pse_schema::Registry>,
     pub(crate) sessions: Arc<EngineFactory>,
+    /// How this runtime's runs are kept; ephemeral unless chosen explicitly.
+    pub(crate) durability: Durability,
 }
 impl Runtime {
     /// Clear retained executable programs. Existing workers keep their owners and remain valid.
@@ -119,6 +155,7 @@ impl Runtime {
         self.shared.math().clear_program_cache();
     }
     /// Attach to the already configured shared deployment; creates no second executor or budget.
+    /// The runtime is [`Durability::Ephemeral`] until [`Runtime::with_durability`].
     pub fn from_shared(
         shared: Arc<SharedRuntime>,
         registry: Arc<pse_schema::Registry>,
@@ -128,7 +165,19 @@ impl Runtime {
             shared,
             registry,
             sessions,
+            durability: Durability::Ephemeral,
         }
+    }
+    /// The same deployment under an explicit durability class (ADR-0112 Outcome 16).
+    /// Packages and preparations made from the returned runtime run under it.
+    #[must_use]
+    pub fn with_durability(mut self, durability: Durability) -> Self {
+        self.durability = durability;
+        self
+    }
+    /// The durability class of this runtime's runs.
+    pub const fn durability(&self) -> &Durability {
+        &self.durability
     }
     /// Whether the native BDF semi-explicit adapter is linked in this deployment.
     pub fn simulation_available(&self) -> bool {

@@ -7,7 +7,12 @@ use pse_runtime::{CancelSource, math::solves::Outcome, workflow::RunReport};
 async fn authored_publication_resource() {
     let owner = WorkflowRuntime::new().unwrap();
     let rt = runtime(&owner);
-    let package = seed_package(&owner).await;
+    // Only durable runs publish (ADR-0112 Outcome 16): the runs below are attempts in an
+    // isolated operational store.
+    let database = pse_operations::testing::TestDatabase::create()
+        .await
+        .unwrap();
+    let package = seed_package_on(&owner, durable(&owner, database.url()).await).await;
     let case = pse_ids::SemanticId::parse_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015").unwrap();
     let cancelled = CancelSource::new();
     cancelled.cancel();
@@ -16,9 +21,14 @@ async fn authored_publication_resource() {
             .await
             .is_err()
     );
-    let prepared = seed_prepare(&package, case, profile(Backend::Ipopt, false), &CancelSource::new())
-        .await
-        .unwrap();
+    let prepared = seed_prepare(
+        &package,
+        case,
+        profile(Backend::Ipopt, false),
+        &CancelSource::new(),
+    )
+    .await
+    .unwrap();
     let a = prepared.start().unwrap();
     let b = prepared.start().unwrap();
     let (a, b) = tokio::join!(a.wait(), b.wait());
@@ -100,7 +110,7 @@ async fn authored_publication_resource() {
     let RunReport::Modeling(report) = result.report().unwrap() else {
         panic!()
     };
-    let report=&report[0];
+    let report = &report[0];
     assert!(
         matches!(&report.outcome,Outcome::Native(r) if r.termination.category != Termination::Success)
     );
@@ -112,9 +122,14 @@ async fn authored_publication_resource() {
             .num_rows(),
         1
     );
-    let p = seed_prepare(&package, case, profile(Backend::Ipopt, false), &CancelSource::new())
-        .await
-        .unwrap();
+    let p = seed_prepare(
+        &package,
+        case,
+        profile(Backend::Ipopt, false),
+        &CancelSource::new(),
+    )
+    .await
+    .unwrap();
     let handle = p.start().unwrap();
     handle.cancel();
     let result = handle.wait().await.unwrap();
@@ -123,4 +138,6 @@ async fn authored_publication_resource() {
         &handle.wait().await.unwrap()
     ));
     assert!(result.table("runtime.solve_runs").is_ok());
+    drop((result, handle, p, package));
+    database.remove().await.unwrap();
 }
