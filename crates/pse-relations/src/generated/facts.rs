@@ -1079,6 +1079,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            244u8, 146u8, 74u8, 226u8, 5u8, 252u8, 129u8, 226u8, 192u8, 68u8, 55u8, 29u8,
+            252u8, 244u8, 39u8, 39u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeOperationalStudyPointMembers(
+                super::r#runtime::r#operational_study_point_members::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             211u8, 94u8, 213u8, 156u8, 83u8, 247u8, 225u8, 19u8, 248u8, 228u8, 97u8,
             58u8, 249u8, 177u8, 99u8, 207u8,
         ])
@@ -1254,6 +1266,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeSolverCapabilities(
                 super::r#runtime::r#solver_capabilities::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            38u8, 103u8, 45u8, 120u8, 154u8, 225u8, 38u8, 51u8, 197u8, 241u8, 67u8, 7u8,
+            112u8, 253u8, 20u8, 135u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeStudyOutcomes(
+                super::r#runtime::r#study_outcomes::Row::rows(batch)?,
             ),
         );
     }
@@ -1550,6 +1574,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalStudies(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeOperationalStudyPointMembers(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalStudyPoints(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
@@ -1593,6 +1620,9 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolverCapabilities(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeStudyOutcomes(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeValidationFindings(rows) => {

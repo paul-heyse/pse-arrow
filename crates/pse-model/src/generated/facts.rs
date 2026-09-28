@@ -235,6 +235,10 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeOperationalStudies)]
     r#RuntimeOperationalStudies(Vec<super::r#runtime::r#operational_studies::Row>),
+    #[doc = stringify!(r#RuntimeOperationalStudyPointMembers)]
+    r#RuntimeOperationalStudyPointMembers(
+        Vec<super::r#runtime::r#operational_study_point_members::Row>,
+    ),
     #[doc = stringify!(r#RuntimeOperationalStudyPoints)]
     r#RuntimeOperationalStudyPoints(
         Vec<super::r#runtime::r#operational_study_points::Row>,
@@ -267,6 +271,8 @@ pub enum FactBatch {
     r#RuntimeSolveVariables(Vec<super::r#runtime::r#solve_variables::Row>),
     #[doc = stringify!(r#RuntimeSolverCapabilities)]
     r#RuntimeSolverCapabilities(Vec<super::r#runtime::r#solver_capabilities::Row>),
+    #[doc = stringify!(r#RuntimeStudyOutcomes)]
+    r#RuntimeStudyOutcomes(Vec<super::r#runtime::r#study_outcomes::Row>),
     #[doc = stringify!(r#RuntimeValidationFindings)]
     r#RuntimeValidationFindings(Vec<super::r#runtime::r#validation_findings::Row>),
 }
@@ -808,6 +814,12 @@ impl FactBatch {
                     79u8, 202u8, 104u8, 188u8, 112u8, 180u8,
                 ])
             }
+            Self::r#RuntimeOperationalStudyPointMembers(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    244u8, 146u8, 74u8, 226u8, 5u8, 252u8, 129u8, 226u8, 192u8, 68u8,
+                    55u8, 29u8, 252u8, 244u8, 39u8, 39u8,
+                ])
+            }
             Self::r#RuntimeOperationalStudyPoints(_) => {
                 pse_ids::SemanticId::from_bytes([
                     211u8, 94u8, 213u8, 156u8, 83u8, 247u8, 225u8, 19u8, 248u8, 228u8,
@@ -896,6 +908,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     223u8, 154u8, 86u8, 234u8, 87u8, 237u8, 32u8, 225u8, 181u8, 122u8,
                     236u8, 20u8, 68u8, 100u8, 169u8, 160u8,
+                ])
+            }
+            Self::r#RuntimeStudyOutcomes(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    38u8, 103u8, 45u8, 120u8, 154u8, 225u8, 38u8, 51u8, 197u8, 241u8,
+                    67u8, 7u8, 112u8, 253u8, 20u8, 135u8,
                 ])
             }
             Self::r#RuntimeValidationFindings(_) => {
@@ -998,6 +1016,7 @@ impl FactBatch {
             Self::r#RuntimeOperationalSourceBundles(rows) => rows.len(),
             Self::r#RuntimeOperationalSourceDocuments(rows) => rows.len(),
             Self::r#RuntimeOperationalStudies(rows) => rows.len(),
+            Self::r#RuntimeOperationalStudyPointMembers(rows) => rows.len(),
             Self::r#RuntimeOperationalStudyPoints(rows) => rows.len(),
             Self::r#RuntimeOperationalWorkspaces(rows) => rows.len(),
             Self::r#RuntimePublicationManifests(rows) => rows.len(),
@@ -1013,6 +1032,7 @@ impl FactBatch {
             Self::r#RuntimeSolveRuns(rows) => rows.len(),
             Self::r#RuntimeSolveVariables(rows) => rows.len(),
             Self::r#RuntimeSolverCapabilities(rows) => rows.len(),
+            Self::r#RuntimeStudyOutcomes(rows) => rows.len(),
             Self::r#RuntimeValidationFindings(rows) => rows.len(),
         }
     }
@@ -1471,6 +1491,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeOperationalStudyPointMembers(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeOperationalStudyPoints(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1542,6 +1567,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeSolverCapabilities(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeStudyOutcomes(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1931,6 +1961,12 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalStudies(vec![row.clone()]))
             }
+            Self::r#RuntimeOperationalStudyPointMembers(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalStudyPointMembers(
+                        vec![row.clone()],
+                    ))
+            }
             Self::r#RuntimeOperationalStudyPoints(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalStudyPoints(vec![row.clone()]))
@@ -1986,6 +2022,10 @@ impl FactBatch {
             Self::r#RuntimeSolverCapabilities(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeSolverCapabilities(vec![row.clone()]))
+            }
+            Self::r#RuntimeStudyOutcomes(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeStudyOutcomes(vec![row.clone()]))
             }
             Self::r#RuntimeValidationFindings(rows) => {
                 rows.get(index)
@@ -2919,6 +2959,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeOperationalStudyPointMembers(left),
+                Self::r#RuntimeOperationalStudyPointMembers(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalStudyPoints(left),
                 Self::r#RuntimeOperationalStudyPoints(right),
             ) => {
@@ -3064,6 +3115,14 @@ impl FactBatch {
                 Self::r#RuntimeSolverCapabilities(left),
                 Self::r#RuntimeSolverCapabilities(right),
             ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (Self::r#RuntimeStudyOutcomes(left), Self::r#RuntimeStudyOutcomes(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -3711,6 +3770,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeOperationalStudyPointMembers(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeOperationalStudyPoints(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -3810,6 +3876,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeSolverCapabilities(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeStudyOutcomes(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5079,6 +5152,36 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeOperationalStudyPointMembers(left),
+                Self::r#RuntimeOperationalStudyPointMembers(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#study_id,
+                            &right.r#study_id,
+                        )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#point_index,
+                                &right.r#point_index,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#catalog_name,
+                                &right.r#catalog_name,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#schema_name,
+                                &right.r#schema_name,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#table_name,
+                                &right.r#table_name,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalStudyPoints(left),
                 Self::r#RuntimeOperationalStudyPoints(right),
             ) => {
@@ -5347,6 +5450,21 @@ impl FactBatch {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(&left.r#backend, &right.r#backend)
+                    }
+                    _ => false,
+                }
+            }
+            (Self::r#RuntimeStudyOutcomes(left), Self::r#RuntimeStudyOutcomes(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#study_id,
+                            &right.r#study_id,
+                        )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#point_index,
+                                &right.r#point_index,
+                            )
                     }
                     _ => false,
                 }
@@ -5780,6 +5898,14 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#study_id, &mut hash);
             }
+            Self::r#RuntimeOperationalStudyPointMembers(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#study_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#point_index, &mut hash);
+                crate::SemanticFrame::frame(&row.r#catalog_name, &mut hash);
+                crate::SemanticFrame::frame(&row.r#schema_name, &mut hash);
+                crate::SemanticFrame::frame(&row.r#table_name, &mut hash);
+            }
             Self::r#RuntimeOperationalStudyPoints(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#study_id, &mut hash);
@@ -5866,6 +5992,11 @@ impl FactBatch {
             Self::r#RuntimeSolverCapabilities(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#backend, &mut hash);
+            }
+            Self::r#RuntimeStudyOutcomes(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#study_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#point_index, &mut hash);
             }
             Self::r#RuntimeValidationFindings(rows) => {
                 let row = rows.get(index)?;
@@ -6475,6 +6606,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeOperationalStudyPointMembers(left),
+                Self::r#RuntimeOperationalStudyPointMembers(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeOperationalStudyPoints(left),
                 Self::r#RuntimeOperationalStudyPoints(mut right),
             ) => {
@@ -6569,6 +6707,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeSolverCapabilities(left),
                 Self::r#RuntimeSolverCapabilities(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeStudyOutcomes(left),
+                Self::r#RuntimeStudyOutcomes(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -6758,6 +6903,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeOperationalStudies(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeOperationalStudyPointMembers(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeOperationalStudyPoints(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
@@ -6781,6 +6929,7 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeSolveRuns(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveVariables(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolverCapabilities(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeStudyOutcomes(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeValidationFindings(rows) => crate::HeapUsage::heap_bytes(rows),
         }
     }

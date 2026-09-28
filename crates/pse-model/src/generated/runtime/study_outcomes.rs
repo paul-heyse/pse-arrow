@@ -8,70 +8,93 @@
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
-pub struct RuntimeOperationalStudyPointsRow {
+pub struct RuntimeStudyOutcomesRow {
     ///study_id
     pub r#study_id: crate::generated::identities::StudyId,
     ///point_index
-    pub r#point_index: i32,
+    pub r#point_index: i64,
+    ///case_id
+    pub r#case_id: crate::generated::identities::DeclarationId,
     ///binding_hash
     pub r#binding_hash: pse_ids::ContentHash,
     ///predecessor
-    pub r#predecessor: Option<i32>,
-    ///job_id
-    pub r#job_id: crate::generated::identities::JobId,
+    pub r#predecessor: Option<i64>,
     ///state
     pub r#state: crate::generated::enums::StudyPointState,
-    ///updated_at
-    pub r#updated_at: i64,
+    ///attempt_id
+    pub r#attempt_id: crate::generated::identities::AttemptId,
+    ///attempt_state
+    pub r#attempt_state: crate::generated::enums::AttemptState,
+    ///member_catalog
+    pub r#member_catalog: Option<String>,
+    ///error
+    pub r#error: Option<String>,
 }
-impl crate::SemanticEq for RuntimeOperationalStudyPointsRow {
+impl crate::SemanticEq for RuntimeStudyOutcomesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#study_id, &other.r#study_id)
             && crate::SemanticEq::semantic_eq(&self.r#point_index, &other.r#point_index)
+            && crate::SemanticEq::semantic_eq(&self.r#case_id, &other.r#case_id)
             && crate::SemanticEq::semantic_eq(
                 &self.r#binding_hash,
                 &other.r#binding_hash,
             )
             && crate::SemanticEq::semantic_eq(&self.r#predecessor, &other.r#predecessor)
-            && crate::SemanticEq::semantic_eq(&self.r#job_id, &other.r#job_id)
             && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
-            && crate::SemanticEq::semantic_eq(&self.r#updated_at, &other.r#updated_at)
+            && crate::SemanticEq::semantic_eq(&self.r#attempt_id, &other.r#attempt_id)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#attempt_state,
+                &other.r#attempt_state,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#member_catalog,
+                &other.r#member_catalog,
+            ) && crate::SemanticEq::semantic_eq(&self.r#error, &other.r#error)
     }
 }
-impl PartialEq for RuntimeOperationalStudyPointsRow {
+impl PartialEq for RuntimeStudyOutcomesRow {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
 /// The concrete generated relation row.
-pub type Row = RuntimeOperationalStudyPointsRow;
-impl crate::SemanticFrame for RuntimeOperationalStudyPointsRow {
+pub type Row = RuntimeStudyOutcomesRow;
+impl crate::SemanticFrame for RuntimeStudyOutcomesRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#study_id));
         crate::SemanticFrame::frame(&self.r#study_id, hash);
         hash.str(stringify!(r#point_index));
         crate::SemanticFrame::frame(&self.r#point_index, hash);
+        hash.str(stringify!(r#case_id));
+        crate::SemanticFrame::frame(&self.r#case_id, hash);
         hash.str(stringify!(r#binding_hash));
         crate::SemanticFrame::frame(&self.r#binding_hash, hash);
         hash.str(stringify!(r#predecessor));
         crate::SemanticFrame::frame(&self.r#predecessor, hash);
-        hash.str(stringify!(r#job_id));
-        crate::SemanticFrame::frame(&self.r#job_id, hash);
         hash.str(stringify!(r#state));
         crate::SemanticFrame::frame(&self.r#state, hash);
-        hash.str(stringify!(r#updated_at));
-        crate::SemanticFrame::frame(&self.r#updated_at, hash);
+        hash.str(stringify!(r#attempt_id));
+        crate::SemanticFrame::frame(&self.r#attempt_id, hash);
+        hash.str(stringify!(r#attempt_state));
+        crate::SemanticFrame::frame(&self.r#attempt_state, hash);
+        hash.str(stringify!(r#member_catalog));
+        crate::SemanticFrame::frame(&self.r#member_catalog, hash);
+        hash.str(stringify!(r#error));
+        crate::SemanticFrame::frame(&self.r#error, hash);
     }
 }
-impl crate::HeapUsage for RuntimeOperationalStudyPointsRow {
+impl crate::HeapUsage for RuntimeStudyOutcomesRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#study_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#point_index))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#case_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#binding_hash))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#predecessor))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#job_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#updated_at))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_state))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member_catalog))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#error))
     }
 }

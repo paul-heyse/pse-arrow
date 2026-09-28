@@ -28,7 +28,7 @@ use crate::streams::{ProgressEvent, ProgressValue, RuntimeOperationalIncumbentsR
 use crate::testing::TestDatabase;
 use crate::{InvariantKind, Opened, OperationsError, SchemaStatus, Store, mint_id};
 
-const LEASE: Duration = Duration::from_secs(30);
+pub(crate) const LEASE: Duration = Duration::from_secs(30);
 
 /// An identity as a SQL literal, for test-authored statements.
 fn lit(id: impl std::fmt::Display) -> String {
@@ -49,11 +49,11 @@ fn violates(
     )
 }
 
-fn hash(byte: u8) -> ContentHash {
+pub(crate) fn hash(byte: u8) -> ContentHash {
     ContentHash::from_bytes([byte; 32])
 }
 
-fn new_attempt() -> NewAttempt {
+pub(crate) fn new_attempt() -> NewAttempt {
     NewAttempt {
         attempt_id: mint_id(),
         run_id: mint_id(),
@@ -64,7 +64,7 @@ fn new_attempt() -> NewAttempt {
     }
 }
 
-fn new_job(key: &str, retry: RetryPolicy) -> NewJob {
+pub(crate) fn new_job(key: &str, retry: RetryPolicy) -> NewJob {
     NewJob {
         attempt: new_attempt(),
         idempotency_key: key.to_owned(),
@@ -116,12 +116,12 @@ async fn finished_try(store: &Store, parent: Option<AttemptId>) -> AttemptId {
 }
 
 /// A registered workspace and its root.
-struct Space {
-    id: WorkspaceId,
-    root: String,
+pub(crate) struct Space {
+    pub(crate) id: WorkspaceId,
+    pub(crate) root: String,
 }
 
-async fn space(store: &Store) -> Space {
+pub(crate) async fn space(store: &Store) -> Space {
     let workspace = NewWorkspace {
         workspace_id: mint_id(),
         name: format!("ws-{}", mint_id::<SemanticId>()),
@@ -144,7 +144,7 @@ fn table(intent: &NewIntent, name: &str) -> String {
     format!("{}runtime/{name}/", intent.member_prefix)
 }
 
-fn member(table_uri: &str, name: &str, version: i64) -> MemberDescriptor {
+pub(crate) fn member(table_uri: &str, name: &str, version: i64) -> MemberDescriptor {
     MemberDescriptor {
         catalog_name: "artifact".to_owned(),
         schema_name: "runtime".to_owned(),
@@ -1219,6 +1219,7 @@ async fn failed_try_retries_under_policy_and_completion_ends_job() {
         state: AttemptState::Failed,
         note: TransitionNote::by("worker-a").because("license server unreachable"),
         retry_as: Some(mint_id()),
+        members: Vec::new(),
     };
     let foreign = store
         .jobs()
@@ -1286,6 +1287,7 @@ async fn failed_try_retries_under_policy_and_completion_ends_job() {
                 state: AttemptState::Completed,
                 note: TransitionNote::by("worker-b"),
                 retry_as: None,
+                members: Vec::new(),
             },
         )
         .await
@@ -1333,6 +1335,7 @@ async fn cancel_notify_stops_running_job() {
                     state: AttemptState::Cancelled,
                     note: TransitionNote::by("worker-a").because("cancel requested"),
                     retry_as: None,
+                    members: Vec::new(),
                 },
             )
             .await

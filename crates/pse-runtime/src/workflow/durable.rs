@@ -488,6 +488,7 @@ impl DurableAttempt {
                             state: outcome.state,
                             note,
                             retry_as: retry,
+                            members: Vec::new(),
                         },
                     )
                     .await?;

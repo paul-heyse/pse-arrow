@@ -46,3 +46,14 @@ WHERE s.compatibility_stamp = :compatibility_stamp::pse_ops.content_hash
   AND s.backend = :backend
 ORDER BY chain.depth, i.seq DESC
 LIMIT 1;
+
+-- The seed of a study point's successor (Plan 22 O7): the newest compatible solution an
+-- attempt stored, its accepted output seed or a captured incumbent.
+--! latest_of_attempt
+SELECT s FROM pse_ops.solutions AS s
+WHERE s.created_by = :attempt_id::pse_ops.attempt_id
+  AND s.compatibility_stamp = :compatibility_stamp::pse_ops.content_hash
+  AND s.preparation_identity = :preparation_identity::pse_ops.content_hash
+  AND s.backend = :backend
+ORDER BY s.created_at DESC, s.solution_id DESC
+LIMIT 1;

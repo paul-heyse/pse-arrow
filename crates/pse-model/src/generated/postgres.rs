@@ -23,7 +23,11 @@ impl ToSql for crate::generated::enums::AttemptKind {
         Ok(IsNull::No)
     }
     fn accepts(ty: &Type) -> bool {
-        enum_type(ty, "attempt_kind", &["modeling", "simulation", "fit"])
+        enum_type(
+            ty,
+            "attempt_kind",
+            &["modeling", "simulation", "fit", "study", "study_finalization"],
+        )
     }
     postgres_types::to_sql_checked!();
 }
@@ -106,7 +110,7 @@ impl ToSql for crate::generated::enums::JobState {
         enum_type(
             ty,
             "job_state",
-            &["queued", "running", "completed", "failed", "cancelled"],
+            &["waiting", "queued", "running", "completed", "failed", "cancelled"],
         )
     }
     postgres_types::to_sql_checked!();
@@ -416,7 +420,7 @@ impl ToSql for crate::generated::enums::StudyState {
         Ok(IsNull::No)
     }
     fn accepts(ty: &Type) -> bool {
-        enum_type(ty, "study_state", &["open", "completed", "cancelled"])
+        enum_type(ty, "study_state", &["open", "concluded", "published"])
     }
     postgres_types::to_sql_checked!();
 }
@@ -1329,10 +1333,22 @@ for crate::generated::r#runtime::r#operational_studies::RuntimeOperationalStudie
         let mut record = crate::postgres::Record::read(
             ty,
             raw,
-            &["study_id", "definition", "state", "created_at", "updated_at"],
+            &[
+                "study_id",
+                "attempt_id",
+                "publication_id",
+                "finalization_job",
+                "definition",
+                "state",
+                "created_at",
+                "updated_at",
+            ],
         )?;
         let row = Self {
             r#study_id: record.value()?,
+            r#attempt_id: record.value()?,
+            r#publication_id: record.value()?,
+            r#finalization_job: record.value()?,
             r#definition: record.json()?,
             r#state: record.value()?,
             r#created_at: record.micros()?,
@@ -1346,6 +1362,50 @@ for crate::generated::r#runtime::r#operational_studies::RuntimeOperationalStudie
     }
 }
 impl<'a> FromSql<'a>
+for crate::generated::r#runtime::r#operational_study_point_members::RuntimeOperationalStudyPointMembersRow {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        let mut record = crate::postgres::Record::read(
+            ty,
+            raw,
+            &[
+                "study_id",
+                "point_index",
+                "catalog_name",
+                "schema_name",
+                "table_name",
+                "relation_id",
+                "relation_version",
+                "contract_fingerprint",
+                "table_uri",
+                "delta_version",
+                "selection_kind",
+                "revision_column",
+                "revision_id",
+            ],
+        )?;
+        let row = Self {
+            r#study_id: record.value()?,
+            r#point_index: record.value()?,
+            r#catalog_name: record.value()?,
+            r#schema_name: record.value()?,
+            r#table_name: record.value()?,
+            r#relation_id: record.value()?,
+            r#relation_version: record.value()?,
+            r#contract_fingerprint: record.value()?,
+            r#table_uri: record.value()?,
+            r#delta_version: record.value()?,
+            r#selection_kind: record.value()?,
+            r#revision_column: record.value()?,
+            r#revision_id: record.value()?,
+        };
+        record.finish()?;
+        Ok(row)
+    }
+    fn accepts(ty: &Type) -> bool {
+        crate::postgres::composite(ty, "pse_ops", "study_point_members")
+    }
+}
+impl<'a> FromSql<'a>
 for crate::generated::r#runtime::r#operational_study_points::RuntimeOperationalStudyPointsRow {
     fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
         let mut record = crate::postgres::Record::read(
@@ -1355,9 +1415,9 @@ for crate::generated::r#runtime::r#operational_study_points::RuntimeOperationalS
                 "study_id",
                 "point_index",
                 "binding_hash",
+                "predecessor",
+                "job_id",
                 "state",
-                "attempt_id",
-                "result_ref",
                 "updated_at",
             ],
         )?;
@@ -1365,9 +1425,9 @@ for crate::generated::r#runtime::r#operational_study_points::RuntimeOperationalS
             r#study_id: record.value()?,
             r#point_index: record.value()?,
             r#binding_hash: record.value()?,
+            r#predecessor: record.value()?,
+            r#job_id: record.value()?,
             r#state: record.value()?,
-            r#attempt_id: record.value()?,
-            r#result_ref: record.value()?,
             r#updated_at: record.micros()?,
         };
         record.finish()?;

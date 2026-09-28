@@ -70,6 +70,9 @@ ALTER TABLE pse_ops.studies
     ALTER COLUMN updated_at SET DEFAULT now();
 CREATE INDEX study_points_pending_idx ON pse_ops.study_points (study_id, point_index)
     WHERE state = 'pending';
+-- Releasing or cancelling the points that wait on a point.
+CREATE INDEX study_points_predecessor_idx ON pse_ops.study_points (study_id, predecessor)
+    WHERE predecessor IS NOT NULL;
 ALTER TABLE pse_ops.study_points
     ALTER COLUMN updated_at SET DEFAULT now();
 

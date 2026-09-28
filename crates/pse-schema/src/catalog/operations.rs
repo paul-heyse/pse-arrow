@@ -85,8 +85,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     declare_jobs(b);
     declare_streams(b);
     declare_solutions(b);
-    declare_studies(b);
     declare_catalog(b);
+    declare_studies(b);
 }
 
 fn declare_enumerations(b: &mut RegistryBuilder) {
@@ -107,15 +107,29 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
             "superseded",
         ],
     );
-    // The queue state of a job; each try runs as its own attempt.
+    // The queue state of a job; each try runs as its own attempt. A waiting job is not
+    // claimable until the work it depends on releases it (a study point behind its
+    // predecessor, a study's finalization behind its last point).
     enumeration(
         b,
         "JobState",
-        ["queued", "running", "completed", "failed", "cancelled"],
+        ["waiting", "queued", "running", "completed", "failed", "cancelled"],
     );
-    // What an attempt computes: an authored algebraic sequence, a simulation or a fit.
-    enumeration(b, "AttemptKind", ["modeling", "simulation", "fit"]);
-    enumeration(b, "StudyState", ["open", "completed", "cancelled"]);
+    // What an attempt computes: an authored algebraic sequence, a simulation or a fit; a
+    // study, which coordinates its points' attempts and is the attempt its publication
+    // names; or a study's finalization, which publishes it.
+    enumeration(
+        b,
+        "AttemptKind",
+        ["modeling", "simulation", "fit", "study", "study_finalization"],
+    );
+    // A study is open while its points run, concluded once every point is terminal (its
+    // attempt has ended and its finalization is queued), published once its one
+    // publication is committed.
+    enumeration(b, "StudyState", ["open", "concluded", "published"]);
+    // A point is pending until a worker claims its job, assigned while a try runs, then
+    // completed (its result members are written), failed, or cancelled (by the study, or
+    // because its predecessor did not complete).
     enumeration(
         b,
         "StudyPointState",
@@ -482,19 +496,33 @@ fn declare_solutions(b: &mut RegistryBuilder) {
     );
 }
 
+fn job_ref(name: &'static str) -> T {
+    column(name, T::id()).with_fk("runtime.operational_jobs", "job_id")
+}
+
 fn declare_studies(b: &mut RegistryBuilder) {
-    b.declare_relation(store(
-        "operational_studies",
-        &["study_id"],
-        vec![
-            column("study_id", T::id()).with_identity("study"),
-            column("definition", json()),
-            column("state", T::enumeration("StudyState")),
-            column("created_at", ts()),
-            column("updated_at", ts()),
-        ],
-        "Study coordination state; `definition` is the study's versioned JSON definition.",
-    ));
+    b.declare_relation(
+        store(
+            "operational_studies",
+            &["study_id"],
+            vec![
+                column("study_id", T::id()).with_identity("study"),
+                attempt_ref("attempt_id"),
+                column("publication_id", T::id())
+                    .with_fk("runtime.operational_publication_intents", "publication_id"),
+                job_ref("finalization_job"),
+                column("definition", json()),
+                column("state", T::enumeration("StudyState")),
+                column("created_at", ts()),
+                column("updated_at", ts()),
+            ],
+            "Studies coordinated across workers (Plan 22 O7). `attempt_id` is the study's own attempt: it holds no lease, stays queued while the points run and ends when the last point is terminal; it is the attempt the study's one publication names, and `publication_id` is that publication's intent, registered at creation. `finalization_job` waits until the last point is terminal and then publishes the study. `definition` is the study's versioned JSON definition.",
+        )
+        // A study owns its attempt, its intent and its finalization job.
+        .unique("attempt_id", &["attempt_id"])
+        .unique("publication_id", &["publication_id"])
+        .unique("finalization_job", &["finalization_job"]),
+    );
     b.declare_relation(
         store(
             "operational_study_points",
@@ -503,19 +531,74 @@ fn declare_studies(b: &mut RegistryBuilder) {
                 column("study_id", T::id()).with_fk("runtime.operational_studies", "study_id"),
                 column("point_index", int32()),
                 column("binding_hash", T::hash()),
+                column("predecessor", int32()).optional(),
+                job_ref("job_id"),
                 column("state", T::enumeration("StudyPointState")),
-                attempt_ref("attempt_id").optional(),
-                column("result_ref", text()).optional(),
                 column("updated_at", ts()),
             ],
-            "One study point: its value bindings by hash, its claim state and the attempt that ran it.",
+            "One study point: its value bindings by hash, the earlier point whose stored solution seeds it, its job (whose current attempt is the point's try) and its state. A point with a predecessor waits until the predecessor completed, and is cancelled when the predecessor fails or is cancelled.",
         )
-        // Each attempt runs at most one point; a binding appears once per study.
-        .unique("attempt_id", &["attempt_id"])
+        // Each job runs one point; a binding appears once per study.
+        .unique("job_id", &["job_id"])
         .unique("binding", &["study_id", "binding_hash"])
-        .check("point_index_nonnegative", "\"point_index\" >= 0"),
+        .foreign_key(
+            "predecessor",
+            &["study_id", "predecessor"],
+            "runtime.operational_study_points",
+            &["study_id", "point_index"],
+        )
+        .check("point_index_nonnegative", "\"point_index\" >= 0")
+        .check(
+            "predecessor_is_earlier",
+            "\"predecessor\" IS NULL OR (\"predecessor\" >= 0 AND \"predecessor\" < \"point_index\")",
+        ),
+    );
+    b.declare_relation(
+        store(
+            "operational_study_point_members",
+            &[
+                "study_id",
+                "point_index",
+                "catalog_name",
+                "schema_name",
+                "table_name",
+            ],
+            vec![
+                column("study_id", T::id()).with_fk("runtime.operational_studies", "study_id"),
+                column("point_index", int32()),
+                column("catalog_name", text()),
+                column("schema_name", text()),
+                column("table_name", text()),
+                column("relation_id", T::id()),
+                column("relation_version", int64()),
+                column("contract_fingerprint", T::hash()),
+                column("table_uri", text()),
+                column("delta_version", int64()),
+                column("selection_kind", T::enumeration("MemberSelectionKind")),
+                column("revision_column", text()).optional(),
+                column("revision_id", T::id()).optional(),
+            ],
+            "The result members a completed study point wrote under its study's publication intent, one registry `MemberDescriptor` per row, recorded in the transaction that completes the point. The study's publication commits them together with its summary.",
+        )
+        .foreign_key(
+            "point",
+            &["study_id", "point_index"],
+            "runtime.operational_study_points",
+            &["study_id", "point_index"],
+        )
+        .check("catalog_name_nonempty", nonempty("catalog_name"))
+        .check("schema_name_nonempty", nonempty("schema_name"))
+        .check("table_name_nonempty", nonempty("table_name"))
+        .check("table_uri_nonempty", nonempty("table_uri"))
+        .check("relation_version_nonnegative", "\"relation_version\" >= 0")
+        .check("delta_version_nonnegative", "\"delta_version\" >= 0")
+        .check("one_selection", ONE_SELECTION),
     );
 }
+
+/// A member selects the full table, or one revision by a named column (the former
+/// `one_selection` check of the catalog's members).
+const ONE_SELECTION: &str = "(\"selection_kind\" = 'full' AND \"revision_column\" IS NULL AND \"revision_id\" IS NULL) OR (\"selection_kind\" = 'revision' AND \"revision_column\" IS NOT NULL AND \"revision_column\" <> '' AND \"revision_id\" IS NOT NULL)";
 
 fn declare_catalog(b: &mut RegistryBuilder) {
     b.declare_relation(
@@ -633,10 +716,7 @@ fn declare_catalog(b: &mut RegistryBuilder) {
         .check("table_uri_nonempty", nonempty("table_uri"))
         .check("relation_version_nonnegative", "\"relation_version\" >= 0")
         .check("delta_version_nonnegative", "\"delta_version\" >= 0")
-        .check(
-            "one_selection",
-            "(\"selection_kind\" = 'full' AND \"revision_column\" IS NULL AND \"revision_id\" IS NULL) OR (\"selection_kind\" = 'revision' AND \"revision_column\" IS NOT NULL AND \"revision_column\" <> '' AND \"revision_id\" IS NOT NULL)",
-        ),
+        .check("one_selection", ONE_SELECTION),
     );
     b.declare_relation(
         store(
@@ -757,12 +837,13 @@ mod tests {
             "source_bundles",
             "source_documents",
             "studies",
+            "study_point_members",
             "study_points",
             "workspaces",
         ] {
             assert!(tables.contains(&table), "{table} is not a store relation");
         }
-        assert_eq!(tables.len(), 20);
+        assert_eq!(tables.len(), 21);
         // Identities are owned by their keys and inherited through references.
         let owner = |name: &str| {
             registry
@@ -864,6 +945,40 @@ mod tests {
                 .checks
                 .contains_key("ordered_window")
         );
+        // The O7 declarations: a study owns its coordinating attempt, its publication
+        // intent and its finalization job; a point references its job and, by a composite
+        // self-reference, its predecessor; completed points record their result members.
+        let studies = registry.relation("runtime.operational_studies").unwrap();
+        for key in ["attempt_id", "publication_id", "finalization_job"] {
+            assert!(
+                studies.unique_keys.iter().any(|unique| unique.columns == [key]),
+                "{key}"
+            );
+        }
+        assert_eq!(carried("runtime.operational_studies", "attempt_id"), Some("attempt"));
+        assert_eq!(
+            carried("runtime.operational_studies", "publication_id"),
+            Some("publication")
+        );
+        assert_eq!(carried("runtime.operational_study_points", "job_id"), Some("job"));
+        let points = registry.relation("runtime.operational_study_points").unwrap();
+        assert!(points.checks.contains_key("predecessor_is_earlier"));
+        assert!(points.foreign_keys.iter().any(|reference| {
+            reference.target == "runtime.operational_study_points"
+                && reference.columns == ["study_id", "predecessor"]
+        }));
+        let point_members = registry
+            .relation("runtime.operational_study_point_members")
+            .unwrap();
+        assert!(point_members.checks.contains_key("one_selection"));
+        assert_eq!(
+            point_members.foreign_keys[0].target,
+            "runtime.operational_study_points"
+        );
+        let kinds = registry.enum_spec("AttemptKind").unwrap();
+        assert!(kinds.members.iter().any(|m| m.name == "study"));
+        let jobs = registry.enum_spec("JobState").unwrap();
+        assert!(jobs.members.iter().any(|m| m.name == "waiting"));
     }
 
     #[test]

@@ -51,6 +51,7 @@
 "pse_ops.stored_seed_kind" = "pse_model::generated::enums::StoredSeedKind"
 "pse_ops.studies" = { rust-type = "pse_model::generated::runtime::operational_studies::RuntimeOperationalStudiesRow", is-copy = false }
 "pse_ops.study_id" = "pse_model::generated::identities::StudyId"
+"pse_ops.study_point_members" = { rust-type = "pse_model::generated::runtime::operational_study_point_members::RuntimeOperationalStudyPointMembersRow", is-copy = false }
 "pse_ops.study_point_state" = "pse_model::generated::enums::StudyPointState"
 "pse_ops.study_points" = { rust-type = "pse_model::generated::runtime::operational_study_points::RuntimeOperationalStudyPointsRow", is-copy = false }
 "pse_ops.study_state" = "pse_model::generated::enums::StudyState"

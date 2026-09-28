@@ -341,6 +341,11 @@ impl Store {
         crate::sources::Sources::new(self)
     }
 
+    /// The study repository (Plan 22 O7).
+    pub const fn studies(&self) -> crate::studies::Studies<'_> {
+        crate::studies::Studies::new(self)
+    }
+
     /// The publication catalog and reader leases.
     pub const fn catalog(&self) -> crate::catalog::Catalog<'_> {
         crate::catalog::Catalog::new(self)

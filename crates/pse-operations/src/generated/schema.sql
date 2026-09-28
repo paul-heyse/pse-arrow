@@ -13,7 +13,7 @@ CREATE DOMAIN pse_ops.content_hash AS bytea
     CONSTRAINT content_hash_width CHECK (octet_length(VALUE) = 32);
 
 -- Registry enumeration AttemptKind.
-CREATE TYPE pse_ops.attempt_kind AS ENUM ('modeling', 'simulation', 'fit');
+CREATE TYPE pse_ops.attempt_kind AS ENUM ('modeling', 'simulation', 'fit', 'study', 'study_finalization');
 
 -- Registry enumeration AttemptState.
 CREATE TYPE pse_ops.attempt_state AS ENUM ('planned', 'queued', 'running', 'completed', 'partial', 'failed', 'cancelled', 'stale', 'superseded');
@@ -25,7 +25,7 @@ CREATE TYPE pse_ops.diagnostic_code AS ENUM ('authoring.parse', 'authoring.parse
 CREATE TYPE pse_ops.evidence_unavailable_reason AS ENUM ('not_requested', 'not_computed', 'not_applicable', 'unsupported', 'failed', 'unknown', 'nonfinite');
 
 -- Registry enumeration JobState.
-CREATE TYPE pse_ops.job_state AS ENUM ('queued', 'running', 'completed', 'failed', 'cancelled');
+CREATE TYPE pse_ops.job_state AS ENUM ('waiting', 'queued', 'running', 'completed', 'failed', 'cancelled');
 
 -- Registry enumeration MemberSelectionKind.
 CREATE TYPE pse_ops.member_selection_kind AS ENUM ('full', 'revision');
@@ -64,7 +64,7 @@ CREATE TYPE pse_ops.stored_seed_kind AS ENUM ('root', 'nlp', 'highs');
 CREATE TYPE pse_ops.study_point_state AS ENUM ('pending', 'assigned', 'completed', 'failed', 'cancelled');
 
 -- Registry enumeration StudyState.
-CREATE TYPE pse_ops.study_state AS ENUM ('open', 'completed', 'cancelled');
+CREATE TYPE pse_ops.study_state AS ENUM ('open', 'concluded', 'published');
 
 -- Registry enumeration TerminationClass.
 CREATE TYPE pse_ops.termination_class AS ENUM ('native', 'run_state', 'trajectory', 'runtime', 'rule');
@@ -398,11 +398,42 @@ CREATE TABLE pse_ops."source_documents" (
 -- runtime.operational_studies
 CREATE TABLE pse_ops."studies" (
     "study_id" pse_ops.study_id NOT NULL,
+    "attempt_id" pse_ops.attempt_id NOT NULL,
+    "publication_id" pse_ops.publication_id NOT NULL,
+    "finalization_job" pse_ops.job_id NOT NULL,
     "definition" jsonb NOT NULL,
     "state" pse_ops.study_state NOT NULL,
     "created_at" timestamptz NOT NULL,
     "updated_at" timestamptz NOT NULL,
-    CONSTRAINT studies_pkey PRIMARY KEY ("study_id")
+    CONSTRAINT studies_pkey PRIMARY KEY ("study_id"),
+    CONSTRAINT studies_attempt_id_key UNIQUE ("attempt_id"),
+    CONSTRAINT studies_publication_id_key UNIQUE ("publication_id"),
+    CONSTRAINT studies_finalization_job_key UNIQUE ("finalization_job")
+);
+
+-- runtime.operational_study_point_members
+CREATE TABLE pse_ops."study_point_members" (
+    "study_id" pse_ops.study_id NOT NULL,
+    "point_index" integer NOT NULL,
+    "catalog_name" text NOT NULL,
+    "schema_name" text NOT NULL,
+    "table_name" text NOT NULL,
+    "relation_id" uuid NOT NULL,
+    "relation_version" bigint NOT NULL,
+    "contract_fingerprint" pse_ops.content_hash NOT NULL,
+    "table_uri" text NOT NULL,
+    "delta_version" bigint NOT NULL,
+    "selection_kind" pse_ops.member_selection_kind NOT NULL,
+    "revision_column" text,
+    "revision_id" uuid,
+    CONSTRAINT study_point_members_pkey PRIMARY KEY ("study_id", "point_index", "catalog_name", "schema_name", "table_name"),
+    CONSTRAINT study_point_members_catalog_name_nonempty_check CHECK ("catalog_name" <> ''),
+    CONSTRAINT study_point_members_delta_version_nonnegative_check CHECK ("delta_version" >= 0),
+    CONSTRAINT study_point_members_one_selection_check CHECK (("selection_kind" = 'full' AND "revision_column" IS NULL AND "revision_id" IS NULL) OR ("selection_kind" = 'revision' AND "revision_column" IS NOT NULL AND "revision_column" <> '' AND "revision_id" IS NOT NULL)),
+    CONSTRAINT study_point_members_relation_version_nonnegative_check CHECK ("relation_version" >= 0),
+    CONSTRAINT study_point_members_schema_name_nonempty_check CHECK ("schema_name" <> ''),
+    CONSTRAINT study_point_members_table_name_nonempty_check CHECK ("table_name" <> ''),
+    CONSTRAINT study_point_members_table_uri_nonempty_check CHECK ("table_uri" <> '')
 );
 
 -- runtime.operational_study_points
@@ -410,14 +441,15 @@ CREATE TABLE pse_ops."study_points" (
     "study_id" pse_ops.study_id NOT NULL,
     "point_index" integer NOT NULL,
     "binding_hash" pse_ops.content_hash NOT NULL,
+    "predecessor" integer,
+    "job_id" pse_ops.job_id NOT NULL,
     "state" pse_ops.study_point_state NOT NULL,
-    "attempt_id" pse_ops.attempt_id,
-    "result_ref" text,
     "updated_at" timestamptz NOT NULL,
     CONSTRAINT study_points_pkey PRIMARY KEY ("study_id", "point_index"),
-    CONSTRAINT study_points_attempt_id_key UNIQUE ("attempt_id"),
+    CONSTRAINT study_points_job_id_key UNIQUE ("job_id"),
     CONSTRAINT study_points_binding_key UNIQUE ("study_id", "binding_hash"),
-    CONSTRAINT study_points_point_index_nonnegative_check CHECK ("point_index" >= 0)
+    CONSTRAINT study_points_point_index_nonnegative_check CHECK ("point_index" >= 0),
+    CONSTRAINT study_points_predecessor_is_earlier_check CHECK ("predecessor" IS NULL OR ("predecessor" >= 0 AND "predecessor" < "point_index"))
 );
 
 -- runtime.operational_workspaces
@@ -516,8 +548,26 @@ ALTER TABLE pse_ops."solutions" ADD CONSTRAINT solutions_created_by_fkey
 ALTER TABLE pse_ops."source_documents" ADD CONSTRAINT source_documents_bundle_hash_fkey
     FOREIGN KEY ("bundle_hash") REFERENCES pse_ops."source_bundles" ("bundle_hash");
 
+ALTER TABLE pse_ops."studies" ADD CONSTRAINT studies_attempt_id_fkey
+    FOREIGN KEY ("attempt_id") REFERENCES pse_ops."attempts" ("attempt_id");
+
+ALTER TABLE pse_ops."studies" ADD CONSTRAINT studies_publication_id_fkey
+    FOREIGN KEY ("publication_id") REFERENCES pse_ops."publication_intents" ("publication_id");
+
+ALTER TABLE pse_ops."studies" ADD CONSTRAINT studies_finalization_job_fkey
+    FOREIGN KEY ("finalization_job") REFERENCES pse_ops."jobs" ("job_id");
+
+ALTER TABLE pse_ops."study_point_members" ADD CONSTRAINT study_point_members_study_id_fkey
+    FOREIGN KEY ("study_id") REFERENCES pse_ops."studies" ("study_id");
+
+ALTER TABLE pse_ops."study_point_members" ADD CONSTRAINT study_point_members_point_fkey
+    FOREIGN KEY ("study_id", "point_index") REFERENCES pse_ops."study_points" ("study_id", "point_index");
+
 ALTER TABLE pse_ops."study_points" ADD CONSTRAINT study_points_study_id_fkey
     FOREIGN KEY ("study_id") REFERENCES pse_ops."studies" ("study_id");
 
-ALTER TABLE pse_ops."study_points" ADD CONSTRAINT study_points_attempt_id_fkey
-    FOREIGN KEY ("attempt_id") REFERENCES pse_ops."attempts" ("attempt_id");
+ALTER TABLE pse_ops."study_points" ADD CONSTRAINT study_points_job_id_fkey
+    FOREIGN KEY ("job_id") REFERENCES pse_ops."jobs" ("job_id");
+
+ALTER TABLE pse_ops."study_points" ADD CONSTRAINT study_points_predecessor_fkey
+    FOREIGN KEY ("study_id", "predecessor") REFERENCES pse_ops."study_points" ("study_id", "point_index");

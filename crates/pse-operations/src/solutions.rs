@@ -241,6 +241,36 @@ impl<'s> Solutions<'s> {
             .classify(self.target())
     }
 
+    /// The newest solution compatible with `stamp` under `preparation` for `backend` that
+    /// `attempt` stored — its accepted output seed or a captured incumbent: where a study
+    /// point that names the attempt's point as its predecessor starts (Plan 22 O7).
+    ///
+    /// # Errors
+    ///
+    /// Classified driver failures.
+    pub async fn latest_of_attempt(
+        &self,
+        attempt: AttemptId,
+        stamp: &ContentHash,
+        preparation: &ContentHash,
+        backend: NativeBackend,
+    ) -> Result<Option<RuntimeOperationalSolutionsRow>, OperationsError> {
+        let client = self.store.client().await?;
+        statements::latest_of_attempt()
+            .params(
+                &client,
+                &statements::LatestOfAttemptParams {
+                    attempt_id: attempt,
+                    compatibility_stamp: *stamp,
+                    preparation_identity: *preparation,
+                    backend,
+                },
+            )
+            .opt()
+            .await
+            .classify(self.target())
+    }
+
     /// Read one solution by identity.
     ///
     /// # Errors
