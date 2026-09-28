@@ -440,6 +440,8 @@ class ModelingDeclarationKind(StrEnum):
     STAGE = "stage"
     IMPLICIT = "implicit"
     REGIME = "regime"
+    DISJUNCTION = "disjunction"
+    ALTERNATIVE = "alternative"
     PARAMETER = "parameter"
     VARIABLE = "variable"
     LET = "let"
@@ -452,6 +454,13 @@ class ModelingDeclarationKind(StrEnum):
     SCOPE_VALUE = "scope_value"
     FUNCTION = "function"
     EQUATION = "equation"
+    SOS1 = "sos1"
+    SOS2 = "sos2"
+    ATMOST = "atmost"
+    ATLEAST = "atleast"
+    EXACTLY = "exactly"
+    PIECEWISE = "piecewise"
+    LOGIC = "logic"
     TABLE = "table"
     DATASET = "dataset"
     ENTITY = "entity"
@@ -532,6 +541,14 @@ class ModelingRealizationPolicy(StrEnum):
     INLINE = "inline"
     NESTED = "nested"
     ACCELERATED = "accelerated"
+    BIG_M = "big_m"
+    DERIVED_BIG_M = "derived_big_m"
+    HULL = "hull"
+    INDICATOR = "indicator"
+    LINEAR = "linear"
+    NATIVE = "native"
+    SOS2 = "sos2"
+    INCREMENTAL = "incremental"
 
 
 class ModelingVariableDomain(StrEnum):
@@ -564,6 +581,10 @@ class NativeAssurance(StrEnum):
     LOCAL_STATIONARY = "local_stationary"
     NATIVE_OPTIMAL = "native_optimal"
     CERTIFICATE = "certificate"
+    GLOBAL_BOUND = "global_bound"
+    PROVEN_INFEASIBLE = "proven_infeasible"
+    EXACT_CERTIFICATE = "exact_certificate"
+    SOS_BOUND_NONRIGOROUS = "sos_bound_nonrigorous"
 
 
 class NativeBackend(StrEnum):
@@ -576,6 +597,7 @@ class NativeBackend(StrEnum):
     CLARABEL = "clarabel"
     DIFFSOL = "diffsol"
     IDAS = "idas"
+    SCIP = "scip"
 
 
 class NativeBoundaryClass(StrEnum):
@@ -602,6 +624,18 @@ class NativeCandidateKind(StrEnum):
     BEST_ITERATE = "best_iterate"
     FEASIBLE_POINT = "feasible_point"
     CONSTANT_EVALUATION = "constant_evaluation"
+
+
+class NativeConstraintForm(StrEnum):
+    """The declared NativeConstraintForm enumeration."""
+
+    INDICATOR = "indicator"
+    SOS1 = "sos1"
+    SOS2 = "sos2"
+    AND = "and"
+    OR = "or"
+    XOR = "xor"
+    CARDINALITY = "cardinality"
 
 
 class NativeDependencyEvidenceKind(StrEnum):
@@ -639,6 +673,7 @@ class NativeDerivativeCapability(StrEnum):
     JACOBIAN_OR_PRODUCT = "jacobian_or_product"
     COEFFICIENTS = "coefficients"
     FIRST_WITH_SMOOTH_SENSITIVITIES = "first_with_smooth_sensitivities"
+    FACTORABLE = "factorable"
 
 
 class NativeMetricKind(StrEnum):
@@ -670,6 +705,9 @@ class NativeProblemClass(StrEnum):
     CONTINUOUS_CONE = "continuous_cone"
     ODE = "ode"
     SEMI_EXPLICIT_INDEX1 = "semi_explicit_index1"
+    NONCONVEX_QUADRATIC = "nonconvex_quadratic"
+    MIXED_INTEGER_QUADRATIC = "mixed_integer_quadratic"
+    MIXED_INTEGER_NONLINEAR = "mixed_integer_nonlinear"
 
 
 class NativeQualification(StrEnum):

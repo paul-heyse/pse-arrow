@@ -9,7 +9,10 @@ use pse_ids::SemanticId;
 use pse_model::HeapUsage;
 use pse_modeling::{Bindings, Limits};
 use pse_quantity::QuantityTypeId;
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, atomic::AtomicBool},
+};
 /// A source revision retains its reservation through all dependent jobs.
 #[derive(Clone, Debug)]
 pub struct ModelingRevision {
@@ -342,13 +345,53 @@ impl MathService {
         let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.assemble_functions(prepared, lease, driver).await
     }
-    /// Prepare a value-only observation subset through the compiler and artifact cache.
+    /// Compile a value-independent observation program for `rows` through the compiler
+    /// and artifact cache. Every evaluation binds its own values (A6).
     pub async fn prepare_modeling_observations(
         self: &Arc<Self>,
         workspace: Workspace,
         model: ModelingPreparation,
         rows: std::collections::BTreeSet<SemanticId>,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                let _lease = workspace.lease;
+                let compiler = workspace.compiler.lock().map_err(|_| {
+                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
+                })?;
+                let product =
+                    compiler.prepare_modeling_observations(model.compiled(), &rows, profile, &flag)?;
+                let bytes = product
+                    .plan
+                    .retained_bytes()
+                    .checked_add(foreign)
+                    .ok_or(MathRuntimeError::Limit("observation extent"))?;
+                Ok((product, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        self.preparations
+            .observations
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.assemble_functions(product, lease, driver).await
+    }
+    /// Prepare the solver view of a bound structure and bind its first values: one
+    /// structural preparation (A6). Later values rebind it ([`Self::rebind`]).
+    pub async fn prepare_modeling_view(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        model: ModelingPreparation,
+        structure: Arc<pse_math::binding::CaseStructure>,
         values: pse_math::binding::CaseValues,
+        order: pse_kernels::DerivativeOrder,
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<super::Preparation, MathRuntimeError> {
@@ -363,52 +406,10 @@ impl MathService {
                 let compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                 })?;
-                let product = compiler.prepare_modeling_observations(
+                let product = compiler.prepare_modeling_view(
                     model.compiled(),
-                    &rows,
+                    structure,
                     &values,
-                    profile,
-                    &flag,
-                )?;
-                let bytes = product
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("observation extent"))?;
-                Ok((product, bytes))
-            },
-        );
-        tokio::pin!(operation);
-        let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        self.own_preparation(owned)
-    }
-    /// Finalize the immutable solver view after starts and bound hints resolve.
-    pub async fn prepare_modeling_bound_case(
-        self: &Arc<Self>,
-        workspace: Workspace,
-        model: ModelingPreparation,
-        values: pse_math::binding::CaseValues,
-        case: BTreeMap<SemanticId, pse_compiler::workspace::ModelingVariableState>,
-        order: pse_kernels::DerivativeOrder,
-        profile: pse_compiler::workspace::Profile,
-        driver: &crate::CancelSource,
-    ) -> Result<ModelingCasePreparation, MathRuntimeError> {
-        let control = FlightCancellation::default();
-        let foreign = self.policy.foreign_bytes;
-        let retained_model = model.clone();
-        let retained_values = values.clone();
-        let operation = self.job_retained(
-            1,
-            self.policy.workspace_bytes,
-            control.clone(),
-            move |flag| {
-                let _lease = workspace.lease;
-                let compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                let product = compiler.prepare_modeling_bound_case(
-                    model.compiled(),
-                    &values,
-                    &case,
                     order,
                     profile,
                     &flag,
@@ -422,11 +423,66 @@ impl MathService {
         );
         tokio::pin!(operation);
         let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        Ok(ModelingCasePreparation {
-            model: retained_model,
-            values: retained_values,
-            case: self.own_preparation(owned)?,
-        })
+        self.preparations
+            .views
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.own_preparation(owned)
+    }
+    /// Value-only rebind of a prepared view (A6). Nothing runs when no value the derived
+    /// realization parameters (ADR-0104) or the value-dependent products consumed changed;
+    /// otherwise only those are rebuilt, on an admitted worker, and the structure, its
+    /// derivation rules and its programs stay shared.
+    ///
+    /// # Errors
+    /// Values that do not bind the structure, a refused derived parameter, a failed
+    /// projection or cancellation.
+    pub async fn rebind(
+        self: &Arc<Self>,
+        prepared: &super::Preparation,
+        values: pse_math::binding::CaseValues,
+        driver: &crate::CancelSource,
+    ) -> Result<super::Preparation, MathRuntimeError> {
+        use std::sync::atomic::Ordering::Relaxed;
+        let compiled = prepared.prepared.clone();
+        if compiled.values_match(&values) {
+            self.preparations.shared.fetch_add(1, Relaxed);
+            // Derived realization parameters are unchanged (ADR-0104); they complete the
+            // values the recorded assumptions are compared with.
+            let completed = compiled.derived.complete(&values);
+            if compiled
+                .coefficient_values
+                .iter()
+                .all(|(id, bits)| completed.scalars.get(id).map(|v| v.to_bits()) == Some(*bits))
+            {
+                compiled.plan.structure().validate_frozen_values(&completed)?;
+                return Ok(prepared.clone());
+            }
+            // Every product is shared; only the recorded fixed and parameter values follow
+            // the new values, which needs no worker.
+            let rebound = compiled.rebind(&values, &Arc::new(AtomicBool::new(false)))?;
+            return Ok(Self::own_rebind(
+                prepared,
+                rebound,
+                self.reserve("math:rebind", 0)?,
+            ));
+        }
+        let control = FlightCancellation::default();
+        let operation = self.job_retained(
+            1,
+            self.policy.worker_bytes,
+            control.clone(),
+            move |flag| {
+                let rebound = compiled.rebind(&values, &flag)?;
+                let bytes = rebound.presolve.bytes()
+                    + rebound.coefficients.as_ref().map_or(0, |c| c.retained_bytes())
+                    + rebound.derived.retained_bytes();
+                Ok((rebound, bytes))
+            },
+        );
+        tokio::pin!(operation);
+        let (rebound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        self.preparations.rebuilt.fetch_add(1, Relaxed);
+        Ok(Self::own_rebind(prepared, rebound, lease))
     }
     /// Prepare the model and its solver view atomically under the existing compiler writer.
     pub async fn prepare_modeling_case_revision(

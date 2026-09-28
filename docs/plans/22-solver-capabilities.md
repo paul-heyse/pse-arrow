@@ -271,37 +271,37 @@ execution reports. Anchors point to the
 
 | Finding reference | Scenario reference | Disposition | Decision / work owner | Evidence or revisit trigger |
 |---|---|---|---|---|
-| [F01](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f01) FERAL pool escapes admission | — | open | A3 | `feral_threads_bounded_by_admission` |
-| [F02](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f02) Options persist across reuse | S07 | open | A3 | `reused_session_does_not_inherit_options` |
-| [F03](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f03) Unrecorded POUNCE retries | — | open | A3 | `pounce_retry_options_reserved_and_snapshotted` |
-| [F04](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f04) HiGHS QP method ignored | — | open | A3 | `highs_qp_explicit_method_refused` |
+| [F01](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f01) FERAL pool escapes admission | — | resolved | A3 | Resolved: `feral_threads_bounded_by_admission` (A3, `bca4dfd7`) |
+| [F02](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f02) Options persist across reuse | S07 | resolved | A3 | Resolved: `reused_session_does_not_inherit_options` (A3, `bca4dfd7`) |
+| [F03](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f03) Unrecorded POUNCE retries | — | resolved | A3 | Resolved: `pounce_retry_options_reserved_and_snapshotted` (A3, `bca4dfd7`) |
+| [F04](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f04) HiGHS QP method ignored | — | resolved | A3 | Resolved: `highs_qp_explicit_method_refused` (A3, `bca4dfd7`) |
 | [F05](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f05) HiGHS callback kinds | — | resolved | A1 | Resolved: `highs_callback_interrupt_kinds` (A1, `59249b06`) |
 | [F06](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f06) IDAS failures misclassified | — | resolved | A1 | Resolved: `idas_conv_fail_is_numerical` (A1, `59249b06`) |
 | [F07](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f07) SQP working set unreachable | S14 | open | N2 | `sqp_working_set_restart_reaches_runtime` |
-| [F08](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f08) Claims ahead of routes | S06 | open | M1 (a); A7 (b, c) | `authored_milp_routes_to_highs`; `kinsol_dense_spgmr_picard_solve` |
+| [F08](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f08) Claims ahead of routes | S06 | resolved | M1 (a); A7 (b, c) | Resolved: `authored_milp_routes_to_highs` (M1, `b929d896`); `kinsol_dense_spgmr_picard_solve`; PDLP time-limit-only capability (A7, `bca4dfd7`) |
 | [F09](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f09) Library types as contracts | S04, S05 | open | A4 (identity); A5 (types) | `identity_covers_every_settings_field`; `test_solve_settings_backend_projection` |
 | [F10](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f10) Metric and status naming, node budget | — | open | A1, A7, C2 | `metric_names_state_coordinates`; `mip_node_budget_independent` |
-| [F11](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f11) Stale HSL text; dead `Scaling` | — | open | A7, D0 (D22-07) | Deletion; superseding ADR |
-| [F12](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f12) IDAS dense loops | — | open | A3 | `idas_sensitivity_sparse_products`; Q1 IDAS benchmark |
+| [F11](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f11) Stale HSL text; dead `Scaling` | — | resolved | A7, D0 (D22-07) | Resolved: native `Scaling` path deleted (A7, `bca4dfd7`); ADR-0028 superseded by ADR-0108; README HSL text replaced (image track) |
+| [F12](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f12) IDAS dense loops | — | resolved | A3 | Resolved: `idas_sensitivity_sparse_products` (Y1, `754049f8`) |
 | [F13](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f13) Five acceptance rules | — | resolved | A1 | Resolved: `candidate_use_iteration_limited_feasible_is_seed_only_everywhere`, `native_stops_map_to_one_candidate_use` (A1, `59249b06`) |
-| [F14](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f14) Parsed start provenance | — | open | A4 | `start_source_drives_initial_conditions` |
+| [F14](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f14) Parsed start provenance | — | resolved | A4 | Resolved: `start_source_drives_initial_conditions` (A4, `bca4dfd7`) |
 | [F15](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f15) Fit deadline as evaluation failure | — | resolved | A1 | Resolved: `transient_fit_deadline_is_time_limit`, `stopped_failures_keep_time_limit_and_cancellation` (A1, `59249b06`) |
 | [F16](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f16) String-keyed qualification | — | resolved | A1 | Resolved: `quality_reads_typed_evidence_only` (A1, `59249b06`) |
 | [F17](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f17) `Contract(String)` flattening | — | resolved | A1 | Resolved: `adapter_not_linked_is_unsupported`, `structural_failure_keeps_rows_and_columns` (A1, `59249b06`); 186 sites retyped |
 | [F18](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f18) Duplicate validation fields | — | resolved | A1 | Resolved: `SolveReport.validation_error` deleted; `FitRule` codes (A1, `59249b06`) |
 | [F19](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f19) Diagnostic vocabulary | — | resolved | A1 (D22-05) | Resolved: `DiagnosticSeverity`, numerical/inconclusive classes; registry + codegen (A1, `59249b06`) |
-| [F20](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f20) Accuracy input/output conflation | — | open | A4 | `resolved_accuracy_not_user_input` |
+| [F20](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f20) Accuracy input/output conflation | — | resolved | A4 | Resolved: `resolved_accuracy_not_user_input` (A4, `bca4dfd7`) |
 | [F21](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f21) Capability table vs routing | S18 | resolved | A2 | Resolved: `published_capabilities_equal_routing_rules` (A2, `18182734`) |
 | [F22](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f22) KINSOL policy ×5 | — | resolved | A2 | Resolved: `settings_from_policy_reduce_native_tests_to_original_budgets`; copies deleted (A2, `18182734`) |
 | [F23](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f23) Coefficient rule ×3 | — | resolved | A2 | Resolved: `coefficient_eligible_requires_affine_rows_quadratic_degree_and_discharged_obligations` (A2, `18182734`) |
-| [F24](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f24) Layout hash conflation | S14 | open | A4 | `native_option_change_keeps_seed_compatible` |
-| [F25](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f25) Provenance missing from identity | — | open | A4 | `lineage_identity_changes_with_seed` |
+| [F24](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f24) Layout hash conflation | S14 | resolved | A4 | Resolved: `native_option_change_keeps_seed_compatible` (A4, `bca4dfd7`) |
+| [F25](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f25) Provenance missing from identity | — | resolved | A4 | Resolved: `lineage_identity_changes_with_seed` (A4, `bca4dfd7`) |
 | [F26](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f26) Python-only initialization admission | — | open | A5 | `initialization_admission_in_rust` |
 | [F27](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f27) Backend not additive | S18 | resolved | A2 | Resolved: `stub_backend_routes_through_adapter_table` (A2, `18182734`) |
 | [F28](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f28) NLP orchestration ×4 | — | resolved | A2 | Resolved: `nlp_runner_serves_solve_initialize_fit` (A2, `18182734`) |
-| [F29](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f29) Two initialization and multi-case engines | S14, S15 | open | A6 | `value_only_study_prepares_once` |
+| [F29](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f29) Two initialization and multi-case engines | S14, S15 | resolved | A6 | Resolved: `value_only_study_prepares_once`, `homotopy_steps_reuse_session`, `failed_point_isolated_in_study` (A6, `4c9c2e43`) |
 | [F30](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f30) `Debug` strings as Python contract | — | open | A5 (D22-12) | `test_route_and_eligibility_are_typed` |
-| [F31](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f31) Cancellation and budget gaps | — | open | A3 | `nested_worker_observes_attempt_cancel`; `sequence_reserves_per_worker` |
+| [F31](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f31) Cancellation and budget gaps | — | resolved | A3 | Resolved: `nested_worker_observes_attempt_cancel`, `sequence_reserves_per_worker` (A3, `bca4dfd7`) |
 | [F32](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md#f32) Oversized mixed functions | — | open | A2, A6 | Splits follow the new responsibilities; no split for its own sake |
 
 **Target-review findings** from the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md). Their design corrections landed in the D0 ADRs and the architecture; this table owns implementation status.
@@ -314,15 +314,15 @@ execution reports. Anchors point to the
 | [T04](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t04) One MKL/OpenMP runtime per process; `MKL_CBWR` pinned | — | open | N1 | `single_blas_provider_in_process`; `ipopt_pardisomkl_selectable_under_cbwr` |
 | [T05](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t05) SPRAL requires `OMP_CANCELLATION` and `OMP_PROC_BIND` | — | open | N1 | `spral_refused_without_omp_cancellation` |
 | [T06](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t06) Explicit MUMPS ordering, default `metis` | — | open | N1 | `ipopt_mumps_metis_ordering_selectable` |
-| [T07](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t07) Automatic MINLP candidate from a fixed-assignment re-solve | — | open | G7 | `minlp_candidate_from_fixed_assignment_resolve` |
-| [T08](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t08) SCIP's internal Ipopt set from typed settings | — | open | G3 | `scip_internal_ipopt_uses_typed_linear_solver` |
+| [T07](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t07) Automatic MINLP candidate from a fixed-assignment re-solve | — | resolved | G7 | Resolved: `minlp_candidate_from_fixed_assignment_resolve` (G3, `e781060c`) |
+| [T08](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t08) SCIP's internal Ipopt set from typed settings | — | resolved | G3 | Resolved: `scip_internal_ipopt_uses_typed_linear_solver` (G3, `e781060c`) |
 | [T09](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t09) §25 distributed-execution wording | — | resolved | D0 | Resolved: §25 amended (blueprint revision 60) |
 | [T10](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t10) `global_bound`/`proven_infeasible` tolerance-qualified | — | open | G4, G5 | `relaxed_export_bound_only`; the assurance docs in the registry |
 | [T11](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t11) Gauss–Newton covariance validity label | — | open | S3 | `gauss_newton_covariance_labelled` |
 | [T12](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t12) Multi-objective degradation tolerances and normalization | — | open | C3 | `lexicographic_degradation_tolerance_respected` |
 | [T13](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t13) One Rust transition table; the runtime mints ids | — | open | O3 | `illegal_transition_rejected` |
 | [T14](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t14) An authored `penalty(l1)` is an explicit selection | — | open | M5, N3 | `l1_never_automatic`; `authored_l1_realization_selects_route` |
-| [T15](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) Derived big-M, nonlinear hull and the domain enum | — | open | M1, M4 | `bigm_derived_from_bounds`; `hull_requires_finite_bounds`; `var_domain_parses_and_renders` |
+| [T15](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t15) Derived big-M, nonlinear hull and the domain enum | — | resolved | M1, M4 | Resolved: `bigm_derived_from_bounds`, `hull_requires_finite_bounds`, `var_domain_parses_and_renders` (M1, M4; `177c4ec9`) |
 | [T16](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t16) Retention owner once the Delta control table goes | — | open | O8 | `catalog_protects_published_versions` |
 
 ## Verification

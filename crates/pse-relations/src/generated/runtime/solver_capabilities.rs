@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    14u8, 89u8, 0u8, 237u8, 119u8, 246u8, 252u8, 251u8, 25u8, 64u8, 147u8, 146u8, 253u8,
-    197u8, 108u8, 50u8, 89u8, 142u8, 166u8, 141u8, 202u8, 231u8, 213u8, 204u8, 49u8,
-    141u8, 140u8, 111u8, 195u8, 63u8, 176u8, 174u8,
+    126u8, 240u8, 170u8, 224u8, 72u8, 70u8, 161u8, 137u8, 209u8, 61u8, 86u8, 14u8, 192u8,
+    125u8, 3u8, 158u8, 172u8, 225u8, 115u8, 73u8, 164u8, 247u8, 184u8, 153u8, 133u8,
+    117u8, 174u8, 247u8, 208u8, 255u8, 51u8, 40u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
     fn append(
@@ -60,6 +60,14 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
             &self.r#parallel,
             children[9usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#certifies,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#native_forms,
+            children[11usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -88,6 +96,10 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
         <bool as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::NativeConstraintForm,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -138,6 +150,16 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
             )?,
             r#parallel: <bool as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#certifies: <bool as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#native_forms: <Vec<
+                crate::generated::enums::NativeConstraintForm,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
                 index,
             )?,
         })
@@ -213,6 +235,14 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
             columns[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#parallel, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#certifies,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#native_forms,
+            columns[11usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -247,10 +277,10 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        21_504_usize + size_of::<Self::Builder>()
+        26_624_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        168usize
+        208usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -302,6 +332,22 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#native_forms)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
         Ok(bytes)
     }
 }
@@ -312,7 +358,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 10usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "backend",
@@ -363,6 +409,16 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 10usize] = [
         name: "parallel",
         position: 9usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "certifies",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "native_forms",
+        position: 11usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -386,6 +442,10 @@ pub mod columns {
     pub const SIGN_BOUNDS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///parallel
     pub const PARALLEL: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///certifies
+    pub const CERTIFIES: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///native_forms
+    pub const NATIVE_FORMS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -402,6 +462,8 @@ pub struct RuntimeSolverCapabilitiesView<'a> {
     general_bounds_column: &'a arrow_array::BooleanArray,
     sign_bounds_column: &'a arrow_array::BooleanArray,
     parallel_column: &'a arrow_array::BooleanArray,
+    certifies_column: &'a arrow_array::BooleanArray,
+    native_forms_column: &'a arrow_array::ListArray,
 }
 impl<'a> RuntimeSolverCapabilitiesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -471,6 +533,12 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
             parallel_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
             >(batch.column(9usize).as_ref())?,
+            certifies_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(10usize).as_ref())?,
+            native_forms_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(11usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -605,6 +673,30 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     pub fn parallel_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[9usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "certifies",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn certifies_column(&self) -> &'a arrow_array::BooleanArray {
+        self.certifies_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "certifies", "`.")]
+    pub fn certifies_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "native_forms",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn native_forms_column(&self) -> &'a arrow_array::ListArray {
+        self.native_forms_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "native_forms", "`.")]
+    pub fn native_forms_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -642,6 +734,14 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
                 index,
             )?,
             r#parallel: crate::columnar::ArrowValue::read(self.parallel_column, index)?,
+            r#certifies: crate::columnar::ArrowValue::read(
+                self.certifies_column,
+                index,
+            )?,
+            r#native_forms: crate::columnar::ArrowValue::read(
+                self.native_forms_column,
+                index,
+            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

@@ -99,13 +99,15 @@ hash. Diagnostic spans can refresh without changing mathematics
 | Analysis / numerical policy | outputs, mode, derivatives, effective coordinates, budgets, source provenance | adapter defaults not selected by the resolved policy |
 | Prepared artifact | consumed specialization constants, profile, actual library environment, source and build identity | mutable native state |
 | Native layout | coordinate order, sparsity, compatibility | coefficient values |
-| Used start, result, publication | separate scopes of their own | the request identity |
+| Used start | the submitted seed by content, predecessor attempt, partial start and reuse of retained native state, framed into the completed step's request identity ([§16.5](numerical-execution.md#section-16-5)) | the run and attempt that produced the seed |
+| Result, publication | separate scopes of their own | the request identity |
 
 **Run and attempt.** Starting a prepared case mints a fresh run ID (UUIDv7). The run ID
-names the attempt; it is not part of request identity, so repeating the same request is a
-new run with the same request and preparation identities (`runtime.run_lineage`). A
-publication has its own publication ID and attempt ID, distinct from the run it
-publishes ([§20.2](#section-20-2)).
+names the attempt; it is not part of request identity, so repeating the same request with
+the same start is a new run with the same request and preparation identities
+(`runtime.run_lineage`), while a different start is a different request identity
+([§20.3](#section-20-3)). A publication has its own publication ID and attempt ID, distinct
+from the run it publishes ([§20.2](#section-20-2)).
 
 ### 5.3 Canonical framing and hashing
 
@@ -286,11 +288,27 @@ A run records the exact identities it consumed, not names:
 
 - `runtime.run_lineage`: model ID, revision identity, case ID and the request,
   preparation, profile, numerical, physical and environment identities of every step.
+  An algebraic step's request identity (`pse.completed.request.v2`) also frames the start
+  it actually used and whether it reused retained native state
+  ([§16.5](numerical-execution.md#section-16-5)).
 - `runtime.solve_metrics`: effective backend options, the submitted start and native
   observations; unavailable metrics carry a typed reason, never a synthesized zero.
 - `runtime.computation_runs`: the joined job's kind, source and profile identities,
   state, native termination, qualification and candidate facts.
 - The publication control row: exact input and member selections.
+
+The start a step received is the JSON text metric `start`/`request` in
+`runtime.solve_metrics`; the seed a step offers for later use is `start`/`available`.
+Python's `start_json` returns the same document (`StartReceipt::snapshot`,
+[§17.6](numerical-execution.md#section-17-6)):
+
+| Field | Content |
+|---|---|
+| `previous_attempt` | The predecessor attempt whose accepted result seeded the step under `PreviousAccepted`, or null |
+| `seed` | The submitted seed, or null: `origin` (run and attempt, or null), the `layout`, `profile` and `data` stamps as hex, `backend` by its registry spelling, and a `payload` tagged by `kind` (`root`, `nlp`, `highs` or `pounce_sqp`) |
+| `sparse_seed` | An explicit partial MIP seed keyed by semantic ID, or null |
+| `transformations` | The typed path the seed took, externally tagged: `{"normalization": <hash>}`, then `{"presolve": {"transformation": <hash>, "passes": [...]}}` when the library applied a pass, with hashes in their `blake3:` form and passes by their snake-case names; empty when neither a seed nor a partial seed was supplied |
+| `submitted` | Whether the native API received the seed |
 
 Provider parameter data are retained with the immutable revision. Provenance and
 diagnostics are typed relations queryable through the same provider hierarchy. Names,

@@ -22,7 +22,16 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueFunctionExternal,
     AuthoredModelingDeclarationsFieldValueFunction,
     AuthoredModelingDeclarationsFieldValueEquationIndicesItem,
+    AuthoredModelingDeclarationsFieldValueEquationCondition,
     AuthoredModelingDeclarationsFieldValueEquation,
+    AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem,
+    AuthoredModelingDeclarationsFieldValueOrderedSet,
+    AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem,
+    AuthoredModelingDeclarationsFieldValueCardinality,
+    AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem,
+    AuthoredModelingDeclarationsFieldValuePiecewise,
+    AuthoredModelingDeclarationsFieldValueLogicIndicesItem,
+    AuthoredModelingDeclarationsFieldValueLogic,
     AuthoredModelingDeclarationsFieldValueTableKeysItem,
     AuthoredModelingDeclarationsFieldValueTableColumnsItem,
     AuthoredModelingDeclarationsFieldValueTable,
@@ -51,20 +60,20 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    122u8, 70u8, 41u8, 211u8, 190u8, 249u8, 228u8, 147u8, 150u8, 51u8, 224u8, 130u8,
-    253u8, 235u8, 53u8, 180u8,
+    176u8, 155u8, 229u8, 90u8, 87u8, 58u8, 59u8, 241u8, 71u8, 137u8, 20u8, 63u8, 104u8,
+    83u8, 175u8, 80u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "modeling_declarations";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    124u8, 181u8, 29u8, 226u8, 7u8, 17u8, 247u8, 254u8, 255u8, 28u8, 125u8, 138u8, 215u8,
-    166u8, 16u8, 199u8, 61u8, 255u8, 172u8, 238u8, 93u8, 39u8, 251u8, 118u8, 206u8,
-    253u8, 79u8, 183u8, 213u8, 235u8, 124u8, 135u8,
+    5u8, 49u8, 237u8, 210u8, 76u8, 254u8, 141u8, 85u8, 179u8, 161u8, 68u8, 252u8, 199u8,
+    177u8, 9u8, 240u8, 127u8, 158u8, 141u8, 125u8, 191u8, 128u8, 50u8, 124u8, 50u8,
+    210u8, 66u8, 126u8, 155u8, 18u8, 255u8, 168u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(
@@ -1333,6 +1342,54 @@ for AuthoredModelingDeclarationsFieldValueEquationIndicesItem {
         })
     }
 }
+impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueEquationCondition {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#variable,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#active, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#variable: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#active: <bool as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEquation {
     fn append(
         &self,
@@ -1346,6 +1403,10 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEquat
         crate::columnar::ArrowValue::append(
             &self.r#expression,
             children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#condition,
+            children[2usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -1361,6 +1422,9 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEquat
             AuthoredModelingDeclarationsFieldValueEquationIndicesItem,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueEquationCondition,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -1378,6 +1442,423 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEquat
                 index,
             )?,
             r#expression: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#condition: <Option<
+                AuthoredModelingDeclarationsFieldValueEquationCondition,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueOrderedSet {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#indices, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#member, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#weight, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Vec<
+            AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#indices: <Vec<
+                AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#member: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#weight: <String as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueCardinality {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#indices, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#count, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#member, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Vec<
+            AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#indices: <Vec<
+                AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#count: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#member: <String as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValuePiecewise {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#indices, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#output, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#input, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#abscissa,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#ordinate,
+            children[4usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Vec<
+            AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#indices: <Vec<
+                AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#output: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#input: <String as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#abscissa: <String as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#ordinate: <String as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for AuthoredModelingDeclarationsFieldValueLogicIndicesItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueLogic {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#indices, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#proposition,
+            children[1usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <Vec<
+            AuthoredModelingDeclarationsFieldValueLogicIndicesItem,
+        > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#indices: <Vec<
+                AuthoredModelingDeclarationsFieldValueLogicIndicesItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#proposition: <String as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -2652,6 +3133,10 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueReali
             &self.r#accelerator,
             children[2usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#argument,
+            children[3usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -2669,6 +3154,9 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueReali
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -2691,6 +3179,12 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueReali
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#argument: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
         })
@@ -2724,58 +3218,74 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValue {
             &self.r#equation,
             children[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#table, children[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#dataset, children[8usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#entity, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#ordered_set,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#cardinality,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#piecewise,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#logic, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#table, children[11usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#dataset,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#entity, children[13usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#enumeration,
-            children[10usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#import, children[11usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#guard, children[12usize].as_mut())?;
-        crate::columnar::ArrowValue::append(
-            &self.r#accumulator,
-            children[13usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#contribution,
             children[14usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#import, children[15usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#guard, children[16usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#connection,
-            children[15usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#annotation,
-            children[16usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#requirement,
+            &self.r#accumulator,
             children[17usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#expectation,
+            &self.r#contribution,
             children[18usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#continuous,
+            &self.r#connection,
             children[19usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#difference_scheme,
+            &self.r#annotation,
             children[20usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#collocation_scheme,
+            &self.r#requirement,
             children[21usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#discretization,
+            &self.r#expectation,
             children[22usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#realization,
+            &self.r#continuous,
             children[23usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#difference_scheme,
+            children[24usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#collocation_scheme,
+            children[25usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#discretization,
+            children[26usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#realization,
+            children[27usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -2809,56 +3319,68 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValue {
             AuthoredModelingDeclarationsFieldValueEquation,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueTable,
+            AuthoredModelingDeclarationsFieldValueOrderedSet,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueDataset,
+            AuthoredModelingDeclarationsFieldValueCardinality,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueEntity,
+            AuthoredModelingDeclarationsFieldValuePiecewise,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueEnumeration,
+            AuthoredModelingDeclarationsFieldValueLogic,
         > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueImport,
+            AuthoredModelingDeclarationsFieldValueTable,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueGuard,
+            AuthoredModelingDeclarationsFieldValueDataset,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueAccumulator,
+            AuthoredModelingDeclarationsFieldValueEntity,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueContribution,
+            AuthoredModelingDeclarationsFieldValueEnumeration,
         > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueConnection,
+            AuthoredModelingDeclarationsFieldValueImport,
         > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueAnnotation,
+            AuthoredModelingDeclarationsFieldValueGuard,
         > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueRequirement,
+            AuthoredModelingDeclarationsFieldValueAccumulator,
         > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueExpectation,
+            AuthoredModelingDeclarationsFieldValueContribution,
         > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueContinuous,
+            AuthoredModelingDeclarationsFieldValueConnection,
         > as crate::columnar::ArrowValue>::append_null(children[19usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueDifferenceScheme,
+            AuthoredModelingDeclarationsFieldValueAnnotation,
         > as crate::columnar::ArrowValue>::append_null(children[20usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueCollocationScheme,
+            AuthoredModelingDeclarationsFieldValueRequirement,
         > as crate::columnar::ArrowValue>::append_null(children[21usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueDiscretization,
+            AuthoredModelingDeclarationsFieldValueExpectation,
         > as crate::columnar::ArrowValue>::append_null(children[22usize].as_mut())?;
         <Option<
-            AuthoredModelingDeclarationsFieldValueRealization,
+            AuthoredModelingDeclarationsFieldValueContinuous,
         > as crate::columnar::ArrowValue>::append_null(children[23usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueDifferenceScheme,
+        > as crate::columnar::ArrowValue>::append_null(children[24usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueCollocationScheme,
+        > as crate::columnar::ArrowValue>::append_null(children[25usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueDiscretization,
+        > as crate::columnar::ArrowValue>::append_null(children[26usize].as_mut())?;
+        <Option<
+            AuthoredModelingDeclarationsFieldValueRealization,
+        > as crate::columnar::ArrowValue>::append_null(children[27usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -2909,106 +3431,130 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValue {
                 input.column(6usize).as_ref(),
                 index,
             )?,
+            r#ordered_set: <Option<
+                AuthoredModelingDeclarationsFieldValueOrderedSet,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#cardinality: <Option<
+                AuthoredModelingDeclarationsFieldValueCardinality,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#piecewise: <Option<
+                AuthoredModelingDeclarationsFieldValuePiecewise,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#logic: <Option<
+                AuthoredModelingDeclarationsFieldValueLogic,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
             r#table: <Option<
                 AuthoredModelingDeclarationsFieldValueTable,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#dataset: <Option<
                 AuthoredModelingDeclarationsFieldValueDataset,
             > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#entity: <Option<
                 AuthoredModelingDeclarationsFieldValueEntity,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#enumeration: <Option<
                 AuthoredModelingDeclarationsFieldValueEnumeration,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
             r#import: <Option<
                 AuthoredModelingDeclarationsFieldValueImport,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(15usize).as_ref(),
                 index,
             )?,
             r#guard: <Option<
                 AuthoredModelingDeclarationsFieldValueGuard,
             > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(16usize).as_ref(),
                 index,
             )?,
             r#accumulator: <Option<
                 AuthoredModelingDeclarationsFieldValueAccumulator,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(17usize).as_ref(),
                 index,
             )?,
             r#contribution: <Option<
                 AuthoredModelingDeclarationsFieldValueContribution,
             > as crate::columnar::ArrowValue>::read(
-                input.column(14usize).as_ref(),
+                input.column(18usize).as_ref(),
                 index,
             )?,
             r#connection: <Option<
                 AuthoredModelingDeclarationsFieldValueConnection,
             > as crate::columnar::ArrowValue>::read(
-                input.column(15usize).as_ref(),
+                input.column(19usize).as_ref(),
                 index,
             )?,
             r#annotation: <Option<
                 AuthoredModelingDeclarationsFieldValueAnnotation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(16usize).as_ref(),
+                input.column(20usize).as_ref(),
                 index,
             )?,
             r#requirement: <Option<
                 AuthoredModelingDeclarationsFieldValueRequirement,
             > as crate::columnar::ArrowValue>::read(
-                input.column(17usize).as_ref(),
+                input.column(21usize).as_ref(),
                 index,
             )?,
             r#expectation: <Option<
                 AuthoredModelingDeclarationsFieldValueExpectation,
             > as crate::columnar::ArrowValue>::read(
-                input.column(18usize).as_ref(),
+                input.column(22usize).as_ref(),
                 index,
             )?,
             r#continuous: <Option<
                 AuthoredModelingDeclarationsFieldValueContinuous,
             > as crate::columnar::ArrowValue>::read(
-                input.column(19usize).as_ref(),
+                input.column(23usize).as_ref(),
                 index,
             )?,
             r#difference_scheme: <Option<
                 AuthoredModelingDeclarationsFieldValueDifferenceScheme,
             > as crate::columnar::ArrowValue>::read(
-                input.column(20usize).as_ref(),
+                input.column(24usize).as_ref(),
                 index,
             )?,
             r#collocation_scheme: <Option<
                 AuthoredModelingDeclarationsFieldValueCollocationScheme,
             > as crate::columnar::ArrowValue>::read(
-                input.column(21usize).as_ref(),
+                input.column(25usize).as_ref(),
                 index,
             )?,
             r#discretization: <Option<
                 AuthoredModelingDeclarationsFieldValueDiscretization,
             > as crate::columnar::ArrowValue>::read(
-                input.column(22usize).as_ref(),
+                input.column(26usize).as_ref(),
                 index,
             )?,
             r#realization: <Option<
                 AuthoredModelingDeclarationsFieldValueRealization,
             > as crate::columnar::ArrowValue>::read(
-                input.column(23usize).as_ref(),
+                input.column(27usize).as_ref(),
                 index,
             )?,
         })
@@ -3234,10 +3780,10 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        335_872_usize + size_of::<Self::Builder>()
+        390_144_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        2624usize
+        3048usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -3978,6 +4524,236 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                     crate::columnar::allocation_add(
                                         8,
                                         ((value).r#expression).len(),
+                                    )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    if let Some(value) = ((value).r#condition).as_ref() {
+                                        crate::columnar::allocation_add(
+                                            1,
+                                            {
+                                                let mut bytes = 1usize;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    crate::columnar::allocation_add(
+                                                        8,
+                                                        ((value).r#variable).len(),
+                                                    )?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                                )?;
+                                                Ok::<usize, crate::RelationError>(bytes)
+                                            }?,
+                                        )
+                                    } else {
+                                        Ok::<usize, crate::RelationError>(1)
+                                    }?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if let Some(value) = ((self.r#value).r#ordered_set).as_ref() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    ((value).r#indices)
+                                        .iter()
+                                        .try_fold(
+                                            8usize,
+                                            |bytes, item| crate::columnar::allocation_add(
+                                                bytes,
+                                                {
+                                                    let mut bytes = 1usize;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                    )?;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#domain).len())?,
+                                                    )?;
+                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                }?,
+                                            ),
+                                        )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#member).len(),
+                                    )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#weight).len(),
+                                    )?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if let Some(value) = ((self.r#value).r#cardinality).as_ref() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    ((value).r#indices)
+                                        .iter()
+                                        .try_fold(
+                                            8usize,
+                                            |bytes, item| crate::columnar::allocation_add(
+                                                bytes,
+                                                {
+                                                    let mut bytes = 1usize;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                    )?;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#domain).len())?,
+                                                    )?;
+                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                }?,
+                                            ),
+                                        )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(8, ((value).r#count).len())?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#member).len(),
+                                    )?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if let Some(value) = ((self.r#value).r#piecewise).as_ref() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    ((value).r#indices)
+                                        .iter()
+                                        .try_fold(
+                                            8usize,
+                                            |bytes, item| crate::columnar::allocation_add(
+                                                bytes,
+                                                {
+                                                    let mut bytes = 1usize;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                    )?;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#domain).len())?,
+                                                    )?;
+                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                }?,
+                                            ),
+                                        )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#output).len(),
+                                    )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(8, ((value).r#input).len())?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#abscissa).len(),
+                                    )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#ordinate).len(),
+                                    )?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if let Some(value) = ((self.r#value).r#logic).as_ref() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    ((value).r#indices)
+                                        .iter()
+                                        .try_fold(
+                                            8usize,
+                                            |bytes, item| crate::columnar::allocation_add(
+                                                bytes,
+                                                {
+                                                    let mut bytes = 1usize;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                                                    )?;
+                                                    bytes = crate::columnar::allocation_add(
+                                                        bytes,
+                                                        crate::columnar::allocation_add(8, ((item).r#domain).len())?,
+                                                    )?;
+                                                    Ok::<usize, crate::RelationError>(bytes)
+                                                }?,
+                                            ),
+                                        )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#proposition).len(),
                                     )?,
                                 )?;
                                 Ok::<usize, crate::RelationError>(bytes)
@@ -4737,6 +5513,17 @@ impl crate::columnar::RelationRow for AuthoredModelingDeclarationsRow {
                                 bytes = crate::columnar::allocation_add(
                                     bytes,
                                     if let Some(value) = ((value).r#accelerator).as_ref() {
+                                        crate::columnar::allocation_add(
+                                            1,
+                                            crate::columnar::allocation_add(8, (value).len())?,
+                                        )
+                                    } else {
+                                        Ok::<usize, crate::RelationError>(1)
+                                    }?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    if let Some(value) = ((value).r#argument).as_ref() {
                                         crate::columnar::allocation_add(
                                             1,
                                             crate::columnar::allocation_add(8, (value).len())?,

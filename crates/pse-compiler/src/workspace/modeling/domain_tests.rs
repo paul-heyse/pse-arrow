@@ -9,13 +9,13 @@ use pse_authoring::{
 use pse_model::generated::enums::ModelingVariableDomain as Domain;
 use pse_modeling::{DomainAnalysis, DomainRefusal, ModelingError};
 
-fn quantity(hex: &str) -> QuantityTypeId {
+pub(super) fn quantity(hex: &str) -> QuantityTypeId {
     QuantityTypeId::from_id(SemanticId::parse_hex(hex).unwrap())
 }
-fn power() -> QuantityTypeId {
+pub(super) fn power() -> QuantityTypeId {
     quantity("e1f2106da9eb4fe0aa2749fa5469fa1a")
 }
-fn setup(text: &str) -> (CompilerWorkspace, SemanticId) {
+pub(super) fn setup(text: &str) -> (CompilerWorkspace, SemanticId) {
     let input = super::super::tests::inputs();
     let names = BTreeMap::from([
         (

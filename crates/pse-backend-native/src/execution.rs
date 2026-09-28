@@ -13,26 +13,31 @@ use crate::{
     routing::{Ineligible, Requirements},
     solve::{
         Backend, Compatibility, Controls, DerivativeCapability, Execution, ProblemClass,
-        ResolvedAccuracy, SolveReport, WarmCapability, WarmPayload, WarmStart,
+        ResolvedAccuracy, SolveIntent, SolveReport, WarmCapability, WarmPayload, WarmStart,
     },
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_math::{
-    binding::ObjectiveSense, convexity::QuadraticEvidence, normalization::Normalization,
-    presolve::GuardSign,
+    binding::ObjectiveSense, convexity::QuadraticEvidence, factorable::FactorableProgram,
+    normalization::Normalization, presolve::GuardSign,
 };
+use pse_model::generated::enums::NativeConstraintForm;
 use std::{any::Any, collections::BTreeMap};
 
 mod clarabel;
 mod dynamics;
+pub(crate) mod factorable;
 mod highs;
 mod ipopt;
 mod kinsol;
 mod pounce;
 mod runner;
+mod scip;
+pub use factorable::{Factorable, FixedOracle, Refusal, Resolve, admit_program, factorable};
 pub use runner::{
     Coefficients, Evaluation, Nlp, OriginalModel, Roots, Step, coefficients, cone, nlp, roots,
 };
+pub use scip::Settings as ScipSettings;
 
 /// The native input an adapter consumes. Runners build exactly this representation, so a
 /// workflow selects a runner by representation, never by backend.
@@ -46,6 +51,9 @@ pub enum Representation {
     Coefficients,
     /// Explicit cone data in normalized coordinates ([`ConicProblem`]).
     Cone,
+    /// A factorable expression program over original case columns ([`FactorableProgram`]),
+    /// re-qualified against the original compiled model.
+    Factorable,
     /// Trajectories owned by the integrator workflows; never algebraically routed.
     Trajectory,
 }
@@ -69,10 +77,17 @@ pub struct Capability {
     pub warm: WarmCapability,
     /// Arbitrary variable bounds are representable.
     pub general_bounds: bool,
-    /// Exact sign bounds are representable when general bounds are not.
+    /// One-sided bounds are representable, as sign constraints on shifted coordinates,
+    /// when general bounds are not.
     pub sign_bounds: bool,
     /// The adapter can consume more than one admitted native thread.
     pub parallel: bool,
+    /// The adapter serves the explicit certify intent: global bounds and infeasibility
+    /// conclusions over declared finite boxes (ADR-0106 §8–§9).
+    pub certifies: bool,
+    /// Constraint handlers the adapter consumes for forms a native realization leaves to
+    /// the backend (ADR-0104). A structure requiring any other form is ineligible.
+    pub native_forms: &'static [NativeConstraintForm],
     /// Native allocation/data reuse boundary.
     pub reuse: &'static str,
     /// Actual interrupt checkpoints.
@@ -94,6 +109,8 @@ impl Capability {
             general_bounds: self.general_bounds,
             sign_bounds: self.sign_bounds,
             parallel: self.parallel,
+            certifies: self.certifies,
+            native_forms: self.native_forms.to_vec(),
         }
     }
 }
@@ -169,6 +186,18 @@ pub enum Problem<'a> {
         /// Transported convexity evidence.
         certificate: &'a dyn QuadraticEvidence,
     },
+    /// Factorable program in original coordinates; budgets and the seed are original too.
+    Factorable {
+        /// Admitted program; its objective is in the authored sense.
+        program: &'a FactorableProgram,
+        /// Original start in program column order.
+        initial: &'a [f64],
+        /// Mathematical purpose; only optimization intents export the objective.
+        intent: SolveIntent,
+        /// Model coordinate transport, which converts normalized objective budgets into
+        /// original objective units.
+        normalization: &'a Normalization,
+    },
 }
 
 impl std::fmt::Debug for Input<'_> {
@@ -187,6 +216,7 @@ impl std::fmt::Debug for Problem<'_> {
             Self::Roots { .. } => "Problem::Roots",
             Self::Coefficients { .. } => "Problem::Coefficients",
             Self::Cone { .. } => "Problem::Cone",
+            Self::Factorable { .. } => "Problem::Factorable",
         })
     }
 }
@@ -301,6 +331,7 @@ pub const fn adapter(backend: Backend) -> &'static dyn BackendExecution {
         Backend::Clarabel => &clarabel::ADAPTER,
         Backend::Diffsol => &dynamics::DIFFSOL,
         Backend::Idas => &dynamics::IDAS,
+        Backend::Scip => &scip::ADAPTER,
     }
 }
 static ADAPTERS: [&dyn BackendExecution; Backend::ALL.len()] = {
@@ -385,6 +416,8 @@ pub enum BackendSettings {
         /// Reuse/preprocessing mode.
         mode: crate::conic::Mode,
     },
+    /// SCIP's nested Ipopt linear solver, seed and node budget.
+    Scip(ScipSettings),
 }
 impl BackendSettings {
     /// The backend these settings belong to; `None` for native defaults.
@@ -400,6 +433,7 @@ impl BackendSettings {
             #[cfg(feature = "highs")]
             Self::Highs(_) => Some(Backend::Highs),
             Self::Clarabel { .. } => Some(Backend::Clarabel),
+            Self::Scip(_) => Some(Backend::Scip),
         }
     }
     /// The selected method relaxes every constraint row (the ℓ1 exact penalty, ADR-0109), so
@@ -549,7 +583,8 @@ fn foreign(backend: Backend) -> ProblemError {
     feature = "ipopt",
     feature = "pounce",
     feature = "kinsol",
-    feature = "highs"
+    feature = "highs",
+    feature = "scip"
 )))]
 fn unlinked(backend: Backend) -> ProblemError {
     ProblemError::Unavailable {

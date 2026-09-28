@@ -175,6 +175,7 @@ pub(crate) fn run(
     .unwrap()
 }
 /// Native iterations of a report.
+#[cfg(all(feature = "ipopt", feature = "pounce"))]
 pub(crate) fn iterations(report: &SolveReport) -> i64 {
     #[cfg(feature = "pounce")]
     if let Some(statistics) = &report.pounce_statistics {

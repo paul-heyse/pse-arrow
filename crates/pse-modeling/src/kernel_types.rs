@@ -388,3 +388,48 @@ fn physical_aliases_are_scoped_and_compose_in_quantity_schemes() {
     }
     assert!(check(&source("package a {} package b {use a @\"1.0.0\" as imported; def Root {var x:imported.Measure; var y:Delta<imported.Measure>;}}"), &context).is_ok());
 }
+
+#[test]
+fn constraint_forms_are_placed_and_typed_at_declaration() {
+    let (registry, mut names) = physical();
+    names.insert(
+        "Indicator".into(),
+        QuantityTypeId::from_id(SemanticId::parse_hex("b5d9e1c4a7f2483e9d6c1b0a5e8f3d27").unwrap()),
+    );
+    let context = TypeContext {
+        preconditions: &pse_quantity::PhysicalPreconditions::new(vec![]).unwrap(),
+        quantities: &registry,
+        names: &names,
+    };
+    let admitted = check(
+        &source(
+            "package p { def Root { var on: Indicator in binary; var x: Flow; eq e when on: x <= x; when true { logic l: on implies on; } disjunction d { alternative a { eq k: x == x; } alternative b { eq k: x >= x; } } } }",
+        ),
+        &context,
+    )
+    .unwrap();
+    // An alternative is typed by the indicator quantity, as its binary selection.
+    let alternative = admitted
+        .declarations
+        .values()
+        .find(|r| r.name == "a")
+        .unwrap()
+        .declaration_id;
+    assert_eq!(
+        admitted.types[&alternative],
+        Type::Quantity(Scheme::Concrete(names["Indicator"]))
+    );
+    for invalid in [
+        // Forms never enter an implicit residual, a regime, a stage or an alternative.
+        "package p { def Root { var on: Indicator in binary; var x: Flow; implicit i { eq e when on: x <= x; } } }",
+        "package p { def Root { var on: Indicator in binary; stage s { logic l: on; } } }",
+        "package p { def Root { var on: Indicator in binary; var x: Flow; disjunction d { alternative a { logic l: on; } alternative b { eq k: x >= x; } } } }",
+        // An alternative lives in a disjunction, and a condition names an indicator.
+        "package p { def Root { alternative a { } } }",
+        "package p { def Root { var y: Flow; var x: Flow; eq e when y: x <= x; } }",
+        "package p { def Root { var x: Flow; piecewise f: x == x at (x, x); } }",
+        "package p { def Root { var on: Indicator in binary; logic l: on implies; } }",
+    ] {
+        assert!(check(&source(invalid), &context).is_err(), "{invalid}");
+    }
+}

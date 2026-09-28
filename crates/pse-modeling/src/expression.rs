@@ -821,6 +821,67 @@ fn declaration_environment(
     }
     Ok((env, vars))
 }
+/// Physical contracts of ADR-0104 declarations; realizations are admitted at specialization.
+fn check_forms(
+    row: &crate::Declaration,
+    id: SemanticId,
+    outer: &BTreeMap<String, Type>,
+    env: &BTreeMap<String, Type>,
+    p: &CheckedPackage,
+    context: &TypeContext<'_>,
+) -> Result<()> {
+    let typed = |source: &str, env: &BTreeMap<String, Type>| -> Result<Type> {
+        let e = dsl::parse_expr(source).map_err(|e| invalid(id, e.to_string()))?;
+        infer(&e, env, p, context, id, None)
+    };
+    let indicator = || crate::indicator_type(context.quantities, id);
+    if let Some(condition) = row
+        .value
+        .equation
+        .as_ref()
+        .and_then(|e| e.condition.as_ref())
+    {
+        if typed(&condition.variable, env)? != indicator()? {
+            return Err(invalid(
+                id,
+                "an indicator condition names an indicator variable",
+            ));
+        }
+    }
+    if let Some(set) = &row.value.ordered_set {
+        if !matches!(typed(&set.member, env)?, Type::Quantity(_)) {
+            return Err(invalid(id, "ordered set members are physical variables"));
+        }
+    }
+    if let Some(c) = &row.value.cardinality {
+        if !matches!(typed(&c.member, env)?, Type::Quantity(_)) {
+            return Err(invalid(id, "cardinality members are physical variables"));
+        }
+    }
+    if let Some(f) = &row.value.piecewise {
+        let [index] = f.indices.as_slice() else {
+            return Err(invalid(id, "a piecewise function has one breakpoint index"));
+        };
+        let mut local = outer.clone();
+        let domain = dsl::parse_expr(&index.domain).map_err(|e| invalid(id, e.to_string()))?;
+        let Type::Set(element) = infer(&domain, outer, p, context, id, None)? else {
+            return Err(invalid(id, "breakpoints range over a finite set"));
+        };
+        local.insert(index.name.clone(), *element);
+        if typed(&f.input, outer)? != typed(&f.abscissa, &local)?
+            || typed(&f.output, outer)? != typed(&f.ordinate, &local)?
+        {
+            return Err(invalid(
+                id,
+                "breakpoints have the input and output physical types",
+            ));
+        }
+    }
+    if let Some(l) = &row.value.logic {
+        crate::logic::parse(&l.proposition).map_err(|e| invalid(id, e))?;
+    }
+    Ok(())
+}
 pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
     for (id, row) in &p.declarations {
         let (mut env, mut vars) = declaration_environment(p, context, *id)?;
@@ -865,7 +926,26 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                     .as_ref()
                     .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
             })
+            .or_else(|| {
+                row.value
+                    .ordered_set
+                    .as_ref()
+                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
+            })
+            .or_else(|| {
+                row.value
+                    .cardinality
+                    .as_ref()
+                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
+            })
+            .or_else(|| {
+                row.value
+                    .logic
+                    .as_ref()
+                    .map(|v| v.indices.iter().map(|i| (&i.name, &i.domain)).collect())
+            })
             .unwrap_or_default();
+        let outer = env.clone();
         for (name, domain) in indices {
             let expr = dsl::parse_expr(domain).map_err(|e| invalid(*id, e.to_string()))?;
             let (Type::Set(element) | Type::Continuous(_, element)) =
@@ -875,6 +955,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             };
             env.insert(name.clone(), *element);
         }
+        check_forms(row, *id, &outer, &env, p, context)?;
         if let Some(axis) = &row.value.continuous {
             let Type::Continuous(_, target) = &p.types[id] else {
                 return Err(invalid(*id, "continuous type absent"));
@@ -957,14 +1038,34 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             }
         }
         if let Some(policy) = &row.value.realization {
-            crate::specialize::Realization::from_contract(policy, *id)?;
+            use pse_model::generated::enums::ModelingDeclarationKind as K;
             let target = p
                 .resolve(*id, &policy.target)
                 .ok_or_else(|| invalid(*id, "realization target absent"))?;
-            if p.declarations[&target].value.kind
-                != pse_model::generated::enums::ModelingDeclarationKind::Implicit
+            let target = &p.declarations[&target];
+            if target.value.kind == K::Implicit {
+                crate::specialize::Realization::from_contract(policy, *id)?;
+            } else if !(matches!(
+                target.value.kind,
+                K::Disjunction
+                    | K::Sos1
+                    | K::Sos2
+                    | K::Atmost
+                    | K::Atleast
+                    | K::Exactly
+                    | K::Piecewise
+                    | K::Logic
+            ) || target
+                .value
+                .equation
+                .as_ref()
+                .is_some_and(|e| e.condition.is_some()))
             {
-                return Err(invalid(*id, "realization target must be an implicit block"));
+                // ADR-0104: forms and disjunctions admit their realizations at specialization.
+                return Err(invalid(
+                    *id,
+                    "realization target must be an implicit block, a constraint form or a disjunction",
+                ));
             }
         }
         if let Some(v) = &row.value.relaxation {
@@ -1198,9 +1299,11 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                     return Err(invalid(*id, "term scaling requires an equation target"));
                 }
             }
-            if matches!(a.annotation_type.as_str(), "start" | "bounds" | "valid" | "objective")
-                && target_declaration
-                    .is_some_and(|target| p.declarations[&target].value.equation.is_some())
+            if matches!(
+                a.annotation_type.as_str(),
+                "start" | "bounds" | "valid" | "objective"
+            ) && target_declaration
+                .is_some_and(|target| p.declarations[&target].value.equation.is_some())
             {
                 return Err(invalid(*id, "this annotation requires a value target"));
             }
@@ -1209,7 +1312,10 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
             }
             if a.annotation_type == "connectivity" {
                 crate::annotation::connectivity_limits(&a.arguments, *id)?;
-                if target_declaration.is_some_and(|target| p.declarations[&target].value.kind != pse_model::generated::enums::ModelingDeclarationKind::Port) {
+                if target_declaration.is_some_and(|target| {
+                    p.declarations[&target].value.kind
+                        != pse_model::generated::enums::ModelingDeclarationKind::Port
+                }) {
                     return Err(invalid(*id, "connectivity target must be a declared port"));
                 }
                 continue;
@@ -1222,7 +1328,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 ("objective", 1) => {
                     crate::annotation::objective_sense(&a.arguments[0], *id)?;
                     0
-                },
+                }
                 ("check", 1) => {
                     predicate(
                         &dsl::parse_predicate(&a.arguments[0])

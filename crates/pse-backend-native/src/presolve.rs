@@ -94,6 +94,16 @@ pub struct Report {
     pub proof: Option<PresolveProof>,
     /// A submitted active-set working set and whether this transformation retained it.
     pub working_set: Option<crate::solve::WorkingSetTransfer>,
+    /// Why the policy that ran differs from `requested`; `None` when it is the requested one.
+    pub resolution: Option<Resolution>,
+}
+/// Why a requested presolve policy resolved to another one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Resolution {
+    /// `Auto` under a method that relaxes every row (the ℓ1 exact penalty, ADR-0109): every
+    /// pass assumes the rows hold, so `Auto` selects none and presolve runs `Off`.
+    RelaxedRows,
 }
 /// Retained library proof plus the original scope and the budget it survived.
 #[derive(Clone, Debug)]
@@ -316,7 +326,7 @@ impl Policy {
         // separately survives each original bound's own acceptance budget.
         Ok(Report{requested:self.clone(),effective:o,passes,facts:facts.map(|f|f.key),transformation:self.key(),dimensions:(n,m,n,m),
             diagnostics:BTreeMap::from([("native.qualification".into(),"pounce-presolve 0.12.0: equality/coefficient tolerance 1e-12; bound-dual recovery activity tolerance 1e-6; LICQ diagnostics only".into())]),
-            columns:(0..n).collect(),rows:(0..m).collect(),proof:None,working_set:None})
+            columns:(0..n).collect(),rows:(0..m).collect(),proof:None,working_set:None,resolution:None})
     }
 }
 

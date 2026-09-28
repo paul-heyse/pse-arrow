@@ -49,8 +49,8 @@ async fn explicit_cone_request_runs_without_an_algebraic_compiler_flag() {
         native::routing::Route::Native(Backend::Clarabel)
     );
     let result = prepared.start().unwrap().finish().await.unwrap();
-    let Outcome::Native(report) = &result.outcomes[0] else {
-        panic!("{:?}", result.outcomes)
+    let Outcome::Native(report) = &result.outcome else {
+        panic!("{:?}", result.outcome)
     };
     assert!((report.candidate.as_ref().unwrap().primal[0] - 2.0).abs() < 1e-6);
     assert!((report.candidate.as_ref().unwrap().objective.unwrap() - 5.0).abs() < 1e-6);

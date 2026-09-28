@@ -43,6 +43,11 @@ impl std::fmt::Debug for Pipeline {
     }
 }
 impl Pipeline {
+    /// Record that `requested` resolved to the policy this pipeline was built with, and why.
+    pub fn resolved(&mut self, requested: &Policy, resolution: super::Resolution) {
+        self.report.requested = requested.clone();
+        self.report.resolution = Some(resolution);
+    }
     /// Inspect qualified passes and retained proof without consuming callback ownership.
     pub fn report(&self) -> &Report {
         &self.report

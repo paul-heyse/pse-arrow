@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Rust-only Diffsol adapter. All operator failures exit through one owned catch boundary.
+//! The scheme (BDF, TR-BDF2, ESDIRK34, Tsit45) and the Newton linear solver (faer LU or
+//! SuiteSparse KLU) are typed profile fields (ADR-0110 item 2).
 use super::*;
 use diffsol::{
     ConstantOp, ConstantOpSens, FaerContext, FaerSparseLU, FaerSparseMat, FaerVec, LinearOp,
-    Matrix, NonLinearOp, NonLinearOpJacobian, NonLinearOpSens, OdeBuilder, OdeEquations,
-    OdeEquationsRef, OdeSolverMethod, OdeSolverStopReason, Op, Vector, VectorHost,
+    LinearSolver, Matrix, NonLinearOp, NonLinearOpJacobian, NonLinearOpSens, OdeBuilder,
+    OdeEquations, OdeEquationsRef, OdeSolverMethod, OdeSolverStopReason, Op, Vector, VectorHost,
 };
 use std::{
     cell::{Cell, RefCell},
@@ -498,8 +500,9 @@ pub(super) fn integrate_with_progress(
         },
     });
     let mut report = Report::new(profile.start);
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        run(shared.clone(), profile, &mut report)
+    let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
+        DiffsolLinear::FaerLu => run::<FaerSparseLU<f64>>(shared.clone(), profile, &mut report),
+        DiffsolLinear::Klu => run::<diffsol::KLU<M>>(shared.clone(), profile, &mut report),
     }));
     match result {
         Ok(Ok(())) => {}
@@ -525,7 +528,27 @@ pub(super) fn integrate_with_progress(
     (report.progress, report.dropped_progress) = shared.progress.snapshot();
     Ok(report)
 }
-fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), ProblemError> {
+/// Statistics of one finished segment, labelled with the scheme and linear solver.
+fn segment_statistics(
+    statistics: &diffsol::ode_solver::OdeSolverStatistics,
+    settings: &DiffsolSettings,
+) -> Result<serde_json::Value, ProblemError> {
+    let mut value = serde_json::to_value(statistics)
+        .map_err(|e| ProblemError::internal(format!("Diffsol statistics: {e}")))?;
+    if let Some(fields) = value.as_object_mut() {
+        fields.insert(
+            "diffsol".into(),
+            serde_json::to_value(settings)
+                .map_err(|e| ProblemError::internal(format!("Diffsol settings: {e}")))?,
+        );
+    }
+    Ok(value)
+}
+fn run<LS: LinearSolver<M>>(
+    shared: Rc<Shared<'_>>,
+    p: &Profile,
+    r: &mut Report,
+) -> Result<(), ProblemError> {
     let mut time = p.start;
     let mut change = 0;
     let mut steps = 0usize;
@@ -574,58 +597,73 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
             r.requested_initial = requested;
         }
         let stop = p.changes.get(change).map_or(p.end, |v| v.time);
-        let (event, state) = if p.sensitivities {
-            let mut solver = problem.bdf_sens::<FaerSparseLU<f64>>().map_err(native)?;
-            record_start(&shared, &solver, p, r, time)?;
-            if time >= p.end {
-                r.termination = Termination::Completed;
-                return Ok(());
-            }
-            let attempt = catch_unwind(AssertUnwindSafe(|| {
-                drive(&shared, &mut solver, p, r, stop, &mut steps)
-            }));
-            r.statistics.push(
-                serde_json::to_value(solver.get_statistics())
-                    .map_err(|e| ProblemError::internal(format!("Diffsol statistics: {e}")))?,
-            );
-            if let Some(statistics) = r
-                .statistics
-                .last_mut()
-                .and_then(serde_json::Value::as_object_mut)
-            {
-                statistics.insert("sensitivity_partials".into(), serde_json::json!({"state":"analytic", "parameter":"analytic", "event_time":"Diffsol finite-difference root/reset time partials", "reset":"Diffsol event-time correction and consistent mass reset"}));
-            }
-            let result = match attempt {
-                Ok(result) => result?,
-                Err(payload) => resume_unwind(payload),
-            };
-            if let Some(index) = result.0 {
-                let event = &shared.contract.events[shared.mode.get()][index];
-                if !event.terminal {
-                    reset_sens(&shared, &mut solver, p, index)?;
-                    *shared.seed.borrow_mut() = Some(solver.state().y.as_slice().to_vec());
+        // One segment on the selected library scheme (ADR-0110 item 2). Every scheme
+        // shares root finding, interpolation, output quadrature and reset sensitivities.
+        macro_rules! segment {
+            ($solver:expr, sensitivities) => {{
+                let mut solver = $solver.map_err(native)?;
+                record_start(&shared, &solver, p, r, time)?;
+                if time >= p.end {
+                    r.termination = Termination::Completed;
+                    return Ok(());
                 }
+                let attempt = catch_unwind(AssertUnwindSafe(|| {
+                    drive(&shared, &mut solver, p, r, stop, &mut steps)
+                }));
+                r.statistics
+                    .push(segment_statistics(solver.get_statistics(), &p.diffsol)?);
+                if let Some(statistics) = r
+                    .statistics
+                    .last_mut()
+                    .and_then(serde_json::Value::as_object_mut)
+                {
+                    statistics.insert("sensitivity_partials".into(), serde_json::json!({"state":"analytic", "parameter":"analytic", "event_time":"Diffsol finite-difference root/reset time partials", "reset":"Diffsol event-time correction and consistent mass reset"}));
+                }
+                let result = match attempt {
+                    Ok(result) => result?,
+                    Err(payload) => resume_unwind(payload),
+                };
+                if let Some(index) = result.0 {
+                    let event = &shared.contract.events[shared.mode.get()][index];
+                    if !event.terminal {
+                        reset_sens::<LS, _>(&shared, &mut solver, p, index)?;
+                        *shared.seed.borrow_mut() = Some(solver.state().y.as_slice().to_vec());
+                    }
+                }
+                *shared.seed_sens.borrow_mut() = Some(solver.state().s.to_vec());
+                result
+            }};
+            ($solver:expr) => {{
+                let mut solver = $solver.map_err(native)?;
+                record_start(&shared, &solver, p, r, time)?;
+                if time >= p.end {
+                    r.termination = Termination::Completed;
+                    return Ok(());
+                }
+                let attempt = catch_unwind(AssertUnwindSafe(|| {
+                    drive(&shared, &mut solver, p, r, stop, &mut steps)
+                }));
+                r.statistics
+                    .push(segment_statistics(solver.get_statistics(), &p.diffsol)?);
+                match attempt {
+                    Ok(result) => result?,
+                    Err(payload) => resume_unwind(payload),
+                }
+            }};
+        }
+        let (event, state) = match (p.sensitivities, p.diffsol.method) {
+            (true, DiffsolMethod::Bdf) => segment!(problem.bdf_sens::<LS>(), sensitivities),
+            (true, DiffsolMethod::TrBdf2) => {
+                segment!(problem.tr_bdf2_sens::<LS>(), sensitivities)
             }
-            *shared.seed_sens.borrow_mut() = Some(solver.state().s.to_vec());
-            result
-        } else {
-            let mut solver = problem.bdf::<FaerSparseLU<f64>>().map_err(native)?;
-            record_start(&shared, &solver, p, r, time)?;
-            if time >= p.end {
-                r.termination = Termination::Completed;
-                return Ok(());
+            (true, DiffsolMethod::Esdirk34) => {
+                segment!(problem.esdirk34_sens::<LS>(), sensitivities)
             }
-            let attempt = catch_unwind(AssertUnwindSafe(|| {
-                drive(&shared, &mut solver, p, r, stop, &mut steps)
-            }));
-            r.statistics.push(
-                serde_json::to_value(solver.get_statistics())
-                    .map_err(|e| ProblemError::internal(format!("Diffsol statistics: {e}")))?,
-            );
-            match attempt {
-                Ok(result) => result?,
-                Err(payload) => resume_unwind(payload),
-            }
+            (true, DiffsolMethod::Tsit45) => segment!(problem.tsit45_sens(), sensitivities),
+            (false, DiffsolMethod::Bdf) => segment!(problem.bdf::<LS>()),
+            (false, DiffsolMethod::TrBdf2) => segment!(problem.tr_bdf2::<LS>()),
+            (false, DiffsolMethod::Esdirk34) => segment!(problem.esdirk34::<LS>()),
+            (false, DiffsolMethod::Tsit45) => segment!(problem.tsit45()),
         };
         if matches!(
             r.termination,
@@ -637,13 +675,7 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
         if let Some(index) = event {
             let guards = shared.evaluate(Function::Roots, time, &state, false).values;
             let events = &shared.contract.events[shared.mode.get()];
-            if guards
-                .iter()
-                .zip(events)
-                .filter(|(g, e)| g.abs() <= e.tolerance)
-                .count()
-                > 1
-            {
+            if guards_at_zero(&guards, events) > 1 {
                 return Err(contract("ambiguous simultaneous dynamic events"));
             }
             let e = events
@@ -714,7 +746,7 @@ fn run(shared: Rc<Shared<'_>>, p: &Profile, r: &mut Report) -> Result<(), Proble
 }
 // The transition equation combines pre-event root/reset derivatives with post-event rates.
 // Diffsol owns the saltation and mass-matrix consistency operations.
-fn reset_sens<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
+fn reset_sens<'p, 'o: 'p, LS: LinearSolver<M>, S: OdeSolverMethod<'p, Equation<'o>>>(
     shared: &Rc<Shared<'o>>,
     solver: &mut S,
     p: &Profile,
@@ -724,14 +756,7 @@ fn reset_sens<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     let event = &shared.contract.events[mode][index];
     let state = solver.state();
     let roots = shared.evaluate(Function::Roots, state.t, state.y.as_slice(), true);
-    if roots
-        .values
-        .iter()
-        .zip(&shared.contract.events[mode])
-        .filter(|(g, e)| g.abs() <= e.tolerance)
-        .count()
-        != 1
-    {
+    if guards_at_zero(&roots.values, &shared.contract.events[mode]) != 1 {
         return Err(contract("ambiguous simultaneous sensitivity events"));
     }
     if p.samples
@@ -786,7 +811,7 @@ fn reset_sens<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     if shared.contract.differential.contains(&false) {
         solver
             .state_mut()
-            .apply_reset_with_sens_mass::<FaerSparseLU<f64>, _>(&transition, index)
+            .apply_reset_with_sens_mass::<LS, _>(&transition, index)
             .map_err(native)?;
     } else {
         solver
@@ -807,33 +832,10 @@ fn record_start<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     if r.consistent_initial.is_empty() {
         r.consistent_initial = state.clone();
     }
-    for event in r
-        .events
-        .iter_mut()
-        .rev()
-        .take_while(|e| e.time == time && e.after.is_none())
-    {
-        for balance in &shared.contract.balances {
-            let jump = (state[balance.state] - event.before[balance.state]) * balance.scale;
-            let declared = event
-                .event
-                .and_then(|id| balance.impulses.get(&id).copied())
-                .unwrap_or(0.0);
-            if !jump.is_finite() || (jump - declared).abs() > balance.tolerance {
-                return Err(contract(
-                    "conserved state jump differs from its declared event impulse",
-                ));
-            }
-        }
-        event.after = Some(state.clone());
-    }
+    settle_transitions(&shared.contract, &mut r.events, time, &state)?;
     {
         let roots = shared.evaluate(Function::Roots, time, &state, false).values;
-        if roots
-            .iter()
-            .zip(&shared.contract.events[shared.mode.get()])
-            .any(|(g, e)| g.abs() <= e.tolerance)
-        {
+        if guards_at_zero(&roots, &shared.contract.events[shared.mode.get()]) > 0 {
             return Err(contract("initial or post-reset root is ambiguous"));
         }
     }

@@ -32,8 +32,8 @@ invalidates dependent artifacts ([§5](identity-and-publication.md#section-5)).
 
 A `QuantityTypeId` resolves to a complete key:
 
-- quantity kind: its dimension, extensivity, and whether it is additive or
-  origin-sensitive
+- quantity kind: its dimension, extensivity, whether it is additive or
+  origin-sensitive, and an optional discrete category
 - optional basis
 - optional reference state (the datum)
 - point or difference scale
@@ -56,6 +56,17 @@ including signed zero.
 `admission::require_same_contract` compares every component and the canonical unit. It
 names the first component that differs. Ports, connections, instance slots and provider
 bindings all use this comparison; none of them uses dimensional compatibility.
+
+A dimensionless kind may carry a `QuantityKindCategory`: `count`, a number of discrete
+things (units in operation, trays, modules), or `indicator`, a zero-or-one state. The
+category is registry data (`reference.quantity_kinds` version 2), and registry admission
+refuses it on a kind with a dimension. The category, not the dimension, admits an integer
+or binary variable domain ([§6.8](schema-and-relations.md#section-6-8)): the neutral
+scalar, mole fractions and other measured dimensionless kinds carry none, and an integer or
+binary variable of such a type is refused at preparation. A semicontinuous or semiinteger
+variable keeps its physical quantity. The physical bundle declares `count` and `indicator`
+kinds and types, aliased `Count` and `Indicator`. The category enters the physical
+inventory identity (`pse.math.physical-inventory.v3`).
 
 ### 8.2 Units and unit sets
 
@@ -113,10 +124,11 @@ together with the selected rule and its operand order, never a dimension alone.
 
 | Operation | Rule |
 |---|---|
-| Literal | A literal whose source span has a declared type in the definition takes that type. Otherwise a bare number takes the registry's explicitly designated neutral dimensionless type, and a number with a unit needs a unique scalar candidate; an ambiguous literal fails. Context belongs to the occurrence, so one source literal can resolve to a point in one place and a difference in another. |
+| Literal | A literal whose source span has a declared type in the definition takes that type. Otherwise a bare number takes the registry's explicitly designated neutral dimensionless type, and a number with a unit takes the type its context expects (the opposite equation side or an additive sibling) or else needs a unique scalar candidate; an ambiguous literal fails. Context belongs to the occurrence, so one source literal can resolve to a point in one place and a difference in another. Count and indicator values are therefore written with the dimensionless unit, as in `1{1}`, and take their type from context; a bare `1` is the neutral scalar, a different kind. |
 | Add / Sub | Kind, basis, reference and subject must be equal. The index sets must also agree. |
 | Origin-sensitive points | point ± difference → point. difference ± difference → difference. point − point → difference, only when the datums are the same. point + point and difference − point fail. |
 | Neutral scaling | Multiplying or dividing by the neutral scalar with no indices keeps the other operand's full type, including difference. A composition fraction is not neutral. |
+| Discrete scaling | Multiplying by a count or indicator keeps the other operand's complete type, with the union of both operands' indices (`discrete_scaling`): units in operation times a per-unit capacity is a capacity, and a power times an on/off indicator is a power. Division is not covered by this rule. |
 | Other Mul/Div, Pow, roots, functions | Exactly one registered `quantity_operations` rule must match the operand kinds, including a swapped order. It fixes the result kind and the basis, reference, scale, shape and subject policies (preserve, require-equal, registered-conversion, cancel, declared-result). No match or several matches fails; no rule is ever derived from dimensions. A variable exponent needs a dimensionless base. |
 | WeightedMean | Values must share one complete type, and weights must be dimensionless. This is the only operation that averages origin-sensitive points. Certified unit-sum normalization needs its invariant proved against the actual operands. |
 | Reduction | Removes exactly its bound index. A sum of points fails; a product needs a dimensionless body. |

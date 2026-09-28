@@ -32,6 +32,8 @@ pub(crate) enum CandidateReason {
     NativeOutcome,
     /// The point a local infeasibility stop returns.
     LeastInfeasible,
+    /// An incumbent of a relaxed global export: an assignment proposal (ADR-0105 §2).
+    RelaxedIncumbent,
     /// Required original-model checks failed or are unavailable.
     ModelChecks,
     /// Required physical closure is unavailable.
@@ -56,6 +58,9 @@ impl CandidateReason {
             Self::NativeOutcome => "native outcome does not permit candidate use",
             Self::LeastInfeasible => {
                 "least-infeasible point after a local infeasibility stop; diagnostic only"
+            }
+            Self::RelaxedIncumbent => {
+                "incumbent of a relaxed global export; an assignment proposal, diagnostic only"
             }
             Self::ModelChecks => "required original-model checks failed or are unavailable",
             Self::ClosureUnavailable => "required physical closure is unavailable",
@@ -138,6 +143,16 @@ pub(crate) fn native_use(report: &SolveReport) -> CandidateDecision {
         return CandidateDecision::new(
             CandidateUse::DiagnosticOnly,
             CandidateReason::LeastInfeasible,
+        );
+    }
+    if report
+        .evidence
+        .global
+        .is_some_and(|g| g.primal == pse_backend_native::solve::PrimalSource::RelaxedIncumbent)
+    {
+        return CandidateDecision::new(
+            CandidateUse::DiagnosticOnly,
+            CandidateReason::RelaxedIncumbent,
         );
     }
     if !report
@@ -337,7 +352,7 @@ impl RunResult {
         let policies: Vec<&ResolvedNumericalPolicy> = match &self.request {
             RunRequest::Fit(f) => vec![&f.problem.numerics],
             RunRequest::Simulation(p) => vec![p.numerics()],
-            RunRequest::Modeling(p) => p.iter().map(|p|p.solve.numerics()).collect(),
+            RunRequest::Modeling(p) => p.iter().map(|p| p.solve.numerics()).collect(),
         };
         let mut resolved = resolved::Builder::with_registry(registry, 0).map_err(relation)?;
         for (step, policy) in policies.iter().enumerate() {

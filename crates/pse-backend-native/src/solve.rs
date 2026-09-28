@@ -51,6 +51,19 @@ pub enum HessianMode {
     /// Library-owned quasi-Newton approximation.
     LimitedMemory,
 }
+/// Preconditioner of a native Krylov linear solve (KINSOL `KINSetPreconditioner`, IDAS
+/// `IDASetPreconditioner`). It is built from the compiled analytic Jacobian, never from
+/// finite differences.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Preconditioner {
+    /// Unpreconditioned Krylov iterations.
+    #[default]
+    None,
+    /// Diagonal (Jacobi) scaling by the compiled Newton-matrix diagonal; a zero diagonal
+    /// entry leaves its row unscaled.
+    Jacobi,
+}
 /// Compatible native state retention requirement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum ReusePolicy {
@@ -430,6 +443,9 @@ pub struct Execution {
     pub time_limit: Duration,
     /// Bounded retained progress.
     pub progress: Arc<Progress>,
+    /// Foreign-library allocation allowance the worker admitted for this attempt, for
+    /// adapters whose library enforces its own memory limit; absent when none was admitted.
+    pub memory: Option<usize>,
 }
 impl Execution {
     /// Construct at the admitted worker boundary.
@@ -439,6 +455,7 @@ impl Execution {
             started: Instant::now(),
             time_limit: controls.time_limit,
             progress: Arc::new(Progress::new(controls.history)),
+            memory: None,
         }
     }
     /// Stop reason; cancellation and deadline remain distinguishable.
@@ -502,6 +519,36 @@ pub struct Basis {
     pub columns: Vec<i32>,
     /// Native row basis statuses.
     pub rows: Vec<i32>,
+}
+/// A symmetric-indefinite linear solver linked into the image's one Ipopt (ADR-0108): the
+/// solver the Ipopt adapter's typed settings select, and the one SCIP's nested Ipopt uses
+/// (ADR-0105 §5). HSL solvers and the runtime-loaded Pardiso are not representable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IpoptLinearSolver {
+    /// Sequential MUMPS.
+    #[default]
+    Mumps,
+    /// SPRAL SSIDS on OpenMP threads; needs `OMP_CANCELLATION=TRUE` in the process.
+    Spral,
+    /// oneMKL Pardiso on MKL threads.
+    PardisoMkl,
+}
+impl IpoptLinearSolver {
+    /// Every linked solver.
+    pub const ALL: [Self; 3] = [Self::Mumps, Self::Spral, Self::PardisoMkl];
+    /// Ipopt's `linear_solver` spelling (also SCIP's `nlpi/ipopt/linear_solver`).
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Mumps => "mumps",
+            Self::Spral => "spral",
+            Self::PardisoMkl => "pardisomkl",
+        }
+    }
+    /// Whether the solver consumes more than one admitted thread; MUMPS is sequential.
+    pub const fn parallel(self) -> bool {
+        !matches!(self, Self::Mumps)
+    }
 }
 /// How an interior-point method re-centres a complete primal-dual seed (L-N3). With the
 /// cold-start defaults a seeded restart is pushed back towards the analytic centre and loses
@@ -569,6 +616,7 @@ impl WarmRestart {
     /// The native options of this restart for a seed carrying `barrier` (native
     /// coordinates), and the record of what they set. `mu_init` is set only for the monotone
     /// barrier update, the only one that reads it.
+    #[cfg(any(feature = "ipopt", feature = "pounce"))]
     pub(crate) fn apply(&self, barrier: Option<f64>, monotone: bool) -> (Options, AppliedRestart) {
         let mu_init = match self.barrier {
             RestartBarrier::Seed => barrier.filter(|v| v.is_finite() && *v > 0.0),
@@ -610,6 +658,7 @@ impl WarmRestart {
     }
 }
 /// Native options a [`WarmRestart`] owns; raw options may not set them.
+#[cfg(any(feature = "ipopt", feature = "pounce"))]
 pub(crate) const RESTART_OPTIONS: [&str; 6] = [
     "mu_init",
     "warm_start_bound_push",
@@ -1014,6 +1063,61 @@ pub struct ConicEvidence {
     /// Relative duality gap.
     pub gap_relative: f64,
 }
+/// Where a global dual bound comes from (ADR-0106 §10).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BoundSource {
+    /// The backend's bound over an exact export of the original program.
+    ExactExport,
+    /// The backend's bound over a sound relaxation of the original program: valid for
+    /// bounds and infeasibility conclusions, never for a solution claim (ADR-0105 §2).
+    RelaxedExport,
+}
+/// Where the reported primal candidate comes from (ADR-0105 §2, T07).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PrimalSource {
+    /// The backend's incumbent over an exact export, re-qualified in original coordinates.
+    Backend,
+    /// The backend's incumbent over a relaxed export: an assignment proposal and an
+    /// observation only, never a result or a seed.
+    RelaxedIncumbent,
+    /// The continuous re-solve with the backend's discrete assignment fixed, run through
+    /// the one NLP runner and qualified in original coordinates.
+    FixedAssignment,
+}
+/// Evidence of a certifying adapter over an exported factorable program (ADR-0106 §10).
+/// Bounds are in the authored objective sense and original coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct GlobalEvidence {
+    /// Worst fidelity of the exported rows, constraints and objective.
+    pub fidelity: pse_math::factorable::Fidelity,
+    /// Identity of the declared box the backend branched over.
+    pub domain: ContentHash,
+    /// Authored objective orientation of the bounds.
+    pub sense: pse_math::binding::ObjectiveSense,
+    /// Native feasibility tolerance the bounds hold within.
+    pub feasibility: f64,
+    /// Requested relative gap.
+    pub gap_relative: f64,
+    /// Requested absolute gap, in original objective units.
+    pub gap_absolute: f64,
+    /// Native dual bound, when finite.
+    pub dual_bound: Option<f64>,
+    /// Native primal bound, when finite.
+    pub primal_bound: Option<f64>,
+    /// Native relative gap, when finite.
+    pub gap: Option<f64>,
+    /// Branch-and-bound nodes, including restarts.
+    pub nodes: i64,
+    /// The native model was read back and evaluates the exported functions as the neutral
+    /// program does.
+    pub readback: bool,
+    /// Source of the dual bound.
+    pub dual: BoundSource,
+    /// Source of the reported candidate.
+    pub primal: PrimalSource,
+    /// The backend concluded that the exported program is infeasible over the box.
+    pub infeasible: bool,
+}
 /// Typed adapter evidence. Qualification, retry and start receipts read only this;
 /// metrics remain observations and are never an input to a decision.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -1036,6 +1140,8 @@ pub struct Evidence {
     pub conic: Option<ConicEvidence>,
     /// Post-solve second-order check of an optimizing NLP candidate.
     pub second_order: Option<SecondOrder>,
+    /// Global bound evidence of a certifying adapter.
+    pub global: Option<GlobalEvidence>,
 }
 /// The label of a candidate that minimizes constraint violation instead of satisfying the
 /// constraints: the point a local infeasibility stop returns, including the ℓ1 exact-penalty

@@ -78,12 +78,22 @@ pub fn nlp(
 ) -> Result<SolveReport, ProblemError> {
     // Presolve tightens bounds and removes rows on the premise that every row holds; a
     // method that relaxes the rows would then minimize violation over a domain those rows
-    // already restricted. Nothing is switched off silently: the caller selects `Off`.
-    if step.settings.relaxes_rows() && !matches!(run.presolve, presolve::Policy::Off) {
-        return Err(ProblemError::Contract(
-            "the ℓ1 exact penalty relaxes every row; its presolve policy must be Off".into(),
-        ));
-    }
+    // already restricted. `Auto` lets the system choose, and it chooses no pass, recorded
+    // with its reason; an explicitly requested pass is refused.
+    let (policy, resolution) = match (step.settings.relaxes_rows(), run.presolve) {
+        (false, requested) => (requested.clone(), None),
+        (true, presolve::Policy::Off) => (presolve::Policy::Off, None),
+        (true, presolve::Policy::Auto) => (
+            presolve::Policy::Off,
+            Some(presolve::Resolution::RelaxedRows),
+        ),
+        (true, presolve::Policy::Explicit { .. }) => {
+            return Err(ProblemError::Contract(
+                "the ℓ1 exact penalty relaxes every row; explicit presolve passes assume they hold"
+                    .into(),
+            ));
+        }
+    };
     let oracle: Box<dyn NlpOracle> = if matches!(
         run.intent,
         SolveIntent::FeasiblePoint | SolveIntent::Root | SolveIntent::Initialize
@@ -95,13 +105,16 @@ pub fn nlp(
     let mut pipeline = Pipeline::new(
         oracle,
         run.initial,
-        run.presolve,
+        &policy,
         step.tolerances,
         step.execution.clone(),
         step.warm,
         step.compatibility,
         run.limit,
     )?;
+    if let Some(resolution) = resolution {
+        pipeline.resolved(run.presolve, resolution);
+    }
     let report = match pipeline.terminal_report(run.sense)? {
         Some(report) => report,
         None => {

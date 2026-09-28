@@ -73,13 +73,21 @@ impl PreparedModeling {
                 let expected = value(ModelingTestValue::Expected)?;
                 let absolute_tolerance = value(ModelingTestValue::Tolerance)?;
                 let relative_tolerance = value(ModelingTestValue::RelativeTolerance)?;
-                if absolute_tolerance < 0. || relative_tolerance < 0. || absolute_tolerance == 0. && relative_tolerance == 0. {
+                if absolute_tolerance < 0.
+                    || relative_tolerance < 0.
+                    || absolute_tolerance == 0. && relative_tolerance == 0.
+                {
                     return Err(CompileError::Missing(
-                        "authored test requires nonnegative tolerances with at least one positive".into(),
+                        "authored test requires nonnegative tolerances with at least one positive"
+                            .into(),
                     ));
                 }
                 let tolerance = absolute_tolerance + relative_tolerance * expected.abs();
-                if !tolerance.is_finite() { return Err(CompileError::Missing("combined tolerance is nonfinite".into())); }
+                if !tolerance.is_finite() {
+                    return Err(CompileError::Missing(
+                        "combined tolerance is nonfinite".into(),
+                    ));
+                }
                 Ok(ModelingExpectationResult {
                     id: test.id,
                     declaration: test.lineage.declaration,
@@ -136,7 +144,6 @@ impl CompilerWorkspace {
         let prepared = self.prepare_modeling_observations(
             &model,
             &model.expectation_rows(),
-            &inputs,
             profile,
             &cancel,
         )?;
@@ -148,8 +155,10 @@ impl CompilerWorkspace {
         {
             return Err(pse_modeling::ModelingError::Unsupported {
                 declaration: root,
-                capability: "pure tests cannot construct external or implicit runtime capabilities".into(),
-            }.into());
+                capability: "pure tests cannot construct external or implicit runtime capabilities"
+                    .into(),
+            }
+            .into());
         }
         let assembly = Arc::new(prepared.plan.compile(
             profile.optimization,

@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Bounded initialization and case studies; each attempt has its own immutable specification.
+//! Initialization and case studies as planners on the one staged-sequence primitive
+//! (A6): each attempt composes its overlay over the immutable original specification, is
+//! seeded only from a step whose candidate permits it, and shares prepared structure and the
+//! native session with the other steps.
+use super::assessment::Obligations;
 use super::*;
 use crate::math::solves::{NumericalInputs, SolverProfile};
+use crate::workflow::staged::{Overlay, Staged, Start, bounded};
 use pse_compiler::workspace::{ModelingCaseBindings, Profile};
 use pse_kernels::DerivativeOrder;
 use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic};
@@ -13,25 +18,41 @@ use std::time::{Duration, Instant};
 /// Complete selected model, specifications and analysis policies.
 #[derive(Clone, Debug)]
 pub struct ModelingAnalysis {
+    /// Selected root declaration.
     pub root: SemanticId,
+    /// Selected instance within the root.
     pub instance: SemanticId,
+    /// Specialization arguments, facts and demands.
     pub bindings: Bindings,
+    /// Finite specialization limits.
     pub limits: Limits,
+    /// Case values and variable states by path.
     pub case: ModelingCaseBindings,
+    /// Prepared derivative order.
     pub order: DerivativeOrder,
+    /// Evaluator profile.
     pub compiler: Profile,
+    /// Solver selection, controls, settings and numerical policy.
     pub solver: SolverProfile,
+    /// Authored numerical declarations and targets.
     pub numerical: NumericalInputs,
 }
 /// Stage names and optional declared homotopy, with finite work and recovery controls.
 #[derive(Clone, Debug)]
 pub struct ModelingInitialization {
+    /// Declared stages, attempted in order before homotopy.
     pub stages: Vec<String>,
+    /// Advance the declared continuation parameters from their start to their end.
     pub homotopy: bool,
+    /// First homotopy step as a fraction of the path.
     pub initial_step: f64,
+    /// Smallest step before a failed homotopy stops.
     pub minimum_step: f64,
+    /// Step growth after an accepted homotopy step.
     pub growth: f64,
+    /// Attempts across stages, homotopy and the original specification.
     pub maximum_attempts: usize,
+    /// Wall-clock budget of the whole initialization.
     pub time_limit: Duration,
 }
 impl Default for ModelingInitialization {
@@ -50,16 +71,22 @@ impl Default for ModelingInitialization {
 /// The immutable specification selected for one initialization attempt.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ModelingInitializationStep {
+    /// A named stage selected for this attempt only.
     Stage(String),
+    /// Continuation parameters at this fraction of their path.
     Homotopy(f64),
+    /// The unchanged requested specification.
     Original,
 }
 /// Preparation failures and native results share one ordered history. An interrupted
 /// attempt retains any native result produced while cancellation was joining.
 #[derive(Clone, Debug)]
 pub struct ModelingInitializationAttempt {
+    /// The specification attempted.
     pub step: ModelingInitializationStep,
+    /// The qualified result, or why none was produced.
     pub result: Result<ModelingResult, Arc<WorkflowError>>,
+    /// Deadline or cancellation that stopped the attempt.
     pub interruption: Option<BoundaryDiagnostic>,
 }
 impl ModelingInitializationAttempt {
@@ -84,6 +111,7 @@ impl ModelingInitializationAttempt {
                 }),
         )
     }
+    /// The attempt ran to completion and its candidate is a result.
     pub fn accepted(&self) -> bool {
         self.interruption.is_none() && self.result.as_ref().is_ok_and(|r| r.accepted)
     }
@@ -125,63 +153,38 @@ impl ModelingInitializationAttempt {
 /// Attempts retain their own report/specification. A failed attempt never publishes a seed.
 #[derive(Clone, Debug)]
 pub struct ModelingInitializationReport {
+    /// Identity of this initialization run.
     pub run_id: SemanticId,
     pub(super) runtime: Runtime,
+    /// Every attempt in order, including failed and interrupted ones.
     pub attempts: Vec<ModelingInitializationAttempt>,
+    /// The original specification was solved and accepted.
     pub completed: bool,
+    /// Why the initialization stopped before completing.
     pub failure: Option<BoundaryDiagnostic>,
     /// Last fully accepted original specification, absent after a failed initialization.
     pub committed: Option<BTreeMap<SemanticId, f64>>,
     pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
 }
 
-/// The deadline covers admission, compilation, native execution and qualification.
-/// Cancel unique work and await its destruction before returning an interruption.
-pub(super) async fn bounded_work<T, F, Fut>(
-    scope: &'static str,
-    deadline: Instant,
-    cancel: &crate::CancelSource,
-    work: F,
-) -> (Result<T, WorkflowError>, Option<BoundaryDiagnostic>)
-where
-    F: FnOnce(crate::CancelSource) -> Fut,
-    Fut: Future<Output = Result<T, WorkflowError>>,
-{
-    let interruption = |class, rule| BoundaryDiagnostic::new(class, scope, [], rule);
-    if cancel.token().is_cancelled() {
-        return (Err(crate::math::MathRuntimeError::Cancelled.into()), None);
-    }
-    if Instant::now() >= deadline {
-        return (
-            Err(interruption(BoundaryClass::ResourceLimit, "analysis time limit").into()),
-            None,
-        );
-    }
-    let child = crate::CancelSource::new();
-    let operation = work(child.clone());
-    tokio::pin!(operation);
-    let stopped = tokio::select! {
-        biased;
-        ()=cancel.cancelled()=>interruption(BoundaryClass::Cancelled,"analysis cancelled"),
-        ()=tokio::time::sleep_until(tokio::time::Instant::from_std(deadline))=>interruption(BoundaryClass::ResourceLimit,"analysis time limit"),
-        result=&mut operation=>return(result,None),
-    };
-    child.cancel();
-    (operation.await, Some(stopped))
-}
 /// A predecessor is an explicit accepted-value dependency, never an implicit previous point.
 #[derive(Clone, Debug)]
 pub struct ModelingStudyPoint {
+    /// The point's analysis, or why it could not be declared.
     pub analysis: Result<ModelingAnalysis, Arc<WorkflowError>>,
+    /// Earlier point whose candidate seeds this one.
     pub predecessor: Option<usize>,
 }
 /// A point failure is represented independently of neighboring cases.
 #[derive(Clone, Debug)]
 pub struct ModelingStudyReport {
+    /// Identity of this study run.
     pub run_id: SemanticId,
     pub(super) runtime: Runtime,
     pub(super) points: Vec<(Option<SemanticId>, Option<SemanticId>, Option<usize>)>,
+    /// Attempted points in order.
     pub outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>>,
+    /// Points not attempted after cancellation.
     pub unattempted: usize,
     pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
 }
@@ -209,25 +212,39 @@ pub(super) fn bounded_error(error: impl std::fmt::Display) -> String {
     }
     message.text
 }
+impl ModelingInitialization {
+    fn validate(&self) -> Result<(), WorkflowError> {
+        if self.maximum_attempts == 0
+            || self.maximum_attempts > 4096
+            || self.stages.len() > 4096
+            || self.time_limit.is_zero()
+            || !self.initial_step.is_finite()
+            || self.initial_step <= 0.
+            || self.initial_step > 1.
+            || !self.minimum_step.is_finite()
+            || self.minimum_step <= 0.
+            || self.minimum_step > self.initial_step
+            || !self.growth.is_finite()
+            || self.growth <= 1.
+        {
+            return Err(contract("invalid bounded initialization policy"));
+        }
+        Ok(())
+    }
+}
 impl ModelingPackage {
+    /// Bind an analysis to its prepared structure and values.
     pub async fn prepare_analysis(
         &self,
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        self.prepare_analysis_seed(analysis, BTreeMap::new(), cancel)
+        self.prepare_analysis_attempt(analysis, BTreeMap::new(), BTreeMap::new(), cancel)
             .await
     }
-    async fn prepare_analysis_seed(
-        &self,
-        a: &ModelingAnalysis,
-        seed: BTreeMap<SemanticId, f64>,
-        cancel: &crate::CancelSource,
-    ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        self.prepare_analysis_attempt(a, seed, BTreeMap::new(), cancel)
-            .await
-    }
-    pub(super) async fn prepare_analysis_attempt(
+    /// Bind one attempt: the analysis with a predecessor's seed and parameter replacements.
+    /// Its structure is prepared once per package and rebound per values (A6).
+    pub(in crate::workflow) async fn prepare_analysis_attempt(
         &self,
         a: &ModelingAnalysis,
         seed: BTreeMap<SemanticId, f64>,
@@ -250,7 +267,9 @@ impl ModelingPackage {
         )
         .await
     }
-    /// Independent points continue after failure; dependent points require their selected predecessor.
+    /// Independent points continue after failure; dependent points require their selected
+    /// predecessor, whose candidate must permit seeding. All points run as one staged
+    /// sequence: points of one structure prepare it once and rebind values (A6).
     pub async fn study(
         &self,
         points: Vec<ModelingStudyPoint>,
@@ -274,7 +293,6 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("modeling:study-outcomes", bytes)?;
-        let mut outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>> = vec![];
         let count = points.len();
         let point_sources = points
             .iter()
@@ -286,48 +304,15 @@ impl ModelingPackage {
                 )
             })
             .collect();
+        let mut staged = Staged::open(&self.runtime, None)?;
+        let mut outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>> = vec![];
         for p in points {
             if cancel.token().is_cancelled() {
                 break;
             }
-            let analysis = match p.analysis {
-                Ok(analysis) => analysis,
-                Err(error) => {
-                    outcomes.push(Err(error.boundary_diagnostic()));
-                    continue;
-                }
-            };
-            let seed = if let Some(previous) = p.predecessor {
-                match &outcomes[previous] {
-                    // A dependent point is seeded by a result or a seed-only candidate.
-                    Ok(result) if result.completion.permits_seed() => result.values.scalars.clone(),
-                    _ => {
-                        let mut error = BoundaryDiagnostic::new(
-                            BoundaryClass::Conflict,
-                            "modeling-study",
-                            [analysis.root, analysis.instance],
-                            "modeling.study.predecessor",
-                        );
-                        error.observations.insert(
-                            "predecessor".into(),
-                            pse_model::diagnostic::Observation::Integer(previous as i64),
-                        );
-                        outcomes.push(Err(error));
-                        continue;
-                    }
-                }
-            } else {
-                BTreeMap::new()
-            };
-            let result = match self.prepare_analysis_seed(&analysis, seed, cancel).await {
-                Ok(prepared) => self
-                    .solve_case(prepared, analysis.compiler, cancel)
-                    .await
-                    .map_err(|error| error.boundary_diagnostic()),
-                Err(error) => Err(error.boundary_diagnostic()),
-            };
-            outcomes.push(result);
+            outcomes.push(self.study_point(&mut staged, p, cancel).await);
         }
+        staged.close().await;
         Ok(ModelingStudyReport {
             run_id: pse_authoring::ids::uuid_v7(),
             runtime: self.runtime.clone(),
@@ -337,29 +322,64 @@ impl ModelingPackage {
             _owner: owner,
         })
     }
+    /// One study point. A failed point is recorded and isolated: it seeds nothing, and only
+    /// points that name it as their predecessor are refused.
+    async fn study_point(
+        &self,
+        staged: &mut Staged,
+        point: ModelingStudyPoint,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingResult, BoundaryDiagnostic> {
+        let analysis = match point.analysis {
+            Ok(analysis) => analysis,
+            Err(error) => {
+                staged.refuse();
+                return Err(error.boundary_diagnostic());
+            }
+        };
+        let start = point.predecessor.map_or(Start::Specification, Start::Seed);
+        if let Some(previous) = point.predecessor
+            && staged.seed(start).is_none()
+        {
+            staged.refuse();
+            let mut error = BoundaryDiagnostic::new(
+                BoundaryClass::Conflict,
+                "modeling-study",
+                [analysis.root, analysis.instance],
+                "modeling.study.predecessor",
+            );
+            error.observations.insert(
+                "predecessor".into(),
+                pse_model::diagnostic::Observation::Integer(previous as i64),
+            );
+            return Err(error);
+        }
+        staged
+            .step(
+                self,
+                &analysis,
+                &Overlay::default(),
+                start,
+                Obligations::Final,
+                None,
+                "modeling-study",
+                cancel,
+            )
+            .await
+            .result
+            .map_err(|error| error.boundary_diagnostic())
+    }
     /// Accepted values advance through immutable stage overlays. Homotopy retries from
     /// the last accepted point, shrinks failures and qualifies the final original model.
+    /// Every attempt is one step of a staged sequence (A6): homotopy steps change values
+    /// only, so they share one prepared structure and the retained native session.
     pub async fn initialize_model(
         &self,
         analysis: &ModelingAnalysis,
         policy: ModelingInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
-        if policy.maximum_attempts == 0
-            || policy.maximum_attempts > 4096
-            || policy.stages.len() > 4096
-            || policy.time_limit.is_zero()
-            || !policy.initial_step.is_finite()
-            || policy.initial_step <= 0.
-            || policy.initial_step > 1.
-            || !policy.minimum_step.is_finite()
-            || policy.minimum_step <= 0.
-            || policy.minimum_step > policy.initial_step
-            || !policy.growth.is_finite()
-            || policy.growth <= 1.
-        {
-            return Err(contract("invalid bounded initialization policy"));
-        }
+        policy.validate()?;
         if analysis
             .bindings
             .facts
@@ -373,8 +393,11 @@ impl ModelingPackage {
         let deadline = Instant::now()
             .checked_add(policy.time_limit)
             .ok_or_else(|| contract("initialization deadline overflow"))?;
-        let (base, interruption) =
-            bounded_work("initialization", deadline, cancel, |child| async move {
+        let (base, interruption) = bounded(
+            "initialization",
+            Some(deadline),
+            cancel,
+            |child| async move {
                 self.prepare(
                     analysis.root,
                     analysis.instance,
@@ -383,8 +406,9 @@ impl ModelingPackage {
                     &child,
                 )
                 .await
-            })
-            .await;
+            },
+        )
+        .await;
         if let Some(error) = interruption {
             return Err(error.into());
         }
@@ -399,7 +423,7 @@ impl ModelingPackage {
         if policy.stages.iter().any(|s| !stages.contains(s.as_str())) {
             return Err(contract("unknown initialization stage"));
         }
-        let continuations = &base.compiled().model.continuation;
+        let continuations = base.compiled().model.continuation.clone();
         if policy.homotopy && continuations.is_empty() {
             return Err(contract(
                 "homotopy requires declared continuation endpoints",
@@ -421,260 +445,232 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("modeling:initialization", bytes)?;
-        let mut report = ModelingInitializationReport {
-            run_id: pse_authoring::ids::uuid_v7(),
-            runtime: self.runtime.clone(),
-            attempts: Vec::with_capacity(policy.maximum_attempts),
-            completed: false,
-            failure: None,
-            committed: None,
-            _owner: owner,
+        let mut run = Initializer {
+            package: self,
+            analysis,
+            policy: &policy,
+            deadline,
+            cancel,
+            staged: Staged::open(&self.runtime, None)?,
+            accepted: None,
+            report: ModelingInitializationReport {
+                run_id: pse_authoring::ids::uuid_v7(),
+                runtime: self.runtime.clone(),
+                attempts: Vec::with_capacity(policy.maximum_attempts),
+                completed: false,
+                failure: None,
+                committed: None,
+                _owner: owner,
+            },
         };
-        let mut seed = BTreeMap::new();
-        for stage in &policy.stages {
-            if report.attempts.len() == policy.maximum_attempts {
-                report.failure = Some(BoundaryDiagnostic::new(
-                    BoundaryClass::ResourceLimit,
-                    "initialization",
-                    [analysis.root, analysis.instance],
-                    "modeling.initialization.attempt_limit",
-                ));
-                return Ok(report);
-            }
-            let mut trial = analysis.clone();
-            trial
-                .bindings
-                .facts
-                .insert(format!("stage.{stage}"), Value::Boolean(true));
-            let attempt = self
-                .initialization_attempt(
-                    &trial,
-                    ModelingInitializationStep::Stage(stage.clone()),
-                    seed.clone(),
-                    BTreeMap::new(),
-                    deadline,
-                    cancel,
-                )
-                .await;
-            let accepted = attempt.accepted();
-            if accepted {
-                seed = attempt
-                    .result
-                    .as_ref()
-                    .map(|r| r.values.scalars.clone())
-                    .unwrap_or_default();
-            } else {
-                report.failure = attempt.diagnostic();
-            }
-            report.attempts.push(attempt);
-            if !accepted {
-                return Ok(report);
-            }
-        }
-        if policy.homotopy {
-            let mut progress = 0.;
-            let mut step = policy.initial_step;
-            let mut initial = true;
-            loop {
-                if report.attempts.len() == policy.maximum_attempts {
-                    report.failure = Some(BoundaryDiagnostic::new(
-                        BoundaryClass::ResourceLimit,
-                        "initialization",
-                        [analysis.root, analysis.instance],
-                        "modeling.initialization.attempt_limit",
-                    ));
-                    return Ok(report);
-                }
-                let fraction = if initial {
-                    0.
-                } else {
-                    (progress + step).min(1.)
-                };
-                if !initial && fraction <= progress {
-                    report.failure = Some(BoundaryDiagnostic::new(
-                        BoundaryClass::TrialRejected,
-                        "initialization",
-                        [analysis.root, analysis.instance],
-                        "modeling.initialization.step_precision",
-                    ));
-                    return Ok(report);
-                }
-                let parameters = continuations
-                    .iter()
-                    .map(|(id, c)| {
-                        let v = c.at(fraction).map_err(|e| contract(e.to_string()))?;
-                        let Value::Number { bits, .. } = v else {
-                            return Err(contract("physical continuation value"));
-                        };
-                        Ok((*id, f64::from_bits(bits)))
-                    })
-                    .collect::<Result<BTreeMap<_, _>, WorkflowError>>()?;
-                let attempt = self
-                    .initialization_attempt(
-                        analysis,
-                        ModelingInitializationStep::Homotopy(fraction),
-                        seed.clone(),
-                        parameters,
-                        deadline,
-                        cancel,
-                    )
-                    .await;
-                let accepted = attempt.accepted();
-                let retryable = attempt.retryable();
-                if accepted {
-                    seed = attempt
-                        .result
-                        .as_ref()
-                        .map(|r| r.values.scalars.clone())
-                        .unwrap_or_default();
-                }
-                report.attempts.push(attempt);
-                if accepted {
-                    progress = fraction;
-                    if fraction == 1. {
-                        break;
-                    }
-                    if !initial {
-                        step = (step * policy.growth).min(1. - progress);
-                    }
-                } else {
-                    if initial || !retryable {
-                        report.failure = report
-                            .attempts
-                            .last()
-                            .and_then(ModelingInitializationAttempt::diagnostic);
-                        return Ok(report);
-                    }
-                    step *= 0.5;
-                    if step < policy.minimum_step {
-                        report.failure = Some(BoundaryDiagnostic::new(
-                            BoundaryClass::TrialRejected,
-                            "initialization",
-                            [analysis.root, analysis.instance],
-                            "modeling.initialization.minimum_step",
-                        ));
-                        return Ok(report);
-                    }
-                }
-                initial = false;
-            }
-        }
-        // Only a separate solve of the unchanged requested specification may commit.
-        if report.attempts.len() == policy.maximum_attempts {
-            report.failure = Some(BoundaryDiagnostic::new(
-                BoundaryClass::ResourceLimit,
-                "initialization",
-                [analysis.root, analysis.instance],
-                "modeling.initialization.attempt_limit",
-            ));
-            return Ok(report);
-        }
-        let attempt = self
-            .initialization_attempt(
-                analysis,
-                ModelingInitializationStep::Original,
-                seed,
-                BTreeMap::new(),
-                deadline,
-                cancel,
-            )
-            .await;
-        report.completed = attempt.accepted();
-        if report.completed {
-            report.committed = attempt
-                .result
-                .as_ref()
-                .ok()
-                .map(|r| r.values.scalars.clone());
-        } else {
-            report.failure = attempt.diagnostic();
-        }
-        report.attempts.push(attempt);
+        let _ = run.stages().await && run.homotopy(&continuations).await && run.original().await;
+        let Initializer { staged, report, .. } = run;
+        staged.close().await;
         Ok(report)
     }
-    async fn initialization_attempt(
-        &self,
-        analysis: &ModelingAnalysis,
+}
+/// The initialization planner over one staged sequence. Each method returns whether the
+/// next phase may run; a stop records its cause in the report.
+struct Initializer<'a> {
+    package: &'a ModelingPackage,
+    analysis: &'a ModelingAnalysis,
+    policy: &'a ModelingInitialization,
+    deadline: Instant,
+    cancel: &'a crate::CancelSource,
+    staged: Staged,
+    /// The last accepted attempt, which seeds the next one.
+    accepted: Option<usize>,
+    report: ModelingInitializationReport,
+}
+impl Initializer<'_> {
+    fn stop(&mut self, class: BoundaryClass, rule: &'static str) -> bool {
+        self.report.failure = Some(BoundaryDiagnostic::new(
+            class,
+            "initialization",
+            [self.analysis.root, self.analysis.instance],
+            rule,
+        ));
+        false
+    }
+    /// One attempt: `overlay` over the original specification, seeded from the last
+    /// accepted attempt. Returns whether it was accepted; the attempt is always reported.
+    async fn attempt(
+        &mut self,
         step: ModelingInitializationStep,
-        seed: BTreeMap<SemanticId, f64>,
-        parameters: BTreeMap<SemanticId, f64>,
-        deadline: Instant,
-        cancel: &crate::CancelSource,
-    ) -> ModelingInitializationAttempt {
-        let original = matches!(step, ModelingInitializationStep::Original);
-        let (result, interruption) =
-            bounded_work("initialization", deadline, cancel, |child| async move {
-                let mut trial = analysis.clone();
-                trial.solver.controls.time_limit = trial
-                    .solver
-                    .controls
-                    .time_limit
-                    .min(deadline.saturating_duration_since(Instant::now()));
-                let prepared = self
-                    .prepare_analysis_attempt(&trial, seed, parameters, &child)
-                    .await?;
-                if original {
-                    self.solve_case(prepared, trial.compiler, &child).await
-                } else {
-                    self.solve_initialization_trial(prepared, trial.compiler, &child)
-                        .await
-                }
-            })
+        overlay: Overlay,
+    ) -> Option<(bool, bool)> {
+        if self.report.attempts.len() == self.policy.maximum_attempts {
+            self.stop(
+                BoundaryClass::ResourceLimit,
+                "modeling.initialization.attempt_limit",
+            );
+            return None;
+        }
+        let obligations = if step == ModelingInitializationStep::Original {
+            Obligations::Final
+        } else {
+            Obligations::Intermediate
+        };
+        let record = self
+            .staged
+            .step(
+                self.package,
+                self.analysis,
+                &overlay,
+                self.accepted.map_or(Start::Specification, Start::Accepted),
+                obligations,
+                Some(self.deadline),
+                "initialization",
+                self.cancel,
+            )
             .await;
-        ModelingInitializationAttempt {
+        let attempt = ModelingInitializationAttempt {
             step,
-            result: result.map_err(Arc::new),
-            interruption,
+            result: record.result,
+            interruption: record.interruption,
+        };
+        let (accepted, retryable) = (attempt.accepted(), attempt.retryable());
+        if accepted {
+            self.accepted = Some(self.report.attempts.len());
+        }
+        self.report.attempts.push(attempt);
+        Some((accepted, retryable))
+    }
+    fn failed_last(&mut self) -> bool {
+        self.report.failure = self
+            .report
+            .attempts
+            .last()
+            .and_then(ModelingInitializationAttempt::diagnostic);
+        false
+    }
+    /// Named stages in order; each stage's selection exists only inside its attempt.
+    async fn stages(&mut self) -> bool {
+        for stage in &self.policy.stages {
+            let overlay = Overlay {
+                facts: BTreeMap::from([(format!("stage.{stage}"), Value::Boolean(true))]),
+                ..Overlay::default()
+            };
+            match self
+                .attempt(ModelingInitializationStep::Stage(stage.clone()), overlay)
+                .await
+            {
+                None => return false,
+                Some((true, _)) => {}
+                Some((false, _)) => return self.failed_last(),
+            }
+        }
+        true
+    }
+    /// Bounded adaptive homotopy over the declared continuation endpoints: value-only
+    /// steps from fraction zero to one, growing after acceptance and halving after a
+    /// retryable failure down to the minimum step.
+    async fn homotopy(
+        &mut self,
+        continuations: &BTreeMap<SemanticId, pse_modeling::specialize::Continuation>,
+    ) -> bool {
+        if !self.policy.homotopy {
+            return true;
+        }
+        let mut progress = 0.;
+        let mut step = self.policy.initial_step;
+        let mut initial = true;
+        loop {
+            let fraction = if initial {
+                0.
+            } else {
+                (progress + step).min(1.)
+            };
+            if !initial && fraction <= progress {
+                return self.stop(
+                    BoundaryClass::TrialRejected,
+                    "modeling.initialization.step_precision",
+                );
+            }
+            let parameters = match continuation_values(continuations, fraction) {
+                Ok(parameters) => parameters,
+                Err(error) => {
+                    self.report.failure = Some(error.boundary_diagnostic());
+                    return false;
+                }
+            };
+            let overlay = Overlay {
+                parameters,
+                ..Overlay::default()
+            };
+            match self
+                .attempt(ModelingInitializationStep::Homotopy(fraction), overlay)
+                .await
+            {
+                None => return false,
+                Some((true, _)) => {
+                    progress = fraction;
+                    if fraction == 1. {
+                        return true;
+                    }
+                    if !initial {
+                        step = (step * self.policy.growth).min(1. - progress);
+                    }
+                }
+                Some((false, retryable)) => {
+                    if initial || !retryable {
+                        return self.failed_last();
+                    }
+                    step *= 0.5;
+                    if step < self.policy.minimum_step {
+                        return self.stop(
+                            BoundaryClass::TrialRejected,
+                            "modeling.initialization.minimum_step",
+                        );
+                    }
+                }
+            }
+            initial = false;
         }
     }
+    /// Only a separate solve of the unchanged requested specification may commit.
+    async fn original(&mut self) -> bool {
+        let Some((accepted, _)) = self
+            .attempt(ModelingInitializationStep::Original, Overlay::default())
+            .await
+        else {
+            return false;
+        };
+        self.report.completed = accepted;
+        if accepted {
+            self.report.committed = self
+                .report
+                .attempts
+                .last()
+                .and_then(|a| a.result.as_ref().ok())
+                .map(|r| r.values.scalars.clone());
+            true
+        } else {
+            self.failed_last()
+        }
+    }
+}
+/// Declared continuation parameters at `fraction` of the way to their endpoints.
+fn continuation_values(
+    continuations: &BTreeMap<SemanticId, pse_modeling::specialize::Continuation>,
+    fraction: f64,
+) -> Result<BTreeMap<SemanticId, f64>, WorkflowError> {
+    continuations
+        .iter()
+        .map(|(id, c)| {
+            let v = c.at(fraction).map_err(|e| contract(e.to_string()))?;
+            let Value::Number { bits, .. } = v else {
+                return Err(contract("physical continuation value"));
+            };
+            Ok((*id, f64::from_bits(bits)))
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use pse_compiler::workspace::ModelingVariableState;
-    #[tokio::test]
-    async fn kernel_initialization_deadline_and_cancellation_join_work() {
-        use std::sync::atomic::{AtomicBool, Ordering};
-        let joined = &AtomicBool::new(false);
-        let cancel = crate::CancelSource::new();
-        let (result, interruption) = bounded_work(
-            "initialization",
-            Instant::now() + Duration::from_millis(20),
-            &cancel,
-            |child| async move {
-                child.cancelled().await;
-                joined.store(true, Ordering::SeqCst);
-                Ok(42)
-            },
-        )
-        .await;
-        assert_eq!(result.unwrap(), 42);
-        assert!(joined.load(Ordering::SeqCst));
-        assert_eq!(interruption.unwrap().class, BoundaryClass::ResourceLimit);
-        joined.store(false, Ordering::SeqCst);
-        let began = &tokio::sync::Notify::new();
-        let (observed, ()) = tokio::join!(
-            bounded_work(
-                "initialization",
-                Instant::now() + Duration::from_secs(10),
-                &cancel,
-                |child| async move {
-                    began.notify_one();
-                    child.cancelled().await;
-                    joined.store(true, Ordering::SeqCst);
-                    Ok(7)
-                }
-            ),
-            async {
-                began.notified().await;
-                cancel.cancel();
-            }
-        );
-        assert_eq!(observed.0.unwrap(), 7);
-        assert!(joined.load(Ordering::SeqCst));
-        assert_eq!(observed.1.unwrap().class, BoundaryClass::Cancelled);
-    }
     #[cfg(feature = "solver-kinsol")]
     fn initialization_summary(report: &ModelingInitializationReport) -> String {
         format!(

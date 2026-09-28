@@ -16,16 +16,17 @@ pub use pse_model::generated::r#enums::{
     ModelingElasticObservation, ModelingFixtureBinding, ModelingFixtureExecution,
     ModelingInitializationStep, ModelingRealValueKind, ModelingRealizationPolicy,
     ModelingVariableDomain, Namespace, NativeAssurance, NativeBackend,
-    NativeBoundaryClass, NativeCandidateKind, NativeDependencyEvidenceKind,
-    NativeDependencyKind, NativeDerivativeCapability, NativeMetricKind,
-    NativeObjectiveSense, NativeProblemClass, NativeQualification, NativeRunState,
-    NativeSolveIntent, NativeStartPolicy, NativeTermination, NativeWarmCapability,
-    NumericalCoordinates, NumericalSource, NumericalTarget, ObservationTimeBasis, Opcode,
-    OperationEffect, PackageKind, PublicationKind, QuantityAdditionKind,
-    QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule,
-    RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, RetentionReason,
-    ScaleKind, Severity, SnapshotClass, Stability, SubjectRule, TimeCoordinateKind,
-    TrajectoryTermination, TruthValue, WeightNormalization,
+    NativeBoundaryClass, NativeCandidateKind, NativeConstraintForm,
+    NativeDependencyEvidenceKind, NativeDependencyKind, NativeDerivativeCapability,
+    NativeMetricKind, NativeObjectiveSense, NativeProblemClass, NativeQualification,
+    NativeRunState, NativeSolveIntent, NativeStartPolicy, NativeTermination,
+    NativeWarmCapability, NumericalCoordinates, NumericalSource, NumericalTarget,
+    ObservationTimeBasis, Opcode, OperationEffect, PackageKind, PublicationKind,
+    QuantityAdditionKind, QuantityKindCategory, QuantityPreconditionKind,
+    QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule,
+    ReferenceStateKind, RetentionReason, ScaleKind, Severity, SnapshotClass, Stability,
+    SubjectRule, TimeCoordinateKind, TrajectoryTermination, TruthValue,
+    WeightNormalization,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
     fn append(
@@ -1002,6 +1003,25 @@ impl crate::columnar::ArrowValue for NativeBoundaryClass {
     }
 }
 impl crate::columnar::ArrowValue for NativeCandidateKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for NativeConstraintForm {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

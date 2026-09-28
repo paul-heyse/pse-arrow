@@ -11,6 +11,7 @@ pub mod data;
 pub mod expression;
 mod extent;
 pub mod external;
+pub mod logic;
 pub mod specialize;
 pub mod types;
 
@@ -71,6 +72,24 @@ pub enum ModelingError {
         /// Violated admission rule.
         reason: DomainRefusal,
     },
+    /// A constraint-form or disjunction lowering the case cannot admit (ADR-0104).
+    #[error(
+        "{} realization of {form}: {} ({subject})",
+        .realization.as_str(),
+        .reason.as_str()
+    )]
+    Realization {
+        /// Authored form or disjunction declaration.
+        declaration: SemanticId,
+        /// Authored path of the form.
+        form: String,
+        /// The row or variable the refusal names.
+        subject: String,
+        /// Declared realization.
+        realization: pse_model::generated::enums::ModelingRealizationPolicy,
+        /// Violated precondition.
+        reason: RealizationRefusal,
+    },
     /// The caller withdrew this computation; never a cached semantic diagnostic.
     #[error("modeling cancelled")]
     Cancelled,
@@ -88,6 +107,7 @@ pse_diagnostics::impl_diagnostic! {
         } else {
             pse_diagnostics::DiagnosticCode::ValidationInvariant
         },
+        ModelingError::Realization { .. } => pse_diagnostics::DiagnosticCode::CapabilityBackend,
         ModelingError::Cancelled => pse_diagnostics::DiagnosticCode::RuntimeCancelled,
         ModelingError::Budget(_) => pse_diagnostics::DiagnosticCode::RuntimeResourceLimit,
     }) },
@@ -98,7 +118,8 @@ impl ModelingError {
         let id = match &self {
             Self::Contract { declaration, .. }
             | Self::Unsupported { declaration, .. }
-            | Self::Domain { declaration, .. } => *declaration,
+            | Self::Domain { declaration, .. }
+            | Self::Realization { declaration, .. } => *declaration,
             _ => return self,
         };
         let mut matches = rows.iter().filter(|row| row.declaration_id == id);
@@ -189,6 +210,31 @@ impl ModelingError {
                 }
                 return diagnostic;
             }
+            Self::Realization {
+                declaration,
+                form,
+                subject,
+                realization,
+                reason,
+            } => {
+                let mut diagnostic = BoundaryDiagnostic::new(
+                    Class::Unsupported,
+                    "modeling",
+                    [*declaration],
+                    "modeling.realization",
+                );
+                for (name, value) in [
+                    ("form", form.as_str()),
+                    ("subject", subject.as_str()),
+                    ("realization", realization.as_str()),
+                    ("reason", reason.as_str()),
+                ] {
+                    diagnostic
+                        .observations
+                        .insert(name.into(), Observation::Text(value.into()));
+                }
+                return diagnostic;
+            }
             Self::Cancelled => (Class::Cancelled, "modeling.cancelled", None, None),
             Self::Budget(reason) => (Class::ResourceLimit, "modeling.budget", None, Some(reason)),
         };
@@ -255,7 +301,54 @@ impl DomainRefusal {
         matches!(self, Self::InfiniteBound | Self::Free)
     }
 }
+/// The precondition a realization found unmet at preparation (ADR-0104 §3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RealizationRefusal {
+    /// Hull and linear lowerings need a finite case bound on the named variable.
+    InfiniteBound,
+    /// A derived big-M needs the named row's interval to be FBBT-complete.
+    IncompleteInterval,
+    /// A derived big-M needs the named row's interval to be finite over the case box.
+    UnboundedInterval,
+    /// A nonlinear disjunct row needs the declared epsilon of `hull(epsilon)`.
+    Nonlinear,
+}
+impl RealizationRefusal {
+    /// Stable diagnostic spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::InfiniteBound => "requires finite case bounds",
+            Self::IncompleteInterval => "row interval is not FBBT-complete",
+            Self::UnboundedInterval => "row interval is not finite over the case box",
+            Self::Nonlinear => "a nonlinear disjunct row requires hull(epsilon)",
+        }
+    }
+}
 pub(crate) type Result<T> = std::result::Result<T, ModelingError>;
+/// The unique registry quantity typing binary decisions and convex weights (ADR-0103/0104).
+pub(crate) fn indicator_type(
+    registry: &pse_quantity::QuantityRegistry,
+    at: SemanticId,
+) -> Result<Type> {
+    let mut found = registry.quantity_types().filter(|t| {
+        t.key.basis.is_none()
+            && t.key.reference_state.is_none()
+            && t.key.shape.is_empty()
+            && t.key.subject_kind.is_none()
+            && registry.kind(t.key.kind).is_ok_and(|k| {
+                k.category == Some(pse_quantity::QuantityKindCategory::Indicator)
+            })
+    });
+    match (found.next(), found.next()) {
+        (Some(ty), None) => Ok(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
+            ty.id,
+        ))),
+        _ => Err(invalid(
+            at,
+            "constraint forms need exactly one declared indicator quantity",
+        )),
+    }
+}
 pub(crate) fn invalid(id: SemanticId, message: impl Into<String>) -> ModelingError {
     ModelingError::Contract {
         declaration: id,

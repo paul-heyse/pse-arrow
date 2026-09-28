@@ -211,9 +211,9 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
-    AdmittedImplicit, AdmittedModeling, ImplicitAlgorithm, ImplicitScale, ModelingCaseBindings,
-    ModelingExpectationResult, ModelingHint, ModelingOutput, ModelingRevision, ModelingFlowSelection, ModelingTestValue,
-    ModelingVariableState, PreparedModeling,
+    AdmittedImplicit, AdmittedModeling, Derivation, Derived, ImplicitAlgorithm, ImplicitScale,
+    ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection, ModelingHint,
+    ModelingOutput, ModelingRevision, ModelingTestValue, ModelingVariableState, PreparedModeling,
 };
 #[salsa::db]
 trait CompilerDb: Database {
@@ -867,6 +867,12 @@ pub struct PreparedCase {
     pub occurrences: BTreeMap<SemanticId, Vec<Occurrence>>,
     /// Explicit optional coefficient projection; failure is not guessed as another class.
     pub coefficients: Option<Arc<Coefficients>>,
+    /// Rules of the parameters the bound structure determines (ADR-0104), prepared with the
+    /// structure and shared by every value rebind.
+    pub derivation: Arc<Derivation>,
+    /// Their values under the bound values, in canonical units; consumers evaluate with
+    /// [`Self::complete`] values.
+    pub derived: Derived,
 }
 impl PreparedCase {
     /// Known escaping payload, excluding opaque library/container overhead. This
@@ -885,7 +891,62 @@ impl PreparedCase {
                 .map(|v| v.capacity() * size_of::<Occurrence>())
                 .sum::<usize>()
             + self.coefficients.as_ref().map_or(0, |c| c.retained_bytes())
+            + self.derivation.retained_bytes()
+            + self.derived.retained_bytes()
     }
+}
+/// The value-dependent products of a prepared plan: the library presolve projection, the
+/// optional coefficient snapshot, the problem facts derived from both, and the fixed and
+/// parameter values the snapshot assumes. Everything else in a [`PreparedCase`] depends on
+/// structure only (A6).
+struct ValueProducts {
+    presolve: Arc<pse_math::presolve::Facts>,
+    coefficients: Option<Arc<Coefficients>>,
+    facts: pse_math::facts::ProblemFacts,
+    assumptions: Vec<(SemanticId, u64)>,
+}
+impl ValueProducts {
+    fn bind(plan: &CasePlan, values: &CaseValues, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        let presolve = Arc::new(plan.presolve_facts(values, 100_000, cancel)?);
+        let coefficients = if presolve.coefficient_eligible() {
+            Some(Arc::new(plan.coefficients_with_facts(
+                values, &presolve, 100_000, cancel,
+            )?))
+        } else {
+            None
+        };
+        let facts =
+            pse_math::facts::ProblemFacts::from_plan(plan, coefficients.as_deref(), &presolve)?;
+        Ok(Self {
+            presolve,
+            coefficients,
+            facts,
+            assumptions: fixed_values(plan, values)?,
+        })
+    }
+}
+/// The fixed and parameter values of `plan`, bitwise.
+fn fixed_values(plan: &CasePlan, values: &CaseValues) -> Result<Vec<(SemanticId, u64)>> {
+    let structure = plan.structure();
+    structure
+        .parameters()
+        .iter()
+        .map(|p| p.id)
+        .chain(
+            structure
+                .variables()
+                .iter()
+                .filter(|v| v.fixed)
+                .map(|v| v.port.id),
+        )
+        .map(|id| {
+            values
+                .scalars
+                .get(&id)
+                .map(|v| (id, v.to_bits()))
+                .ok_or_else(|| CompileError::Missing(format!("fixed or parameter value {id}")))
+        })
+        .collect()
 }
 /// Pure conditional block products; runtime attaches boundary values and evaluator owners.
 #[derive(Clone, Debug)]
@@ -894,8 +955,40 @@ pub struct PreparedBlock {
     pub boundary: pse_structural::initialization::Block,
     /// Immutable plan containing only selected row demands.
     pub plan: Arc<CasePlan>,
+    /// Structural analysis of the block's square system.
+    pub structure: Arc<StructuralAnalysis>,
     /// Compiler-issued evaluator requests in plan order.
     pub artifacts: Arc<Vec<ArtifactRequest>>,
+}
+impl PreparedBlock {
+    /// The block's solver view bound to `values` (A6): the plan, structural analysis and
+    /// artifact requests are the block's own and shared; only the value-dependent products
+    /// are built. Later values rebind it ([`PreparedCase::rebind`]).
+    ///
+    /// # Errors
+    /// Values that do not bind the block, a failed projection, or cancellation.
+    pub fn bind(
+        &self,
+        quantities: Arc<QuantityRegistry>,
+        values: &CaseValues,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PreparedCase> {
+        self.plan.structure().validate_frozen_values(values)?;
+        let bound = ValueProducts::bind(&self.plan, values, cancel)?;
+        Ok(PreparedCase {
+            quantities,
+            presolve: bound.presolve,
+            coefficient_values: bound.assumptions,
+            facts: bound.facts,
+            plan: self.plan.clone(),
+            structure: self.structure.clone(),
+            artifacts: self.artifacts.clone(),
+            occurrences: BTreeMap::new(),
+            coefficients: bound.coefficients,
+            derivation: Arc::default(),
+            derived: Derived::default(),
+        })
+    }
 }
 #[derive(Clone, Debug)]
 struct InitializationBlocks(Arc<Vec<PreparedBlock>>);
@@ -937,7 +1030,8 @@ fn conditional_blocks(
         if cancel.load(Ordering::Acquire) {return Err(CompileError::Cancelled);}
         let plan=Arc::new(source.conditional(&b.members.rows.iter().copied().collect(),&b.members.columns.iter().copied().collect(),quantities,cancel)?);
         let artifacts=artifact_requests(&plan,profile,environment);
-        blocks.push(PreparedBlock{boundary:b.clone(),plan,artifacts});
+        let structure=structural_plan(SemanticId::NIL,&plan,cancel)?;
+        blocks.push(PreparedBlock{boundary:b.clone(),plan,structure,artifacts});
     }
     Ok(Arc::new(blocks))
 }
@@ -1326,6 +1420,8 @@ impl CompilerWorkspace {
                 artifacts: requests,
                 occurrences,
                 coefficients,
+                derivation: Arc::default(),
+                derived: Derived::default(),
             })
         })
         .map_err(|_| CompileError::Cancelled)?;

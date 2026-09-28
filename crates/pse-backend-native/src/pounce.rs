@@ -105,7 +105,9 @@ pub enum Method {
     /// The Thierry–Biegler ℓ1 exact penalty-barrier method (`pounce-l1penalty`, ADR-0109).
     /// Explicit only: never selected automatically and never a retry. Every row is relaxed
     /// (inequalities through bounded slacks), so an infeasible model returns a
-    /// least-infeasible point and a feasible one a point the penalty makes exact.
+    /// least-infeasible point and a feasible one a point the penalty makes exact. Presolve
+    /// `Auto` resolves to `Off` for it, recorded in the presolve report; explicit passes
+    /// are refused, since every pass assumes the rows hold.
     L1ExactPenalty,
 }
 /// Worker count of FERAL's own factorization pool, by the rule feral 0.18 applies when it

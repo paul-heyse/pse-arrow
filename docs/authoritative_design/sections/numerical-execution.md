@@ -198,10 +198,35 @@ integrality and provenance; they cannot manufacture a second default interpretat
 
 ### 16.5 Identity, provenance and persistence
 
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
+> completion records the actual request, effective settings and submitted start. Plan 22
+> A4 (implemented) derives settings identity from serde and frames the start a step used,
+> and any reuse of retained native state, into its lineage identity.
+
 `ResolvedNumericalPolicy::key` frames the complete interpretation, including
-provenance, and enters prepared-request identity; native `Accuracy::key` separately
-frames every stopping budget. Changing a nominal, tolerance or source therefore changes
-reuse identity even when a native library fingerprint could not tell the difference.
+provenance, and enters prepared-request identity. Changing a nominal, tolerance or source
+therefore changes reuse identity even when a native library fingerprint could not tell
+the difference. The native stopping budgets are derived from that interpretation
+([§16.6](#section-16-6)), so the policy key already covers them; `ResolvedAccuracy::key`
+frames the budgets themselves where a stamp needs them without the policy, as for the
+session stamp of a declared root ([§17.4](#section-17-4)).
+
+Execution settings are identified through serde, never through a hand-written field list:
+`Controls::identity` (option values keep their native type and exact float bits),
+`BackendSettings::identity` and `ResolvedAccuracy::key`. A new field therefore enters
+identity without an edit to a hashing function. The solver profile identity
+(`pse.solver.profile.v2`) frames the native session profile ([§17.6](#section-17-6)), every
+control and the selection by its registry spelling.
+
+The lineage request identity of a completed algebraic step (`pse.completed.request.v2`,
+published in `runtime.run_lineage`) frames the revision, instance, preparation, selected
+request, profile and resolved policy together with the start the step actually used:
+whether it reused retained native state, its predecessor attempt, whether the start was
+submitted, the submitted seed by content and any partial start. Seed content
+(`WarmStart::content_key`) excludes the run that produced the seed. The same request
+seeded differently is therefore a different lineage, and the same seed produced by another
+run is the same lineage ([§20.3](identity-and-publication.md#section-20-3)).
+
 The resolved interpretation, candidate assessments and physical checks are published
 as `runtime.resolved_numerics`, `runtime.candidate_assessments` and
 `runtime.physical_checks`; public serialization consumes the completed assessment and
@@ -214,12 +239,20 @@ same resolved policy; comparing policies is a sequence of explicitly prepared an
 > `CandidateUse` gains `seed_only` and `diagnostic_only` and becomes the only acceptance
 > rule every workflow consumes (Plan 22 A1, implemented). Relaxed-export points, which the
 > decision also makes `diagnostic_only`, arrive with the global routes (Plan 22 G4, G5).
+> Stopping budgets are resolved from the policy and are not a user control (Plan 22 A4,
+> implemented).
 
-From the resolved policy, `pse-backend-native::solve::Accuracy::resolve` derives
-normalized native controls: feasibility is the minimum of the comparable normalized
+From the resolved policy, `pse-backend-native::solve::ResolvedAccuracy::resolve` derives
+normalized native stopping budgets: feasibility is the minimum of the comparable normalized
 variable/row budgets; stationarity, complementarity, integrality and gaps come from the
 policy. Neither the raw maximum nor the raw minimum of differently dimensioned
-tolerances is ever used. Derived library options:
+tolerances is ever used. `ResolvedAccuracy` is not a user control. The caller's `Controls`
+choose time and iteration limits, threads, history, the Hessian mode, reuse, the start
+policy and native options, and carry no accuracy, so nothing a caller supplies can stand in
+for the resolved value. Preparation resolves it once (`PreparedSolve::accuracy`; per block
+for initialization; from the map's own policy for a causal map), and every adapter, runner
+and qualification receives that value. A nested library solve resolves its own from its
+budgets (`ResolvedAccuracy::from_policy`). Derived library options:
 
 | Adapter | Derived from the policy |
 |---|---|
@@ -350,7 +383,11 @@ Execution is transactional over immutable case bindings:
   the authoritative specification.
 
 Initialization accuracy comes from the numerical policy; it is serial, uses fresh native
-allocation and admits a bounded finite schedule. The public entry is the package-bound block initialization strategy
+allocation and admits a bounded finite schedule. A case resolved for the initialize intent
+refuses a free discrete variable (`modeling.domain`,
+[§6.8](schema-and-relations.md#section-6-8)); the ADR-0103 stage that fixes discrete
+variables as a scoped overlay, restored on every exit (Plan 22 M2), is not yet
+implemented. The public entry is the package-bound block initialization strategy
 (`workflow/strategies/conditional.rs`). Authored stage and homotopy initialization uses
 `workflow/modeling/initialization.rs` and retains original-specification acceptance.
 
@@ -377,7 +414,16 @@ iteration, so bounded causal inputs are refused with a request for a constrained
 simultaneous strategy. No arbitrary residual is reinterpreted as a causal map.
 
 Consistent initial conditions for dynamics belong to the integrators
-([§13](workflows-and-results.md#section-13)).
+([§13](workflows-and-results.md#section-13)). The starts they consume carry typed
+provenance. Case resolution records a `StartSource` for every resolved input
+(`workflow/modeling/cases.rs`): `ModelDefault`, `Case` (with its authored path),
+`Annotation` (with the start annotation's declaration), `Predecessor` (an accepted
+predecessor point), `Continuation` (a continuation override) or `Stored`, reserved for
+starts read from the operational store (Plan 22 O6; not yet implemented). Workflows branch
+on this type, never on a label. An integrated state without an isolated initial equation
+takes its lower-endpoint start from its start annotation, evaluated through the model at the
+endpoint, when its source is `Annotation`; every other source supplies the resolved
+constant. An annotation source whose model output is missing is refused, not frozen.
 
 ### 17.5 Continuation
 
@@ -391,20 +437,51 @@ not a convergence guarantee.
 
 ### 17.6 Explicit starts and allocation reuse
 
+> Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
+> completion records the submitted start. Plan 22 A4 (implemented) separates the
+> coordinate and profile stamps and types the seed transformations.
+
 Numerical start policy (`StartPolicy`: `NoPriorStart` by default, `PreviousAccepted`,
 `Explicit`) is independent of native allocation reuse (`ReusePolicy`: `Fresh`,
 `AllowRebuild`, `RequireReuse`). Reusing a retained native model never implies a warm
 start, and a disallowed start clears retained native start state, including HiGHS basis
 state.
 
+Each prepared native step carries a `Compatibility` stamp in four parts:
+
+| Part | Frames | Governs |
+|---|---|---|
+| `layout` | Seed coordinates: backend, objective sense, free variables with their domains and physical maps, rows, body keys and sparsity patterns (`pse.solver.coordinates.v1`) | Whether a seed fits |
+| `profile` | The native session: presolve policy, numerical policy, convexity policy, intent, the session-relevant controls and typed backend settings (`pse.solver.session.v1`) | Whether retained native state fits |
+| `data` | Parameters, fixed values, coefficients, bounds and provider configurations of this attempt | Nothing; it may differ |
+| `backend` | The native backend | Both |
+
+A seed needs only `layout` and `backend` to match (`WarmStart::validate`), so a step that
+changes a native option or setting keeps its predecessor's seed. Retained native state
+needs `layout`, `profile` and `backend` to match (`Compatibility::same_session`); a changed
+profile rebuilds the session, or `RequireReuse` refuses. The profile leaves out the
+per-attempt budgets (time and iteration limits, history) and the sequencing policies
+(reuse and start), because every attempt re-applies them. An explicit cone request
+normalizes its coordinates at preparation, so its layout also frames the resolved policy.
+
 A `WarmStart` is an owned, typed payload (root primal; NLP primal with optional bound
-and row multipliers; HiGHS primal/dual/basis; POUNCE SQP iterate and working set) with a
-compatibility record separating layout identity from numeric data, and an optional
-origin run/attempt. Layout and backend must match exactly; numeric data may differ.
-`StartReceipt` records what was actually submitted and the transformations applied,
-distinct from the output seed a report offers for later use. Mutable native state never
-crosses a worker boundary. Fitting starts are refused; declared parameter guesses are
-its input.
+and row multipliers; HiGHS primal/dual/basis; POUNCE SQP iterate and working set) with its
+compatibility stamp and an optional origin run/attempt. `StartReceipt` records what was
+actually submitted, distinct from the output seed a report offers for later use: the
+predecessor attempt, the seed, an explicit partial MIP seed, whether the native API
+received it and the typed `SeedTransformation` path the seed took. That path is
+`normalization` (by its identity), followed by `presolve` (its transformation identity and
+the passes the library applied) when a pass was applied. It is recorded from what ran,
+only when a seed or partial seed was supplied, never as a constant label. Its published
+form is owned by [§20.3](identity-and-publication.md#section-20-3). Mutable native state
+never crosses a worker boundary. Fitting starts are refused; declared parameter guesses
+are its input.
+
+Initialization distinguishes a start from a seed. A block starts from its staged values,
+and that initial point is not a warm start. Only under `PreviousAccepted`, from the second
+stage on, do the block's committed values from an earlier stage make its start a seed, with
+that attempt as its origin and its transformation path recorded. Otherwise the receipt
+records no seed and nothing submitted.
 
 ## 18. Native class-specific execution
 
@@ -422,7 +499,7 @@ library ownership of the mathematics.
 ### 18.1 Problem representations
 
 > Decision: [ADR-0103](../../adr/0103-variable-domain-facet.md) — authored variable
-> domains reach `CoefficientProblem` and routing (Plan 22 M1; not yet implemented).
+> domains reach `CoefficientProblem` and routing (Plan 22 M1, implemented).
 
 The compiler's immutable case products are projected into class-specific views
 (`pse-backend-native` crate root, `assembled`):
@@ -433,13 +510,22 @@ The compiler's immutable case products are projected into class-specific views
 | `NlpOracle` | Objective, constraints, gradient, Jacobian and weighted Lagrangian Hessian as separate demands, with sparse patterns, normalization, presolve facts and structural analysis | Ipopt, POUNCE |
 | `NleOracle` | Square residuals with an assembled Jacobian or Jacobian-vector product | KINSOL |
 | KINSOL `Function` | Residual equations, explicit Picard splitting `F(x) = Lx - N(x)` with a declared constant `L`, or a declared causal map with an original residual validator | KINSOL |
-| `CoefficientProblem` | Sparse LP/MILP/QP coefficients with objective sense and constant, variable domains (including semi-continuous/semi-integer) and consumed parameter assumptions | HiGHS |
+| `CoefficientProblem` | Sparse LP/MILP/QP coefficients with objective sense and constant, the declared registry variable domains (`ModelingVariableDomain`, including `semicontinuous` and `semiinteger`) and consumed parameter assumptions | HiGHS |
 | `ConicProblem` | Explicit data in Clarabel's own matrix and cone types | Clarabel |
 
 Coefficient views are derived only through admitted affine/degree-two proofs, and cones
 are declared by an explicit request; neither is inferred from NLP rows. All-fixed
 models are evaluated directly as a constant route. Dynamic representations are owned
 by [§13](workflows-and-results.md#section-13).
+
+The compiler carries each free variable's declared domain
+([§6.8](schema-and-relations.md#section-6-8)) into `CaseStructure`, `ProblemFacts` and the
+coefficient view; nothing between authoring and HiGHS converts it. A free discrete column
+makes a coefficient-eligible model `mixed_linear` and removes `smooth_nlp` and
+`square_root` ([§18.7](#section-18-7)). An authored MILP therefore routes to HiGHS under an
+optimization intent, and a discrete model with a quadratic or nonlinear objective or row
+has no eligible route until the MIQP and MINLP routes land. Integrality is never relaxed to
+reach a route.
 
 ### 18.2 Evaluation programs and callback boundary
 
@@ -466,25 +552,53 @@ for all callback adapters:
 > Decision: [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — Ipopt
 > linear solvers MUMPS+METIS, SPRAL SSIDS and oneMKL Pardiso, typed and explicitly
 > selected, with HSL excluded (Plan 22 N1; not yet implemented: the implemented profile
-> below is MUMPS without METIS).
+> below is MUMPS without METIS);
+> [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md) — POUNCE's ℓ1 options are
+> reserved so that only a typed method reaches them (the reservation is implemented by
+> Plan 22 A3; the typed `L1ExactPenalty` method, N3, is not yet implemented).
 
 `pse-ipopt-sys` holds generated, committed bindgen output for the Ipopt 3.14.20 C
 interface (`just codegen --only bindgen`; see [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md)
 for the digest-pinned solver image). ABI tests assert 32-bit indices, `f64` numbers,
 the version string and real symbol relocations. `pse-backend-native::ipopt` is the safe
 driver: RAII problem ownership on the owning worker, direct callbacks over `NlpOracle`,
-exact or limited-memory Hessians, primal/dual starts, typed scaling, reserved options
-and an intermediate callback that checks cancellation and deadline. The pinned MUMPS
+exact or limited-memory Hessians, primal/dual starts, reserved options and an
+intermediate callback that checks cancellation and deadline. The pinned MUMPS
 profile is serial.
 
 POUNCE (`pounce`, `tnlp`) shares the same `NlpOracle`, callback policy and presolve
-pipeline, and adds interior-point and active-set SQP methods, FERAL linear algebra on an
-admitted Rayon pool, restoration statistics and working-set starts. Continuous NLP for
-both adapters passes through pounce-presolve's qualified wrappers
-(`presolve::pipeline`): policy `Off`, `Auto` (qualified source-backed passes only) or
-`Explicit` with required passes that must qualify. The library owns reductions,
+pipeline, and adds interior-point and active-set SQP methods, FERAL linear algebra with
+admission-bounded threads ([§18.8](#section-18-8)), restoration statistics and working-set
+starts. Continuous NLP for both adapters passes through pounce-presolve's qualified
+wrappers (`presolve::pipeline`): policy `Off`, `Auto` (qualified source-backed passes only)
+or `Explicit` with required passes that must qualify. The library owns reductions,
 derivative transport and recovery; the project records effects and inverse source
 attribution, not a second transformation IR. Auxiliary reduction is never automatic.
+
+**Option hygiene.** Both adapters reserve the options that encode the derived controls
+([§16.6](#section-16-6)), derivative constancy, iteration and time limits, bound
+infinities, native scaling and the linear solver; a caller-supplied value for one of them
+is refused. Neither library forgets an option once set, so a retained session never
+carries an earlier step's option into a later one. A retained Ipopt C problem is reused
+only when its coordinate and profile stamps ([§17.6](#section-17-6)), sparsity, bounds and
+set of option keys all match, and every solve re-applies every value; a reused POUNCE
+application starts from an empty option table. POUNCE's hidden second solves,
+`mu_strategy_fallback` and `dual_divergence_retry`, are pinned off, and its ℓ1 fallbacks
+(`l1_fallback_on_restoration_failure`, `l1_exact_penalty_barrier`) are reserved until a
+typed method selects them (Plan 22 N3). A result therefore never comes from an undeclared
+attempt beyond the admitted iteration budget. After each POUNCE solve the adapter reads the
+complete effective option table back from the application: every registered option at its
+current value, plus explicitly set prefixed options, with the registered defaults beside
+it. That snapshot, not the adapter's request, is the report's effective options.
+
+**Scaling and metric names.** Model coordinates are normalized before either adapter runs
+([§16.1](#section-16-1)); no user scaling reaches the libraries, and the former native
+`Scaling` path is removed. `nlp_scaling_method` is `gradient-based` when the policy permits
+native algorithmic scaling and `none` otherwise. Ipopt progress metrics name their
+coordinates: `objective.normalized`, `stationarity.normalized` and
+`iterate.normalized.infinity_norm` are values of the normalized model (Ipopt's unscaled
+readbacks undo only its own scaling), while `primal.native` and `dual.native` are the
+infeasibilities exactly as Ipopt reports them. None of them is a physical value.
 
 Two tested limits are qualification distinctions, not retries: with automatic presolve
 a recovered bound multiplier can fail original complementarity (the candidate stays
@@ -532,16 +646,17 @@ optional diagnostic failure never replaces the original solve.
 
 **Evidence and metrics.** Adapters record typed `solve::Evidence` on the report:
 callback trial history (`CallbackEvidence`: recoverable trial rejections and whether a
-terminal failure latched), whether a start was submitted through the native API,
-original-coordinate KKT acceptance (`KktEvidence`, recorded by `quality::record_kkt`),
-HiGHS coefficient-model evidence (`CoefficientEvidence`: upload equivalence,
-discreteness, objective, MIP gap and dual bound, primal and dual solution status, dual
-infeasibility and primal-dual objective error) and Clarabel conic residuals
-(`ConicEvidence`). Qualification (`quality::qualify`), evaluation retry
-(`callback::retryable_evaluation`: at least one recoverable trial rejection and no
-latched terminal failure) and start receipts (the submitted flag) read only this
-evidence. The string-keyed `metrics` are observations for reporting and publication and
-are never an input to a decision.
+terminal failure latched), whether a start was submitted through the native API, whether
+the attempt reused retained native state, original-coordinate KKT acceptance
+(`KktEvidence`, recorded by `quality::record_kkt`), HiGHS coefficient-model evidence
+(`CoefficientEvidence`: upload equivalence, discreteness, objective, MIP gap and dual
+bound, primal and dual solution status, dual infeasibility and primal-dual objective error)
+and Clarabel conic residuals (`ConicEvidence`). Qualification (`quality::qualify`),
+evaluation retry (`callback::retryable_evaluation`: at least one recoverable trial
+rejection and no latched terminal failure), start receipts (the submitted flag) and lineage
+identity (both start flags, [§16.5](#section-16-5)) read only this evidence. The
+string-keyed `metrics` are observations for reporting and publication and are never an
+input to a decision.
 
 The report also retains effective options and queried native defaults, provenance,
 bounded events, complete native statistics where the library exposes them, the start
@@ -581,11 +696,12 @@ its typed evidence. The capability record is the only source of both eligibility
 published inventory row: `routing::admit` is a function of that record, the adapter's
 linkage and the request, and adapters do not override it. Settings identity
 (`BackendSettings::identity`) is derived from serde, never from a hand-written field list,
-and enters the request identity and native layout compatibility. Native state retained
-between the finite steps of a sequence is an opaque, worker-owned `execution::Retained`:
-an adapter reuses only its own session, when layout and settings match and `ReusePolicy`
-allows, and otherwise tears it down before building a replacement; `RequireReuse` refuses
-instead.
+and enters the request identity and the native profile stamp ([§17.6](#section-17-6)).
+Native state retained between the finite steps of a sequence is an opaque, worker-owned
+`execution::Retained`: an adapter reuses only its own session, when the coordinate and
+profile stamps match (`Compatibility::same_session`) and `ReusePolicy` allows, and
+otherwise tears it down before building a replacement; `RequireReuse` refuses instead. A
+reused session never inherits an earlier step's native options ([§18.3](#section-18-3)).
 
 **Shared runners.** Workflows choose a runner by representation and the adapter by table
 lookup; neither step names a backend. The runners `execution::nlp`, `execution::roots`,
@@ -653,12 +769,26 @@ native stack, live jobs and flights.
   split of the job reservation to an `AllocationLease` that lives with the result.
 - Cancellation and deadlines are checked only at library-supported checkpoints
   (Ipopt intermediate callback, POUNCE TNLP callbacks, KINSOL evaluations, HiGHS
-  interrupt callbacks with a native time limit for QP, Clarabel's termination callback,
-  integrator step boundaries). A long native factorization completes before teardown.
+  interrupt callbacks for simplex, IPM and MIP, Clarabel's termination callback,
+  integrator step boundaries). HiGHS' QP solver and PDLP never poll the interrupt
+  callback, so they stop only at their native time limit. A long native factorization
+  completes before teardown.
 - Ipopt, KINSOL and Clarabel profiles are serial; POUNCE and HiGHS may use admitted
-  threads. Foreign BLAS/OpenMP threading is environment configuration, not admitted
-  by this owner (in the target, ADR-0108 admits SPRAL and MKL threads here; not yet
-  implemented).
+  threads. FERAL factorizes on its own Rayon pool, which cannot be injected into the
+  admitted local pool. It therefore runs parallel only when the admitted thread count is
+  greater than one and covers that pool's whole size (`RAYON_NUM_THREADS`, otherwise the
+  available parallelism), and serially otherwise; the report records the effective count
+  as `linear.threads`. Foreign BLAS/OpenMP threading is environment configuration, not
+  admitted by this owner (in the target, ADR-0108 admits SPRAL and MKL threads here; not
+  yet implemented).
+- Each attempt evaluator is built by one path, `MathService::worker`. Its provider workers
+  are scoped to the attempt's cooperative cancel flag, so a nested native provider, such as
+  an implicit inner solve, polls that same flag. Its numeric storage is charged to a
+  per-job `WorkerBudget`, the worker share of the job's reservation, for as long as the
+  evaluator lives. Solve sequences (steps, the original re-evaluation and sequence
+  assessments), block initialization, causal-map units and owned-worker jobs build their
+  evaluators this way, so the reservation covers all of a job's live evaluators together;
+  one that does not fit is refused as a worker-storage limit.
 
 Reservations are conservative admission policy, not allocator interception or a
 process RSS ceiling. The workstation sizing rationale and measured behavior are
@@ -688,10 +818,15 @@ the algebraic router never assesses them.
 | Ipopt | Smooth NLP | General | Exact Hessian or limited memory | Primal/dual | Serial |
 | POUNCE | Smooth NLP | General | Exact Hessian or limited memory | Primal/dual, working set | Admitted pool |
 | KINSOL | Square root, declared fixed point | Sign only | Jacobian or JVP | Primal | Serial |
-| HiGHS | LP, MILP, convex QP | General, semi domains | Coefficients | Primal/dual, basis | Admitted |
+| HiGHS | LP, MILP, convex QP | General, semi domains | Coefficients | Primal/dual, basis; QP hot start | Admitted |
 | Clarabel | Explicit cones (SDP with `solver-sdp`) | General | Coefficients | None | Serial |
 | Diffsol | ODE, semi-explicit index-1 | None | First, smooth sensitivities | None | Serial |
 | IDAS | ODE, semi-explicit index-1 | None | First, smooth sensitivities | None | Serial |
+
+HiGHS is linked at 1.15. Its record states that simplex, IPM and MIP honour the interrupt
+callback while its QP solver and PDLP stop only at the native time limit
+([§18.8](#section-18-8)); a QP start is a hot start that needs the exported basis
+([§18.10](#section-18-10)).
 
 Outside the matrix today: MIQP and MINLP, disjunctive programs, global certification,
 arbitrary cone recognition, general or higher-index DAE, finite-difference derivatives, GPU
@@ -715,14 +850,22 @@ Anderson acceleration, over vendored KLU, bounded dense or matrix-free SPGMR. On
 sign bounds are representable; arbitrary boxes and constrained fixed-point/Picard are
 refused. Compatible layouts reuse SUNDIALS/KLU allocations on the owning worker.
 
-**HiGHS** (`highs`) receives a checked native upload whose full readback must match the
-coefficient view before any bound or optimality claim transfers. It supports LP
-(choose, simplex, IPM, PDLP), MILP with binary and semi domains, and convex QP.
-Convex QP requires evidence: an exact rational `GramCertificate` (`sign*Q = Rᵀ diag(w) R`
-with nonnegative weights, checked through Symbolica/Numerica against the unchanged
-matrix and objective orientation) by default, or an explicitly requested numerical PSD
-qualification with tolerances. An indefinite or inconclusive matrix is never repaired.
-Scheduler teardown is exclusive and blocking.
+**HiGHS** (`highs`, HiGHS 1.15) receives a checked native upload whose full readback must
+match the coefficient view before any bound or optimality claim transfers. It supports LP
+(choose, simplex, IPM, PDLP), MILP with integer, binary and semi domains, and convex QP.
+A mixed-integer model or a quadratic objective requires the `choose` method. HiGHS solves
+a continuous QP with its active-set QP solver whatever method is named, and its QP interior
+point (HiPO) is not built, so an explicit simplex, IPM or PDLP request with a nonzero
+Hessian is refused as `Unsupported` rather than silently ignored. PDLP stops only at its
+native time limit ([§18.8](#section-18-8)). Convex QP requires evidence: an exact rational
+`GramCertificate` (`sign*Q = Rᵀ diag(w) R` with nonnegative weights, checked through
+Symbolica/Numerica against the unchanged matrix and objective orientation) by default, or
+an explicitly requested numerical PSD qualification with tolerances. An indefinite or
+inconclusive matrix is never repaired. A submitted QP start is consumed: HiGHS 1.15 makes
+the QP hot start opt-in, so the adapter sets `qp_allow_hot_start` unless the caller
+supplies it, and the effective options record the value that ran. The active-set solver
+returns a valid basis with every QP solution, and the output seed exports that basis with
+the primal, because the hot start needs both. Scheduler teardown is exclusive and blocking.
 
 **Clarabel** (`conic`) receives explicit cones with CSC-format, dimension and parameter
 checks; SDP uses packed PSD-triangle cones in the serial LP64 netlib profile.

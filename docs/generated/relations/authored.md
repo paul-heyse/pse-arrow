@@ -83,9 +83,9 @@ Version: 3. Snapshot class: `case`. Primary key: `fit_id`.
 
 ## `modeling_declarations`
 
-Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none.
+Generic modeling declaration. Exactly one tagged payload is present; parent references preserve lexical ownership. Expressions use the shared DSL, not another numerical IR. Version two adds the declared domain of a variable binding (ADR-0103); every other binding carries none. Version three adds indicator conditions, ordered sets, cardinality, piecewise-linear, logic and disjunction declarations and their realization arguments (ADR-0104).
 
-Version: 2. Snapshot class: `model`. Primary key: `declaration_id`.
+Version: 3. Snapshot class: `model`. Primary key: `declaration_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -189,6 +189,38 @@ Version: 2. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.equation.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.equation.indices.item.domain` | `Utf8` | false | `payload` | — | — |
 | `value.equation.expression` | `Utf8` | false | `payload` | — | — |
+| `value.equation.condition` | `Struct` | true | `payload` | — | — |
+| `value.equation.condition.variable` | `Utf8` | false | `payload` | — | — |
+| `value.equation.condition.active` | `Boolean` | false | `payload` | — | — |
+| `value.ordered_set` | `Struct` | true | `payload` | — | — |
+| `value.ordered_set.indices` | `List` | false | `payload` | — | — |
+| `value.ordered_set.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.ordered_set.indices.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.ordered_set.indices.item.domain` | `Utf8` | false | `payload` | — | — |
+| `value.ordered_set.member` | `Utf8` | false | `payload` | — | — |
+| `value.ordered_set.weight` | `Utf8` | false | `payload` | — | — |
+| `value.cardinality` | `Struct` | true | `payload` | — | — |
+| `value.cardinality.indices` | `List` | false | `payload` | — | — |
+| `value.cardinality.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.cardinality.indices.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.cardinality.indices.item.domain` | `Utf8` | false | `payload` | — | — |
+| `value.cardinality.count` | `Utf8` | false | `payload` | — | — |
+| `value.cardinality.member` | `Utf8` | false | `payload` | — | — |
+| `value.piecewise` | `Struct` | true | `payload` | — | — |
+| `value.piecewise.indices` | `List` | false | `payload` | — | — |
+| `value.piecewise.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.piecewise.indices.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.piecewise.indices.item.domain` | `Utf8` | false | `payload` | — | — |
+| `value.piecewise.output` | `Utf8` | false | `payload` | — | — |
+| `value.piecewise.input` | `Utf8` | false | `payload` | — | — |
+| `value.piecewise.abscissa` | `Utf8` | false | `payload` | — | — |
+| `value.piecewise.ordinate` | `Utf8` | false | `payload` | — | — |
+| `value.logic` | `Struct` | true | `payload` | — | — |
+| `value.logic.indices` | `List` | false | `payload` | — | — |
+| `value.logic.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.logic.indices.item.name` | `Utf8` | false | `payload` | — | — |
+| `value.logic.indices.item.domain` | `Utf8` | false | `payload` | — | — |
+| `value.logic.proposition` | `Utf8` | false | `payload` | — | — |
 | `value.table` | `Struct` | true | `payload` | — | — |
 | `value.table.keys` | `List` | false | `payload` | — | — |
 | `value.table.keys.item` | `Struct` | false | `payload` | — | — |
@@ -285,6 +317,7 @@ Version: 2. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.realization.target` | `Utf8` | false | `payload` | — | — |
 | `value.realization.policy` | `enum:ModelingRealizationPolicy` | false | `payload` | — | — |
 | `value.realization.accelerator` | `Utf8` | true | `payload` | — | — |
+| `value.realization.argument` | `Utf8` | true | `payload` | — | — |
 
 ## `numerical_requirements`
 

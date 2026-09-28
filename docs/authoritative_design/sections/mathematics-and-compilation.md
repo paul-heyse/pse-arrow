@@ -163,15 +163,30 @@ as constants, not model inputs.
 > objectives with priority, weight and degradation tolerances (Plan 22 C3; not yet
 > implemented).
 
-A selected case is a `pse_math::binding::CaseStructure`: variables with declared domain
-(`Continuous`, `Integer`, `Binary`, `SemiContinuous`, `SemiInteger`), fixed/free status and
-optional closed bounds; ordinary parameters; instance bindings of body formals to global
-sources; semantic rows with closed canonical bounds; and an optional objective with its
-authored sense. A body output reaches rows or the objective through an explicit
+A selected case is a `pse_math::binding::CaseStructure`: variables with their declared
+registry domain (`ModelingVariableDomain`: `continuous`, `integer`, `binary`,
+`semicontinuous`, `semiinteger`; [§6.8](schema-and-relations.md#section-6-8)), fixed/free
+status and optional closed bounds; ordinary parameters; instance bindings of body formals to
+global sources; semantic rows with closed canonical bounds; and an optional objective with
+its authored sense. A body output reaches rows or the objective through an explicit
 contribution map with finite nonzero dimensionless weights. Authored `lhs == rhs`,
 `<=` and `>=` equations become residual `lhs - rhs` rows with bounds `[0, 0]`,
 `(-inf, 0]` or `[0, inf)`; a conditional equation selects its branch during definition
 specialization ([§10](models-and-composition.md#section-10)).
+
+**Domain admission.** The compiler's grouped case projection carries each free variable's
+declared domain; a binary variable brings the unit box, which case bounds may only narrow.
+`prepare_modeling_bound_case` then admits every free discrete variable after case binding.
+Integer and semi domains need finite lower and upper bounds, and bounds that leave no value
+of the domain are refused: a binary box containing neither 0 nor 1, an integer range with
+no integer, or a semi active interval that is not positive. Integer and binary variables
+also need a count or indicator quantity kind
+([§8.1](physical-semantics.md#section-8-1)). Each refusal names the variable
+(`modeling.domain`, analysis `preparation`). Non-integral bounds on an integer variable are
+passed on unchanged: the recorded inward tightening of ADR-0103 is not implemented. A fixed
+variable needs no search range; its value is checked for exact domain membership instead
+([§7.6](#section-7-6)). `CaseStructure::key` frames each domain by its registry spelling
+(`pse.math.case-structure.v2`).
 
 Mathematical class is established from the admitted program, never from authored hints:
 `ProblemFacts` records admitted derivative order, bound shapes, guarded status, proved
@@ -249,6 +264,7 @@ variable box. Admission follows the evaluator's obligations:
 | Starting value | every variable and parameter has a finite case value; `validate_values` refuses missing or nonfinite entries. Start selection is owned by strategies ([§17](numerical-execution.md#section-17)) |
 | Unbounded variable or row side | an absent authored bound; lowered to `None` or an outward infinity, never NaN |
 | Case value outside declared bounds, or fixed value outside its integer domain | refused at case admission, without solver tolerance; a semi-variable's zero is admitted |
+| Free discrete variable without finite bounds, or with bounds that admit no value of its domain | refused after case binding, naming the variable ([§7.5](#section-7-5)) |
 | Missing measurement | a null observation value; an included observation without a value or standard deviation is refused, and exclusion is the explicit `included` flag ([§19](workflows-and-results.md#section-19)) |
 | Domain or provider failure | a typed `MathError`, never a silent null or a stale value |
 | Missing versus empty input | distinct: a missing domain, group or provider is an error; an empty admitted domain is a valid finite domain |

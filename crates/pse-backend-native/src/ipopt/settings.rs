@@ -7,7 +7,7 @@
 use super::runtime::{self, Runtime};
 use crate::{
     ProblemError,
-    solve::{OptionValue, Options, WarmRestart},
+    solve::{IpoptLinearSolver, OptionValue, Options, WarmRestart},
 };
 
 /// The Ipopt adapter's settings type. Its identity derives from serde.
@@ -72,27 +72,7 @@ impl Default for Linear {
         }
     }
 }
-/// The linked linear solver a [`Linear`] selects.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
-pub enum LinearSolver {
-    /// MUMPS.
-    Mumps,
-    /// SPRAL SSIDS.
-    Spral,
-    /// oneMKL Pardiso.
-    PardisoMkl,
-}
-impl LinearSolver {
-    /// Every typed solver.
-    pub const ALL: [Self; 3] = [Self::Mumps, Self::Spral, Self::PardisoMkl];
-    /// Ipopt's `linear_solver` spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Mumps => "mumps",
-            Self::Spral => "spral",
-            Self::PardisoMkl => "pardisomkl",
-        }
-    }
+impl IpoptLinearSolver {
     /// Bit of this solver in `IpoptGetAvailableLinearSolvers`.
     pub const fn mask(self) -> u32 {
         match self {
@@ -101,18 +81,14 @@ impl LinearSolver {
             Self::PardisoMkl => pse_ipopt_sys::IPOPTLINEARSOLVER_PARDISOMKL,
         }
     }
-    /// Whether the solver consumes more than one admitted thread; MUMPS is sequential.
-    pub const fn parallel(self) -> bool {
-        !matches!(self, Self::Mumps)
-    }
 }
 impl Linear {
     /// The linked solver this selects.
-    pub const fn solver(&self) -> LinearSolver {
+    pub const fn solver(&self) -> IpoptLinearSolver {
         match self {
-            Self::Mumps { .. } => LinearSolver::Mumps,
-            Self::Spral { .. } => LinearSolver::Spral,
-            Self::PardisoMkl { .. } => LinearSolver::PardisoMkl,
+            Self::Mumps { .. } => IpoptLinearSolver::Mumps,
+            Self::Spral { .. } => IpoptLinearSolver::Spral,
+            Self::PardisoMkl { .. } => IpoptLinearSolver::PardisoMkl,
         }
     }
     fn options(&self) -> Vec<(&'static str, OptionValue)> {
@@ -343,8 +319,8 @@ pub fn admit(settings: &Settings, threads: usize, runtime: &Runtime) -> Result<(
         )));
     }
     match solver {
-        LinearSolver::Mumps => {}
-        LinearSolver::Spral => {
+        IpoptLinearSolver::Mumps => {}
+        IpoptLinearSolver::Spral => {
             if !runtime.cancellation {
                 return Err(ProblemError::Unsupported(
                     "SPRAL requires OMP_CANCELLATION=TRUE in the process environment".into(),
@@ -356,7 +332,7 @@ pub fn admit(settings: &Settings, threads: usize, runtime: &Runtime) -> Result<(
                 ));
             }
         }
-        LinearSolver::PardisoMkl => {
+        IpoptLinearSolver::PardisoMkl => {
             let pinned = runtime::pinned_cbwr();
             if runtime.cbwr != pinned {
                 return Err(ProblemError::Unsupported(format!(

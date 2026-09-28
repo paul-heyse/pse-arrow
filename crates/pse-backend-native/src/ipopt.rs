@@ -17,7 +17,7 @@ use pse_ipopt_sys as ffi;
 use pse_math::binding::ObjectiveSense;
 pub use runtime::{Build, Runtime, build};
 pub use settings::{
-    Linear, LinearSolver, MuStrategy, MumpsOrdering, PardisoMatching, PardisoOrdering, Settings,
+    Linear, MuStrategy, MumpsOrdering, PardisoMatching, PardisoOrdering, Settings,
     SpralOrdering, SpralPivot, SpralScaling, admit,
 };
 use std::{
@@ -1227,16 +1227,16 @@ mod tests {
     fn ipopt_unavailable_linear_solver_refused() {
         let observed = Runtime::observe();
         // The image links exactly MUMPS, SPRAL and oneMKL Pardiso: no HSL, no loaded Pardiso.
-        for solver in LinearSolver::ALL {
+        for solver in IpoptLinearSolver::ALL {
             assert_ne!(observed.linked & solver.mask(), 0, "{solver:?}");
         }
         assert_eq!(observed.linked & ffi::IPOPTLINEARSOLVER_ALLHSL, 0);
         assert_eq!(observed.linked & ffi::IPOPTLINEARSOLVER_PARDISO, 0);
-        for solver in LinearSolver::ALL {
+        for solver in IpoptLinearSolver::ALL {
             let settings = match solver {
-                LinearSolver::Mumps => Settings::default(),
-                LinearSolver::Spral => spral(),
-                LinearSolver::PardisoMkl => pardiso(),
+                IpoptLinearSolver::Mumps => Settings::default(),
+                IpoptLinearSolver::Spral => spral(),
+                IpoptLinearSolver::PardisoMkl => pardiso(),
             };
             let without = Runtime {
                 linked: observed.linked & !solver.mask(),

@@ -29,6 +29,8 @@ pub mod quality;
 #[cfg(feature = "kinsol")]
 pub mod recycle;
 pub mod routing;
+#[cfg(feature = "scip")]
+pub mod scip;
 pub mod solve;
 /// Original-equation structural admission.
 pub mod structural;
@@ -809,8 +811,11 @@ mod assembled_tests;
 #[cfg(test)]
 mod solver_tests;
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "ipopt", feature = "pounce")))]
 mod restart_tests;
 
 #[cfg(all(test, feature = "pounce"))]
 mod l1_tests;
+
+#[cfg(all(test, feature = "scip"))]
+mod scip_tests;

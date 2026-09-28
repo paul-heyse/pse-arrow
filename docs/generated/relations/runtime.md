@@ -1064,7 +1064,7 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 ## `solver_capabilities`
 
-Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request.
+Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).
 
 Version: 1. Snapshot class: `derived`. Primary key: `backend`.
 
@@ -1081,6 +1081,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `backend`.
 | `general_bounds` | `Boolean` | false | `payload` | — | — |
 | `sign_bounds` | `Boolean` | false | `payload` | — | — |
 | `parallel` | `Boolean` | false | `payload` | — | — |
+| `certifies` | `Boolean` | false | `payload` | — | — |
+| `native_forms` | `List` | false | `payload` | — | — |
+| `native_forms.item` | `enum:NativeConstraintForm` | false | `payload` | — | — |
 
 ## `validation_findings`
 

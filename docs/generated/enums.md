@@ -441,6 +441,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `stage` | `` | false |
 | `implicit` | `` | false |
 | `regime` | `` | false |
+| `disjunction` | `` | false |
+| `alternative` | `` | false |
 | `parameter` | `` | false |
 | `variable` | `` | false |
 | `let` | `` | false |
@@ -453,6 +455,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `scope_value` | `` | false |
 | `function` | `` | false |
 | `equation` | `` | false |
+| `sos1` | `` | false |
+| `sos2` | `` | false |
+| `atmost` | `` | false |
+| `atleast` | `` | false |
+| `exactly` | `` | false |
+| `piecewise` | `` | false |
+| `logic` | `` | false |
 | `table` | `` | false |
 | `dataset` | `` | false |
 | `entity` | `` | false |
@@ -533,6 +542,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `inline` | `` | false |
 | `nested` | `` | false |
 | `accelerated` | `` | false |
+| `big_m` | `` | false |
+| `derived_big_m` | `` | false |
+| `hull` | `` | false |
+| `indicator` | `` | false |
+| `linear` | `` | false |
+| `native` | `` | false |
+| `sos2` | `` | false |
+| `incremental` | `` | false |
 
 ## `ModelingVariableDomain`
 
@@ -565,6 +582,10 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `local_stationary` | `` | false |
 | `native_optimal` | `` | false |
 | `certificate` | `` | false |
+| `global_bound` | `` | false |
+| `proven_infeasible` | `` | false |
+| `exact_certificate` | `` | false |
+| `sos_bound_nonrigorous` | `` | false |
 
 ## `NativeBackend`
 
@@ -577,6 +598,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `clarabel` | `` | false |
 | `diffsol` | `` | false |
 | `idas` | `` | false |
+| `scip` | `` | false |
 
 ## `NativeBoundaryClass`
 
@@ -603,6 +625,18 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `best_iterate` | `` | false |
 | `feasible_point` | `` | false |
 | `constant_evaluation` | `` | false |
+
+## `NativeConstraintForm`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `indicator` | `` | false |
+| `sos1` | `` | false |
+| `sos2` | `` | false |
+| `and` | `` | false |
+| `or` | `` | false |
+| `xor` | `` | false |
+| `cardinality` | `` | false |
 
 ## `NativeDependencyEvidenceKind`
 
@@ -640,6 +674,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `jacobian_or_product` | `` | false |
 | `coefficients` | `` | false |
 | `first_with_smooth_sensitivities` | `` | false |
+| `factorable` | `` | false |
 
 ## `NativeMetricKind`
 
@@ -671,6 +706,9 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `continuous_cone` | `` | false |
 | `ode` | `` | false |
 | `semi_explicit_index1` | `` | false |
+| `nonconvex_quadratic` | `` | false |
+| `mixed_integer_quadratic` | `` | false |
+| `mixed_integer_nonlinear` | `` | false |
 
 ## `NativeQualification`
 

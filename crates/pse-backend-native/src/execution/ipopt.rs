@@ -25,6 +25,8 @@ static CAPABILITY: Capability = Capability {
     // SPRAL (OpenMP) and oneMKL Pardiso (MKL threads) consume admitted threads; MUMPS is
     // sequential and its settings refuse more than one.
     parallel: true,
+    certifies: false,
+    native_forms: &[],
     reuse: "same sparse layout and bounds: retained C problem",
     cancellation: "intermediate/evaluation checkpoints",
     diagnostics: "native current iterate, violations, callback counts and timing",

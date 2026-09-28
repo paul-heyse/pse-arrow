@@ -2,10 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Waiter cancellation never takes native ownership away from the existing supervisor.
 use super::{Runtime, WorkflowError, contract};
-use crate::math::{
-    MathRuntimeError,
-    solves::SolveSequence,
-};
+use crate::math::MathRuntimeError;
 use pse_backend_native::{
     solve::{Event, Progress},
 };
@@ -240,36 +237,14 @@ impl super::ModelingSolvePreparation {
         self.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
         Ok(self)
     }
-    /// Start one authored algebraic run; native teardown precedes original-model checks.
+    /// Start one authored algebraic run: a one-step authored sequence.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        let runtime = self.source.runtime.clone();
-        let handle = runtime.native().solve(SolveSequence {steps:vec![self.solve.clone()],continue_independent:false,result_limit:1})?;
-        let checks = crate::CancelSource::new();
-        let lease = Arc::new(Lease(handle.cancellation(),Some(checks.clone())));
-        let progress = handle.progress_source();
-        let (sender,receiver) = tokio::sync::watch::channel(None);
-        let prepared = self.clone();
-        let run_id = pse_authoring::ids::uuid_v7();
-        tokio::spawn(async move {
-            let report = async {
-                let sequence = handle.finish().await?;
-                let (mut outcomes,_,owner) = sequence.into_parts();
-                let outcome = outcomes.pop().ok_or_else(||contract("solve completed without an outcome"))?;
-                let result = prepared.source.finish_assessed(prepared.clone(), prepared.compiler, true, run_id, outcome, owner, &checks).await?;
-                Ok::<_,WorkflowError>(RunReport::Modeling(vec![result]))
-            }.await.map_err(Arc::new);
-            sender.send_replace(Some(Arc::new(RunResult {
-                run_id,runtime,request:RunRequest::Modeling(vec![prepared]),
-                _owner:None,report,assessments:vec![],
-                completion:Err(Arc::new(contract("completion has not been captured"))),batches:OnceLock::new(),
-            }.completed())));
-        });
-        Ok(RunHandle{lease,receiver,progress})
+        self.source.runtime.launch(vec![self.clone()], false)
     }
 }
 
 impl Runtime {
-    /// Start a finite authored sequence after preparing original-model checks for each step.
+    /// Start a finite authored sequence of prepared steps.
     pub async fn start_modeling(
         &self, steps: Vec<super::ModelingSolvePreparation>, continue_independent: bool,
         cancel: &crate::CancelSource,
@@ -284,34 +259,42 @@ impl Runtime {
                 if declarations.insert(row.declaration_id,row).is_some_and(|old|old!=row) {return Err(contract("sequence contains conflicting source declarations"));}
             }
         }
-        let run_id=pse_authoring::ids::uuid_v7();
-        let (assessment,points)=super::modeling::sequence::prepare(run_id,&steps,cancel).await?;
         if cancel.token().is_cancelled() {return Err(MathRuntimeError::Cancelled.into());}
-        let handle=self.native().solve_assessed(SolveSequence{steps:steps.iter().map(|p|p.solve.clone()).collect(),continue_independent,result_limit:steps.len()},Some(assessment))?;
-        let lease=Arc::new(Lease(handle.cancellation(),None));
-        let progress=handle.progress_source();
+        self.launch(steps,continue_independent)
+    }
+    /// Run prepared steps as one staged sequence (A6) on one native session: each step is
+    /// assessed against the original model on its worker, a `PreviousAccepted` step starts
+    /// from the previous step's seed when that step was accepted, and an unaccepted step
+    /// ends the sequence unless the steps are independent. The handle shares one progress
+    /// stream across steps; cancelling it stops the current step and joins native teardown.
+    fn launch(
+        &self, steps: Vec<super::ModelingSolvePreparation>, continue_independent: bool,
+    ) -> Result<RunHandle,WorkflowError> {
+        let history=steps.iter().map(|s|s.profile.controls.history).max().unwrap_or(0);
+        let progress=Arc::new(Progress::new(history));
+        let mut staged=super::staged::Staged::open(self,Some(progress.clone()))?;
+        let cancel=crate::CancelSource::new();
+        let lease=Arc::new(Lease(FlightCancellation::default(),Some(cancel.clone())));
         let (sender,receiver)=tokio::sync::watch::channel(None);
         let runtime=self.clone();
         tokio::spawn(async move {
-            let report=async {
-                let sequence=handle.finish().await?;
-                let (outcomes,_,owner)=sequence.into_parts();
-                let mut points=points.lock().map_err(|_|contract("sequence assessment lock poisoned"))?;
-                let mut results=Vec::new();
-                for (attempt,outcome) in outcomes.into_iter().enumerate() {
-                    let request=steps[attempt].clone();
-                    let point=match points[attempt].take() {
-                        Some(point)=>point,
-                        None=>super::modeling::sequence::AssessedPoint{
-                            values:request.model.values.clone(),checks:vec![],reports:vec![],
-                            error:Some(contract("attempt did not reach original-model assessment").boundary_diagnostic()),
-                            owner:runtime.native().reserve("modeling:unassessed-attempt",super::modeling::results::result_bytes(&request)?)?,
-                        },
-                    };
-                    results.push(super::ModelingResult::from_assessment(request,run_id,attempt,outcome,point,owner.clone()));
+            let run_id=pse_authoring::ids::uuid_v7();
+            let mut results=Vec::new();
+            let mut failure=None;
+            for (attempt,step) in steps.iter().enumerate() {
+                if cancel.token().is_cancelled() {break;}
+                let previous=staged.predecessor();
+                match staged.run(step.clone(),super::modeling::assessment::Obligations::Final,run_id,attempt,previous,&cancel).await {
+                    Ok(result)=>{
+                        let accepted=result.accepted;
+                        results.push(result);
+                        if !accepted && !continue_independent {break;}
+                    }
+                    Err(error)=>{failure=Some(error);break;}
                 }
-                Ok::<_,WorkflowError>(RunReport::Modeling(results))
-            }.await.map_err(Arc::new);
+            }
+            staged.close().await;
+            let report=match failure {Some(error)=>Err(error),None=>Ok(RunReport::Modeling(results))};
             sender.send_replace(Some(Arc::new(RunResult{run_id,runtime,request:RunRequest::Modeling(steps),_owner:None,report,assessments:vec![],completion:Err(Arc::new(contract("completion has not been captured"))),batches:OnceLock::new()}.completed())));
         });
         Ok(RunHandle{lease,receiver,progress})

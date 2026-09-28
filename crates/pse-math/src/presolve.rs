@@ -79,6 +79,28 @@ pub struct Facts {
     pub objective_degree: Option<u8>,
 }
 impl Facts {
+    /// The outward-rounded FBBT enclosure of row `index` over a free-column box, from the
+    /// library's forward pass. `None` when the row's tape does not cover every subexpression.
+    /// # Errors
+    /// A box whose length differs from the tape's coordinates.
+    pub fn row_enclosure(
+        &self,
+        index: usize,
+        lower: &[f64],
+        upper: &[f64],
+    ) -> Result<Option<(f64, f64)>, MathError> {
+        if !self.complete.get(index).copied().unwrap_or(false) {
+            return Ok(None);
+        }
+        let tape = self
+            .tapes
+            .get(index)
+            .ok_or_else(|| MathError::Contract("row enclosure outside the projection".into()))?;
+        let values = pounce_presolve::fbbt::forward_pass(tape, lower, upper)
+            .map_err(|e| MathError::Contract(format!("row enclosure: {e:?}")))?;
+        let interval = pounce_presolve::fbbt::forward_result(&values);
+        Ok(Some((interval.lo, interval.hi)))
+    }
     /// Refuse stale numeric assumptions without including free trial values.
     pub fn matches(&self, plan: &CasePlan, values: &CaseValues) -> bool {
         self.structure == plan.structure().key()

@@ -101,9 +101,9 @@ impl ModelingPackage {
         let deadline = started
             .checked_add(policy.time_limit)
             .ok_or_else(|| contract("explanation deadline overflow"))?;
-        let (prepared, interruption) = engines::bounded_work(
+        let (prepared, interruption) = crate::workflow::staged::bounded(
             "nonlinear explanation",
-            deadline,
+            Some(deadline),
             cancel,
             |child| async move { self.prepare_diagnostics(analysis, &child).await },
         )
@@ -212,9 +212,9 @@ impl ModelingPackage {
                 .time_limit
                 .min(deadline.saturating_duration_since(Instant::now()));
             let seed = prepared.model.values.scalars.clone();
-            let (result, interruption) = engines::bounded_work(
+            let (result, interruption) = crate::workflow::staged::bounded(
                 "nonlinear explanation",
-                deadline,
+                Some(deadline),
                 cancel,
                 |child| async move {
                     let prepared = self

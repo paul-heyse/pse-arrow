@@ -614,21 +614,11 @@ async fn constant_sequence_uses_shared_lifecycle_and_retains_result_allowance() 
         .await
         .unwrap();
     assert_eq!(p.route(), pse_backend_native::routing::Route::Constant);
-    let report = s
-        .solve(SolveSequence {
-            steps: vec![p],
-            continue_independent: false,
-            result_limit: 1,
-        })
-        .unwrap()
-        .finish()
-        .await
-        .unwrap();
-    assert_eq!(report.unattempted, 0);
-    assert!(matches!(&report.outcomes[0],Outcome::Constant(c)if c.quality.feasible()));
+    let report = s.solve(p).unwrap().finish().await.unwrap();
+    assert!(matches!(&report.outcome,Outcome::Constant(c)if c.quality.feasible()));
     s.invalidate();
     assert!(s.pool.reserved() > 0);
-    let retained = report.outcomes[0].clone();
+    let retained = report.outcome.clone();
     drop(report);
     assert!(s.pool.reserved() > 0);
     drop(retained);
@@ -865,56 +855,8 @@ async fn nested_worker_observes_attempt_cancel() {
     assert_eq!(budget.used(), 0);
 }
 
-/// A sequence assessment that builds two evaluators at once on the sequence job.
-#[derive(Debug)]
-struct TwoEvaluators {
-    service: Arc<MathService>,
-    case: Arc<ExecutableCase>,
-    registrations: BTreeMap<ProviderKey, pse_kernels::Registration>,
-    seen: Arc<Mutex<Vec<(usize, usize, usize, bool)>>>,
-}
-impl solves::SequenceAssessment for TwoEvaluators {
-    fn accepted(
-        &mut self,
-        _: usize,
-        _: &solves::Outcome,
-        cancel: &Arc<AtomicBool>,
-        budget: &Arc<WorkerBudget>,
-    ) -> bool {
-        let first = self
-            .service
-            .worker(
-                self.case.clone(),
-                &self.registrations,
-                cancel.clone(),
-                budget,
-            )
-            .unwrap();
-        let second = self
-            .service
-            .worker(
-                self.case.clone(),
-                &self.registrations,
-                cancel.clone(),
-                budget,
-            )
-            .unwrap();
-        let both = budget.used();
-        // No further evaluator fits once the job's worker share is spent.
-        let overflow = budget.charge(budget.capacity() - both + 1).is_err();
-        self.seen.lock().unwrap().push((
-            budget.capacity(),
-            both,
-            self.service.pool.reserved(),
-            overflow,
-        ));
-        drop((first, second));
-        true
-    }
-}
-
 #[tokio::test]
-async fn sequence_reserves_per_worker() {
+async fn session_step_reserves_per_worker() {
     use super::solves::*;
     use pse_backend_native::{execution::BackendSettings, solve::*};
     // The budget refuses a worker beyond its capacity and releases a dropped one.
@@ -982,33 +924,49 @@ async fn sequence_reserves_per_worker() {
         )
         .await
         .unwrap();
-    let seen = Arc::new(Mutex::new(vec![]));
-    let report = s
-        .solve_assessed(
-            SolveSequence {
-                steps: vec![step],
-                continue_independent: false,
-                result_limit: 1,
+    let session = s.open_session().unwrap();
+    let owner = s
+        .reserve("test:results", step.result_bytes().unwrap())
+        .unwrap();
+    let assessor = s.clone();
+    let (_, seen) = session
+        .step(
+            step,
+            None,
+            0,
+            Arc::new(Progress::new(0)),
+            owner,
+            &crate::CancelSource::new(),
+            move |_, cancel, budget| {
+                // The step's assessment builds two evaluators at once on the session worker.
+                let first = assessor
+                    .worker(case.clone(), &registrations, cancel.clone(), budget)
+                    .unwrap();
+                let second = assessor
+                    .worker(case.clone(), &registrations, cancel.clone(), budget)
+                    .unwrap();
+                let both = budget.used();
+                // No further evaluator fits once the session's worker share is spent.
+                let overflow = budget.charge(budget.capacity() - both + 1).is_err();
+                let seen = (
+                    budget.capacity(),
+                    both,
+                    case.assembly.numeric_worker_bytes(),
+                    assessor.pool.reserved(),
+                    overflow,
+                );
+                drop((first, second));
+                (seen, true)
             },
-            Some(Box::new(TwoEvaluators {
-                service: s.clone(),
-                case: case.clone(),
-                registrations,
-                seen: seen.clone(),
-            })),
         )
-        .unwrap()
-        .finish()
         .await
         .unwrap();
-    assert_eq!(report.unattempted, 0);
-    let seen = seen.lock().unwrap().clone();
-    assert_eq!(seen.len(), 1);
-    let (capacity, both, reserved, overflow) = seen[0];
-    // Every evaluator the sequence builds is charged to the job's worker share, and the
-    // job's pool reservation covers that whole share.
+    session.close().await;
+    let (capacity, both, worker, reserved, overflow) = seen;
+    // Every evaluator the step builds is charged to the session's worker share, and the
+    // session's pool reservation covers that whole share.
     assert_eq!(capacity, s.policy.worker_bytes);
-    assert_eq!(both, 2 * case.assembly.numeric_worker_bytes());
+    assert_eq!(both, 2 * worker);
     assert!(reserved >= capacity + s.policy.stack_bytes + s.policy.foreign_bytes);
     assert!(overflow);
 }
@@ -1071,4 +1029,165 @@ async fn resolved_accuracy_not_user_input() {
     )
     .unwrap();
     assert_eq!(default.accuracy(), &expected);
+}
+/// min y*y - 3y + x  s.t.  y - x*x = 0, x in `x_box`, y in [0, 4]: the quartic
+/// x^4 - 3x^2 + x, whose global minimum is near x = -1.3008.
+#[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
+fn quartic_inputs(x_box: (Option<f64>, Option<f64>)) -> Inputs {
+    let mut i = inputs();
+    let q = pse_quantity::standard::ids::quantity("neutral");
+    let unit = i.quantities.quantity_type(q).unwrap().canonical_unit;
+    let port = |n| Port {
+        id: id(n),
+        quantity: q,
+        unit,
+    };
+    let d = i.definitions.get_mut(&id(2)).unwrap();
+    d.sources = vec!["y - x*x".into(), "y*y - y - y - y + x".into()];
+    d.formals.push(Formal {
+        path: "y".into(),
+        quantity: q,
+    });
+    let s = CaseStructure::new(
+        vec![
+            Variable {
+                port: port(1),
+                fixed: false,
+                domain: ModelingVariableDomain::Continuous,
+                lower: x_box.0,
+                upper: x_box.1,
+            },
+            Variable {
+                port: port(6),
+                fixed: false,
+                domain: ModelingVariableDomain::Continuous,
+                lower: Some(0.0),
+                upper: Some(4.0),
+            },
+        ],
+        vec![],
+        vec![InstanceBinding {
+            instance: id(3),
+            body: ContentHash::from_bytes([0; 32]),
+            slots: vec![
+                SlotBinding::new(&port(1), &port(1), &i.quantities).unwrap(),
+                SlotBinding::new(&port(6), &port(6), &i.quantities).unwrap(),
+            ],
+            contributions: vec![
+                Contribution {
+                    output: 0,
+                    target: Target::Row(id(4)),
+                    scale: 1.,
+                },
+                Contribution {
+                    output: 1,
+                    target: Target::Objective,
+                    scale: 1.,
+                },
+            ],
+        }],
+        vec![Row {
+            id: id(4),
+            quantity: q,
+            lower: 0.,
+            upper: 0.,
+        }],
+        Some(Objective {
+            quantity: q,
+            sense: ObjectiveSense::Minimize,
+        }),
+        CaseLimits::default(),
+    )
+    .unwrap();
+    i.cases.get_mut(&id(5)).unwrap().structure = Arc::new(s);
+    i
+}
+#[cfg(all(feature = "solver-scip", feature = "solver-ipopt"))]
+#[tokio::test]
+async fn certify_intent_projects_and_solves_through_the_factorable_route() {
+    use super::solves::*;
+    use pse_backend_native::{
+        execution::BackendSettings,
+        routing::Route,
+        solve::{Assurance, Backend, Controls, Qualification, SolveIntent, SolverSelection},
+    };
+    use pse_model::generated::enums::CandidateUse;
+    let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(1 << 30));
+    let native = pse_engine::cache_service::NativeCacheService::new(
+        pse_engine::cache_service::CacheBudget::disabled(1024),
+        &pool,
+    )
+    .unwrap();
+    // SCIP's memory limit is the job's foreign allowance.
+    let s = MathService::new(
+        pool,
+        Arc::new(tokio::sync::Semaphore::new(2)),
+        2,
+        MathPolicy {
+            foreign_bytes: 128 << 20,
+            worker_bytes: 8 << 20,
+            workspace_bytes: 16 << 20,
+            ..MathPolicy::default()
+        },
+        &native,
+    );
+    let prepare = |x_box| {
+        let s = s.clone();
+        async move {
+            let w = s
+                .workspace(quartic_inputs(x_box), WorkspaceLimits::default())
+                .unwrap();
+            let p = s
+                .prepare(
+                    w,
+                    id(5),
+                    DerivativeOrder::Second,
+                    profile(),
+                    false,
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap();
+            s.prepare_solve(
+                p,
+                CaseValues {
+                    scalars: BTreeMap::from([(id(1), 1.0), (id(6), 1.0)]),
+                },
+                BTreeMap::new(),
+                SolverProfile {
+                    presolve: Default::default(),
+                    numerics: Default::default(),
+                    convexity: Default::default(),
+                    intent: SolveIntent::Certify,
+                    selection: SolverSelection::Auto,
+                    controls: Controls::default(),
+                    backend: BackendSettings::Default,
+                },
+                None,
+                NumericalInputs::default(),
+            )
+            .await
+        }
+    };
+    // An unbounded variable in a nonlinear term is refused before any worker exists.
+    let refused = prepare((None, Some(2.0))).await.unwrap_err();
+    assert!(
+        refused.to_string().contains("spatial branching"),
+        "{refused}"
+    );
+    // Certification selects the certifying record and projects the case lazily; the
+    // single solve is a one-step native session (A6).
+    let p = prepare((Some(-2.0), Some(2.0))).await.unwrap();
+    assert_eq!(p.route(), Route::Native(Backend::Scip));
+    let report = s.solve(p).unwrap().finish().await.unwrap();
+    let outcome = &report.outcome;
+    let Outcome::Native(r) = outcome else {
+        panic!("{outcome:?}");
+    };
+    assert_eq!(r.backend, Backend::Scip);
+    let x = r.candidate.as_ref().unwrap().primal[0];
+    assert!((x + 1.300_839).abs() < 1e-3, "{x}");
+    assert_eq!(r.qualification, Qualification::GapQualified);
+    assert_eq!(r.termination.assurance, Assurance::GlobalBound);
+    assert_eq!(outcome.candidate_use().usability, CandidateUse::Usable);
 }

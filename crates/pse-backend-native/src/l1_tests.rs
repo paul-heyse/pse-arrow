@@ -223,14 +223,42 @@ fn l1_route_returns_labelled_least_infeasible_point() {
     assert!(report.least_infeasible.is_none());
     let x = report.candidate.as_ref().unwrap().primal[0];
     assert!((4.0 - 1e-6..=9.0 + 1e-6).contains(&(x * x)), "{x}");
-    // Presolve assumes the rows hold, which the relaxed rows do not: only `Off` is admitted.
-    let error = run_with(
-        Rows::new(false, [(4.0, infinity), (-infinity, 1.0)]),
-        &l1(),
+}
+
+#[test]
+fn l1_auto_presolve_resolves_off_and_is_recorded() {
+    let infinity = f64::INFINITY;
+    let infeasible = || Rows::new(false, [(4.0, infinity), (-infinity, 1.0)]);
+    // `Auto` lets the system choose: under the relaxed rows it chooses no pass. Were a pass
+    // run, interval propagation would certify this model infeasible instead of reaching the
+    // least-infeasible point.
+    let report = run_with(infeasible(), &l1(), Options::new(), &Policy::Auto).unwrap();
+    assert_eq!(report.termination.category, Termination::Infeasible);
+    assert!(report.least_infeasible.is_some());
+    let record = report.preprocessing.as_ref().unwrap();
+    assert!(matches!(record.requested, Policy::Auto));
+    assert_eq!(
+        record.resolution,
+        Some(crate::presolve::Resolution::RelaxedRows)
+    );
+    assert!(!record.effective.enabled);
+    assert!(record.passes.values().all(|p| !p.applied));
+    assert!(record.proof.is_none());
+    // `Off` is the policy that runs, so nothing is resolved; the interior point keeps `Auto`.
+    let off = run_with(infeasible(), &l1(), Options::new(), &Policy::Off).unwrap();
+    assert!(off.preprocessing.as_ref().unwrap().resolution.is_none());
+    let interior = run_with(
+        infeasible(),
+        &BackendSettings::Pounce(Settings::default()),
         Options::new(),
         &Policy::Auto,
     )
-    .unwrap_err();
+    .unwrap();
+    let record = interior.preprocessing.as_ref().unwrap();
+    assert!(record.resolution.is_none() && record.effective.enabled);
+    // Explicitly requested passes assume the rows hold and are refused.
+    let explicit = Policy::from_native_options(&Options::new(), Default::default()).unwrap();
+    let error = run_with(infeasible(), &l1(), Options::new(), &explicit).unwrap_err();
     assert!(matches!(error, ProblemError::Contract(_)), "{error:?}");
 }
 
