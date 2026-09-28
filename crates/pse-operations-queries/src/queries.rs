@@ -11,3 +11,4 @@ pub mod sources;
 pub mod store;
 pub mod streams;
 pub mod studies;
+pub mod tables;

@@ -877,15 +877,33 @@ for crate::generated::r#runtime::r#operational_incumbents::RuntimeOperationalInc
         let mut record = crate::postgres::Record::read(
             ty,
             raw,
-            &["attempt_id", "seq", "at", "objective", "dual_bound", "gap", "solution_id"],
+            &[
+                "attempt_id",
+                "seq",
+                "step",
+                "at",
+                "elapsed_seconds",
+                "phase",
+                "objective",
+                "dual_bound",
+                "gap",
+                "nodes",
+                "seconds",
+                "solution_id",
+            ],
         )?;
         let row = Self {
             r#attempt_id: record.value()?,
             r#seq: record.value()?,
+            r#step: record.value()?,
             r#at: record.micros()?,
+            r#elapsed_seconds: record.value()?,
+            r#phase: record.value()?,
             r#objective: record.value()?,
             r#dual_bound: record.value()?,
             r#gap: record.value()?,
+            r#nodes: record.value()?,
+            r#seconds: record.value()?,
             r#solution_id: record.value()?,
         };
         record.finish()?;

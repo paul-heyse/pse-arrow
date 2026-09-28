@@ -439,19 +439,31 @@ fn declare_streams(b: &mut RegistryBuilder) {
             vec![
                 attempt_ref("attempt_id"),
                 column("seq", int64()),
+                column("step", int32()),
                 column("at", ts()),
+                column("elapsed_seconds", real()),
+                column("phase", text()),
                 column("objective", real()),
                 // No bound yet, or an unbounded relaxation, is an absent bound: values
                 // are finite like every registry Float64.
                 column("dual_bound", real()).optional(),
                 column("gap", real()).optional(),
+                // What the search reported with the incumbent; absent when the native
+                // value was not a count or a finite duration.
+                column("nodes", int64()).optional(),
+                column("seconds", real()).optional(),
                 column("solution_id", T::id())
                     .with_fk("runtime.operational_solutions", "solution_id")
                     .optional(),
             ],
-            "Improving feasible points and the bound at that time, numbered by the producer; `solution_id` names the stored point when it is kept for resumption.",
+            "Improving feasible points of a branch-and-bound search and the bound at that time, numbered by the producer, with the progress context of the event that reported each: the step of the run, the phase, and `elapsed_seconds` from the step's admitted execution start. `nodes` and `seconds` are the search's node count and native running time then; `solution_id` names the stored point when it is kept for resumption.",
         )
         .check("seq_nonnegative", "\"seq\" >= 0")
+        .check("step_nonnegative", "\"step\" >= 0")
+        .check("elapsed_nonnegative", "\"elapsed_seconds\" >= 0")
+        .check("phase_nonempty", nonempty("phase"))
+        .check("nodes_nonnegative", "\"nodes\" IS NULL OR \"nodes\" >= 0")
+        .check("seconds_nonnegative", "\"seconds\" IS NULL OR \"seconds\" >= 0")
         .check("gap_nonnegative", "\"gap\" IS NULL OR \"gap\" >= 0"),
     );
 }

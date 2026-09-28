@@ -998,10 +998,15 @@ class RuntimeOperationalIncumbentsRow:
 
     attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     seq: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    step: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
     at: datetime = attrs.field(validator=v.utc_timestamp)
+    elapsed_seconds: b.float = attrs.field(validator=v.finite_float)
+    phase: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     objective: b.float = attrs.field(validator=v.finite_float)
     dual_bound: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     gap: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    nodes: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    seconds: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     solution_id: i.SolutionId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
 

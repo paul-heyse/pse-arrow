@@ -77,3 +77,10 @@ WHERE j.state = 'running'
 ORDER BY j.job_id
 LIMIT :limit
 FOR UPDATE OF j SKIP LOCKED;
+
+-- The job listing, newest first: every job, or those in the given states.
+--! list_jobs
+SELECT j FROM pse_ops.jobs AS j
+WHERE cardinality(:states::pse_ops.job_state[]) = 0 OR j.state = ANY(:states)
+ORDER BY j.enqueued_at DESC, j.job_id DESC
+LIMIT :limit;

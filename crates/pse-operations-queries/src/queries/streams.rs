@@ -24,6 +24,12 @@ pub struct ExistingIncumbentSeqsParams<T1: crate::ArraySql<Item = i64>> {
     pub attempt_id: pse_model::generated::identities::AttemptId,
     pub seqs: T1,
 }
+#[derive(Clone, Copy, Debug)]
+pub struct IncumbentPageParams {
+    pub attempt_id: pse_model::generated::identities::AttemptId,
+    pub after: Option<i64>,
+    pub limit: i64,
+}
 use crate::client::async_::GenericClient;
 use futures::{self, StreamExt, TryStreamExt};
 pub struct I64Query<'c, 'a, 's, C: GenericClient, T, const N: usize> {
@@ -771,6 +777,80 @@ impl<
         params: &'a ExistingIncumbentSeqsParams<T1>,
     ) -> I64Query<'c, 'a, 's, C, i64, 2> {
         self.bind(client, &params.attempt_id, &params.seqs)
+    }
+}
+pub struct IncumbentPageStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn incumbent_page() -> IncumbentPageStmt {
+    IncumbentPageStmt(
+        "SELECT i FROM pse_ops.incumbents AS i WHERE i.attempt_id = $1::pse_ops.attempt_id AND i.seq > coalesce($2::bigint, -1) ORDER BY i.seq LIMIT $3",
+        None,
+    )
+}
+impl IncumbentPageStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        attempt_id: &'a pse_model::generated::identities::AttemptId,
+        after: &'a Option<i64>,
+        limit: &'a i64,
+    ) -> PsemodelGeneratedRuntimeOperationalincumbentsRuntimeOperationalIncumbentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_incumbents::RuntimeOperationalIncumbentsRow,
+        3,
+    > {
+        PsemodelGeneratedRuntimeOperationalincumbentsRuntimeOperationalIncumbentsRowQuery {
+            client,
+            params: [attempt_id, after, limit],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    IncumbentPageParams,
+    PsemodelGeneratedRuntimeOperationalincumbentsRuntimeOperationalIncumbentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_incumbents::RuntimeOperationalIncumbentsRow,
+        3,
+    >,
+    C,
+> for IncumbentPageStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a IncumbentPageParams,
+    ) -> PsemodelGeneratedRuntimeOperationalincumbentsRuntimeOperationalIncumbentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_incumbents::RuntimeOperationalIncumbentsRow,
+        3,
+    > {
+        self.bind(client, &params.attempt_id, &params.after, &params.limit)
     }
 }
 pub struct LatestIncumbentStmt(&'static str, Option<tokio_postgres::Statement>);

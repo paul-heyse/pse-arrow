@@ -40,6 +40,13 @@ pub struct RunningOwnerParams {
     pub attempt_id: pse_model::generated::identities::AttemptId,
     pub running: pse_model::generated::enums::AttemptState,
 }
+#[derive(Debug)]
+pub struct ListJobsParams<
+    T1: crate::ArraySql<Item = pse_model::generated::enums::JobState>,
+> {
+    pub states: T1,
+    pub limit: i64,
+}
 use crate::client::async_::GenericClient;
 use futures::{self, StreamExt, TryStreamExt};
 pub struct PsemodelGeneratedRuntimeOperationaljobsRuntimeOperationalJobsRowQuery<
@@ -998,5 +1005,85 @@ impl ExpiredJobsStmt {
             extractor: |row| Ok(row.try_get(0)?),
             mapper: |it| it,
         }
+    }
+}
+pub struct ListJobsStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn list_jobs() -> ListJobsStmt {
+    ListJobsStmt(
+        "SELECT j FROM pse_ops.jobs AS j WHERE cardinality($1::pse_ops.job_state[]) = 0 OR j.state = ANY($1) ORDER BY j.enqueued_at DESC, j.job_id DESC LIMIT $2",
+        None,
+    )
+}
+impl ListJobsStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<
+        'c,
+        'a,
+        's,
+        C: GenericClient,
+        T1: crate::ArraySql<Item = pse_model::generated::enums::JobState>,
+    >(
+        &'s self,
+        client: &'c C,
+        states: &'a T1,
+        limit: &'a i64,
+    ) -> PsemodelGeneratedRuntimeOperationaljobsRuntimeOperationalJobsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_jobs::RuntimeOperationalJobsRow,
+        2,
+    > {
+        PsemodelGeneratedRuntimeOperationaljobsRuntimeOperationalJobsRowQuery {
+            client,
+            params: [states, limit],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+    T1: crate::ArraySql<Item = pse_model::generated::enums::JobState>,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    ListJobsParams<T1>,
+    PsemodelGeneratedRuntimeOperationaljobsRuntimeOperationalJobsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_jobs::RuntimeOperationalJobsRow,
+        2,
+    >,
+    C,
+> for ListJobsStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a ListJobsParams<T1>,
+    ) -> PsemodelGeneratedRuntimeOperationaljobsRuntimeOperationalJobsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_jobs::RuntimeOperationalJobsRow,
+        2,
+    > {
+        self.bind(client, &params.states, &params.limit)
     }
 }

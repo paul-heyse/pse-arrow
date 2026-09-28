@@ -6,11 +6,11 @@
 /// `schema.sql` and the hand-written `physical.sql`. A store records it when it is
 /// created and is refused when its record differs (ADR-0114 Outcome 23).
 pub const SCHEMA_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    66u8, 141u8, 92u8, 59u8, 188u8, 116u8, 32u8, 207u8, 155u8, 172u8, 11u8, 65u8, 235u8,
-    59u8, 55u8, 136u8, 86u8, 77u8, 83u8, 142u8, 156u8, 221u8, 123u8, 158u8, 146u8, 205u8,
-    50u8, 84u8, 41u8, 132u8, 152u8, 52u8,
+    0u8, 52u8, 8u8, 125u8, 37u8, 51u8, 50u8, 182u8, 72u8, 79u8, 237u8, 65u8, 174u8,
+    153u8, 26u8, 230u8, 97u8, 215u8, 177u8, 170u8, 28u8, 220u8, 248u8, 66u8, 47u8, 252u8,
+    117u8, 7u8, 68u8, 195u8, 121u8, 179u8,
 ]);
 /// [`SCHEMA_FINGERPRINT`] as lowercase hexadecimal.
-pub const SCHEMA_FINGERPRINT_HEX: &str = "428d5c3bbc7420cf9bac0b41eb3b3788564d538e9cdd7b9e92cd325429849834";
+pub const SCHEMA_FINGERPRINT_HEX: &str = "0034087d253332b6484fed41ae991ae661d7b1aa1cdcf8422ffc750744c379b3";
 /// Records the fingerprint on the created schema as its comment.
-pub const RECORD_SQL: &str = "COMMENT ON SCHEMA pse_ops IS 'pse.ops.schema.v1 428d5c3bbc7420cf9bac0b41eb3b3788564d538e9cdd7b9e92cd325429849834'";
+pub const RECORD_SQL: &str = "COMMENT ON SCHEMA pse_ops IS 'pse.ops.schema.v1 0034087d253332b6484fed41ae991ae661d7b1aa1cdcf8422ffc750744c379b3'";

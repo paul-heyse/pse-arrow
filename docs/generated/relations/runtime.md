@@ -852,7 +852,7 @@ Native row check `worker_nonempty` (must be true):
 
 ## `operational_incumbents`
 
-Improving feasible points and the bound at that time, numbered by the producer; `solution_id` names the stored point when it is kept for resumption.
+Improving feasible points of a branch-and-bound search and the bound at that time, numbered by the producer, with the progress context of the event that reported each: the step of the run, the phase, and `elapsed_seconds` from the step's admitted execution start. `nodes` and `seconds` are the search's node count and native running time then; `solution_id` names the stored point when it is kept for resumption.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
 
@@ -860,11 +860,22 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
 |---|---|---|---|---|---|
 | `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
 | `seq` | `Int64` | false | `key` | — | — |
+| `step` | `Int32` | false | `payload` | — | — |
 | `at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `elapsed_seconds` | `Float64` | false | `payload` | — | — |
+| `phase` | `Utf8` | false | `payload` | — | — |
 | `objective` | `Float64` | false | `payload` | — | — |
 | `dual_bound` | `Float64` | true | `payload` | — | — |
 | `gap` | `Float64` | true | `payload` | — | — |
+| `nodes` | `Int64` | true | `payload` | — | — |
+| `seconds` | `Float64` | true | `payload` | — | — |
 | `solution_id` | `semantic_id` | true | `payload` | `runtime.operational_solutions.solution_id` | — |
+
+Native row check `elapsed_nonnegative` (must be true):
+
+```sql
+"elapsed_seconds" >= 0
+```
 
 Native row check `gap_nonnegative` (must be true):
 
@@ -872,10 +883,34 @@ Native row check `gap_nonnegative` (must be true):
 "gap" IS NULL OR "gap" >= 0
 ```
 
+Native row check `nodes_nonnegative` (must be true):
+
+```sql
+"nodes" IS NULL OR "nodes" >= 0
+```
+
+Native row check `phase_nonempty` (must be true):
+
+```sql
+"phase" <> ''
+```
+
+Native row check `seconds_nonnegative` (must be true):
+
+```sql
+"seconds" IS NULL OR "seconds" >= 0
+```
+
 Native row check `seq_nonnegative` (must be true):
 
 ```sql
 "seq" >= 0
+```
+
+Native row check `step_nonnegative` (must be true):
+
+```sql
+"step" >= 0
 ```
 
 ## `operational_jobs`
