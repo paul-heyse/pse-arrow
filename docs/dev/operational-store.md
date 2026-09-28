@@ -4,11 +4,12 @@
 > · [Plan 22 architecture §9](../plans/22-solver-capabilities-architecture.md#9-operational-store-and-publication-catalog-postgresql-18)
 > · crate `pse-operations`
 >
-> Plan 22 B1, B2 and O8 have landed: the schema is generated from the registry and
-> created or refused by fingerprint, every statement is SQL compiled by Cornucopia into
-> the generated crate `pse-operations-queries`, run on tokio-postgres, and the catalog is
-> the only publication authority (the Delta control table is gone). The Plan 22 docs
-> step rewrites this page once more.
+> Plan 22 B1, B2, O8, O7 and O9 have landed: the schema is generated from the registry
+> and created or refused by fingerprint, every statement is SQL compiled by Cornucopia
+> into the generated crate `pse-operations-queries`, run on tokio-postgres, the catalog
+> is the only publication authority (the Delta control table is gone), studies run
+> across workers, and query sessions read the store as DataFusion tables. The Plan 22
+> docs step rewrites this page once more.
 
 PostgreSQL owns what changes (attempts, jobs, leases, cancellation requests, live progress,
 incumbents, reusable solutions, studies and the publication catalog); Delta owns what
@@ -103,7 +104,7 @@ not in SQL. Deletes are explicit: there is no `ON DELETE CASCADE`.
 
 Every statement is SQL in `crates/pse-operations/queries/*.sql`, one file per repository
 (`store`, `attempts`, `jobs`, `cancellation`, `streams`, `solutions`, `sources`,
-`catalog`), with Cornucopia's named parameters and hand-annotated nullability
+`catalog`, `studies`, and `tables` for the query surface), with Cornucopia's named parameters and hand-annotated nullability
 (ADR-0114 Outcome 24). `cargo xtask codegen` (part of `just codegen`) renders the store
 schema in memory, creates a temporary database on the local server from it and
 `physical.sql`, prepares every statement there with Cornucopia 1.0.1, and writes the
@@ -241,6 +242,51 @@ not started, asks running tries to stop, and still publishes what completed.
 ```bash
 just worker-test study_parallel_workers_publish_once   # two pse-worker processes
 just db-test 'test(study_tests)'                       # the repository
+```
+
+## Query surface
+
+A durable runtime's query sessions see the operational relations as read-only DataFusion
+tables under the schema `pse_ops` (Plan 22 O9): `attempts`, `attempt_transitions`,
+`jobs`, `progress_events`, `progress_values`, `incumbents`, `solutions`, `studies`,
+`study_points`, `workspaces`, `publications`, `publication_members` and `settlements`.
+`Runtime::query_session` builds one, optionally over a publication's session and a run's
+retained result relations (`workspace.<namespace>.<name>`), so SQL joins the store with
+results; Python's `Runtime.query(sql, result=, publication=)` streams its answer. An
+ephemeral runtime binds no `pse_ops` tables.
+
+- **Scans.** Each table's provider runs its generated statement
+  (`queries/tables.sql`, `pse_operations::tables`) and builds each page with the
+  relation's generated `pse-relations` builder, so values are checked against their
+  registry field contracts on the way in. A scan reads pages of at most the session's
+  batch size (64 rows for solutions, whose vectors can be long) after a primary-key
+  position; it holds no connection between pages and honours a pushed limit. Pages are
+  read at READ COMMITTED: a row that existed throughout the scan is read exactly once.
+- **Pushdown.** Equality and `IN` on identity columns and state vocabularies, and
+  comparisons and `BETWEEN` on the time column, become the statement's typed filter.
+  They are `Inexact`: the statement returns a superset and DataFusion applies every filter
+  again. Anything else is evaluated by DataFusion over the unfiltered pages.
+- **Freshness.** The providers declare no constraints, so a session binds them as
+  observed native sources and a query that reads one is never served from a cache.
+- **Streams.** `Runtime::progress` (Python `Runtime.progress(attempt_id, follow=True)`)
+  reads an attempt's progress events and
+  incumbents in observation order, a bounded page at a time; following waits on the
+  store's listener until the attempt stops working, and closing the stream ends a waiting
+  read. Each incumbent row keeps the progress context of the event that reported it
+  (step, phase, elapsed time) and the search's node count and running time.
+
+**ADBC is not adopted.** The ADBC PostgreSQL driver (`adbc_core`/`adbc_driver_manager`
+0.24, which fit arrow 59) would read these tables into Arrow directly, but it adds a C
+driver manager and a second PostgreSQL client for tables the generated builders already
+serve with registry-checked values, typed parameters and the store's own pool.
+`datafusion-table-providers` is not usable either: its release requires datafusion 54
+and arrow 58, which would split the one type universe. Revisit when a release matches
+`datafusion =55.1.0`, or if a relation must be read at a volume the per-row builders
+cannot sustain.
+
+```bash
+just unit-native-package pse-runtime pse-runtime/native-solvers 'test(operational_tables)'
+just db-test 'test(tables_tests)'
 ```
 
 ## Tests
