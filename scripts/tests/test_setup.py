@@ -228,69 +228,6 @@ class EditPolicyTests(unittest.TestCase):
             hooks.protected(self.root, "docs/authoritative_design/blueprint.md")
         )
 
-    def test_formatter_ignores_files_outside_the_working_copy(self) -> None:
-        other = tempfile.TemporaryDirectory()
-        self.addCleanup(other.cleanup)
-        stray = Path(other.name) / "scratch.py"
-        stray.write_text("x=1\n")
-        with patch.object(hooks.subprocess, "run") as run:
-            hooks.format_paths(self.root, [str(stray)])
-        run.assert_not_called()
-
-    def test_formatter_only_receives_permitted_edited_files(self) -> None:
-        for name in ("a.py", "neighbor.py", "docs/generated/skip.py"):
-            path = self.root / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("x=1\n")
-        with patch.object(hooks.subprocess, "run") as run:
-            hooks.format_paths(
-                self.root, ["a.py", "a.py", "deleted.py", "docs/generated/skip.py"]
-            )
-        self.assertEqual(run.call_count, 1)
-        self.assertEqual(run.call_args.args[0][-1], str((self.root / "a.py").resolve()))
-        self.assertEqual((self.root / "neighbor.py").read_text(), "x=1\n")
-
-    def test_formatter_excludes_canonical_and_materialized_skills(self) -> None:
-        skills = [
-            f"{runtime}/skills/example/{name}"
-            for runtime in (".codex", ".claude", ".agents")
-            for name in ("scripts/cli.py", "build/Cargo.toml", "examples/demo.rs")
-        ]
-        product = ["scripts/tool.py", ".codex/agents/reviewer.toml", "crates/demo.rs"]
-        for name in skills + product:
-            path = self.root / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("unformatted fixture\n")
-        with patch.object(hooks.subprocess, "run") as run:
-            hooks.format_paths(self.root, skills + product)
-        self.assertEqual(
-            [call.args[0][-1] for call in run.call_args_list],
-            [str(self.root / name) for name in product],
-        )
-        for name in skills:
-            self.assertEqual((self.root / name).read_text(), "unformatted fixture\n")
-
-    def test_formatter_excludes_skill_symlink_aliases(self) -> None:
-        canonical = self.root / ".codex/skills/example/scripts/cli.py"
-        canonical.parent.mkdir(parents=True)
-        canonical.write_text("x=1\n")
-        for runtime in (".claude", ".agents"):
-            alias = self.root / runtime / "skills"
-            alias.parent.mkdir()
-            try:
-                alias.symlink_to(self.root / ".codex/skills", target_is_directory=True)
-            except OSError:
-                # The materialized-copy test covers systems without symlink support.
-                return
-        paths = [
-            f"{runtime}/skills/example/scripts/cli.py"
-            for runtime in (".codex", ".claude", ".agents")
-        ]
-        with patch.object(hooks.subprocess, "run") as run:
-            hooks.format_paths(self.root, paths)
-        run.assert_not_called()
-        self.assertEqual(canonical.read_text(), "x=1\n")
-
 
 class ConfigurationTests(unittest.TestCase):
     def test_instruction_scan_excludes_all_skill_contents(self) -> None:

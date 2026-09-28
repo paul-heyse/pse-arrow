@@ -97,48 +97,6 @@ def protected(root: Path, path: str, *, design_edit: bool = False) -> str | None
     return None
 
 
-def format_paths(root: Path, paths: list[str]) -> None:
-    venv = Path(os.environ.get("UV_PROJECT_ENVIRONMENT", ".venv"))
-    bindir = root / venv / ("Scripts" if os.name == "nt" else "bin")
-    for path in dict.fromkeys(paths):
-        target = (root / path).resolve()
-        # Repo formatters carry repo configuration. An agent's own scratch space
-        # and runtime config are not the working copy and are left untouched.
-        if not within(target, root.resolve()):
-            continue
-        # Match canonical bundles, symlink aliases and Windows materialized copies.
-        if any(
-            within(target, (root / runtime / "skills").resolve())
-            for runtime in (".codex", ".claude", ".agents")
-        ):
-            continue
-        if protected(root, path, design_edit=os.environ.get("PSE_DESIGN_EDIT") == "1"):
-            continue
-        if not target.is_file():
-            continue
-        command = None
-        if target.suffix == ".rs":
-            command = [
-                "rustfmt",
-                "--edition",
-                "2024",
-                "--config",
-                "skip_children=true",
-                str(target),
-            ]
-        elif target.suffix == ".py":
-            command = [str(bindir / "ruff"), "format", "--force-exclude", str(target)]
-        elif target.suffix == ".toml":
-            command = [str(bindir / "taplo"), "fmt", str(target)]
-        if command:
-            try:
-                subprocess.run(
-                    command, cwd=root, check=True, capture_output=True, timeout=60
-                )
-            except (OSError, subprocess.SubprocessError) as exc:
-                print(f"formatter did not finish for {path}: {exc}", file=sys.stderr)
-
-
 def main() -> int:
     action = sys.argv[1]
     if action == "session":
@@ -176,8 +134,6 @@ def main() -> int:
                 if reason:
                     print(f"BLOCKED: {path}: {reason}", file=sys.stderr)
                     return 2
-        elif action == "format":
-            format_paths(ROOT, paths)
         else:
             print(f"unknown action: {action}", file=sys.stderr)
             return 2

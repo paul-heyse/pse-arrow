@@ -61,7 +61,10 @@ propagation beyond `tracing` task propagation inside the engine.
 > `numerical` and `inconclusive` boundary classes, diagnostic severity and typed
 > `ProblemError` variants (Plan 22 A1, implemented);
 > [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — the typed
-> realization refusal `modeling.realization` (Plan 22 M3 and M4, implemented).
+> realization refusal `modeling.realization` (Plan 22 M3 and M4, implemented);
+> [ADR-0114](../../adr/0114-typed-operational-store.md) — operational-store failures are classified by SQLSTATE constants, never strings;
+> CHECK and foreign-key violations are a typed invariant violation, not `Internal` (Plan 22
+> B2; not yet implemented).
 
 **Ownership.** `pse-diagnostics` declares one vocabulary: `FailureClass` (coarse class)
 and `DiagnosticCode` (detailed code, each mapped to one class). The registry projects

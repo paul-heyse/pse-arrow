@@ -17,9 +17,9 @@ docs/plans/; design reviews follow the design-review skill's output contract. De
 current system in its owning section; completed plans and resolved reviews retire to Git
 history rather than being preserved or re-summarized (ADR-0096).
 
-Read AGENTS.md first and follow its Execution rhythm: targeted unit tests while
-implementing, immediate deletion of provably replaced code, comprehensive qualification
-only when the maintainer requests it. Use the repository command surface and pinned tools. Search with rg and
+Read AGENTS.md first and follow its Execution rhythm: compile checks and targeted unit
+tests while implementing, immediate deletion of provably replaced code; no formatting,
+lint or integration suites until all functional scope in the plan is implemented. Use the repository command surface and pinned tools. Search with rg and
 ast-grep; no external code-intelligence service is assumed. Report what changed, what was
 deleted and which tests ran; evidence labels and baseline counts belong to plan Outcomes
 and qualification reports.

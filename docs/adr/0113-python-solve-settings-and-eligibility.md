@@ -1,7 +1,7 @@
 ---
 id: ADR-0113
 title: Project typed backend settings, registry names and typed eligibility across the Python boundary
-status: accepted
+status: superseded
 date: 2026-09-27
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§21.1, §21.5]
 review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#decision
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0116
 revisit: A Python caller needs a backend setting the typed projection cannot express, or one library upgrade forces more than one Python settings-contract version change.
 verification: Review scenarios S04 and S05 and architecture scenario S18, settled by the Plan 22 A4/A5 tests test_solve_settings_backend_projection, test_route_and_eligibility_are_typed, initialization_admission_in_rust and identity_covers_every_settings_field, with just python-stubs and just codegen leaving no drift.
 standard: core-3.0/process-simulator-1.1
@@ -107,3 +107,4 @@ settings type per backend, which the backend-execution adapter needs anyway.
 
 - 2026-09-27 — proposed (Plan 22 D0).
 - 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level).
+- 2026-09-28 — superseded by ADR-0116.

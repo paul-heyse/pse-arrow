@@ -258,7 +258,7 @@ def main() -> int:
         problems.append(native.stdout + native.stderr)
     for config in (ROOT / ".codex/hooks.json", ROOT / ".claude/settings.json"):
         hooks = json.loads(config.read_text())["hooks"]
-        for event in ("SessionStart", "PreToolUse", "PostToolUse"):
+        for event in ("SessionStart", "PreToolUse"):
             if not hooks.get(event):
                 problems.append(f"{config}: missing {event} hook")
             for group in hooks.get(event, []):

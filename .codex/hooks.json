@@ -22,18 +22,6 @@
         ],
         "matcher": "^(Edit|MultiEdit|NotebookEdit|Write)$"
       }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel)}/scripts/agent-hooks.py\" format",
-            "timeout": 60
-          }
-        ],
-        "matcher": "^(Edit|MultiEdit|NotebookEdit|Write)$"
-      }
     ]
   }
 }

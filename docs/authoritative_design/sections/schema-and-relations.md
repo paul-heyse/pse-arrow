@@ -24,6 +24,11 @@ either generated from the registry or checked against it.
 
 ### 4.1 What is declared once
 
+> Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — a key column may declare an entity identity, inherited by foreign keys;
+> every decision vocabulary crossing a boundary is a registry enum with one Rust type
+> (Plan 22 B1, B3, B4; not yet implemented). [ADR-0114](../../adr/0114-typed-operational-store.md) — the registry also declares the
+> operational store's catalog tables and row invariants (Plan 22 B1).
+
 A relation is declared exactly once as a `RelationSpec` over native Arrow fields
 (`pse_schema::model`). A `FieldContract` is a real Arrow `Field` that carries its domain
 facets in field metadata, so nested children carry the same contract as top-level
@@ -95,13 +100,22 @@ bootstrap when the package loader itself depends on regenerated contracts.
 | `python/pse/contracts/` | Contract classes, enums with IDAES bindings, `pyarrow` extension types, content digest | Python package ([§21](workflows-and-results.md#section-21)) |
 | `docs/generated/` | Relation, enumeration, extension-type, algorithm and invariant reference; authoring JSON Schema | readers and editors |
 
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md), [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md), [ADR-0116](../../adr/0116-typed-boundary-documents.md) — target trees, not yet generated (Plan 22 B1, B2, B5):
+> `crates/pse-operations/src/generated/` (the `pse_ops` DDL with ENUM types and identity
+> domains, the schema fingerprint, the Cornucopia type mapping); `crates/pse-operations-queries/`
+> (typed statements compiled by Cornucopia against a temporary database on the local
+> PostgreSQL 18 server; its regeneration check needs that server); typed ids in `pse-model`;
+> JSON Schemas for Rust-owned documents in `docs/generated/schema/`; and generated msgspec
+> document types in `python/pse/contracts/`. `python/pse/_native.pyi` is generated as well and
+> is protected like the other trees.
+
 `crates/pse-ipopt-sys/src/bindings.rs` is also a generated tree, but bindgen produces
 it from the Ipopt headers, not from the registry.
 
 Nothing hand-written may restate a generated row shape. The governance test
-`no_shadow_structs` checks this. Where runtime reflection cannot give an equivalent
-compile-time contract, typed generated accessors are kept, and the generator states that
-reason.
+`no_shadow_structs` checks this. Typed generated accessors give consumers a compile-time
+contract derived from the registry, so a registry change reaches every consumer through
+regeneration rather than manual edits.
 
 ### 4.3 Metadata conventions
 

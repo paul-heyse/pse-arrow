@@ -1,8 +1,17 @@
 # Operational store (PostgreSQL 18)
 
-> **Decision: [ADR-0112](../adr/0112-postgresql-operational-store-and-catalog.md)**
+> **Decision: [ADR-0114](../adr/0114-typed-operational-store.md)** (superseding ADR-0112)
 > · [Plan 22 architecture §9](../plans/22-solver-capabilities-architecture.md#9-operational-store-and-publication-catalog-postgresql-18)
 > · crate `pse-operations`
+>
+> This page describes the store as built with sqlx and versioned migrations. Plan 22 B1 and
+> B2 replace that setup:
+> - a schema generated from the registry, created or refused by fingerprint;
+> - `just db-reset` instead of `db-migrate`;
+> - statements compiled by Cornucopia on tokio-postgres;
+> - a test harness over the generated schema.
+>
+> The page is rewritten when those packets land.
 
 PostgreSQL owns what changes (attempts, jobs, leases, cancellation requests, live progress,
 incumbents, reusable solutions, study status and the publication catalog); Delta owns what

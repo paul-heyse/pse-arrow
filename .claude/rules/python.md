@@ -25,9 +25,10 @@ Adding a third way to describe a record is the failure mode this rule exists to 
 recursively rejecting `Any`, bare `dict` and bare `list`. Dynamic converter hooks
 check their classes when constructed. Import checks compiled registry identity.
 
-`from __future__ import annotations` is forbidden under `python/pse` — PEP 563 turns
-annotations into strings and obscures types from boundary inspection. An
-ast-grep rule enforces it.
+`from __future__ import annotations` is allowed. `pse.governance` calls
+`attrs.resolve_types` before walking fields, the codec's cattrs converter resolves them
+too, and `test_postponed_annotations_are_resolved_before_the_lint` keeps the `Any` lint
+effective for modules that postpone annotations.
 
 ## numpy stays at the boundary
 
@@ -59,6 +60,8 @@ raises a `UsageError` at collection listing every offender. `just py-test` runs 
 Tools come from `.venv/bin`, declared with floors in `pyproject.toml`
 `[dependency-groups]` and resolved by `uv.lock`, never from `$PATH` and never via
 `pip install`. `just quality`
-runs ruff, pyrefly, import-linter and the repository linters together when manually
-requested (AGENTS.md *Execution rhythm*). While implementing, run the targeted
-`just py-test` units for what you changed; the post-edit hook formats edited files.
+runs ruff, pyrefly, import-linter and the repository linters together once a plan's
+functional scope is implemented, or when the maintainer requests it (AGENTS.md
+*Execution rhythm*). While implementing, run only `just py-sync` when the native API
+changed and the targeted `just py-test` units for what you changed; do not run ruff
+format or lint mid-plan.

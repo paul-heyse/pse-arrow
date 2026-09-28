@@ -335,7 +335,7 @@ policies, analysis modes and outcome tags.
 | DP-09 / PS-11 | Salsa-tracked specialization; value-only edits reuse structure; modes are facts, not models |
 | DP-13 | Symbolic algebra, derivatives, roots (Symbolica), linear algebra (faer), iteration (native solvers); the kernel writes no Newton step, AD or factorization |
 | DP-15 | Realization accelerators and external functions declare capabilities and are selected by policy, never by name |
-| DP-16 | An extension is one package declaration; generated code is limited to the registry IR |
+| DP-16 | An extension is one package declaration; generated code derives from the registry IR |
 | DP-21 | Lineage from every result to package, definition, member, dispatch, default and transformation |
 | PS-02 | `@valid` envelopes on every function and definition; recorded extrapolation policy |
 | PS-03 | Accumulators with independent closure |

@@ -1,7 +1,7 @@
 ---
 id: ADR-0112
 title: Keep operational state and the publication catalog in PostgreSQL 18 through pse-operations
-status: accepted
+status: superseded
 date: 2026-09-27
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§3.2, §17.1, §19.1, §20.1, §20.2, §20.4, §25, §26, §D10, §
 review: docs/design_review/reviews/design_review_plan22-target_2026-09-27.md#t02
 evidence: Interface-checked
 supersedes: [ADR-0016, ADR-0091]
-superseded-by: null
+superseded-by: ADR-0114
 revisit: A deployment needs more than one PostgreSQL primary or a cross-region catalog, a supported deployment cannot run PostgreSQL 18, or the Q1 event-volume measurement exceeds what batched inserts sustain.
 verification: Architecture scenarios S14–S17, settled by the Plan 22 O1–O9 and G8 tests migrations_apply_to_empty_database, schema_matches_registry_relations, illegal_transition_rejected, lease_expiry_marks_stale, ephemeral_cannot_publish, durable_run_listed_after_restart, two_workers_never_claim_same_job, expired_lease_requeues_as_new_attempt, cancel_notify_stops_running_job, unknown_payload_version_refused, progress_stream_complete_under_volume, stored_seed_reused_across_processes, study_parallel_workers_publish_once, concurrent_publishers_one_winner_no_lost_update, lost_ack_settles_via_catalog, maintenance_waits_for_reader_leases (the plan's maintenance_excludes_readers_via_advisory_lock, renamed by finding T02), exported_publication_opens_offline and killed_worker_attempt_goes_stale_and_resumes_from_incumbent; just db-status reporting 18.x with no pending migrations; governance every_crate_registered.
 standard: core-3.0/process-simulator-1.1
@@ -262,3 +262,4 @@ is in design, not production.
   the coordinator (after assessing the maintainer's external review) was recorded in Options
   and Outcome 11, and the Plan 22 target review assessed it.
 - 2026-09-27 — accepted under the maintainer's authorization of the full Plan 22 scope (2026-09-27), after the [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md#decision) returned Accept (author review, Proposed evidence level). Findings T02, T03, T09, T13, T16 were corrected in this record before acceptance.
+- 2026-09-28 — superseded by ADR-0114.

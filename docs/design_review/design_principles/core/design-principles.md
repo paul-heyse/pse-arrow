@@ -1,6 +1,6 @@
 # Design principles
 
-**Version 3.0 · 2026-09-25** · Core layer: repository- and domain-agnostic.
+**Version 3.1 · 2026-09-27** · Core layer: repository- and domain-agnostic.
 Six architectural foundations organize the operational rules retained from Core 2.0.
 §I maps the retired charter's IDs, which some retained decisions still cite.
 
@@ -380,11 +380,10 @@ work fail late or silently fall back? Can installing a package change a selectio
 
 **SHOULD · G8.** Judge a design by the independent semantic decisions and bespoke code it
 removes. An ordinary extension should be one authoritative declaration, any genuinely new
-implementation, and focused tests where warranted (§E). Prefer runtime and library mechanisms
-to generated static projections; generate code only where no runtime mechanism serves, and
-never treat generated output as an authority. Proportionality applies to the integration as
-well as bespoke machinery: account for coupling, initialization, configuration and upgrade
-obligations introduced by a capability. Eligibility never requires a current consumer; the
+implementation, and focused tests where warranted (§E). Generated code, like any derived
+artifact, is never treated as an authority (DP-01). Proportionality applies to the
+integration as well as bespoke machinery: account for coupling, initialization,
+configuration and upgrade obligations introduced by a capability. Eligibility never requires a current consumer; the
 adopted integration still needs an architectural role or a bounded exploration purpose. Once
 a replacement lands and its callers have moved, delete the replaced code, tests and fixtures
 in the same change; keep no shim or parallel path "as evidence".
@@ -553,7 +552,7 @@ remain correct; judge design and implementation at their stated evidence strengt
 | Is it a representation translation with no new domain decision? | A mechanical adapter |
 | Is it an optimized layout or queryable projection? | A derived artifact with explicit dependencies and identity mapping |
 | Is it an effectful action or an important execution sequence? | A typed action or workflow at an execution boundary |
-| Is it a repeated mechanical expression of an existing contract? | A runtime or library mechanism; generate code only where none serves |
+| Is it a repeated mechanical expression of an existing contract? | A runtime or library mechanism, or code generated from the one authoritative declaration (DP-01) |
 | Is it flexibility without a credible variation axis or exploration purpose? | Defer the integration machinery. Library eligibility remains unrestricted; assess adoption cost against its architectural role |
 
 ## §D Evidence vocabulary
@@ -621,7 +620,7 @@ attractive claim.
 | "The schema enforces it." | The invariant is metadata that no path rejects on. |
 | "It uses library X." | A wrapper re-implements, bypasses or restricts the library's core capability. |
 | "It is incremental." | A hidden read, a mutable handle or untracked membership makes reuse stale. |
-| "It is generated from one source." | Generated output is edited, stale, or preferred where a runtime mechanism exists. |
+| "It is generated from one source." | Generated output is edited, stale, or never checked against a fresh regeneration. |
 | "The algorithm succeeded." | Its status or convergence was not checked against the declared contract. |
 | "Every backend is supported." | Lowerings or auxiliary capabilities exist for only some accepted operations. |
 | "It is zero-copy" or "it is faster." | Ownership, conversion, construction and end-to-end costs were never measured. |

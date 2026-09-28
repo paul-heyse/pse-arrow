@@ -111,8 +111,9 @@ qualification obligations.
 
 All failure baselines are zero. The current qualification basis is
 [§24.2](../authoritative_design/sections/operations-and-validation.md#section-24-2).
-Targeted units and compilation support implementation. Full integration and quality
-checks run when the maintainer requests qualification.
+Compilation and targeted units support implementation. Formatting, lint and full
+integration checks run once all functional scope is implemented, or when the maintainer
+requests qualification.
 
 `just assessment <output>` collects the full local default/native/Python scope without
 stopping at the first failure. `just native-test` and `just native-python <output>`

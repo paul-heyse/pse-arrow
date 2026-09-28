@@ -19,7 +19,7 @@ provider contracts in `pse-kernels`. The qualification basis for these statement
 > mixed-integer, disjunctive and globally certified classes enter the design target;
 > [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — sensitivity,
 > covariance and uncertainty under PS-12 validity;
-> [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — operational
+> [ADR-0114](../../adr/0114-typed-operational-store.md) — operational
 > store, publication catalog and durable multi-process execution. The Supported column
 > changes only as the [Plan 22](../../plans/22-solver-capabilities.md) packets land.
 
@@ -39,7 +39,7 @@ no silent fallback, approximate substitute or compatibility route.
 | Initialization and recycles | Transactional staged initialization as one staged sequence with per-step overlays and value-only rebind; finite supplied continuation and bounded adaptive homotopy; authored tears selected by HiGHS MILP with an independent acyclicity witness; causal fixed-point maps; explicit starts independent of allocation reuse | Any convergence guarantee for a strategy | [§17](numerical-execution.md#section-17) |
 | Dynamics | ODE and index-1 DAE with a fixed diag(I,0) mass matrix; Diffsol BDF, SDIRK and (mass-free) explicit schemes with faer LU or KLU; IDAS with recoverable trials, scheduled inputs crossed by forward sensitivities, directional events without sensitivities, sign constraints, Krylov with a Jacobi preconditioner and a steady start; consistent initialization; finite events/resets; physical time origins; smooth forward sensitivities; native quadratures; simultaneous authored FD/Radau schemes | Higher-index or general implicit DAE; variable-layout dynamics; IDAS sensitivities across events; adjoint and second-order sensitivities and shooting until Plan 22 Y3–Y5 land (in the target: ADR-0110); unsupported residual/index structure | [§13](workflows-and-results.md#section-13) |
 | Fitting | Steady, transient and mixed fitting over declared sparse or dense support; candidate response derivatives; a qualified estimate requires convergence, original feasibility and response rank | Covariance, confidence intervals and uncertainty propagation until Plan 22 S3–S4 land (in the target with PS-12 validity: ADR-0107); global identifiability | [§19](workflows-and-results.md#section-19) |
-| Results and publication | Typed completion through Rust, Arrow and Python; exact publication, settlement and read-only reopening; typed migration-required refusal for unsupported historical formats | Automatic migration; multi-writer or remote object-store deployment until the catalog lands (in the target: ADR-0112, Plan 22 O8) | [§20](identity-and-publication.md#section-20), [§21](workflows-and-results.md#section-21) |
+| Results and publication | Typed completion through Rust, Arrow and Python; exact publication, settlement and read-only reopening; typed migration-required refusal for unsupported historical formats | Automatic migration; multi-writer or remote object-store deployment until the catalog lands (in the target: ADR-0114, Plan 22 O8) | [§20](identity-and-publication.md#section-20), [§21](workflows-and-results.md#section-21) |
 | Python | Registry-generated declarations, blocking and async jobs, Arrow result streams, publication and settlement | Mathematics in Python; production Pyomo or NL routes | [§21](workflows-and-results.md#section-21) |
 
 **Recorded limits.** The following bound every claim made from the current qualification:
@@ -52,7 +52,7 @@ no silent fallback, approximate substitute or compatibility route.
   ([ADR-0102](../../adr/0102-discrete-and-global-design-target.md)) is implemented for
   factorable problems over finite boxes whose nonlinear terms involve no implicit block or
   provider output; the rest is Plan 22 G4. Durable multi-process execution through the
-  operational store ([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md))
+  operational store ([ADR-0114](../../adr/0114-typed-operational-store.md))
   is in the target and not yet implemented.
 - Declared operating envelopes and exercised reference comparisons do not certify
   empirical property accuracy. Passing analytic or reference cases does not establish
@@ -70,7 +70,7 @@ no silent fallback, approximate substitute or compatibility route.
 
 ## 26. Risks and unresolved design choices
 
-> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —
 > multi-writer and remote publication decided through the PostgreSQL catalog (register
 > R-10 removed); [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) —
 > solver image and Ipopt linear solvers (register R-08, R-09 and R-34). Plan 22; not yet
@@ -92,7 +92,7 @@ Deferred choices with an observable trigger and review date are owned by the
 
 **Unresolved design choices.** Each has no selected position; the current system refuses
 or does not offer the capability until an owner decides. Multi-writer and remote
-object-store publication is no longer open: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)
+object-store publication is no longer open: [ADR-0114](../../adr/0114-typed-operational-store.md)
 decides it through the PostgreSQL publication catalog, and qualification follows Plan 22 O8.
 
 | Choice | Current position | What would settle it |

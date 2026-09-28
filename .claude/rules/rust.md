@@ -78,9 +78,11 @@ for the behaviour you changed are the whole loop; both pass
 Delete a replaced mechanism with its tests as soon as the replacement's tests pass and
 its callers have moved.
 
-When the maintainer requests comprehensive qualification, `just ci-fast` covers fmt,
+Do not run `cargo fmt`, `just clippy` or integration suites mid-plan. Once all functional
+scope in the plan is implemented (or when the maintainer requests comprehensive
+qualification), `just ci-fast` covers fmt,
 `cargo check`, clippy `-D warnings`, nextest and doctests — **nextest does not run
 doctests**, which is why `just doctest` is a separate step. `just governance` covers
 pins, crate registration, MSRV, dependency floors, unsafe allowlist and error taxonomy.
-Select integration and performance checks for the requested scope. These aggregates do
-not run automatically at plan close, commit, push or merge.
+Select integration and performance checks for the implemented scope. These aggregates
+are not commit, push or merge gates.

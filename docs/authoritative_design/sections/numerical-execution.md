@@ -361,7 +361,7 @@ policy; libraries own every iteration.
 
 ### 17.1 Structural initialization model
 
-> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —
 > restates D13: initialization stages, including discrete fixing, are immutable overlays;
 > [ADR-0093](../../adr/0093-qualified-native-strategies.md) — transactional stages. Plan 22
 > A6 (implemented) runs every block as a solve step of one staged sequence on a retained
@@ -979,7 +979,7 @@ Of these, the SCIP extensions (implicit definitions and provider envelopes in th
 Plan 22 G4; IIS, G5; native handlers, solution pool, reoptimization, concurrent and exact
 modes, G7), cone recognition from exact certificates (Plan 22 C5), adjoint and second-order
 sensitivities (Plan 22 Y3, Y4) and durable multi-process execution
-([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)) are in the design
+([ADR-0114](../../adr/0114-typed-operational-store.md)) are in the design
 target and not yet implemented. General or higher-index DAE, finite-difference
 derivatives, GPU execution and distributing one solve remain outside the target.
 

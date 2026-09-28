@@ -87,10 +87,13 @@ evidence.
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0098](../../adr/0098-modeling-knowledge-ownership.md) (proposed; implementation authorized).
 >
-> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — a new
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — a new
 > crate `pse-operations` owns the operational store and publication catalog; `pse-runtime`
 > depends on it and gains the `pse-worker` binary target (Plan 22 O2–O4; not yet
-> implemented, so the crate is not yet in the table below).
+> implemented, so the crate is not yet in the table below). In the target, the generated crate
+> `pse-operations-queries` (Cornucopia output) sits beneath `pse-operations`, and an optional
+> `postgres` feature on `pse-ids` and `pse-model` carries the generated value mapping (Plan 22
+> B1, B2; not yet implemented).
 
 Cargo metadata owns workspace membership: `members` in the root manifest are `crates/*`,
 the five `tests/*` crates, `xtask` and `benches`. The table explains roles; it does not
@@ -161,8 +164,11 @@ whose only unsafe use reads the GMP/MPFR version strings
 > [ADR-0105](../../adr/0105-scip-factorable-backend.md) — SCIP for MIQP, MINLP and global
 > certification; [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) —
 > SPRAL SSIDS, oneMKL and METIS for Ipopt;
-> [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — PostgreSQL 18
-> through `pse-operations`. Rows join the table as Plan 22 packets land.
+> [ADR-0114](../../adr/0114-typed-operational-store.md) — PostgreSQL 18
+> through `pse-operations`: tokio-postgres, deadpool-postgres, postgres-types and
+> tokio-postgres-rustls, with statements compiled by Cornucopia, replacing sqlx (Plan 22 B2);
+> [ADR-0116](../../adr/0116-typed-boundary-documents.md) — schemars for Rust-owned documents (Plan 22 B5); typed-index-collections and
+> enum-map at coordinate boundaries (Plan 22 B6). Rows join the table as Plan 22 packets land.
 
 Each library owns the operation it implements. PSE code owns the physical, identity and
 admission contracts around the library call. A library never becomes the authority for

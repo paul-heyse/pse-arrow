@@ -62,7 +62,9 @@ differently from the rest:
    Ordinary maintainer development uses the existing checkout; preserve concurrent work.
 3. **Decide whether an ADR is required** — the table in §4. If one is, the ADR lands in
    its own PR labeled `adr`, titled `adr: ADR-NNNN <title>`, before or with the code.
-4. **Work small.** Run focused checks when useful. CI is entirely manual and does not
+4. **Work small.** While implementing, run compile checks and the targeted tests for the
+   new scope. Formatting, lint and integrated suites run once all functional scope is
+   implemented (AGENTS.md *Execution rhythm*). CI is entirely manual and does not
    run or gate commits, pushes, pull requests, merges or plan closure. Use `just ci-fast`,
    `just ci-pr`, `just parity-container` or the GitHub Actions **Run workflow** button
    whenever you choose to review the project. Full wheels/sdists remain manual

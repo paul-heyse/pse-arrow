@@ -115,11 +115,13 @@ Each is stated once in its authority; this list only points to it.
 
 | # | Standard says | Repository text says | Until resolved |
 |---|---|---|---|
-| K2 | Prefer runtime and library mechanisms over generated projections (DP-16) | Blueprint §4.2 and ADR-0031/0051 keep registry-generated Rust, Python and documentation contracts | Existing generated contracts stand. A new generator states why no runtime mechanism serves |
 | K3 | Foundation IDs `AP-nn`, refinement IDs `DP-nn`, profile IDs `PS-nn`; evidence vocabulary in principles §D; exceptions in §H | Retained accepted ADRs cite `DM-nn`, "charter §D" and "charter §H" | Read them through principles §I; accepted records are not edited |
 
 K1 (library-first mathematics versus pre-Plan 14 blueprint text) is resolved: the
 architecture sections now describe library-owned mathematics, providers and native solvers.
+K2 (a preference for runtime mechanisms over generated projections) is resolved: Core 3.1
+dropped that preference, and generation from one authoritative declaration is judged on
+its merits like any other mechanism.
 
 ## Where defect shapes tend to land in this stack
 

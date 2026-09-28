@@ -5,6 +5,7 @@ date: 2026-09-27
 parent: 22-solver-capabilities.md
 review_sources:
   - ../design_review/reviews/design_review_solver-capabilities_2026-09-27.md
+  - ../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md
 ---
 
 # Solver capabilities, discrete decisions and the operational store — target architecture
@@ -12,11 +13,20 @@ review_sources:
 **Evidence level: Proposed.** This document states the target that
 [Plan 22](22-solver-capabilities.md) implements. Library facts cite the
 [solver capability review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md)
-(slot 8) at the evidence level recorded there. The decisions it rests on are ADR-0102–ADR-0113,
+(slot 8) at the evidence level recorded there. The decisions it rests on are ADR-0102–ADR-0116,
 accepted on 2026-09-27 after the
 [Plan 22 target review](../design_review/reviews/design_review_plan22-target_2026-09-27.md);
 the ADRs are authoritative where this text and they differ. Findings T01–T16 of that review
 were corrected here before acceptance. Nothing here is implemented until its packet lands.
+
+**Amendment (2026-09-28).** The [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
+reassessed the store's client stack and the codebase's typing now that generated code is judged
+on its merits (Core 3.1). Its selections are in §9.2, §9.3, §9.7, §9.8, the new §12, and
+scenarios S19–S25. The maintainer approved them on 2026-09-28, and three accepted decision
+records now own them:
+- [ADR-0114](../adr/0114-typed-operational-store.md) (D22-13): the typed operational store. It supersedes ADR-0112 and restates the parts that stand.
+- [ADR-0115](../adr/0115-registry-typed-identities-and-vocabularies.md) (D22-14): entity identities, vocabularies and the frame catalog.
+- [ADR-0116](../adr/0116-typed-boundary-documents.md) (D22-15): typed boundary documents. It supersedes ADR-0113.
 
 ## 1. Target, drivers and scenarios
 
@@ -53,6 +63,13 @@ processes without losing state.
 | <a id="s16"></a>S16 | The process running a long SCIP solve dies | Lease expiry marks the attempt `stale`; a new attempt re-injects the best stored incumbent |
 | <a id="s17"></a>S17 | Two processes publish to one workspace, locally or on a remote object store | The catalog transaction serializes head changes; the loser re-prepares against the new parent; nothing is lost or half-visible |
 | <a id="s18"></a>S18 | Add another backend | One adapter implementation, one registry value and its capability record; no edits to runtime workflows |
+| <a id="s19"></a>S19 | Add a column, table or enum member to an operational relation | One registry declaration. The DDL, ENUM type, rows and value mapping follow by `just codegen`; only the statements that should use the change are edited |
+| <a id="s20"></a>S20 | A statement drifts from the schema: a misspelled column or enum literal, or swapped parameters | Rejected when the query crate is generated, never at run time; no statement silently matches nothing |
+| <a id="s21"></a>S21 | A durable document changes: job payload v2, or a settings field | A new version with a published JSON Schema; Python types regenerated; an unknown version refused; request identity unchanged by key order |
+| <a id="s22"></a>S22 | A caller passes a run id for an attempt id, or a presolved column for an original column | Compile error |
+| <a id="s23"></a>S23 | An invalid scalar setting (negative tolerance, `NaN` bound, unknown linear solver) arrives from Python | Visible to Python type checkers; rejected at the boundary with a typed cause |
+| <a id="s24"></a>S24 | Replace the store driver, or take a new major of it | Only `pse-operations` and its generated query crate change; consumers keep the repository API |
+| <a id="s25"></a>S25 | Test a pure store rule (lifecycle legality, value mapping, payload decoding) | Pure unit tests, with no PostgreSQL server |
 
 ## 2. Discrete decisions and disjunctive modeling
 
@@ -637,20 +654,38 @@ The division is: **PostgreSQL owns what changes; Delta owns what is published.**
 | Scientific result relations | Delta member tables | — |
 | Meaning of operational relations | The registry (D1) | SQL migrations as the physical representation, checked by a migration-conformance test |
 
-Enums are stored as text and parsed into registry enum types at the boundary (DP-02).
-There are no database enum types that could drift.
+**As first built (ADR-0112):** enums are stored as text and parsed into registry enum types at
+the boundary, and there are no database enum types.
 
-### 9.3 Schema sketch (`pse_ops`, versioned migrations)
+**Target (ADR-0114, §12):** the registry generates one PostgreSQL ENUM type per registry enum, one
+domain per entity identity, and the tables with their invariants, so no type can drift. ENUM
+types add a check text cannot give: a misspelled literal in a statement fails at `PREPARE`,
+while against a text CHECK column it prepares and silently matches nothing. That was measured
+on PostgreSQL 18.6; see the [review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md).
+
+### 9.3 Schema sketch (`pse_ops`)
+
+**Target (ADR-0114).** The registry declares every table below. The `postgres` generator emits the
+DDL, and a hand-written `physical.sql` adds indexes, partial indexes, defaults, grants and the
+append-only revoke. The store records the schema fingerprint. A store with another fingerprint is
+refused and reset explicitly (`just db-reset`), because its contents are regenerable; register
+row R-35 holds the trigger for versioned migrations.
+
+**As built (O2–O6).** The table below is a sketch.
+- Leases live on `attempts`, not on `jobs`.
+- Progress values are typed columns in `progress_values`, not a jsonb document.
+- Solutions carry typed vector columns under a vector-shape rule.
+- The seven catalog tables exist in the DDL but are not yet declared in the registry. B1 declares them.
 
 | Table | Contents |
 |---|---|
 | `source_bundles`, `source_documents` | Keyed by content hash |
 | `attempts` | `attempt_id uuid` minted by the runtime (no database default), `run_id`, `kind`, `request_identity`, `preparation_identity`, `state`, `parent_attempt`, timestamps, `worker`, `lease_expires_at`, `cancel_requested`, typed termination |
 | `attempt_transitions` | Append-only audit of every state change |
-| `jobs` | `job_id`, `attempt_id`, versioned `payload jsonb` (source bundle, case, profile), `priority`, `state`, `claimed_by`, `lease_expires_at`, `tries`, `idempotency_key unique` |
-| `progress_events` | `attempt_id`, `seq`, `at`, `phase`, `values jsonb`; batched inserts or `COPY` |
+| `jobs` | `job_id`, `attempt_id`, versioned `payload jsonb` (source bundle, case, profile), `priority`, `state`, `tries`, `max_tries`, backoff, `available_at`, `idempotency_key unique`; the lease is on the attempt |
+| `progress_events`, `progress_values` | `attempt_id`, `seq`, `at`, `phase`; typed value columns with a one-value rule; batched inserts, binary `COPY` after B2 |
 | `incumbents` | `attempt_id`, `seq`, `objective`, `dual_bound`, `gap`, `at`, `solution_id` |
-| `solutions` | `solution_id`, `compatibility_stamp`, `preparation_identity`, `kind`, `payload bytea` (Arrow IPC, versioned), `created_by` |
+| `solutions` | `solution_id`, `compatibility_stamp`, `preparation_identity`, `kind`, typed vector columns (primal, dual, working set, basis) under a vector-shape rule, `created_by` |
 | `studies`, `study_points` | Point `binding_hash`, `state`, `attempt_id`, `result_ref` |
 | `workspaces`, `publication_heads`, `publications` (attempt identity unique), `publication_members`, `settlements`, `reader_leases`, `retention_marks` | The catalog, reader leases and two-phase deletion state |
 
@@ -670,7 +705,7 @@ There are no database enum types that could drift.
 1. **Members are unchanged:** written to Delta at attempt-scoped paths, with provisioned and written receipts.
 2. **Commit** is one PostgreSQL transaction. It checks that `publication_heads.publication_id` is the expected parent, inserts the publication and its members (location and version), and advances the head. A lost race is a typed conflict; the loser re-prepares against the new parent. This keeps today's "never rebase" rule.
 3. **Readers** resolve a publication id, or an explicit named query such as the latest head (with the resolved version recorded), to member locations and versions. A reader takes a lease row with an expiry in a short transaction and releases it when done; no reader holds a database session open while reading Delta files ([T02](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t02)).
-4. **Retention and maintenance.** The catalog computes the protected versions (SQL in `pse-operations`), replacing the DataFusion query over the Delta control relations ([T16](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t16)). Deletion is two-phase: mark the publication `expiring` so no new lease is granted, wait until every lease is released or expired, let `pse-catalog` delete the member files, then mark it `deleted`. Transaction-scoped advisory locks serialize maintainers. This replaces `.pse-retention.lock`, which works for local files only, and makes remote object stores qualifiable (R-10, decided by ADR-0112).
+4. **Retention and maintenance.** The catalog computes the protected versions (SQL in `pse-operations`), replacing the DataFusion query over the Delta control relations ([T16](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t16)). Deletion is two-phase: mark the publication `expiring` so no new lease is granted, wait until every lease is released or expired, let `pse-catalog` delete the member files, then mark it `deleted`. Transaction-scoped advisory locks serialize maintainers. This replaces `.pse-retention.lock`, which works for local files only, and makes remote object stores qualifiable (R-10, decided by ADR-0112; restated by ADR-0114).
 5. **Deletion without migration.** Existing Delta publications are regenerated by rerun. The system is in design, not production (maintainer, 2026-09-27), so there is no importer. A store written under the control table is refused as an unsupported historical format, with a migration-required diagnostic that names regeneration by rerun.
    - The Delta control table, its code and the file leases are deleted once the catalog path is proven (DP-16).
    - An export command writes a read-only manifest with the member tables for offline readers.
@@ -687,15 +722,15 @@ The class is an explicit policy, not a fallback (DP-15). Publication without the
 ### 9.7 Deployment
 
 - **Server:** PostgreSQL 18.6, cluster `18/main` on port 5432. The stopped `16/main` cluster on 5433 is outside this plan; dropping it is a maintainer decision.
-- **Role and databases:** a login role `pse` (SCRAM) owns database `pse`. For `#[sqlx::test]`, `pse` holds `CREATEDB` so each test gets an isolated database.
+- **Role and databases:** a login role `pse` (SCRAM) owns database `pse`. It holds `CREATEDB`, so each test gets an isolated database (`#[sqlx::test]` today; the `testing.rs` harness after B2). Cornucopia generation also creates a temporary database.
 - **Connection:** `PSE_DATABASE_URL`, or the libpq service `pse` in `~/.pg_service.conf`. No credential is ever committed.
 - **`just` recipes:**
 
 | Recipe | Does |
 |---|---|
 | `db-bootstrap` | Idempotent; runs as the `postgres` superuser via `sudo -u postgres psql`, behind the same confirmation as other recipes that reach outside the working copy |
-| `db-migrate` | Applies the embedded `sqlx::migrate!` migrations |
-| `db-status` | Reports server version ≥ 18, connectivity and pending migrations |
+| `db-migrate` | Applies the embedded `sqlx::migrate!` migrations. **Replaced by `db-reset` in B1**: drops and recreates `pse_ops` from the generated schema (confirmed, destructive; the workspaces' Delta members are regenerated by rerun) |
+| `db-status` | Reports server version ≥ 18, connectivity and pending migrations; after B1, whether the recorded schema fingerprint equals the generated one |
 | `db-backup` | `pg_dump -Fc` to a configured directory |
 | `db-restore` | Restores such a dump |
 
@@ -705,29 +740,73 @@ The class is an explicit policy, not a fallback (DP-15). Publication without the
 
 ### 9.8 Code placement
 
-**A new crate, `pse-operations`** (ADR-0112):
-- **Owns** the store contract, migrations, repositories, the catalog and reader leases.
-- **Client:** `sqlx` =0.9.0, in `pse-operations` only, with `default-features = false` and features `postgres`, `runtime-tokio`, `tls-rustls-ring`, `macros`, `migrate`, `uuid`, `chrono` and `json` (matching the workspace's chrono, uuid and rustls/ring pins; the exact pin lives in `Cargo.toml`).
-- **Queries are runtime-typed:** `query` and `query_as` with `FromRow`. There are no `query!` macros and no `.sqlx` offline metadata, so there is no build-time database and no generated path (DP-16). SQL stays SQL, in the repository modules.
-- **Migrations:** `sqlx::migrate!` embeds versioned `.sql` files with LF line endings.
-- **Connections and coordination:** `PgPool`; `PgListener`, which reconnects transparently, for cancellation and progress notifications; `PgAdvisoryLock`, or `pg_advisory_xact_lock` inside catalog transactions.
-- **Batches:** typed batch inserts with `UNNEST($n::type[])`; `copy_in_raw` only if a measurement shows the need.
-- **Errors** derive `thiserror` plus `miette` codes (§23.2). SQLSTATE 40001, 40P01, 23505, 55P03 and 57014 map into typed store errors.
-- **Tests:** `#[sqlx::test(migrator = "pse_operations::MIGRATOR")]` against the local PostgreSQL 18 server, one isolated database per test with library-owned cleanup; the `just` recipe maps `PSE_DATABASE_URL` to `DATABASE_URL`.
-- **Server features:** `uuidv7()` for surrogate keys of rows without a runtime-minted domain identity, `FOR UPDATE SKIP LOCKED`, advisory locks, `LISTEN`/`NOTIFY`, `idle_in_transaction_session_timeout`; `pg_stat_statements` optional for measurement; no extension required.
-- **Dependency direction:** `pse-runtime` depends on it; it depends on `pse-model`, `pse-schema` and `pse-diagnostics` for meaning and on `pse-engine` for its read-only DataFusion provider, as `pse-catalog` does; `pse-catalog` keeps Delta data I/O; the domain core never depends on it (DP-17).
-- **Workers.** `pse-worker` is a binary target of `pse-runtime`, the composition root that already owns `MathService` and the workflows (decided in ADR-0112). It sets the process-level OpenMP environment SPRAL needs (§5.4).
+**A crate, `pse-operations`** (ADR-0112, restated by ADR-0114):
+- **Owns** the store contract, the repositories, the catalog and reader leases.
+- **Dependency direction.**
+  - `pse-runtime` depends on `pse-operations`.
+  - `pse-operations` depends on `pse-model`, `pse-ids` and `pse-diagnostics` for meaning, and on its generated query crate (below).
+  - `pse-catalog` keeps Delta data I/O.
+  - The domain core never depends on `pse-operations` (DP-17).
+  - As built, `pse-schema` is a development dependency only, used by the conformance test, and `pse-engine` is not a dependency.
+- **Workers.** `pse-worker` is a binary target of `pse-runtime`, the composition root that already owns `MathService` and the workflows (decided in ADR-0112; ADR-0114 Outcome 18). It sets the process-level OpenMP environment SPRAL needs (§5.4).
 
-**Client stacks not adopted** (the maintainer's [external review](../external-review-postgresl-options.md), assessed in ADR-0112):
-tokio-postgres with deadpool-postgres, refinery and tokio-postgres-rustls (four seams where one serves; no library-owned per-test database or reconnecting listener); Cornucopia or clorinde (code generation against a live database); SeaQuery (dynamic querying belongs to DataFusion); Diesel and SeaORM (ORMs); pgvector (no vector data); pgrx (no server-side computation); testcontainers (the local server with `#[sqlx::test]` suffices). Each carries its revisit trigger in ADR-0112.
+**As built (O2–O6, ADR-0112).**
+- `sqlx` =0.9.0 with runtime-typed `query`/`query_as` and hand-written `FromRow`.
+- Embedded `sqlx::migrate!` migrations, `PgPool` and `PgListener`.
+- `#[sqlx::test]`.
+- A migration-conformance test that compares part of the DDL with the registry.
+
+The [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md) found this is four hand-kept descriptions per table.
+Statements are checked only by executing them, and a misspelled enum literal silently matches
+nothing (TD01–TD03).
+
+**Target client stack ([ADR-0114](../adr/0114-typed-operational-store.md), packets B1 and B2).**
+- **Schema.** Generated from the registry by the `pse-codegen` target `postgres` into `crates/pse-operations/src/generated/`:
+  - ENUM types, identity domains, a 32-byte `content_hash` domain;
+  - tables, keys, foreign keys, and CHECKs from registry invariants;
+  - the schema fingerprint;
+  - the Cornucopia type-mapping table.
+
+  A hand-written `physical.sql` adds indexes, partial indexes, defaults, grants and the append-only revoke on `attempt_transitions`; its enum literals are checked when it is applied. `Store::open` creates an empty store and records the fingerprint. A different fingerprint is a typed `SchemaMismatch` naming `just db-reset`; the store is never reset implicitly. There are no migrations while the contents are regenerable (maintainer, 2026-09-28; register R-35).
+- **Statements.** `.sql` files under `crates/pse-operations/queries/`, with named parameters and declared nullability:
+  - Cornucopia 1.0.1 compiles them into the generated crate `crates/pse-operations-queries/` (tokio-postgres code, no Cornucopia runtime dependency, workspace-inherited pins).
+  - `xtask codegen` calls Cornucopia's `gen_fresh` against the local PostgreSQL 18 server, loading the generated DDL and `physical.sql` into a temporary database. `--check` regenerates into a temporary directory and diffs (ADR-0051).
+  - Whole-row statements use the row declarations generated from the registry.
+- **Value mapping.** A `postgres` feature on `pse-ids` and `pse-model` carries generated postgres-types `ToSql`/`FromSql` impls:
+  - registry enums map to their ENUM types by name;
+  - typed ids map to their domains for parameters and to `uuid` for results;
+  - `ContentHash` maps to `bytea(32)`.
+
+  Generated rows therefore decode directly into registry types, with no parse helpers.
+- **Driver and pool.** tokio-postgres 0.7.18 with deadpool-postgres 0.14.2 (`prepare_cached`) and tokio-postgres-rustls 0.14 (ring) for remote stores. Pipelining comes with the driver.
+- **Notifications.** A listener task on a dedicated connection re-issues `LISTEN` after reconnecting and signals a resynchronization. `cancel_requested` stays the authority, and the worker re-reads it (T03).
+- **Batches.** `BinaryCopyInWriter` for progress events, progress values and incumbents.
+- **Errors.** Classified by `SqlState` constants:
+  - 40001, 40P01, 55P03 and 57014 are retryable or cancellation classes;
+  - 23505 is `Duplicate`;
+  - 23514 and 23503 are a typed `InvariantViolation`;
+  - class 08 and 57P01–57P03 are `Unavailable`.
+- **Tests.** The `testing.rs` harness creates one database per test from the generated schema and drops it afterwards. Value mapping and lifecycle legality are pure tests (S25).
+- **Removed:** sqlx, its migrations, `#[sqlx::test]` and `PgListener`; `codec.rs`; the hand-written records and `FromRow`; the column macros; positional binds.
+
+**Libraries not adopted for the store** (the maintainer's [external reviews](../external-review-postgresl-options.md), reassessed in the [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md) slot 8):
+
+| Library | Reason | Revisit |
+|---|---|---|
+| sqlx 0.9 compile-time macros | Viable. It keeps the listener, migrations and test harness, which the maintainer rates minor. But it keeps positional binds, string SQLSTATE and raw COPY; it adds a second regeneration mechanism (`.sqlx` metadata; `prepare --check` needs a live database, prints no diff, and sqlx-cli cannot be installed `--locked`); and it needs `sqlx::Type` impls on semantic crates | Cornucopia generation cannot run reproducibly under the workspace lockfile |
+| refinery | Contents are regenerable; create-or-refuse replaces migrations | Register R-35 |
+| SeaQuery | Store statements are static; dynamic and analytical querying belongs to DataFusion (§3.3.1) | A store statement must be composed at run time |
+| Diesel, SeaORM | The database or an ORM DSL would become the schema authority beside the registry (DP-01) | — |
+| pgvector, pgrx | No vector data; no in-server computation | Vector data in scope; an operation that must run inside PostgreSQL |
+| testcontainers | Generation needs the local server anyway; testcontainers-modules 0.15 still needs testcontainers 0.27 | An environment without a local server |
 
 **Query surface.** Operational tables appear to DataFusion sessions as read-only providers. O9
 chooses between the ADBC PostgreSQL driver (`adbc_core`/`adbc_driver_manager` 0.24, which accept
-arrow-array ≥58 <60 and so fit arrow =59.3) and typed row-to-Arrow builders for the small fixed
-operational tables. `datafusion-table-providers` 0.13.1 is blocked: its postgres crate requires
-datafusion ^54 and arrow ^58, breaking the one type universe, and brings a second driver stack;
-revisit when a release matches `datafusion =55.1.0`. Python gains runs, jobs, studies and a
-progress stream.
+arrow-array ≥58 <60 and so fit arrow =59.3) and the typed row-to-Arrow builders `pse-relations`
+already generates for every operational relation. `datafusion-table-providers` 0.13.1 is
+blocked: its postgres crate requires datafusion ^54 and arrow ^58, breaking the one type
+universe, and brings a second driver stack. Revisit when a release matches
+`datafusion =55.1.0`. Python gains runs, jobs, studies and a progress stream.
 
 ### 9.9 Failure behaviour
 
@@ -744,7 +823,11 @@ progress stream.
 | Bespoke outer approximation over HiGHS and Ipopt | Reimplements solver machinery (DP-13, G8) |
 | sIPOPT for sensitivity | C++ only; duplicates §6. Kept as a parity oracle |
 | Keep the Delta control table beside a PostgreSQL run registry | Two authorities for publication visibility, or a registry that cannot coordinate multi-writer publication (DP-01, R-10) |
-| An in-memory fake of the operational store for tests | A second implementation of the contract; `#[sqlx::test]` isolates real databases |
+| An in-memory fake of the operational store for tests | A second implementation of the contract; isolated real databases serve instead |
+| Hand-written DDL, records and `FromRow` beside registry-generated rows (the O2–O6 state) | Four descriptions per table, one partial comparison; statements checked only by execution ([TD01–TD03](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md#td01)) |
+| sqlx compile-time macros with `.sqlx` metadata | Viable; not selected. See §9.8 |
+| Database-owned schema (Diesel `print-schema`, SeaORM entities) | The database would become a second schema authority beside the registry (DP-01) |
+| Compile-time physical units (uom) for model quantities | Authored quantities are known only at run time; `pse-quantity` owns PS-01, including bases, reference states and gauge/absolute conventions (§12) |
 
 ## 11. Risks and open questions
 
@@ -756,3 +839,76 @@ progress stream.
 - **Operational store as a deployment dependency** for durable work. Mitigated by the `Ephemeral` class and the `just` recipes.
 - **Catalog cut-over.** There is no import; existing publications are regenerated by rerun. The risk is limited to proving the catalog path before deleting the Delta control table.
 - **Event volume.** Mitigated by batched or `COPY` inserts, retention policy and measurement in the final qualification.
+- **Cornucopia.**
+  - Nullability is annotated by hand (upstream issue #226). Mitigated by registry-generated row declarations for whole-row statements, and by a store test for every statement.
+  - Generation needs the local PostgreSQL 18 server, which the doctor checks.
+  - A small upstream team. Mitigated because the generated crate has no runtime dependency on Cornucopia and stays compilable if upstream stops.
+- **Bespoke store parts after B2.** The listener task and the test-database harness are small and owned by `pse-operations`.
+- **Schema reset.** Resetting the store forgets the catalog, and with it the visibility of published members. It is explicit and confirmed, and members are regenerated by rerun. Register R-35 ends the reset policy when contents must survive a schema change.
+
+## 12. Typed data contracts
+
+Amendment of 2026-09-28: [ADR-0114](../adr/0114-typed-operational-store.md), [ADR-0115](../adr/0115-registry-typed-identities-and-vocabularies.md) and [ADR-0116](../adr/0116-typed-boundary-documents.md) decide it; packets B1–B7 implement it. The [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md)
+owns the argument and the library ledger. This section states the target.
+
+### 12.1 Who owns each representation
+
+| Meaning | Authority | Derived representations (generated unless stated) |
+|---|---|---|
+| Durable relations, enums, invariants, entity identities | Registry (D1) | Rust rows and enums (`pse-model`); Arrow codecs (`pse-relations`); Python contracts; docs; **`pse_ops` DDL, ENUM types, identity domains, schema fingerprint, Cornucopia type mapping** (B1) |
+| Store statements | `.sql` query files in `pse-operations` | The typed query crate `pse-operations-queries` (Cornucopia, B2) |
+| Physical access paths (indexes, grants, defaults) | `physical.sql` in `pse-operations` (hand-written SQL, checked on application) | — |
+| Rust-owned boundary documents (backend and dynamics settings, job payload, termination detail, source manifest) | The serde types in their owning crates | JSON Schemas under `docs/generated/schema/` (schemars 1.x); Python msgspec types under `python/pse/contracts/` (B5) |
+| Authoring documents | Registry `DocumentSpec` | Generated document structs; the authoring JSON Schema (schemars on the generated structs, if at least as precise as today's emitter) |
+| Physical quantities (PS-01) | `pse-quantity` at run time (dimension vectors, bases, reference states, gauge/absolute) | None at compile time: authored quantities are not known to Rust at compile time |
+| Hash-frame contexts | One `Frame` enum in `pse-ids` (B3) | Listed in the generated docs |
+
+### 12.2 Typed identities
+
+- A registry relation's key column may declare an **entity identity** (run, attempt, job, publication, workspace, study, solution, source bundle; then root, instance, definition, member, block).
+- Foreign-key columns that reference it inherit that identity.
+- The generator emits one typed id per entity through the typed-id macro, moved from `pse-quantity` into `pse-ids` so there is one mechanism. Generated rows use the typed ids.
+- The store represents each identity as a domain over `uuid`.
+- Consumers adopt them in B3 (operational and workflow) and B7 (modeling and compiler). A swap of two different identities fails to compile.
+
+### 12.3 Typed index spaces
+
+At coordinate boundaries, dense indices are typed per space:
+- original and presolved rows and columns;
+- instance-local slots and global columns;
+- Jacobian, Hessian and KKT triplets.
+
+These use typed-index-collections `TiVec`/`TiSlice`. A HiGHS ranging key is a typed value, not a string prefix. Enum-indexed storage uses enum-map. FFI and faer interiors keep `usize`/`i32`, converted at the adapter (B6).
+
+### 12.4 Vocabularies
+
+- Every decision vocabulary that crosses a boundary is a registry enum (B4). This covers the Ipopt linear solver, orderings, Hessian mode, reuse policy, `ExtrapolationPolicy`, termination code, retention phase and settlement outcome.
+- It is generated for Rust, Python and PostgreSQL, so no decision compares strings.
+- A vocabulary whose source is hand-written Rust (diagnostic codes, failure classes, platform enums) has one Rust type: the generator re-exports it instead of emitting a second enum.
+
+### 12.5 Documents and validated values
+
+- Durable documents are typed and versioned. An unknown version is refused.
+- A request identity is framed from the typed value, never from an order-sensitive JSON text.
+- Single-value setting domains are validated types:
+  - tolerance, fraction, positive count, finite bound;
+  - built with nutype 0.8 if its schemars-1 path works, otherwise hand-written `serde(try_from)` newtypes.
+
+  Cross-field and environment rules stay in `admit_settings`, with typed reasons (DP-21).
+- Python sees generated types instead of `**fields: object`.
+- `pse.governance` applies its `Any` lint to them, with a msgspec branch beside the attrs walk.
+- Postponed annotations (`from __future__ import annotations`) are allowed: the lint resolves them first (maintainer, 2026-09-28).
+
+### 12.6 Libraries assessed and not adopted
+
+| Library | Reason | Revisit |
+|---|---|---|
+| uom | Compile-time dimensions cannot type run-time-authored quantities; it duplicates `pse-quantity`'s PS-01 authority | A Rust-coded kernel library with fixed-dimension APIs |
+| garde | Cross-field rules are admission rules with typed reasons; garde reports paths and messages | Declarative constraint sets without typed reasons |
+| typify | No externally owned JSON Schema; it is built on schemars 0.8 | An external standard owns a schema |
+| slotmap | Salsa owns authoring identities; there is no mutable object graph in Rust | — |
+| index_vec | Dormant since 2024; typed-index-collections serves | — |
+| prost-build | No protobuf boundary | A cross-language RPC boundary |
+| derive_more, serde_with | The existing macros already generate the conversions; no serde-adapter need found | — |
+| bon | Admissible, not scheduled: use it when a packet reshapes one of the 80 functions with seven or more parameters into a request type | — |
+

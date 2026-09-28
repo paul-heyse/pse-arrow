@@ -1,6 +1,6 @@
 # Design review template
 
-**Version 3.0 · 2026-09-25** · Core layer: repository- and domain-agnostic.
+**Version 3.1 · 2026-09-27** · Core layer: repository- and domain-agnostic.
 The [principles](design-principles.md) define foundations AP-01–AP-06, refinements DP-nn
 and gates G1–G9. Profile additions follow this template's versioned slots.
 

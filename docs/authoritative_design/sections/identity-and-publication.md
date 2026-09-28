@@ -23,6 +23,10 @@ versioned projections is [ADR-0089](../../adr/0089-semantic-identity-projections
 
 ### 5.1 Forms of identity
 
+> Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — entity identities are declared on registry key columns, inherited by
+> foreign keys, and generated as one typed id per entity over `SemanticId`; bytes and minting
+> are unchanged (Plan 22 B1, B3, B7; not yet implemented).
+
 | Form | Representation | Assigned by | Scope |
 |---|---|---|---|
 | Semantic ID | `pse.semantic_id`, 128-bit `pse_ids::SemanticId` | authoring (authored entities), keyed derivation (derived entities), UUIDv7 (runs, publications, attempts) | survives revisions, reordering, re-batching, projection and publication |
@@ -71,7 +75,7 @@ other crates hash only through its framing APIs. Golden vectors in
 Definitions, instance bindings, case values, analysis requests, resolved numerical
 policy, prepared artifacts, used starts, results and publications have distinct
 identities and lifecycles. Cases and results never mutate the model
-([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)).
+([ADR-0114](../../adr/0114-typed-operational-store.md)).
 
 **Package revision.** Runtime modeling admission seals the exact package closure,
 visibility, aliases, declarations and physical context into an immutable compiler
@@ -110,6 +114,11 @@ the same start is a new run with the same request and preparation identities
 from the run it publishes ([§20.2](#section-20-2)).
 
 ### 5.3 Canonical framing and hashing
+
+> Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every frame context is declared once in a `Frame` catalog in `pse-ids`,
+> with spellings and golden vectors unchanged (Plan 22 B3); [ADR-0116](../../adr/0116-typed-boundary-documents.md) — a document's request
+> identity is framed from its typed value, never from order-preserving JSON text (Plan 22 B5).
+> Neither is implemented yet.
 
 `pse-ids` defines two frozen framings, and the difference between them is contract:
 
@@ -207,14 +216,14 @@ hot path; IPC remains an encoding and spill boundary.
 Durability is an explicit effect, and visibility is decided by one conditional commit.
 Execution stays in memory until a caller asks to publish; publication never re-runs
 science, and a scientifically failed attempt can still be published faithfully. The
-protocol was decided in ADR-0091, which [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)
-supersedes: it restates the immutable-publication contract and moves the visibility boundary
+protocol was decided in ADR-0091. ADR-0112 superseded it, and [ADR-0114](../../adr/0114-typed-operational-store.md)
+now restates the immutable-publication contract, with the visibility boundary moved
 to a PostgreSQL catalog transaction. Until Plan 22 O8 lands, the Delta control relation
 described below remains the implemented publication record.
 
 ### 20.1 Delta durable relations
 
-> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — in
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — in
 > the target the publication control relation moves to the PostgreSQL catalog; Delta keeps
 > immutable member data (Plan 22 O8; not yet implemented).
 
@@ -236,7 +245,7 @@ completeness and domain checks run against exact candidate versions
 
 ### 20.2 Exact coherent publication
 
-> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) — the
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — the
 > commit becomes one catalog transaction with compare-and-set on the head; settlement
 > queries the catalog (Plan 22 O8; not yet implemented).
 
@@ -317,7 +326,7 @@ meaning is owned by [§19](workflows-and-results.md#section-19).
 
 ### 20.4 Reproduction, reuse and retention
 
-> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —
 > reader leases and two-phase deletion in the catalog replace the local lock files, making
 > remote stores qualifiable (Plan 22 O8; not yet implemented).
 
@@ -387,3 +396,9 @@ No store written before the current contracts is supported, and there is no lega
 runtime. Fixtures start from source. Entity IDs, publication IDs, Delta versions and
 table locations are distinct and never substitute for one another. Relation-level
 detail is in the [generated runtime reference](../../generated/relations/runtime.md).
+
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) — the operational store (PostgreSQL) does not migrate. Its schema is
+> generated from the registry and identified by a fingerprint. An empty store is created from
+> it; a store with another fingerprint is refused with a typed `SchemaMismatch` and reset
+> explicitly (`just db-reset`), because its contents are regenerable. Register R-35 holds the
+> trigger for versioned migrations (Plan 22 B1; not yet implemented).

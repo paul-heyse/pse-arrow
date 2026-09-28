@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Paul Heyse
 """The explicit and dynamic contract-type lint (blueprint §21.5, §24.1)."""
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -93,6 +94,40 @@ def test_nested_annotations_fail_before_converter_hook_generation(cls: type) -> 
 @pytest.mark.unit
 def test_recursive_specific_annotations_terminate() -> None:
     governance.check_class(_Recursive)
+
+
+@pytest.mark.unit
+def test_postponed_annotations_are_resolved_before_the_lint(tmp_path: Path) -> None:
+    module_path = tmp_path / "postponed_contracts.py"
+    module_path.write_text(
+        (
+            "from __future__ import annotations\n"
+            "import typing\n"
+            "import attrs\n"
+            "@attrs.frozen\n"
+            "class Specific:\n"
+            "    labels: dict[str, tuple[int, ...]]\n"
+            "@attrs.frozen\n"
+            "class NestedAny:\n"
+            "    payload: list[dict[str, typing.Any]]\n"
+        ),
+        encoding="utf-8",
+    )
+    spec = importlib.util.spec_from_file_location("postponed_contracts", module_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    try:
+        spec.loader.exec_module(module)
+        assert isinstance(attrs.fields(module.NestedAny).payload.type, str)
+        governance.check_class(module.Specific)
+        with pytest.raises(ContractTypeError) as caught:
+            governance.check_class(module.NestedAny)
+        assert caught.value.reason == "typing.Any"
+        with pytest.raises(ContractTypeError):
+            converter().get_structure_hook(module.NestedAny)
+    finally:
+        del sys.modules[spec.name]
 
 
 @pytest.mark.unit

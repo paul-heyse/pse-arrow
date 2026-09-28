@@ -162,7 +162,7 @@ qualification basis for the admitted profiles is
 
 ## 19. Cases, results and analytics
 
-> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md),
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md),
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)
 
@@ -177,7 +177,7 @@ fitting preparation.
 
 ### 19.1 Cases and overlays
 
-> Decision: [ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md) —
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —
 > restates D13 (superseding ADR-0016): cases and results never mutate the model; a
 > cancelled or failed attempt is distinguished by its typed lifecycle state. Plan 22 A6
 > (implemented) scopes every overlay to one staged step.
@@ -471,9 +471,9 @@ full numerical equivalence
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > shared vocabulary (restating ADR-0090);
-> [ADR-0113](../../adr/0113-python-solve-settings-and-eligibility.md) — typed backend
-> settings, registry names and typed eligibility across the boundary (Plan 22 A5; not yet
-> implemented).
+> [ADR-0116](../../adr/0116-typed-boundary-documents.md) (superseding ADR-0113) — typed backend settings, registry names and typed
+> eligibility across the boundary (Plan 22 A5, implemented), with published JSON Schemas and
+> generated Python document types (Plan 22 B5; not yet implemented).
 
 `pse.Runtime(EngineSettings)` binds the shared runtime and memory budget, also used by
 `pse.open`; conflicting settings refuse. `physical_from_documents` admits physical data;
@@ -507,9 +507,11 @@ does not prove the consumer registered the extension types.
 
 ### 21.5 Python contracts
 
-> Decision: [ADR-0113](../../adr/0113-python-solve-settings-and-eligibility.md) — every
-> enumeration crossing the boundary is a registry enum; settings envelopes are versioned
-> (Plan 22 A5; not yet implemented).
+> Decision: [ADR-0116](../../adr/0116-typed-boundary-documents.md) — every Rust-owned boundary document (settings, job payload,
+> termination detail, source manifest) is typed and versioned, with a schemars JSON Schema and
+> generated msgspec types; validated scalar settings (Plan 22 B5; not yet implemented).
+> [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every enumeration crossing the boundary is a registry enum with one Rust type
+> (Plan 22 B4; not yet implemented).
 
 Python contracts are generated from the registry into `python/pse/contracts/`
 ([§4.2](schema-and-relations.md#section-4-2),
@@ -522,7 +524,9 @@ extension's metadata.
   validation; msgspec structs forbid unknown fields for wire envelopes, settings and
   documents (`python/pse/codec`). A mismatched payload fails at the boundary.
 - **No `Any`.** Contract classes are checked for `Any`, bare `dict` and bare `list`
-  (`pse.governance`).
+  (`pse.governance`). The check resolves annotations first (`attrs.resolve_types`), so
+  postponed annotations (`from __future__ import annotations`) are allowed. In the target it
+  also covers the generated msgspec document types (ADR-0116).
 - **Import-time checks.** Importing `pse` registers the extension types idempotently and
   checks package/native version and generated registry fingerprint agreement.
 

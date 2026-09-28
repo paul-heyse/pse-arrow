@@ -14,7 +14,11 @@ execution packets retain their original evidence.
 - every missing native solver capability, including integer variables, MINLP/GDP and global certification through SCIP;
 - the solver defects and design-principle corrections from the
   [solver capability review](../design_review/reviews/design_review_solver-capabilities_2026-09-27.md);
-- a PostgreSQL 18 operational store and publication catalog.
+- a PostgreSQL 18 operational store and publication catalog;
+- since 2026-09-28, typed data contracts: a registry-generated store schema with Cornucopia-compiled
+  statements on tokio-postgres, typed identities and vocabularies, and typed boundary documents
+  (ADR-0114–ADR-0116, packets B1–B7), from the
+  [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md).
 
 Its companion is `22-solver-capabilities-architecture.md`.
 [Plan 20](20-idaes-capability-target.md) and its companions remain capability background;
@@ -38,8 +42,8 @@ qualification basis is summarized in
 - **Living until done.** A plan is edited while it is being executed. That is the
   difference from an ADR, which is immutable once accepted.
 - **Execution rhythm.** Packets are accepted by targeted tests and by deleting what they
-  replace, as soon as the replacement is proven and its callers have moved. Comprehensive
-  qualification is requested separately by the maintainer. Checkpoints record state,
+  replace, as soon as the replacement is proven and its callers have moved. Formatting,
+  lint and integrated tests run once, after all functional scope is implemented. Checkpoints record state,
   decisions and next steps, not per-command receipts. See AGENTS.md *Execution rhythm*
   and `.claude/rules/decisions.md`.
 - **Outcome.** When the work lands, append `## Outcome (recorded after implementation)`
