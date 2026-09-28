@@ -386,7 +386,7 @@ async fn incompatible_seed_refused() {
         reused
             .starts
             .values()
-            .any(|s| *s == StartSource::Stored { solution })
+            .any(|s| *s == StartSource::Stored { solution: solution.as_id() })
     );
     // Different coordinates: the explicit stored seed is refused, and none is found.
     let (other, mut different) = package_on(&runtime, LINEAR);

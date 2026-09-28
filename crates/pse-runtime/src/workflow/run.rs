@@ -88,7 +88,7 @@ pub enum StoredStart {
     /// The newest seed stored for the preparation's coordinates and backend.
     Latest,
     /// This stored solution.
-    Solution(SemanticId),
+    Solution(pse_operations::solutions::SolutionId),
 }
 /// Mathematical report variants share one joined public job lifecycle.
 #[derive(Debug)]
@@ -486,9 +486,9 @@ impl super::ModelingSolvePreparation {
                 })
             })?,
         };
-        let solution = stored.solution.solution_id;
+        let solution = stored.solution_id.as_id();
         let columns: Vec<SemanticId> = self.model.case.compiled().plan.columns().to_vec();
-        let mut seeded = self.with_start(super::durable::warm_start(&stored.solution))?;
+        let mut seeded = self.with_start(super::durable::warm_start(&stored)?)?;
         for column in columns {
             seeded
                 .starts

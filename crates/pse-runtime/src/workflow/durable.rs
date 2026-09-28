@@ -29,7 +29,7 @@ use pse_operations::{
     },
     jobs::{Finished, JobId, JobOutcome, Requeue},
     lifecycle::AttemptState,
-    solutions::{SeedVectors, Solution},
+    solutions::{NewSolution, RuntimeOperationalSolutionsRow, SeedVectors, SolutionId},
     streams::{ProgressEvent, ProgressValue, Retention},
 };
 use std::{
@@ -249,7 +249,7 @@ pub struct DurableRecord {
     /// The complete progress stream as stored: the snapshot publication derives from.
     pub progress: Result<Vec<ProgressEvent>, Arc<WorkflowError>>,
     /// Seeds stored from accepted steps, by step.
-    pub solutions: Vec<(usize, SemanticId)>,
+    pub solutions: Vec<(usize, SolutionId)>,
 }
 
 /// Cancels the supervised run; shared with the heartbeat.
@@ -905,19 +905,21 @@ pub(super) fn seed_vectors(payload: &WarmPayload) -> SeedVectors {
 
 /// The owned warm start a stored solution describes, with its original compatibility
 /// stamps. Whether it may seed a given preparation is decided by `WarmStart::validate`.
-pub(super) fn warm_start(solution: &Solution) -> WarmStart {
-    let payload = match &solution.vectors {
-        SeedVectors::Root { primal } => WarmPayload::Root(primal.clone()),
+pub(super) fn warm_start(
+    solution: &RuntimeOperationalSolutionsRow,
+) -> Result<WarmStart, OperationsError> {
+    let payload = match SeedVectors::of(solution)? {
+        SeedVectors::Root { primal } => WarmPayload::Root(primal),
         SeedVectors::Nlp {
             primal,
             bounds,
             rows,
             barrier,
         } => WarmPayload::Nlp {
-            primal: primal.clone(),
-            bounds: bounds.clone(),
-            rows: rows.clone(),
-            barrier: *barrier,
+            primal,
+            bounds,
+            rows,
+            barrier,
             working: None,
         },
         SeedVectors::Highs {
@@ -925,17 +927,12 @@ pub(super) fn warm_start(solution: &Solution) -> WarmStart {
             dual,
             basis,
         } => WarmPayload::Highs {
-            primal: primal.clone(),
-            dual: dual.clone(),
-            basis: basis
-                .as_ref()
-                .map(|(columns, rows)| pse_backend_native::solve::Basis {
-                    columns: columns.clone(),
-                    rows: rows.clone(),
-                }),
+            primal,
+            dual,
+            basis: basis.map(|(columns, rows)| pse_backend_native::solve::Basis { columns, rows }),
         },
     };
-    WarmStart {
+    Ok(WarmStart {
         origin: None,
         compatibility: Compatibility {
             layout: solution.compatibility_stamp,
@@ -944,7 +941,7 @@ pub(super) fn warm_start(solution: &Solution) -> WarmStart {
             backend: solution.backend,
         },
         payload,
-    }
+    })
 }
 
 /// Store the output seed of every accepted step whose candidate may be used (ADR-0106),
@@ -953,7 +950,7 @@ async fn store_seeds(
     operations: &Operations,
     attempt: AttemptId,
     result: &RunResult,
-) -> Result<Vec<(usize, SemanticId)>, WorkflowError> {
+) -> Result<Vec<(usize, SolutionId)>, WorkflowError> {
     let (Ok(RunReport::Modeling(steps)), RunRequest::Modeling(requests)) =
         (result.report(), result.request())
     else {
@@ -974,11 +971,11 @@ async fn store_seeds(
             continue;
         };
         let vectors = seed_vectors(&seed.payload);
-        let solution_id = pse_operations::mint_id();
+        let solution_id: SolutionId = pse_operations::mint_id();
         operations
             .store
             .solutions()
-            .put(&Solution {
+            .put(&NewSolution {
                 solution_id,
                 compatibility_stamp: seed.compatibility.layout,
                 preparation_identity: preparation,
@@ -986,7 +983,7 @@ async fn store_seeds(
                 profile_stamp: seed.compatibility.profile,
                 data_stamp: seed.compatibility.data,
                 vectors,
-                created_by: Some(attempt.as_id()),
+                created_by: Some(attempt),
             })
             .await?;
         stored.push((index, solution_id));

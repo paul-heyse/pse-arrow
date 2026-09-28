@@ -7,7 +7,6 @@
 //! content hashes are 32-byte `bytea` columns. Rows decode through these helpers inside
 //! hand-written `FromRow` implementations, so a corrupt value is a typed failure.
 
-use std::str::FromStr;
 use std::time::Duration;
 
 use pse_ids::{ContentHash, SemanticId};
@@ -43,12 +42,6 @@ pub(crate) fn id(row: &PgRow, column: &str) -> Result<SemanticId, sqlx::Error> {
     Ok(SemanticId::from_bytes(value.into_bytes()))
 }
 
-/// A nullable identity column.
-pub(crate) fn opt_id(row: &PgRow, column: &str) -> Result<Option<SemanticId>, sqlx::Error> {
-    let value: Option<Uuid> = row.try_get(column)?;
-    Ok(value.map(|value| SemanticId::from_bytes(value.into_bytes())))
-}
-
 fn to_hash(column: &str, bytes: &[u8]) -> Result<ContentHash, sqlx::Error> {
     let sized: [u8; ContentHash::WIDTH] = bytes.try_into().map_err(|_| {
         decode_error(
@@ -67,17 +60,6 @@ fn to_hash(column: &str, bytes: &[u8]) -> Result<ContentHash, sqlx::Error> {
 pub(crate) fn hash(row: &PgRow, column: &str) -> Result<ContentHash, sqlx::Error> {
     let bytes: Vec<u8> = row.try_get(column)?;
     to_hash(column, &bytes)
-}
-
-/// A text column holding a Rust enumeration's spelling.
-pub(crate) fn parsed<T>(row: &PgRow, column: &str) -> Result<T, sqlx::Error>
-where
-    T: FromStr,
-    T::Err: ToString,
-{
-    let text: String = row.try_get(column)?;
-    text.parse()
-        .map_err(|error: T::Err| decode_error(column, error))
 }
 
 #[cfg(test)]

@@ -21,7 +21,7 @@ use crate::catalog::{
 };
 use crate::jobs::{Enqueued, Finished, JobId, JobOutcome, JobState, NewJob, RetryPolicy};
 use crate::lifecycle::AttemptState;
-use crate::solutions::{SeedVectors, Solution};
+use crate::solutions::{NewSolution, RuntimeOperationalSolutionsRow, SeedVectors};
 use crate::streams::{ProgressEvent, ProgressValue, RuntimeOperationalIncumbentsRow};
 use crate::testing::TestDatabase;
 use crate::{InvariantKind, Opened, OperationsError, SchemaStatus, Store, mint_id};
@@ -1619,7 +1619,7 @@ async fn incumbents_and_solutions_round_trip() {
     let store = database.store().clone();
     let attempt = finished_attempt(&store).await;
     use pse_model::generated::enums::NativeBackend;
-    let solution = Solution {
+    let solution = NewSolution {
         solution_id: mint_id(),
         compatibility_stamp: hash(5),
         preparation_identity: hash(6),
@@ -1632,12 +1632,13 @@ async fn incumbents_and_solutions_round_trip() {
             rows: None,
             barrier: Some(0.1 * 2.5e-9),
         },
-        created_by: Some(attempt.as_id()),
+        created_by: Some(attempt),
     };
-    store.solutions().put(&solution).await.unwrap();
+    let put = store.solutions().put(&solution).await.unwrap();
+    assert!(stores(&put, &solution), "{put:?}");
     let duplicate = store.solutions().put(&solution).await.unwrap_err();
     assert!(matches!(duplicate, OperationsError::Duplicate { .. }));
-    let newer = Solution {
+    let newer = NewSolution {
         solution_id: mint_id(),
         vectors: SeedVectors::Root {
             primal: vec![9.0, 9.5, f64::MIN_POSITIVE],
@@ -1645,7 +1646,7 @@ async fn incumbents_and_solutions_round_trip() {
         ..solution.clone()
     };
     store.solutions().put(&newer).await.unwrap();
-    let highs = Solution {
+    let highs = NewSolution {
         solution_id: mint_id(),
         backend: NativeBackend::Highs,
         vectors: SeedVectors::Highs {
@@ -1696,16 +1697,13 @@ async fn incumbents_and_solutions_round_trip() {
     drop(session);
 
     for stored in [&solution, &newer, &highs] {
-        assert_eq!(
-            store
-                .solutions()
-                .get(stored.solution_id)
-                .await
-                .unwrap()
-                .map(|s| s.solution)
-                .as_ref(),
-            Some(stored)
-        );
+        let row = store
+            .solutions()
+            .get(stored.solution_id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(stores(&row, stored), "{row:?}");
     }
     let seed = store
         .solutions()
@@ -1713,16 +1711,14 @@ async fn incumbents_and_solutions_round_trip() {
         .await
         .unwrap()
         .unwrap();
-    assert_eq!(seed.solution, newer);
-    assert_eq!(
-        store
-            .solutions()
-            .latest_compatible(&hash(5), &hash(6), NativeBackend::Highs)
-            .await
-            .unwrap()
-            .map(|s| s.solution),
-        Some(highs)
-    );
+    assert!(stores(&seed, &newer), "{seed:?}");
+    let seed = store
+        .solutions()
+        .latest_compatible(&hash(5), &hash(6), NativeBackend::Highs)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(stores(&seed, &highs), "{seed:?}");
     assert!(
         store
             .solutions()
@@ -1780,6 +1776,20 @@ async fn incumbents_and_solutions_round_trip() {
         "{latest:?}"
     );
     database.remove().await.unwrap();
+}
+
+/// Whether a stored row holds exactly this seed: identity, evidence and vectors bit for
+/// bit.
+fn stores(row: &RuntimeOperationalSolutionsRow, solution: &NewSolution) -> bool {
+    row.solution_id == solution.solution_id
+        && row.compatibility_stamp == solution.compatibility_stamp
+        && row.preparation_identity == solution.preparation_identity
+        && row.backend == solution.backend
+        && row.profile_stamp == solution.profile_stamp
+        && row.data_stamp == solution.data_stamp
+        && row.created_by == solution.created_by
+        && row.kind == solution.vectors.kind()
+        && SeedVectors::of(row).is_ok_and(|vectors| vectors == solution.vectors)
 }
 
 // ----------------------------------------------------------------- catalog --
