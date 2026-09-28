@@ -10,7 +10,7 @@
 #[derive(Clone, Debug)]
 pub struct NormalizedPackageGraphRow {
     ///The resolved package.
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///The resolved version.
     pub r#version: String,
     ///The digest the package is pinned by.
@@ -18,7 +18,7 @@ pub struct NormalizedPackageGraphRow {
     ///The distance from the root package.
     pub r#depth: i64,
     ///The resolved direct dependencies.
-    pub r#dependency_package_ids: Vec<pse_ids::SemanticId>,
+    pub r#dependency_package_ids: Vec<crate::generated::identities::PackageId>,
     ///The `provenance.derivations` row this fact came from.
     pub r#derivation_id: pse_ids::SemanticId,
 }

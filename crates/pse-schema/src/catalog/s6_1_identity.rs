@@ -17,6 +17,10 @@ use crate::model::{
 
 /// Declares the §6.1 identity and package relations.
 pub fn declare(builder: &mut RegistryBuilder) {
+    builder.declare_identity(crate::model::IdentityDecl::new(
+        "package",
+        "One authored package",
+    ));
     declare_packages(builder);
     declare_quantity_aliases(builder);
     declare_documents(builder);
@@ -68,7 +72,8 @@ fn declare_packages(builder: &mut RegistryBuilder) {
         .stability(Stability::Stable)
         .pk(&["package_id"])
         .columns(vec![
-            FieldContract::key("package_id", FieldContract::id(), "The package identity."),
+            FieldContract::key("package_id", FieldContract::id(), "The package identity.")
+                .with_identity("package"),
             FieldContract::label(
                 "name",
                 FieldContract::native(arrow_schema::DataType::Utf8),
@@ -94,7 +99,8 @@ fn declare_packages(builder: &mut RegistryBuilder) {
                 FieldContract::list(FieldContract::structure(vec![
                     FieldContract::id()
                         .with_name("package_id")
-                        .with_nullable(false),
+                        .with_nullable(false)
+                        .with_identity("package"),
                     FieldContract::native(arrow_schema::DataType::Utf8)
                         .with_name("version_req")
                         .with_nullable(false),
@@ -272,7 +278,7 @@ fn declare_package_graph(builder: &mut RegistryBuilder) {
             ),
             FieldContract::payload(
                 "dependency_package_ids",
-                FieldContract::list(FieldContract::id()),
+                FieldContract::list(FieldContract::id().with_identity("package")),
                 "The resolved direct dependencies.",
             ),
             FieldContract::provenance(

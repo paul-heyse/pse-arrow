@@ -71,9 +71,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    5u8, 49u8, 237u8, 210u8, 76u8, 254u8, 141u8, 85u8, 179u8, 161u8, 68u8, 252u8, 199u8,
-    177u8, 9u8, 240u8, 127u8, 158u8, 141u8, 125u8, 191u8, 128u8, 50u8, 124u8, 50u8,
-    210u8, 66u8, 126u8, 155u8, 18u8, 255u8, 168u8,
+    242u8, 22u8, 100u8, 133u8, 254u8, 162u8, 203u8, 210u8, 179u8, 63u8, 240u8, 210u8,
+    177u8, 253u8, 59u8, 113u8, 49u8, 41u8, 212u8, 138u8, 94u8, 141u8, 213u8, 102u8,
+    156u8, 102u8, 114u8, 176u8, 247u8, 132u8, 26u8, 49u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueRelaxation {
     fn append(
@@ -3606,14 +3606,14 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::DeclarationId,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
@@ -3633,7 +3633,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#declaration_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#declaration_id: <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -3642,7 +3642,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsRow {
                 index,
             )?,
             r#parent_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::DeclarationId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,

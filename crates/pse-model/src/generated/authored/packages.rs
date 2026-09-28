@@ -11,7 +11,7 @@
 )]
 pub struct AuthoredPackagesFieldDependenciesItem {
     ///package_id
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///version_req
     pub r#version_req: String,
 }
@@ -35,7 +35,7 @@ impl PartialEq for AuthoredPackagesFieldDependenciesItem {
 )]
 pub struct AuthoredPackagesRow {
     ///The package identity.
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///The package name.
     pub r#name: String,
     ///The package version (semver).

@@ -17,9 +17,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 3u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    211u8, 63u8, 54u8, 12u8, 200u8, 26u8, 170u8, 73u8, 8u8, 187u8, 201u8, 42u8, 140u8,
-    246u8, 6u8, 172u8, 11u8, 1u8, 68u8, 166u8, 93u8, 131u8, 238u8, 115u8, 69u8, 223u8,
-    206u8, 177u8, 35u8, 204u8, 183u8, 142u8,
+    152u8, 49u8, 222u8, 43u8, 85u8, 197u8, 46u8, 164u8, 71u8, 9u8, 174u8, 255u8, 61u8,
+    114u8, 56u8, 44u8, 71u8, 220u8, 155u8, 192u8, 74u8, 57u8, 84u8, 17u8, 118u8, 106u8,
+    192u8, 246u8, 13u8, 174u8, 75u8, 112u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
     fn append(
@@ -107,13 +107,13 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::ModelId,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
             pse_ids::ContentHash,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::CaseId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
             crate::generated::enums::NativeBackend,
@@ -179,7 +179,7 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
                 index,
             )?,
             r#model_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::ModelId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
@@ -191,7 +191,7 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
                 index,
             )?,
             r#case_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::CaseId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,

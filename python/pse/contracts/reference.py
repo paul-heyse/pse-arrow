@@ -8,6 +8,7 @@ import builtins as b
 import attrs
 
 from pse.contracts import enums as e
+from pse.contracts import identities as i
 from pse.contracts import values as v
 
 
@@ -163,7 +164,7 @@ class ReferenceFunctionCapabilitiesRow:
 class ReferenceMathContextRow:
     """Declared relation row or nested value."""
 
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     neutral_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     boolean_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
@@ -259,7 +260,7 @@ class ReferenceReferenceStatesRow:
     temperature: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     pressure: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     include_enthalpy_of_formation: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    subject_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    subject_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 

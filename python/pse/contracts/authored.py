@@ -9,6 +9,7 @@ from datetime import datetime
 import attrs
 
 from pse.contracts import enums as e
+from pse.contracts import identities as i
 from pse.contracts import values as v
 
 
@@ -27,7 +28,7 @@ class AuthoredDocumentsRow:
     """Declared relation row or nested value."""
 
     document_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     source_text: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
@@ -37,7 +38,7 @@ class AuthoredEntitiesRow:
     """Declared relation row or nested value."""
 
     entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.EntityKind = attrs.field(validator=attrs.validators.instance_of(e.EntityKind))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     qualified_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
@@ -612,9 +613,9 @@ class AuthoredModelingDeclarationsFieldValue:
 class AuthoredModelingDeclarationsRow:
     """Declared relation row or nested value."""
 
-    declaration_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    declaration_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     document_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    parent_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    parent_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     is_override: b.bool = attrs.field(validator=v.exact_type(b.bool))
@@ -628,8 +629,8 @@ class AuthoredNumericalRequirementsRow:
     """Declared relation row or nested value."""
 
     requirement_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    case_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    model_id: i.ModelId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    case_id: i.CaseId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
     nominal: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
@@ -662,7 +663,7 @@ class AuthoredObservationsRow:
 class AuthoredPackageQuantityAliasesRow:
     """Declared relation row or nested value."""
 
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
@@ -671,7 +672,7 @@ class AuthoredPackageQuantityAliasesRow:
 class AuthoredPackageUnitSetsRow:
     """Declared relation row or nested value."""
 
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -679,7 +680,7 @@ class AuthoredPackageUnitSetsRow:
 class AuthoredPackagesFieldDependenciesItem:
     """Declared relation row or nested value."""
 
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     version_req: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
@@ -687,7 +688,7 @@ class AuthoredPackagesFieldDependenciesItem:
 class AuthoredPackagesRow:
     """Declared relation row or nested value."""
 
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: e.PackageKind = attrs.field(validator=attrs.validators.instance_of(e.PackageKind))

@@ -1685,7 +1685,7 @@ mod tests {
         let mut builder = RegistryBuilder::new();
         builder.declare_identity(IdentityDecl::new("orphan", "nothing carries it"));
         assert!(builder.build().is_err());
-        // Nested values never carry an identity.
+        // A nested value carries an identity without owning it, even inside a key relation.
         let mut builder = RegistryBuilder::new();
         builder
             .declare_identity(IdentityDecl::new("run", "a run"))
@@ -1694,13 +1694,33 @@ mod tests {
                 "nested_id",
                 vec![FieldContract::payload(
                     "value",
-                    FieldContract::structure(vec![
+                    FieldContract::list(FieldContract::structure(vec![
                         FieldContract::id().with_name("run_id").with_identity("run"),
-                    ]),
+                    ])),
                     "a nested value",
                 )],
             ));
-        assert!(builder.build().is_err());
+        let registry = builder.build().expect("nested carriers are allowed");
+        let run = registry.identity("run").expect("declared");
+        assert_eq!(run.owner, None);
+        assert_eq!(run.base, crate::model::IdentityBase::SemanticId);
+        // A nested carrier still names a declared identity over an identity value.
+        let mut builder = RegistryBuilder::new();
+        builder.declare_relation(keyed(
+            "nested",
+            "nested_id",
+            vec![FieldContract::payload(
+                "value",
+                FieldContract::structure(vec![
+                    FieldContract::id().with_name("run_id").with_identity("run"),
+                ]),
+                "a nested value",
+            )],
+        ));
+        assert!(matches!(
+            builder.build().unwrap_err(),
+            SchemaError::UnknownReference { .. }
+        ));
     }
 
     #[test]

@@ -10,8 +10,23 @@ from pse.contracts import values as v
 # One durable attempt: a single try of a run (entity identity `attempt`).
 AttemptId = NewType("AttemptId", v.SemanticId)
 
+# The analysis case a numerical requirement or a run's lineage belongs to (entity identity `case`).
+CaseId = NewType("CaseId", v.SemanticId)
+
+# One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`).
+DeclarationId = NewType("DeclarationId", v.SemanticId)
+
+# One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity; a nested instance is derived from its parent and member (entity identity `instance`).
+InstanceId = NewType("InstanceId", v.SemanticId)
+
 # One durable job claimed by workers (entity identity `job`).
 JobId = NewType("JobId", v.SemanticId)
+
+# The model a numerical requirement or a run's lineage belongs to (entity identity `model`).
+ModelId = NewType("ModelId", v.SemanticId)
+
+# One authored package (entity identity `package`).
+PackageId = NewType("PackageId", v.SemanticId)
 
 # One committed publication in the catalog (entity identity `publication`).
 PublicationId = NewType("PublicationId", v.SemanticId)

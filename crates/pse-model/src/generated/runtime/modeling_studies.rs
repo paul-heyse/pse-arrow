@@ -10,9 +10,9 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeModelingStudiesFieldPointsItem {
     ///root_id
-    pub r#root_id: Option<pse_ids::SemanticId>,
+    pub r#root_id: Option<crate::generated::identities::DeclarationId>,
     ///instance_id
-    pub r#instance_id: Option<pse_ids::SemanticId>,
+    pub r#instance_id: Option<crate::generated::identities::InstanceId>,
     ///predecessor
     pub r#predecessor: Option<i64>,
     ///result_id

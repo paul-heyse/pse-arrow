@@ -8,8 +8,31 @@ pse_ids::semantic_id_newtype! {
     AttemptId
 }
 pse_ids::semantic_id_newtype! {
+    #[doc =
+    "The analysis case a numerical requirement or a run's lineage belongs to (entity identity `case`, ADR-0115)."]
+    CaseId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
+    "One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`, ADR-0115)."]
+    DeclarationId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
+    "One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity; a nested instance is derived from its parent and member (entity identity `instance`, ADR-0115)."]
+    InstanceId
+}
+pse_ids::semantic_id_newtype! {
     #[doc = "One durable job claimed by workers (entity identity `job`, ADR-0115)."]
     JobId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc =
+    "The model a numerical requirement or a run's lineage belongs to (entity identity `model`, ADR-0115)."]
+    ModelId
+}
+pse_ids::semantic_id_newtype! {
+    #[doc = "One authored package (entity identity `package`, ADR-0115)."] PackageId
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
@@ -66,6 +89,51 @@ impl crate::SemanticFrame for AttemptId {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }
 }
+impl crate::SemanticEq for CaseId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for CaseId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for CaseId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for DeclarationId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for DeclarationId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for DeclarationId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for InstanceId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for InstanceId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for InstanceId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
 impl crate::SemanticEq for JobId {
     fn semantic_eq(&self, other: &Self) -> bool {
         self == other
@@ -77,6 +145,36 @@ impl crate::HeapUsage for JobId {
     }
 }
 impl crate::SemanticFrame for JobId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for ModelId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for ModelId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ModelId {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        crate::SemanticFrame::frame(&self.as_id(), hash);
+    }
+}
+impl crate::SemanticEq for PackageId {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl crate::HeapUsage for PackageId {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for PackageId {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         crate::SemanticFrame::frame(&self.as_id(), hash);
     }

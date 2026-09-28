@@ -206,6 +206,53 @@ mod tests {
         assert!(rows.contains("widget_id: i.WidgetId | None"), "{rows}");
     }
 
+    /// A value nested in a column carries an identity without owning it; the nested
+    /// struct field is typed in Rust and annotated with the alias in Python.
+    #[test]
+    fn nested_identity_values_render_typed_ids() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_enum(EnumDecl::platform(
+                "BoundKind",
+                vec![
+                    EnumMember::new("finite", "finite"),
+                    EnumMember::new("unbounded", "unbounded"),
+                ],
+            ))
+            .declare_identity(IdentityDecl::new("widget", "A widget"))
+            .declare_relation(relation(
+                "boxes",
+                "box_id",
+                vec![
+                    F::key("box_id", F::id(), "the box"),
+                    F::payload(
+                        "contents",
+                        F::list(F::structure(vec![
+                            F::id().with_name("widget_id").with_identity("widget"),
+                            F::id().with_name("label_id").optional(),
+                        ])),
+                        "the widgets in the box",
+                    ),
+                ],
+            ));
+        let registry = builder.build().unwrap();
+        assert_eq!(registry.identity("widget").unwrap().owner, None);
+        let rust = generate(&registry, Language::Rust).unwrap();
+        let model = text(&rust, "crates/pse-model/src/generated/authored/boxes.rs");
+        assert!(
+            model.contains("pub r#widget_id: crate::generated::identities::WidgetId"),
+            "{model}"
+        );
+        assert!(
+            model.contains("pub r#label_id: Option<pse_ids::SemanticId>"),
+            "{model}"
+        );
+        let python = generate(&registry, Language::Python).unwrap();
+        let rows = text(&python, "python/pse/contracts/authored.py");
+        assert!(rows.contains("from pse.contracts import identities as i"), "{rows}");
+        assert!(rows.contains("widget_id: i.WidgetId"), "{rows}");
+    }
+
     #[test]
     fn microsecond_timestamps_render_codecs() {
         let registry = fixture();

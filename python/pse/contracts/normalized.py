@@ -8,6 +8,7 @@ import builtins as b
 import attrs
 
 from pse.contracts import enums as e
+from pse.contracts import identities as i
 from pse.contracts import values as v
 
 
@@ -15,11 +16,11 @@ from pse.contracts import values as v
 class NormalizedPackageGraphRow:
     """Declared relation row or nested value."""
 
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     content_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     depth: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    dependency_package_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependency_package_ids: b.tuple[i.PackageId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -37,5 +38,5 @@ class NormalizedUnitsRow:
     reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     system: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))

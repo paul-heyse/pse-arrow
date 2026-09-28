@@ -8,6 +8,7 @@ import builtins as b
 import attrs
 
 from pse.contracts import enums as e
+from pse.contracts import identities as i
 from pse.contracts import values as v
 
 
@@ -16,7 +17,7 @@ class ProvenanceAssertionsRow:
     """Declared relation row or nested value."""
 
     assertion_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    package_id: i.PackageId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     expected: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     status: e.AssertionStatus = attrs.field(validator=attrs.validators.instance_of(e.AssertionStatus))
     reason: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))

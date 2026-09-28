@@ -13,7 +13,7 @@ pub struct ProvenanceAssertionsRow {
     ///The authored assertion identity.
     pub r#assertion_id: pse_ids::SemanticId,
     ///package_id
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///expected
     pub r#expected: String,
     ///status

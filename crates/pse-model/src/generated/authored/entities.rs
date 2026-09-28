@@ -12,7 +12,7 @@ pub struct AuthoredEntitiesRow {
     ///The entity identity.
     pub r#entity_id: pse_ids::SemanticId,
     ///The declaring package.
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///What kind of entity it is.
     pub r#kind: crate::generated::enums::EntityKind,
     ///An attribute, never identity: a rename changes this and nothing else.

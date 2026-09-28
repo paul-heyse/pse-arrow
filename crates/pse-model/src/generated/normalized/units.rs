@@ -30,7 +30,7 @@ pub struct NormalizedUnitsRow {
     ///doc
     pub r#doc: String,
     ///package_id
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///unit_set_id
     pub r#unit_set_id: pse_ids::SemanticId,
 }

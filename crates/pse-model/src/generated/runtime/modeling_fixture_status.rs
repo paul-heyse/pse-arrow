@@ -12,7 +12,7 @@ pub struct RuntimeModelingFixtureStatusRow {
     ///run_id
     pub r#run_id: pse_ids::SemanticId,
     ///fixture_id
-    pub r#fixture_id: pse_ids::SemanticId,
+    pub r#fixture_id: crate::generated::identities::DeclarationId,
     ///status
     pub r#status: crate::generated::enums::ModelingConformanceStatus,
 }

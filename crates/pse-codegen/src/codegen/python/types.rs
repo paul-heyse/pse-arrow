@@ -123,6 +123,22 @@ impl super::super::native::Policy for PythonPolicy<'_> {
             return Ok(Some(scalar(&format!("e.{}", pascal(name)))));
         }
         if matches!(mode, super::super::native::Mode::Domain) {
+            // A nested identity value annotates as its alias and validates as its base
+            // value, as an identity column does (ADR-0115).
+            if let Some(identity) = ty.identity() {
+                let base = if matches!(ty.extension(), Some(ExtensionUse::ContentHash)) {
+                    "ContentHash"
+                } else {
+                    "SemanticId"
+                };
+                return Ok(Some(Type {
+                    annotation: format!(
+                        "i.{}",
+                        super::super::rust::identities::type_name(identity)
+                    ),
+                    validator: format!("attrs.validators.instance_of(v.{base})"),
+                }));
+            }
             if let Some(use_) = ty.extension() {
                 if matches!(
                     use_,

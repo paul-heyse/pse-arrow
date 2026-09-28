@@ -11,7 +11,7 @@
 )]
 pub struct AuthoredPackageQuantityAliasesRow {
     ///The declaring package.
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///Local physical type name.
     pub r#name: String,
     ///The complete admitted physical type.

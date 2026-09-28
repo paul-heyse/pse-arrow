@@ -4958,11 +4958,11 @@ impl AuthoredModelingDeclarationsFieldValue {
 )]
 pub struct AuthoredModelingDeclarationsRow {
     ///declaration_id
-    pub r#declaration_id: pse_ids::SemanticId,
+    pub r#declaration_id: crate::generated::identities::DeclarationId,
     ///document_id
     pub r#document_id: pse_ids::SemanticId,
     ///parent_id
-    pub r#parent_id: Option<pse_ids::SemanticId>,
+    pub r#parent_id: Option<crate::generated::identities::DeclarationId>,
     ///ordinal
     pub r#ordinal: i64,
     ///name

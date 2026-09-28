@@ -17,9 +17,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    71u8, 70u8, 210u8, 254u8, 116u8, 186u8, 214u8, 197u8, 71u8, 195u8, 205u8, 76u8, 48u8,
-    109u8, 150u8, 133u8, 176u8, 47u8, 40u8, 246u8, 224u8, 6u8, 173u8, 54u8, 253u8, 128u8,
-    162u8, 200u8, 42u8, 85u8, 65u8, 239u8,
+    41u8, 146u8, 177u8, 245u8, 184u8, 10u8, 215u8, 134u8, 131u8, 123u8, 34u8, 242u8,
+    105u8, 235u8, 114u8, 76u8, 209u8, 224u8, 185u8, 24u8, 243u8, 223u8, 131u8, 66u8,
+    61u8, 170u8, 18u8, 124u8, 20u8, 73u8, 223u8, 19u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
     fn append(
@@ -79,13 +79,13 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
             children[0usize].as_mut(),
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::ModelId as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::CaseId as crate::columnar::ArrowValue>::append_null(
             children[4usize].as_mut(),
         )?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
@@ -124,7 +124,7 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#model_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#model_id: <crate::generated::identities::ModelId as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -132,7 +132,7 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#case_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#case_id: <crate::generated::identities::CaseId as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
