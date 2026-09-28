@@ -51,7 +51,7 @@ struct Interpretation {
 }
 #[derive(Clone, Debug, PartialEq)]
 struct MemberSelection(
-    pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+    pse_relations::generated::structures::MemberDescriptor,
 );
 // The generated member consists only of strings, integer/identity fields and a
 // typed optional revision. Its equality is reflexive; no floats participate.
@@ -270,7 +270,7 @@ struct SelectedTable {
 /// common execution contract still re-admits policy and requirements on every read.
 pub(crate) fn selected(
     inner: Arc<dyn TableProvider>,
-    member: &pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
     state: &Arc<SessionState>,
 ) -> Result<Arc<dyn TableProvider>> {
     let Some(service) = state.config().get_extension::<DeltaCacheService>() else {

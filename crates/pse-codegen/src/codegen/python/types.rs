@@ -123,6 +123,10 @@ impl super::super::native::Policy for PythonPolicy<'_> {
             return Ok(Some(scalar(&format!("e.{}", pascal(name)))));
         }
         if matches!(mode, super::super::native::Mode::Domain) {
+            // A named structure is declared once in `structures` (Plan 22 X11).
+            if let Some(name) = ty.structure_name() {
+                return Ok(Some(scalar(&format!("s.{name}"))));
+            }
             // A nested identity value annotates as its alias and validates as its base
             // value, as an identity column does (ADR-0115).
             if let Some(identity) = ty.identity() {

@@ -45,7 +45,7 @@ pub enum Member {
     /// Execute a declared native write and select its actual committed version.
     Write(MemberWrite),
     /// Select an unchanged exact version and optional revision slice.
-    Retained(publications::RuntimePublicationsFieldMembersItem),
+    Retained(pse_relations::generated::structures::MemberDescriptor),
 }
 
 /// Compose all member writes, their actual committed versions and the conditional
@@ -197,13 +197,13 @@ fn write_member(
     )>,
 ) -> Result<(
     LogicalPlan,
-    publications::RuntimePublicationsFieldMembersItem,
+    pse_relations::generated::structures::MemberDescriptor,
     Option<super::attempt::MemberAttempt>,
 )> {
     let spec = registry
         .relation_by_id(member.relation_id)
         .ok_or_else(|| invalid("unknown publication member contract"))?;
-    let descriptor = publications::RuntimePublicationsFieldMembersItem {
+    let descriptor = pse_relations::generated::structures::MemberDescriptor {
         catalog_name: member.reference.catalog.to_string(),
         schema_name: member.reference.schema.to_string(),
         table_name: member.reference.table.to_string(),
@@ -212,7 +212,7 @@ fn write_member(
         contract_fingerprint: spec.fingerprint,
         table_uri: member.table.table_url().to_string(),
         delta_version: 0,
-        selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+        selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
     };
     if member.table.version().is_some() {
         return Err(invalid(
@@ -252,7 +252,7 @@ fn write_member(
 fn describe(
     write: LogicalPlan,
     header: &publications::Row,
-    descriptor: publications::RuntimePublicationsFieldMembersItem,
+    descriptor: pse_relations::generated::structures::MemberDescriptor,
 ) -> Result<LogicalPlan> {
     let mut sample = header.clone();
     sample.members = vec![descriptor.clone()];

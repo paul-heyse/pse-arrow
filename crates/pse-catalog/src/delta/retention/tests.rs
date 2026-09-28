@@ -19,7 +19,7 @@ async fn publication_reachability_projects_typed_distinct_versions_and_empty_lis
     let registry = Arc::new(builder.build().unwrap());
     let spec = publications::spec(&registry).unwrap();
     let key = spec.key;
-    let member = publications::RuntimePublicationsFieldMembersItem {
+    let member = pse_relations::generated::structures::MemberDescriptor {
         catalog_name: "unit".into(),
         schema_name: "runtime".into(),
         table_name: "members".into(),
@@ -28,7 +28,7 @@ async fn publication_reachability_projects_typed_distinct_versions_and_empty_lis
         relation_id: spec.id,
         relation_version: i64::from(spec.key.version),
         contract_fingerprint: spec.fingerprint,
-        selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+        selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
     };
     let cancel = CancellationToken::new();
     let factory = EngineFactory::from_builder(

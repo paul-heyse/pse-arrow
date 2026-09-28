@@ -68,7 +68,9 @@ fn field_row(field: &FieldContract, path: &str) -> String {
     let mut source = String::new();
     let ty = field.extension().map_or_else(
         || match field.data_type() {
-            D::Struct(_) => "Struct".to_owned(),
+            D::Struct(_) => field
+                .structure_name()
+                .map_or_else(|| "Struct".to_owned(), |name| format!("Struct {name}")),
             D::List(_) => "List".to_owned(),
             D::LargeList(_) => "LargeList".to_owned(),
             D::ListView(_) => "ListView".to_owned(),

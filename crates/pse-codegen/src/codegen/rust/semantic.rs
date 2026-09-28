@@ -147,6 +147,10 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
         .map_err(|error| super::error(error.to_string()))?;
         let names = value_names(&file);
         if names.is_empty() {
+            if relative == std::path::Path::new("structures.rs") {
+                // A registry without named structures still declares the module.
+                super::emit(tree, format!("{MODEL}/structures.rs"), quote!())?;
+            }
             continue;
         }
         let mut native = Vec::new();
@@ -233,6 +237,8 @@ pub(super) fn split(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
             #(#[doc = "Registry namespace values."] pub mod #modules;)*
             /// Declared closed enumerations.
             pub mod enums;
+            /// Registry named structures, each declared once (Plan 22 X11).
+            pub mod structures;
             /// Declared extension values.
             pub mod extension_values;
             /// Typed entity ids declared by the registry (ADR-0115).

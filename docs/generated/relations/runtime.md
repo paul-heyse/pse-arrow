@@ -18,7 +18,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `artifact_id`.
 | `requested_relations.item` | `semantic_id` | false | `payload` | — | — |
 | `release_id` | `content_hash` | false | `payload` | — | — |
 | `release_members` | `List` | false | `payload` | — | — |
-| `release_members.item` | `Struct` | false | `payload` | — | — |
+| `release_members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
 | `release_members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
 | `release_members.item.schema_name` | `Utf8` | false | `payload` | — | — |
 | `release_members.item.table_name` | `Utf8` | false | `payload` | — | — |
@@ -715,7 +715,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `kind, scope, name`.
 | `evidence.identified_text.text` | `Utf8` | false | `payload` | — | — |
 | `evidence.fingerprint` | `Struct` | true | `payload` | — | — |
 | `evidence.fingerprint.value` | `content_hash` | false | `payload` | — | — |
-| `evidence.selection` | `Struct` | true | `payload` | — | — |
+| `evidence.selection` | `Struct MemberDescriptor` | true | `payload` | — | — |
 | `evidence.selection.catalog_name` | `Utf8` | false | `payload` | — | — |
 | `evidence.selection.schema_name` | `Utf8` | false | `payload` | — | — |
 | `evidence.selection.table_name` | `Utf8` | false | `payload` | — | — |
@@ -730,7 +730,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `kind, scope, name`.
 | `evidence.selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
 | `evidence.selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `evidence.projection` | `Struct` | true | `payload` | — | — |
-| `evidence.projection.selection` | `Struct` | false | `payload` | — | — |
+| `evidence.projection.selection` | `Struct MemberDescriptor` | false | `payload` | — | — |
 | `evidence.projection.selection.catalog_name` | `Utf8` | false | `payload` | — | — |
 | `evidence.projection.selection.schema_name` | `Utf8` | false | `payload` | — | — |
 | `evidence.projection.selection.table_name` | `Utf8` | false | `payload` | — | — |
@@ -1294,7 +1294,7 @@ Version: 2. Snapshot class: `sidecar`. Primary key: `workspace_id`.
 | `attempt_id` | `semantic_id` | false | `payload` | — | — |
 | `kind` | `enum:PublicationKind` | false | `payload` | — | — |
 | `inputs` | `List` | false | `payload` | — | — |
-| `inputs.item` | `Struct` | false | `payload` | — | — |
+| `inputs.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
 | `inputs.item.catalog_name` | `Utf8` | false | `payload` | — | — |
 | `inputs.item.schema_name` | `Utf8` | false | `payload` | — | — |
 | `inputs.item.table_name` | `Utf8` | false | `payload` | — | — |
@@ -1309,7 +1309,7 @@ Version: 2. Snapshot class: `sidecar`. Primary key: `workspace_id`.
 | `inputs.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
 | `inputs.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `members` | `List` | false | `payload` | — | — |
-| `members.item` | `Struct` | false | `payload` | — | — |
+| `members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
 | `members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
 | `members.item.schema_name` | `Utf8` | false | `payload` | — | — |
 | `members.item.table_name` | `Utf8` | false | `payload` | — | — |
@@ -1338,7 +1338,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `consumer_id`.
 | `base_release` | `content_hash` | false | `payload` | — | — |
 | `target_release` | `content_hash` | false | `payload` | — | — |
 | `base_members` | `List` | false | `payload` | — | — |
-| `base_members.item` | `Struct` | false | `payload` | — | — |
+| `base_members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
 | `base_members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
 | `base_members.item.schema_name` | `Utf8` | false | `payload` | — | — |
 | `base_members.item.table_name` | `Utf8` | false | `payload` | — | — |
@@ -1353,7 +1353,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `consumer_id`.
 | `base_members.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
 | `base_members.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `target_members` | `List` | false | `payload` | — | — |
-| `target_members.item` | `Struct` | false | `payload` | — | — |
+| `target_members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
 | `target_members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
 | `target_members.item.schema_name` | `Utf8` | false | `payload` | — | — |
 | `target_members.item.table_name` | `Utf8` | false | `payload` | — | — |

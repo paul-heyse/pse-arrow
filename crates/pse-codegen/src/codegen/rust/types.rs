@@ -145,6 +145,11 @@ impl super::super::native::Policy for RustPolicy<'_> {
             return Ok(Some(quote!(crate::generated::enums::#name)));
         }
         if matches!(mode, super::super::native::Mode::Domain) {
+            // A named structure is emitted once and referenced by name (Plan 22 X11).
+            if let Some(name) = ty.structure_name() {
+                let name = format_ident!("{}", name);
+                return Ok(Some(quote!(crate::generated::structures::#name)));
+            }
             // A nested identity value is typed by the entity it names, as a column is
             // (ADR-0115); its value and codec are the base identity's.
             if let Some(identity) = ty.identity() {

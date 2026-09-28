@@ -184,7 +184,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let facts = capture_source_facts(&publication, &registry, &cancel).await;
     let selected = facts
         .witness()
-        .and_then(|w| w.value::<publications::RuntimePublicationsFieldMembersItem>())
+        .and_then(|w| w.value::<pse_relations::generated::structures::MemberDescriptor>())
         .unwrap()
         .clone();
     drop(publication);
@@ -301,7 +301,7 @@ async fn capture_source_facts(
     assert_eq!(
         facts
             .witness()
-            .and_then(|w| w.value::<publications::RuntimePublicationsFieldMembersItem>())
+            .and_then(|w| w.value::<pse_relations::generated::structures::MemberDescriptor>())
             .unwrap(),
         &publication.member(&reference).unwrap()
     );

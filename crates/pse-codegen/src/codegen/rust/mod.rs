@@ -93,6 +93,8 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub(crate) mod contracts;
             /// Declared string enumerations.
             pub mod enums;
+            /// Registry named structures, each emitted once (Plan 22 X11).
+            pub mod structures;
             /// Composite extension storage values.
             pub mod extension_values;
             /// Typed entity ids and their Arrow codecs.
@@ -110,6 +112,11 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         },
     )?;
     emit(&mut tree, format!("{ROOT}/enums.rs"), enums::render(reg)?)?;
+    emit(
+        &mut tree,
+        format!("{ROOT}/structures.rs"),
+        structures(reg)?,
+    )?;
     emit(
         &mut tree,
         format!("{ROOT}/algorithm_arguments.rs"),
@@ -156,6 +163,15 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     identities::emit(&mut tree, reg)?;
     postgres::emit(&mut tree, reg)?;
     Ok(tree)
+}
+
+/// Every registry named structure, rendered once under its name; relations reference it.
+fn structures(reg: &Registry) -> Result<TokenStream, SchemaError> {
+    let mut declarations = Vec::new();
+    for (name, contract) in reg.structures() {
+        types::logical(&contract.clone().unnamed(), name, &mut declarations)?;
+    }
+    Ok(quote!(#(#declarations)*))
 }
 
 fn extension_values() -> Result<TokenStream, SchemaError> {

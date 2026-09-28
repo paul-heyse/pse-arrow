@@ -88,7 +88,7 @@ impl Publication {
             }
         }
         let state = cancel
-            .until_cancelled(bind_members(&record, &registry, state))
+            .until_cancelled(bind_members(&record.members, &registry, state))
             .await?
             .map_err(pse_engine::session::engine)?;
         let mut session =
@@ -130,7 +130,7 @@ impl Publication {
     pub fn member(
         &self,
         reference: &datafusion::common::ResolvedTableReference,
-    ) -> std::result::Result<publications::RuntimePublicationsFieldMembersItem, crate::EngineError>
+    ) -> std::result::Result<pse_relations::generated::structures::MemberDescriptor, crate::EngineError>
     {
         crate::selection::selected_member(&self.session, reference)
     }
@@ -231,7 +231,7 @@ async fn read_control(
     Ok(Some(record))
 }
 pub(super) async fn bind_members(
-    record: &publications::Row,
+    members: &[pse_relations::generated::structures::MemberDescriptor],
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<Arc<SessionState>> {
@@ -243,14 +243,13 @@ pub(super) async fn bind_members(
     let slots = pse_columnar::MemoryConsumer::new("publication:member-open-slots")
         .register(&state.runtime_env().memory_pool);
     slots.try_grow(
-        record
-            .members
+        members
             .len()
             .checked_mul(256)
             .ok_or_else(|| invalid("member open inventory overflows"))?,
     )?;
-    let opens = futures_util::stream::iter(0..record.members.len()).map(|ordinal| {
-        let member = &record.members[ordinal];
+    let opens = futures_util::stream::iter(0..members.len()).map(|ordinal| {
+        let member = &members[ordinal];
         let state = state.clone();
         async move {
             let view = selected_provider(member, registry, state)
@@ -271,7 +270,7 @@ pub(super) async fn bind_members(
         .await?;
     opened.sort_unstable_by_key(|(ordinal, _)| *ordinal);
     for (ordinal, view) in opened {
-        let member = &record.members[ordinal];
+        let member = &members[ordinal];
         let catalog = if let Some(catalog) = catalogs.catalog(&member.catalog_name) {
             catalog
         } else {
@@ -305,7 +304,7 @@ pub(super) async fn bind_members(
 
 /// Open exactly the declared member slice through the common native provider.
 pub(crate) async fn selected_provider(
-    member: &publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<Arc<dyn datafusion::catalog::TableProvider>> {
@@ -334,8 +333,8 @@ pub(crate) async fn selected_provider(
         .selected()
         .map_err(pse_columnar::external)?
     {
-        publications::RuntimePublicationsFieldMembersItemSelectionSelected::Full => view,
-        publications::RuntimePublicationsFieldMembersItemSelectionSelected::Revision(selection) => {
+        pse_relations::generated::structures::MemberDescriptorSelectionSelected::Full => view,
+        pse_relations::generated::structures::MemberDescriptorSelectionSelected::Revision(selection) => {
             let column = relation
                 .column(&selection.column)
                 .ok_or_else(|| invalid("revision selection column is undeclared"))?;
@@ -365,20 +364,8 @@ pub(super) async fn verify_inputs(
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<()> {
-    // Inputs and members project the same declared nested Arrow value. Transfer
-    // the column directly; no generic scalar reconstruction or second schema.
-    let mut builder = publications::Builder::with_registry(registry, 1).map_err(external)?;
-    builder.push(record.clone()).map_err(external)?;
-    let batch = builder.finish().map_err(external)?.into_batch();
-    let schema = batch.schema();
-    let mut columns = batch.columns().to_vec();
-    columns[schema.index_of("members")?] = Arc::clone(batch.column(schema.index_of("inputs")?));
-    let batch = datafusion::arrow::array::RecordBatch::try_new(schema, columns)?;
-    let inputs = publications::View::try_from_batch_with_registry(registry, &batch)
-        .map_err(external)?
-        .row(0)
-        .map_err(external)?;
-    bind_members(&inputs, registry, state).await?;
+    // Inputs and members are the one registry structure `MemberDescriptor`.
+    bind_members(&record.inputs, registry, state).await?;
     Ok(())
 }
 

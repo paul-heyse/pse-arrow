@@ -13,6 +13,8 @@ const PARAMETER: &str = "pse.domain.parameter";
 const ROLE: &str = "pse.domain.role";
 /// Prose metadata excluded from execution identity, retained in transfer observations.
 pub(crate) const DOC: &str = pse_columnar::native_field::DOCUMENTATION;
+/// The presentation name of a named structure; excluded from every identity projection.
+const STRUCTURE: &str = pse_columnar::native_field::STRUCTURE_NAME;
 const QUANTITY: &str = "pse.domain.quantity";
 const FK_RELATION: &str = "pse.domain.fk.relation";
 const FK_COLUMN: &str = "pse.domain.fk.column";
@@ -147,6 +149,25 @@ impl FieldContract {
     #[must_use]
     pub fn with_role(self, role: ColumnRole) -> Self {
         self.facet(ROLE, role.as_str())
+    }
+    /// Name this structure (X11). Every occurrence of one name has one contract, the
+    /// generators emit the named structure once, and every relation references it. The
+    /// name is presentation only: it is excluded from the semantic contract, every
+    /// fingerprint and row identity, so naming a structure changes no stored value.
+    #[must_use]
+    pub fn named(self, name: &str) -> Self {
+        self.facet(STRUCTURE, name)
+    }
+    /// The declared structure name, when this is a named structure.
+    pub fn structure_name(&self) -> Option<&str> {
+        self.get(STRUCTURE)
+    }
+    /// The same contract without this field's structure name: the body a generator
+    /// renders once for the named structure. Nested names are kept.
+    #[must_use]
+    pub fn unnamed(mut self) -> Self {
+        self.0.metadata_mut().remove(STRUCTURE);
+        self
     }
     /// Set human-readable field meaning.
     #[must_use]
@@ -410,7 +431,16 @@ impl FieldContract {
     /// # Errors
     /// Native serialization failures are reported to registry admission.
     pub fn type_name(&self) -> Result<String, crate::SchemaError> {
-        let value = self.value_type();
+        // A structure name is presentation only: the logical type (and every encoding
+        // that records it) is the same whether or not a nested structure is named.
+        let value = Self(
+            pse_columnar::native_field::map(self.value_type().field(), &mut |field| {
+                let mut field = field.clone();
+                field.metadata_mut().remove(STRUCTURE);
+                field
+            })
+            .map_err(|error| crate::checks::invalid("logical type", error.to_string()))?,
+        );
         if value.0.metadata().keys().any(|key| {
             !matches!(
                 key.as_str(),
@@ -428,7 +458,7 @@ impl FieldContract {
         if let Some(format) = self.document() {
             return Ok(format.to_owned());
         }
-        Ok(match self.0.data_type() {
+        Ok(match value.0.data_type() {
             DataType::Float64 => "f64".into(),
             DataType::Int64 => "i64".into(),
             DataType::Int32 => "i32".into(),
@@ -498,9 +528,20 @@ impl FieldContract {
                     | FK_COLUMN
                     | IDENTITY
                     | DOCUMENT
+                    | STRUCTURE
             ) {
                 return Err(invalid("unknown domain facet"));
             }
+        }
+        if let Some(name) = self.structure_name()
+            && (!matches!(self.0.data_type(), DataType::Struct(_))
+                || self.extension().is_some()
+                || !name.starts_with(|character: char| character.is_ascii_uppercase())
+                || !name.chars().all(|character| character.is_ascii_alphanumeric()))
+        {
+            return Err(invalid(
+                "a structure name is a PascalCase identifier on a native struct",
+            ));
         }
         if let Some(identity) = self.identity()
             && (identity.is_empty()

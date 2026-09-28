@@ -234,7 +234,7 @@ async fn commit_inner(
         return Err(invalid("a publication cannot be its own parent"));
     }
     super::publication::verify_inputs(record, registry, Arc::clone(&state)).await?;
-    let candidate = super::publication::bind_members(record, registry, Arc::clone(&state))
+    let candidate = super::publication::bind_members(&record.members, registry, Arc::clone(&state))
         .await
         .map_err(|error| error.context("bind publication members"))?;
     super::admission::admit(record, Arc::clone(registry), &candidate)

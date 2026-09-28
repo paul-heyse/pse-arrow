@@ -11,42 +11,7 @@ import attrs
 from pse.contracts import enums as e
 from pse.contracts import identities as i
 from pse.contracts import values as v
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeArtifactDescriptorsFieldReleaseMembersItemSelectionRevision:
-    """Declared relation row or nested value."""
-
-    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeArtifactDescriptorsFieldReleaseMembersItemSelection:
-    """Declared relation row or nested value."""
-
-    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
-    revision: RuntimeArtifactDescriptorsFieldReleaseMembersItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldReleaseMembersItemSelectionRevision)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeArtifactDescriptorsFieldReleaseMembersItem:
-    """Declared relation row or nested value."""
-
-    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    selection: RuntimeArtifactDescriptorsFieldReleaseMembersItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldReleaseMembersItemSelection))
+from pse.contracts import structures as s
 
 
 @attrs.frozen(kw_only=True)
@@ -77,7 +42,7 @@ class RuntimeArtifactDescriptorsRow:
     profile_contract: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     requested_relations: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     release_id: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    release_members: b.tuple[RuntimeArtifactDescriptorsFieldReleaseMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldReleaseMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    release_members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
     semantic_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     implementation: RuntimeArtifactDescriptorsFieldImplementation = attrs.field(validator=attrs.validators.instance_of(RuntimeArtifactDescriptorsFieldImplementation))
     target_contract: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
@@ -949,82 +914,10 @@ class RuntimeNativeDependenciesFieldEvidenceFingerprint:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeNativeDependenciesFieldEvidenceSelectionSelectionRevision:
-    """Declared relation row or nested value."""
-
-    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeNativeDependenciesFieldEvidenceSelectionSelection:
-    """Declared relation row or nested value."""
-
-    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
-    revision: RuntimeNativeDependenciesFieldEvidenceSelectionSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceSelectionSelectionRevision)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeNativeDependenciesFieldEvidenceSelection:
-    """Declared relation row or nested value."""
-
-    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    selection: RuntimeNativeDependenciesFieldEvidenceSelectionSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceSelectionSelection))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelectionRevision:
-    """Declared relation row or nested value."""
-
-    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelection:
-    """Declared relation row or nested value."""
-
-    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
-    revision: RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelectionRevision)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeNativeDependenciesFieldEvidenceProjectionSelection:
-    """Declared relation row or nested value."""
-
-    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    selection: RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelection))
-
-
-@attrs.frozen(kw_only=True)
 class RuntimeNativeDependenciesFieldEvidenceProjection:
     """Declared relation row or nested value."""
 
-    selection: RuntimeNativeDependenciesFieldEvidenceProjectionSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceProjectionSelection))
+    selection: s.MemberDescriptor = attrs.field(validator=attrs.validators.instance_of(s.MemberDescriptor))
     columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
@@ -1037,7 +930,7 @@ class RuntimeNativeDependenciesFieldEvidence:
     identity: RuntimeNativeDependenciesFieldEvidenceIdentity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceIdentity)))
     identified_text: RuntimeNativeDependenciesFieldEvidenceIdentifiedText | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceIdentifiedText)))
     fingerprint: RuntimeNativeDependenciesFieldEvidenceFingerprint | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceFingerprint)))
-    selection: RuntimeNativeDependenciesFieldEvidenceSelection | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceSelection)))
+    selection: s.MemberDescriptor | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.MemberDescriptor)))
     projection: RuntimeNativeDependenciesFieldEvidenceProjection | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeNativeDependenciesFieldEvidenceProjection)))
 
     def __attrs_post_init__(self) -> None:
@@ -1301,78 +1194,6 @@ class RuntimeOperationalWorkspacesRow:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimePublicationsFieldInputsItemSelectionRevision:
-    """Declared relation row or nested value."""
-
-    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimePublicationsFieldInputsItemSelection:
-    """Declared relation row or nested value."""
-
-    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
-    revision: RuntimePublicationsFieldInputsItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimePublicationsFieldInputsItemSelectionRevision)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class RuntimePublicationsFieldInputsItem:
-    """Declared relation row or nested value."""
-
-    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    selection: RuntimePublicationsFieldInputsItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimePublicationsFieldInputsItemSelection))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimePublicationsFieldMembersItemSelectionRevision:
-    """Declared relation row or nested value."""
-
-    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimePublicationsFieldMembersItemSelection:
-    """Declared relation row or nested value."""
-
-    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
-    revision: RuntimePublicationsFieldMembersItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimePublicationsFieldMembersItemSelectionRevision)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class RuntimePublicationsFieldMembersItem:
-    """Declared relation row or nested value."""
-
-    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    selection: RuntimePublicationsFieldMembersItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimePublicationsFieldMembersItemSelection))
-
-
-@attrs.frozen(kw_only=True)
 class RuntimePublicationsRow:
     """Declared relation row or nested value."""
 
@@ -1381,80 +1202,8 @@ class RuntimePublicationsRow:
     parent_publication_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
-    inputs: b.tuple[RuntimePublicationsFieldInputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimePublicationsFieldInputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    members: b.tuple[RuntimePublicationsFieldMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimePublicationsFieldMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeReleaseCheckpointsFieldBaseMembersItemSelectionRevision:
-    """Declared relation row or nested value."""
-
-    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeReleaseCheckpointsFieldBaseMembersItemSelection:
-    """Declared relation row or nested value."""
-
-    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
-    revision: RuntimeReleaseCheckpointsFieldBaseMembersItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldBaseMembersItemSelectionRevision)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeReleaseCheckpointsFieldBaseMembersItem:
-    """Declared relation row or nested value."""
-
-    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    selection: RuntimeReleaseCheckpointsFieldBaseMembersItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldBaseMembersItemSelection))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeReleaseCheckpointsFieldTargetMembersItemSelectionRevision:
-    """Declared relation row or nested value."""
-
-    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeReleaseCheckpointsFieldTargetMembersItemSelection:
-    """Declared relation row or nested value."""
-
-    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
-    revision: RuntimeReleaseCheckpointsFieldTargetMembersItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldTargetMembersItemSelectionRevision)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeReleaseCheckpointsFieldTargetMembersItem:
-    """Declared relation row or nested value."""
-
-    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    selection: RuntimeReleaseCheckpointsFieldTargetMembersItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldTargetMembersItemSelection))
+    inputs: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -1475,8 +1224,8 @@ class RuntimeReleaseCheckpointsRow:
     admission_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     base_release: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     target_release: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    base_members: b.tuple[RuntimeReleaseCheckpointsFieldBaseMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldBaseMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    target_members: b.tuple[RuntimeReleaseCheckpointsFieldTargetMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldTargetMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    base_members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    target_members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
     intervals: b.tuple[RuntimeReleaseCheckpointsFieldIntervalsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldIntervalsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 

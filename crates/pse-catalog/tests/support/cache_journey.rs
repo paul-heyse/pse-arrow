@@ -111,36 +111,7 @@ async fn publish(
             );
         }
     }
-    header.inputs = inputs
-        .into_values()
-        .map(|member| {
-            use publications::{
-                RuntimePublicationsFieldInputsItem as Input,
-                RuntimePublicationsFieldInputsItemSelection as Selection,
-                RuntimePublicationsFieldMembersItemSelectionSelected as Selected,
-            };
-            let selection = match member.selection.selected().unwrap() {
-                Selected::Full => Selection::from_full(),
-                Selected::Revision(value) => Selection::from_revision(
-                    publications::RuntimePublicationsFieldInputsItemSelectionRevision {
-                        column: value.column.clone(),
-                        revision_id: value.revision_id,
-                    },
-                ),
-            };
-            Input {
-                catalog_name: member.catalog_name,
-                schema_name: member.schema_name,
-                table_name: member.table_name,
-                relation_id: member.relation_id,
-                relation_version: member.relation_version,
-                contract_fingerprint: member.contract_fingerprint,
-                table_uri: member.table_uri,
-                delta_version: member.delta_version,
-                selection,
-            }
-        })
-        .collect();
+    header.inputs = inputs.into_values().collect();
     let destinations = artifact
         .outputs()
         .keys()
@@ -550,7 +521,7 @@ pub(crate) async fn maintenance_child(payload: &str) {
     use pse_relations::generated::runtime::retained_versions;
     let request: serde_json::Value = serde_json::from_str(payload).unwrap();
     let root: PublicationRoot = serde_json::from_value(request["root"].clone()).unwrap();
-    let member: publications::RuntimePublicationsFieldMembersItem =
+    let member: pse_relations::generated::structures::MemberDescriptor =
         serde_json::from_value(request["member"].clone()).unwrap();
     let registry = registry();
     let runtime = RuntimeEnvBuilder::new()

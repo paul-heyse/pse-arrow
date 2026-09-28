@@ -421,7 +421,7 @@ impl ArtifactPlan {
         target: PublicationTarget,
         mut header: publications::Row,
         mut destinations: BTreeMap<ResolvedTableReference, url::Url>,
-        retained: Vec<publications::RuntimePublicationsFieldMembersItem>,
+        retained: Vec<pse_relations::generated::structures::MemberDescriptor>,
         cancel: &CancellationToken,
     ) -> Result<(PreparedComputation, crate::delta::ticket::PublicationTicket), EngineError> {
         cancel.checkpoint()?;
@@ -480,7 +480,7 @@ impl ArtifactPlan {
     fn check_publication_inputs(
         &self,
         header: &mut publications::Row,
-        retained: &[publications::RuntimePublicationsFieldMembersItem],
+        retained: &[pse_relations::generated::structures::MemberDescriptor],
         cancel: &CancellationToken,
     ) -> Result<(), EngineError> {
         let mut selected = BTreeMap::new();
@@ -530,18 +530,8 @@ impl ArtifactPlan {
                 &right.table_name,
             ))
         });
-        let mut observed = header.clone();
-        observed.members = selected.into_values().collect();
-        let mut builder = publications::Builder::new()?;
-        builder.push(observed)?;
-        let observed = builder.finish()?.into_batch();
-        let inputs = observed
-            .column_by_name("inputs")
-            .ok_or_else(|| invalid("publication input contract absent"))?;
-        let selected = observed
-            .column_by_name("members")
-            .ok_or_else(|| invalid("publication member contract absent"))?;
-        if inputs != selected {
+        // Inputs and selections are the one registry structure `MemberDescriptor`.
+        if header.inputs.iter().ne(selected.values()) {
             return Err(invalid(
                 "publication input vector differs from the exact bound selections",
             ));

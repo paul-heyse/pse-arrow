@@ -14,7 +14,7 @@ use datafusion::{
 };
 use deltalake::{delta_datafusion::DeltaCdfTableProvider, kernel::Action};
 use pse_columnar::CancellationToken;
-use pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItemSelectionSelected as Selected;
+use pse_relations::generated::structures::MemberDescriptorSelectionSelected as Selected;
 use std::sync::Arc;
 
 /// Prepare changes after `after_version`, through this publication's selected
@@ -210,7 +210,7 @@ pub(crate) async fn change_plan(
 fn empty_changes(
     session: &pse_engine::EngineSession,
     reference: &ResolvedTableReference,
-    member: &pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
 ) -> Result<(
     pse_engine::EngineSession,
     datafusion::logical_expr::LogicalPlan,
@@ -268,7 +268,7 @@ async fn verify_history(
 
 fn normalize(
     session: &pse_engine::session::EngineSession,
-    member: &pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
     plan: datafusion::logical_expr::LogicalPlan,
 ) -> Result<datafusion::logical_expr::LogicalPlan> {
     let spec = session

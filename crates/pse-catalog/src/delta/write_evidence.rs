@@ -23,8 +23,8 @@ struct MemberWriteCompletion {
     publication_id: pse_ids::SemanticId,
     parent_publication_id: Option<pse_ids::SemanticId>,
     attempt_id: pse_ids::SemanticId,
-    member: publications::RuntimePublicationsFieldMembersItem,
-    inputs: Vec<publications::RuntimePublicationsFieldInputsItem>,
+    member: pse_relations::generated::structures::MemberDescriptor,
+    inputs: Vec<pse_relations::generated::structures::MemberDescriptor>,
     registry: Weak<pse_schema::Registry>,
     contract: super::contract::DeclaredCheck,
     version: u64,
@@ -108,7 +108,7 @@ pub(super) fn establishes(
     state: &SessionState,
     registry: &Arc<pse_schema::Registry>,
     record: &publications::Row,
-    member: &publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
 ) -> Result<bool> {
     let Some(services) = state.config().get_extension::<NativeExecutionContext>() else {
         return Ok(false);
@@ -140,7 +140,7 @@ impl MemberWriteCompletion {
         &self,
         registry: &Arc<pse_schema::Registry>,
         record: &publications::Row,
-        member: &publications::RuntimePublicationsFieldMembersItem,
+        member: &pse_relations::generated::structures::MemberDescriptor,
         contract: &super::contract::DeclaredCheck,
     ) -> bool {
         let mut expected = self.member.clone();
@@ -171,7 +171,7 @@ mod completion_unit {
         let registry = pse_schema::shared_registry().unwrap();
         let spec = registry.relation("authored.documents").unwrap();
         let contract = super::super::contract::DeclaredCheck::new(&registry, spec.id).unwrap();
-        let member = publications::RuntimePublicationsFieldMembersItem {
+        let member = pse_relations::generated::structures::MemberDescriptor {
             catalog_name: "artifact".into(),
             schema_name: "authored".into(),
             table_name: "documents".into(),
@@ -180,7 +180,7 @@ mod completion_unit {
             contract_fingerprint: spec.fingerprint,
             table_uri: "memory:///documents/".into(),
             delta_version: 7,
-            selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+            selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
         };
         let record = publications::Row {
             workspace_id: pse_ids::SemanticId::from_bytes([1; 16]),

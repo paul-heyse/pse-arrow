@@ -423,7 +423,7 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
 async fn qualify_retained_only_composition(
     state: &SessionState,
     control: url::Url,
-    selected: &[publications::RuntimePublicationsFieldMembersItem],
+    selected: &[pse_relations::generated::structures::MemberDescriptor],
 ) {
     use pse_catalog::delta::{
         publication::PublicationRoot,
@@ -547,7 +547,7 @@ async fn unavailable_declared_input_prevents_publication() {
         .unwrap();
     record
         .inputs
-        .push(publications::RuntimePublicationsFieldInputsItem {
+        .push(pse_relations::generated::structures::MemberDescriptor {
             catalog_name: "source".into(),
             schema_name: "authored".into(),
             table_name: "packages".into(),
@@ -556,7 +556,7 @@ async fn unavailable_declared_input_prevents_publication() {
             contract_fingerprint: relation.fingerprint,
             table_uri: location(&temp.path().join("absent")).to_string(),
             delta_version: 13,
-            selection: publications::RuntimePublicationsFieldInputsItemSelection::from_full(),
+            selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
         });
     assert!(
         publish(
@@ -728,7 +728,7 @@ async fn write_member(
     root: &std::path::Path,
     name: &str,
     batch: RecordBatch,
-) -> publications::RuntimePublicationsFieldMembersItem {
+) -> pse_relations::generated::structures::MemberDescriptor {
     use datafusion::datasource::{MemTable, provider_as_source};
     use pse_catalog::delta::contract::DeclaredCheck;
     let registry = pse_engine::validation::registry().unwrap();
@@ -764,7 +764,7 @@ async fn write_member(
         .downcast_ref::<Int64Array>()
         .unwrap()
         .value(0);
-    publications::RuntimePublicationsFieldMembersItem {
+    pse_relations::generated::structures::MemberDescriptor {
         catalog_name: "model".into(),
         schema_name: spec.key.namespace.as_str().into(),
         table_name: spec.key.name.into(),
@@ -773,7 +773,7 @@ async fn write_member(
         contract_fingerprint: spec.fingerprint,
         table_uri: location.to_string(),
         delta_version,
-        selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+        selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
     }
 }
 
@@ -1598,9 +1598,9 @@ async fn generated_publication_control_reopens_its_exact_member_catalog() {
 async fn publication_selection_preserves_full_tables_and_exact_identity_slices() {
     use pse_catalog::delta::publication::PublicationRoot;
     use pse_relations::generated::{authored::entities, enums::EntityKind};
-    use publications::{
-        RuntimePublicationsFieldMembersItemSelection as Selection,
-        RuntimePublicationsFieldMembersItemSelectionRevision as Revision,
+    use pse_relations::generated::structures::{
+        MemberDescriptorSelection as Selection,
+        MemberDescriptorSelectionRevision as Revision,
     };
     let root = tempfile::tempdir().unwrap();
     let (writer, _, _, _) = context();
@@ -1799,7 +1799,7 @@ async fn a_lost_control_schema_creation_response_is_reconciled_before_publishing
     assert_eq!(publish(&context.state(), location, row).await.unwrap(), 1);
 }
 
-async fn remove_native_check(member: &mut publications::RuntimePublicationsFieldMembersItem) {
+async fn remove_native_check(member: &mut pse_relations::generated::structures::MemberDescriptor) {
     let table = DeltaTableBuilder::from_url(member.table_uri.parse().unwrap())
         .unwrap()
         .load()

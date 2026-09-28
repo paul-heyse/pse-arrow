@@ -77,7 +77,7 @@ impl PublicationTicket {
         self.candidate.publication_id
     }
     /// Complete planned member inventory. New members receive actual versions at settlement.
-    pub fn members(&self) -> &[publications::RuntimePublicationsFieldMembersItem] {
+    pub fn members(&self) -> &[pse_relations::generated::structures::MemberDescriptor] {
         &self.candidate.members
     }
     /// Inspect a completed or interrupted attempt through the caller's native policy and pool.

@@ -17,8 +17,8 @@ use pse_engine::{
     provider::binding::{BindingKey, TableBinding},
     session::{EngineSession, RelationPlan},
 };
-use pse_relations::generated::runtime::{
-    native_dependencies, publications::RuntimePublicationsFieldMembersItem as Member,
+use pse_relations::generated::{
+    runtime::native_dependencies, structures::MemberDescriptor as Member,
 };
 use std::sync::Arc;
 

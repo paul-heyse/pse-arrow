@@ -24,6 +24,8 @@ pub mod r#runtime;
 pub(crate) mod contracts;
 /// Declared string enumerations.
 pub mod enums;
+/// Registry named structures, each emitted once (Plan 22 X11).
+pub mod structures;
 /// Composite extension storage values.
 pub mod extension_values;
 /// Typed entity ids and their Arrow codecs.
@@ -32,9 +34,9 @@ pub mod identities;
 pub mod algorithm_arguments;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    29u8, 17u8, 98u8, 6u8, 187u8, 20u8, 182u8, 111u8, 238u8, 249u8, 96u8, 105u8, 217u8,
-    133u8, 205u8, 171u8, 248u8, 216u8, 130u8, 170u8, 193u8, 254u8, 42u8, 143u8, 127u8,
-    226u8, 84u8, 105u8, 47u8, 32u8, 32u8, 31u8,
+    74u8, 56u8, 107u8, 214u8, 223u8, 232u8, 29u8, 124u8, 76u8, 178u8, 93u8, 162u8, 230u8,
+    211u8, 46u8, 9u8, 254u8, 204u8, 132u8, 66u8, 20u8, 146u8, 69u8, 28u8, 234u8, 11u8,
+    11u8, 150u8, 198u8, 48u8, 240u8, 49u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors

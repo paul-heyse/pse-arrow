@@ -10,7 +10,7 @@ use pse_engine::{
 };
 use pse_relations::generated::runtime::publications;
 use std::{collections::BTreeMap, sync::Arc};
-type Member = publications::RuntimePublicationsFieldMembersItem;
+type Member = pse_relations::generated::structures::MemberDescriptor;
 #[derive(Debug)]
 struct Selected(Member);
 impl InputWitness for Selected {

@@ -342,6 +342,10 @@ pub(super) fn declare_profiles(builder: &mut RegistryBuilder) {
     );
 }
 
+/// One exact member selection: a qualified table name, its relation contract and the
+/// exact Delta version (and optional revision slice) selected. The registry named
+/// structure `MemberDescriptor` (Plan 22 X11): every relation that lists members
+/// references this one declaration, and the generators emit it once.
 pub(super) fn member() -> T {
     T::structure(vec![
         T::native(arrow_schema::DataType::Utf8)
@@ -368,6 +372,7 @@ pub(super) fn member() -> T {
             .with_nullable(false),
         selection().with_name("selection"),
     ])
+    .named("MemberDescriptor")
 }
 
 fn selection() -> T {

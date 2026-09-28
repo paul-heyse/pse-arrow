@@ -10,7 +10,7 @@ use datafusion::{
 };
 use pse_columnar::CancellationToken;
 use pse_engine::{EngineError, session::EngineSession};
-use pse_relations::generated::runtime::{native_dependencies as deps, publications};
+use pse_relations::generated::runtime::native_dependencies as deps;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -43,7 +43,7 @@ pub(super) fn columns(
                     continue;
                 }
                 let Some(member) = binding.witness.as_ref().and_then(|value| {
-                    value.value::<publications::RuntimePublicationsFieldMembersItem>()
+                    value.value::<pse_relations::generated::structures::MemberDescriptor>()
                 }) else {
                     continue;
                 };
@@ -82,21 +82,21 @@ pub(super) fn columns(
 }
 
 pub(super) fn projection(
-    member: publications::RuntimePublicationsFieldMembersItem,
+    member: pse_relations::generated::structures::MemberDescriptor,
     columns: BTreeSet<String>,
 ) -> Result<deps::RuntimeNativeDependenciesFieldEvidenceProjection, EngineError> {
-    use publications::RuntimePublicationsFieldMembersItemSelectionSelected as Selected;
+    use pse_relations::generated::structures::MemberDescriptorSelectionSelected as Selected;
     let selection = match member
         .selection
         .selected()
         .map_err(pse_relations::RelationError::from)?
     {
         Selected::Full => {
-            deps::RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelection::from_full()
+            pse_relations::generated::structures::MemberDescriptorSelection::from_full()
         }
         Selected::Revision(value) => {
-            deps::RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelection::from_revision(
-                deps::RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelectionRevision {
+            pse_relations::generated::structures::MemberDescriptorSelection::from_revision(
+                pse_relations::generated::structures::MemberDescriptorSelectionRevision {
                     column: value.column.clone(),
                     revision_id: value.revision_id,
                 },
@@ -105,7 +105,7 @@ pub(super) fn projection(
     };
     Ok(deps::RuntimeNativeDependenciesFieldEvidenceProjection {
         columns: columns.into_iter().collect(),
-        selection: deps::RuntimeNativeDependenciesFieldEvidenceProjectionSelection {
+        selection: pse_relations::generated::structures::MemberDescriptor {
             catalog_name: member.catalog_name,
             schema_name: member.schema_name,
             table_name: member.table_name,
@@ -120,25 +120,25 @@ pub(super) fn projection(
 }
 fn member(
     value: &deps::RuntimeNativeDependenciesFieldEvidenceProjection,
-) -> Result<publications::RuntimePublicationsFieldMembersItem, EngineError> {
-    use deps::RuntimeNativeDependenciesFieldEvidenceProjectionSelectionSelectionSelected as Selected;
+) -> Result<pse_relations::generated::structures::MemberDescriptor, EngineError> {
+    use pse_relations::generated::structures::MemberDescriptorSelectionSelected as Selected;
     let source = &value.selection;
     let selection = match source
         .selection
         .selected()
         .map_err(pse_relations::RelationError::from)?
     {
-        Selected::Full => publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+        Selected::Full => pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
         Selected::Revision(value) => {
-            publications::RuntimePublicationsFieldMembersItemSelection::from_revision(
-                publications::RuntimePublicationsFieldMembersItemSelectionRevision {
+            pse_relations::generated::structures::MemberDescriptorSelection::from_revision(
+                pse_relations::generated::structures::MemberDescriptorSelectionRevision {
                     column: value.column.clone(),
                     revision_id: value.revision_id,
                 },
             )
         }
     };
-    Ok(publications::RuntimePublicationsFieldMembersItem {
+    Ok(pse_relations::generated::structures::MemberDescriptor {
         catalog_name: source.catalog_name.clone(),
         schema_name: source.schema_name.clone(),
         table_name: source.table_name.clone(),

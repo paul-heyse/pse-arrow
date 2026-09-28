@@ -20,6 +20,8 @@ pub mod r#reference;
 pub mod r#runtime;
 /// Declared closed enumerations.
 pub mod enums;
+/// Registry named structures, each declared once (Plan 22 X11).
+pub mod structures;
 /// Declared extension values.
 pub mod extension_values;
 /// Typed entity ids declared by the registry (ADR-0115).

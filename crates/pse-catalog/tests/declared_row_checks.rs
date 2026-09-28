@@ -89,7 +89,7 @@ fn candidate(registry: &Registry) -> publications::Row {
         attempt_id: SemanticId::NIL,
         kind: PublicationKind::Relations,
         inputs: vec![],
-        members: vec![publications::RuntimePublicationsFieldMembersItem {
+        members: vec![pse_relations::generated::structures::MemberDescriptor {
             catalog_name: "datafusion".into(),
             schema_name: "public".into(),
             table_name: "pairs".into(),
@@ -98,7 +98,7 @@ fn candidate(registry: &Registry) -> publications::Row {
             contract_fingerprint: spec.fingerprint,
             table_uri: "memory://pairs".into(),
             delta_version: 1,
-            selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+            selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
         }],
     }
 }

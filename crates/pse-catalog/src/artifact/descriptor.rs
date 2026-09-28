@@ -132,24 +132,7 @@ impl ArtifactPlan {
                 schema: selected.schema_name.clone().into(),
                 table: selected.table_name.clone().into(),
             };
-            let member = crate::selection::selected_member(&self.session, &reference)?;
-            if selected.relation_id != member.relation_id
-                || selected.relation_version != member.relation_version
-                || selected.contract_fingerprint != member.contract_fingerprint
-                || selected.table_uri != member.table_uri
-                || selected.delta_version != member.delta_version
-                || selected.selection.kind != member.selection.kind
-                || selected
-                    .selection
-                    .revision
-                    .as_ref()
-                    .map(|v| (&v.column, v.revision_id))
-                    != member
-                        .selection
-                        .revision
-                        .as_ref()
-                        .map(|v| (&v.column, v.revision_id))
-            {
+            if crate::selection::selected_member(&self.session, &reference)? != *selected {
                 return Err(invalid(
                     "descriptor release vector differs from the bound exact input",
                 ));
@@ -159,27 +142,7 @@ impl ArtifactPlan {
             for member in
                 crate::selection::selected_dependencies(&self.session, &output.plan, cancel)?
             {
-                if !row.release_members.iter().any(|selected| {
-                    selected.catalog_name == member.catalog_name
-                        && selected.schema_name == member.schema_name
-                        && selected.table_name == member.table_name
-                        && selected.relation_id == member.relation_id
-                        && selected.relation_version == member.relation_version
-                        && selected.contract_fingerprint == member.contract_fingerprint
-                        && selected.table_uri == member.table_uri
-                        && selected.delta_version == member.delta_version
-                        && selected.selection.kind == member.selection.kind
-                        && selected
-                            .selection
-                            .revision
-                            .as_ref()
-                            .map(|r| (&r.column, r.revision_id))
-                            == member
-                                .selection
-                                .revision
-                                .as_ref()
-                                .map(|r| (&r.column, r.revision_id))
-                }) {
+                if !row.release_members.contains(&member) {
                     return Err(invalid(
                         "descriptor does not cover an exact consumed release member",
                     ));

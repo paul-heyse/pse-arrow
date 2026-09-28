@@ -75,7 +75,7 @@ fn bind(
         .unwrap();
     record
         .members
-        .push(publications::RuntimePublicationsFieldMembersItem {
+        .push(pse_relations::generated::structures::MemberDescriptor {
             catalog_name: catalog.into(),
             schema_name: "public".into(),
             table_name: spec.key.name.into(),
@@ -84,7 +84,7 @@ fn bind(
             relation_id: spec.id,
             relation_version: i64::from(spec.key.version),
             contract_fingerprint: spec.fingerprint,
-            selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+            selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
         });
 }
 
@@ -105,7 +105,7 @@ fn complete_artifact_profiles_refuse_missing_members_but_allow_explicit_partial_
         .iter()
         .map(|id| {
             let spec = registry.relation_by_id(*id).unwrap();
-            publications::RuntimePublicationsFieldMembersItem {
+            pse_relations::generated::structures::MemberDescriptor {
                 catalog_name: "artifact".into(),
                 schema_name: spec.key.namespace.as_str().into(),
                 table_name: spec.key.name.into(),
@@ -114,7 +114,7 @@ fn complete_artifact_profiles_refuse_missing_members_but_allow_explicit_partial_
                 contract_fingerprint: spec.fingerprint,
                 table_uri: format!("memory:///source/{id}"),
                 delta_version: 1,
-                selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+                selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
             }
         })
         .collect();

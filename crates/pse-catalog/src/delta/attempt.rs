@@ -15,7 +15,7 @@ use deltalake::{
     kernel::{Action, Transaction, transaction::CommitProperties},
 };
 use pse_ids::SemanticId;
-use pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem as Member;
+use pse_relations::generated::structures::MemberDescriptor as Member;
 use serde::{Deserialize, Serialize};
 
 const KEY: &str = "pse.member_attempt.v3";
@@ -52,8 +52,7 @@ pub(crate) struct MemberAttempt {
     pub parent_publication_id: Option<SemanticId>,
     pub attempt_id: SemanticId,
     pub member: Member,
-    pub inputs:
-        Vec<pse_relations::generated::runtime::publications::RuntimePublicationsFieldInputsItem>,
+    pub inputs: Vec<Member>,
     pub dependencies: Vec<pse_relations::generated::runtime::native_dependencies::Row>,
     pub base_version: Option<u64>,
 }
@@ -369,7 +368,7 @@ mod tests {
                 relation_id: SemanticId::from_bytes([5; 16]), relation_version: 1,
                 contract_fingerprint: pse_ids::ContentHash::NIL,
                 table_uri: "memory:///workspace/member/".into(), delta_version: 0,
-                selection: pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+                selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
             },
             inputs: vec![],
             dependencies: vec![],
@@ -404,9 +403,7 @@ mod tests {
         );
         assert!(original.compare(&changed).is_err());
         changed = original.clone();
-        changed
-            .inputs
-            .push(serde_json::from_value(serde_json::to_value(&original.member).unwrap()).unwrap());
+        changed.inputs.push(original.member.clone());
         assert!(original.compare(&changed).is_err());
         changed = original.clone();
         changed.base_version = Some(1);

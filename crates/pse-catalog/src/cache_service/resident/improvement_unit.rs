@@ -17,9 +17,9 @@ use datafusion::{
     logical_expr::{TableProviderFilterPushDown, col, lit},
     physical_plan::collect,
 };
-use pse_relations::generated::runtime::publications::{
-    RuntimePublicationsFieldMembersItem as Member,
-    RuntimePublicationsFieldMembersItemSelection as Selection,
+use pse_relations::generated::structures::{
+    MemberDescriptor as Member,
+    MemberDescriptorSelection as Selection,
 };
 
 type Scan = (Option<Vec<usize>>, usize, Option<usize>);
