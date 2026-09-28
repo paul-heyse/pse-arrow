@@ -454,10 +454,10 @@ async fn discrete_on(
     let operations = Operations::connect(database.url(), "runtime-a", quick())
         .await
         .unwrap();
-    let runtime = super::tests::runtime_with(16 << 20, 16 << 20, 2 << 30)
+    let runtime = tests::runtime_with(16 << 20, 16 << 20, 2 << 30)
         .with_durability(Durability::Durable(operations));
     let physical = physical();
-    let mut names = super::tests::discrete_names();
+    let mut names = tests::discrete_names();
     names.insert(
         "Scalar".into(),
         physical.quantities.neutral_dimensionless().unwrap(),

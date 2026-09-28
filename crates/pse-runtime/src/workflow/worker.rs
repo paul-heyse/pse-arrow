@@ -268,6 +268,18 @@ impl Runtime {
     /// A non-durable runtime, or a store failure while claiming. A failure of the job
     /// itself ends its try instead and is reported in the record.
     pub async fn work_once(&self) -> Result<Processed, WorkflowError> {
+        Ok(self.work_once_with_result().await?.0)
+    }
+
+    /// As [`Self::work_once`], also returning the joined result of a try that ran: its
+    /// typed reports, start sources and native metrics, for a caller that inspects them.
+    /// The result holds its reservation until dropped.
+    ///
+    /// # Errors
+    /// As for [`Self::work_once`].
+    pub async fn work_once_with_result(
+        &self,
+    ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
         let operations = operations(self)?;
         let Some(claimed) = operations
             .store()
@@ -275,7 +287,7 @@ impl Runtime {
             .claim(operations.worker(), operations.policy().lease)
             .await?
         else {
-            return Ok(Processed::Idle);
+            return Ok((Processed::Idle, None));
         };
         let job = claimed.job_id;
         let cancel = crate::CancelSource::new();
@@ -289,10 +301,13 @@ impl Runtime {
         let stop = cancel.clone();
         if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
             let record = attempt.abandon(&error).await;
-            return Ok(Processed::Ran {
-                job,
-                record: Box::new(record),
-            });
+            return Ok((
+                Processed::Ran {
+                    job,
+                    record: Box::new(record),
+                },
+                None,
+            ));
         }
         // A cancellation request stops the try in any phase, including source loading.
         let preparation = tokio::select! {
@@ -301,16 +316,21 @@ impl Runtime {
                 crate::math::MathRuntimeError::Cancelled,
             )),
         };
-        let prepared = match preparation {
+        let (prepared, applied) = match preparation {
             Ok(prepared) => prepared,
             Err(error) => {
                 let record = attempt.abandon(&error).await;
-                return Ok(Processed::Ran {
-                    job,
-                    record: Box::new(record),
-                });
+                return Ok((
+                    Processed::Ran {
+                        job,
+                        record: Box::new(record),
+                    },
+                    None,
+                ));
             }
         };
+        // The attempt's stream records how the solve started, before its native events.
+        attempt.tap().observe(&applied.event());
         let handle = self.start_attempt(vec![prepared], attempt)?;
         let result = tokio::select! {
             result = handle.wait() => result?,
@@ -325,7 +345,7 @@ impl Runtime {
                 return Err(contract("a claimed job ran without its durable attempt"));
             }
         };
-        Ok(Processed::Ran { job, record })
+        Ok((Processed::Ran { job, record }, Some(result)))
     }
 
     /// Serve the queue until `stop` fires, `settings.jobs` jobs were processed, or (with
@@ -364,13 +384,14 @@ impl Runtime {
         Ok(processed)
     }
 
-    /// Decode a claimed payload, load its sources from the store and prepare its case.
+    /// Decode a claimed payload, load its sources from the store, prepare its case and
+    /// apply its start policy.
     async fn prepare_job(
         &self,
         operations: &Operations,
         claimed: &ClaimedJob,
         cancel: &crate::CancelSource,
-    ) -> Result<super::ModelingSolvePreparation, WorkflowError> {
+    ) -> Result<(super::ModelingSolvePreparation, AppliedStart), WorkflowError> {
         if claimed.payload_version != MODELING_JOB_VERSION {
             return Err(WorkflowError::UnknownPayloadVersion {
                 version: claimed.payload_version,
@@ -379,12 +400,6 @@ impl Runtime {
         }
         let job: ModelingJob = serde_json::from_value(claimed.payload.clone())
             .map_err(|e| contract(format!("job payload version {MODELING_JOB_VERSION}: {e}")))?;
-        if job.start != JobStart::Fresh {
-            return Err(contract(
-                "a job start from a parent incumbent or a stored solution is not yet served \
-                 (Plan 22 G8)",
-            ));
-        }
         let solver = job.settings.profile().map_err(WorkflowError::Math)?;
         let physical = self
             .physical_from_sources(&operations.sources(&job.physical).await?, cancel)
@@ -405,7 +420,8 @@ impl Runtime {
                 cancel,
             )
             .await?;
-        package.prepare_analysis(&analysis, cancel).await
+        let prepared = package.prepare_analysis(&analysis, cancel).await?;
+        start(operations, claimed, job.start, prepared).await
     }
 
     pub(super) async fn physical_from_sources(
@@ -448,4 +464,106 @@ impl Runtime {
         let documents = OwnedDocumentSet::try_from_bundles(bundles, &pool, &token)?;
         self.modeling_from_documents(&documents, physical)
     }
+}
+
+/// How a claimed job's solve started: the policy its payload requested and the stored
+/// solution it started from, if any. It is recorded as the attempt's first progress event
+/// (`job.start`), beside the start receipt and lineage of the result.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct AppliedStart {
+    requested: JobStart,
+    solution: Option<SolutionId>,
+    /// Why a resume started fresh instead.
+    fresh: Option<&'static str>,
+}
+
+impl AppliedStart {
+    fn event(&self) -> pse_backend_native::solve::Event {
+        use pse_backend_native::solve::{Metric, UnavailableReason};
+        let requested = match self.requested {
+            JobStart::Fresh => "fresh",
+            JobStart::ResumeFromParent => "resume_from_parent",
+            JobStart::StoredSolution { .. } => "stored_solution",
+        };
+        let mut values = BTreeMap::from([
+            ("requested".to_owned(), Metric::Text(requested.to_owned())),
+            (
+                "solution".to_owned(),
+                self.solution.map_or(
+                    Metric::Unavailable(UnavailableReason::NotApplicable),
+                    |solution| Metric::Text(solution.to_string()),
+                ),
+            ),
+        ]);
+        if let Some(reason) = self.fresh {
+            values.insert("fresh".to_owned(), Metric::Text(reason.to_owned()));
+        }
+        pse_backend_native::solve::Event {
+            phase: "job.start".into(),
+            elapsed: Duration::ZERO,
+            values,
+            incumbent: None,
+        }
+    }
+}
+
+/// Apply a job's start policy to its prepared case (Plan 22 G8). `ResumeFromParent`
+/// starts from the newest solution captured in the parent attempt chain for this
+/// preparation's coordinates and backend (an incumbent stored while a superseded try ran),
+/// and starts fresh, recorded, when there is none; `StoredSolution` starts from that
+/// solution. A stored start reaches the backend as an explicit warm start: SCIP injects its
+/// primal as an incumbent, HiGHS takes it as a MIP start.
+///
+/// # Errors
+/// A stored solution that is unknown or whose coordinates or backend differ; store
+/// failures.
+async fn start(
+    operations: &Operations,
+    claimed: &ClaimedJob,
+    requested: JobStart,
+    prepared: super::ModelingSolvePreparation,
+) -> Result<(super::ModelingSolvePreparation, AppliedStart), WorkflowError> {
+    let applied = |solution, fresh| AppliedStart {
+        requested,
+        solution,
+        fresh,
+    };
+    let solution = match requested {
+        JobStart::Fresh => return Ok((prepared, applied(None, None))),
+        JobStart::StoredSolution { solution } => solution,
+        JobStart::ResumeFromParent => {
+            let Some(parent) = claimed.parent_attempt else {
+                return Ok((prepared, applied(None, Some("first try: no parent attempt"))));
+            };
+            let (Some(target), Some(preparation)) = (
+                prepared.solve.compatibility(),
+                prepared.solve.seed_preparation_identity(),
+            ) else {
+                return Ok((
+                    prepared,
+                    applied(None, Some("a constant evaluation consumes no seed")),
+                ));
+            };
+            let found = operations
+                .store()
+                .solutions()
+                .latest_in_attempt_chain(parent, &target.layout, &preparation, target.backend)
+                .await?;
+            let Some(found) = found else {
+                tracing::info!(%parent, "no compatible incumbent in the parent chain; fresh start");
+                return Ok((
+                    prepared,
+                    applied(
+                        None,
+                        Some("no compatible incumbent solution in the parent attempt chain"),
+                    ),
+                ));
+            };
+            found.solution_id
+        }
+    };
+    let seeded = prepared
+        .with_stored_start(operations, super::StoredStart::Solution(solution))
+        .await?;
+    Ok((seeded, applied(Some(solution), None)))
 }
