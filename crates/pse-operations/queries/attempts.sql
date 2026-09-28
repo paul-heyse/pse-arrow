@@ -16,7 +16,7 @@ INSERT INTO pse_ops.attempt_transitions (attempt_id, seq, from_state, to_state, 
 VALUES (:attempt_id, :seq, :from_state, :to_state, :actor, :reason);
 
 --! lock_attempt
-SELECT state, state_version
+SELECT state, state_version, kind
 FROM pse_ops.attempts
 WHERE attempt_id = :attempt_id::pse_ops.attempt_id
 FOR UPDATE;

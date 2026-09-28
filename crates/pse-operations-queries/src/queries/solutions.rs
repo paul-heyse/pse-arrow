@@ -42,6 +42,13 @@ pub struct LatestInAttemptChainParams {
     pub preparation_identity: pse_ids::ContentHash,
     pub backend: pse_model::generated::enums::NativeBackend,
 }
+#[derive(Clone, Copy, Debug)]
+pub struct LatestOfAttemptParams {
+    pub attempt_id: pse_model::generated::identities::AttemptId,
+    pub compatibility_stamp: pse_ids::ContentHash,
+    pub preparation_identity: pse_ids::ContentHash,
+    pub backend: pse_model::generated::enums::NativeBackend,
+}
 use crate::client::async_::GenericClient;
 use futures::{self, StreamExt, TryStreamExt};
 pub struct PsemodelGeneratedRuntimeOperationalsolutionsRuntimeOperationalSolutionsRowQuery<
@@ -481,6 +488,87 @@ impl<
         &'s self,
         client: &'c C,
         params: &'a LatestInAttemptChainParams,
+    ) -> PsemodelGeneratedRuntimeOperationalsolutionsRuntimeOperationalSolutionsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_solutions::RuntimeOperationalSolutionsRow,
+        4,
+    > {
+        self.bind(
+            client,
+            &params.attempt_id,
+            &params.compatibility_stamp,
+            &params.preparation_identity,
+            &params.backend,
+        )
+    }
+}
+pub struct LatestOfAttemptStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn latest_of_attempt() -> LatestOfAttemptStmt {
+    LatestOfAttemptStmt(
+        "SELECT s FROM pse_ops.solutions AS s WHERE s.created_by = $1::pse_ops.attempt_id AND s.compatibility_stamp = $2::pse_ops.content_hash AND s.preparation_identity = $3::pse_ops.content_hash AND s.backend = $4 ORDER BY s.created_at DESC, s.solution_id DESC LIMIT 1",
+        None,
+    )
+}
+impl LatestOfAttemptStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        attempt_id: &'a pse_model::generated::identities::AttemptId,
+        compatibility_stamp: &'a pse_ids::ContentHash,
+        preparation_identity: &'a pse_ids::ContentHash,
+        backend: &'a pse_model::generated::enums::NativeBackend,
+    ) -> PsemodelGeneratedRuntimeOperationalsolutionsRuntimeOperationalSolutionsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_solutions::RuntimeOperationalSolutionsRow,
+        4,
+    > {
+        PsemodelGeneratedRuntimeOperationalsolutionsRuntimeOperationalSolutionsRowQuery {
+            client,
+            params: [attempt_id, compatibility_stamp, preparation_identity, backend],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    LatestOfAttemptParams,
+    PsemodelGeneratedRuntimeOperationalsolutionsRuntimeOperationalSolutionsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_solutions::RuntimeOperationalSolutionsRow,
+        4,
+    >,
+    C,
+> for LatestOfAttemptStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a LatestOfAttemptParams,
     ) -> PsemodelGeneratedRuntimeOperationalsolutionsRuntimeOperationalSolutionsRowQuery<
         'c,
         'a,

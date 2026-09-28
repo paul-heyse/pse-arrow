@@ -15,8 +15,16 @@ pub use pse_operations::attempts::AttemptFilter;
 pub use pse_operations::database_url_from_env;
 mod worker;
 pub use worker::{
-    JobStart, MODELING_JOB_VERSION, ModelingJob, Processed, SourceManifest, WorkerSettings,
+    JOB_PAYLOAD_VERSION, JobPayload, JobStart, JobTask, ModelingJob, PointOverlay, Processed,
+    SourceManifest, StudyFinalization, StudyPointBinding, WorkerSettings,
 };
+mod study;
+pub use study::{
+    MAXIMUM_STUDY_POINTS, PackageSources, PointStatus, StudyDefinition, StudyHandle, StudyPlan,
+    StudyPoint, StudyPointDefinition, StudyStatus,
+};
+pub use pse_operations::jobs::RetryPolicy;
+pub use pse_operations::studies::{StudyCancel, StudyFilter, StudyId, StudyPointState, StudyState};
 pub(crate) mod numerics;
 mod staged;
 mod strategies;
@@ -68,6 +76,8 @@ mod run;
 mod simulation_results;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod study_tests;
 #[cfg(test)]
 mod worker_tests;
 use crate::{SharedRuntime, math::MathRuntimeError};

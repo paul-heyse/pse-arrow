@@ -182,6 +182,10 @@ pub struct JobOutcome {
     /// For a failed try: retry as this new attempt (minted by the caller) if the policy
     /// still allows another try.
     pub retry_as: Option<AttemptId>,
+    /// The result members a completed study point's try wrote under its study's
+    /// publication intent; recorded with the point in the same transaction (Plan 22 O7).
+    /// Empty for every other job.
+    pub members: Vec<crate::catalog::MemberDescriptor>,
 }
 
 /// What finishing a try did to the job.
@@ -209,7 +213,7 @@ pub struct Requeue {
     pub outcome: Finished,
 }
 
-async fn lock_job(
+pub(crate) async fn lock_job(
     tx: &Tx<'_>,
     target: &Target,
     job: JobId,
@@ -244,6 +248,73 @@ pub(crate) async fn set_job_state(
         .await
         .classify(target)?;
     Ok(())
+}
+
+/// Insert a job for its already inserted attempt, in `state` (queued, or waiting until
+/// released). Returns `false`, storing nothing, when the idempotency key names another job.
+pub(crate) async fn insert_job(
+    tx: &Tx<'_>,
+    target: &Target,
+    job_id: JobId,
+    job: &NewJob,
+    state: JobState,
+) -> Result<bool, OperationsError> {
+    job.retry.validate()?;
+    if job.payload_version <= 0 {
+        return Err(OperationsError::InvalidRequest {
+            reason: format!("payload version {} is not positive", job.payload_version),
+        });
+    }
+    let created = statements::insert_job()
+        .params(
+            tx,
+            &statements::InsertJobParams {
+                job_id,
+                attempt_id: job.attempt.attempt_id,
+                idempotency_key: job.idempotency_key.as_str(),
+                payload_version: job.payload_version,
+                payload: &job.payload,
+                priority: job.priority,
+                state,
+                max_tries: i32::try_from(job.retry.max_tries).unwrap_or(i32::MAX),
+                backoff_base_us: micros(job.retry.backoff),
+                backoff_cap_us: micros(job.retry.backoff_cap),
+            },
+        )
+        .opt()
+        .await
+        .classify(target)?;
+    Ok(created.is_some())
+}
+
+/// Release a waiting job: it becomes claimable, and its planned attempt is queued. Workers
+/// are woken when the transaction commits.
+pub(crate) async fn release(
+    tx: &Tx<'_>,
+    target: &Target,
+    job: JobId,
+    note: &TransitionNote,
+) -> Result<(), OperationsError> {
+    let locked = lock_job(tx, target, job).await?;
+    let released = statements::release_job()
+        .params(
+            tx,
+            &statements::ReleaseJobParams {
+                queued: JobState::Queued,
+                job_id: job,
+                waiting: JobState::Waiting,
+            },
+        )
+        .opt()
+        .await
+        .classify(target)?;
+    if released.is_none() {
+        return Err(OperationsError::InvalidRequest {
+            reason: format!("job {job} is {}, not waiting", locked.state.as_str()),
+        });
+    }
+    attempts::apply(tx, target, locked.attempt_id, AttemptState::Queued, note, None).await?;
+    attempts::notify(tx, target, JOBS_CHANNEL, &job.to_string()).await
 }
 
 /// Requeue `job` as `next`, a new attempt whose parent is its current attempt, when the
@@ -338,11 +409,6 @@ impl<'s> Jobs<'s> {
     /// driver failures.
     pub async fn enqueue(&self, job: &NewJob) -> Result<Enqueued, OperationsError> {
         job.retry.validate()?;
-        if job.payload_version <= 0 {
-            return Err(OperationsError::InvalidRequest {
-                reason: format!("payload version {} is not positive", job.payload_version),
-            });
-        }
         if let Some(existing) = self.find_by_key(&job.idempotency_key).await? {
             return Ok(existing);
         }
@@ -363,26 +429,7 @@ impl<'s> Jobs<'s> {
         // The job identity is minted here, on the runtime's UUIDv7 path; the store mints
         // no domain identity (ADR-0114 Outcome 13).
         let job_id: JobId = crate::mint_id();
-        let created = statements::insert_job()
-            .params(
-                &tx,
-                &statements::InsertJobParams {
-                    job_id,
-                    attempt_id: job.attempt.attempt_id,
-                    idempotency_key: job.idempotency_key.as_str(),
-                    payload_version: job.payload_version,
-                    payload: &job.payload,
-                    priority: job.priority,
-                    state: JobState::Queued,
-                    max_tries: i32::try_from(job.retry.max_tries).unwrap_or(i32::MAX),
-                    backoff_base_us: micros(job.retry.backoff),
-                    backoff_cap_us: micros(job.retry.backoff_cap),
-                },
-            )
-            .opt()
-            .await
-            .classify(target)?;
-        if created.is_none() {
+        if !insert_job(&tx, target, job_id, job, JobState::Queued).await? {
             // A concurrent enqueue with the same key committed first: undo our attempt.
             tx.rollback().await.classify(target)?;
             return self
@@ -474,6 +521,8 @@ impl<'s> Jobs<'s> {
         )
         .await?;
         let attempt = attempts::fetch(&tx, target, job.attempt_id).await?;
+        // A study point's try is now assigned (Plan 22 O7).
+        crate::studies::job_changed(&tx, target, job.job_id, &[]).await?;
         tx.commit().await.classify(target)?;
         let lease_expires_at = attempt.lease_expires_at.ok_or_else(|| {
             OperationsError::CorruptValue {
@@ -572,6 +621,8 @@ impl<'s> Jobs<'s> {
                 Finished::Ended(ended)
             }
         };
+        // A study point follows its job, with the members a completed try wrote.
+        crate::studies::job_changed(&tx, target, job, &outcome.members).await?;
         tx.commit().await.classify(target)?;
         Ok(finished)
     }
@@ -614,6 +665,7 @@ impl<'s> Jobs<'s> {
                 .await?;
             }
             let outcome = requeue(&tx, target, &locked, mint(), "lease expired").await?;
+            crate::studies::job_changed(&tx, target, job_id, &[]).await?;
             handled.push(Requeue {
                 job_id,
                 stale_attempt: locked.attempt_id,

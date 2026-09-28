@@ -214,12 +214,12 @@ pub struct CollectPlan {
 }
 
 /// An exact member version's selection, flattened into a catalog row.
-fn member_row(
-    publication_id: PublicationId,
-    role: PublicationMemberRole,
+/// A member's selection flattened into the store's columns: its kind and, for a revision,
+/// the column and revision it selects.
+pub(crate) fn flattened_selection(
     member: &MemberDescriptor,
-) -> Result<RuntimeOperationalPublicationMembersRow, OperationsError> {
-    let (selection_kind, revision_column, revision_id) = match member
+) -> Result<(MemberSelectionKind, Option<String>, Option<pse_ids::SemanticId>), OperationsError> {
+    Ok(match member
         .selection
         .selected()
         .map_err(|error| OperationsError::InvalidRequest {
@@ -234,7 +234,34 @@ fn member_row(
             Some(revision.column.clone()),
             Some(revision.revision_id),
         ),
-    };
+    })
+}
+
+/// The registry selection a stored member's flattened columns describe, or `None` when
+/// they are inconsistent.
+pub(crate) fn stored_selection(
+    kind: MemberSelectionKind,
+    column: Option<&String>,
+    revision_id: Option<pse_ids::SemanticId>,
+) -> Option<MemberDescriptorSelection> {
+    match (kind, column, revision_id) {
+        (MemberSelectionKind::Full, None, None) => Some(MemberDescriptorSelection::from_full()),
+        (MemberSelectionKind::Revision, Some(column), Some(revision_id)) => Some(
+            MemberDescriptorSelection::from_revision(MemberDescriptorSelectionRevision {
+                column: column.clone(),
+                revision_id,
+            }),
+        ),
+        _ => None,
+    }
+}
+
+fn member_row(
+    publication_id: PublicationId,
+    role: PublicationMemberRole,
+    member: &MemberDescriptor,
+) -> Result<RuntimeOperationalPublicationMembersRow, OperationsError> {
+    let (selection_kind, revision_column, revision_id) = flattened_selection(member)?;
     Ok(RuntimeOperationalPublicationMembersRow {
         publication_id,
         role,
@@ -256,28 +283,18 @@ fn member_row(
 fn descriptor(
     row: &RuntimeOperationalPublicationMembersRow,
 ) -> Result<MemberDescriptor, OperationsError> {
-    let selection = match (
+    let selection = stored_selection(
         row.selection_kind,
         row.revision_column.as_ref(),
         row.revision_id,
-    ) {
-        (MemberSelectionKind::Full, None, None) => MemberDescriptorSelection::from_full(),
-        (MemberSelectionKind::Revision, Some(column), Some(revision_id)) => {
-            MemberDescriptorSelection::from_revision(MemberDescriptorSelectionRevision {
-                column: column.clone(),
-                revision_id,
-            })
-        }
-        _ => {
-            return Err(OperationsError::CorruptValue {
-                column: "selection_kind",
-                detail: format!(
-                    "member {}.{}.{} of {} has an inconsistent selection",
-                    row.catalog_name, row.schema_name, row.table_name, row.publication_id
-                ),
-            });
-        }
-    };
+    )
+    .ok_or_else(|| OperationsError::CorruptValue {
+        column: "selection_kind",
+        detail: format!(
+            "member {}.{}.{} of {} has an inconsistent selection",
+            row.catalog_name, row.schema_name, row.table_name, row.publication_id
+        ),
+    })?;
     Ok(MemberDescriptor {
         catalog_name: row.catalog_name.clone(),
         schema_name: row.schema_name.clone(),

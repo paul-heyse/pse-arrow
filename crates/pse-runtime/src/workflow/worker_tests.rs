@@ -86,13 +86,13 @@ pub(super) async fn authored_job(
         .unwrap()
         .declaration_id;
     ModelingJob {
-        version: pse_model::document::Version,
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
         case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,
         start: JobStart::Fresh,
+        study: None,
     }
 }
 
@@ -106,7 +106,11 @@ pub(super) fn ipopt() -> SolveSettings {
 }
 
 /// A durable runtime whose budget admits the default evaluation profile of a job.
-async fn job_durable(database: &TestDatabase, worker: &str, policy: LeasePolicy) -> Runtime {
+pub(super) async fn job_durable(
+    database: &TestDatabase,
+    worker: &str,
+    policy: LeasePolicy,
+) -> Runtime {
     let operations = Operations::connect(database.url(), worker, policy)
         .await
         .unwrap();
@@ -174,16 +178,21 @@ async fn unknown_payload_version_refused() {
     // whose document states another version. Both are written past the typed enqueue, as
     // another build would.
     let job = authored_job(&runtime, SQUARE, ipopt()).await;
-    let mut restated = serde_json::to_value(&job).unwrap();
-    restated["version"] = serde_json::json!(3);
+    let mut restated =
+        serde_json::to_value(JobPayload::new(JobTask::Modeling(job.clone()))).unwrap();
+    restated["version"] = serde_json::json!(4);
+    // Version 2 described one modeling job at the top level; it is not interpreted.
+    let mut former = serde_json::to_value(&job).unwrap();
+    former["version"] = serde_json::json!(2);
     let mut enqueued = Vec::new();
     for (key, version, payload) in [
         (
             "future-column",
-            MODELING_JOB_VERSION + 1,
+            JOB_PAYLOAD_VERSION + 1,
             serde_json::json!({ "from": "a newer build" }),
         ),
-        ("future-document", MODELING_JOB_VERSION, restated),
+        ("former-column", 2, former),
+        ("future-document", JOB_PAYLOAD_VERSION, restated),
     ] {
         enqueued.push(
             operations
@@ -222,7 +231,7 @@ async fn unknown_payload_version_refused() {
         let TerminationCause::Error { rule, message } = detail.cause else {
             panic!("{detail:?}")
         };
-        if index == 0 {
+        if index < 2 {
             // The typed diagnostic code, with the violated named contract (X4).
             assert_eq!(
                 pse_operations::attempts::TerminationCode::of(attempt).unwrap(),
@@ -232,7 +241,7 @@ async fn unknown_payload_version_refused() {
             );
             assert_eq!(rule, "workflow.job_payload_version");
         } else {
-            assert!(message.contains("unknown document version 3"), "{message}");
+            assert!(message.contains("unknown document version 4"), "{message}");
         }
         // A refusal is not an infrastructure failure: it is not retried, whatever the policy.
         let job = operations
@@ -272,13 +281,13 @@ fn job_request_identity_independent_of_key_order() {
         }
     }
     let job = ModelingJob {
-        version: pse_model::document::Version,
         physical: pse_ids::ContentHash::from_bytes([1; 32]),
         modeling: vec![pse_ids::ContentHash::from_bytes([2; 32])],
         case: pse_ids::SemanticId::from_bytes([3; 16]),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: ipopt(),
         start: JobStart::Fresh,
+        study: None,
     };
     let forward = serde_json::to_string(&job).unwrap();
     let backward = serde_json::to_string(&reversed(serde_json::to_value(&job).unwrap())).unwrap();
@@ -304,6 +313,81 @@ fn job_request_identity_independent_of_key_order() {
         resumed.request_identity().unwrap(),
         job.request_identity().unwrap()
     );
+    // A study point's binding is part of its request.
+    let mut point = job.clone();
+    point.study = Some(StudyPointBinding {
+        study_id: pse_ids::SemanticId::from_bytes([4; 16]).into(),
+        point_index: 1,
+        binding_hash: pse_ids::ContentHash::from_bytes([5; 32]),
+        overlay: PointOverlay::default(),
+        predecessor: Some(0),
+    });
+    assert_ne!(
+        point.request_identity().unwrap(),
+        job.request_identity().unwrap()
+    );
+}
+
+/// Payload version 3 is one typed document per task: a modeling job carries its study
+/// point's binding and overlay, a finalization names its study; unknown fields, tasks and
+/// versions are refused.
+#[test]
+fn job_payload_v3_is_typed_per_task() {
+    let binding = StudyPointBinding {
+        study_id: pse_ids::SemanticId::from_bytes([4; 16]).into(),
+        point_index: 2,
+        binding_hash: pse_ids::ContentHash::from_bytes([5; 32]),
+        overlay: PointOverlay {
+            values: BTreeMap::from([("feed.flow".to_owned(), 2.5)]),
+            parameters: BTreeMap::from([(pse_ids::SemanticId::from_bytes([6; 16]), 0.25)]),
+        },
+        predecessor: Some(1),
+    };
+    let job = ModelingJob {
+        physical: pse_ids::ContentHash::from_bytes([1; 32]),
+        modeling: vec![],
+        case: pse_ids::SemanticId::from_bytes([3; 16]),
+        route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+        settings: ipopt(),
+        start: JobStart::Fresh,
+        study: Some(binding.clone()),
+    };
+    let value = serde_json::to_value(JobPayload::new(JobTask::Modeling(job))).unwrap();
+    assert_eq!(value["version"], 3);
+    assert_eq!(value["task"]["kind"], "modeling");
+    assert_eq!(value["task"]["study"]["point_index"], 2);
+    let decoded: JobPayload = serde_json::from_value(value.clone()).unwrap();
+    let JobTask::Modeling(decoded) = decoded.task else {
+        panic!("a modeling task")
+    };
+    assert_eq!(decoded.study, Some(binding));
+    let finalization = serde_json::to_value(JobPayload::new(JobTask::StudyFinalization(
+        StudyFinalization {
+            study_id: pse_ids::SemanticId::from_bytes([4; 16]).into(),
+        },
+    )))
+    .unwrap();
+    assert_eq!(finalization["task"]["kind"], "study_finalization");
+    assert!(serde_json::from_value::<JobPayload>(finalization.clone()).is_ok());
+    for refused in [
+        {
+            let mut v = value.clone();
+            v["version"] = serde_json::json!(2);
+            v
+        },
+        {
+            let mut v = value.clone();
+            v["task"]["study"]["overlay"]["unknown"] = serde_json::json!(1);
+            v
+        },
+        {
+            let mut v = finalization;
+            v["task"]["kind"] = serde_json::json!("reindex");
+            v
+        },
+    ] {
+        assert!(serde_json::from_value::<JobPayload>(refused).is_err());
+    }
 }
 
 /// The termination detail is a typed, versioned document: its cause is tagged by kind, its

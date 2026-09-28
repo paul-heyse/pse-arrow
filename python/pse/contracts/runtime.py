@@ -1199,10 +1199,32 @@ class RuntimeOperationalStudiesRow:
     """Declared relation row or nested value."""
 
     study_id: i.StudyId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    finalization_job: i.JobId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     definition: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     state: e.StudyState = attrs.field(validator=attrs.validators.instance_of(e.StudyState))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalStudyPointMembersRow:
+    """Declared relation row or nested value."""
+
+    study_id: i.StudyId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    point_index: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
+    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    relation_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    delta_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    selection_kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
 
 @attrs.frozen(kw_only=True)
@@ -1212,9 +1234,9 @@ class RuntimeOperationalStudyPointsRow:
     study_id: i.StudyId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     point_index: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
     binding_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    predecessor: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-2147483648, 2147483647)))
+    job_id: i.JobId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     state: e.StudyPointState = attrs.field(validator=attrs.validators.instance_of(e.StudyPointState))
-    attempt_id: i.AttemptId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    result_ref: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
 
 
@@ -1462,6 +1484,22 @@ class RuntimeSolverCapabilitiesRow:
     parallel: b.bool = attrs.field(validator=v.exact_type(b.bool))
     certifies: b.bool = attrs.field(validator=v.exact_type(b.bool))
     native_forms: b.tuple[e.NativeConstraintForm, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.NativeConstraintForm), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeStudyOutcomesRow:
+    """Declared relation row or nested value."""
+
+    study_id: i.StudyId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    point_index: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    case_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    binding_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    predecessor: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    state: e.StudyPointState = attrs.field(validator=attrs.validators.instance_of(e.StudyPointState))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_state: e.AttemptState = attrs.field(validator=attrs.validators.instance_of(e.AttemptState))
+    member_catalog: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    error: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
 @attrs.frozen(kw_only=True)

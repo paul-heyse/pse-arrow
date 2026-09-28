@@ -7,6 +7,7 @@
 //! registry enumeration `AttemptState` (DP-19).
 
 pub use pse_model::generated::enums::AttemptState;
+use pse_model::generated::enums::AttemptKind;
 
 use AttemptState::{
     Cancelled, Completed, Failed, Partial, Planned, Queued, Running, Stale, Superseded,
@@ -29,6 +30,41 @@ pub const TRANSITIONS: &[(AttemptState, AttemptState)] = &[
     (Running, Stale),
     (Stale, Superseded),
 ];
+
+/// Every legal `(from, to)` pair of a coordinating attempt (a study, Plan 22 O7), which
+/// replaces [`TRANSITIONS`] for that kind.
+///
+/// A coordinating attempt holds no lease and does no work of its own: the attempts it
+/// coordinates do. It is queued while they run and ends from queued, in the transaction
+/// that ends the last of them; it may be cancelled before that. It is never running, so it
+/// never goes stale, and a publication naming it can always commit once it has ended.
+pub const COORDINATING: &[(AttemptState, AttemptState)] = &[
+    (Planned, Queued),
+    (Planned, Cancelled),
+    (Queued, Completed),
+    (Queued, Partial),
+    (Queued, Failed),
+    (Queued, Cancelled),
+];
+
+/// Whether attempts of `kind` coordinate other attempts ([`COORDINATING`]).
+pub const fn coordinates(kind: AttemptKind) -> bool {
+    matches!(kind, AttemptKind::Study)
+}
+
+/// The transition table of an attempt of `kind`.
+pub const fn table(kind: AttemptKind) -> &'static [(AttemptState, AttemptState)] {
+    if coordinates(kind) {
+        COORDINATING
+    } else {
+        TRANSITIONS
+    }
+}
+
+/// Whether an attempt of `kind` may change from `from` to `to`.
+pub fn legal(kind: AttemptKind, from: AttemptState, to: AttemptState) -> bool {
+    table(kind).contains(&(from, to))
+}
 
 /// The state every attempt is created in.
 pub const INITIAL: AttemptState = Planned;
@@ -130,6 +166,28 @@ mod transition_unit {
         let mut all = AttemptState::ALL.to_vec();
         all.sort();
         assert_eq!(reached, all);
+    }
+
+    #[test]
+    fn coordinating_attempts_end_from_queued_and_never_run() {
+        for kind in AttemptKind::ALL {
+            let coordinating = coordinates(kind);
+            assert_eq!(coordinating, kind == AttemptKind::Study, "{}", kind.as_str());
+            for (from, to) in [(Queued, Completed), (Queued, Partial), (Queued, Failed)] {
+                assert_eq!(legal(kind, from, to), coordinating);
+            }
+            for (from, to) in [(Queued, Running), (Running, Stale)] {
+                assert_eq!(legal(kind, from, to), !coordinating);
+            }
+            // Both tables admit creation, release and cancellation before work.
+            for (from, to) in [(Planned, Queued), (Planned, Cancelled), (Queued, Cancelled)] {
+                assert!(legal(kind, from, to));
+            }
+        }
+        // A coordinating attempt's finished states are final too.
+        for state in [Completed, Partial, Failed, Cancelled] {
+            assert!(!COORDINATING.iter().any(|(from, _)| *from == state));
+        }
     }
 
     #[test]

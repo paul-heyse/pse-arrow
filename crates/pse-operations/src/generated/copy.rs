@@ -260,22 +260,52 @@ pub const SOURCE_DOCUMENTS: CopyIn = CopyIn {
 /// The binary copy into `studies` (runtime.operational_studies).
 pub const STUDIES: CopyIn = CopyIn {
     table: "studies",
-    statement: "COPY pse_ops.\"studies\" (\"study_id\", \"definition\", \"state\", \"created_at\", \"updated_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"study_id\", \"definition\", \"state\", \"created_at\", \"updated_at\" FROM pse_ops.\"studies\" WHERE false",
-    columns: &["study_id", "definition", "state", "created_at", "updated_at"],
+    statement: "COPY pse_ops.\"studies\" (\"study_id\", \"attempt_id\", \"publication_id\", \"finalization_job\", \"definition\", \"state\", \"created_at\", \"updated_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"study_id\", \"attempt_id\", \"publication_id\", \"finalization_job\", \"definition\", \"state\", \"created_at\", \"updated_at\" FROM pse_ops.\"studies\" WHERE false",
+    columns: &[
+        "study_id",
+        "attempt_id",
+        "publication_id",
+        "finalization_job",
+        "definition",
+        "state",
+        "created_at",
+        "updated_at",
+    ],
+};
+/// The binary copy into `study_point_members` (runtime.operational_study_point_members).
+pub const STUDY_POINT_MEMBERS: CopyIn = CopyIn {
+    table: "study_point_members",
+    statement: "COPY pse_ops.\"study_point_members\" (\"study_id\", \"point_index\", \"catalog_name\", \"schema_name\", \"table_name\", \"relation_id\", \"relation_version\", \"contract_fingerprint\", \"table_uri\", \"delta_version\", \"selection_kind\", \"revision_column\", \"revision_id\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"study_id\", \"point_index\", \"catalog_name\", \"schema_name\", \"table_name\", \"relation_id\", \"relation_version\", \"contract_fingerprint\", \"table_uri\", \"delta_version\", \"selection_kind\", \"revision_column\", \"revision_id\" FROM pse_ops.\"study_point_members\" WHERE false",
+    columns: &[
+        "study_id",
+        "point_index",
+        "catalog_name",
+        "schema_name",
+        "table_name",
+        "relation_id",
+        "relation_version",
+        "contract_fingerprint",
+        "table_uri",
+        "delta_version",
+        "selection_kind",
+        "revision_column",
+        "revision_id",
+    ],
 };
 /// The binary copy into `study_points` (runtime.operational_study_points).
 pub const STUDY_POINTS: CopyIn = CopyIn {
     table: "study_points",
-    statement: "COPY pse_ops.\"study_points\" (\"study_id\", \"point_index\", \"binding_hash\", \"state\", \"attempt_id\", \"result_ref\", \"updated_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"study_id\", \"point_index\", \"binding_hash\", \"state\", \"attempt_id\", \"result_ref\", \"updated_at\" FROM pse_ops.\"study_points\" WHERE false",
+    statement: "COPY pse_ops.\"study_points\" (\"study_id\", \"point_index\", \"binding_hash\", \"predecessor\", \"job_id\", \"state\", \"updated_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"study_id\", \"point_index\", \"binding_hash\", \"predecessor\", \"job_id\", \"state\", \"updated_at\" FROM pse_ops.\"study_points\" WHERE false",
     columns: &[
         "study_id",
         "point_index",
         "binding_hash",
+        "predecessor",
+        "job_id",
         "state",
-        "attempt_id",
-        "result_ref",
         "updated_at",
     ],
 };

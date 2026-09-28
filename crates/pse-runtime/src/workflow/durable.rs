@@ -262,10 +262,22 @@ pub(crate) type Canceller = Arc<dyn Fn() + Send + Sync>;
 #[derive(Clone, Debug)]
 pub(super) struct Outcome {
     state: AttemptState,
-    termination: Termination,
+    /// The typed termination; none for a task that ran no solve and succeeded.
+    termination: Option<Termination>,
     reason: String,
     /// A retry could succeed: the failure was infrastructure, not the science.
     retryable: bool,
+}
+
+impl Outcome {
+    /// The audit note of this outcome, by `actor`.
+    fn note(&self, actor: &str) -> TransitionNote {
+        let note = TransitionNote::by(actor).because(self.reason.clone());
+        match &self.termination {
+            Some(termination) => note.terminated(termination.clone()),
+            None => note,
+        }
+    }
 }
 
 /// Where a claimed attempt ends: through its job, under the job's retry policy.
@@ -283,6 +295,9 @@ pub(crate) struct DurableAttempt {
     claim: Option<Claim>,
     stream: Streamer,
     heartbeat: Option<Heartbeat>,
+    /// The study point a claimed try runs: a completed try writes its result members
+    /// under the study's publication intent (Plan 22 O7).
+    point: Option<super::study::PointContext>,
 }
 
 impl DurableAttempt {
@@ -295,6 +310,7 @@ impl DurableAttempt {
             attempt,
             claim: None,
             heartbeat: None,
+            point: None,
         }
     }
 
@@ -306,7 +322,14 @@ impl DurableAttempt {
             attempt: claim.attempt,
             claim: Some(claim),
             heartbeat: None,
+            point: None,
         }
+    }
+
+    /// The claimed try runs a study point: when it completes, its result members are
+    /// written under the study's publication intent and recorded with the point.
+    pub(crate) fn set_point(&mut self, point: super::study::PointContext) {
+        self.point = Some(point);
     }
 
     pub(super) const fn attempt_id(&self) -> AttemptId {
@@ -386,9 +409,10 @@ impl DurableAttempt {
         Ok(())
     }
 
-    /// Record the end of the attempt: flush its stream, store its reusable seeds, stop the
-    /// lease and apply the terminal transition (through the job for a claimed attempt),
-    /// then read back what the store holds.
+    /// Record the end of the attempt: flush its stream, store its reusable seeds, write a
+    /// completed study point's result members, stop the lease and apply the terminal
+    /// transition (through the job for a claimed attempt, with the point's members), then
+    /// read back what the store holds.
     pub(super) async fn finish(mut self, result: &RunResult, cancelled: bool) -> DurableRecord {
         let lost = self.heartbeat.as_ref().is_some_and(Heartbeat::lost);
         let flushed = self.stream.finish().await;
@@ -396,9 +420,6 @@ impl DurableAttempt {
             (Ok(()), true) => store_seeds(&self.operations, self.attempt, result).await,
             _ => Ok(Vec::new()),
         };
-        if let Some(heartbeat) = self.heartbeat.take() {
-            heartbeat.stop().await;
-        }
         let mut outcome = classify(result, cancelled || lost);
         if let Err(error) = &flushed {
             outcome = infrastructure(error);
@@ -407,7 +428,21 @@ impl DurableAttempt {
             outcome = infrastructure(&error);
             Vec::new()
         });
-        let attempt = self.terminate(&outcome).await.map_err(Arc::new);
+        // A completed point writes its members while its lease is still renewed; a write
+        // failure is infrastructure, so the point is retried as a new try.
+        let mut members = Vec::new();
+        if let Some(point) = &self.point
+            && matches!(outcome.state, AttemptState::Completed | AttemptState::Partial)
+        {
+            match result.write_point_members(point, self.attempt).await {
+                Ok(written) => members = written,
+                Err(error) => outcome = infrastructure(&error),
+            }
+        }
+        if let Some(heartbeat) = self.heartbeat.take() {
+            heartbeat.stop().await;
+        }
+        let attempt = self.terminate(&outcome, members).await.map_err(Arc::new);
         let progress = self
             .operations
             .store
@@ -432,7 +467,7 @@ impl DurableAttempt {
         }
         let outcome = failure(error, false);
         let attempt = match self.claim {
-            Some(_) => self.terminate(&outcome).await,
+            Some(_) => self.terminate(&outcome, Vec::new()).await,
             None => self.cancel_unstarted(&outcome).await,
         }
         .map_err(Arc::new);
@@ -444,6 +479,43 @@ impl DurableAttempt {
         }
     }
 
+    /// End a claimed try whose task ran no solve (a study's finalization): completed with
+    /// `Ok(reason)`, otherwise failed (retried for infrastructure) or cancelled, like a run.
+    pub(crate) async fn end_task(mut self, ended: Result<String, WorkflowError>) -> DurableRecord {
+        let lost = self.heartbeat.as_ref().is_some_and(Heartbeat::lost);
+        let flushed = self.stream.finish().await;
+        if let Some(heartbeat) = self.heartbeat.take() {
+            heartbeat.stop().await;
+        }
+        let mut outcome = match &ended {
+            Ok(reason) if !lost => Outcome {
+                state: AttemptState::Completed,
+                termination: None,
+                reason: reason.clone(),
+                retryable: false,
+            },
+            Ok(_) => failure(&WorkflowError::Math(crate::math::MathRuntimeError::Cancelled), true),
+            Err(error) => failure(error, lost),
+        };
+        if let Err(error) = &flushed {
+            outcome = infrastructure(error);
+        }
+        let attempt = self.terminate(&outcome, Vec::new()).await.map_err(Arc::new);
+        let progress = self
+            .operations
+            .store
+            .streams()
+            .snapshot(self.attempt)
+            .await
+            .map_err(|e| Arc::new(e.into()));
+        DurableRecord {
+            attempt_id: self.attempt,
+            attempt,
+            progress,
+            solutions: Vec::new(),
+        }
+    }
+
     async fn cancel_unstarted(
         &self,
         outcome: &Outcome,
@@ -451,9 +523,7 @@ impl DurableAttempt {
         let attempts = self.operations.store.attempts();
         match attempts.get(self.attempt).await {
             Ok(record) if matches!(record.state, AttemptState::Planned | AttemptState::Queued) => {
-                let note = TransitionNote::by(self.operations.worker())
-                    .because(outcome.reason.clone())
-                    .terminated(outcome.termination.clone());
+                let note = outcome.note(self.operations.worker());
                 Ok(attempts
                     .transition(self.attempt, AttemptState::Cancelled, &note)
                     .await?)
@@ -463,13 +533,14 @@ impl DurableAttempt {
         }
     }
 
+    /// Apply the terminal transition; a claimed try ends through its job, recording the
+    /// result members a completed study point wrote.
     async fn terminate(
         &self,
         outcome: &Outcome,
+        members: Vec<pse_operations::catalog::MemberDescriptor>,
     ) -> Result<RuntimeOperationalAttemptsRow, WorkflowError> {
-        let note = TransitionNote::by(self.operations.worker())
-            .because(outcome.reason.clone())
-            .terminated(outcome.termination.clone());
+        let note = outcome.note(self.operations.worker());
         let store = &self.operations.store;
         match self.claim {
             None => Ok(store
@@ -488,6 +559,7 @@ impl DurableAttempt {
                             state: outcome.state,
                             note,
                             retry_as: retry,
+                            members,
                         },
                     )
                     .await?;
@@ -563,16 +635,16 @@ pub enum TerminationCause {
     },
 }
 
-fn termination(code: TerminationCode, cause: TerminationCause) -> Termination {
+fn termination(code: TerminationCode, cause: TerminationCause) -> Option<Termination> {
     let detail = TerminationDetail {
         version: pse_model::document::Version,
         cause,
     };
-    Termination {
+    Some(Termination {
         code,
         // Strings, Booleans and registry spellings always encode.
         detail: serde_json::to_value(detail).ok(),
-    }
+    })
 }
 
 /// A run-level failure: cancelled when cancellation stopped it, otherwise failed with the

@@ -4,7 +4,7 @@
 //! The operational store and publication catalog on PostgreSQL 18 (ADR-0114).
 //!
 //! PostgreSQL owns what changes — attempts, jobs, leases, cancellation requests, live
-//! progress, incumbents, reusable solutions, study status and the publication catalog —
+//! progress, incumbents, reusable solutions, studies and the publication catalog —
 //! and Delta owns what is published. The registry owns the meaning and the shape of every
 //! operational relation: this crate embeds the schema generated from it ([`generated`]),
 //! creates it or refuses a store whose schema differs ([`Store::open`]), and owns the one
@@ -34,11 +34,14 @@ pub mod solutions;
 pub mod sources;
 mod store;
 pub mod streams;
+pub mod studies;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
 
 #[cfg(test)]
 mod store_tests;
+#[cfg(test)]
+mod study_tests;
 
 pub use ids::mint_id;
 pub use error::{DriverError, InvariantKind, OperationsError, Target};

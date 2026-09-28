@@ -3,6 +3,7 @@
 """Owned generic modeling operations over registry-generated source and result contracts."""
 
 from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, overload
 
 import attrs
 import msgspec
@@ -32,10 +33,13 @@ from pse._build import (
     _NativeModelingStudy,
 )
 from pse._inspection import TableStream
-from pse._runs import PreparedOperation
+from pse._runs import PreparedOperation, StudyHandle, Workspace
 from pse._strategies import PreparedFlow, PreparedStrategy, _AnalysisDocument
 from pse.contracts.authored import (AuthoredModelingDeclarationsRow, AuthoredFitCasesRow, AuthoredObservationsRow, AuthoredDatasetsRow)
-from pse.contracts.documents import SolveSettings
+from pse.contracts.documents import PointOverlay, SolveSettings
+
+if TYPE_CHECKING:
+    from pse._workflow import Runtime
 from pse.contracts.enums import ModelingAnalysisRoute
 from pse.contracts.values import ContentHash, SemanticId
 
@@ -727,6 +731,7 @@ class ModelingPackage:
             )
         )
 
+    @overload
     def study(
         self,
         case_ids: tuple[SemanticId, ...],
@@ -734,14 +739,81 @@ class ModelingPackage:
         *,
         predecessors: tuple[int | None, ...] = (),
         maximum_points: int = 1024,
-    ) -> ModelingStudy:
-        """Execute authored cases in order; failures do not suppress independent points."""
-        return ModelingStudy(
-            self._handle.study(
+    ) -> ModelingStudy: ...
+
+    @overload
+    def study(
+        self,
+        case_ids: tuple[SemanticId, ...],
+        settings: SolveSettings,
+        *,
+        predecessors: tuple[int | None, ...] = (),
+        maximum_points: int = 1024,
+        runtime: "Runtime",
+        workspace: Workspace,
+        overlays: tuple[PointOverlay, ...] = (),
+        max_tries: int = 1,
+        priority: int = 0,
+    ) -> StudyHandle: ...
+
+    def study(
+        self,
+        case_ids: tuple[SemanticId, ...],
+        settings: SolveSettings,
+        *,
+        predecessors: tuple[int | None, ...] = (),
+        maximum_points: int = 1024,
+        runtime: "Runtime | None" = None,
+        workspace: Workspace | None = None,
+        overlays: tuple[PointOverlay, ...] = (),
+        max_tries: int = 1,
+        priority: int = 0,
+    ) -> "ModelingStudy | StudyHandle":
+        """Execute authored cases; failures do not suppress independent points.
+
+        Without ``runtime`` the points run in order in this process and the
+        returned study holds their results (the library path). With a durable
+        ``runtime`` the study is stored in its operational store and run by
+        workers: a point with a predecessor waits for it and starts from its
+        stored solution, and the study publishes once in ``workspace``.
+
+        Args:
+            case_ids: The authored case of each point.
+            settings: The solve settings of every point.
+            predecessors: For each point, the earlier point it starts from.
+            maximum_points: The largest in-process study accepted.
+            runtime: A durable runtime whose workers run the study.
+            workspace: The registered workspace the study publishes in.
+            overlays: For each point, the case values and parameters it replaces.
+            max_tries: How often each point and the finalization may be tried.
+            priority: The priority of the study's jobs.
+
+        Returns:
+            The in-process study, or the durable study's handle.
+        """
+        if runtime is None:
+            if workspace is not None or overlays:
+                raise ValueError("workspace and overlays select a durable study; pass runtime")
+            return ModelingStudy(
+                self._handle.study(
+                    [case.to_hex() for case in case_ids],
+                    codec.encode_json(settings),
+                    predecessors=list(predecessors),
+                    maximum_points=maximum_points,
+                )
+            )
+        if workspace is None:
+            raise ValueError("a durable study publishes in a workspace")
+        return StudyHandle(
+            self._handle.start_study(
+                runtime._handle,  # noqa: SLF001 - same native boundary
+                msgspec.json.encode(workspace),
                 [case.to_hex() for case in case_ids],
                 codec.encode_json(settings),
                 predecessors=list(predecessors),
-                maximum_points=maximum_points,
+                overlays=[codec.encode_json(overlay) for overlay in overlays],
+                max_tries=max_tries,
+                priority=priority,
             )
         )
 

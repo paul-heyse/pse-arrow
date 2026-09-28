@@ -51,6 +51,7 @@ from pse._modeling import (ModelingNativeAnalysis, ModelingElasticAttempt, Model
 from pse._transfer import FieldTransfer
 from pse._workflow import (
     OperationalAttempt,
+    OperationalStudy,
     PhysicalContext,
     PreparedFlow,
     PreparedOperation,
@@ -70,6 +71,10 @@ from pse._workflow import (
     Runtime,
     SolverCapability,
     StrategyResult,
+    StudyCancel,
+    StudyHandle,
+    StudyPointStatus,
+    StudyStatus,
     Workspace,
 )
 from pse.contracts import extension_types
@@ -133,6 +138,7 @@ __all__ = [
     "NativeStrategyAttempt",
     "OperationalAttempt",
     "OperationalStore",
+    "OperationalStudy",
     "PhysicalContext",
     "PounceSettings",
     "PreparedFlow",
@@ -161,6 +167,10 @@ __all__ = [
     "SolveSettings",
     "SolverCapability",
     "StrategyResult",
+    "StudyCancel",
+    "StudyHandle",
+    "StudyPointStatus",
+    "StudyStatus",
     "TableName",
     "TableStream",
     "Workspace",

@@ -27,6 +27,8 @@ class AttemptKind(StrEnum):
     MODELING = "modeling"
     SIMULATION = "simulation"
     FIT = "fit"
+    STUDY = "study"
+    STUDY_FINALIZATION = "study_finalization"
 
 
 class AttemptState(StrEnum):
@@ -470,6 +472,7 @@ class IpoptLinearSolver(StrEnum):
 class JobState(StrEnum):
     """The declared JobState enumeration."""
 
+    WAITING = "waiting"
     QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -1357,8 +1360,8 @@ class StudyState(StrEnum):
     """The declared StudyState enumeration."""
 
     OPEN = "open"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+    CONCLUDED = "concluded"
+    PUBLISHED = "published"
 
 
 class SubjectRule(StrEnum):

@@ -11,6 +11,12 @@
 pub struct RuntimeOperationalStudiesRow {
     ///study_id
     pub r#study_id: crate::generated::identities::StudyId,
+    ///attempt_id
+    pub r#attempt_id: crate::generated::identities::AttemptId,
+    ///publication_id
+    pub r#publication_id: crate::generated::identities::PublicationId,
+    ///finalization_job
+    pub r#finalization_job: crate::generated::identities::JobId,
     ///definition
     pub r#definition: String,
     ///state
@@ -23,7 +29,15 @@ pub struct RuntimeOperationalStudiesRow {
 impl crate::SemanticEq for RuntimeOperationalStudiesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#study_id, &other.r#study_id)
-            && crate::SemanticEq::semantic_eq(&self.r#definition, &other.r#definition)
+            && crate::SemanticEq::semantic_eq(&self.r#attempt_id, &other.r#attempt_id)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#publication_id,
+                &other.r#publication_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#finalization_job,
+                &other.r#finalization_job,
+            ) && crate::SemanticEq::semantic_eq(&self.r#definition, &other.r#definition)
             && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
             && crate::SemanticEq::semantic_eq(&self.r#created_at, &other.r#created_at)
             && crate::SemanticEq::semantic_eq(&self.r#updated_at, &other.r#updated_at)
@@ -40,6 +54,12 @@ impl crate::SemanticFrame for RuntimeOperationalStudiesRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#study_id));
         crate::SemanticFrame::frame(&self.r#study_id, hash);
+        hash.str(stringify!(r#attempt_id));
+        crate::SemanticFrame::frame(&self.r#attempt_id, hash);
+        hash.str(stringify!(r#publication_id));
+        crate::SemanticFrame::frame(&self.r#publication_id, hash);
+        hash.str(stringify!(r#finalization_job));
+        crate::SemanticFrame::frame(&self.r#finalization_job, hash);
         hash.str(stringify!(r#definition));
         crate::SemanticFrame::frame(&self.r#definition, hash);
         hash.str(stringify!(r#state));
@@ -54,6 +74,9 @@ impl crate::HeapUsage for RuntimeOperationalStudiesRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#study_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#publication_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#finalization_job))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#definition))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#created_at))

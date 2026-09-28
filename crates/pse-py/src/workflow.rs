@@ -237,7 +237,51 @@ impl NativeRuntime {
             },
             || cancel.cancel(),
         )?;
-        Ok(NativePhysicalContext { inner })
+        Ok(NativePhysicalContext {
+            inner,
+            documents: Arc::new(documents),
+        })
+    }
+    /// The store's durable studies, newest first, as `runtime.operational_studies`:
+    /// optionally those in the given registry `StudyState` names.
+    #[pyo3(signature = (*, states=Vec::new(), limit=100))]
+    fn studies(
+        &self,
+        py: Python<'_>,
+        states: Vec<String>,
+        limit: i64,
+    ) -> PyResult<inspection::TableStream> {
+        let filter = native::StudyFilter {
+            states: states
+                .iter()
+                .map(|s| settings::named(py, "study state", s))
+                .collect::<PyResult<_>>()?,
+            limit,
+        };
+        let batch = blocking(py, &self.owner, self.inner.studies(&filter), || {})?;
+        Ok(inspection::TableStream::from_batch(batch))
+    }
+    /// Serve the durable job queue in this process until no job is available (or `jobs`
+    /// jobs ran), as `pse-worker --until-idle` does; the number of jobs processed.
+    #[pyo3(signature = (*, jobs=None))]
+    fn work(&self, py: Python<'_>, jobs: Option<usize>) -> PyResult<usize> {
+        let stop = CancelSource::new();
+        let settings = native::WorkerSettings {
+            jobs,
+            until_idle: true,
+            ..native::WorkerSettings::default()
+        };
+        let processed = blocking(py, &self.owner, self.inner.serve(settings, &stop), || {
+            stop.cancel();
+        })?;
+        Ok(processed.len())
+    }
+    /// A handle on a durable study of this runtime's store.
+    fn study(&self, py: Python<'_>, study_id: &str) -> PyResult<NativeStudyHandle> {
+        Ok(NativeStudyHandle {
+            owner: self.owner.clone(),
+            inner: self.inner.study(id(py, study_id)?.into()),
+        })
     }
     fn capabilities(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         serde_json::to_vec(&self.inner.capabilities()).map_err(|e| invalid(py, e.to_string()))
@@ -591,6 +635,81 @@ impl NativePublicationAttempt {
 #[derive(Clone, Debug)]
 pub(crate) struct NativePhysicalContext {
     inner: native::PhysicalContext,
+    /// The authored documents it was admitted from: what a durable study stores for its
+    /// workers.
+    documents: Arc<std::collections::BTreeMap<String, String>>,
+}
+
+/// A durable study (Plan 22 O7): its status, cancellation and publication.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeStudyHandle {
+    owner: Arc<runtime::Runtime>,
+    inner: native::StudyHandle,
+}
+#[pymethods]
+impl NativeStudyHandle {
+    /// The study identity.
+    #[getter]
+    fn study_id(&self) -> String {
+        pse_ids::SemanticId::from(self.inner.study_id()).to_hex()
+    }
+    /// The study's status as JSON.
+    fn status(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        let status = blocking(py, &self.owner, self.inner.status(), || {})?;
+        serde_json::to_vec(&status).map_err(|e| invalid(py, e.to_string()))
+    }
+    /// Cancel the study; what the cancellation did, as JSON.
+    fn cancel(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        let cancelled = blocking(py, &self.owner, self.inner.cancel(), || {})?;
+        serde_json::to_vec(&serde_json::json!({
+            "cancelled": cancelled.cancelled,
+            "stopping": cancelled.stopping,
+            "concluded": cancelled.concluded,
+            "already_concluded": cancelled.already_concluded,
+        }))
+        .map_err(|e| invalid(py, e.to_string()))
+    }
+    /// The study's publication as JSON once committed.
+    fn result(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
+        blocking(py, &self.owner, self.inner.result(), || {})?
+            .map(|published| serde_json::to_vec(&published).map_err(|e| invalid(py, e.to_string())))
+            .transpose()
+    }
+    /// Wait until the study is published, polling every `poll_seconds`, at most
+    /// `timeout_seconds` when given; the publication as JSON.
+    #[pyo3(signature = (*, poll_seconds=0.5, timeout_seconds=None))]
+    fn wait(
+        &self,
+        py: Python<'_>,
+        poll_seconds: f64,
+        timeout_seconds: Option<f64>,
+    ) -> PyResult<Vec<u8>> {
+        let poll = Duration::try_from_secs_f64(poll_seconds).map_err(|e| invalid(py, e.to_string()))?;
+        let timeout = timeout_seconds
+            .map(Duration::try_from_secs_f64)
+            .transpose()
+            .map_err(|e| invalid(py, e.to_string()))?;
+        let study = self.inner.study_id();
+        let published = blocking(
+            py,
+            &self.owner,
+            async {
+                match timeout {
+                    None => self.inner.wait(poll).await,
+                    Some(limit) => tokio::time::timeout(limit, self.inner.wait(poll))
+                        .await
+                        .map_err(|_| {
+                            native::WorkflowError::Contract(format!(
+                                "study {study} was not published within {limit:?}"
+                            ))
+                        })?,
+                }
+            },
+            || {},
+        )?;
+        serde_json::to_vec(&published).map_err(|e| invalid(py, e.to_string()))
+    }
 }
 #[pymethods]
 impl NativePhysicalContext {

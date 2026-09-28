@@ -298,6 +298,17 @@ class IpoptSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     restart: WarmRestart = msgspec.field(default_factory=lambda: msgspec.convert({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, type=WarmRestart))
 
 
+class JobPayload(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Version 3 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+    and versions are refused.
+    """
+
+    #: Document version.
+    version: Literal[3] = 3
+    #: The task.
+    task: JobTask
+
+
 class JobStartFresh(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fresh"):
     """From the case's authored starts."""
 
@@ -315,6 +326,35 @@ class JobStartStoredSolution(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     #: The stored solution.
     solution: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class JobTaskModeling(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="modeling"):
+    """Solve one authored case once, possibly as one point of a study."""
+
+    #: The authored case to solve.
+    case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The source bundles of the modeling package closure, in load order.
+    modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: The source bundle of the physical package.
+    physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Its analysis route.
+    route: enums.ModelingAnalysisRoute
+    #: The solve settings.
+    settings: SolveSettings
+    #: How the solve starts. A study point with a predecessor starts from the
+    #: predecessor's stored solution instead.
+    start: JobStart = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "fresh"}, type=JobStart))
+    #: The study point this job runs (Plan 22 O7).
+    study: StudyPointBinding | None = None
+
+
+class JobTaskStudyFinalization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study_finalization"):
+    """Publish a concluded study: its summary and every completed point's result members,
+    as the study's one publication (Plan 22 O7).
+    """
+
+    #: The study to publish.
+    study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
 
 class KinsolEtaChoice1(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="choice1"):
@@ -417,27 +457,6 @@ class KktTolerances(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     stationarity: float
 
 
-class ModelingJob(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 2 of a modeling job: one authored case of a package closure, solved once under
-    typed solve settings. Unknown fields and versions are refused.
-    """
-
-    #: Document version.
-    version: Literal[2] = 2
-    #: The authored case to solve.
-    case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
-    #: The source bundles of the modeling package closure, in load order.
-    modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
-    #: The source bundle of the physical package.
-    physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
-    #: Its analysis route.
-    route: enums.ModelingAnalysisRoute
-    #: The solve settings.
-    settings: SolveSettings
-    #: How the solve starts.
-    start: JobStart = msgspec.field(default_factory=lambda: msgspec.convert({"kind": "fresh"}, type=JobStart))
-
-
 class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Shared semantic controls resolved before invoking any native adapter."""
 
@@ -463,6 +482,17 @@ class NumericalPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     requirements: tuple[AuthoredNumericalRequirementsRow, ...] = msgspec.field(default_factory=tuple)
     #: Refuse canonical-unit fallback where no authored or quantity nominal is known.
     strict_nominals: bool = False
+
+
+class PointOverlay(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Values a study point replaces in its authored case, composed over the original for the
+    point only.
+    """
+
+    #: Declared parameters by identity.
+    parameters: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float] = msgspec.field(default_factory=dict)
+    #: Case values by path.
+    values: dict[str, float] = msgspec.field(default_factory=dict)
 
 
 class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="backend", tag="pounce"):
@@ -580,6 +610,56 @@ class SourceManifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     paths: tuple[str, ...]
 
 
+class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Version 1 of a study's definition: the store's `definition` document and the content of
+    the study's request identity.
+    """
+
+    #: Document version.
+    version: Literal[1] = 1
+    #: The source bundles of the modeling package closure, in load order.
+    modeling: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: The source bundle of the physical package.
+    physical: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: The points, in index order.
+    points: tuple[StudyPointDefinition, ...]
+    #: The analysis route of every point.
+    route: enums.ModelingAnalysisRoute
+    #: The solve settings of every point.
+    settings: SolveSettings
+
+
+class StudyPointBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The binding of one study point (Plan 22 O7): which point of which study the job runs,
+    its value bindings and the earlier point that seeds it.
+    """
+
+    #: The hash of the point's value bindings: its case, route and overlay.
+    binding_hash: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: The values the point replaces in its case.
+    overlay: PointOverlay = msgspec.field(default_factory=lambda: msgspec.convert({"parameters": {}, "values": {}}, type=PointOverlay))
+    #: The point's index in the study.
+    point_index: Annotated[int, msgspec.Meta(ge=0)]
+    #: The earlier point whose stored solution this one starts from; the point runs only
+    #: once that point completed.
+    predecessor: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: The study.
+    study_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+
+class StudyPointDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One point of a study's definition."""
+
+    #: The hash of the point's value bindings.
+    binding_hash: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: The authored case.
+    case: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The values the point replaces in its case.
+    overlay: PointOverlay = msgspec.field(default_factory=lambda: msgspec.convert({"parameters": {}, "values": {}}, type=PointOverlay))
+    #: The earlier point that seeds it.
+    predecessor: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+
 class TerminationCauseAssessment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="assessment"):
     """The joined run was assessed."""
 
@@ -648,6 +728,8 @@ IpoptLinear = IpoptLinearMumps | IpoptLinearSpral | IpoptLinearPardisomkl
 
 JobStart = JobStartFresh | JobStartResumeFromParent | JobStartStoredSolution
 
+JobTask = JobTaskModeling | JobTaskStudyFinalization
+
 KinsolEta = KinsolEtaChoice1 | KinsolEtaChoice2 | KinsolEtaConstant
 
 KinsolLinear = KinsolLinearKlu | KinsolLinearDense | KinsolLinearSpgmr | KinsolLinearSpfgmr | KinsolLinearSpbcgs | KinsolLinearSptfqmr
@@ -677,10 +759,14 @@ __all__ = [
     "IpoptLinearPardisomkl",
     "IpoptLinearSpral",
     "IpoptSettings",
+    "JobPayload",
     "JobStart",
     "JobStartFresh",
     "JobStartResumeFromParent",
     "JobStartStoredSolution",
+    "JobTask",
+    "JobTaskModeling",
+    "JobTaskStudyFinalization",
     "KinsolEta",
     "KinsolEtaChoice1",
     "KinsolEtaChoice2",
@@ -694,9 +780,9 @@ __all__ = [
     "KinsolLinearSptfqmr",
     "KinsolSettings",
     "KktTolerances",
-    "ModelingJob",
     "NumericalPolicy",
     "OptionValue",
+    "PointOverlay",
     "PositiveCount",
     "PounceSettings",
     "RestartBarrier",
@@ -706,6 +792,9 @@ __all__ = [
     "SolveControls",
     "SolveSettings",
     "SourceManifest",
+    "StudyDefinition",
+    "StudyPointBinding",
+    "StudyPointDefinition",
     "TerminationCause",
     "TerminationCauseAssessment",
     "TerminationCauseError",

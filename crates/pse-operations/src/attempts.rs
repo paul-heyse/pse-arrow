@@ -13,7 +13,7 @@ use pse_operations_queries::client::Params as _;
 use pse_operations_queries::queries::{attempts as statements, store};
 
 use crate::error::{Classify, OperationsError, Target};
-use crate::lifecycle::{self, AttemptState, Lifecycle};
+use crate::lifecycle::{self, AttemptState, Lifecycle as _};
 use crate::store::Store;
 pub use pse_model::generated::enums::{
     AttemptKind, DiagnosticCode, NativeRunState, NativeTermination, RuntimeTermination,
@@ -305,12 +305,12 @@ pub(crate) async fn insert(
     Ok(())
 }
 
-/// Lock the attempt row and return its state and version.
-pub(crate) async fn lock_state(
+/// Lock the attempt row and return its state, version and kind.
+pub(crate) async fn lock(
     tx: &Tx<'_>,
     target: &Target,
     attempt: AttemptId,
-) -> Result<(AttemptState, i32), OperationsError> {
+) -> Result<(AttemptState, i32, AttemptKind), OperationsError> {
     let locked = statements::lock_attempt()
         .bind(tx, &attempt)
         .opt()
@@ -320,11 +320,22 @@ pub(crate) async fn lock_state(
             entity: "attempt",
             id: attempt.to_string(),
         })?;
-    Ok((locked.state, locked.state_version))
+    Ok((locked.state, locked.state_version, locked.kind))
 }
 
-/// Apply one transition under the attempt's row lock: check it against the one transition
-/// table, update the row and append the audit row. Returns the previous state.
+/// Lock the attempt row and return its state and version.
+pub(crate) async fn lock_state(
+    tx: &Tx<'_>,
+    target: &Target,
+    attempt: AttemptId,
+) -> Result<(AttemptState, i32), OperationsError> {
+    let (state, version, _) = lock(tx, target, attempt).await?;
+    Ok((state, version))
+}
+
+/// Apply one transition under the attempt's row lock: check it against the transition
+/// table of the attempt's kind, update the row and append the audit row. Returns the
+/// previous state.
 pub(crate) async fn apply(
     tx: &Tx<'_>,
     target: &Target,
@@ -333,8 +344,8 @@ pub(crate) async fn apply(
     note: &TransitionNote,
     lease: Option<Lease<'_>>,
 ) -> Result<AttemptState, OperationsError> {
-    let (from, version) = lock_state(tx, target, attempt).await?;
-    if !from.may_become(to) {
+    let (from, version, kind) = lock(tx, target, attempt).await?;
+    if !lifecycle::legal(kind, from, to) {
         return Err(OperationsError::IllegalTransition {
             attempt,
             from,

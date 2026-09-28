@@ -30,6 +30,12 @@ pub struct RequeueJobParams<T1: crate::StringSql> {
     pub job_id: pse_model::generated::identities::JobId,
 }
 #[derive(Clone, Copy, Debug)]
+pub struct ReleaseJobParams {
+    pub queued: pse_model::generated::enums::JobState,
+    pub job_id: pse_model::generated::identities::JobId,
+    pub waiting: pse_model::generated::enums::JobState,
+}
+#[derive(Clone, Copy, Debug)]
 pub struct RunningOwnerParams {
     pub attempt_id: pse_model::generated::identities::AttemptId,
     pub running: pse_model::generated::enums::AttemptState,
@@ -820,6 +826,59 @@ impl<
             &params.last_error,
             &params.job_id,
         )
+    }
+}
+pub struct ReleaseJobStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn release_job() -> ReleaseJobStmt {
+    ReleaseJobStmt(
+        "UPDATE pse_ops.jobs SET state = $1, available_at = now(), updated_at = now() WHERE job_id = $2::pse_ops.job_id AND state = $3 RETURNING true AS released",
+        None,
+    )
+}
+impl ReleaseJobStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        queued: &'a pse_model::generated::enums::JobState,
+        job_id: &'a pse_model::generated::identities::JobId,
+        waiting: &'a pse_model::generated::enums::JobState,
+    ) -> BoolQuery<'c, 'a, 's, C, bool, 3> {
+        BoolQuery {
+            client,
+            params: [queued, job_id, waiting],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it,
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    ReleaseJobParams,
+    BoolQuery<'c, 'a, 's, C, bool, 3>,
+    C,
+> for ReleaseJobStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a ReleaseJobParams,
+    ) -> BoolQuery<'c, 'a, 's, C, bool, 3> {
+        self.bind(client, &params.queued, &params.job_id, &params.waiting)
     }
 }
 pub struct ClaimJobStmt(&'static str, Option<tokio_postgres::Statement>);

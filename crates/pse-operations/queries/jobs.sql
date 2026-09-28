@@ -41,6 +41,12 @@ SET attempt_id = :attempt_id,
 WHERE job_id = :job_id::pse_ops.job_id
 RETURNING available_at;
 
+-- A waiting job becomes claimable: the work it waited for released it (Plan 22 O7).
+--! release_job
+UPDATE pse_ops.jobs SET state = :queued, available_at = now(), updated_at = now()
+WHERE job_id = :job_id::pse_ops.job_id AND state = :waiting
+RETURNING true AS released;
+
 -- The claim reads the queued jobs' partial index: highest priority, then oldest
 -- availability; rows another claimer locked are skipped, never waited for.
 --! claim_job

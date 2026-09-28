@@ -29,12 +29,13 @@ use pse_operations::{
     lifecycle::AttemptState,
     solutions::SolutionId,
     sources::{SourceBundle, SourceDocument},
+    studies::StudyId,
 };
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-/// The payload version of [`ModelingJob`] this build executes: the store's
-/// `payload_version` column and the document's own `version`.
-pub const MODELING_JOB_VERSION: i32 = 2;
+/// The payload version this build executes: the store's `payload_version` column and the
+/// document's own `version` ([`JobPayload`]).
+pub const JOB_PAYLOAD_VERSION: i32 = 3;
 
 /// How a job's solve is started.
 #[derive(
@@ -55,13 +56,51 @@ pub enum JobStart {
     },
 }
 
-/// Version 2 of a modeling job: one authored case of a package closure, solved once under
-/// typed solve settings. Unknown fields and versions are refused.
+/// Version 3 of a durable job's payload: the one task a job runs. Unknown fields, tasks
+/// and versions are refused.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct JobPayload {
+    /// Document version.
+    pub version: Version<3>,
+    /// The task.
+    pub task: JobTask,
+}
+
+impl JobPayload {
+    /// A payload running `task`.
+    pub const fn new(task: JobTask) -> Self {
+        Self {
+            version: Version,
+            task,
+        }
+    }
+}
+
+/// What a durable job does.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum JobTask {
+    /// Solve one authored case once, possibly as one point of a study.
+    Modeling(ModelingJob),
+    /// Publish a concluded study: its summary and every completed point's result members,
+    /// as the study's one publication (Plan 22 O7).
+    StudyFinalization(StudyFinalization),
+}
+
+/// A study's finalization task.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyFinalization {
+    /// The study to publish.
+    pub study_id: StudyId,
+}
+
+/// One authored case of a package closure, solved once under typed solve settings; as a
+/// study point it carries its binding.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingJob {
-    /// Document version.
-    pub version: Version<2>,
     /// The source bundle of the physical package.
     pub physical: ContentHash,
     /// The source bundles of the modeling package closure, in load order.
@@ -72,9 +111,48 @@ pub struct ModelingJob {
     pub route: ModelingAnalysisRoute,
     /// The solve settings.
     pub settings: SolveSettings,
-    /// How the solve starts.
+    /// How the solve starts. A study point with a predecessor starts from the
+    /// predecessor's stored solution instead.
     #[serde(default)]
     pub start: JobStart,
+    /// The study point this job runs (Plan 22 O7).
+    #[serde(default)]
+    pub study: Option<StudyPointBinding>,
+}
+
+/// The binding of one study point (Plan 22 O7): which point of which study the job runs,
+/// its value bindings and the earlier point that seeds it.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StudyPointBinding {
+    /// The study.
+    pub study_id: StudyId,
+    /// The point's index in the study.
+    pub point_index: u32,
+    /// The hash of the point's value bindings: its case, route and overlay.
+    pub binding_hash: ContentHash,
+    /// The values the point replaces in its case.
+    #[serde(default)]
+    pub overlay: PointOverlay,
+    /// The earlier point whose stored solution this one starts from; the point runs only
+    /// once that point completed.
+    #[serde(default)]
+    pub predecessor: Option<u32>,
+}
+
+/// Values a study point replaces in its authored case, composed over the original for the
+/// point only.
+#[derive(
+    Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct PointOverlay {
+    /// Case values by path.
+    #[serde(default)]
+    pub values: BTreeMap<String, f64>,
+    /// Declared parameters by identity.
+    #[serde(default)]
+    pub parameters: BTreeMap<SemanticId, f64>,
 }
 
 impl ModelingJob {
@@ -234,9 +312,14 @@ impl Operations {
         retry: RetryPolicy,
         priority: i32,
     ) -> Result<Enqueued, WorkflowError> {
+        if job.study.is_some() {
+            return Err(contract(
+                "a study point is enqueued with its study (Runtime::start_study)",
+            ));
+        }
         let request_identity = job.request_identity()?;
-        let payload =
-            serde_json::to_value(job).map_err(|e| contract(format!("job payload: {e}")))?;
+        let payload = serde_json::to_value(JobPayload::new(JobTask::Modeling(job.clone())))
+            .map_err(|e| contract(format!("job payload: {e}")))?;
         Ok(self
             .store()
             .jobs()
@@ -250,7 +333,7 @@ impl Operations {
                     parent_attempt: None,
                 },
                 idempotency_key: idempotency_key.to_owned(),
-                payload_version: MODELING_JOB_VERSION,
+                payload_version: JOB_PAYLOAD_VERSION,
                 payload,
                 priority,
                 retry,
@@ -299,36 +382,53 @@ impl Runtime {
             },
         );
         let stop = cancel.clone();
-        if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
-            let record = attempt.abandon(&error).await;
-            return Ok((
+        let ran = |record| {
+            Ok((
                 Processed::Ran {
                     job,
                     record: Box::new(record),
                 },
                 None,
-            ));
+            ))
+        };
+        if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
+            return ran(attempt.abandon(&error).await);
         }
+        let modeling = match decode(&claimed) {
+            Ok(JobTask::Modeling(modeling)) => modeling,
+            Ok(JobTask::StudyFinalization(task)) => {
+                // Publishing a concluded study runs no solve; it ends under this try's lease.
+                let published = tokio::select! {
+                    published = self.finalize_study(operations, task.study_id, &cancel) => published,
+                    () = cancel.cancelled() => Err(WorkflowError::Math(
+                        crate::math::MathRuntimeError::Cancelled,
+                    )),
+                };
+                let outcome = published.map(|published| {
+                    format!(
+                        "study {} published as {}",
+                        task.study_id, published.publication_id
+                    )
+                });
+                return ran(attempt.end_task(outcome).await);
+            }
+            Err(error) => return ran(attempt.abandon(&error).await),
+        };
         // A cancellation request stops the try in any phase, including source loading.
         let preparation = tokio::select! {
-            prepared = self.prepare_job(operations, &claimed, &cancel) => prepared,
+            prepared = self.prepare_job(operations, &claimed, modeling, &cancel) => prepared,
             () = cancel.cancelled() => Err(WorkflowError::Math(
                 crate::math::MathRuntimeError::Cancelled,
             )),
         };
-        let (prepared, applied) = match preparation {
+        let (prepared, applied, point) = match preparation {
             Ok(prepared) => prepared,
-            Err(error) => {
-                let record = attempt.abandon(&error).await;
-                return Ok((
-                    Processed::Ran {
-                        job,
-                        record: Box::new(record),
-                    },
-                    None,
-                ));
-            }
+            Err(error) => return ran(attempt.abandon(&error).await),
         };
+        // A study point's try writes its result members under the study's intent.
+        if let Some(point) = point {
+            attempt.set_point(point);
+        }
         // The attempt's stream records how the solve started, before its native events.
         attempt.tap().observe(&applied.event());
         let handle = self.start_attempt(vec![prepared], attempt)?;
@@ -384,22 +484,24 @@ impl Runtime {
         Ok(processed)
     }
 
-    /// Decode a claimed payload, load its sources from the store, prepare its case and
-    /// apply its start policy.
+    /// Load a modeling job's sources from the store, prepare its case (a study point's with
+    /// its overlay) and apply its start policy (a study point with a predecessor starts
+    /// from the predecessor's stored solution). A study point also returns where its try
+    /// writes its result members.
     async fn prepare_job(
         &self,
         operations: &Operations,
         claimed: &ClaimedJob,
+        job: ModelingJob,
         cancel: &crate::CancelSource,
-    ) -> Result<(super::ModelingSolvePreparation, AppliedStart), WorkflowError> {
-        if claimed.payload_version != MODELING_JOB_VERSION {
-            return Err(WorkflowError::UnknownPayloadVersion {
-                version: claimed.payload_version,
-                supported: MODELING_JOB_VERSION,
-            });
-        }
-        let job: ModelingJob = serde_json::from_value(claimed.payload.clone())
-            .map_err(|e| contract(format!("job payload version {MODELING_JOB_VERSION}: {e}")))?;
+    ) -> Result<
+        (
+            super::ModelingSolvePreparation,
+            AppliedStart,
+            Option<super::study::PointContext>,
+        ),
+        WorkflowError,
+    > {
         let solver = job.settings.profile().map_err(WorkflowError::Math)?;
         let physical = self
             .physical_from_sources(&operations.sources(&job.physical).await?, cancel)
@@ -409,7 +511,7 @@ impl Runtime {
             modeling.push(operations.sources(bundle).await?);
         }
         let package = self.package_from_sources(&modeling, physical)?;
-        let analysis: ModelingAnalysis = package
+        let mut analysis: ModelingAnalysis = package
             .declared_analysis(
                 job.case.into(),
                 job.route,
@@ -420,8 +522,29 @@ impl Runtime {
                 cancel,
             )
             .await?;
-        let prepared = package.prepare_analysis(&analysis, cancel).await?;
-        start(operations, claimed, job.start, prepared).await
+        let Some(binding) = job.study else {
+            let prepared = package.prepare_analysis(&analysis, cancel).await?;
+            let (prepared, applied) = start(operations, claimed, job.start, prepared).await?;
+            return Ok((prepared, applied, None));
+        };
+        let point = operations.point_context(&binding).await?;
+        analysis.case.values.extend(binding.overlay.values.clone());
+        let prepared = package
+            .prepare_analysis_attempt(
+                &analysis,
+                BTreeMap::new(),
+                binding.overlay.parameters.clone(),
+                cancel,
+            )
+            .await?;
+        let (prepared, applied) = match binding.predecessor {
+            Some(predecessor) => {
+                super::study::predecessor_start(operations, &binding, predecessor, prepared)
+                    .await?
+            }
+            None => start(operations, claimed, job.start, prepared).await?,
+        };
+        Ok((prepared, applied, Some(point)))
     }
 
     pub(super) async fn physical_from_sources(
@@ -466,27 +589,39 @@ impl Runtime {
     }
 }
 
-/// How a claimed job's solve started: the policy its payload requested and the stored
-/// solution it started from, if any. It is recorded as the attempt's first progress event
-/// (`job.start`), beside the start receipt and lineage of the result.
+/// Decode a claimed job's payload: the task of a known payload version.
+///
+/// # Errors
+/// An unknown payload version, or a document this version does not describe.
+fn decode(claimed: &ClaimedJob) -> Result<JobTask, WorkflowError> {
+    if claimed.payload_version != JOB_PAYLOAD_VERSION {
+        return Err(WorkflowError::UnknownPayloadVersion {
+            version: claimed.payload_version,
+            supported: JOB_PAYLOAD_VERSION,
+        });
+    }
+    let payload: JobPayload = serde_json::from_value(claimed.payload.clone())
+        .map_err(|e| contract(format!("job payload version {JOB_PAYLOAD_VERSION}: {e}")))?;
+    Ok(payload.task)
+}
+
+/// How a claimed job's solve started: the policy its payload requested (`fresh`,
+/// `resume_from_parent`, `stored_solution`, or `predecessor` for a study point) and the
+/// stored solution it started from, if any. It is recorded as the attempt's first progress
+/// event (`job.start`), beside the start receipt and lineage of the result.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AppliedStart {
-    requested: JobStart,
-    solution: Option<SolutionId>,
-    /// Why a resume started fresh instead.
-    fresh: Option<&'static str>,
+    pub(super) requested: &'static str,
+    pub(super) solution: Option<SolutionId>,
+    /// Why the solve started fresh instead of from a stored solution.
+    pub(super) fresh: Option<String>,
 }
 
 impl AppliedStart {
     fn event(&self) -> pse_backend_native::solve::Event {
         use pse_backend_native::solve::{Metric, UnavailableReason};
-        let requested = match self.requested {
-            JobStart::Fresh => "fresh",
-            JobStart::ResumeFromParent => "resume_from_parent",
-            JobStart::StoredSolution { .. } => "stored_solution",
-        };
         let mut values = BTreeMap::from([
-            ("requested".to_owned(), Metric::Text(requested.to_owned())),
+            ("requested".to_owned(), Metric::Text(self.requested.to_owned())),
             (
                 "solution".to_owned(),
                 self.solution.map_or(
@@ -495,8 +630,8 @@ impl AppliedStart {
                 ),
             ),
         ]);
-        if let Some(reason) = self.fresh {
-            values.insert("fresh".to_owned(), Metric::Text(reason.to_owned()));
+        if let Some(reason) = &self.fresh {
+            values.insert("fresh".to_owned(), Metric::Text(reason.clone()));
         }
         pse_backend_native::solve::Event {
             phase: "job.start".into(),
@@ -523,10 +658,14 @@ async fn start(
     requested: JobStart,
     prepared: super::ModelingSolvePreparation,
 ) -> Result<(super::ModelingSolvePreparation, AppliedStart), WorkflowError> {
-    let applied = |solution, fresh| AppliedStart {
-        requested,
+    let applied = |solution, fresh: Option<&str>| AppliedStart {
+        requested: match requested {
+            JobStart::Fresh => "fresh",
+            JobStart::ResumeFromParent => "resume_from_parent",
+            JobStart::StoredSolution { .. } => "stored_solution",
+        },
         solution,
-        fresh,
+        fresh: fresh.map(str::to_owned),
     };
     let solution = match requested {
         JobStart::Fresh => return Ok((prepared, applied(None, None))),

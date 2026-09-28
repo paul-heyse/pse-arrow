@@ -62,6 +62,7 @@ pub struct ListAttemptsParams<
 pub struct LockAttempt {
     pub state: pse_model::generated::enums::AttemptState,
     pub state_version: i32,
+    pub kind: pse_model::generated::enums::AttemptKind,
 }
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct Heartbeat {
@@ -694,7 +695,7 @@ impl<
 pub struct LockAttemptStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn lock_attempt() -> LockAttemptStmt {
     LockAttemptStmt(
-        "SELECT state, state_version FROM pse_ops.attempts WHERE attempt_id = $1::pse_ops.attempt_id FOR UPDATE",
+        "SELECT state, state_version, kind FROM pse_ops.attempts WHERE attempt_id = $1::pse_ops.attempt_id FOR UPDATE",
         None,
     )
 }
@@ -722,6 +723,7 @@ impl LockAttemptStmt {
                 Ok(LockAttempt {
                     state: row.try_get(0)?,
                     state_version: row.try_get(1)?,
+                    kind: row.try_get(2)?,
                 })
             },
             mapper: |it| LockAttempt::from(it),

@@ -218,6 +218,12 @@ pub enum AttemptKind {
     ///fit
     #[serde(rename = "fit")]
     Fit,
+    ///study
+    #[serde(rename = "study")]
+    Study,
+    ///study_finalization
+    #[serde(rename = "study_finalization")]
+    StudyFinalization,
 }
 impl crate::SemanticEq for AttemptKind {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -226,13 +232,21 @@ impl crate::SemanticEq for AttemptKind {
 }
 impl AttemptKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Modeling, Self::Simulation, Self::Fit];
+    pub const ALL: [Self; 5usize] = [
+        Self::Modeling,
+        Self::Simulation,
+        Self::Fit,
+        Self::Study,
+        Self::StudyFinalization,
+    ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Modeling => "modeling",
             Self::Simulation => "simulation",
             Self::Fit => "fit",
+            Self::Study => "study",
+            Self::StudyFinalization => "study_finalization",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -241,6 +255,8 @@ impl AttemptKind {
             Self::Modeling => 0usize,
             Self::Simulation => 1usize,
             Self::Fit => 2usize,
+            Self::Study => 3usize,
+            Self::StudyFinalization => 4usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -254,6 +270,8 @@ impl AttemptKind {
             Self::Modeling => None,
             Self::Simulation => None,
             Self::Fit => None,
+            Self::Study => None,
+            Self::StudyFinalization => None,
         }
     }
 }
@@ -268,7 +286,8 @@ impl schemars::JsonSchema for AttemptKind {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["modeling", "simulation", "fit"] }
+            { "type" : "string", "enum" : ["modeling", "simulation", "fit", "study",
+            "study_finalization"] }
         )
     }
 }
@@ -279,6 +298,8 @@ impl core::str::FromStr for AttemptKind {
             "modeling" => Ok(Self::Modeling),
             "simulation" => Ok(Self::Simulation),
             "fit" => Ok(Self::Fit),
+            "study" => Ok(Self::Study),
+            "study_finalization" => Ok(Self::StudyFinalization),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(AttemptKind).to_owned(),
@@ -3568,6 +3589,9 @@ impl core::str::FromStr for IpoptLinearSolver {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum JobState {
+    ///waiting
+    #[serde(rename = "waiting")]
+    Waiting,
     ///queued
     #[serde(rename = "queued")]
     Queued,
@@ -3591,7 +3615,8 @@ impl crate::SemanticEq for JobState {
 }
 impl JobState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
+    pub const ALL: [Self; 6usize] = [
+        Self::Waiting,
         Self::Queued,
         Self::Running,
         Self::Completed,
@@ -3601,6 +3626,7 @@ impl JobState {
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Waiting => "waiting",
             Self::Queued => "queued",
             Self::Running => "running",
             Self::Completed => "completed",
@@ -3611,11 +3637,12 @@ impl JobState {
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
-            Self::Queued => 0usize,
-            Self::Running => 1usize,
-            Self::Completed => 2usize,
-            Self::Failed => 3usize,
-            Self::Cancelled => 4usize,
+            Self::Waiting => 0usize,
+            Self::Queued => 1usize,
+            Self::Running => 2usize,
+            Self::Completed => 3usize,
+            Self::Failed => 4usize,
+            Self::Cancelled => 5usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -3626,6 +3653,7 @@ impl JobState {
     )]
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
+            Self::Waiting => None,
             Self::Queued => None,
             Self::Running => None,
             Self::Completed => None,
@@ -3645,8 +3673,8 @@ impl schemars::JsonSchema for JobState {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["queued", "running", "completed", "failed",
-            "cancelled"] }
+            { "type" : "string", "enum" : ["waiting", "queued", "running", "completed",
+            "failed", "cancelled"] }
         )
     }
 }
@@ -3654,6 +3682,7 @@ impl core::str::FromStr for JobState {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
+            "waiting" => Ok(Self::Waiting),
             "queued" => Ok(Self::Queued),
             "running" => Ok(Self::Running),
             "completed" => Ok(Self::Completed),
@@ -12141,12 +12170,12 @@ pub enum StudyState {
     ///open
     #[serde(rename = "open")]
     Open,
-    ///completed
-    #[serde(rename = "completed")]
-    Completed,
-    ///cancelled
-    #[serde(rename = "cancelled")]
-    Cancelled,
+    ///concluded
+    #[serde(rename = "concluded")]
+    Concluded,
+    ///published
+    #[serde(rename = "published")]
+    Published,
 }
 impl crate::SemanticEq for StudyState {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -12155,21 +12184,21 @@ impl crate::SemanticEq for StudyState {
 }
 impl StudyState {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Open, Self::Completed, Self::Cancelled];
+    pub const ALL: [Self; 3usize] = [Self::Open, Self::Concluded, Self::Published];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Open => "open",
-            Self::Completed => "completed",
-            Self::Cancelled => "cancelled",
+            Self::Concluded => "concluded",
+            Self::Published => "published",
         }
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
             Self::Open => 0usize,
-            Self::Completed => 1usize,
-            Self::Cancelled => 2usize,
+            Self::Concluded => 1usize,
+            Self::Published => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -12181,8 +12210,8 @@ impl StudyState {
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
             Self::Open => None,
-            Self::Completed => None,
-            Self::Cancelled => None,
+            Self::Concluded => None,
+            Self::Published => None,
         }
     }
 }
@@ -12197,7 +12226,7 @@ impl schemars::JsonSchema for StudyState {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["open", "completed", "cancelled"] }
+            { "type" : "string", "enum" : ["open", "concluded", "published"] }
         )
     }
 }
@@ -12206,8 +12235,8 @@ impl core::str::FromStr for StudyState {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "open" => Ok(Self::Open),
-            "completed" => Ok(Self::Completed),
-            "cancelled" => Ok(Self::Cancelled),
+            "concluded" => Ok(Self::Concluded),
+            "published" => Ok(Self::Published),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(StudyState).to_owned(),

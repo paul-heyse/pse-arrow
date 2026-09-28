@@ -1334,21 +1334,88 @@ Native row check `path_nonempty` (must be true):
 
 ## `operational_studies`
 
-Study coordination state; `definition` is the study's versioned JSON definition.
+Studies coordinated across workers (Plan 22 O7). `attempt_id` is the study's own attempt: it holds no lease, stays queued while the points run and ends when the last point is terminal; it is the attempt the study's one publication names, and `publication_id` is that publication's intent, registered at creation. `finalization_job` waits until the last point is terminal and then publishes the study. `definition` is the study's versioned JSON definition.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `study_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `study_id` | `semantic_id` | false | `key` | — | — |
+| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `publication_id` | `semantic_id` | false | `payload` | `runtime.operational_publication_intents.publication_id` | — |
+| `finalization_job` | `semantic_id` | false | `payload` | `runtime.operational_jobs.job_id` | — |
 | `definition` | `Utf8` | false | `payload` | — | — |
 | `state` | `enum:StudyState` | false | `payload` | — | — |
 | `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 | `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 
+## `operational_study_point_members`
+
+The result members a completed study point wrote under its study's publication intent, one registry `MemberDescriptor` per row, recorded in the transaction that completes the point. The study's publication commits them together with its summary.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index, catalog_name, schema_name, table_name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `study_id` | `semantic_id` | false | `key` | `runtime.operational_studies.study_id` | — |
+| `point_index` | `Int32` | false | `key` | — | — |
+| `catalog_name` | `Utf8` | false | `key` | — | — |
+| `schema_name` | `Utf8` | false | `key` | — | — |
+| `table_name` | `Utf8` | false | `key` | — | — |
+| `relation_id` | `semantic_id` | false | `payload` | — | — |
+| `relation_version` | `Int64` | false | `payload` | — | — |
+| `contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `table_uri` | `Utf8` | false | `payload` | — | — |
+| `delta_version` | `Int64` | false | `payload` | — | — |
+| `selection_kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `revision_column` | `Utf8` | true | `payload` | — | — |
+| `revision_id` | `semantic_id` | true | `payload` | — | — |
+
+Native row check `catalog_name_nonempty` (must be true):
+
+```sql
+"catalog_name" <> ''
+```
+
+Native row check `delta_version_nonnegative` (must be true):
+
+```sql
+"delta_version" >= 0
+```
+
+Native row check `one_selection` (must be true):
+
+```sql
+("selection_kind" = 'full' AND "revision_column" IS NULL AND "revision_id" IS NULL) OR ("selection_kind" = 'revision' AND "revision_column" IS NOT NULL AND "revision_column" <> '' AND "revision_id" IS NOT NULL)
+```
+
+Native row check `relation_version_nonnegative` (must be true):
+
+```sql
+"relation_version" >= 0
+```
+
+Native row check `schema_name_nonempty` (must be true):
+
+```sql
+"schema_name" <> ''
+```
+
+Native row check `table_name_nonempty` (must be true):
+
+```sql
+"table_name" <> ''
+```
+
+Native row check `table_uri_nonempty` (must be true):
+
+```sql
+"table_uri" <> ''
+```
+
 ## `operational_study_points`
 
-One study point: its value bindings by hash, its claim state and the attempt that ran it.
+One study point: its value bindings by hash, the earlier point whose stored solution seeds it, its job (whose current attempt is the point's try) and its state. A point with a predecessor waits until the predecessor completed, and is cancelled when the predecessor fails or is cancelled.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index`.
 
@@ -1357,15 +1424,21 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index`.
 | `study_id` | `semantic_id` | false | `key` | `runtime.operational_studies.study_id` | — |
 | `point_index` | `Int32` | false | `key` | — | — |
 | `binding_hash` | `content_hash` | false | `payload` | — | — |
+| `predecessor` | `Int32` | true | `payload` | — | — |
+| `job_id` | `semantic_id` | false | `payload` | `runtime.operational_jobs.job_id` | — |
 | `state` | `enum:StudyPointState` | false | `payload` | — | — |
-| `attempt_id` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `result_ref` | `Utf8` | true | `payload` | — | — |
 | `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 
 Native row check `point_index_nonnegative` (must be true):
 
 ```sql
 "point_index" >= 0
+```
+
+Native row check `predecessor_is_earlier` (must be true):
+
+```sql
+"predecessor" IS NULL OR ("predecessor" >= 0 AND "predecessor" < "point_index")
 ```
 
 ## `operational_workspaces`
@@ -1732,6 +1805,37 @@ Version: 1. Snapshot class: `derived`. Primary key: `backend`.
 | `certifies` | `Boolean` | false | `payload` | — | — |
 | `native_forms` | `List` | false | `payload` | — | — |
 | `native_forms.item` | `enum:NativeConstraintForm` | false | `payload` | — | — |
+
+## `study_outcomes`
+
+The outcome of every point of a durable study, published once with the study: its authored case and value bindings by hash, the earlier point that seeded it, its final state, the attempt that ended it and that attempt's state. A completed point's result members are published under `member_catalog`; a failed or cancelled point contributes no members and records why in `error`.
+
+Version: 1. Snapshot class: `derived`. Primary key: `study_id, point_index`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `study_id` | `semantic_id` | false | `key` | — | — |
+| `point_index` | `Int64` | false | `key` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `binding_hash` | `content_hash` | false | `payload` | — | — |
+| `predecessor` | `Int64` | true | `payload` | — | — |
+| `state` | `enum:StudyPointState` | false | `payload` | — | — |
+| `attempt_id` | `semantic_id` | false | `payload` | — | — |
+| `attempt_state` | `enum:AttemptState` | false | `payload` | — | — |
+| `member_catalog` | `Utf8` | true | `payload` | — | — |
+| `error` | `Utf8` | true | `payload` | — | — |
+
+Native row check `members_of_completed_points` (must be true):
+
+```sql
+("state" = 'completed') = ("member_catalog" IS NOT NULL)
+```
+
+Native row check `predecessor_is_earlier` (must be true):
+
+```sql
+"predecessor" IS NULL OR "predecessor" < "point_index"
+```
 
 ## `validation_findings`
 

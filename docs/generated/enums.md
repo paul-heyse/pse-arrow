@@ -26,6 +26,8 @@ Member names are canonical string values; declaration order is presentation only
 | `modeling` | `` | false |
 | `simulation` | `` | false |
 | `fit` | `` | false |
+| `study` | `` | false |
+| `study_finalization` | `` | false |
 
 ## `AttemptState`
 
@@ -471,6 +473,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
+| `waiting` | `` | false |
 | `queued` | `` | false |
 | `running` | `` | false |
 | `completed` | `` | false |
@@ -1358,8 +1361,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `open` | `` | false |
-| `completed` | `` | false |
-| `cancelled` | `` | false |
+| `concluded` | `` | false |
+| `published` | `` | false |
 
 ## `SubjectRule`
 

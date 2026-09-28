@@ -93,6 +93,8 @@ pub mod r#operational_source_documents;
 ///Generated relation contract.
 pub mod r#operational_studies;
 ///Generated relation contract.
+pub mod r#operational_study_point_members;
+///Generated relation contract.
 pub mod r#operational_study_points;
 ///Generated relation contract.
 pub mod r#operational_workspaces;
@@ -122,5 +124,7 @@ pub mod r#solve_runs;
 pub mod r#solve_variables;
 ///Generated relation contract.
 pub mod r#solver_capabilities;
+///Generated relation contract.
+pub mod r#study_outcomes;
 ///Generated relation contract.
 pub mod r#validation_findings;

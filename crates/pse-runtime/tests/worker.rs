@@ -60,6 +60,11 @@ fn texts(root: &Path) -> BTreeMap<String, String> {
 }
 
 fn sources() -> (BTreeMap<String, String>, BTreeMap<String, String>) {
+    sources_of(SQUARE)
+}
+
+/// The sources of a one-document package over the physical primitives fixture.
+fn sources_of(source: &str) -> (BTreeMap<String, String>, BTreeMap<String, String>) {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
     let mut manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))
         .unwrap()
@@ -71,7 +76,7 @@ fn sources() -> (BTreeMap<String, String>, BTreeMap<String, String>) {
         texts(&fixtures.join("physical-primitives")),
         BTreeMap::from([
             ("package.toml".to_owned(), manifest),
-            ("models/root.pse".to_owned(), SQUARE.to_owned()),
+            ("models/root.pse".to_owned(), source.to_owned()),
         ]),
     )
 }
@@ -166,13 +171,13 @@ async fn worker_runs_authored_case_end_to_end() {
         .unwrap()
         .declaration_id;
     let job = ModelingJob {
-        version: pse_model::document::Version,
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
         case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: settings(),
         start: JobStart::Fresh,
+        study: None,
     };
     let enqueued = operations
         .enqueue(&job, "square-end-to-end", RetryPolicy::ONCE, 0)
@@ -420,13 +425,13 @@ async fn long_scip_job(
     };
     settings.controls.time_limit = time_limit;
     ModelingJob {
-        version: pse_model::document::Version,
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
         case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,
         start,
+        study: None,
     }
 }
 
@@ -740,4 +745,143 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
         shared.clone(),
         Runtime::from_shared(shared, registry, sessions),
     )
+}
+
+/// `Root` with the right-hand side of its equation as parameter `a`: each study point sets
+/// its own value.
+const PARAMETRIC: &str = r#"package algebraic { def Root {
+    param a:Scalar = 4;
+    var x:Scalar;
+    eq square:x*x==a;
+    annotation start x(1);
+    annotation bounds x(0,10);
+    annotation report x("root");
+    annotation check x(x>1);
+} }"#;
+
+/// Two `pse-worker` processes claim the points of one study concurrently (Plan 22 O7,
+/// architecture S15): every point runs once, each completed point's members are written
+/// under the study's intent, and exactly one publication — of the study's own attempt —
+/// holds the summary and every completed point's members.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn study_parallel_workers_publish_once() {
+    use pse_runtime::workflow::{PackageSources, PointOverlay, StudyPlan, StudyPoint, StudyState};
+    const POINTS: usize = 8;
+    let database = TestDatabase::create().await.unwrap();
+    let operations = Operations::connect(database.url(), "enqueuer", LeasePolicy::default())
+        .await
+        .unwrap();
+    let (physical, modeling) = sources_of(PARAMETRIC);
+    let (shared, local) = runtime();
+    let local = local.with_durability(Durability::Durable(operations.clone()));
+    let package = package(&shared, &local, &physical, &modeling).await;
+    let case = package
+        .declarations()
+        .iter()
+        .find(|d| d.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let directory = tempfile::tempdir().unwrap();
+    let workspace = local
+        .register_workspace(
+            "parallel",
+            url::Url::from_directory_path(directory.path()).unwrap(),
+        )
+        .await
+        .unwrap();
+    let points = (0..POINTS)
+        .map(|index| StudyPoint {
+            case,
+            overlay: PointOverlay {
+                // x = index + 2, inside the bounds.
+                values: BTreeMap::from([("a".to_owned(), ((index + 2) * (index + 2)) as f64)]),
+                parameters: BTreeMap::new(),
+            },
+            predecessor: None,
+        })
+        .collect();
+    let handle = local
+        .start_study(
+            &workspace,
+            StudyPlan {
+                sources: PackageSources {
+                    physical,
+                    modeling: vec![modeling],
+                },
+                route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                settings: settings(),
+                points,
+                retry: RetryPolicy::ONCE,
+                priority: 0,
+            },
+        )
+        .await
+        .unwrap();
+
+    // Two worker processes serve the queue at once and stop when it is empty.
+    let url = database.url().to_owned();
+    let mut workers = ["worker-left", "worker-right"].map(|name| spawn_worker(&url, name, 30));
+    let statuses = tokio::task::spawn_blocking(move || workers.each_mut().map(|w| w.wait().unwrap()))
+        .await
+        .unwrap();
+    for status in statuses {
+        assert!(status.success(), "{status}");
+    }
+
+    let status = handle.status().await.unwrap();
+    assert_eq!(status.state, StudyState::Published, "{status:?}");
+    assert_eq!(status.attempt_state, AttemptState::Completed);
+    let store = operations.store();
+    let mut workers = std::collections::BTreeSet::new();
+    for point in &status.points {
+        let attempt = store.attempts().get(point.attempt_id).await.unwrap();
+        assert_eq!(attempt.state, AttemptState::Completed, "{point:?}");
+        // Each point ran exactly once: its job's first try completed.
+        assert_eq!(attempt.parent_attempt, None);
+        workers.insert(attempt.worker.unwrap());
+    }
+    assert_eq!(
+        workers.into_iter().collect::<Vec<_>>(),
+        ["worker-left", "worker-right"],
+        "both processes ran points"
+    );
+
+    // Exactly one publication: the workspace head, with no parent, naming the study's
+    // attempt, holding the summary and every point's members under the intent's prefix.
+    let published = handle.result().await.unwrap().unwrap();
+    assert_eq!(
+        local.head(workspace.workspace_id).await.unwrap(),
+        Some(published.publication_id)
+    );
+    let record = store
+        .catalog()
+        .publication(published.publication_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(record.publication.parent_publication, None);
+    assert_eq!(record.publication.attempt_id, status.attempt_id);
+    let intent = store
+        .catalog()
+        .intent(published.publication_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        record
+            .members
+            .iter()
+            .all(|member| member.table_uri.starts_with(&intent.member_prefix))
+    );
+    let catalogs: std::collections::BTreeSet<String> = record
+        .members
+        .iter()
+        .map(|member| member.catalog_name.clone())
+        .collect();
+    let mut expected: std::collections::BTreeSet<String> =
+        (0..POINTS).map(|index| format!("point_{index}")).collect();
+    expected.insert("study".to_owned());
+    assert_eq!(catalogs, expected);
+    drop((local, shared, package, operations, directory));
+    database.remove().await.unwrap();
 }

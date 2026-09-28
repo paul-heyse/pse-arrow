@@ -251,6 +251,38 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         ],
         "Ordered study outcomes including declaration preparation failures and explicit accepted-predecessor dependencies. Unattempted points remain distinct from failed attempts.",
     );
+    // The summary a durable study publishes (Plan 22 O7), one row per point, beside every
+    // completed point's result members.
+    b.declare_relation(
+        super::declarations::declaration(
+            N::Runtime,
+            "study_outcomes",
+            1,
+            S::Derived,
+            &["study_id", "point_index"],
+            vec![
+                column("study_id", T::id()).with_identity("study"),
+                column("point_index", count()),
+                column("case_id", T::id()).with_identity("declaration"),
+                column("binding_hash", T::hash()),
+                column("predecessor", count()).optional(),
+                column("state", T::enumeration("StudyPointState")),
+                column("attempt_id", T::id()).with_identity("attempt"),
+                column("attempt_state", T::enumeration("AttemptState")),
+                column("member_catalog", text()).optional(),
+                column("error", text()).optional(),
+            ],
+            "The outcome of every point of a durable study, published once with the study: its authored case and value bindings by hash, the earlier point that seeded it, its final state, the attempt that ended it and that attempt's state. A completed point's result members are published under `member_catalog`; a failed or cancelled point contributes no members and records why in `error`.",
+        )
+        .check(
+            "members_of_completed_points",
+            "(\"state\" = 'completed') = (\"member_catalog\" IS NOT NULL)",
+        )
+        .check(
+            "predecessor_is_earlier",
+            "\"predecessor\" IS NULL OR \"predecessor\" < \"point_index\"",
+        ),
+    );
     enumeration(
         b,
         "ModelingElasticObservation",

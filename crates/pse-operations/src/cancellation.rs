@@ -33,7 +33,9 @@ pub enum CancelOutcome {
 
 impl Store {
     /// Request cancellation of an attempt: set the durable flag and notify watchers in one
-    /// transaction. Work that has not started is cancelled at once.
+    /// transaction. Work that has not started is cancelled at once. A study's own attempt
+    /// is cancelled through its study ([`crate::studies::Studies::cancel`]): its points
+    /// stop and the study concludes as cancelled.
     ///
     /// # Errors
     ///
@@ -44,6 +46,12 @@ impl Store {
         actor: &str,
     ) -> Result<CancelOutcome, OperationsError> {
         let target = self.target();
+        // An attempt's kind never changes: read it before taking any lock, so a study is
+        // cancelled in the study's lock order.
+        let record = self.attempts().get(attempt).await?;
+        if crate::lifecycle::coordinates(record.kind) {
+            return self.studies().cancel_attempt(attempt, actor).await;
+        }
         let mut client = self.client().await?;
         let tx = client.transaction().await.classify(target)?;
         // Job before attempt: the lock order of the job queue.
@@ -67,6 +75,8 @@ impl Store {
             if let Some(job) = job {
                 crate::jobs::set_job_state(&tx, target, job.job_id, JobState::Cancelled, None)
                     .await?;
+                // A study point follows its job (Plan 22 O7).
+                crate::studies::job_changed(&tx, target, job.job_id, &[]).await?;
             }
             CancelOutcome::CancelledBeforeStart
         } else {

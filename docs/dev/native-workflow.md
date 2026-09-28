@@ -29,7 +29,7 @@ source strings do not instantiate external implementations.
 |---|---|
 | `solve_case` | Original native outcome plus independent source checks, closure and reports |
 | `initialize` | Ordered immutable stage/homotopy attempts; only an accepted final original specification commits values |
-| `study` | Isolated case outcomes and explicit accepted-predecessor dependencies |
+| `study` | Isolated case outcomes and explicit accepted-predecessor dependencies; with `runtime=` a durable study run by workers and published once ([studies across workers](operational-store.md#studies-across-workers)) |
 | `simulate` | Native trajectory, actual termination and checks at requested sample times |
 | `diagnose` / `diagnose_samples` | Bounded structural and numerical findings at declared points; missing free values remain missing |
 | `diagnose_linear` | HiGHS IIS, rays, ranging and explicitly penalized relaxation of an affine model |
