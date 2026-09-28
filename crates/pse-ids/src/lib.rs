@@ -8,6 +8,7 @@ pub mod error;
 pub mod float;
 pub mod frame;
 pub mod id;
+pub mod newtype;
 pub mod preimage;
 pub use derive::{FramedHasher, derive_hash, derive_id, named_id};
 pub use encoding::{EncodingHasher, encoding_checksum};
@@ -17,6 +18,10 @@ pub use float::{
 };
 pub use frame::FrameSink;
 pub use id::{ContentHash, EncodingChecksum, LogicalHash, SchemaVersion, SemanticId};
+
+/// The serde paths [`semantic_id_newtype!`] expands to; not a public interface.
+#[doc(hidden)]
+pub use serde as __serde;
 
 /// Declaration-key steps in authored instance paths.
 pub mod source_path;

@@ -28,8 +28,7 @@
 //!
 //! - [`dimension`] — [`Ratio`], [`BaseDimension`] and [`DimensionVector`] with canonical
 //!   bytes.
-//! - [`ids`] — the identity newtypes, and the [`semantic_id_newtype`] macro that declares
-//!   them.
+//! - [`ids`] — the identity newtypes, declared through [`semantic_id_newtype`].
 //! - [`enums`] — the closed registry dictionaries, including the 43 [`Opcode`]s of §7.2,
 //!   and the [`closed_enum`] macro that gives each member one spelling.
 //! - [`index`] — [`BoundIndexRef`] and [`IndexSet`]: free-index identity.
@@ -43,7 +42,7 @@
 //! comparisons; the `fixtures` feature exposes the standard test package.
 //!
 //! [`closed_enum`]: crate::closed_enum
-//! [`semantic_id_newtype`]: crate::semantic_id_newtype
+//! [`semantic_id_newtype`]: pse_ids::semantic_id_newtype
 
 pub mod admission;
 pub mod basis;
