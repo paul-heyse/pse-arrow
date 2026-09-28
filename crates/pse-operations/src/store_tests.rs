@@ -22,7 +22,7 @@ use crate::catalog::{
 use crate::jobs::{Enqueued, Finished, JobId, JobOutcome, JobState, NewJob, RetryPolicy};
 use crate::lifecycle::AttemptState;
 use crate::solutions::{SeedVectors, Solution};
-use crate::streams::{Incumbent, ProgressEvent, ProgressValue};
+use crate::streams::{ProgressEvent, ProgressValue, RuntimeOperationalIncumbentsRow};
 use crate::testing::TestDatabase;
 use crate::{InvariantKind, Opened, OperationsError, SchemaStatus, Store, mint_id};
 
@@ -1447,13 +1447,7 @@ async fn progress_batch_insert_roundtrip() {
         )
     );
 
-    let mut listener = sqlx::postgres::PgListener::connect_with(store.pool())
-        .await
-        .unwrap();
-    listener
-        .listen(crate::streams::PROGRESS_CHANNEL)
-        .await
-        .unwrap();
+    let mut events_seen = store.subscribe().await.unwrap();
     assert_eq!(
         store
             .streams()
@@ -1462,14 +1456,21 @@ async fn progress_batch_insert_roundtrip() {
             .unwrap(),
         500
     );
-    let notification = tokio::time::timeout(Duration::from_secs(5), listener.recv())
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        notification.payload(),
-        attempt.attempt_id.to_string()
-    );
+    // The batch notified the progress channel, naming its attempt.
+    let notified = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let crate::listener::Event::Notification {
+                channel: crate::listener::Channel::Progress,
+                attempt,
+            } = events_seen.next().await.unwrap()
+            {
+                break attempt;
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(notified, attempt.attempt_id);
     // A re-sent overlapping batch inserts only the new tail.
     let resent: Vec<ProgressEvent> = (495..505).map(progress_event).collect();
     assert_eq!(
@@ -1732,34 +1733,51 @@ async fn incumbents_and_solutions_round_trip() {
     );
 
     let incumbents = [
-        Incumbent {
+        RuntimeOperationalIncumbentsRow {
+            attempt_id: attempt,
             seq: 0,
-            at: at(0),
+            at: at(0).timestamp_micros(),
             objective: 12.5,
             dual_bound: Some(3.0),
             gap: Some(0.76),
             solution_id: None,
         },
-        Incumbent {
+        RuntimeOperationalIncumbentsRow {
+            attempt_id: attempt,
             seq: 1,
-            at: at(5),
+            at: at(5).timestamp_micros(),
             objective: 10.0,
             dual_bound: None,
             gap: None,
-            solution_id: Some(newer.solution_id),
+            solution_id: Some(newer.solution_id.into()),
         },
     ];
     assert_eq!(
         store
             .streams()
-            .record_incumbents(attempt, &incumbents)
+            .record_incumbents(&incumbents)
             .await
             .unwrap(),
         2
     );
+    // A re-sent batch stores nothing new.
     assert_eq!(
-        store.streams().latest_incumbent(attempt).await.unwrap(),
-        Some(incumbents[1].clone())
+        store
+            .streams()
+            .record_incumbents(&incumbents)
+            .await
+            .unwrap(),
+        0
+    );
+    let latest = store
+        .streams()
+        .latest_incumbent(attempt)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(
+        pse_model::SemanticEq::semantic_eq(&latest, &incumbents[1]),
+        "{latest:?}"
     );
     database.remove().await.unwrap();
 }

@@ -11,5 +11,6 @@ pub const SCHEMA: &str = "pse_ops";
 pub const SCHEMA_SQL: &str = include_str!("schema.sql");
 /// Cornucopia's type mapping from store types to registry Rust types.
 pub const CORNUCOPIA_TOML: &str = include_str!("cornucopia.toml");
+pub mod copy;
 mod fingerprint;
 pub use fingerprint::{RECORD_SQL, SCHEMA_FINGERPRINT, SCHEMA_FINGERPRINT_HEX};

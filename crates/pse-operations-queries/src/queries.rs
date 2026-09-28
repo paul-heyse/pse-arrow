@@ -6,3 +6,4 @@ pub mod attempts;
 pub mod cancellation;
 pub mod jobs;
 pub mod store;
+pub mod streams;

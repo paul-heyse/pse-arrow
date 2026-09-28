@@ -73,6 +73,31 @@ fn ddl_covers_store_relations_enums_identities() {
 }
 
 #[test]
+fn copy_statements_cover_store_tables() {
+    let registry = crate::registry().unwrap();
+    let tree = crate::codegen::generate(registry, Language::Postgres).unwrap();
+    let copy = text(&tree, "copy.rs");
+    for (table, spec) in pse_schema::store::relations(registry) {
+        let columns = spec
+            .columns
+            .iter()
+            .map(|column| format!("\\\"{}\\\"", column.name()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        assert!(
+            copy.contains(&format!(
+                "COPY pse_ops.\\\"{table}\\\" ({columns}) FROM STDIN (FORMAT binary)"
+            )),
+            "{table} has no binary copy"
+        );
+        assert!(copy.contains(&format!(
+            "SELECT {columns} FROM pse_ops.\\\"{table}\\\" WHERE false"
+        )));
+    }
+    assert!(text(&tree, "mod.rs").contains("pub mod copy;"));
+}
+
+#[test]
 fn schema_fingerprint_covers_both_files() {
     let (path, bytes) = fingerprint_file(b"schema", b"physical").unwrap();
     assert_eq!(path, PathBuf::from(format!("{ROOT}/fingerprint.rs")));
