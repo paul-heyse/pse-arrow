@@ -38,7 +38,7 @@ mod improvement_unit;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Key {
     store: usize,
-    maintenance: crate::delta::lease::Generation,
+    maintenance: crate::delta::scope::ReadScope,
     selection: Arc<MemberSelection>,
     schema: SchemaRef,
     interpretation: Arc<Interpretation>,
@@ -51,7 +51,7 @@ struct Interpretation {
 }
 #[derive(Clone, Debug, PartialEq)]
 struct MemberSelection(
-    pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+    pse_relations::generated::structures::MemberDescriptor,
 );
 // The generated member consists only of strings, integer/identity fields and a
 // typed optional revision. Its equality is reflexive; no floats participate.
@@ -270,7 +270,7 @@ struct SelectedTable {
 /// common execution contract still re-admits policy and requirements on every read.
 pub(crate) fn selected(
     inner: Arc<dyn TableProvider>,
-    member: &pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
     state: &Arc<SessionState>,
 ) -> Result<Arc<dyn TableProvider>> {
     let Some(service) = state.config().get_extension::<DeltaCacheService>() else {
@@ -485,24 +485,18 @@ impl ExecutionPlan for SelectedExec {
         let limit = self.limit;
         let populate = self.populate;
         let stream = futures_util::stream::once(async move {
-            let cancel = context
-                .session_config()
-                .get_extension::<pse_engine::session::execution::NativeExecutionContext>()
-                .map_or_else(pse_columnar::CancellationToken::new, |owner| {
-                    owner.cancellation().clone()
-                });
-            let lease = crate::delta::lease::read(&location, &cancel).await?;
             let store = state
                 .runtime_env()
                 .object_store_registry
                 .get_store(&location)?;
             let generation = service.native().generation(&location, store);
             let key = generation
-                .zip(lease.as_ref())
+                // The read scope the selection was bound under (its reader's grant).
+                .zip(crate::delta::scope::ReadScope::of(&state))
                 .filter(|_| reuse)
-                .map(|(store, lease)| Key {
+                .map(|(store, maintenance)| Key {
                     store,
-                    maintenance: lease.generation.clone(),
+                    maintenance,
                     selection,
                     schema: full_schema,
                     interpretation,
@@ -535,14 +529,7 @@ impl ExecutionPlan for SelectedExec {
                 service.resident.bypasses.fetch_add(1, Ordering::Relaxed);
                 datafusion::physical_plan::execute_stream(input, context)?
             };
-            let stream: SendableRecordBatchStream = Box::pin(RecordBatchStreamAdapter::new(
-                source.schema(),
-                source.map_ok(move |batch| {
-                    let _lease = &lease;
-                    batch
-                }),
-            ));
-            Ok::<_, DataFusionError>(stream)
+            Ok::<_, DataFusionError>(source)
         })
         .try_flatten();
         Ok(Box::pin(RecordBatchStreamAdapter::new(schema, stream)))

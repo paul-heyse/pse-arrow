@@ -13,7 +13,7 @@ use std::sync::Arc;
 use pse_diagnostics::DiagnosticCode;
 pub use pse_model::generated::enums::InvariantKind;
 use pse_model::generated::enums::RetentionPhase;
-use pse_model::generated::identities::{AttemptId, PublicationId, WorkspaceId};
+use pse_model::generated::identities::{AttemptId, PublicationId, ReaderLeaseId, WorkspaceId};
 use tokio_postgres::error::SqlState;
 
 use crate::lifecycle::AttemptState;
@@ -246,6 +246,37 @@ pub enum OperationsError {
         /// Live lease count.
         active: i64,
     },
+    /// A publication or attempt identity names a different request than the one stored:
+    /// another workspace, attempt or member vector, or an attempt already published as
+    /// another publication (Plan 22 X9). Never retried.
+    #[error("publication {publication}: identity reused for a different request ({reason})")]
+    PublicationIdentityReused {
+        /// The publication the request named.
+        publication: PublicationId,
+        /// What differs.
+        reason: String,
+    },
+    /// The publication intent was abandoned (or reclaimed); it can never commit.
+    #[error("publication intent {publication} was abandoned and can never commit")]
+    IntentAbandoned {
+        /// The publication.
+        publication: PublicationId,
+    },
+    /// A retained member or input names a table version no live publication selects: it
+    /// may be collected at any time, so a new publication cannot depend on it.
+    #[error("{table_uri}@{delta_version} is selected by no live publication")]
+    InputRetired {
+        /// The table.
+        table_uri: String,
+        /// The version.
+        delta_version: i64,
+    },
+    /// A reader lease expired or was released before it was renewed; the reader must stop.
+    #[error("reader lease {lease} lapsed")]
+    ReaderLeaseLapsed {
+        /// The lease.
+        lease: ReaderLeaseId,
+    },
     /// A stored value violates the Rust-side contract (for example an unknown enum spelling).
     #[error("corrupt value in column {column}: {detail}")]
     CorruptValue {
@@ -411,7 +442,10 @@ impl OperationsError {
             Self::IllegalTransition { .. }
             | Self::NotFound { .. }
             | Self::InvalidRequest { .. }
-            | Self::InvariantViolation { .. } => DiagnosticCode::ValidationInvariant,
+            | Self::InvariantViolation { .. }
+            | Self::PublicationIdentityReused { .. }
+            | Self::IntentAbandoned { .. }
+            | Self::InputRetired { .. } => DiagnosticCode::ValidationInvariant,
             Self::Retryable { .. }
             | Self::Duplicate { .. }
             | Self::LockUnavailable { .. }
@@ -420,7 +454,8 @@ impl OperationsError {
             | Self::PublicationConflict { .. }
             | Self::PublicationRetiring { .. }
             | Self::ProtectedPublication { .. }
-            | Self::ReadersActive { .. } => DiagnosticCode::RuntimeInfrastructure,
+            | Self::ReadersActive { .. }
+            | Self::ReaderLeaseLapsed { .. } => DiagnosticCode::RuntimeInfrastructure,
         }
     }
 }

@@ -8,9 +8,8 @@ use pse_engine::{
     EngineError, EngineFactory, EngineSession,
     provider::witness::{InputWitness, SourceWitness},
 };
-use pse_relations::generated::runtime::publications;
 use std::{collections::BTreeMap, sync::Arc};
-type Member = publications::RuntimePublicationsFieldMembersItem;
+type Member = pse_relations::generated::structures::MemberDescriptor;
 #[derive(Debug)]
 struct Selected(Member);
 impl InputWitness for Selected {
@@ -84,7 +83,7 @@ fn table_reference(reference: &ResolvedTableReference) -> TableReference {
     )
 }
 pub(crate) async fn bind_publication(
-    record: &publications::Row,
+    members: &[Member],
     state: &datafusion::execution::session_state::SessionState,
     registry: Arc<pse_schema::Registry>,
     factory: &EngineFactory,
@@ -93,7 +92,7 @@ pub(crate) async fn bind_publication(
     use pse_engine::provider::binding::{BindingKey, TableBinding};
     let mut session = factory.candidate(BTreeMap::new(), registry, cancel)?;
     let mut unique = BTreeMap::new();
-    for member in &record.members {
+    for member in members {
         cancel.checkpoint()?;
         let reference = ResolvedTableReference {
             catalog: member.catalog_name.clone().into(),

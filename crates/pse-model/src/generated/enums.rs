@@ -10475,6 +10475,97 @@ impl core::str::FromStr for PublicationKind {
         }
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum PublicationMemberRole {
+    ///output
+    #[serde(rename = "output")]
+    Output,
+    ///input
+    #[serde(rename = "input")]
+    Input,
+}
+impl crate::SemanticEq for PublicationMemberRole {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl PublicationMemberRole {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Output, Self::Input];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Output => "output",
+            Self::Input => "input",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Output => 0usize,
+            Self::Input => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Output => None,
+            Self::Input => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for PublicationMemberRole {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(PublicationMemberRole))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(PublicationMemberRole)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["output", "input"] })
+    }
+}
+impl core::str::FromStr for PublicationMemberRole {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "output" => Ok(Self::Output),
+            "input" => Ok(Self::Input),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(PublicationMemberRole).to_owned(),
+                    enumeration: stringify!(PublicationMemberRole).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
 /// A vocabulary owned by its source type; the registry declares its members.
 pub type QuantityAdditionKind = pse_quantity::QuantityAdditionKind;
 impl crate::SemanticEq for QuantityAdditionKind {
@@ -10826,9 +10917,6 @@ pub enum RetentionReason {
     ///publication
     #[serde(rename = "publication")]
     Publication,
-    ///output
-    #[serde(rename = "output")]
-    Output,
     ///attempt
     #[serde(rename = "attempt")]
     Attempt,
@@ -10843,17 +10931,11 @@ impl crate::SemanticEq for RetentionReason {
 }
 impl RetentionReason {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Publication,
-        Self::Output,
-        Self::Attempt,
-        Self::Changes,
-    ];
+    pub const ALL: [Self; 3usize] = [Self::Publication, Self::Attempt, Self::Changes];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Publication => "publication",
-            Self::Output => "output",
             Self::Attempt => "attempt",
             Self::Changes => "changes",
         }
@@ -10862,9 +10944,8 @@ impl RetentionReason {
     pub const fn ordinal(self) -> usize {
         match self {
             Self::Publication => 0usize,
-            Self::Output => 1usize,
-            Self::Attempt => 2usize,
-            Self::Changes => 3usize,
+            Self::Attempt => 1usize,
+            Self::Changes => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -10876,7 +10957,6 @@ impl RetentionReason {
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
             Self::Publication => None,
-            Self::Output => None,
             Self::Attempt => None,
             Self::Changes => None,
         }
@@ -10893,8 +10973,7 @@ impl schemars::JsonSchema for RetentionReason {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["publication", "output", "attempt", "changes"]
-            }
+            { "type" : "string", "enum" : ["publication", "attempt", "changes"] }
         )
     }
 }
@@ -10903,7 +10982,6 @@ impl core::str::FromStr for RetentionReason {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "publication" => Ok(Self::Publication),
-            "output" => Ok(Self::Output),
             "attempt" => Ok(Self::Attempt),
             "changes" => Ok(Self::Changes),
             _ => {
@@ -11273,6 +11351,9 @@ pub enum SettlementOutcome {
     ///proved_noncommit
     #[serde(rename = "proved_noncommit")]
     ProvedNoncommit,
+    ///conflict
+    #[serde(rename = "conflict")]
+    Conflict,
 }
 impl crate::SemanticEq for SettlementOutcome {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -11281,12 +11362,17 @@ impl crate::SemanticEq for SettlementOutcome {
 }
 impl SettlementOutcome {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Committed, Self::ProvedNoncommit];
+    pub const ALL: [Self; 3usize] = [
+        Self::Committed,
+        Self::ProvedNoncommit,
+        Self::Conflict,
+    ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Committed => "committed",
             Self::ProvedNoncommit => "proved_noncommit",
+            Self::Conflict => "conflict",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -11294,6 +11380,7 @@ impl SettlementOutcome {
         match self {
             Self::Committed => 0usize,
             Self::ProvedNoncommit => 1usize,
+            Self::Conflict => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -11306,6 +11393,7 @@ impl SettlementOutcome {
         match self {
             Self::Committed => None,
             Self::ProvedNoncommit => None,
+            Self::Conflict => None,
         }
     }
 }
@@ -11320,7 +11408,7 @@ impl schemars::JsonSchema for SettlementOutcome {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["committed", "proved_noncommit"] }
+            { "type" : "string", "enum" : ["committed", "proved_noncommit", "conflict"] }
         )
     }
 }
@@ -11330,6 +11418,7 @@ impl core::str::FromStr for SettlementOutcome {
         match value {
             "committed" => Ok(Self::Committed),
             "proved_noncommit" => Ok(Self::ProvedNoncommit),
+            "conflict" => Ok(Self::Conflict),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(SettlementOutcome).to_owned(),
@@ -13658,6 +13747,16 @@ impl crate::HeapUsage for PublicationKind {
     }
 }
 impl crate::SemanticFrame for PublicationKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for PublicationMemberRole {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for PublicationMemberRole {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

@@ -17,7 +17,7 @@ use pse_engine::{
 use pse_ids::SemanticId;
 use pse_relations::generated::{
     enums::NativeDependencyKind as Kind,
-    runtime::{native_dependencies as deps, publications},
+    runtime::native_dependencies as deps,
 };
 use pse_schema::model::provider::ProviderScope;
 use std::collections::BTreeMap;
@@ -275,7 +275,7 @@ fn scope_name(scope: &ProviderScope) -> String {
         ),
     }
 }
-fn reference(member: &publications::RuntimePublicationsFieldMembersItem) -> TableReference {
+fn reference(member: &pse_relations::generated::structures::MemberDescriptor) -> TableReference {
     TableReference::full(
         member.catalog_name.clone(),
         member.schema_name.clone(),
@@ -283,27 +283,27 @@ fn reference(member: &publications::RuntimePublicationsFieldMembersItem) -> Tabl
     )
 }
 fn selection(
-    member: publications::RuntimePublicationsFieldMembersItem,
-) -> Result<deps::RuntimeNativeDependenciesFieldEvidenceSelection, EngineError> {
-    use publications::RuntimePublicationsFieldMembersItemSelectionSelected as Selected;
+    member: pse_relations::generated::structures::MemberDescriptor,
+) -> Result<pse_relations::generated::structures::MemberDescriptor, EngineError> {
+    use pse_relations::generated::structures::MemberDescriptorSelectionSelected as Selected;
     let selection = match member
         .selection
         .selected()
         .map_err(pse_relations::RelationError::from)?
     {
         Selected::Full => {
-            deps::RuntimeNativeDependenciesFieldEvidenceSelectionSelection::from_full()
+            pse_relations::generated::structures::MemberDescriptorSelection::from_full()
         }
         Selected::Revision(value) => {
-            deps::RuntimeNativeDependenciesFieldEvidenceSelectionSelection::from_revision(
-                deps::RuntimeNativeDependenciesFieldEvidenceSelectionSelectionRevision {
+            pse_relations::generated::structures::MemberDescriptorSelection::from_revision(
+                pse_relations::generated::structures::MemberDescriptorSelectionRevision {
                     column: value.column.clone(),
                     revision_id: value.revision_id,
                 },
             )
         }
     };
-    Ok(deps::RuntimeNativeDependenciesFieldEvidenceSelection {
+    Ok(pse_relations::generated::structures::MemberDescriptor {
         catalog_name: member.catalog_name,
         schema_name: member.schema_name,
         table_name: member.table_name,

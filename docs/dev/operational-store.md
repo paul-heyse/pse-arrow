@@ -4,10 +4,11 @@
 > · [Plan 22 architecture §9](../plans/22-solver-capabilities-architecture.md#9-operational-store-and-publication-catalog-postgresql-18)
 > · crate `pse-operations`
 >
-> Plan 22 B1 and B2 have landed: the schema is generated from the registry and created or
-> refused by fingerprint, and every statement is SQL compiled by Cornucopia into the
-> generated crate `pse-operations-queries`, run on tokio-postgres. The Plan 22 docs step
-> rewrites this page once more.
+> Plan 22 B1, B2 and O8 have landed: the schema is generated from the registry and
+> created or refused by fingerprint, every statement is SQL compiled by Cornucopia into
+> the generated crate `pse-operations-queries`, run on tokio-postgres, and the catalog is
+> the only publication authority (the Delta control table is gone). The Plan 22 docs
+> step rewrites this page once more.
 
 PostgreSQL owns what changes (attempts, jobs, leases, cancellation requests, live progress,
 incumbents, reusable solutions, study status and the publication catalog); Delta owns what
@@ -144,13 +145,77 @@ directions; without a reachable server it fails and says so.
   `InvariantViolation` naming the registry rule, class 08 and 57P01–57P03 unavailable
   (ADR-0114 Outcome 27). No driver type appears in the public API.
 
+## Publication catalog
+
+Publication visibility, heads, reader protection and retention are catalog rows
+(Plan 22 X9–X12). Delta holds only immutable member tables and export manifests.
+`pse-operations` owns the catalog statements, `pse-catalog` performs Delta member I/O and
+never sees PostgreSQL, and `pse-runtime` composes the two (`Runtime::register_workspace`,
+`prepare_publication`, `open`, `export_publication`, `retire_publications`, `collect`,
+`reclaim_unpublished`).
+
+- **Workspaces.** `workspaces` rows name one publication history with one head and the
+  root its members are written under (`publication_heads`). A root that still holds a
+  Delta control table (`{root}control/_delta_log/`) is refused as an unsupported
+  historical format: regenerate its publications by rerunning them into a new root.
+- **Intents.** Before the first member write, `publication_intents` records the
+  publication, its workspace, its durable attempt (the publication attempt *is* the
+  durable attempt) and the member prefix `{root}members/{attempt}/{publication}/`.
+  Member writes carry receipts keyed by the attempt (`pse.member_attempt.v4`), so a
+  re-preparation of the same intent recovers the members already written.
+- **Commit.** Executing the candidate writes the members and returns the admitted
+  `runtime.publication_manifests` record; one catalog transaction inserts the
+  publication, its members, inputs and change windows and advances the head if it is
+  still the expected parent. Locks are taken in one order (attempt, intent, selected
+  publications, head) and marks are read in a new statement after the lock. A stale
+  parent is `PublicationConflict` (re-prepare against the head, never rebase); an attempt
+  already published as another publication is `PublicationIdentityReused`.
+- **Settlement.** A lost commit acknowledgement is reported as unresolved and never
+  retried implicitly. Settling the ticket queries the catalog: committed, proved not
+  committed (no intent, an abandoned intent, or the head still at the parent with the
+  intent locked, so no commit is in flight),
+  conflict (the head moved), or unresolved when the store is unreachable. It writes
+  only the `settlements` row.
+- **Readers.** A reader takes a `reader_leases` row (`open`, `open_head`) in one short
+  transaction that returns the complete record and the workspace's maintenance epoch,
+  then reads Delta without a database session. The lease is renewed at a third of its
+  lifetime and released on drop; a lapsed lease cancels the reader. The pair
+  (workspace, epoch) is the session's `ReadScope`, the lookup input of every shared
+  snapshot, resident and file-metadata cache; a session without one bypasses them.
+- **Exports.** `export_publication` takes a lease held by `export:<destination>` for a
+  stated time and writes a one-row manifest (Delta version 1) with the record, the
+  lease, its expiry, the epoch and the store fingerprint. `open_export` opens it with no
+  store, refusing an expired export or a former control table.
+- **Retention.** Maintainers of a workspace serialize on a transaction advisory lock and
+  advance `maintenance_epoch` before any effect. *Retire*: mark a publication expiring
+  (never the head), wait for its leases, remove the tables only it selects (outputs, and
+  inputs whose writer is already deleted), mark it deleted. *Collect*: fix every
+  protected range (selected versions, change windows, live intents' prefixes), then
+  fence, checkpoint and vacuum each selected table keeping them. *Reclaim*: abandon
+  intents that can never commit, remove their prefixes, mark them reclaimed. Every step
+  is idempotent; an interrupted run completes on rerun.
+
+```bash
+just pse-publication export --publication <hex> --destination file:///exports/x/ --valid-for-seconds 86400
+just pse-publication release --receipt '<receipt json>'
+just pse-publication retire --workspace <name> --publication <hex> [--wait-seconds 60]
+just pse-publication collect --workspace <name>
+just pse-publication reclaim --workspace <name>
+```
+
 ## Tests
 
 ```bash
 just db-test                                  # every pse-operations test
 just db-test 'test(two_workers_never_claim_same_job)'
 just unit-package pse-operations 'test(transition_unit)'   # pure; no database
+just publication-test                         # publication catalog journeys (pse-runtime)
 ```
+
+`pse_operations::testing::FaultProxy` (feature `test-support`) relays a store connection
+and drops it just before or just after a marked transaction's `COMMIT`, reproducing a
+lost acknowledgement; `pse_testkit::fault_store::FaultStore` injects one-shot object
+store faults, including failed deletions and listings.
 
 Every store test, in this crate and in others (feature `test-support`), uses
 `pse_operations::testing::TestDatabase`. It creates a database named `pse_test_<uuid>`

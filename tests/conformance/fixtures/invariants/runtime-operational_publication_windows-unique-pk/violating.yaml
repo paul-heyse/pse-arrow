@@ -1,0 +1,26 @@
+{
+  "invariant": "runtime.operational_publication_windows:unique:pk",
+  "rows": {
+    "runtime.operational_publication_windows": [
+      {
+        "from_version": "[\"i64\",1]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "table_uri": "[\"text\",\"value-1\"]",
+        "through_version": "[\"i64\",1]"
+      },
+      {
+        "from_version": "[\"i64\",1]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "table_uri": "[\"text\",\"value-1\"]",
+        "through_version": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]",
+      "[\"i64\",1]"
+    ]
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "invariant": "runtime.operational_publication_intents:unique:pk",
+  "rows": {
+    "runtime.operational_publication_intents": [
+      {
+        "abandoned_at": "[\"i64\",1]",
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member_prefix": "[\"text\",\"value-1\"]",
+        "prepared_at": "[\"i64\",1]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reclaimed_at": "[\"i64\",1]",
+        "workspace_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -6,13 +6,13 @@ use pse_runtime::{CancelSource, math::solves::Outcome, workflow::RunReport};
 #[tokio::test]
 async fn authored_publication_resource() {
     let owner = WorkflowRuntime::new().unwrap();
-    let rt = runtime(&owner);
     // Only durable runs publish (ADR-0112 Outcome 16): the runs below are attempts in an
-    // isolated operational store.
+    // isolated operational store, and their publications are in its catalog.
     let database = pse_operations::testing::TestDatabase::create()
         .await
         .unwrap();
-    let package = seed_package_on(&owner, durable(&owner, database.url()).await).await;
+    let rt = durable(&owner, database.url()).await;
+    let package = seed_package_on(&owner, rt.clone()).await;
     let case = pse_ids::SemanticId::parse_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015").unwrap();
     let cancelled = CancelSource::new();
     cancelled.cancel();
@@ -39,34 +39,50 @@ async fn authored_publication_resource() {
     assert_ne!(a.run_id, b.run_id);
     let directory = tempfile::tempdir().unwrap();
     let base = url::Url::from_directory_path(directory.path()).unwrap();
+    let workspace = rt.register_workspace("plan14", base).await.unwrap();
     let publication = a
-        .prepare_publication(base.clone(), case, None, &owner.cancel)
+        .prepare_publication(&workspace, None, None, &owner.cancel)
         .unwrap();
-    let root = publication.commit(&owner.cancel).await.unwrap();
-    let reopened = rt.open(root.clone(), &owner.cancel).await.unwrap();
-    assert_eq!(reopened.root().version, root.version);
+    let published = publication.commit(&owner.cancel).await.unwrap();
+    let reopened = rt
+        .open(published.publication_id, &owner.cancel)
+        .await
+        .unwrap();
+    assert_eq!(reopened.publication_id(), published.publication_id);
+    assert_eq!(
+        rt.head(workspace.workspace_id).await.unwrap(),
+        Some(published.publication_id)
+    );
     let name = datafusion::common::ResolvedTableReference {
         catalog: "artifact".into(),
         schema: "authored".into(),
         table: "modeling_declarations".into(),
     };
-    assert!(reopened.member(&name).is_ok());
-    let mut wrong = root.clone();
-    wrong.version += 1;
-    assert!(rt.open(wrong, &owner.cancel).await.is_err());
+    assert!(reopened.publication().member(&name).is_ok());
+    // A publication the catalog does not hold is refused.
+    assert!(
+        rt.open(pse_operations::mint_id(), &owner.cancel)
+            .await
+            .is_err()
+    );
     let cancelled = pse_columnar::CancellationToken::new();
     cancelled.cancel();
     let interrupted = b
         .prepare_publication(
-            base,
-            case,
-            Some(reopened.record().publication_id),
+            &workspace,
+            Some(published.publication_id),
+            None,
             &owner.cancel,
         )
         .unwrap();
     assert!(interrupted.commit(&cancelled).await.is_err());
-    assert!(rt.open(root, &owner.cancel).await.is_ok());
-    // Cancel only after an actual native object write; the control transaction remains absent.
+    drop(reopened);
+    assert!(rt.open(published.publication_id, &owner.cancel).await.is_ok());
+    assert_eq!(
+        rt.head(workspace.workspace_id).await.unwrap(),
+        Some(published.publication_id)
+    );
+    // Cancel only after an actual native object write; the catalog commit never happens.
     let faults = pse_testkit::fault_store::FaultStore::new(std::sync::Arc::new(
         object_store::memory::InMemory::new(),
     ));
@@ -76,6 +92,10 @@ async fn authored_publication_resource() {
         .runtime_env()
         .object_store_registry
         .register_store(&fault_base, faults.clone());
+    let fault_workspace = rt
+        .register_workspace("plan14-interrupted", fault_base)
+        .await
+        .unwrap();
     let interrupted = pse_columnar::CancellationToken::new();
     faults.arm(pse_testkit::fault_store::FaultPlan {
         operation: "put",
@@ -84,10 +104,11 @@ async fn authored_publication_resource() {
         fault: pse_testkit::fault_store::Fault::Cancel(interrupted.clone()),
     });
     let command = a
-        .prepare_publication(fault_base, case, None, &owner.cancel)
+        .prepare_publication(&fault_workspace, None, None, &owner.cancel)
         .unwrap();
     assert!(command.commit(&interrupted).await.is_err());
     assert_eq!(faults.fired(), 1);
+    assert_eq!(rt.head(fault_workspace.workspace_id).await.unwrap(), None);
     let retained = a.table("runtime.solve_variables").unwrap();
     let arrays = retained.batch().columns().to_vec();
     let reserved = owner.runtime.pool().reserved();
@@ -138,6 +159,6 @@ async fn authored_publication_resource() {
         &handle.wait().await.unwrap()
     ));
     assert!(result.table("runtime.solve_runs").is_ok());
-    drop((result, handle, p, package));
+    drop((result, handle, p, package, rt));
     database.remove().await.unwrap();
 }

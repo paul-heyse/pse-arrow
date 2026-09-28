@@ -38,6 +38,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     emit(&mut tree, "values", &values()?);
     emit(&mut tree, "extension_types", &extensions::render(reg)?);
     emit(&mut tree, "identities", &identities(reg));
+    emit(&mut tree, "structures", &structures(reg)?);
     let mut namespaces = std::collections::BTreeMap::<&str, (String, bool)>::new();
     for spec in reg.relations() {
         let namespace = spec.key.namespace.as_str();
@@ -100,6 +101,9 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         if declarations.contains("v.") {
             source.push_str("from pse.contracts import values as v\n");
         }
+        if references_structures(reg, &declarations) {
+            source.push_str("from pse.contracts import structures as s\n");
+        }
         source.push_str(&declarations);
         emit(&mut tree, namespace, &source);
     }
@@ -112,6 +116,50 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         ),
     );
     Ok(tree)
+}
+
+/// Whether generated declarations reference a named structure.
+fn references_structures(reg: &Registry, declarations: &str) -> bool {
+    reg.structures()
+        .keys()
+        .any(|name| declarations.contains(&format!("s.{name}")))
+}
+
+/// Every registry named structure, declared once (Plan 22 X11); relation rows refer to
+/// these classes by name.
+fn structures(reg: &Registry) -> Result<String, SchemaError> {
+    let mut declarations = String::new();
+    let mut typed_ids = false;
+    for (name, contract) in reg.structures() {
+        typed_ids |= carries_identity(contract);
+        types::logical(&contract.clone().unnamed(), name, &mut declarations)?;
+    }
+    let mut source =
+        String::from("\"\"\"Registry named structures, each declared once.\"\"\"\n");
+    if declarations.is_empty() {
+        return Ok(source);
+    }
+    source.push_str("\nimport builtins as b\n");
+    if declarations.contains(": datetime") {
+        source.push_str("from datetime import datetime\n");
+    }
+    source.push_str("\nimport attrs\n\n");
+    if declarations.contains("e.") {
+        source.push_str("from pse.contracts import enums as e\n");
+    }
+    if typed_ids {
+        source.push_str("from pse.contracts import identities as i\n");
+    }
+    if declarations.contains("v.") {
+        source.push_str("from pse.contracts import values as v\n");
+    }
+    // A structure nested in another refers to it locally, not through the package.
+    let mut local = declarations;
+    for name in reg.structures().keys() {
+        local = local.replace(&format!("s.{name}"), name);
+    }
+    source.push_str(&local);
+    Ok(source)
 }
 
 /// Whether a value nested in the column names an entity identity.

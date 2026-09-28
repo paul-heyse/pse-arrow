@@ -157,6 +157,14 @@ pse-worker *args:
     cargo run --quiet --locked -p pse-runtime --bin pse-worker --features native-solvers -- --url {{ quote(db_url) }} {{ args }}
 
 [group('local')]
+[doc('Publication catalog maintenance (ADR-0114) against the operational store: export | release | retire | collect | reclaim')]
+pse-publication *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    cargo run --quiet --locked -p pse-runtime --bin pse-publication -- --url {{ quote(db_url) }} {{ args }}
+
+[group('local')]
 [doc('The pse-worker journey: the worker binary runs an authored case in a child process against an isolated store')]
 worker-test *args:
     #!/usr/bin/env bash
@@ -165,6 +173,14 @@ worker-test *args:
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers,pse-relations/force-validate {{ args }}
+
+[group('local')]
+[doc('The publication catalog journeys (Plan 22 O8): durable attempts publish, read, export, collect and retire against isolated stores; one test runs two publisher processes')]
+publication-test *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-math-env.sh
+    PSE_DATABASE_URL={{ quote(db_url) }} cargo nextest {{ nextest_action }} -p pse-runtime --test publication_catalog --locked {{ validate }} {{ args }}
 
 # ---------------------------------------------------------------- discovery --
 
@@ -527,34 +543,6 @@ unit-public-contracts:
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo nextest run -p pse-runtime -p pse-relations --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'test(workflow::tests::)'
-
-[group('local')]
-[doc('Measure existing Delta recovery and conflict controls in explicit validation modes')]
-[positional-arguments]
-bench-recovery mode *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    mode="$1"
-    shift
-    features="pse-relations/force-validate"
-    case "$mode" in
-      force-validation) ;;
-      production)
-        features=""
-        export CARGO_TARGET_DIR=target/measure-production
-        ;;
-      *) echo "expected force-validation or production" >&2; exit 2 ;;
-    esac
-    export PSE_RECOVERY_MEASURE=1
-    mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}"
-    cargo tree -p pse-catalog --locked --features "$features" -e features --format '{p} features=[{f}]' > "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/recovery-$mode-features.txt"
-    action=(run --no-fail-fast --test-threads 1)
-    if [[ "${PSE_NEXTEST_ACTION:-}" == "list --message-format json" ]]; then
-      action=(list --message-format json)
-    fi
-    exec cargo nextest "${action[@]}" --locked -p pse-catalog --test unified_delta_contracts --cargo-profile release --features "$features" -E 'test(=publication_reconciles_actual_lost_commit_acknowledgments) or test(=concurrent_publication_creation_and_parent_updates_have_one_winner) or test(=conditional_control_update_conflicts_with_a_stale_writer)' "$@"
-
 
 [group('local')]
 [doc('Doctests (nextest does not run them)')]

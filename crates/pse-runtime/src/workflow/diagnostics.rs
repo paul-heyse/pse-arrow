@@ -297,6 +297,21 @@ pub(super) fn observed(
                     result.rule = "workflow.job_payload_version".into();
                     None
                 }
+                super::WorkflowError::PublicationUnresolved { .. } => {
+                    result.class = Class::Infrastructure;
+                    result.rule = "workflow.publication_unresolved".into();
+                    None
+                }
+                super::WorkflowError::LegacyWorkspace { .. } => {
+                    result.class = Class::Incompatible;
+                    result.rule = "workflow.legacy_workspace".into();
+                    None
+                }
+                super::WorkflowError::ExportLeaseExpired { .. } => {
+                    result.class = Class::Incompatible;
+                    result.rule = "workflow.export_expired".into();
+                    None
+                }
             }
         } else if let Some(driver) = error.downcast_ref::<crate::authoring_driver::DriverError>() {
             use crate::authoring_driver::DriverError as E;

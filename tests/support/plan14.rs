@@ -164,7 +164,7 @@ pub(crate) async fn seed_package_on(
                             .iter()
                             .filter(|r| {
                                 r.value.kind.as_str() == "test"
-                                    && !selected.contains(&r.declaration_id)
+                                    && !selected.contains(&r.declaration_id.as_id())
                             })
                             .map(|r| r.declaration_id)
                             .collect::<std::collections::BTreeSet<_>>();
@@ -268,7 +268,9 @@ pub(crate) async fn heat_fit(
     if kind != "steady" {
         let simulation = package
             .declared_simulation(
-                SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap(),
+                SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c")
+                    .unwrap()
+                    .into(),
                 compiler(),
                 None,
                 seed_limits(),
@@ -308,7 +310,7 @@ pub(crate) async fn seed_prepare(
 ) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let analysis = package
         .declared_analysis(
-            case,
+            case.into(),
             pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
             compiler(),
             solver,

@@ -14,7 +14,7 @@ use datafusion::{
 };
 use deltalake::{delta_datafusion::DeltaCdfTableProvider, kernel::Action};
 use pse_columnar::CancellationToken;
-use pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItemSelectionSelected as Selected;
+use pse_relations::generated::structures::MemberDescriptorSelectionSelected as Selected;
 use std::sync::Arc;
 
 /// Prepare changes after `after_version`, through this publication's selected
@@ -130,9 +130,8 @@ pub(crate) async fn change_plan(
     }
     let location = url::Url::parse(&member.table_uri)
         .map_err(|error| DataFusionError::External(Box::new(error)))?;
-    let lease = super::lease::read(&location, cancel).await?;
     let state = session.bound_state().map_err(external)?;
-    let state = super::provider::bind_cache_state(&location, &Arc::new(state), lease.as_deref())?;
+    let state = super::provider::bind_cache_state(&location, &Arc::new(state))?;
     let contract = super::contract::DeclaredCheck::new(session.registry(), member.relation_id)?;
     let opened = cancel
         .until_cancelled(super::provider::open_native(
@@ -179,18 +178,14 @@ pub(crate) async fn change_plan(
         Some(owner) => super::leased::retain_snapshot(provider, owner),
         None => provider,
     };
-    let provider = super::leased::retain(provider, lease.clone());
     let raw_name = TableReference::full(
         "pse_changes",
         reference.schema.clone(),
         reference.table.clone(),
     );
-    let mut session = session
+    let session = session
         .with_provider(raw_name.clone(), Arc::clone(&provider), cancel)
         .map_err(external)?;
-    if let Some(lease) = lease {
-        session.retain_owner(lease);
-    }
     let input = LogicalPlanBuilder::scan(raw_name, provider_as_source(provider), None)?.build()?;
     let mut plan = contract.layout().decode_with_native_tail(input)?;
     if let Selected::Revision(selection) = member
@@ -210,7 +205,7 @@ pub(crate) async fn change_plan(
 fn empty_changes(
     session: &pse_engine::EngineSession,
     reference: &ResolvedTableReference,
-    member: &pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
 ) -> Result<(
     pse_engine::EngineSession,
     datafusion::logical_expr::LogicalPlan,
@@ -268,7 +263,7 @@ async fn verify_history(
 
 fn normalize(
     session: &pse_engine::session::EngineSession,
-    member: &pse_relations::generated::runtime::publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
     plan: datafusion::logical_expr::LogicalPlan,
 ) -> Result<datafusion::logical_expr::LogicalPlan> {
     let spec = session

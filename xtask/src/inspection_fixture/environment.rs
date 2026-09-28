@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Fresh native plans and Delta publications under one shared runtime.
+//! Fresh native plans and exported publications under one shared runtime.
+//!
+//! The fixture needs no operational store: it composes the candidate publication (member
+//! tables and the admitted record) and writes the record as an export manifest whose
+//! synthetic export lease outlives any test run. Readers open it with
+//! `pse_runtime::workflow::open_export`, exactly as an offline reader of a real export.
 #[path = "../../../tests/support/workflow_runtime.rs"]
 mod workflow_runtime;
 use anyhow::{Context, Result, ensure};
-use datafusion::{arrow::array::Int64Array, common::ResolvedTableReference};
-use pse_catalog::{
-    artifact::{ArtifactPlan, PublicationTarget},
-    delta::publication::{Publication, PublicationRoot},
-};
-use pse_relations::generated::{enums::PublicationKind, runtime::publications};
+use datafusion::common::ResolvedTableReference;
+use pse_catalog::{artifact::ArtifactPlan, delta::publication::Publication};
+use pse_relations::generated::{enums::PublicationKind, runtime::publication_manifests};
 use std::{collections::BTreeMap, path::Path, sync::Arc};
+
+/// How long the fixture's synthetic export lease lasts: longer than any test run.
+const FIXTURE_EXPORT_MICROS: i64 = 30 * 24 * 3600 * 1_000_000;
 use workflow_runtime::WorkflowRuntime;
 
 pub(crate) struct Environment(WorkflowRuntime);
@@ -83,69 +88,86 @@ impl Environment {
         }
         Ok(ArtifactPlan::new(session, outputs, &self.cancel)?)
     }
+    /// Write the plan's members under `path` and export the admitted record; returns the
+    /// export manifest's location.
     pub(crate) async fn publish(
         &self,
         path: &Path,
         plan: &ArtifactPlan,
         kind: PublicationKind,
-    ) -> Result<PublicationRoot> {
+    ) -> Result<url::Url> {
         let location = url::Url::from_directory_path(path.canonicalize()?)
             .map_err(|()| anyhow::anyhow!("invalid publication directory"))?;
-        let control = location.join("control/")?;
         let mut destinations = BTreeMap::new();
         for (index, name) in plan.outputs().keys().enumerate() {
             destinations.insert(name.clone(), location.join(&format!("members/{index}/"))?);
         }
-        let header = publications::Row {
-            workspace_id: pse_authoring::ids::uuid_v7(),
+        let header = publication_manifests::Row {
             publication_id: pse_authoring::ids::uuid_v7(),
+            workspace_id: pse_authoring::ids::uuid_v7(),
             parent_publication_id: None,
             attempt_id: pse_authoring::ids::uuid_v7(),
             kind,
             inputs: vec![],
             members: vec![],
+            windows: vec![],
+            exported_at: None,
+            export_lease_id: None,
+            export_expires_at: None,
+            maintenance_epoch: None,
+            store_fingerprint: None,
         };
         let (prepared, _ticket) = plan
-            .prepare_publication(
-                PublicationTarget {
-                    reference: ResolvedTableReference {
-                        catalog: "artifact".into(),
-                        schema: "runtime".into(),
-                        table: "publications".into(),
-                    },
-                    location: control.clone(),
-                },
-                header,
-                destinations,
-                vec![],
-                &self.cancel,
-            )
+            .prepare_publication(header, destinations, vec![], &self.cancel)
             .context("prepare complete source publication")?;
         let completed = prepared
             .execute(&self.cancel)
             .await
             .context("execute complete source publication")?;
         let [batch] = completed.batches() else {
-            anyhow::bail!("publication did not return one outcome");
+            anyhow::bail!("publication did not return one record");
         };
         ensure!(
             batch.num_rows() == 1,
-            "publication did not return one version"
+            "publication did not return one record"
         );
-        let version = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .context("publication version type")?
-            .value(0);
-        Ok(PublicationRoot {
-            location: control,
-            version,
-        })
+        let record = publication_manifests::View::try_from_batch_with_registry(&self.registry, batch)
+            .and_then(|view| view.row(0))?;
+        let now = i64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_micros(),
+        )?;
+        // No store issued this export: its lease is synthetic and its store fingerprint
+        // is the nil hash.
+        let record = publication_manifests::Row {
+            exported_at: Some(now),
+            export_lease_id: Some(pse_authoring::ids::uuid_v7()),
+            export_expires_at: Some(now + FIXTURE_EXPORT_MICROS),
+            maintenance_epoch: Some(0),
+            store_fingerprint: Some(pse_ids::ContentHash::NIL),
+            ..record
+        };
+        let manifest = location.join("manifest/")?;
+        let session = self
+            .sessions
+            .candidate(BTreeMap::new(), Arc::clone(&self.registry), &self.cancel)?;
+        pse_catalog::delta::manifest::prepare_manifest(
+            &session,
+            manifest.clone(),
+            record,
+            &self.cancel,
+        )
+        .context("prepare the export manifest")?
+        .execute(&self.cancel)
+        .await
+        .context("write the export manifest")?;
+        Ok(manifest)
     }
-    pub(crate) async fn open(&self, root: PublicationRoot) -> Result<Publication> {
-        Ok(Publication::open(
-            root,
+    /// Open an exported publication offline.
+    pub(crate) async fn open(&self, manifest: url::Url) -> Result<Publication> {
+        Ok(pse_runtime::workflow::open_export(
+            manifest,
             Arc::clone(&self.registry),
             &self.sessions,
             &self.cancel,

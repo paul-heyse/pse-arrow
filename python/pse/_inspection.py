@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Exact Delta publication inspection through the Arrow capsule protocol."""
+"""Publication inspection through the Arrow capsule protocol."""
 
 from pathlib import Path
 from types import TracebackType
@@ -17,9 +17,10 @@ from pse._build import (
     TableName,
     _NativePublication,
     _NativeTableStream,
-    _open_publication,
+    _open_export,
 )
 from pse._transfer import FieldTransfer, compare_schemas
+from pse.contracts.values import SemanticId
 
 
 @attrs.frozen
@@ -75,19 +76,30 @@ class TableStream:
 
 @attrs.frozen
 class Publication:
-    """One exact Delta root; subsequent writes cannot update this selection."""
+    """One publication's exact member versions; later publications cannot change it."""
 
     _handle: _NativePublication
 
     @property
-    def location(self) -> str:
-        """The absolute URI of the selected Delta control table."""
-        return self._handle.location
+    def publication_id(self) -> SemanticId:
+        """The publication identity."""
+        return SemanticId.from_hex(self._handle.publication_id)
 
     @property
-    def version(self) -> int:
-        """The exact selected Delta control version."""
-        return self._handle.version
+    def workspace_id(self) -> SemanticId:
+        """The workspace it was published in."""
+        return SemanticId.from_hex(self._handle.workspace_id)
+
+    @property
+    def parent_publication_id(self) -> SemanticId | None:
+        """The publication it was committed on, if any."""
+        parent = self._handle.parent_publication_id
+        return None if parent is None else SemanticId.from_hex(parent)
+
+    @property
+    def attempt_id(self) -> SemanticId:
+        """The durable attempt it publishes."""
+        return SemanticId.from_hex(self._handle.attempt_id)
 
     def tables(self) -> tuple[TableName, ...]:
         """Return exact catalog, schema and table components for every member."""
@@ -130,18 +142,16 @@ class Publication:
         self.close()
 
 
-def open(
-    location: str | Path, *, version: int, settings: EngineSettings
-) -> Publication:
-    """Open an exact existing Delta publication under the shared process budget.
+def open_export(location: str | Path, *, settings: EngineSettings) -> Publication:
+    """Open an exported publication offline, without the operational store.
 
     Args:
-        location: Absolute Delta control-table URI, or a local pathlib Path.
-        version: Exact nonnegative Delta control version to select.
+        location: The export manifest's URI, or a local pathlib Path.
         settings: Explicit Rust-validated memory, thread, spill and batch bounds.
 
     Returns:
-        A selected publication with lazy, contract-checked native member reads.
+        Exactly the members the manifest names, while the export has not expired. A
+        former Delta control table is refused (migration required).
     """
-    uri = location.resolve().as_uri() if isinstance(location, Path) else location
-    return Publication(_open_publication(uri, version, settings))
+    uri = location.resolve().as_uri() + "/" if isinstance(location, Path) else location
+    return Publication(_open_export(uri, settings))

@@ -1,0 +1,24 @@
+{
+  "invariant": "runtime.operational_publication_windows:foreign_key:publication_id",
+  "rows": {
+    "runtime.operational_publication_windows": [
+      {
+        "from_version": "[\"i64\",1]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "table_uri": "[\"text\",\"value-1\"]",
+        "through_version": "[\"i64\",1]"
+      }
+    ],
+    "runtime.operational_publications": [
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "committed_at": "[\"i64\",1]",
+        "kind": "[\"enum\",\"relations\"]",
+        "parent_publication": "[\"id\",\"01010101010101010101010101010101\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "workspace_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

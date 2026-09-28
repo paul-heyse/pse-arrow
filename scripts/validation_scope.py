@@ -27,7 +27,6 @@ PERFORMANCE_GATES = frozenset(
         "bench-production",
         "bench-consolidation",
         "bench-consolidation-native",
-        "bench-recovery",
         "case-measure",
     }
 )

@@ -1,0 +1,42 @@
+{
+  "invariant": "runtime.publication_manifests:unique:pk",
+  "rows": {
+    "runtime.publication_manifests": [
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "export_expires_at": "[\"i64\",1]",
+        "export_lease_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "exported_at": "[\"i64\",1]",
+        "inputs": "[\"list\",[]]",
+        "kind": "[\"enum\",\"relations\"]",
+        "maintenance_epoch": "[\"i64\",1]",
+        "members": "[\"list\",[]]",
+        "parent_publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "store_fingerprint": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "windows": "[\"list\",[]]",
+        "workspace_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "export_expires_at": "[\"i64\",1]",
+        "export_lease_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "exported_at": "[\"i64\",1]",
+        "inputs": "[\"list\",[]]",
+        "kind": "[\"enum\",\"relations\"]",
+        "maintenance_epoch": "[\"i64\",1]",
+        "members": "[\"list\",[]]",
+        "parent_publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "store_fingerprint": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "windows": "[\"list\",[]]",
+        "workspace_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

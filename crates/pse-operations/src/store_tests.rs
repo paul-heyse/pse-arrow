@@ -7,7 +7,7 @@
 //! drops it when it passes. Raw SQL runs on a dedicated [`crate::testing::Session`].
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 use pse_ids::{ContentHash, SemanticId};
@@ -17,8 +17,9 @@ use crate::attempts::{
 };
 use crate::cancellation::CancelOutcome;
 use crate::catalog::{
-    Committed, ProtectedVersion, PublicationCommit, PublicationId, ReadTarget,
-    RuntimeOperationalPublicationMembersRow, Settlement, Workspace, WorkspaceId,
+    Committed, MemberDescriptor, MemberDescriptorSelection, NewIntent, NewWorkspace,
+    ProtectedRange, PublicationCommit, PublicationId, PublicationKind, ReadTarget,
+    RetentionReason, SettleRequest, Settlement, VersionWindow, WorkspaceId,
 };
 use crate::jobs::{Enqueued, Finished, JobId, JobOutcome, JobState, NewJob, RetryPolicy};
 use crate::lifecycle::AttemptState;
@@ -106,69 +107,117 @@ async fn finished_attempt(store: &Store) -> AttemptId {
     attempt.attempt_id
 }
 
-async fn workspace(store: &Store) -> WorkspaceId {
-    let workspace = Workspace {
+/// A registered workspace and its root.
+struct Space {
+    id: WorkspaceId,
+    root: String,
+}
+
+async fn space(store: &Store) -> Space {
+    let workspace = NewWorkspace {
         workspace_id: mint_id(),
         name: format!("ws-{}", mint_id::<SemanticId>()),
-        root_uri: "file:///tmp/pse-workspace/".to_owned(),
+        root_uri: format!("file:///tmp/pse-workspace-{}/", mint_id::<SemanticId>()),
     };
-    store
+    let row = store
         .catalog()
         .register_workspace(&workspace)
         .await
         .unwrap();
-    workspace.workspace_id
+    assert_eq!(row.maintenance_epoch, 0);
+    Space {
+        id: workspace.workspace_id,
+        root: workspace.root_uri,
+    }
 }
 
-fn members(
-    publication_id: PublicationId,
-    version: i64,
-) -> Vec<RuntimeOperationalPublicationMembersRow> {
-    vec![
-        RuntimeOperationalPublicationMembersRow {
-            publication_id,
-            member: "runtime.computation_runs".to_owned(),
-            table_uri: "file:///tmp/pse-workspace/runs/".to_owned(),
-            delta_version: version,
-            contract_fingerprint: hash(9),
-        },
-        RuntimeOperationalPublicationMembersRow {
-            publication_id,
-            member: "runtime.solve_metrics".to_owned(),
-            table_uri: "file:///tmp/pse-workspace/metrics/".to_owned(),
-            delta_version: version,
-            contract_fingerprint: hash(8),
-        },
-    ]
+/// A member table under an intent's prefix.
+fn table(intent: &NewIntent, name: &str) -> String {
+    format!("{}runtime/{name}/", intent.member_prefix)
 }
 
-/// Whether stored members are exactly these.
-fn same_members(
-    stored: &[RuntimeOperationalPublicationMembersRow],
-    expected: &[RuntimeOperationalPublicationMembersRow],
-) -> bool {
-    pse_model::SemanticEq::semantic_eq(&stored.to_vec(), &expected.to_vec())
+fn member(table_uri: &str, name: &str, version: i64) -> MemberDescriptor {
+    MemberDescriptor {
+        catalog_name: "artifact".to_owned(),
+        schema_name: "runtime".to_owned(),
+        table_name: name.to_owned(),
+        relation_id: SemanticId::from_bytes([7; 16]),
+        relation_version: 1,
+        contract_fingerprint: hash(9),
+        table_uri: table_uri.to_owned(),
+        delta_version: version,
+        selection: MemberDescriptorSelection::from_full(),
+    }
 }
 
+/// Members in the catalog's order.
+fn sorted(members: &[MemberDescriptor]) -> Vec<MemberDescriptor> {
+    let mut members = members.to_vec();
+    members.sort_by(|l, r| {
+        (&l.catalog_name, &l.schema_name, &l.table_name).cmp(&(
+            &r.catalog_name,
+            &r.schema_name,
+            &r.table_name,
+        ))
+    });
+    members
+}
+
+/// Whether the exact version of a member is protected by some range.
+fn protects(ranges: &[ProtectedRange], member: &MemberDescriptor) -> bool {
+    ranges.iter().any(|range| {
+        range.covers(&member.table_uri)
+            && range.from_version <= member.delta_version
+            && member.delta_version <= range.through_version
+    })
+}
+
+/// A registered intent for a new finished attempt.
+async fn intent(store: &Store, space: &Space) -> NewIntent {
+    let attempt = finished_attempt(store).await;
+    let publication_id: PublicationId = mint_id();
+    let intent = NewIntent {
+        publication_id,
+        workspace_id: space.id,
+        attempt_id: attempt,
+        member_prefix: format!("{}members/{attempt}/{publication_id}/", space.root),
+    };
+    store.catalog().register_intent(&intent).await.unwrap();
+    intent
+}
+
+/// The commit of an intent writing two members under its prefix.
+fn commit_of(intent: &NewIntent, parent: Option<PublicationId>) -> PublicationCommit {
+    PublicationCommit {
+        publication_id: intent.publication_id,
+        workspace_id: intent.workspace_id,
+        attempt_id: intent.attempt_id,
+        expected_parent: parent,
+        kind: PublicationKind::Run,
+        members: vec![
+            member(&table(intent, "runs"), "runs", 1),
+            member(&table(intent, "metrics"), "metrics", 1),
+        ],
+        inputs: Vec::new(),
+        windows: Vec::new(),
+    }
+}
+
+/// Register and commit a publication of two members.
 async fn publish(
     store: &Store,
-    workspace: WorkspaceId,
+    space: &Space,
     parent: Option<PublicationId>,
-    version: i64,
-) -> PublicationId {
-    let publication_id = mint_id();
-    let commit = PublicationCommit {
-        publication_id,
-        workspace_id: workspace,
-        attempt_id: finished_attempt(store).await,
-        expected_parent: parent,
-        members: members(publication_id, version),
-    };
+) -> (NewIntent, PublicationCommit) {
+    let intent = intent(store, space).await;
+    let commit = commit_of(&intent, parent);
     assert_eq!(
         store.catalog().commit(&commit).await.unwrap(),
-        Committed::Advanced { publication_id }
+        Committed::Advanced {
+            publication_id: intent.publication_id
+        }
     );
-    publication_id
+    (intent, commit)
 }
 
 // ------------------------------------------------------------------- schema --
@@ -316,7 +365,16 @@ async fn registry_enums_are_postgres_enums() {
             checked.insert(name);
         }
     }
-    for name in ["AttemptState", "JobState", "TerminationClass", "RetentionPhase"] {
+    for name in [
+        "AttemptState",
+        "JobState",
+        "TerminationClass",
+        "RetentionPhase",
+        "SettlementOutcome",
+        "PublicationMemberRole",
+        "PublicationKind",
+        "MemberSelectionKind",
+    ] {
         assert!(checked.contains(name), "{name} is not a store column type");
     }
     drop(session);
@@ -552,8 +610,8 @@ async fn sqlstate_errors_map_to_typed_variants() {
     let begin = "BEGIN ISOLATION LEVEL SERIALIZABLE; SELECT count(*) FROM pse_ops.workspaces";
     let write = |name: &str| {
         format!(
-            "INSERT INTO pse_ops.workspaces (workspace_id, name, root_uri) \
-             VALUES ({}, '{name}', 'file:///x/')",
+            "INSERT INTO pse_ops.workspaces (workspace_id, name, root_uri, maintenance_epoch) \
+             VALUES ({}, '{name}', 'file:///x/{name}/', 0)",
             lit(mint_id::<SemanticId>())
         )
     };
@@ -1851,23 +1909,14 @@ fn stores(row: &RuntimeOperationalSolutionsRow, solution: &NewSolution) -> bool 
 async fn concurrent_head_advance_one_winner() {
     let database = TestDatabase::create().await.unwrap();
     let store = database.store().clone();
-    let workspace = workspace(&store).await;
-    let base = publish(&store, workspace, None, 0).await;
+    let space = space(&store).await;
+    let (base, _) = publish(&store, &space, None).await;
 
-    let commits: Vec<PublicationCommit> = {
-        let mut commits = Vec::new();
-        for version in [1, 2] {
-            let publication_id = mint_id();
-            commits.push(PublicationCommit {
-                publication_id,
-                workspace_id: workspace,
-                attempt_id: finished_attempt(&store).await,
-                expected_parent: Some(base),
-                members: members(publication_id, version),
-            });
-        }
-        commits
-    };
+    let mut commits = Vec::new();
+    for _ in 0..2 {
+        let intent = intent(&store, &space).await;
+        commits.push(commit_of(&intent, Some(base.publication_id)));
+    }
     let catalog = store.catalog();
     let (left, right) = tokio::join!(catalog.commit(&commits[0]), catalog.commit(&commits[1]));
     let results = [left, right];
@@ -1884,13 +1933,13 @@ async fn concurrent_head_advance_one_winner() {
         matches!(
             loser,
             OperationsError::PublicationConflict { expected, current, .. }
-                if *expected == Some(base) && *current == Some(winners[0])
+                if *expected == Some(base.publication_id) && *current == Some(winners[0])
         ),
         "{loser:?}"
     );
-    assert_eq!(catalog.head(workspace).await.unwrap(), Some(winners[0]));
+    assert_eq!(catalog.head(space.id).await.unwrap(), Some(winners[0]));
 
-    // The loser re-prepares against the new head; it never rebases.
+    // The loser re-prepares against the new head with the same intent; it never rebases.
     let loser_commit = commits
         .iter()
         .find(|c| c.publication_id != winners[0])
@@ -1906,13 +1955,16 @@ async fn concurrent_head_advance_one_winner() {
         }
     );
     assert_eq!(
-        catalog.head(workspace).await.unwrap(),
+        catalog.head(space.id).await.unwrap(),
         Some(retried.publication_id)
     );
-    assert!(same_members(
-        &catalog.members(retried.publication_id).await.unwrap(),
-        &retried.members
-    ));
+    let stored = catalog
+        .publication(retried.publication_id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored.publication.parent_publication, Some(winners[0]));
+    assert_eq!(stored.members, sorted(&retried.members));
     database.remove().await.unwrap();
 }
 
@@ -1921,18 +1973,19 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
     let database = TestDatabase::create().await.unwrap();
     let store = database.store().clone();
     let catalog = store.catalog();
-    let workspace = workspace(&store).await;
-    let attempt = finished_attempt(&store).await;
-    let publication_id = mint_id();
-    let commit = PublicationCommit {
-        publication_id,
-        workspace_id: workspace,
-        attempt_id: attempt,
-        expected_parent: None,
-        members: members(publication_id, 0),
+    let space = space(&store).await;
+    let intent = intent(&store, &space).await;
+    let commit = commit_of(&intent, None);
+    let settle = |commit: &PublicationCommit| SettleRequest {
+        settlement_id: mint_id(),
+        attempt_id: commit.attempt_id,
+        publication_id: commit.publication_id,
+        workspace_id: commit.workspace_id,
+        expected_parent: commit.expected_parent,
     };
+    // Registered, not committed, head still the expected parent: provably not committed.
     assert_eq!(
-        catalog.settle(attempt).await.unwrap(),
+        catalog.settle(&settle(&commit)).await.unwrap(),
         Settlement::ProvedNoncommit
     );
     catalog.commit(&commit).await.unwrap();
@@ -1944,27 +1997,66 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
         }
     );
     assert_eq!(
-        catalog.settle(attempt).await.unwrap(),
+        catalog.settle(&settle(&commit)).await.unwrap(),
         Settlement::Committed {
             publication_id: commit.publication_id
         }
     );
+    // The complete request is compared: another member vector reuses the identity.
+    let mut changed = commit.clone();
+    changed.members[0].delta_version += 1;
+    let reused = catalog.commit(&changed).await.unwrap_err();
+    assert!(
+        matches!(reused, OperationsError::PublicationIdentityReused { .. }),
+        "{reused:?}"
+    );
+    let mut reparented = commit.clone();
+    reparented.expected_parent = Some(commit.publication_id);
+    assert!(matches!(
+        catalog.commit(&reparented).await.unwrap_err(),
+        OperationsError::PublicationIdentityReused { .. }
+    ));
+    // Registering the same intent again is idempotent; another prefix reuses its identity.
+    assert_eq!(
+        catalog.register_intent(&intent).await.unwrap().member_prefix,
+        intent.member_prefix
+    );
+    let other = NewIntent {
+        member_prefix: format!("{}elsewhere/", space.root),
+        ..intent.clone()
+    };
+    assert!(matches!(
+        catalog.register_intent(&other).await.unwrap_err(),
+        OperationsError::PublicationIdentityReused { .. }
+    ));
 
     // Only finished attempts are published.
     let running = new_attempt();
     store.attempts().create(&running, None).await.unwrap();
+    let unfinished = NewIntent {
+        publication_id: mint_id(),
+        workspace_id: space.id,
+        attempt_id: running.attempt_id,
+        member_prefix: format!("{}members/{}/", space.root, running.attempt_id),
+    };
+    catalog.register_intent(&unfinished).await.unwrap();
     let refused = catalog
-        .commit(&PublicationCommit {
-            attempt_id: running.attempt_id,
-            expected_parent: Some(commit.publication_id),
-            ..commit.clone()
-        })
+        .commit(&commit_of(&unfinished, Some(commit.publication_id)))
         .await
         .unwrap_err();
     assert!(
         matches!(refused, OperationsError::InvalidRequest { .. }),
         "{refused:?}"
     );
+    let session = database.session().await.unwrap();
+    assert_eq!(
+        session
+            .count("SELECT count(*) FROM pse_ops.settlements")
+            .await
+            .unwrap(),
+        2
+    );
+    drop(session);
     database.remove().await.unwrap();
 }
 
@@ -1973,33 +2065,49 @@ async fn maintenance_waits_for_reader_leases() {
     let database = TestDatabase::create().await.unwrap();
     let store = database.store().clone();
     let catalog = store.catalog();
-    let workspace = workspace(&store).await;
-    let old = publish(&store, workspace, None, 0).await;
-    let head = publish(&store, workspace, Some(old), 1).await;
+    let space = space(&store).await;
+    let (old, old_commit) = publish(&store, &space, None).await;
+    let (head, head_commit) = publish(&store, &space, Some(old.publication_id)).await;
 
     // A reader resolves the head, then another reads the old publication explicitly.
     let head_lease = catalog
-        .acquire_reader_lease(ReadTarget::Head(workspace), "reader-1", LEASE)
+        .acquire_reader_lease(mint_id(), ReadTarget::Head(space.id), "reader-1", LEASE)
         .await
         .unwrap();
-    assert_eq!(head_lease.lease.publication_id, head);
+    assert_eq!(head_lease.lease.publication_id, head.publication_id);
     let lease = catalog
-        .acquire_reader_lease(ReadTarget::Publication(old), "reader-2", LEASE)
+        .acquire_reader_lease(
+            mint_id(),
+            ReadTarget::Publication(old.publication_id),
+            "reader-2",
+            LEASE,
+        )
         .await
         .unwrap();
-    assert!(same_members(&lease.members, &members(old, 0)));
+    assert_eq!(lease.record.members, sorted(&old_commit.members));
 
     // The head is protected from retention.
-    let protected = catalog.mark_expiring(workspace, head).await.unwrap_err();
+    let protected = catalog
+        .mark_expiring(space.id, head.publication_id)
+        .await
+        .unwrap_err();
     assert!(matches!(
         protected,
         OperationsError::ProtectedPublication { .. }
     ));
 
-    catalog.mark_expiring(workspace, old).await.unwrap();
+    catalog
+        .mark_expiring(space.id, old.publication_id)
+        .await
+        .unwrap();
     // No new lease once expiring.
     let refused = catalog
-        .acquire_reader_lease(ReadTarget::Publication(old), "reader-3", LEASE)
+        .acquire_reader_lease(
+            mint_id(),
+            ReadTarget::Publication(old.publication_id),
+            "reader-3",
+            LEASE,
+        )
         .await
         .unwrap_err();
     assert!(
@@ -2008,21 +2116,35 @@ async fn maintenance_waits_for_reader_leases() {
     );
     // Maintenance waits while the existing lease is live.
     let busy = catalog
-        .wait_for_readers(old, Duration::from_millis(10), Duration::from_millis(50))
+        .wait_for_readers(
+            old.publication_id,
+            Duration::from_millis(10),
+            Duration::from_millis(50),
+        )
         .await
         .unwrap_err();
     assert!(
         matches!(busy, OperationsError::ReadersActive { active: 1, .. }),
         "{busy:?}"
     );
-    let busy = catalog.mark_deleted(workspace, old).await.unwrap_err();
-    assert!(matches!(busy, OperationsError::ReadersActive { .. }));
+    for busy in [
+        catalog
+            .deletion_plan(space.id, old.publication_id)
+            .await
+            .map(|_| ())
+            .unwrap_err(),
+        catalog
+            .mark_deleted(space.id, old.publication_id)
+            .await
+            .unwrap_err(),
+    ] {
+        assert!(matches!(busy, OperationsError::ReadersActive { .. }), "{busy:?}");
+    }
     // Versions a live lease reads stay protected.
-    let protected = catalog.protected_versions(workspace).await.unwrap();
-    assert!(protected.contains(&ProtectedVersion {
-        table_uri: "file:///tmp/pse-workspace/runs/".to_owned(),
-        delta_version: 0,
-    }));
+    let protected = catalog.protected_versions(space.id).await.unwrap();
+    for member in &old_commit.members {
+        assert!(protects(&protected, member), "{protected:?}");
+    }
 
     // The reader finishes; maintenance proceeds.
     let release = async {
@@ -2034,7 +2156,11 @@ async fn maintenance_waits_for_reader_leases() {
                 .unwrap()
         );
     };
-    let wait = catalog.wait_for_readers(old, Duration::from_millis(10), Duration::from_secs(10));
+    let wait = catalog.wait_for_readers(
+        old.publication_id,
+        Duration::from_millis(10),
+        Duration::from_secs(10),
+    );
     let ((), waited) = tokio::join!(release, wait);
     waited.unwrap();
     assert!(
@@ -2043,28 +2169,919 @@ async fn maintenance_waits_for_reader_leases() {
             .await
             .unwrap()
     );
-    catalog.mark_deleted(workspace, old).await.unwrap();
-    catalog.mark_deleted(workspace, old).await.unwrap();
-
-    let protected = catalog.protected_versions(workspace).await.unwrap();
-    assert_eq!(
-        protected,
-        [
-            ProtectedVersion {
-                table_uri: "file:///tmp/pse-workspace/metrics/".to_owned(),
-                delta_version: 1,
-            },
-            ProtectedVersion {
-                table_uri: "file:///tmp/pse-workspace/runs/".to_owned(),
-                delta_version: 1,
-            },
-        ]
+    let mut planned = catalog
+        .deletion_plan(space.id, old.publication_id)
+        .await
+        .unwrap();
+    planned.sort();
+    let mut expected: Vec<String> = old_commit
+        .members
+        .iter()
+        .map(|m| m.table_uri.clone())
+        .collect();
+    expected.sort();
+    assert_eq!(planned, expected);
+    catalog
+        .mark_deleted(space.id, old.publication_id)
+        .await
+        .unwrap();
+    catalog
+        .mark_deleted(space.id, old.publication_id)
+        .await
+        .unwrap();
+    assert!(
+        catalog
+            .deletion_plan(space.id, old.publication_id)
+            .await
+            .unwrap()
+            .is_empty()
     );
+
+    let protected = catalog.protected_versions(space.id).await.unwrap();
+    for member in &old_commit.members {
+        assert!(!protects(&protected, member), "{protected:?}");
+    }
+    for member in &head_commit.members {
+        assert!(protects(&protected, member), "{protected:?}");
+    }
     assert!(
         catalog
             .release_reader_lease(head_lease.lease.lease_id)
             .await
             .unwrap()
     );
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn catalog_protects_published_versions() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    // P1 writes a, b and d.
+    let first = intent(&store, &space).await;
+    let (a, b, d) = (
+        member(&table(&first, "a"), "a", 1),
+        member(&table(&first, "b"), "b", 1),
+        member(&table(&first, "d"), "d", 1),
+    );
+    let mut p1 = commit_of(&first, None);
+    p1.members = vec![a.clone(), b.clone(), d.clone()];
+    catalog.commit(&p1).await.unwrap();
+    // P2 writes c, retains a, reads b and a's change window [0, 1].
+    let second = intent(&store, &space).await;
+    let c = member(&table(&second, "c"), "c", 1);
+    let mut p2 = commit_of(&second, Some(first.publication_id));
+    p2.members = vec![c.clone(), a.clone()];
+    p2.inputs = vec![b.clone()];
+    p2.windows = vec![VersionWindow {
+        table_uri: a.table_uri.clone(),
+        from_version: 0,
+        through_version: 1,
+    }];
+    catalog.commit(&p2).await.unwrap();
+    // A live, unpublished intent.
+    let live = intent(&store, &space).await;
+
+    let protected = catalog.protected_versions(space.id).await.unwrap();
+    for member in [&a, &b, &c, &d] {
+        assert!(protects(&protected, member), "{member:?} in {protected:?}");
+    }
+    assert!(protected.contains(&ProtectedRange {
+        table_uri: a.table_uri.clone(),
+        from_version: 0,
+        through_version: 1,
+        reason: RetentionReason::Changes,
+    }));
+    assert!(protected.contains(&ProtectedRange {
+        table_uri: live.member_prefix.clone(),
+        from_version: 0,
+        through_version: i64::MAX,
+        reason: RetentionReason::Attempt,
+    }));
+    // Committed intents protect no prefix: their members are protected by publication.
+    assert!(
+        !protected
+            .iter()
+            .any(|range| range.table_uri == first.member_prefix)
+    );
+
+    // P1 expiring with a live lease still protects what only it selects (d).
+    let reader = catalog
+        .acquire_reader_lease(
+            mint_id(),
+            ReadTarget::Publication(first.publication_id),
+            "reader",
+            LEASE,
+        )
+        .await
+        .unwrap();
+    catalog
+        .mark_expiring(space.id, first.publication_id)
+        .await
+        .unwrap();
+    assert!(protects(
+        &catalog.protected_versions(space.id).await.unwrap(),
+        &d
+    ));
+    catalog
+        .release_reader_lease(reader.lease.lease_id)
+        .await
+        .unwrap();
+    let protected = catalog.protected_versions(space.id).await.unwrap();
+    assert!(!protects(&protected, &d));
+    // a stays protected by P2 (member and window), b by P2's input.
+    assert!(protects(&protected, &a) && protects(&protected, &b));
+    catalog
+        .mark_deleted(space.id, first.publication_id)
+        .await
+        .unwrap();
+
+    // Collection maintains the tables undeleted publications select, as members or
+    // inputs (b, written by the deleted P1, is P2's input), each with the ranges it must
+    // keep.
+    let plan = catalog.begin_collect(space.id).await.unwrap();
+    assert_eq!(
+        plan.tables.keys().cloned().collect::<Vec<_>>(),
+        {
+            let mut tables = vec![a.table_uri.clone(), b.table_uri.clone(), c.table_uri.clone()];
+            tables.sort();
+            tables
+        }
+    );
+    assert_eq!(
+        plan.tables[&a.table_uri]
+            .iter()
+            .map(|range| range.reason)
+            .collect::<BTreeSet<_>>(),
+        BTreeSet::from([RetentionReason::Publication, RetentionReason::Changes])
+    );
+    // A table under a live intent's prefix keeps its whole history.
+    assert!(
+        ProtectedRange {
+            table_uri: live.member_prefix.clone(),
+            from_version: 0,
+            through_version: i64::MAX,
+            reason: RetentionReason::Attempt,
+        }
+        .covers(&table(&live, "x"))
+    );
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn commit_refuses_retiring_inputs_and_retained_members() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    let (first, p1) = publish(&store, &space, None).await;
+    let (second, _) = publish(&store, &space, Some(first.publication_id)).await;
+    // A retained member keeps its table and version under its own name here.
+    let rename = |member: &MemberDescriptor, name: &str| MemberDescriptor {
+        table_name: name.to_owned(),
+        ..member.clone()
+    };
+    let retained = rename(&p1.members[0], "retained");
+
+    // While P1 is live, a new publication may retain its member or read it.
+    let reader = intent(&store, &space).await;
+    let mut reads = commit_of(&reader, Some(second.publication_id));
+    reads.members.push(retained.clone());
+    reads.inputs.push(p1.members[0].clone());
+    catalog.commit(&reads).await.unwrap();
+
+    catalog
+        .mark_expiring(space.id, first.publication_id)
+        .await
+        .unwrap();
+    // Once only retiring publications select them, they are refused.
+    let late = intent(&store, &space).await;
+    let mut retains = commit_of(&late, Some(reader.publication_id));
+    retains.members.push(rename(&p1.members[1], "retained"));
+    let refused = catalog.commit(&retains).await.unwrap_err();
+    assert!(
+        matches!(&refused, OperationsError::InputRetired { table_uri, .. } if *table_uri == p1.members[1].table_uri),
+        "{refused:?}"
+    );
+    let mut reads_retired = commit_of(&late, Some(reader.publication_id));
+    reads_retired.inputs.push(p1.members[1].clone());
+    assert!(matches!(
+        catalog.commit(&reads_retired).await.unwrap_err(),
+        OperationsError::InputRetired { .. }
+    ));
+    // p1.members[0] is still selected by the live `reads` publication.
+    let mut reads_live = commit_of(&late, Some(reader.publication_id));
+    reads_live.inputs.push(p1.members[0].clone());
+    catalog.commit(&reads_live).await.unwrap();
+
+    // A retirement waits for a commit that locked the publication it retains.
+    let (third, p3) = publish(&store, &space, Some(late.publication_id)).await;
+    let (fourth, _) = publish(&store, &space, Some(third.publication_id)).await;
+    let holder = database.session().await.unwrap();
+    holder
+        .execute(&format!(
+            "BEGIN; SELECT 1 FROM pse_ops.publications WHERE publication_id = {} FOR SHARE",
+            lit(third.publication_id)
+        ))
+        .await
+        .unwrap();
+    let marking = catalog.mark_expiring(space.id, third.publication_id);
+    let released = async {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        holder.execute("ROLLBACK").await.unwrap();
+    };
+    let (marked, ()) = tokio::join!(marking, released);
+    marked.unwrap();
+    let after = intent(&store, &space).await;
+    let mut retains = commit_of(&after, Some(fourth.publication_id));
+    retains.members.push(rename(&p3.members[0], "retained"));
+    assert!(matches!(
+        catalog.commit(&retains).await.unwrap_err(),
+        OperationsError::InputRetired { .. }
+    ));
+    drop(holder);
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn commit_requires_member_under_intent_prefix() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    let own = intent(&store, &space).await;
+    let other = intent(&store, &space).await;
+
+    // A member outside the intent's prefix that no publication selects.
+    let mut foreign = commit_of(&own, None);
+    foreign.members.push(member("file:///elsewhere/table/", "t", 0));
+    let refused = catalog.commit(&foreign).await.unwrap_err();
+    assert!(
+        matches!(refused, OperationsError::InvalidRequest { .. }),
+        "{refused:?}"
+    );
+    // A member under another intent's prefix.
+    let mut borrowed = commit_of(&own, None);
+    borrowed.members.push(member(&table(&other, "x"), "x", 1));
+    assert!(matches!(
+        catalog.commit(&borrowed).await.unwrap_err(),
+        OperationsError::InvalidRequest { .. }
+    ));
+    // An input the publication writes itself.
+    let mut own_input = commit_of(&own, None);
+    own_input.inputs.push(own_input.members[0].clone());
+    assert!(matches!(
+        catalog.commit(&own_input).await.unwrap_err(),
+        OperationsError::InvalidRequest { .. }
+    ));
+    // Two members under one qualified name.
+    let mut twice = commit_of(&own, None);
+    twice.members.push(twice.members[0].clone());
+    assert!(matches!(
+        catalog.commit(&twice).await.unwrap_err(),
+        OperationsError::InvalidRequest { .. }
+    ));
+    // The intent itself must be registered, for its workspace and attempt.
+    let mut unregistered = commit_of(&own, None);
+    unregistered.publication_id = mint_id();
+    assert!(matches!(
+        catalog.commit(&unregistered).await.unwrap_err(),
+        OperationsError::NotFound { .. }
+    ));
+    let mut mismatched = commit_of(&own, None);
+    mismatched.attempt_id = other.attempt_id;
+    assert!(matches!(
+        catalog.commit(&mismatched).await.unwrap_err(),
+        OperationsError::PublicationIdentityReused { .. }
+    ));
+    // Nothing became visible.
+    assert_eq!(catalog.head(space.id).await.unwrap(), None);
+    catalog.commit(&commit_of(&own, None)).await.unwrap();
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn abandoned_intent_cannot_commit() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    let abandoned = intent(&store, &space).await;
+    catalog
+        .abandon_intent(abandoned.publication_id)
+        .await
+        .unwrap();
+    catalog
+        .abandon_intent(abandoned.publication_id)
+        .await
+        .unwrap();
+    let refused = catalog
+        .commit(&commit_of(&abandoned, None))
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(refused, OperationsError::IntentAbandoned { .. }),
+        "{refused:?}"
+    );
+    assert_eq!(
+        catalog
+            .settle(&SettleRequest {
+                settlement_id: mint_id(),
+                attempt_id: abandoned.attempt_id,
+                publication_id: abandoned.publication_id,
+                workspace_id: space.id,
+                expected_parent: None,
+            })
+            .await
+            .unwrap(),
+        Settlement::ProvedNoncommit
+    );
+    // A committed intent is never abandoned.
+    let (committed, _) = publish(&store, &space, None).await;
+    assert!(matches!(
+        catalog
+            .abandon_intent(committed.publication_id)
+            .await
+            .unwrap_err(),
+        OperationsError::InvalidRequest { .. }
+    ));
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn settle_distinguishes_committed_noncommit_conflict() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    let request = |intent: &NewIntent, parent: Option<PublicationId>| SettleRequest {
+        settlement_id: mint_id(),
+        attempt_id: intent.attempt_id,
+        publication_id: intent.publication_id,
+        workspace_id: intent.workspace_id,
+        expected_parent: parent,
+    };
+
+    // An intent never registered: nothing can have been written or committed (D9).
+    let attempt = finished_attempt(&store).await;
+    let unregistered = NewIntent {
+        publication_id: mint_id(),
+        workspace_id: space.id,
+        attempt_id: attempt,
+        member_prefix: format!("{}members/{attempt}/", space.root),
+    };
+    assert_eq!(
+        catalog.settle(&request(&unregistered, None)).await.unwrap(),
+        Settlement::ProvedNoncommit
+    );
+    // Registered and prepared against the current head: provably not committed.
+    let pending = intent(&store, &space).await;
+    assert_eq!(
+        catalog.settle(&request(&pending, None)).await.unwrap(),
+        Settlement::ProvedNoncommit
+    );
+    // Another publication advanced the head: the request conflicts.
+    let (base, _) = publish(&store, &space, None).await;
+    assert_eq!(
+        catalog.settle(&request(&pending, None)).await.unwrap(),
+        Settlement::Conflict {
+            reason: "the workspace head moved from the expected parent".to_owned(),
+            head: Some(base.publication_id),
+        }
+    );
+    // Committed.
+    catalog
+        .commit(&commit_of(&pending, Some(base.publication_id)))
+        .await
+        .unwrap();
+    assert_eq!(
+        catalog
+            .settle(&request(&pending, Some(base.publication_id)))
+            .await
+            .unwrap(),
+        Settlement::Committed {
+            publication_id: pending.publication_id
+        }
+    );
+    // The attempt is published as another publication: a request for a second intent
+    // of the same attempt conflicts.
+    let second = NewIntent {
+        publication_id: mint_id(),
+        member_prefix: format!("{}second/", pending.member_prefix),
+        ..pending.clone()
+    };
+    catalog.register_intent(&second).await.unwrap();
+    assert!(matches!(
+        catalog.settle(&request(&second, Some(pending.publication_id))).await.unwrap(),
+        Settlement::Conflict { head: Some(head), .. } if head == pending.publication_id
+    ));
+
+    // Settlement waits for a commit still in flight on the attempt.
+    let inflight = intent(&store, &space).await;
+    let holder = database.session().await.unwrap();
+    holder
+        .execute(&format!(
+            "BEGIN; SELECT 1 FROM pse_ops.attempts WHERE attempt_id = {} FOR SHARE",
+            lit(inflight.attempt_id)
+        ))
+        .await
+        .unwrap();
+    let inflight_request = request(&inflight, Some(pending.publication_id));
+    let settling = async {
+        let settled = catalog.settle(&inflight_request).await;
+        (settled, Instant::now())
+    };
+    let released = async {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let at = Instant::now();
+        holder.execute("ROLLBACK").await.unwrap();
+        at
+    };
+    let ((settled, settled_at), released_at) = tokio::join!(settling, released);
+    assert_eq!(settled.unwrap(), Settlement::ProvedNoncommit);
+    assert!(settled_at >= released_at);
+
+    let session = database.session().await.unwrap();
+    let outcomes = session
+        .texts("SELECT outcome::text FROM pse_ops.settlements ORDER BY settled_at")
+        .await
+        .unwrap()
+        .into_iter()
+        .filter_map(|row| row.into_iter().next().flatten())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        outcomes,
+        [
+            "proved_noncommit",
+            "proved_noncommit",
+            "conflict",
+            "committed",
+            "conflict",
+            "proved_noncommit"
+        ]
+    );
+    drop((holder, session));
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn reader_lease_renews_and_lapses() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    let (published, _) = publish(&store, &space, None).await;
+    let target = ReadTarget::Publication(published.publication_id);
+
+    let lease = catalog
+        .acquire_reader_lease(mint_id(), target, "reader", Duration::from_millis(500))
+        .await
+        .unwrap();
+    let renewed = catalog
+        .renew_reader_lease(lease.lease.lease_id, Duration::from_secs(60))
+        .await
+        .unwrap();
+    assert!(renewed.expires_at > lease.lease.expires_at);
+    assert_eq!(
+        catalog
+            .active_reader_leases(published.publication_id)
+            .await
+            .unwrap(),
+        1
+    );
+    // A released lease cannot be renewed.
+    assert!(
+        catalog
+            .release_reader_lease(lease.lease.lease_id)
+            .await
+            .unwrap()
+    );
+    assert!(matches!(
+        catalog
+            .renew_reader_lease(lease.lease.lease_id, LEASE)
+            .await
+            .unwrap_err(),
+        OperationsError::ReaderLeaseLapsed { .. }
+    ));
+    // Nor can one whose expiry passed: it protects nothing any more.
+    let short = catalog
+        .acquire_reader_lease(mint_id(), target, "slow", Duration::from_millis(50))
+        .await
+        .unwrap();
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    assert!(matches!(
+        catalog
+            .renew_reader_lease(short.lease.lease_id, LEASE)
+            .await
+            .unwrap_err(),
+        OperationsError::ReaderLeaseLapsed { lease } if lease == short.lease.lease_id
+    ));
+    assert_eq!(
+        catalog
+            .active_reader_leases(published.publication_id)
+            .await
+            .unwrap(),
+        0
+    );
+    assert!(
+        catalog
+            .reader_lease(short.lease.lease_id)
+            .await
+            .unwrap()
+            .is_some_and(|row| row.released_at.is_none())
+    );
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn head_lease_records_resolved_publication() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    // An empty head cannot be read.
+    assert!(matches!(
+        catalog
+            .acquire_reader_lease(mint_id(), ReadTarget::Head(space.id), "r", LEASE)
+            .await
+            .unwrap_err(),
+        OperationsError::NotFound { .. }
+    ));
+    let (first, _) = publish(&store, &space, None).await;
+    let (second, second_commit) = publish(&store, &space, Some(first.publication_id)).await;
+    let head = catalog
+        .acquire_reader_lease(mint_id(), ReadTarget::Head(space.id), "head-reader", LEASE)
+        .await
+        .unwrap();
+    assert_eq!(head.lease.publication_id, second.publication_id);
+    assert_eq!(head.lease.head_of, Some(space.id));
+    assert_eq!(head.lease.holder, "head-reader");
+    assert_eq!(
+        head.record.publication.publication_id,
+        second.publication_id
+    );
+    assert_eq!(
+        head.record.publication.parent_publication,
+        Some(first.publication_id)
+    );
+    assert_eq!(head.record.members, sorted(&second_commit.members));
+    assert_eq!(
+        head.maintenance_epoch,
+        catalog
+            .workspace(space.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .maintenance_epoch
+    );
+    let exact = catalog
+        .acquire_reader_lease(
+            mint_id(),
+            ReadTarget::Publication(first.publication_id),
+            "exact",
+            LEASE,
+        )
+        .await
+        .unwrap();
+    assert_eq!(exact.lease.head_of, None);
+    assert_eq!(exact.record.publication.publication_id, first.publication_id);
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn deletion_plan_excludes_shared_tables() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    // Another workspace publishes e.
+    let elsewhere = self::space(&store).await;
+    let (foreign, foreign_commit) = publish(&store, &elsewhere, None).await;
+    let e = foreign_commit.members[0].clone();
+
+    // P1 writes a, b, d and g, and retains e from the other workspace.
+    let first = intent(&store, &space).await;
+    let (a, b, d, g) = (
+        member(&table(&first, "a"), "a", 1),
+        member(&table(&first, "b"), "b", 1),
+        member(&table(&first, "d"), "d", 1),
+        member(&table(&first, "g"), "g", 1),
+    );
+    let mut p1 = commit_of(&first, None);
+    p1.members = vec![a.clone(), b.clone(), d.clone(), e.clone(), g.clone()];
+    catalog.commit(&p1).await.unwrap();
+    // P2 writes c, retains a and reads g.
+    let second = intent(&store, &space).await;
+    let c = member(&table(&second, "c"), "c", 1);
+    let mut p2 = commit_of(&second, Some(first.publication_id));
+    p2.members = vec![c.clone(), a.clone()];
+    p2.inputs = vec![g.clone()];
+    catalog.commit(&p2).await.unwrap();
+    // P3, the head, writes f and read b's change window.
+    let third = intent(&store, &space).await;
+    let mut p3 = commit_of(&third, Some(second.publication_id));
+    p3.windows = vec![VersionWindow {
+        table_uri: b.table_uri.clone(),
+        from_version: 0,
+        through_version: 1,
+    }];
+    catalog.commit(&p3).await.unwrap();
+
+    // Retiring P1 removes only d: a and g are selected by P2 (as a member and an input),
+    // b is covered by P3's window, and e belongs to the other workspace.
+    catalog
+        .mark_expiring(space.id, first.publication_id)
+        .await
+        .unwrap();
+    assert_eq!(
+        catalog
+            .deletion_plan(space.id, first.publication_id)
+            .await
+            .unwrap(),
+        [d.table_uri.clone()]
+    );
+    catalog
+        .mark_deleted(space.id, first.publication_id)
+        .await
+        .unwrap();
+    // Once P1 is deleted, retiring P2 removes c, and a and g (which only the deleted P1
+    // selected besides P2).
+    catalog
+        .mark_expiring(space.id, second.publication_id)
+        .await
+        .unwrap();
+    let mut planned = catalog
+        .deletion_plan(space.id, second.publication_id)
+        .await
+        .unwrap();
+    planned.sort();
+    let mut expected = vec![a.table_uri.clone(), c.table_uri.clone(), g.table_uri.clone()];
+    expected.sort();
+    assert_eq!(planned, expected);
+    // The other workspace's publication is untouched and still protects e.
+    assert!(protects(
+        &catalog.protected_versions(elsewhere.id).await.unwrap(),
+        &e
+    ));
+    assert_eq!(
+        catalog.head(elsewhere.id).await.unwrap(),
+        Some(foreign.publication_id)
+    );
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn maintenance_bumps_epoch_before_effects() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    let epoch = || async {
+        catalog
+            .workspace(space.id)
+            .await
+            .unwrap()
+            .unwrap()
+            .maintenance_epoch
+    };
+    assert_eq!(epoch().await, 0);
+    let (old, _) = publish(&store, &space, None).await;
+    let (head, _) = publish(&store, &space, Some(old.publication_id)).await;
+    let before = catalog
+        .acquire_reader_lease(mint_id(), ReadTarget::Head(space.id), "before", LEASE)
+        .await
+        .unwrap();
+    assert_eq!(before.maintenance_epoch, 0);
+
+    // Retirement advances the epoch in the transaction that marks, before any file
+    // effect; a refused retirement (the head) changes nothing.
+    assert!(
+        catalog
+            .mark_expiring(space.id, head.publication_id)
+            .await
+            .is_err()
+    );
+    assert_eq!(epoch().await, 0);
+    assert_eq!(
+        catalog
+            .mark_expiring(space.id, old.publication_id)
+            .await
+            .unwrap(),
+        1
+    );
+    // Collection advances it again before it plans.
+    let plan = catalog.begin_collect(space.id).await.unwrap();
+    assert_eq!(plan.maintenance_epoch, 2);
+    assert_eq!(epoch().await, 2);
+    // A reader after maintenance keys its caches on the new epoch; the earlier reader
+    // keeps its own.
+    let after = catalog
+        .acquire_reader_lease(mint_id(), ReadTarget::Head(space.id), "after", LEASE)
+        .await
+        .unwrap();
+    assert_eq!(after.maintenance_epoch, 2);
+    assert_eq!(before.maintenance_epoch, 0);
+    // Maintainers of a workspace are serialized: a held advisory lock delays collection.
+    let holder = database.session().await.unwrap();
+    holder
+        .execute(&format!(
+            "BEGIN; SELECT pg_advisory_xact_lock(hashtextextended('pse_ops.maintenance:{}', 0))",
+            space.id
+        ))
+        .await
+        .unwrap();
+    let collecting = catalog.begin_collect(space.id);
+    let released = async {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        assert_eq!(epoch().await, 2);
+        holder.execute("ROLLBACK").await.unwrap();
+    };
+    let (plan, ()) = tokio::join!(collecting, released);
+    assert_eq!(plan.unwrap().maintenance_epoch, 3);
+    drop(holder);
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn reclaimable_intents_are_fenced() {
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    // Abandoned.
+    let abandoned = intent(&store, &space).await;
+    catalog
+        .abandon_intent(abandoned.publication_id)
+        .await
+        .unwrap();
+    // Its attempt was published as another publication.
+    let (published, _) = publish(&store, &space, None).await;
+    let duplicate = NewIntent {
+        publication_id: mint_id(),
+        member_prefix: format!("{}retry/", published.member_prefix),
+        ..published.clone()
+    };
+    catalog.register_intent(&duplicate).await.unwrap();
+    // Its attempt went stale.
+    let attempts = store.attempts();
+    let stale_attempt = new_attempt();
+    attempts.create(&stale_attempt, None).await.unwrap();
+    attempts
+        .transition(
+            stale_attempt.attempt_id,
+            AttemptState::Queued,
+            &TransitionNote::by("test"),
+        )
+        .await
+        .unwrap();
+    attempts
+        .start(stale_attempt.attempt_id, "worker", LEASE)
+        .await
+        .unwrap();
+    attempts
+        .transition(
+            stale_attempt.attempt_id,
+            AttemptState::Stale,
+            &TransitionNote::by("sweep"),
+        )
+        .await
+        .unwrap();
+    let stale = NewIntent {
+        publication_id: mint_id(),
+        workspace_id: space.id,
+        attempt_id: stale_attempt.attempt_id,
+        member_prefix: format!("{}members/{}/", space.root, stale_attempt.attempt_id),
+    };
+    catalog.register_intent(&stale).await.unwrap();
+    // Live: finished, unpublished, not abandoned.
+    let live = intent(&store, &space).await;
+
+    let claimed = catalog.claim_reclaimable(space.id).await.unwrap();
+    let ids: BTreeSet<PublicationId> = claimed.iter().map(|i| i.publication_id).collect();
+    assert_eq!(
+        ids,
+        BTreeSet::from([
+            abandoned.publication_id,
+            duplicate.publication_id,
+            stale.publication_id
+        ])
+    );
+    // Claimed intents are fenced: abandoned, so no commit can publish them.
+    assert!(claimed.iter().all(|i| i.abandoned_at.is_some()));
+    assert!(matches!(
+        catalog
+            .commit(&commit_of(&duplicate, Some(published.publication_id)))
+            .await
+            .unwrap_err(),
+        OperationsError::IntentAbandoned { .. } | OperationsError::PublicationIdentityReused { .. }
+    ));
+    // Only the live intent's prefix is protected.
+    let prefixes: Vec<String> = catalog
+        .protected_versions(space.id)
+        .await
+        .unwrap()
+        .into_iter()
+        .filter(|range| range.reason == RetentionReason::Attempt)
+        .map(|range| range.table_uri)
+        .collect();
+    assert_eq!(prefixes, [live.member_prefix.clone()]);
+
+    // Recording the removal is idempotent; a reclaimed intent is not claimed again.
+    catalog
+        .mark_reclaimed(abandoned.publication_id)
+        .await
+        .unwrap();
+    catalog
+        .mark_reclaimed(abandoned.publication_id)
+        .await
+        .unwrap();
+    let again: BTreeSet<PublicationId> = catalog
+        .claim_reclaimable(space.id)
+        .await
+        .unwrap()
+        .iter()
+        .map(|i| i.publication_id)
+        .collect();
+    assert_eq!(
+        again,
+        BTreeSet::from([duplicate.publication_id, stale.publication_id])
+    );
+    for intent in [&duplicate, &stale] {
+        catalog.mark_reclaimed(intent.publication_id).await.unwrap();
+    }
+    assert!(catalog.claim_reclaimable(space.id).await.unwrap().is_empty());
+    assert!(
+        catalog
+            .intent(abandoned.publication_id)
+            .await
+            .unwrap()
+            .is_some_and(|i| i.reclaimed_at.is_some())
+    );
+    // A committed intent is never reclaimed.
+    assert!(matches!(
+        catalog
+            .mark_reclaimed(published.publication_id)
+            .await
+            .unwrap_err(),
+        OperationsError::InvalidRequest { .. }
+    ));
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn lost_commit_acknowledgement_settles() {
+    use crate::testing::{Fault, FaultPoint, FaultProxy};
+    let database = TestDatabase::create().await.unwrap();
+    let proxy = FaultProxy::start(database.url()).await.unwrap();
+    let store = Store::open_with(proxy.url(), &crate::StoreOptions::for_tests())
+        .await
+        .unwrap();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    let fault = |point| Fault {
+        marker: "INSERT INTO pse_ops.publications ",
+        point,
+    };
+    let settle = |commit: &PublicationCommit| SettleRequest {
+        settlement_id: mint_id(),
+        attempt_id: commit.attempt_id,
+        publication_id: commit.publication_id,
+        workspace_id: commit.workspace_id,
+        expected_parent: commit.expected_parent,
+    };
+
+    // The connection drops before COMMIT reaches the server: nothing was committed.
+    let first = commit_of(&intent(&store, &space).await, None);
+    proxy.arm(fault(FaultPoint::BeforeCommit));
+    let lost = catalog.commit(&first).await.unwrap_err();
+    assert!(proxy.fired());
+    assert!(matches!(lost, OperationsError::Unavailable { .. }), "{lost:?}");
+    assert_eq!(
+        catalog.settle(&settle(&first)).await.unwrap(),
+        Settlement::ProvedNoncommit
+    );
+    // The same request commits on a retry.
+    catalog.commit(&first).await.unwrap();
+
+    // The server commits but the acknowledgement is lost: settlement finds it.
+    let second = commit_of(&intent(&store, &space).await, Some(first.publication_id));
+    proxy.arm(fault(FaultPoint::AfterCommit));
+    let lost = catalog.commit(&second).await.unwrap_err();
+    assert!(proxy.fired());
+    assert!(matches!(lost, OperationsError::Unavailable { .. }), "{lost:?}");
+    assert_eq!(
+        catalog.settle(&settle(&second)).await.unwrap(),
+        Settlement::Committed {
+            publication_id: second.publication_id
+        }
+    );
+    assert_eq!(
+        catalog.head(space.id).await.unwrap(),
+        Some(second.publication_id)
+    );
+    store.close();
+    drop(proxy);
     database.remove().await.unwrap();
 }

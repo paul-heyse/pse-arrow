@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Exact Delta publications export bounded, independently owned Arrow data."""
+"""Exported publications stream bounded, independently owned Arrow data."""
 
 import gc
 import shutil
@@ -17,6 +17,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts.values import SemanticId
 from pse.tests.test_native_registry import PublicationIndex, publication_index
 
 
@@ -26,7 +27,7 @@ def inspection_publication(native_inspection_publication: Path) -> PublicationIn
 
 
 def _open(index: PublicationIndex, settings: pse.EngineSettings) -> pse.Publication:
-    return pse.open(index.root.location, version=index.root.version, settings=settings)
+    return pse.open_export(index.manifest, settings=settings)
 
 
 def _assert_released(publication: pse.Publication) -> None:
@@ -47,8 +48,8 @@ def test_publication_streams_values_schema_empty_and_final_array_lease(
 ) -> None:
     index = inspection_publication
     publication = _open(index, inspection_settings)
-    assert publication.version == index.root.version
-    assert publication.location == index.root.location
+    assert isinstance(publication.publication_id, SemanticId)
+    assert publication.parent_publication_id is None
     assert {
         (name.catalog, name.schema, name.table) for name in publication.tables()
     } == set(index.tables)
@@ -120,9 +121,9 @@ def test_exact_selection_and_stream_ownership_survive_handle_closure(
 ) -> None:
     publication = _open(inspection_publication, inspection_settings)
     stream = publication.table("workspace", "reference", "schema_relations")
-    original_version = publication.version
     independently_opened = _open(inspection_publication, inspection_settings)
-    assert independently_opened.version == original_version
+    assert independently_opened.publication_id == publication.publication_id
+    assert independently_opened.attempt_id == publication.attempt_id
     publication.close()
     independently_opened.close()
     with pa.RecordBatchReader.from_stream(stream) as reader:
@@ -131,23 +132,18 @@ def test_exact_selection_and_stream_ownership_survive_handle_closure(
 
 
 @pytest.mark.component
-def test_malformed_control_log_fails_before_members_are_exposed(
+def test_malformed_manifest_log_fails_before_members_are_exposed(
     native_inspection_publication: Path,
-    inspection_publication: PublicationIndex,
     inspection_settings: pse.EngineSettings,
     tmp_path: Path,
 ) -> None:
-    # Only the control table is copied. Member locations remain exact original URIs.
-    path = tmp_path / "control"
-    shutil.copytree(native_inspection_publication / "control", path)
-    selected = path / "_delta_log" / f"{inspection_publication.root.version:020}.json"
+    # Only the manifest is copied. Member locations remain exact original URIs.
+    path = tmp_path / "manifest"
+    shutil.copytree(native_inspection_publication / "manifest", path)
+    selected = path / "_delta_log" / f"{1:020}.json"
     selected.write_bytes(b"invalid delta action\n")
     with pytest.raises(pse.InspectionError) as failure:
-        pse.open(
-            path,
-            version=inspection_publication.root.version,
-            settings=inspection_settings,
-        )
+        pse.open_export(path, settings=inspection_settings)
     assert failure.value.report.code is not None
     assert failure.value.args
 
@@ -160,14 +156,8 @@ def test_open_is_existing_only_explicit_and_immutable(
 ) -> None:
     missing = tmp_path / "absent"
     with pytest.raises(pse.InspectionError):
-        pse.open(missing, version=0, settings=inspection_settings)
+        pse.open_export(missing, settings=inspection_settings)
     assert not missing.exists()
-    with pytest.raises(pse.InspectionError):
-        pse.open(
-            inspection_publication.root.location,
-            version=-1,
-            settings=inspection_settings,
-        )
     publication = _open(inspection_publication, inspection_settings)
     for name in ("compile", "solve", "commit", "publish", "write", "query"):
         assert not hasattr(publication, name)
@@ -188,10 +178,10 @@ def test_tiny_explicit_budget_refuses_actual_admission_in_a_fresh_process(
 import sys
 import time
 import pse
-settings = pse.EngineSettings(memory_limit_bytes=1, threads=1, spill_dir=sys.argv[3],
+settings = pse.EngineSettings(memory_limit_bytes=1, threads=1, spill_dir=sys.argv[2],
     max_spill_bytes=1048576, batch_size=7)
 try:
-    pse.open(sys.argv[1], version=int(sys.argv[2]), settings=settings)
+    pse.open_export(sys.argv[1], settings=settings)
 except pse.InspectionError as error:
     assert 'resource_limit' in str(error), str(error)
 else:
@@ -202,8 +192,7 @@ else:
             sys.executable,
             "-c",
             program,
-            inspection_publication.root.location,
-            str(inspection_publication.root.version),
+            inspection_publication.manifest,
             str(tmp_path),
         ],
         capture_output=True,
@@ -225,9 +214,9 @@ import sys
 import pyarrow as pa
 import pse
 settings = pse.EngineSettings(memory_limit_bytes=64 << 30, threads=1,
-    spill_dir=sys.argv[3], max_spill_bytes=1 << 30, batch_size=7,
+    spill_dir=sys.argv[2], max_spill_bytes=1 << 30, batch_size=7,
     cache=pse.CacheSettings(working_bytes=16 << 30, resident_bytes=0))
-publication = pse.open(sys.argv[1], version=int(sys.argv[2]), settings=settings)
+publication = pse.open_export(sys.argv[1], settings=settings)
 stream = publication.table('workspace', 'reference', 'schema_relations')
 reader = pa.RecordBatchReader.from_stream(stream)
 batches = list(reader)
@@ -250,8 +239,7 @@ assert all(row.pinned_bytes in (None, 0) for row in publication.cache_usage())
             sys.executable,
             "-c",
             program,
-            inspection_publication.root.location,
-            str(inspection_publication.root.version),
+            inspection_publication.manifest,
             str(tmp_path),
         ],
         capture_output=True,
@@ -268,7 +256,7 @@ def test_inspection_annotations_evaluate_on_the_running_interpreter() -> None:
         pse.FieldTransfer,
         pse.TableStream,
         pse.Publication,
-        pse.open,
+        pse.open_export,
         pse.Publication.table,
         pse.TableStream.extension_report,
     ):

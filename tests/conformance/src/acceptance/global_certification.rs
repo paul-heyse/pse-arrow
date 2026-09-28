@@ -51,7 +51,7 @@ fn stability(
             .into_iter()
             .filter(|r| r.value.kind.as_str() != "package"),
     );
-    (package.with_declarations(rows).unwrap(), case)
+    (package.with_declarations(rows).unwrap(), case.as_id())
 }
 /// The solved tangent-plane distance and whether the authored stability check holds.
 fn tpd(result: &pse_runtime::workflow::RunResult) -> (f64, bool) {

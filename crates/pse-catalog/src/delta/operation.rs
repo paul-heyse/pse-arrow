@@ -75,18 +75,14 @@ impl DeltaOperationContext {
             commit: commit_policy(commit, kind),
         }
     }
-    pub(super) async fn begin(
-        &self,
-        table: &DeltaTable,
-    ) -> Result<Option<Arc<super::lease::ReadLease>>> {
+    pub(super) fn begin(&self, table: &DeltaTable) -> Result<()> {
         if let Some(contract) = &self.contract
             && table.version().is_some()
         {
             contract.verify(table)?;
         }
-        let lease = super::lease::write(table.table_url(), self.services.cancellation()).await?;
         self.services.require_settlement();
-        Ok(lease)
+        Ok(())
     }
     pub(super) fn write(
         &self,

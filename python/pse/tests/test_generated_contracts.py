@@ -15,7 +15,7 @@ from pse.contracts.authored import AuthoredPackagesRow
 from pse.contracts.enums import ModelingVariableDomain, PackageKind
 from pse.contracts.extension_types import PseEnum, PseOrdinalRef
 from pse.contracts.reference import ReferenceUnitsRow
-from pse.contracts.runtime import RuntimePublicationsFieldMembersItemSelection
+from pse.contracts.structures import MemberDescriptor, MemberDescriptorSelection
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
 
 
@@ -73,7 +73,7 @@ def test_declared_dependency_collection_rejects_duplicates_and_accepts_empty() -
 @pytest.mark.unit
 def test_typed_publication_selection_has_a_payload_free_full_case() -> None:
     full: dict[str, object] = {"kind": "full", "revision": None}
-    value = converter().structure(full, RuntimePublicationsFieldMembersItemSelection)
+    value = converter().structure(full, MemberDescriptorSelection)
     assert value.revision is None
     revision: dict[str, object] = {"column": "revision_id", "revision_id": "01" * 16}
     for invalid in (
@@ -81,12 +81,26 @@ def test_typed_publication_selection_has_a_payload_free_full_case() -> None:
         {"kind": "revision", "revision": None},
     ):
         with pytest.raises((ValueError, cattrs.BaseValidationError)):
-            converter().structure(invalid, RuntimePublicationsFieldMembersItemSelection)
+            converter().structure(invalid, MemberDescriptorSelection)
     value = converter().structure(
         {"kind": "revision", "revision": revision},
-        RuntimePublicationsFieldMembersItemSelection,
+        MemberDescriptorSelection,
     )
     assert value.revision is not None
+
+
+@pytest.mark.unit
+def test_member_descriptor_is_one_named_structure() -> None:
+    # Every relation that lists members references the one registry structure.
+    from pse.contracts import runtime
+
+    manifest = attrs.fields_dict(runtime.RuntimePublicationManifestsRow)
+    release = attrs.fields_dict(runtime.RuntimeArtifactDescriptorsRow)["release_members"].type
+    for annotation in (manifest["members"].type, manifest["inputs"].type, release):
+        assert "MemberDescriptor" in str(annotation)
+    assert "VersionWindow" in str(manifest["windows"].type)
+    assert not hasattr(runtime, "RuntimePublicationManifestsFieldMembersItem")
+    assert attrs.fields_dict(MemberDescriptor)["selection"].type is MemberDescriptorSelection
 
 
 @pytest.mark.unit

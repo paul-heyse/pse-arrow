@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    180u8, 7u8, 225u8, 236u8, 206u8, 27u8, 243u8, 44u8, 51u8, 26u8, 137u8, 36u8, 18u8,
-    23u8, 0u8, 113u8, 59u8, 84u8, 40u8, 19u8, 5u8, 189u8, 147u8, 145u8, 57u8, 230u8,
-    74u8, 11u8, 142u8, 247u8, 71u8, 2u8,
+    139u8, 37u8, 230u8, 200u8, 126u8, 41u8, 6u8, 115u8, 212u8, 2u8, 59u8, 11u8, 235u8,
+    137u8, 45u8, 237u8, 194u8, 157u8, 44u8, 236u8, 224u8, 86u8, 251u8, 11u8, 31u8, 68u8,
+    155u8, 121u8, 32u8, 95u8, 182u8, 127u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalPublicationMembersRow {
     fn append(
@@ -36,18 +36,50 @@ impl crate::columnar::ArrowValue for RuntimeOperationalPublicationMembersRow {
             &self.r#publication_id,
             children[0usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#member, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#role, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#table_uri,
+            &self.r#catalog_name,
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#delta_version,
+            &self.r#schema_name,
             children[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#contract_fingerprint,
+            &self.r#table_name,
             children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#relation_id,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#relation_version,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#contract_fingerprint,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#table_uri,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#delta_version,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#selection_kind,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#revision_column,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#revision_id,
+            children[12usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -62,12 +94,30 @@ impl crate::columnar::ArrowValue for RuntimeOperationalPublicationMembersRow {
         <crate::generated::identities::PublicationId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
-            children[4usize].as_mut(),
+        <crate::generated::enums::PublicationMemberRole as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
         )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <crate::generated::enums::MemberSelectionKind as crate::columnar::ArrowValue>::append_null(
+            children[10usize].as_mut(),
+        )?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -82,20 +132,56 @@ impl crate::columnar::ArrowValue for RuntimeOperationalPublicationMembersRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#member: <String as crate::columnar::ArrowValue>::read(
+            r#role: <crate::generated::enums::PublicationMemberRole as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#table_uri: <String as crate::columnar::ArrowValue>::read(
+            r#catalog_name: <String as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#delta_version: <i64 as crate::columnar::ArrowValue>::read(
+            r#schema_name: <String as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#contract_fingerprint: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#table_name: <String as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#relation_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#relation_version: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#contract_fingerprint: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#table_uri: <String as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#delta_version: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#selection_kind: <crate::generated::enums::MemberSelectionKind as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#revision_column: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#revision_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -150,18 +236,50 @@ impl crate::columnar::RelationRow for RuntimeOperationalPublicationMembersRow {
             &self.r#publication_id,
             columns[0usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#member, columns[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#role, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#table_uri,
+            &self.r#catalog_name,
             columns[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#delta_version,
+            &self.r#schema_name,
             columns[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#contract_fingerprint,
+            &self.r#table_name,
             columns[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#relation_id,
+            columns[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#relation_version,
+            columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#contract_fingerprint,
+            columns[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#table_uri,
+            columns[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#delta_version,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#selection_kind,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#revision_column,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#revision_id,
+            columns[12usize].as_mut(),
         )?;
         Ok(())
     }
@@ -197,10 +315,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalPublicationMembersRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        14_336_usize + size_of::<Self::Builder>()
+        32_768_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        112usize
+        256usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -210,7 +328,31 @@ impl crate::columnar::RelationRow for RuntimeOperationalPublicationMembersRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#member).len())?,
+            crate::columnar::allocation_add(8, (self.r#role).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#catalog_name).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#schema_name).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#table_name).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(32usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -222,7 +364,29 @@ impl crate::columnar::RelationRow for RuntimeOperationalPublicationMembersRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(32usize)?,
+            crate::columnar::allocation_add(8, (self.r#selection_kind).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#revision_column).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#revision_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         Ok(bytes)
     }
@@ -234,7 +398,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "publication_id",
@@ -242,37 +406,93 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "member",
+        name: "role",
         position: 1usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "table_uri",
+        name: "catalog_name",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "delta_version",
+        name: "schema_name",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "contract_fingerprint",
+        name: "table_name",
         position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "relation_id",
+        position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "relation_version",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "contract_fingerprint",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "table_uri",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "delta_version",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "selection_kind",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "revision_column",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "revision_id",
+        position: 12usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
     ///publication_id
     pub const PUBLICATION_ID: crate::columnar::ColumnReference = super::COLUMNS[0usize];
-    ///member
-    pub const MEMBER: crate::columnar::ColumnReference = super::COLUMNS[1usize];
-    ///table_uri
-    pub const TABLE_URI: crate::columnar::ColumnReference = super::COLUMNS[2usize];
-    ///delta_version
-    pub const DELTA_VERSION: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///role
+    pub const ROLE: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    ///catalog_name
+    pub const CATALOG_NAME: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///schema_name
+    pub const SCHEMA_NAME: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///table_name
+    pub const TABLE_NAME: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///relation_id
+    pub const RELATION_ID: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///relation_version
+    pub const RELATION_VERSION: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///contract_fingerprint
-    pub const CONTRACT_FINGERPRINT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const CONTRACT_FINGERPRINT: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///table_uri
+    pub const TABLE_URI: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///delta_version
+    pub const DELTA_VERSION: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///selection_kind
+    pub const SELECTION_KIND: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///revision_column
+    pub const REVISION_COLUMN: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///revision_id
+    pub const REVISION_ID: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -280,10 +500,18 @@ pub mod columns {
 pub struct RuntimeOperationalPublicationMembersView<'a> {
     batch: &'a crate::RecordBatch,
     publication_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    member_column: &'a arrow_array::StringArray,
+    role_column: &'a arrow_array::StringArray,
+    catalog_name_column: &'a arrow_array::StringArray,
+    schema_name_column: &'a arrow_array::StringArray,
+    table_name_column: &'a arrow_array::StringArray,
+    relation_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    relation_version_column: &'a arrow_array::Int64Array,
+    contract_fingerprint_column: &'a arrow_array::FixedSizeBinaryArray,
     table_uri_column: &'a arrow_array::StringArray,
     delta_version_column: &'a arrow_array::Int64Array,
-    contract_fingerprint_column: &'a arrow_array::FixedSizeBinaryArray,
+    selection_kind_column: &'a arrow_array::StringArray,
+    revision_column_column: &'a arrow_array::StringArray,
+    revision_id_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> RuntimeOperationalPublicationMembersView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -326,18 +554,42 @@ impl<'a> RuntimeOperationalPublicationMembersView<'a> {
             publication_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
-            member_column: crate::columnar::array::<
+            role_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(1usize).as_ref())?,
-            table_uri_column: crate::columnar::array::<
+            catalog_name_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
-            delta_version_column: crate::columnar::array::<
-                arrow_array::Int64Array,
+            schema_name_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(3usize).as_ref())?,
+            table_name_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
+            relation_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(5usize).as_ref())?,
+            relation_version_column: crate::columnar::array::<
+                arrow_array::Int64Array,
+            >(batch.column(6usize).as_ref())?,
             contract_fingerprint_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
+            table_uri_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
+            delta_version_column: crate::columnar::array::<
+                arrow_array::Int64Array,
+            >(batch.column(9usize).as_ref())?,
+            selection_kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(10usize).as_ref())?,
+            revision_column_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(11usize).as_ref())?,
+            revision_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -366,39 +618,75 @@ impl<'a> RuntimeOperationalPublicationMembersView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "member",
+        "role",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn member_column(&self) -> &'a arrow_array::StringArray {
-        self.member_column
+    pub const fn role_column(&self) -> &'a arrow_array::StringArray {
+        self.role_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "member", "`.")]
-    pub fn member_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "role", "`.")]
+    pub fn role_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[1usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "table_uri",
+        "catalog_name",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn table_uri_column(&self) -> &'a arrow_array::StringArray {
-        self.table_uri_column
+    pub const fn catalog_name_column(&self) -> &'a arrow_array::StringArray {
+        self.catalog_name_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "table_uri", "`.")]
-    pub fn table_uri_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "catalog_name", "`.")]
+    pub fn catalog_name_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[2usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "delta_version",
+        "schema_name",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn delta_version_column(&self) -> &'a arrow_array::Int64Array {
-        self.delta_version_column
+    pub const fn schema_name_column(&self) -> &'a arrow_array::StringArray {
+        self.schema_name_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "delta_version", "`.")]
-    pub fn delta_version_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "schema_name", "`.")]
+    pub fn schema_name_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "table_name",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn table_name_column(&self) -> &'a arrow_array::StringArray {
+        self.table_name_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "table_name", "`.")]
+    pub fn table_name_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "relation_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn relation_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.relation_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "relation_id", "`.")]
+    pub fn relation_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "relation_version",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn relation_version_column(&self) -> &'a arrow_array::Int64Array {
+        self.relation_version_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "relation_version", "`.")]
+    pub fn relation_version_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -416,7 +704,67 @@ impl<'a> RuntimeOperationalPublicationMembersView<'a> {
         "`.",
     )]
     pub fn contract_fingerprint_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "table_uri",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn table_uri_column(&self) -> &'a arrow_array::StringArray {
+        self.table_uri_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "table_uri", "`.")]
+    pub fn table_uri_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "delta_version",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn delta_version_column(&self) -> &'a arrow_array::Int64Array {
+        self.delta_version_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "delta_version", "`.")]
+    pub fn delta_version_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "selection_kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn selection_kind_column(&self) -> &'a arrow_array::StringArray {
+        self.selection_kind_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "selection_kind", "`.")]
+    pub fn selection_kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "revision_column",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn revision_column_column(&self) -> &'a arrow_array::StringArray {
+        self.revision_column_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "revision_column", "`.")]
+    pub fn revision_column_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "revision_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn revision_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.revision_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "revision_id", "`.")]
+    pub fn revision_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -434,7 +782,31 @@ impl<'a> RuntimeOperationalPublicationMembersView<'a> {
                 self.publication_id_column,
                 index,
             )?,
-            r#member: crate::columnar::ArrowValue::read(self.member_column, index)?,
+            r#role: crate::columnar::ArrowValue::read(self.role_column, index)?,
+            r#catalog_name: crate::columnar::ArrowValue::read(
+                self.catalog_name_column,
+                index,
+            )?,
+            r#schema_name: crate::columnar::ArrowValue::read(
+                self.schema_name_column,
+                index,
+            )?,
+            r#table_name: crate::columnar::ArrowValue::read(
+                self.table_name_column,
+                index,
+            )?,
+            r#relation_id: crate::columnar::ArrowValue::read(
+                self.relation_id_column,
+                index,
+            )?,
+            r#relation_version: crate::columnar::ArrowValue::read(
+                self.relation_version_column,
+                index,
+            )?,
+            r#contract_fingerprint: crate::columnar::ArrowValue::read(
+                self.contract_fingerprint_column,
+                index,
+            )?,
             r#table_uri: crate::columnar::ArrowValue::read(
                 self.table_uri_column,
                 index,
@@ -443,8 +815,16 @@ impl<'a> RuntimeOperationalPublicationMembersView<'a> {
                 self.delta_version_column,
                 index,
             )?,
-            r#contract_fingerprint: crate::columnar::ArrowValue::read(
-                self.contract_fingerprint_column,
+            r#selection_kind: crate::columnar::ArrowValue::read(
+                self.selection_kind_column,
+                index,
+            )?,
+            r#revision_column: crate::columnar::ArrowValue::read(
+                self.revision_column_column,
+                index,
+            )?,
+            r#revision_id: crate::columnar::ArrowValue::read(
+                self.revision_id_column,
                 index,
             )?,
         })

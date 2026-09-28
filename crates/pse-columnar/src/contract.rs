@@ -388,7 +388,7 @@ impl CanonicalContract {
     /// Checks a batch's schema against the contract before anything is hashed.
     ///
     /// Names, types, nullability and metadata must match exactly. Publication
-    /// identity belongs to the selected Delta control relation, never schema stamps.
+    /// identity belongs to the catalog's publication record, never schema stamps.
     ///
     /// # Errors
     ///

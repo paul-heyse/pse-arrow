@@ -104,7 +104,7 @@ async fn run(
     children: Vec<Arc<dyn ExecutionPlan>>,
 ) -> Result<u64> {
     let state = context.state.clone();
-    let _writer = context.begin(&table).await?;
+    context.begin(&table)?;
     match command {
         Command::Insert(mode) => insert(table, &context, mode, &children).await,
         Command::Update {

@@ -3,6 +3,8 @@
 """Typed declarations and owned handles over the single native computation pipeline."""
 
 from collections.abc import Mapping, Sequence
+from datetime import timedelta
+from pathlib import Path
 
 import attrs
 import msgspec
@@ -15,13 +17,14 @@ from pse._build import (
     _NativePhysicalContext,
     _NativeRuntime,
 )
-from pse._inspection import TableStream
+from pse._inspection import Publication, TableStream
 from pse._modeling import ModelingPackage
 from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult, _AnalysisDocument
 from pse._runs import (
     PreparedOperation, RunHandle, RunResult, RunCompletion, PublicationTicket,
-    PublicationRoot, PublicationCommitted, PublicationNoncommit, PublicationConflict,
-    PublicationUnresolved, PublicationSettlement, PublicationRequest, PublicationAttempt,
+    PublicationCommitted, PublicationNoncommit, PublicationConflict,
+    PublicationUnresolved, PublicationSettlement, PublicationAttempt, Published,
+    Workspace, ExportReceipt,
 )
 
 from pse.contracts import runtime as result_contracts
@@ -115,10 +118,79 @@ class Runtime:
         self._handle.clear_program_cache()
 
     def settle_publication(self, ticket: PublicationTicket) -> PublicationSettlement:
-        """Observe saved native witnesses without repeating a solve or publication."""
+        """Settle a ticket whose commit outcome is unknown by querying the catalog.
+
+        Nothing is prepared, written or solved again.
+        """
         return msgspec.json.decode(
             self._handle.settle_publication(ticket.json), type=PublicationSettlement
         )
+
+    def register_workspace(self, name: str, root: str | Path) -> Workspace:
+        """Register a publication workspace, or return the one of that name and root.
+
+        Args:
+            name: The workspace's unique name.
+            root: The directory its members are written under (a URI or local path).
+                A root holding a former Delta control table is refused.
+
+        Returns:
+            The registered workspace.
+        """
+        uri = root.resolve().as_uri() + "/" if isinstance(root, Path) else root
+        return msgspec.json.decode(
+            self._handle.register_workspace(name, uri), type=Workspace
+        )
+
+    def workspace(self, name: str) -> Workspace:
+        """Return a registered workspace by name."""
+        return msgspec.json.decode(self._handle.workspace(name), type=Workspace)
+
+    def head(self, workspace_id: SemanticId) -> SemanticId | None:
+        """Return a workspace's head; ``None`` before its first publication."""
+        head = self._handle.head(workspace_id.to_hex())
+        return None if head is None else SemanticId.from_hex(head)
+
+    def open(self, publication_id: SemanticId) -> Publication:
+        """Open an exact publication under a catalog reader lease.
+
+        The lease is renewed while the publication or a stream of it is open and
+        released by ``close``; an ephemeral runtime is refused.
+        """
+        return Publication(self._handle.open(publication_id.to_hex()))
+
+    def open_head(self, workspace_id: SemanticId) -> Publication:
+        """Open a workspace's head under a catalog reader lease."""
+        return Publication(self._handle.open_head(workspace_id.to_hex()))
+
+    def export_publication(
+        self,
+        publication_id: SemanticId,
+        destination: str | Path,
+        *,
+        valid_for: timedelta,
+    ) -> ExportReceipt:
+        """Export a publication for offline readers.
+
+        Args:
+            publication_id: The publication.
+            destination: A new directory for the one-row manifest.
+            valid_for: How long the export's lease protects the members.
+
+        Returns:
+            The receipt; release it with ``release_export``.
+        """
+        uri = destination.resolve().as_uri() + "/" if isinstance(destination, Path) else destination
+        return msgspec.json.decode(
+            self._handle.export_publication(
+                publication_id.to_hex(), uri, valid_for.total_seconds()
+            ),
+            type=ExportReceipt,
+        )
+
+    def release_export(self, receipt: ExportReceipt) -> bool:
+        """Release an export's lease; returns whether it was still held."""
+        return self._handle.release_export(msgspec.json.encode(receipt))
 
     def prepare_conic(
         self,

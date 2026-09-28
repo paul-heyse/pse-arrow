@@ -36,7 +36,7 @@ pse_ids::semantic_id_newtype! {
 }
 pse_ids::semantic_id_newtype! {
     #[doc =
-    "One committed publication in the catalog (entity identity `publication`, ADR-0115)."]
+    "One publication: registered as an intent before its first member write and committed at most once (entity identity `publication`, ADR-0115)."]
     PublicationId
 }
 pse_ids::semantic_id_newtype! {

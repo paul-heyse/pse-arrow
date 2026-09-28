@@ -195,9 +195,17 @@ pub enum FactBatch {
     r#RuntimeOperationalPublicationHeads(
         Vec<super::r#runtime::r#operational_publication_heads::Row>,
     ),
+    #[doc = stringify!(r#RuntimeOperationalPublicationIntents)]
+    r#RuntimeOperationalPublicationIntents(
+        Vec<super::r#runtime::r#operational_publication_intents::Row>,
+    ),
     #[doc = stringify!(r#RuntimeOperationalPublicationMembers)]
     r#RuntimeOperationalPublicationMembers(
         Vec<super::r#runtime::r#operational_publication_members::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalPublicationWindows)]
+    r#RuntimeOperationalPublicationWindows(
+        Vec<super::r#runtime::r#operational_publication_windows::Row>,
     ),
     #[doc = stringify!(r#RuntimeOperationalPublications)]
     r#RuntimeOperationalPublications(
@@ -233,10 +241,8 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeOperationalWorkspaces)]
     r#RuntimeOperationalWorkspaces(Vec<super::r#runtime::r#operational_workspaces::Row>),
-    #[doc = stringify!(r#RuntimePublications)]
-    r#RuntimePublications(Vec<super::r#runtime::r#publications::Row>),
-    #[doc = stringify!(r#RuntimeReleaseCheckpoints)]
-    r#RuntimeReleaseCheckpoints(Vec<super::r#runtime::r#release_checkpoints::Row>),
+    #[doc = stringify!(r#RuntimePublicationManifests)]
+    r#RuntimePublicationManifests(Vec<super::r#runtime::r#publication_manifests::Row>),
     #[doc = stringify!(r#RuntimeResolvedNumerics)]
     r#RuntimeResolvedNumerics(Vec<super::r#runtime::r#resolved_numerics::Row>),
     #[doc = stringify!(r#RuntimeResponseSensitivities)]
@@ -736,10 +742,22 @@ impl FactBatch {
                     49u8, 204u8, 162u8, 14u8, 89u8, 28u8,
                 ])
             }
+            Self::r#RuntimeOperationalPublicationIntents(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    184u8, 102u8, 229u8, 65u8, 60u8, 3u8, 68u8, 237u8, 169u8, 103u8,
+                    157u8, 196u8, 204u8, 148u8, 38u8, 2u8,
+                ])
+            }
             Self::r#RuntimeOperationalPublicationMembers(_) => {
                 pse_ids::SemanticId::from_bytes([
                     199u8, 235u8, 87u8, 186u8, 11u8, 242u8, 22u8, 72u8, 48u8, 68u8,
                     251u8, 77u8, 45u8, 9u8, 180u8, 201u8,
+                ])
+            }
+            Self::r#RuntimeOperationalPublicationWindows(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    191u8, 79u8, 141u8, 24u8, 68u8, 141u8, 97u8, 240u8, 76u8, 37u8,
+                    164u8, 211u8, 73u8, 144u8, 6u8, 236u8,
                 ])
             }
             Self::r#RuntimeOperationalPublications(_) => {
@@ -802,16 +820,10 @@ impl FactBatch {
                     199u8, 153u8, 79u8, 253u8, 142u8, 81u8,
                 ])
             }
-            Self::r#RuntimePublications(_) => {
+            Self::r#RuntimePublicationManifests(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    95u8, 49u8, 15u8, 84u8, 201u8, 179u8, 235u8, 250u8, 192u8, 3u8,
-                    192u8, 46u8, 241u8, 4u8, 66u8, 68u8,
-                ])
-            }
-            Self::r#RuntimeReleaseCheckpoints(_) => {
-                pse_ids::SemanticId::from_bytes([
-                    219u8, 216u8, 199u8, 114u8, 254u8, 146u8, 139u8, 185u8, 241u8, 59u8,
-                    208u8, 39u8, 189u8, 241u8, 239u8, 26u8,
+                    192u8, 131u8, 237u8, 62u8, 131u8, 132u8, 155u8, 254u8, 202u8, 14u8,
+                    195u8, 142u8, 129u8, 81u8, 74u8, 154u8,
                 ])
             }
             Self::r#RuntimeResolvedNumerics(_) => {
@@ -975,7 +987,9 @@ impl FactBatch {
             Self::r#RuntimeOperationalProgressEvents(rows) => rows.len(),
             Self::r#RuntimeOperationalProgressValues(rows) => rows.len(),
             Self::r#RuntimeOperationalPublicationHeads(rows) => rows.len(),
+            Self::r#RuntimeOperationalPublicationIntents(rows) => rows.len(),
             Self::r#RuntimeOperationalPublicationMembers(rows) => rows.len(),
+            Self::r#RuntimeOperationalPublicationWindows(rows) => rows.len(),
             Self::r#RuntimeOperationalPublications(rows) => rows.len(),
             Self::r#RuntimeOperationalReaderLeases(rows) => rows.len(),
             Self::r#RuntimeOperationalRetentionMarks(rows) => rows.len(),
@@ -986,8 +1000,7 @@ impl FactBatch {
             Self::r#RuntimeOperationalStudies(rows) => rows.len(),
             Self::r#RuntimeOperationalStudyPoints(rows) => rows.len(),
             Self::r#RuntimeOperationalWorkspaces(rows) => rows.len(),
-            Self::r#RuntimePublications(rows) => rows.len(),
-            Self::r#RuntimeReleaseCheckpoints(rows) => rows.len(),
+            Self::r#RuntimePublicationManifests(rows) => rows.len(),
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
             Self::r#RuntimeResponseSensitivities(rows) => rows.len(),
             Self::r#RuntimeRetainedVersions(rows) => rows.len(),
@@ -1403,7 +1416,17 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeOperationalPublicationIntents(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeOperationalPublicationMembers(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalPublicationWindows(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1458,12 +1481,7 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
-            Self::r#RuntimePublications(rows) => {
-                for row in rows {
-                    crate::SemanticFrame::frame(row, &mut hash);
-                }
-            }
-            Self::r#RuntimeReleaseCheckpoints(rows) => {
+            Self::r#RuntimePublicationManifests(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1857,9 +1875,21 @@ impl FactBatch {
                         vec![row.clone()],
                     ))
             }
+            Self::r#RuntimeOperationalPublicationIntents(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalPublicationIntents(
+                        vec![row.clone()],
+                    ))
+            }
             Self::r#RuntimeOperationalPublicationMembers(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalPublicationMembers(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalPublicationWindows(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalPublicationWindows(
                         vec![row.clone()],
                     ))
             }
@@ -1909,12 +1939,9 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalWorkspaces(vec![row.clone()]))
             }
-            Self::r#RuntimePublications(rows) => {
-                rows.get(index).map(|row| Self::r#RuntimePublications(vec![row.clone()]))
-            }
-            Self::r#RuntimeReleaseCheckpoints(rows) => {
+            Self::r#RuntimePublicationManifests(rows) => {
                 rows.get(index)
-                    .map(|row| Self::r#RuntimeReleaseCheckpoints(vec![row.clone()]))
+                    .map(|row| Self::r#RuntimePublicationManifests(vec![row.clone()]))
             }
             Self::r#RuntimeResolvedNumerics(rows) => {
                 rows.get(index)
@@ -2771,8 +2798,30 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeOperationalPublicationIntents(left),
+                Self::r#RuntimeOperationalPublicationIntents(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalPublicationMembers(left),
                 Self::r#RuntimeOperationalPublicationMembers(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalPublicationWindows(left),
+                Self::r#RuntimeOperationalPublicationWindows(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -2891,17 +2940,9 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (Self::r#RuntimePublications(left), Self::r#RuntimePublications(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(left, right)
-                    }
-                    _ => false,
-                }
-            }
             (
-                Self::r#RuntimeReleaseCheckpoints(left),
-                Self::r#RuntimeReleaseCheckpoints(right),
+                Self::r#RuntimePublicationManifests(left),
+                Self::r#RuntimePublicationManifests(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3593,7 +3634,21 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeOperationalPublicationIntents(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeOperationalPublicationMembers(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalPublicationWindows(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -3670,14 +3725,7 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
-            Self::r#RuntimePublications(rows) => {
-                rows.get(index)
-                    .map(|row| {
-                        crate::HeapUsage::owned_bytes(row)
-                            .saturating_add(size_of::<Self>())
-                    })
-            }
-            Self::r#RuntimeReleaseCheckpoints(rows) => {
+            Self::r#RuntimePublicationManifests(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4857,6 +4905,20 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeOperationalPublicationIntents(left),
+                Self::r#RuntimeOperationalPublicationIntents(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#publication_id,
+                            &right.r#publication_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalPublicationMembers(left),
                 Self::r#RuntimeOperationalPublicationMembers(right),
             ) => {
@@ -4865,10 +4927,40 @@ impl FactBatch {
                         crate::SemanticEq::semantic_eq(
                             &left.r#publication_id,
                             &right.r#publication_id,
+                        ) && crate::SemanticEq::semantic_eq(&left.r#role, &right.r#role)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#catalog_name,
+                                &right.r#catalog_name,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#schema_name,
+                                &right.r#schema_name,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#table_name,
+                                &right.r#table_name,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalPublicationWindows(left),
+                Self::r#RuntimeOperationalPublicationWindows(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#publication_id,
+                            &right.r#publication_id,
                         )
                             && crate::SemanticEq::semantic_eq(
-                                &left.r#member,
-                                &right.r#member,
+                                &left.r#table_uri,
+                                &right.r#table_uri,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#from_version,
+                                &right.r#from_version,
                             )
                     }
                     _ => false,
@@ -5018,26 +5110,15 @@ impl FactBatch {
                     _ => false,
                 }
             }
-            (Self::r#RuntimePublications(left), Self::r#RuntimePublications(right)) => {
-                match (left.get(index), right.get(other_index)) {
-                    (Some(left), Some(right)) => {
-                        crate::SemanticEq::semantic_eq(
-                            &left.r#workspace_id,
-                            &right.r#workspace_id,
-                        )
-                    }
-                    _ => false,
-                }
-            }
             (
-                Self::r#RuntimeReleaseCheckpoints(left),
-                Self::r#RuntimeReleaseCheckpoints(right),
+                Self::r#RuntimePublicationManifests(left),
+                Self::r#RuntimePublicationManifests(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(
-                            &left.r#consumer_id,
-                            &right.r#consumer_id,
+                            &left.r#publication_id,
+                            &right.r#publication_id,
                         )
                     }
                     _ => false,
@@ -5648,10 +5729,23 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#workspace_id, &mut hash);
             }
+            Self::r#RuntimeOperationalPublicationIntents(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
+            }
             Self::r#RuntimeOperationalPublicationMembers(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
-                crate::SemanticFrame::frame(&row.r#member, &mut hash);
+                crate::SemanticFrame::frame(&row.r#role, &mut hash);
+                crate::SemanticFrame::frame(&row.r#catalog_name, &mut hash);
+                crate::SemanticFrame::frame(&row.r#schema_name, &mut hash);
+                crate::SemanticFrame::frame(&row.r#table_name, &mut hash);
+            }
+            Self::r#RuntimeOperationalPublicationWindows(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#table_uri, &mut hash);
+                crate::SemanticFrame::frame(&row.r#from_version, &mut hash);
             }
             Self::r#RuntimeOperationalPublications(rows) => {
                 let row = rows.get(index)?;
@@ -5695,13 +5789,9 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#workspace_id, &mut hash);
             }
-            Self::r#RuntimePublications(rows) => {
+            Self::r#RuntimePublicationManifests(rows) => {
                 let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#workspace_id, &mut hash);
-            }
-            Self::r#RuntimeReleaseCheckpoints(rows) => {
-                let row = rows.get(index)?;
-                crate::SemanticFrame::frame(&row.r#consumer_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
             }
             Self::r#RuntimeResolvedNumerics(rows) => {
                 let row = rows.get(index)?;
@@ -6308,8 +6398,22 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeOperationalPublicationIntents(left),
+                Self::r#RuntimeOperationalPublicationIntents(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeOperationalPublicationMembers(left),
                 Self::r#RuntimeOperationalPublicationMembers(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalPublicationWindows(left),
+                Self::r#RuntimeOperationalPublicationWindows(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -6385,15 +6489,8 @@ impl FactBatch {
                 Ok(())
             }
             (
-                Self::r#RuntimePublications(left),
-                Self::r#RuntimePublications(mut right),
-            ) => {
-                left.append(&mut right);
-                Ok(())
-            }
-            (
-                Self::r#RuntimeReleaseCheckpoints(left),
-                Self::r#RuntimeReleaseCheckpoints(mut right),
+                Self::r#RuntimePublicationManifests(left),
+                Self::r#RuntimePublicationManifests(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -6630,7 +6727,13 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeOperationalPublicationHeads(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeOperationalPublicationIntents(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeOperationalPublicationMembers(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalPublicationWindows(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeOperationalPublications(rows) => {
@@ -6661,8 +6764,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeOperationalWorkspaces(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
-            Self::r#RuntimePublications(rows) => crate::HeapUsage::heap_bytes(rows),
-            Self::r#RuntimeReleaseCheckpoints(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimePublicationManifests(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeResolvedNumerics(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResponseSensitivities(rows) => {
                 crate::HeapUsage::heap_bytes(rows)

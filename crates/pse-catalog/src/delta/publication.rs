@@ -1,31 +1,35 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Exact Delta publication opening. The control relation selects the entire catalog.
+//! Exact Delta publication opening. The catalog selects a publication's complete record
+//! (Plan 22 X9-X12); this crate opens exactly its member versions.
 use datafusion::{
     catalog::{
         CatalogProvider, CatalogProviderList, MemoryCatalogProvider, MemoryCatalogProviderList,
         MemorySchemaProvider, SchemaProvider,
     },
     common::{DataFusionError, Result, ScalarValue},
-    datasource::{ViewTable, provider_as_source},
+    datasource::ViewTable,
     execution::session_state::{SessionState, SessionStateBuilder},
     logical_expr::{LogicalPlanBuilder, lit},
-    physical_plan::collect,
 };
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
-use pse_relations::generated::runtime::publications;
+use pse_relations::generated::runtime::publication_manifests;
 use pse_schema::Registry;
 use std::sync::Arc;
 
-/// Exact root selection; member versions are read from that immutable control version.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PublicationRoot {
-    /// Location of the workspace's Delta control table.
-    pub location: url::Url,
-    /// Exact Delta version of the publication record.
-    pub version: i64,
+/// What a reader selected: the complete publication record the catalog granted, the
+/// catalog read scope of that grant, and the owner that keeps the grant alive (a reader
+/// lease guard). An offline reader of an export manifest has the record and the scope
+/// the export recorded, and no owner.
+#[derive(Clone, Debug)]
+pub struct PublicationSelection {
+    /// The complete record: exact member and input versions.
+    pub record: publication_manifests::Row,
+    /// The catalog read scope; caches are keyed on it and bypassed without one.
+    pub scope: Option<super::scope::ReadScope>,
+    /// Retained for as long as any session or stream of the publication lives.
+    pub owner: Option<Arc<dyn pse_engine::provider::witness::ExecutionOwner>>,
 }
 
 /// Exact selected publication and its admitted native execution environment.
@@ -33,87 +37,57 @@ pub struct PublicationRoot {
 /// the same boundary as SQL and compiler plans.
 #[derive(Debug)]
 pub struct Publication {
-    root: PublicationRoot,
-    record: publications::Row,
+    record: publication_manifests::Row,
     session: pse_engine::session::EngineSession,
 }
+
 impl Publication {
-    /// Open exact control/member versions under the actual caller's native policy.
-    /// Relation payloads remain lazy; opening verifies declaration and selection.
+    /// Open exactly the member versions a catalog selection names, under the caller's
+    /// native policy. Relation payloads remain lazy; opening verifies declarations and
+    /// selections. The selection's owner is retained by the session.
     /// # Errors
     /// Missing versions, incompatible contracts, policy refusal or cancellation.
     pub async fn open(
-        root: PublicationRoot,
+        selection: PublicationSelection,
         registry: Arc<Registry>,
         factory: &pse_engine::session::EngineFactory,
         cancel: &pse_columnar::CancellationToken,
     ) -> std::result::Result<Self, crate::EngineError> {
         cancel.checkpoint()?;
-        if root.version < 0 {
-            return Err(pse_engine::session::engine(invalid(
-                "publication version must be nonnegative",
-            )));
-        }
-        let mut leases = Vec::new();
-        if let Some(lease) = super::lease::read(&root.location, cancel)
-            .await
-            .map_err(pse_engine::session::engine)?
-        {
-            leases.push(lease);
-        }
+        let PublicationSelection {
+            record,
+            scope,
+            owner,
+        } = selection;
+        super::admission::admit_profile(&record, &registry).map_err(pse_engine::session::engine)?;
         let mut state = factory.native_state().clone();
         state.config_mut().set_extension(Arc::new(
             pse_engine::session::execution::AttemptScope::default(),
         ));
-        let state = Arc::new(state);
-        let record = cancel
-            .until_cancelled(read_record(&root, &registry, Arc::clone(&state)))
-            .await?
-            .map_err(pse_engine::session::engine)?;
-        super::admission::admit_profile(&record, &registry).map_err(pse_engine::session::engine)?;
-        for location in record
-            .members
-            .iter()
-            .map(|member| member.table_uri.as_str())
-            .collect::<std::collections::BTreeSet<_>>()
-        {
-            let location = url::Url::parse(location)
-                .map_err(|error| DataFusionError::External(Box::new(error)))
-                .map_err(pse_engine::session::engine)?;
-            if let Some(lease) = super::lease::read(&location, cancel)
-                .await
-                .map_err(pse_engine::session::engine)?
-            {
-                leases.push(lease);
-            }
+        if let Some(scope) = scope {
+            scope.install(state.config_mut());
         }
         let state = cancel
-            .until_cancelled(bind_members(&record, &registry, state))
+            .until_cancelled(bind_members(&record.members, &registry, Arc::new(state)))
             .await?
             .map_err(pse_engine::session::engine)?;
         let mut session =
-            crate::selection::bind_publication(&record, &state, registry, factory, cancel).await?;
-        for owner in leases {
+            crate::selection::bind_publication(&record.members, &state, registry, factory, cancel)
+                .await?;
+        if let Some(owner) = owner {
             session.retain_owner(owner);
         }
         // Binding does not certify requirements, but an open cannot bypass them.
         session.check_requirements(cancel).await?;
-        let publication = Self {
-            root,
-            record,
-            session,
-        };
+        let publication = Self { record, session };
         if publication.record.kind != pse_relations::generated::enums::PublicationKind::Relations {
             publication.artifact_descriptor(cancel).await?;
         }
         Ok(publication)
     }
-    /// Exact root retained by this handle.
-    pub fn root(&self) -> &PublicationRoot {
-        &self.root
-    }
-    /// Complete generated control record; no parallel manifest is retained.
-    pub fn record(&self) -> &publications::Row {
+
+    /// The complete publication record; no parallel manifest is retained.
+    pub fn record(&self) -> &publication_manifests::Row {
         &self.record
     }
     /// Actual immutable execution environment over the selected native hierarchy.
@@ -124,13 +98,13 @@ impl Publication {
     pub fn into_session(self) -> pse_engine::session::EngineSession {
         self.session
     }
-    /// Exact generated member selected by the control transaction.
+    /// Exact generated member the publication selects.
     /// # Errors
     /// The qualified name is outside this publication.
     pub fn member(
         &self,
         reference: &datafusion::common::ResolvedTableReference,
-    ) -> std::result::Result<publications::RuntimePublicationsFieldMembersItem, crate::EngineError>
+    ) -> std::result::Result<pse_relations::generated::structures::MemberDescriptor, crate::EngineError>
     {
         crate::selection::selected_member(&self.session, reference)
     }
@@ -147,91 +121,8 @@ impl Publication {
         self.session.relation_stream(reference, cancel).await
     }
 }
-/// Read only the bounded control relation; relation payloads remain lazy providers.
-pub(super) async fn read_record(
-    root: &PublicationRoot,
-    registry: &Registry,
-    state: Arc<SessionState>,
-) -> Result<publications::Row> {
-    read_optional_record(root, registry, state)
-        .await?
-        .ok_or_else(|| invalid("publication control has no published row"))
-}
-
-/// An empty declared control table is initialized storage, not a publication root.
-pub(super) async fn read_optional_record(
-    root: &PublicationRoot,
-    registry: &Registry,
-    state: Arc<SessionState>,
-) -> Result<Option<publications::Row>> {
-    read_control(root, registry, state, None).await
-}
-
-pub(super) async fn read_maintained_record(
-    root: &PublicationRoot,
-    registry: &Registry,
-    state: Arc<SessionState>,
-    lease: &super::lease::MaintenanceLease,
-) -> Result<publications::Row> {
-    read_control(root, registry, state, Some(lease))
-        .await?
-        .ok_or_else(|| invalid("publication control has no published row"))
-}
-
-async fn read_control(
-    root: &PublicationRoot,
-    registry: &Registry,
-    state: Arc<SessionState>,
-    lease: Option<&super::lease::MaintenanceLease>,
-) -> Result<Option<publications::Row>> {
-    let contract = super::contract::DeclaredCheck::new(
-        registry,
-        publications::spec(registry).map_err(external)?.id,
-    )?;
-    let control = if let Some(lease) = lease {
-        super::provider::open_maintained_view(
-            root.location.clone(),
-            root.version,
-            &contract,
-            Arc::clone(&state),
-            lease,
-        )
-        .await?
-    } else {
-        super::provider::open_declared_view(
-            root.location.clone(),
-            root.version,
-            &contract,
-            Arc::clone(&state),
-        )
-        .await?
-    };
-    let plan = LogicalPlanBuilder::scan(
-        "publication_control",
-        provider_as_source(Arc::new(control)),
-        None,
-    )?
-    .limit(0, Some(2))?
-    .build()?;
-    let batches = collect(state.create_physical_plan(&plan).await?, state.task_ctx()).await?;
-    let batch =
-        datafusion::arrow::compute::concat_batches(contract.layout().execution_schema(), &batches)?;
-    if batch.num_rows() == 0 {
-        return Ok(None);
-    }
-    if batch.num_rows() > 1 {
-        return Err(invalid(
-            "publication control must contain exactly one workspace row",
-        ));
-    }
-    let record = publications::View::try_from_batch_with_registry(registry, &batch)
-        .map_err(external)?
-        .row(0)
-        .map_err(external)?;
-    Ok(Some(record))
-}
 pub(super) async fn bind_members(
-    record: &publications::Row,
+    members: &[pse_relations::generated::structures::MemberDescriptor],
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<Arc<SessionState>> {
@@ -243,14 +134,13 @@ pub(super) async fn bind_members(
     let slots = pse_columnar::MemoryConsumer::new("publication:member-open-slots")
         .register(&state.runtime_env().memory_pool);
     slots.try_grow(
-        record
-            .members
+        members
             .len()
             .checked_mul(256)
             .ok_or_else(|| invalid("member open inventory overflows"))?,
     )?;
-    let opens = futures_util::stream::iter(0..record.members.len()).map(|ordinal| {
-        let member = &record.members[ordinal];
+    let opens = futures_util::stream::iter(0..members.len()).map(|ordinal| {
+        let member = &members[ordinal];
         let state = state.clone();
         async move {
             let view = selected_provider(member, registry, state)
@@ -271,7 +161,7 @@ pub(super) async fn bind_members(
         .await?;
     opened.sort_unstable_by_key(|(ordinal, _)| *ordinal);
     for (ordinal, view) in opened {
-        let member = &record.members[ordinal];
+        let member = &members[ordinal];
         let catalog = if let Some(catalog) = catalogs.catalog(&member.catalog_name) {
             catalog
         } else {
@@ -305,7 +195,7 @@ pub(super) async fn bind_members(
 
 /// Open exactly the declared member slice through the common native provider.
 pub(crate) async fn selected_provider(
-    member: &publications::RuntimePublicationsFieldMembersItem,
+    member: &pse_relations::generated::structures::MemberDescriptor,
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<Arc<dyn datafusion::catalog::TableProvider>> {
@@ -334,8 +224,8 @@ pub(crate) async fn selected_provider(
         .selected()
         .map_err(pse_columnar::external)?
     {
-        publications::RuntimePublicationsFieldMembersItemSelectionSelected::Full => view,
-        publications::RuntimePublicationsFieldMembersItemSelectionSelected::Revision(selection) => {
+        pse_relations::generated::structures::MemberDescriptorSelectionSelected::Full => view,
+        pse_relations::generated::structures::MemberDescriptorSelectionSelected::Revision(selection) => {
             let column = relation
                 .column(&selection.column)
                 .ok_or_else(|| invalid("revision selection column is undeclared"))?;
@@ -360,31 +250,17 @@ pub(crate) async fn selected_provider(
     crate::cache_service::resident::selected(super::provider::selected_view(view), member, &state)
 }
 
+/// Every exact input opens under its declared contract.
 pub(super) async fn verify_inputs(
-    record: &publications::Row,
+    inputs: &[pse_relations::generated::structures::MemberDescriptor],
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<()> {
-    // Inputs and members project the same declared nested Arrow value. Transfer
-    // the column directly; no generic scalar reconstruction or second schema.
-    let mut builder = publications::Builder::with_registry(registry, 1).map_err(external)?;
-    builder.push(record.clone()).map_err(external)?;
-    let batch = builder.finish().map_err(external)?.into_batch();
-    let schema = batch.schema();
-    let mut columns = batch.columns().to_vec();
-    columns[schema.index_of("members")?] = Arc::clone(batch.column(schema.index_of("inputs")?));
-    let batch = datafusion::arrow::array::RecordBatch::try_new(schema, columns)?;
-    let inputs = publications::View::try_from_batch_with_registry(registry, &batch)
-        .map_err(external)?
-        .row(0)
-        .map_err(external)?;
-    bind_members(&inputs, registry, state).await?;
+    // Inputs and members are the one registry structure `MemberDescriptor`.
+    bind_members(inputs, registry, state).await?;
     Ok(())
 }
 
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(reason.into())
-}
-fn external(error: impl Into<DataFusionError>) -> DataFusionError {
-    error.into()
 }

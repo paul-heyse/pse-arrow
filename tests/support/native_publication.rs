@@ -11,16 +11,16 @@
     reason = "shared fixture constructors differ between test binaries"
 )]
 
-use datafusion::{
-    arrow::array::{Int64Array, RecordBatch},
-    common::ResolvedTableReference,
-};
+use datafusion::{arrow::array::RecordBatch, common::ResolvedTableReference};
 use pse_catalog::{
-    artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
-    delta::publication::{Publication, PublicationRoot},
+    artifact::{ArtifactPlan, RelationOutput},
+    delta::{
+        publication::{Publication, PublicationSelection},
+        scope::ReadScope,
+    },
 };
 use pse_columnar::CancellationToken;
-use pse_relations::generated::{enums::PublicationKind, runtime::publications};
+use pse_relations::generated::{enums::PublicationKind, runtime::publication_manifests};
 use pse_schema::{Registry, model::RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
 pub(crate) fn name(schema: &str, table: &str) -> ResolvedTableReference {
@@ -70,7 +70,6 @@ pub(crate) async fn publish(
     let artifact = ArtifactPlan::new(session, outputs, &cancel).unwrap();
     let directory = tempfile::tempdir().unwrap();
     let base = url::Url::from_directory_path(directory.path()).unwrap();
-    let control = base.join("control/").unwrap();
     let destinations = artifact
         .outputs()
         .keys()
@@ -82,42 +81,39 @@ pub(crate) async fn publish(
             )
         })
         .collect();
-    let header = publications::Row {
-        workspace_id: pse_authoring::ids::uuid_v7(),
+    let workspace = pse_authoring::ids::uuid_v7();
+    let header = publication_manifests::Row {
         publication_id: pse_authoring::ids::uuid_v7(),
+        workspace_id: workspace,
         parent_publication_id: None,
         attempt_id: pse_authoring::ids::uuid_v7(),
         kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
+        windows: vec![],
+        exported_at: None,
+        export_lease_id: None,
+        export_expires_at: None,
+        maintenance_epoch: None,
+        store_fingerprint: None,
     };
     let command = artifact
-        .prepare_publication(
-            PublicationTarget {
-                reference: name("runtime", "publications"),
-                location: control.clone(),
-            },
-            header,
-            destinations,
-            vec![],
-            &cancel,
-        )
+        .prepare_publication(header, destinations, vec![], &cancel)
         .map(|(command, _ticket)| command)
         .unwrap();
     let result = command.execute(&cancel).await.unwrap();
-    let version = result.batches()[0]
-        .column(0)
-        .as_any()
-        .downcast_ref::<Int64Array>()
-        .unwrap()
-        .value(0);
+    let record = admitted(&registry, result.batches());
     drop(result);
     drop(artifact);
     // Keep the shared fixture's stack bounded as member opens gain concurrency.
     let publication = Box::pin(Publication::open(
-        PublicationRoot {
-            location: control,
-            version,
+        PublicationSelection {
+            record,
+            scope: Some(ReadScope {
+                workspace: workspace.into(),
+                epoch: 0,
+            }),
+            owner: None,
         },
         registry,
         &factory,
@@ -126,4 +122,18 @@ pub(crate) async fn publish(
     .await
     .unwrap();
     (publication, directory, pool)
+}
+
+/// The admitted record an executed publication candidate returns.
+pub(crate) fn admitted(
+    registry: &Registry,
+    batches: &[pse_columnar::owned_buffer::OwnedRecordBatch],
+) -> publication_manifests::Row {
+    let [batch] = batches else {
+        panic!("a publication candidate returns one record")
+    };
+    publication_manifests::View::try_from_batch_with_registry(registry, batch)
+        .unwrap()
+        .row(0)
+        .unwrap()
 }

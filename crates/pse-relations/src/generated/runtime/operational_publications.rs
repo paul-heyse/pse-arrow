@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    14u8, 51u8, 223u8, 235u8, 152u8, 177u8, 132u8, 41u8, 25u8, 105u8, 143u8, 71u8, 29u8,
-    153u8, 241u8, 40u8, 92u8, 136u8, 119u8, 39u8, 37u8, 80u8, 111u8, 29u8, 25u8, 185u8,
-    221u8, 174u8, 87u8, 172u8, 79u8, 9u8,
+    29u8, 70u8, 113u8, 112u8, 214u8, 243u8, 173u8, 126u8, 72u8, 118u8, 130u8, 66u8, 42u8,
+    151u8, 87u8, 166u8, 109u8, 157u8, 20u8, 79u8, 137u8, 35u8, 133u8, 167u8, 107u8,
+    116u8, 36u8, 185u8, 118u8, 181u8, 59u8, 214u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalPublicationsRow {
     fn append(
@@ -48,9 +48,10 @@ impl crate::columnar::ArrowValue for RuntimeOperationalPublicationsRow {
             &self.r#attempt_id,
             children[3usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#committed_at,
-            children[4usize].as_mut(),
+            children[5usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -74,7 +75,10 @@ impl crate::columnar::ArrowValue for RuntimeOperationalPublicationsRow {
         <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <crate::generated::enums::PublicationKind as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -103,8 +107,12 @@ impl crate::columnar::ArrowValue for RuntimeOperationalPublicationsRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#committed_at: <i64 as crate::columnar::ArrowValue>::read(
+            r#kind: <crate::generated::enums::PublicationKind as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#committed_at: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
                 index,
             )?,
         })
@@ -171,9 +179,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalPublicationsRow {
             &self.r#attempt_id,
             columns[3usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#kind, columns[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#committed_at,
-            columns[4usize].as_mut(),
+            columns[5usize].as_mut(),
         )?;
         Ok(())
     }
@@ -209,10 +218,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalPublicationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        14_336_usize + size_of::<Self::Builder>()
+        16_384_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        112usize
+        128usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -241,6 +250,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalPublicationsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            crate::columnar::allocation_add(8, (self.r#kind).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         Ok(bytes)
@@ -253,7 +266,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "publication_id",
@@ -276,8 +289,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "committed_at",
+        name: "kind",
         position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "committed_at",
+        position: 5usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -290,8 +308,10 @@ pub mod columns {
     pub const PARENT_PUBLICATION: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///attempt_id
     pub const ATTEMPT_ID: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///kind
+    pub const KIND: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///committed_at
-    pub const COMMITTED_AT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const COMMITTED_AT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -302,6 +322,7 @@ pub struct RuntimeOperationalPublicationsView<'a> {
     workspace_id_column: &'a arrow_array::FixedSizeBinaryArray,
     parent_publication_column: &'a arrow_array::FixedSizeBinaryArray,
     attempt_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    kind_column: &'a arrow_array::StringArray,
     committed_at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalPublicationsView<'a> {
@@ -354,9 +375,12 @@ impl<'a> RuntimeOperationalPublicationsView<'a> {
             attempt_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(3usize).as_ref())?,
+            kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
             committed_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -427,6 +451,18 @@ impl<'a> RuntimeOperationalPublicationsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn kind_column(&self) -> &'a arrow_array::StringArray {
+        self.kind_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "kind", "`.")]
+    pub fn kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "committed_at",
         "`, including its offsets and validity bitmap.",
     )]
@@ -437,7 +473,7 @@ impl<'a> RuntimeOperationalPublicationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "committed_at", "`.")]
     pub fn committed_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -467,6 +503,7 @@ impl<'a> RuntimeOperationalPublicationsView<'a> {
                 self.attempt_id_column,
                 index,
             )?,
+            r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
             r#committed_at: crate::columnar::ArrowValue::read(
                 self.committed_at_column,
                 index,

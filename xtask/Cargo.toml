@@ -24,6 +24,7 @@ default = ["package-fixtures"]
 package-fixtures = [
   "dep:datafusion",
   "dep:pse-authoring",
+  "dep:pse-ids",
   "dep:pse-engine",
   "dep:pse-catalog",
   "dep:pse-relations",
@@ -42,6 +43,7 @@ bindgen.workspace = true
 # The registry and the passes the generators and the inspection-fixture driver run.
 pse-schema.workspace = true
 pse-authoring = { workspace = true, optional = true }
+pse-ids = { workspace = true, optional = true }
 pse-catalog = { workspace = true, optional = true }
 pse-quantity.workspace = true
 pse-relations = { workspace = true, optional = true }

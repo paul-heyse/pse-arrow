@@ -97,13 +97,13 @@ async fn ephemeral_cannot_publish() {
     assert!(result.usable());
     assert!(matches!(result.durability(), RunDurability::Ephemeral));
     let (_directory, base) = base();
+    let workspace = Workspace {
+        workspace_id: pse_operations::mint_id(),
+        name: "ephemeral".into(),
+        root: base,
+    };
     let refused = result
-        .prepare_publication(
-            base,
-            pse_authoring::ids::uuid_v7(),
-            None,
-            &pse_columnar::CancellationToken::new(),
-        )
+        .prepare_publication(&workspace, None, None, &pse_columnar::CancellationToken::new())
         .unwrap_err();
     assert!(
         matches!(refused, WorkflowError::EphemeralPublication { run_id } if run_id == result.run_id),
@@ -137,9 +137,10 @@ async fn durable_run_listed_after_restart() {
         // fixture's physical context lacks reference relations, so the product admission
         // after that check refuses; no write happens either way.)
         let (_directory, base) = base();
+        let workspace = runtime.register_workspace("durable", base).await.unwrap();
         let prepared = result.prepare_publication(
-            base,
-            pse_authoring::ids::uuid_v7(),
+            &workspace,
+            None,
             None,
             &pse_columnar::CancellationToken::new(),
         );

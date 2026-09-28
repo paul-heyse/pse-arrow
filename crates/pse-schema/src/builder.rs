@@ -29,6 +29,7 @@ use crate::model::{
 
 mod identities;
 mod integrity;
+mod structures;
 
 mod native;
 
@@ -115,6 +116,8 @@ pub struct Registry {
     enums: Vec<EnumSpec>,
     /// Entity identities, sorted by name (ADR-0115).
     identities: Vec<IdentitySpec>,
+    /// Named structures by name, each with its one contract (Plan 22 X11).
+    structures: BTreeMap<String, FieldContract>,
     /// Sorted by name.
     logical_types: Vec<FieldTypeRow>,
     /// Resolved native Arrow storage in the same name order; compiled once.
@@ -288,6 +291,12 @@ impl Registry {
             .binary_search_by(|candidate| candidate.name.cmp(name))
             .ok()
             .and_then(|index| self.identities.get(index))
+    }
+
+    /// Every named structure with its one contract, by name (Plan 22 X11). The name is
+    /// presentation only; generators emit each structure once.
+    pub const fn structures(&self) -> &BTreeMap<String, FieldContract> {
+        &self.structures
     }
 
     /// The logical-type catalog, sorted by name (blueprint §4.5).
@@ -560,6 +569,7 @@ impl RegistryBuilder {
     fn resolve_base(&self) -> Result<Registry, SchemaError> {
         let mut relations = self.resolve_relations()?;
         let identities = identities::resolve(&mut relations, &self.identities)?;
+        let structures = structures::resolve(&relations)?;
         let relation_index = index_relations(&relations);
         let relation_by_id = relations
             .iter()
@@ -583,6 +593,7 @@ impl RegistryBuilder {
             relation_by_id,
             enums,
             identities,
+            structures,
             logical_types,
             logical_storage: Vec::new(),
             invariants: Vec::new(),

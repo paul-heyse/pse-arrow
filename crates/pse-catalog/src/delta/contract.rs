@@ -324,17 +324,6 @@ impl DeclaredCheck {
         let encoding = verify_recorded_fields(&actual, &execution, configuration)?;
         compatibility::require(&actual, &self.semantic, encoding, self.encoding)
             .map_err(external)?;
-        if configuration
-            .get(pse_schema::arrow::KEY_CONTRACT_ID)
-            .is_some_and(|id| {
-                id == &pse_relations::generated::runtime::publications::RELATION_ID.to_string()
-            })
-            && configuration.contains_key("delta.setTransactionRetentionDuration")
-        {
-            return Err(invalid(
-                "publication transaction identities must survive control log cleanup",
-            ));
-        }
         if let Some(name) = configuration.keys().find(|name| {
             name.starts_with("delta.constraints.") && !self.properties.contains_key(*name)
         }) {

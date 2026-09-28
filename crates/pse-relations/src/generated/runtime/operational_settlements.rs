@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    241u8, 192u8, 201u8, 118u8, 72u8, 172u8, 187u8, 137u8, 39u8, 40u8, 148u8, 126u8,
-    96u8, 184u8, 214u8, 31u8, 45u8, 162u8, 26u8, 96u8, 43u8, 65u8, 151u8, 193u8, 38u8,
-    242u8, 150u8, 2u8, 113u8, 196u8, 11u8, 38u8,
+    188u8, 160u8, 51u8, 168u8, 191u8, 149u8, 161u8, 31u8, 115u8, 115u8, 128u8, 184u8,
+    4u8, 60u8, 109u8, 252u8, 185u8, 178u8, 252u8, 211u8, 157u8, 233u8, 37u8, 51u8, 156u8,
+    175u8, 86u8, 26u8, 10u8, 172u8, 235u8, 34u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalSettlementsRow {
     fn append(
@@ -45,9 +45,14 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSettlementsRow {
             &self.r#publication_id,
             children[3usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#reason, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#conflict_head,
+            children[5usize].as_mut(),
+        )?;
         crate::columnar::ArrowValue::append(
             &self.r#settled_at,
-            children[4usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -71,7 +76,13 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSettlementsRow {
         <Option<
             crate::generated::identities::PublicationId,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            crate::generated::identities::PublicationId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -100,8 +111,20 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSettlementsRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#settled_at: <i64 as crate::columnar::ArrowValue>::read(
+            r#reason: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#conflict_head: <Option<
+                crate::generated::identities::PublicationId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#settled_at: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
                 index,
             )?,
         })
@@ -165,9 +188,14 @@ impl crate::columnar::RelationRow for RuntimeOperationalSettlementsRow {
             &self.r#publication_id,
             columns[3usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#reason, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#conflict_head,
+            columns[5usize].as_mut(),
+        )?;
         crate::columnar::ArrowValue::append(
             &self.r#settled_at,
-            columns[4usize].as_mut(),
+            columns[6usize].as_mut(),
         )?;
         Ok(())
     }
@@ -203,10 +231,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalSettlementsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        13_312_usize + size_of::<Self::Builder>()
+        18_432_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        104usize
+        144usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -235,6 +263,28 @@ impl crate::columnar::RelationRow for RuntimeOperationalSettlementsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            if let Some(value) = (self.r#reason).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#conflict_head).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         Ok(bytes)
@@ -247,7 +297,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "settlement_id",
@@ -270,8 +320,18 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "settled_at",
+        name: "reason",
         position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "conflict_head",
+        position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "settled_at",
+        position: 6usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -284,8 +344,12 @@ pub mod columns {
     pub const OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///publication_id
     pub const PUBLICATION_ID: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///reason
+    pub const REASON: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///conflict_head
+    pub const CONFLICT_HEAD: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///settled_at
-    pub const SETTLED_AT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const SETTLED_AT: crate::columnar::ColumnReference = super::COLUMNS[6usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -296,6 +360,8 @@ pub struct RuntimeOperationalSettlementsView<'a> {
     attempt_id_column: &'a arrow_array::FixedSizeBinaryArray,
     outcome_column: &'a arrow_array::StringArray,
     publication_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    reason_column: &'a arrow_array::StringArray,
+    conflict_head_column: &'a arrow_array::FixedSizeBinaryArray,
     settled_at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalSettlementsView<'a> {
@@ -348,9 +414,15 @@ impl<'a> RuntimeOperationalSettlementsView<'a> {
             publication_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(3usize).as_ref())?,
+            reason_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
+            conflict_head_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(5usize).as_ref())?,
             settled_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -415,6 +487,30 @@ impl<'a> RuntimeOperationalSettlementsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "reason",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn reason_column(&self) -> &'a arrow_array::StringArray {
+        self.reason_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "reason", "`.")]
+    pub fn reason_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "conflict_head",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn conflict_head_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.conflict_head_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "conflict_head", "`.")]
+    pub fn conflict_head_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "settled_at",
         "`, including its offsets and validity bitmap.",
     )]
@@ -423,7 +519,7 @@ impl<'a> RuntimeOperationalSettlementsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "settled_at", "`.")]
     pub fn settled_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -448,6 +544,11 @@ impl<'a> RuntimeOperationalSettlementsView<'a> {
             r#outcome: crate::columnar::ArrowValue::read(self.outcome_column, index)?,
             r#publication_id: crate::columnar::ArrowValue::read(
                 self.publication_id_column,
+                index,
+            )?,
+            r#reason: crate::columnar::ArrowValue::read(self.reason_column, index)?,
+            r#conflict_head: crate::columnar::ArrowValue::read(
+                self.conflict_head_column,
                 index,
             )?,
             r#settled_at: crate::columnar::ArrowValue::read(

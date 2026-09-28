@@ -15,9 +15,9 @@ use datafusion::{
     datasource::MemTable,
     execution::{runtime_env::RuntimeEnv, session_state::SessionStateBuilder},
 };
-use pse_relations::generated::runtime::publications::{
-    RuntimePublicationsFieldMembersItem as Member,
-    RuntimePublicationsFieldMembersItemSelection as Selection,
+use pse_relations::generated::structures::{
+    MemberDescriptor as Member,
+    MemberDescriptorSelection as Selection,
 };
 use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
 

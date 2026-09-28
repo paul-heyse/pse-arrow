@@ -13,26 +13,58 @@ pub struct AdvanceHeadParams {
     pub publication_id: pse_model::generated::identities::PublicationId,
     pub workspace_id: pse_model::generated::identities::WorkspaceId,
 }
+#[derive(Debug)]
+pub struct InsertIntentParams<T1: crate::StringSql> {
+    pub publication_id: pse_model::generated::identities::PublicationId,
+    pub workspace_id: pse_model::generated::identities::WorkspaceId,
+    pub attempt_id: pse_model::generated::identities::AttemptId,
+    pub member_prefix: T1,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct ReclaimableIntentsParams {
+    pub workspace_id: pse_model::generated::identities::WorkspaceId,
+    pub stale: pse_model::generated::enums::AttemptState,
+    pub superseded: pse_model::generated::enums::AttemptState,
+}
+#[derive(Debug)]
+pub struct ShareSelectingPublicationsParams<T1: crate::StringSql> {
+    pub table_uri: T1,
+    pub delta_version: i64,
+}
+#[derive(Debug)]
+pub struct LiveSelectionParams<T1: crate::StringSql> {
+    pub table_uri: T1,
+    pub delta_version: i64,
+}
 #[derive(Clone, Copy, Debug)]
 pub struct InsertPublicationParams {
     pub publication_id: pse_model::generated::identities::PublicationId,
     pub workspace_id: pse_model::generated::identities::WorkspaceId,
     pub parent_publication: Option<pse_model::generated::identities::PublicationId>,
     pub attempt_id: pse_model::generated::identities::AttemptId,
+    pub kind: pse_model::generated::enums::PublicationKind,
 }
-#[derive(Clone, Copy, Debug)]
-pub struct InsertSettlementParams {
+#[derive(Debug)]
+pub struct InsertSettlementParams<T1: crate::StringSql> {
     pub settlement_id: pse_model::generated::identities::SettlementId,
     pub attempt_id: pse_model::generated::identities::AttemptId,
     pub outcome: pse_model::generated::enums::SettlementOutcome,
     pub publication_id: Option<pse_model::generated::identities::PublicationId>,
+    pub reason: Option<T1>,
+    pub conflict_head: Option<pse_model::generated::identities::PublicationId>,
 }
 #[derive(Debug)]
 pub struct InsertReaderLeaseParams<T1: crate::StringSql> {
     pub lease_id: pse_model::generated::identities::ReaderLeaseId,
     pub publication_id: pse_model::generated::identities::PublicationId,
+    pub head_of: Option<pse_model::generated::identities::WorkspaceId>,
     pub holder: T1,
     pub ttl_us: i64,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct RenewReaderLeaseParams {
+    pub ttl_us: i64,
+    pub lease_id: pse_model::generated::identities::ReaderLeaseId,
 }
 #[derive(Clone, Copy, Debug)]
 pub struct MarkExpiringParams {
@@ -44,26 +76,47 @@ pub struct MarkDeletedParams {
     pub phase: pse_model::generated::enums::RetentionPhase,
     pub publication_id: pse_model::generated::identities::PublicationId,
 }
+#[derive(Clone, Copy, Debug)]
+pub struct DeletionCandidatesParams {
+    pub publication_id: pse_model::generated::identities::PublicationId,
+    pub workspace_id: pse_model::generated::identities::WorkspaceId,
+    pub deleted: pse_model::generated::enums::RetentionPhase,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct CollectedTablesParams {
+    pub workspace_id: pse_model::generated::identities::WorkspaceId,
+    pub deleted: pse_model::generated::enums::RetentionPhase,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct ProtectedMembersParams {
+    pub workspace_id: pse_model::generated::identities::WorkspaceId,
+    pub expiring: pse_model::generated::enums::RetentionPhase,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct ProtectedWindowsParams {
+    pub workspace_id: pse_model::generated::identities::WorkspaceId,
+    pub expiring: pse_model::generated::enums::RetentionPhase,
+}
 #[derive(Debug, Clone, PartialEq, Copy)]
 pub struct LockPublication {
     pub workspace_id: pse_ids::SemanticId,
     pub phase: Option<pse_model::generated::enums::RetentionPhase>,
 }
 #[derive(Debug, Clone, PartialEq)]
-pub struct ProtectedVersion {
+pub struct ProtectedMembers {
     pub table_uri: String,
     pub delta_version: i64,
 }
-pub struct ProtectedVersionBorrowed<'a> {
+pub struct ProtectedMembersBorrowed<'a> {
     pub table_uri: &'a str,
     pub delta_version: i64,
 }
-impl<'a> From<ProtectedVersionBorrowed<'a>> for ProtectedVersion {
+impl<'a> From<ProtectedMembersBorrowed<'a>> for ProtectedMembers {
     fn from(
-        ProtectedVersionBorrowed {
+        ProtectedMembersBorrowed {
             table_uri,
             delta_version,
-        }: ProtectedVersionBorrowed<'a>,
+        }: ProtectedMembersBorrowed<'a>,
     ) -> Self {
         Self {
             table_uri: table_uri.into(),
@@ -71,8 +124,150 @@ impl<'a> From<ProtectedVersionBorrowed<'a>> for ProtectedVersion {
         }
     }
 }
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProtectedWindows {
+    pub table_uri: String,
+    pub from_version: i64,
+    pub through_version: i64,
+}
+pub struct ProtectedWindowsBorrowed<'a> {
+    pub table_uri: &'a str,
+    pub from_version: i64,
+    pub through_version: i64,
+}
+impl<'a> From<ProtectedWindowsBorrowed<'a>> for ProtectedWindows {
+    fn from(
+        ProtectedWindowsBorrowed {
+            table_uri,
+            from_version,
+            through_version,
+        }: ProtectedWindowsBorrowed<'a>,
+    ) -> Self {
+        Self {
+            table_uri: table_uri.into(),
+            from_version,
+            through_version,
+        }
+    }
+}
 use crate::client::async_::GenericClient;
 use futures::{self, StreamExt, TryStreamExt};
+pub struct PsemodelGeneratedRuntimeOperationalworkspacesRuntimeOperationalWorkspacesRowQuery<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+    T,
+    const N: usize,
+> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(
+        &tokio_postgres::Row,
+    ) -> Result<
+        pse_model::generated::runtime::operational_workspaces::RuntimeOperationalWorkspacesRow,
+        tokio_postgres::Error,
+    >,
+    mapper: fn(
+        pse_model::generated::runtime::operational_workspaces::RuntimeOperationalWorkspacesRow,
+    ) -> T,
+}
+impl<
+    'c,
+    'a,
+    's,
+    C,
+    T: 'c,
+    const N: usize,
+> PsemodelGeneratedRuntimeOperationalworkspacesRuntimeOperationalWorkspacesRowQuery<
+    'c,
+    'a,
+    's,
+    C,
+    T,
+    N,
+>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(
+        self,
+        mapper: fn(
+            pse_model::generated::runtime::operational_workspaces::RuntimeOperationalWorkspacesRow,
+        ) -> R,
+    ) -> PsemodelGeneratedRuntimeOperationalworkspacesRuntimeOperationalWorkspacesRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        R,
+        N,
+    > {
+        PsemodelGeneratedRuntimeOperationalworkspacesRuntimeOperationalWorkspacesRowQuery {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
 pub struct PsemodelGeneratedRuntimeOperationalpublicationheadsRuntimeOperationalPublicationHeadsRowQuery<
     'c,
     'a,
@@ -127,6 +322,122 @@ where
         N,
     > {
         PsemodelGeneratedRuntimeOperationalpublicationheadsRuntimeOperationalPublicationHeadsRowQuery {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
+pub struct PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+    T,
+    const N: usize,
+> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(
+        &tokio_postgres::Row,
+    ) -> Result<
+        pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow,
+        tokio_postgres::Error,
+    >,
+    mapper: fn(
+        pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow,
+    ) -> T,
+}
+impl<
+    'c,
+    'a,
+    's,
+    C,
+    T: 'c,
+    const N: usize,
+> PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery<
+    'c,
+    'a,
+    's,
+    C,
+    T,
+    N,
+>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(
+        self,
+        mapper: fn(
+            pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow,
+        ) -> R,
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        R,
+        N,
+    > {
+        PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery {
             client: self.client,
             params: self.params,
             query: self.query,
@@ -592,25 +903,60 @@ where
         Ok(mapped)
     }
 }
-pub struct LockPublicationQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+pub struct PsemodelGeneratedRuntimeOperationalpublicationwindowsRuntimeOperationalPublicationWindowsRowQuery<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+    T,
+    const N: usize,
+> {
     client: &'c C,
     params: [&'a (dyn postgres_types::ToSql + Sync); N],
     query: &'static str,
     cached: Option<&'s tokio_postgres::Statement>,
     extractor: fn(
         &tokio_postgres::Row,
-    ) -> Result<LockPublication, tokio_postgres::Error>,
-    mapper: fn(LockPublication) -> T,
+    ) -> Result<
+        pse_model::generated::runtime::operational_publication_windows::RuntimeOperationalPublicationWindowsRow,
+        tokio_postgres::Error,
+    >,
+    mapper: fn(
+        pse_model::generated::runtime::operational_publication_windows::RuntimeOperationalPublicationWindowsRow,
+    ) -> T,
 }
-impl<'c, 'a, 's, C, T: 'c, const N: usize> LockPublicationQuery<'c, 'a, 's, C, T, N>
+impl<
+    'c,
+    'a,
+    's,
+    C,
+    T: 'c,
+    const N: usize,
+> PsemodelGeneratedRuntimeOperationalpublicationwindowsRuntimeOperationalPublicationWindowsRowQuery<
+    'c,
+    'a,
+    's,
+    C,
+    T,
+    N,
+>
 where
     C: GenericClient,
 {
     pub fn map<R>(
         self,
-        mapper: fn(LockPublication) -> R,
-    ) -> LockPublicationQuery<'c, 'a, 's, C, R, N> {
-        LockPublicationQuery {
+        mapper: fn(
+            pse_model::generated::runtime::operational_publication_windows::RuntimeOperationalPublicationWindowsRow,
+        ) -> R,
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationwindowsRuntimeOperationalPublicationWindowsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        R,
+        N,
+    > {
+        PsemodelGeneratedRuntimeOperationalpublicationwindowsRuntimeOperationalPublicationWindowsRowQuery {
             client: self.client,
             params: self.params,
             query: self.query,
@@ -673,7 +1019,164 @@ where
         Ok(mapped)
     }
 }
-pub struct OptionpsemodelGeneratedEnumsRetentionPhaseQuery<
+pub struct PseidsSemanticIdQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(
+        &tokio_postgres::Row,
+    ) -> Result<pse_ids::SemanticId, tokio_postgres::Error>,
+    mapper: fn(pse_ids::SemanticId) -> T,
+}
+impl<'c, 'a, 's, C, T: 'c, const N: usize> PseidsSemanticIdQuery<'c, 'a, 's, C, T, N>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(
+        self,
+        mapper: fn(pse_ids::SemanticId) -> R,
+    ) -> PseidsSemanticIdQuery<'c, 'a, 's, C, R, N> {
+        PseidsSemanticIdQuery {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
+pub struct I64Query<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(&tokio_postgres::Row) -> Result<i64, tokio_postgres::Error>,
+    mapper: fn(i64) -> T,
+}
+impl<'c, 'a, 's, C, T: 'c, const N: usize> I64Query<'c, 'a, 's, C, T, N>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(self, mapper: fn(i64) -> R) -> I64Query<'c, 'a, 's, C, R, N> {
+        I64Query {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
+pub struct PsemodelGeneratedEnumsRetentionPhaseQuery<
     'c,
     'a,
     's,
@@ -687,11 +1190,8 @@ pub struct OptionpsemodelGeneratedEnumsRetentionPhaseQuery<
     cached: Option<&'s tokio_postgres::Statement>,
     extractor: fn(
         &tokio_postgres::Row,
-    ) -> Result<
-        Option<pse_model::generated::enums::RetentionPhase>,
-        tokio_postgres::Error,
-    >,
-    mapper: fn(Option<pse_model::generated::enums::RetentionPhase>) -> T,
+    ) -> Result<pse_model::generated::enums::RetentionPhase, tokio_postgres::Error>,
+    mapper: fn(pse_model::generated::enums::RetentionPhase) -> T,
 }
 impl<
     'c,
@@ -700,15 +1200,15 @@ impl<
     C,
     T: 'c,
     const N: usize,
-> OptionpsemodelGeneratedEnumsRetentionPhaseQuery<'c, 'a, 's, C, T, N>
+> PsemodelGeneratedEnumsRetentionPhaseQuery<'c, 'a, 's, C, T, N>
 where
     C: GenericClient,
 {
     pub fn map<R>(
         self,
-        mapper: fn(Option<pse_model::generated::enums::RetentionPhase>) -> R,
-    ) -> OptionpsemodelGeneratedEnumsRetentionPhaseQuery<'c, 'a, 's, C, R, N> {
-        OptionpsemodelGeneratedEnumsRetentionPhaseQuery {
+        mapper: fn(pse_model::generated::enums::RetentionPhase) -> R,
+    ) -> PsemodelGeneratedEnumsRetentionPhaseQuery<'c, 'a, 's, C, R, N> {
+        PsemodelGeneratedEnumsRetentionPhaseQuery {
             client: self.client,
             params: self.params,
             query: self.query,
@@ -887,20 +1387,25 @@ where
         Ok(mapped)
     }
 }
-pub struct I64Query<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+pub struct LockPublicationQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
     client: &'c C,
     params: [&'a (dyn postgres_types::ToSql + Sync); N],
     query: &'static str,
     cached: Option<&'s tokio_postgres::Statement>,
-    extractor: fn(&tokio_postgres::Row) -> Result<i64, tokio_postgres::Error>,
-    mapper: fn(i64) -> T,
+    extractor: fn(
+        &tokio_postgres::Row,
+    ) -> Result<LockPublication, tokio_postgres::Error>,
+    mapper: fn(LockPublication) -> T,
 }
-impl<'c, 'a, 's, C, T: 'c, const N: usize> I64Query<'c, 'a, 's, C, T, N>
+impl<'c, 'a, 's, C, T: 'c, const N: usize> LockPublicationQuery<'c, 'a, 's, C, T, N>
 where
     C: GenericClient,
 {
-    pub fn map<R>(self, mapper: fn(i64) -> R) -> I64Query<'c, 'a, 's, C, R, N> {
-        I64Query {
+    pub fn map<R>(
+        self,
+        mapper: fn(LockPublication) -> R,
+    ) -> LockPublicationQuery<'c, 'a, 's, C, R, N> {
+        LockPublicationQuery {
             client: self.client,
             params: self.params,
             query: self.query,
@@ -963,25 +1468,182 @@ where
         Ok(mapped)
     }
 }
-pub struct ProtectedVersionQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+pub struct StringQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(&tokio_postgres::Row) -> Result<&str, tokio_postgres::Error>,
+    mapper: fn(&str) -> T,
+}
+impl<'c, 'a, 's, C, T: 'c, const N: usize> StringQuery<'c, 'a, 's, C, T, N>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(self, mapper: fn(&str) -> R) -> StringQuery<'c, 'a, 's, C, R, N> {
+        StringQuery {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
+pub struct ProtectedMembersQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
     client: &'c C,
     params: [&'a (dyn postgres_types::ToSql + Sync); N],
     query: &'static str,
     cached: Option<&'s tokio_postgres::Statement>,
     extractor: fn(
         &tokio_postgres::Row,
-    ) -> Result<ProtectedVersionBorrowed, tokio_postgres::Error>,
-    mapper: fn(ProtectedVersionBorrowed) -> T,
+    ) -> Result<ProtectedMembersBorrowed, tokio_postgres::Error>,
+    mapper: fn(ProtectedMembersBorrowed) -> T,
 }
-impl<'c, 'a, 's, C, T: 'c, const N: usize> ProtectedVersionQuery<'c, 'a, 's, C, T, N>
+impl<'c, 'a, 's, C, T: 'c, const N: usize> ProtectedMembersQuery<'c, 'a, 's, C, T, N>
 where
     C: GenericClient,
 {
     pub fn map<R>(
         self,
-        mapper: fn(ProtectedVersionBorrowed) -> R,
-    ) -> ProtectedVersionQuery<'c, 'a, 's, C, R, N> {
-        ProtectedVersionQuery {
+        mapper: fn(ProtectedMembersBorrowed) -> R,
+    ) -> ProtectedMembersQuery<'c, 'a, 's, C, R, N> {
+        ProtectedMembersQuery {
+            client: self.client,
+            params: self.params,
+            query: self.query,
+            cached: self.cached,
+            extractor: self.extractor,
+            mapper,
+        }
+    }
+    pub async fn one(self) -> Result<T, tokio_postgres::Error> {
+        let row = crate::client::async_::one(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok((self.mapper)((self.extractor)(&row)?))
+    }
+    pub async fn all(self) -> Result<Vec<T>, tokio_postgres::Error> {
+        self.iter().await?.try_collect().await
+    }
+    pub async fn opt(self) -> Result<Option<T>, tokio_postgres::Error> {
+        let opt_row = crate::client::async_::opt(
+                self.client,
+                self.query,
+                &self.params,
+                self.cached,
+            )
+            .await?;
+        Ok(
+            opt_row
+                .map(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+                .transpose()?,
+        )
+    }
+    pub async fn iter(
+        self,
+    ) -> Result<
+        impl futures::Stream<Item = Result<T, tokio_postgres::Error>> + 'c,
+        tokio_postgres::Error,
+    > {
+        let stream = crate::client::async_::raw(
+                self.client,
+                self.query,
+                crate::slice_iter(&self.params),
+                self.cached,
+            )
+            .await?;
+        let mapped = stream
+            .map(move |res| {
+                res.and_then(|row| {
+                    let extracted = (self.extractor)(&row)?;
+                    Ok((self.mapper)(extracted))
+                })
+            })
+            .into_stream();
+        Ok(mapped)
+    }
+}
+pub struct ProtectedWindowsQuery<'c, 'a, 's, C: GenericClient, T, const N: usize> {
+    client: &'c C,
+    params: [&'a (dyn postgres_types::ToSql + Sync); N],
+    query: &'static str,
+    cached: Option<&'s tokio_postgres::Statement>,
+    extractor: fn(
+        &tokio_postgres::Row,
+    ) -> Result<ProtectedWindowsBorrowed, tokio_postgres::Error>,
+    mapper: fn(ProtectedWindowsBorrowed) -> T,
+}
+impl<'c, 'a, 's, C, T: 'c, const N: usize> ProtectedWindowsQuery<'c, 'a, 's, C, T, N>
+where
+    C: GenericClient,
+{
+    pub fn map<R>(
+        self,
+        mapper: fn(ProtectedWindowsBorrowed) -> R,
+    ) -> ProtectedWindowsQuery<'c, 'a, 's, C, R, N> {
+        ProtectedWindowsQuery {
             client: self.client,
             params: self.params,
             query: self.query,
@@ -1047,7 +1709,7 @@ where
 pub struct InsertWorkspaceStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn insert_workspace() -> InsertWorkspaceStmt {
     InsertWorkspaceStmt(
-        "INSERT INTO pse_ops.workspaces (workspace_id, name, root_uri) VALUES ($1, $2, $3)",
+        "INSERT INTO pse_ops.workspaces (workspace_id, name, root_uri, maintenance_epoch) VALUES ($1, $2, $3, 0)",
         None,
     )
 }
@@ -1122,6 +1784,77 @@ impl InsertHeadStmt {
         workspace_id: &'a pse_model::generated::identities::WorkspaceId,
     ) -> Result<u64, tokio_postgres::Error> {
         client.execute(self.0, &[workspace_id]).await
+    }
+}
+pub struct WorkspaceStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn workspace() -> WorkspaceStmt {
+    WorkspaceStmt(
+        "SELECT w FROM pse_ops.workspaces AS w WHERE w.workspace_id = $1::pse_ops.workspace_id",
+        None,
+    )
+}
+impl WorkspaceStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+    ) -> PsemodelGeneratedRuntimeOperationalworkspacesRuntimeOperationalWorkspacesRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_workspaces::RuntimeOperationalWorkspacesRow,
+        1,
+    > {
+        PsemodelGeneratedRuntimeOperationalworkspacesRuntimeOperationalWorkspacesRowQuery {
+            client,
+            params: [workspace_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+pub struct WorkspaceByNameStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn workspace_by_name() -> WorkspaceByNameStmt {
+    WorkspaceByNameStmt("SELECT w FROM pse_ops.workspaces AS w WHERE w.name = $1", None)
+}
+impl WorkspaceByNameStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient, T1: crate::StringSql>(
+        &'s self,
+        client: &'c C,
+        name: &'a T1,
+    ) -> PsemodelGeneratedRuntimeOperationalworkspacesRuntimeOperationalWorkspacesRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_workspaces::RuntimeOperationalWorkspacesRow,
+        1,
+    > {
+        PsemodelGeneratedRuntimeOperationalworkspacesRuntimeOperationalWorkspacesRowQuery {
+            client,
+            params: [name],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
     }
 }
 pub struct HeadStmt(&'static str, Option<tokio_postgres::Statement>);
@@ -1245,6 +1978,261 @@ impl<
         Box::pin(self.bind(client, &params.publication_id, &params.workspace_id))
     }
 }
+pub struct InsertIntentStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn insert_intent() -> InsertIntentStmt {
+    InsertIntentStmt(
+        "INSERT INTO pse_ops.publication_intents (publication_id, workspace_id, attempt_id, member_prefix) VALUES ($1, $2, $3, $4) ON CONFLICT (publication_id) DO NOTHING",
+        None,
+    )
+}
+impl InsertIntentStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    async fn bind<'c, 'a, 's, C: GenericClient, T1: crate::StringSql>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+        attempt_id: &'a pse_model::generated::identities::AttemptId,
+        member_prefix: &'a T1,
+    ) -> Result<u64, tokio_postgres::Error> {
+        client
+            .execute(self.0, &[publication_id, workspace_id, attempt_id, member_prefix])
+            .await
+    }
+}
+impl<
+    'a,
+    C: GenericClient + Send + Sync,
+    T1: crate::StringSql,
+> crate::client::async_::Params<
+    'a,
+    'a,
+    'a,
+    InsertIntentParams<T1>,
+    std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    >,
+    C,
+> for InsertIntentStmt {
+    fn params(
+        &'a self,
+        client: &'a C,
+        params: &'a InsertIntentParams<T1>,
+    ) -> std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    > {
+        Box::pin(
+            self
+                .bind(
+                    client,
+                    &params.publication_id,
+                    &params.workspace_id,
+                    &params.attempt_id,
+                    &params.member_prefix,
+                ),
+        )
+    }
+}
+pub struct IntentStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn intent() -> IntentStmt {
+    IntentStmt(
+        "SELECT i FROM pse_ops.publication_intents AS i WHERE i.publication_id = $1::pse_ops.publication_id",
+        None,
+    )
+}
+impl IntentStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow,
+        1,
+    > {
+        PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery {
+            client,
+            params: [publication_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+pub struct LockIntentStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn lock_intent() -> LockIntentStmt {
+    LockIntentStmt(
+        "SELECT i FROM pse_ops.publication_intents AS i WHERE i.publication_id = $1::pse_ops.publication_id FOR UPDATE",
+        None,
+    )
+}
+impl LockIntentStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow,
+        1,
+    > {
+        PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery {
+            client,
+            params: [publication_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+pub struct AbandonIntentStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn abandon_intent() -> AbandonIntentStmt {
+    AbandonIntentStmt(
+        "UPDATE pse_ops.publication_intents SET abandoned_at = coalesce(abandoned_at, now()) WHERE publication_id = $1::pse_ops.publication_id",
+        None,
+    )
+}
+impl AbandonIntentStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub async fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+    ) -> Result<u64, tokio_postgres::Error> {
+        client.execute(self.0, &[publication_id]).await
+    }
+}
+pub struct ReclaimIntentStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn reclaim_intent() -> ReclaimIntentStmt {
+    ReclaimIntentStmt(
+        "UPDATE pse_ops.publication_intents SET abandoned_at = coalesce(abandoned_at, now()), reclaimed_at = coalesce(reclaimed_at, now()) WHERE publication_id = $1::pse_ops.publication_id",
+        None,
+    )
+}
+impl ReclaimIntentStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub async fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+    ) -> Result<u64, tokio_postgres::Error> {
+        client.execute(self.0, &[publication_id]).await
+    }
+}
+pub struct ReclaimableIntentsStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn reclaimable_intents() -> ReclaimableIntentsStmt {
+    ReclaimableIntentsStmt(
+        "SELECT i FROM pse_ops.publication_intents AS i JOIN pse_ops.attempts AS a ON a.attempt_id = i.attempt_id WHERE i.workspace_id = $1::pse_ops.workspace_id AND i.reclaimed_at IS NULL AND NOT EXISTS ( SELECT 1 FROM pse_ops.publications AS p WHERE p.publication_id = i.publication_id) AND (i.abandoned_at IS NOT NULL OR EXISTS (SELECT 1 FROM pse_ops.publications AS p WHERE p.attempt_id = i.attempt_id) OR a.state = $2 OR a.state = $3) ORDER BY i.prepared_at, i.publication_id FOR UPDATE OF i",
+        None,
+    )
+}
+impl ReclaimableIntentsStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+        stale: &'a pse_model::generated::enums::AttemptState,
+        superseded: &'a pse_model::generated::enums::AttemptState,
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow,
+        3,
+    > {
+        PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery {
+            client,
+            params: [workspace_id, stale, superseded],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    ReclaimableIntentsParams,
+    PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow,
+        3,
+    >,
+    C,
+> for ReclaimableIntentsStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a ReclaimableIntentsParams,
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationintentsRuntimeOperationalPublicationIntentsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow,
+        3,
+    > {
+        self.bind(client, &params.workspace_id, &params.stale, &params.superseded)
+    }
+}
 pub struct ShareAttemptStateStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn share_attempt_state() -> ShareAttemptStateStmt {
     ShareAttemptStateStmt(
@@ -1312,6 +2300,43 @@ impl LockAttemptRowStmt {
         }
     }
 }
+pub struct PublicationStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn publication() -> PublicationStmt {
+    PublicationStmt(
+        "SELECT p FROM pse_ops.publications AS p WHERE p.publication_id = $1::pse_ops.publication_id",
+        None,
+    )
+}
+impl PublicationStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationsRuntimeOperationalPublicationsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_publications::RuntimeOperationalPublicationsRow,
+        1,
+    > {
+        PsemodelGeneratedRuntimeOperationalpublicationsRuntimeOperationalPublicationsRowQuery {
+            client,
+            params: [publication_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
 pub struct PublicationOfAttemptStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn publication_of_attempt() -> PublicationOfAttemptStmt {
     PublicationOfAttemptStmt(
@@ -1349,73 +2374,10 @@ impl PublicationOfAttemptStmt {
         }
     }
 }
-pub struct InsertPublicationStmt(&'static str, Option<tokio_postgres::Statement>);
-pub fn insert_publication() -> InsertPublicationStmt {
-    InsertPublicationStmt(
-        "INSERT INTO pse_ops.publications (publication_id, workspace_id, parent_publication, attempt_id) VALUES ($1, $2, $3, $4)",
-        None,
-    )
-}
-impl InsertPublicationStmt {
-    pub async fn prepare<'a, C: GenericClient>(
-        mut self,
-        client: &'a C,
-    ) -> Result<Self, tokio_postgres::Error> {
-        self.1 = Some(client.prepare(self.0).await?);
-        Ok(self)
-    }
-    async fn bind<'c, 'a, 's, C: GenericClient>(
-        &'s self,
-        client: &'c C,
-        publication_id: &'a pse_model::generated::identities::PublicationId,
-        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
-        parent_publication: &'a Option<pse_model::generated::identities::PublicationId>,
-        attempt_id: &'a pse_model::generated::identities::AttemptId,
-    ) -> Result<u64, tokio_postgres::Error> {
-        client
-            .execute(
-                self.0,
-                &[publication_id, workspace_id, parent_publication, attempt_id],
-            )
-            .await
-    }
-}
-impl<
-    'a,
-    C: GenericClient + Send + Sync,
-> crate::client::async_::Params<
-    'a,
-    'a,
-    'a,
-    InsertPublicationParams,
-    std::pin::Pin<
-        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
-    >,
-    C,
-> for InsertPublicationStmt {
-    fn params(
-        &'a self,
-        client: &'a C,
-        params: &'a InsertPublicationParams,
-    ) -> std::pin::Pin<
-        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
-    > {
-        Box::pin(
-            self
-                .bind(
-                    client,
-                    &params.publication_id,
-                    &params.workspace_id,
-                    &params.parent_publication,
-                    &params.attempt_id,
-                ),
-        )
-    }
-}
 pub struct MembersStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn members() -> MembersStmt {
     MembersStmt(
-        "SELECT m FROM pse_ops.publication_members AS m WHERE m.publication_id = $1::pse_ops.publication_id ORDER BY m.member",
+        "SELECT m FROM pse_ops.publication_members AS m WHERE m.publication_id = $1::pse_ops.publication_id ORDER BY m.role, m.catalog_name, m.schema_name, m.table_name",
         None,
     )
 }
@@ -1449,74 +2411,14 @@ impl MembersStmt {
         }
     }
 }
-pub struct InsertSettlementStmt(&'static str, Option<tokio_postgres::Statement>);
-pub fn insert_settlement() -> InsertSettlementStmt {
-    InsertSettlementStmt(
-        "INSERT INTO pse_ops.settlements (settlement_id, attempt_id, outcome, publication_id) VALUES ($1, $2, $3, $4)",
+pub struct WindowsStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn windows() -> WindowsStmt {
+    WindowsStmt(
+        "SELECT w FROM pse_ops.publication_windows AS w WHERE w.publication_id = $1::pse_ops.publication_id ORDER BY w.table_uri, w.from_version",
         None,
     )
 }
-impl InsertSettlementStmt {
-    pub async fn prepare<'a, C: GenericClient>(
-        mut self,
-        client: &'a C,
-    ) -> Result<Self, tokio_postgres::Error> {
-        self.1 = Some(client.prepare(self.0).await?);
-        Ok(self)
-    }
-    async fn bind<'c, 'a, 's, C: GenericClient>(
-        &'s self,
-        client: &'c C,
-        settlement_id: &'a pse_model::generated::identities::SettlementId,
-        attempt_id: &'a pse_model::generated::identities::AttemptId,
-        outcome: &'a pse_model::generated::enums::SettlementOutcome,
-        publication_id: &'a Option<pse_model::generated::identities::PublicationId>,
-    ) -> Result<u64, tokio_postgres::Error> {
-        client
-            .execute(self.0, &[settlement_id, attempt_id, outcome, publication_id])
-            .await
-    }
-}
-impl<
-    'a,
-    C: GenericClient + Send + Sync,
-> crate::client::async_::Params<
-    'a,
-    'a,
-    'a,
-    InsertSettlementParams,
-    std::pin::Pin<
-        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
-    >,
-    C,
-> for InsertSettlementStmt {
-    fn params(
-        &'a self,
-        client: &'a C,
-        params: &'a InsertSettlementParams,
-    ) -> std::pin::Pin<
-        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
-    > {
-        Box::pin(
-            self
-                .bind(
-                    client,
-                    &params.settlement_id,
-                    &params.attempt_id,
-                    &params.outcome,
-                    &params.publication_id,
-                ),
-        )
-    }
-}
-pub struct LockPublicationStmt(&'static str, Option<tokio_postgres::Statement>);
-pub fn lock_publication() -> LockPublicationStmt {
-    LockPublicationStmt(
-        "SELECT p.workspace_id, r.phase FROM pse_ops.publications AS p LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id WHERE p.publication_id = $1::pse_ops.publication_id FOR NO KEY UPDATE OF p",
-        None,
-    )
-}
-impl LockPublicationStmt {
+impl WindowsStmt {
     pub async fn prepare<'a, C: GenericClient>(
         mut self,
         client: &'a C,
@@ -1528,28 +2430,277 @@ impl LockPublicationStmt {
         &'s self,
         client: &'c C,
         publication_id: &'a pse_model::generated::identities::PublicationId,
-    ) -> LockPublicationQuery<'c, 'a, 's, C, LockPublication, 1> {
-        LockPublicationQuery {
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationwindowsRuntimeOperationalPublicationWindowsRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_publication_windows::RuntimeOperationalPublicationWindowsRow,
+        1,
+    > {
+        PsemodelGeneratedRuntimeOperationalpublicationwindowsRuntimeOperationalPublicationWindowsRowQuery {
             client,
             params: [publication_id],
             query: self.0,
             cached: self.1.as_ref(),
-            extractor: |
-                row: &tokio_postgres::Row,
-            | -> Result<LockPublication, tokio_postgres::Error> {
-                Ok(LockPublication {
-                    workspace_id: row.try_get(0)?,
-                    phase: row.try_get(1)?,
-                })
-            },
-            mapper: |it| LockPublication::from(it),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
         }
+    }
+}
+pub struct ShareSelectingPublicationsStmt(
+    &'static str,
+    Option<tokio_postgres::Statement>,
+);
+pub fn share_selecting_publications() -> ShareSelectingPublicationsStmt {
+    ShareSelectingPublicationsStmt(
+        "SELECT p.publication_id FROM pse_ops.publications AS p WHERE EXISTS ( SELECT 1 FROM pse_ops.publication_members AS m WHERE m.publication_id = p.publication_id AND m.table_uri = $1 AND m.delta_version = $2) ORDER BY p.publication_id FOR SHARE",
+        None,
+    )
+}
+impl ShareSelectingPublicationsStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient, T1: crate::StringSql>(
+        &'s self,
+        client: &'c C,
+        table_uri: &'a T1,
+        delta_version: &'a i64,
+    ) -> PseidsSemanticIdQuery<'c, 'a, 's, C, pse_ids::SemanticId, 2> {
+        PseidsSemanticIdQuery {
+            client,
+            params: [table_uri, delta_version],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it,
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+    T1: crate::StringSql,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    ShareSelectingPublicationsParams<T1>,
+    PseidsSemanticIdQuery<'c, 'a, 's, C, pse_ids::SemanticId, 2>,
+    C,
+> for ShareSelectingPublicationsStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a ShareSelectingPublicationsParams<T1>,
+    ) -> PseidsSemanticIdQuery<'c, 'a, 's, C, pse_ids::SemanticId, 2> {
+        self.bind(client, &params.table_uri, &params.delta_version)
+    }
+}
+pub struct LiveSelectionStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn live_selection() -> LiveSelectionStmt {
+    LiveSelectionStmt(
+        "SELECT count(*) AS live FROM pse_ops.publication_members AS m WHERE m.table_uri = $1 AND m.delta_version = $2 AND NOT EXISTS ( SELECT 1 FROM pse_ops.retention_marks AS r WHERE r.publication_id = m.publication_id)",
+        None,
+    )
+}
+impl LiveSelectionStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient, T1: crate::StringSql>(
+        &'s self,
+        client: &'c C,
+        table_uri: &'a T1,
+        delta_version: &'a i64,
+    ) -> I64Query<'c, 'a, 's, C, i64, 2> {
+        I64Query {
+            client,
+            params: [table_uri, delta_version],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it,
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+    T1: crate::StringSql,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    LiveSelectionParams<T1>,
+    I64Query<'c, 'a, 's, C, i64, 2>,
+    C,
+> for LiveSelectionStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a LiveSelectionParams<T1>,
+    ) -> I64Query<'c, 'a, 's, C, i64, 2> {
+        self.bind(client, &params.table_uri, &params.delta_version)
+    }
+}
+pub struct InsertPublicationStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn insert_publication() -> InsertPublicationStmt {
+    InsertPublicationStmt(
+        "INSERT INTO pse_ops.publications (publication_id, workspace_id, parent_publication, attempt_id, kind) VALUES ($1, $2, $3, $4, $5)",
+        None,
+    )
+}
+impl InsertPublicationStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    async fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+        parent_publication: &'a Option<pse_model::generated::identities::PublicationId>,
+        attempt_id: &'a pse_model::generated::identities::AttemptId,
+        kind: &'a pse_model::generated::enums::PublicationKind,
+    ) -> Result<u64, tokio_postgres::Error> {
+        client
+            .execute(
+                self.0,
+                &[publication_id, workspace_id, parent_publication, attempt_id, kind],
+            )
+            .await
+    }
+}
+impl<
+    'a,
+    C: GenericClient + Send + Sync,
+> crate::client::async_::Params<
+    'a,
+    'a,
+    'a,
+    InsertPublicationParams,
+    std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    >,
+    C,
+> for InsertPublicationStmt {
+    fn params(
+        &'a self,
+        client: &'a C,
+        params: &'a InsertPublicationParams,
+    ) -> std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    > {
+        Box::pin(
+            self
+                .bind(
+                    client,
+                    &params.publication_id,
+                    &params.workspace_id,
+                    &params.parent_publication,
+                    &params.attempt_id,
+                    &params.kind,
+                ),
+        )
+    }
+}
+pub struct InsertSettlementStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn insert_settlement() -> InsertSettlementStmt {
+    InsertSettlementStmt(
+        "INSERT INTO pse_ops.settlements (settlement_id, attempt_id, outcome, publication_id, reason, conflict_head) VALUES ($1, $2, $3, $4, $5, $6)",
+        None,
+    )
+}
+impl InsertSettlementStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    async fn bind<'c, 'a, 's, C: GenericClient, T1: crate::StringSql>(
+        &'s self,
+        client: &'c C,
+        settlement_id: &'a pse_model::generated::identities::SettlementId,
+        attempt_id: &'a pse_model::generated::identities::AttemptId,
+        outcome: &'a pse_model::generated::enums::SettlementOutcome,
+        publication_id: &'a Option<pse_model::generated::identities::PublicationId>,
+        reason: &'a Option<T1>,
+        conflict_head: &'a Option<pse_model::generated::identities::PublicationId>,
+    ) -> Result<u64, tokio_postgres::Error> {
+        client
+            .execute(
+                self.0,
+                &[
+                    settlement_id,
+                    attempt_id,
+                    outcome,
+                    publication_id,
+                    reason,
+                    conflict_head,
+                ],
+            )
+            .await
+    }
+}
+impl<
+    'a,
+    C: GenericClient + Send + Sync,
+    T1: crate::StringSql,
+> crate::client::async_::Params<
+    'a,
+    'a,
+    'a,
+    InsertSettlementParams<T1>,
+    std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    >,
+    C,
+> for InsertSettlementStmt {
+    fn params(
+        &'a self,
+        client: &'a C,
+        params: &'a InsertSettlementParams<T1>,
+    ) -> std::pin::Pin<
+        Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
+    > {
+        Box::pin(
+            self
+                .bind(
+                    client,
+                    &params.settlement_id,
+                    &params.attempt_id,
+                    &params.outcome,
+                    &params.publication_id,
+                    &params.reason,
+                    &params.conflict_head,
+                ),
+        )
     }
 }
 pub struct SharePublicationStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn share_publication() -> SharePublicationStmt {
     SharePublicationStmt(
-        "SELECT r.phase FROM pse_ops.publications AS p LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id WHERE p.publication_id = $1::pse_ops.publication_id FOR SHARE OF p",
+        "SELECT p FROM pse_ops.publications AS p WHERE p.publication_id = $1::pse_ops.publication_id FOR SHARE",
         None,
     )
 }
@@ -1565,17 +2716,84 @@ impl SharePublicationStmt {
         &'s self,
         client: &'c C,
         publication_id: &'a pse_model::generated::identities::PublicationId,
-    ) -> OptionpsemodelGeneratedEnumsRetentionPhaseQuery<
+    ) -> PsemodelGeneratedRuntimeOperationalpublicationsRuntimeOperationalPublicationsRowQuery<
         'c,
         'a,
         's,
         C,
-        Option<pse_model::generated::enums::RetentionPhase>,
+        pse_model::generated::runtime::operational_publications::RuntimeOperationalPublicationsRow,
         1,
     > {
-        OptionpsemodelGeneratedEnumsRetentionPhaseQuery {
+        PsemodelGeneratedRuntimeOperationalpublicationsRuntimeOperationalPublicationsRowQuery {
             client,
             params: [publication_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+pub struct RetentionPhaseStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn retention_phase() -> RetentionPhaseStmt {
+    RetentionPhaseStmt(
+        "SELECT r.phase FROM pse_ops.retention_marks AS r WHERE r.publication_id = $1::pse_ops.publication_id",
+        None,
+    )
+}
+impl RetentionPhaseStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+    ) -> PsemodelGeneratedEnumsRetentionPhaseQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::enums::RetentionPhase,
+        1,
+    > {
+        PsemodelGeneratedEnumsRetentionPhaseQuery {
+            client,
+            params: [publication_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it,
+        }
+    }
+}
+pub struct MaintenanceEpochStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn maintenance_epoch() -> MaintenanceEpochStmt {
+    MaintenanceEpochStmt(
+        "SELECT maintenance_epoch FROM pse_ops.workspaces WHERE workspace_id = $1::pse_ops.workspace_id",
+        None,
+    )
+}
+impl MaintenanceEpochStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+    ) -> I64Query<'c, 'a, 's, C, i64, 1> {
+        I64Query {
+            client,
+            params: [workspace_id],
             query: self.0,
             cached: self.1.as_ref(),
             extractor: |row| Ok(row.try_get(0)?),
@@ -1586,7 +2804,7 @@ impl SharePublicationStmt {
 pub struct InsertReaderLeaseStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn insert_reader_lease() -> InsertReaderLeaseStmt {
     InsertReaderLeaseStmt(
-        "INSERT INTO pse_ops.reader_leases AS l (lease_id, publication_id, holder, expires_at) VALUES ($1, $2, $3, now() + $4::bigint * interval '1 microsecond') RETURNING l",
+        "INSERT INTO pse_ops.reader_leases AS l (lease_id, publication_id, head_of, holder, expires_at) VALUES ($1, $2, $3, $4, now() + $5::bigint * interval '1 microsecond') RETURNING l",
         None,
     )
 }
@@ -1603,6 +2821,7 @@ impl InsertReaderLeaseStmt {
         client: &'c C,
         lease_id: &'a pse_model::generated::identities::ReaderLeaseId,
         publication_id: &'a pse_model::generated::identities::PublicationId,
+        head_of: &'a Option<pse_model::generated::identities::WorkspaceId>,
         holder: &'a T1,
         ttl_us: &'a i64,
     ) -> PsemodelGeneratedRuntimeOperationalreaderleasesRuntimeOperationalReaderLeasesRowQuery<
@@ -1611,11 +2830,11 @@ impl InsertReaderLeaseStmt {
         's,
         C,
         pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow,
-        4,
+        5,
     > {
         PsemodelGeneratedRuntimeOperationalreaderleasesRuntimeOperationalReaderLeasesRowQuery {
             client,
-            params: [lease_id, publication_id, holder, ttl_us],
+            params: [lease_id, publication_id, head_of, holder, ttl_us],
             query: self.0,
             cached: self.1.as_ref(),
             extractor: |row| Ok(row.try_get(0)?),
@@ -1640,7 +2859,7 @@ impl<
         's,
         C,
         pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow,
-        4,
+        5,
     >,
     C,
 > for InsertReaderLeaseStmt {
@@ -1654,15 +2873,126 @@ impl<
         's,
         C,
         pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow,
-        4,
+        5,
     > {
         self.bind(
             client,
             &params.lease_id,
             &params.publication_id,
+            &params.head_of,
             &params.holder,
             &params.ttl_us,
         )
+    }
+}
+pub struct RenewReaderLeaseStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn renew_reader_lease() -> RenewReaderLeaseStmt {
+    RenewReaderLeaseStmt(
+        "UPDATE pse_ops.reader_leases AS l SET expires_at = now() + $1::bigint * interval '1 microsecond' WHERE l.lease_id = $2::pse_ops.reader_lease_id AND l.released_at IS NULL AND l.expires_at > now() RETURNING l",
+        None,
+    )
+}
+impl RenewReaderLeaseStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        ttl_us: &'a i64,
+        lease_id: &'a pse_model::generated::identities::ReaderLeaseId,
+    ) -> PsemodelGeneratedRuntimeOperationalreaderleasesRuntimeOperationalReaderLeasesRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow,
+        2,
+    > {
+        PsemodelGeneratedRuntimeOperationalreaderleasesRuntimeOperationalReaderLeasesRowQuery {
+            client,
+            params: [ttl_us, lease_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    RenewReaderLeaseParams,
+    PsemodelGeneratedRuntimeOperationalreaderleasesRuntimeOperationalReaderLeasesRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow,
+        2,
+    >,
+    C,
+> for RenewReaderLeaseStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a RenewReaderLeaseParams,
+    ) -> PsemodelGeneratedRuntimeOperationalreaderleasesRuntimeOperationalReaderLeasesRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow,
+        2,
+    > {
+        self.bind(client, &params.ttl_us, &params.lease_id)
+    }
+}
+pub struct ReaderLeaseStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn reader_lease() -> ReaderLeaseStmt {
+    ReaderLeaseStmt(
+        "SELECT l FROM pse_ops.reader_leases AS l WHERE l.lease_id = $1::pse_ops.reader_lease_id",
+        None,
+    )
+}
+impl ReaderLeaseStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        lease_id: &'a pse_model::generated::identities::ReaderLeaseId,
+    ) -> PsemodelGeneratedRuntimeOperationalreaderleasesRuntimeOperationalReaderLeasesRowQuery<
+        'c,
+        'a,
+        's,
+        C,
+        pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow,
+        1,
+    > {
+        PsemodelGeneratedRuntimeOperationalreaderleasesRuntimeOperationalReaderLeasesRowQuery {
+            client,
+            params: [lease_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
     }
 }
 pub struct ReleaseReaderLeaseStmt(&'static str, Option<tokio_postgres::Statement>);
@@ -1748,6 +3078,73 @@ impl MaintenanceLockStmt {
         }
     }
 }
+pub struct AdvanceEpochStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn advance_epoch() -> AdvanceEpochStmt {
+    AdvanceEpochStmt(
+        "UPDATE pse_ops.workspaces SET maintenance_epoch = maintenance_epoch + 1 WHERE workspace_id = $1::pse_ops.workspace_id RETURNING maintenance_epoch",
+        None,
+    )
+}
+impl AdvanceEpochStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+    ) -> I64Query<'c, 'a, 's, C, i64, 1> {
+        I64Query {
+            client,
+            params: [workspace_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it,
+        }
+    }
+}
+pub struct LockPublicationStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn lock_publication() -> LockPublicationStmt {
+    LockPublicationStmt(
+        "SELECT p.workspace_id, r.phase FROM pse_ops.publications AS p LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id WHERE p.publication_id = $1::pse_ops.publication_id FOR NO KEY UPDATE OF p",
+        None,
+    )
+}
+impl LockPublicationStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    pub fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+    ) -> LockPublicationQuery<'c, 'a, 's, C, LockPublication, 1> {
+        LockPublicationQuery {
+            client,
+            params: [publication_id],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |
+                row: &tokio_postgres::Row,
+            | -> Result<LockPublication, tokio_postgres::Error> {
+                Ok(LockPublication {
+                    workspace_id: row.try_get(0)?,
+                    phase: row.try_get(1)?,
+                })
+            },
+            mapper: |it| LockPublication::from(it),
+        }
+    }
+}
 pub struct MarkExpiringStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn mark_expiring() -> MarkExpiringStmt {
     MarkExpiringStmt(
@@ -1798,7 +3195,7 @@ impl<
 pub struct MarkDeletedStmt(&'static str, Option<tokio_postgres::Statement>);
 pub fn mark_deleted() -> MarkDeletedStmt {
     MarkDeletedStmt(
-        "UPDATE pse_ops.retention_marks SET phase = $1, deleted_at = now() WHERE publication_id = $2::pse_ops.publication_id",
+        "UPDATE pse_ops.retention_marks SET phase = $1, deleted_at = coalesce(deleted_at, now()) WHERE publication_id = $2::pse_ops.publication_id",
         None,
     )
 }
@@ -1842,14 +3239,238 @@ impl<
         Box::pin(self.bind(client, &params.phase, &params.publication_id))
     }
 }
-pub struct ProtectedVersionsStmt(&'static str, Option<tokio_postgres::Statement>);
-pub fn protected_versions() -> ProtectedVersionsStmt {
-    ProtectedVersionsStmt(
-        "SELECT DISTINCT m.table_uri, m.delta_version FROM pse_ops.publication_members AS m JOIN pse_ops.publications AS p ON p.publication_id = m.publication_id LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id WHERE p.workspace_id = $1::pse_ops.workspace_id AND (r.publication_id IS NULL OR EXISTS ( SELECT 1 FROM pse_ops.reader_leases AS l WHERE l.publication_id = p.publication_id AND l.released_at IS NULL AND l.expires_at > now())) ORDER BY m.table_uri, m.delta_version",
+pub struct DeletionCandidatesStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn deletion_candidates() -> DeletionCandidatesStmt {
+    DeletionCandidatesStmt(
+        "SELECT DISTINCT m.table_uri FROM pse_ops.publication_members AS m WHERE m.publication_id = $1::pse_ops.publication_id AND EXISTS ( SELECT 1 FROM pse_ops.publication_intents AS i WHERE i.workspace_id = $2::pse_ops.workspace_id AND starts_with(m.table_uri, i.member_prefix)) AND NOT EXISTS ( SELECT 1 FROM pse_ops.publication_members AS o LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = o.publication_id WHERE o.table_uri = m.table_uri AND o.publication_id <> m.publication_id AND (r.phase IS NULL OR r.phase <> $3)) AND NOT EXISTS ( SELECT 1 FROM pse_ops.publication_windows AS w LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = w.publication_id WHERE w.table_uri = m.table_uri AND w.publication_id <> m.publication_id AND (r.phase IS NULL OR r.phase <> $3)) ORDER BY m.table_uri",
         None,
     )
 }
-impl ProtectedVersionsStmt {
+impl DeletionCandidatesStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        publication_id: &'a pse_model::generated::identities::PublicationId,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+        deleted: &'a pse_model::generated::enums::RetentionPhase,
+    ) -> StringQuery<'c, 'a, 's, C, String, 3> {
+        StringQuery {
+            client,
+            params: [publication_id, workspace_id, deleted],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    DeletionCandidatesParams,
+    StringQuery<'c, 'a, 's, C, String, 3>,
+    C,
+> for DeletionCandidatesStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a DeletionCandidatesParams,
+    ) -> StringQuery<'c, 'a, 's, C, String, 3> {
+        self.bind(client, &params.publication_id, &params.workspace_id, &params.deleted)
+    }
+}
+pub struct CollectedTablesStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn collected_tables() -> CollectedTablesStmt {
+    CollectedTablesStmt(
+        "SELECT DISTINCT m.table_uri FROM pse_ops.publication_members AS m JOIN pse_ops.publication_intents AS i ON starts_with(m.table_uri, i.member_prefix) LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = m.publication_id WHERE i.workspace_id = $1::pse_ops.workspace_id AND (r.phase IS NULL OR r.phase <> $2) ORDER BY m.table_uri",
+        None,
+    )
+}
+impl CollectedTablesStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+        deleted: &'a pse_model::generated::enums::RetentionPhase,
+    ) -> StringQuery<'c, 'a, 's, C, String, 2> {
+        StringQuery {
+            client,
+            params: [workspace_id, deleted],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    CollectedTablesParams,
+    StringQuery<'c, 'a, 's, C, String, 2>,
+    C,
+> for CollectedTablesStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a CollectedTablesParams,
+    ) -> StringQuery<'c, 'a, 's, C, String, 2> {
+        self.bind(client, &params.workspace_id, &params.deleted)
+    }
+}
+pub struct ProtectedMembersStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn protected_members() -> ProtectedMembersStmt {
+    ProtectedMembersStmt(
+        "SELECT DISTINCT m.table_uri, m.delta_version FROM pse_ops.publication_members AS m LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = m.publication_id WHERE EXISTS ( SELECT 1 FROM pse_ops.publication_intents AS i WHERE i.workspace_id = $1::pse_ops.workspace_id AND starts_with(m.table_uri, i.member_prefix)) AND (r.publication_id IS NULL OR (r.phase = $2 AND EXISTS ( SELECT 1 FROM pse_ops.reader_leases AS l WHERE l.publication_id = m.publication_id AND l.released_at IS NULL AND l.expires_at > now()))) ORDER BY m.table_uri, m.delta_version",
+        None,
+    )
+}
+impl ProtectedMembersStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+        expiring: &'a pse_model::generated::enums::RetentionPhase,
+    ) -> ProtectedMembersQuery<'c, 'a, 's, C, ProtectedMembers, 2> {
+        ProtectedMembersQuery {
+            client,
+            params: [workspace_id, expiring],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |
+                row: &tokio_postgres::Row,
+            | -> Result<ProtectedMembersBorrowed, tokio_postgres::Error> {
+                Ok(ProtectedMembersBorrowed {
+                    table_uri: row.try_get(0)?,
+                    delta_version: row.try_get(1)?,
+                })
+            },
+            mapper: |it| ProtectedMembers::from(it),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    ProtectedMembersParams,
+    ProtectedMembersQuery<'c, 'a, 's, C, ProtectedMembers, 2>,
+    C,
+> for ProtectedMembersStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a ProtectedMembersParams,
+    ) -> ProtectedMembersQuery<'c, 'a, 's, C, ProtectedMembers, 2> {
+        self.bind(client, &params.workspace_id, &params.expiring)
+    }
+}
+pub struct ProtectedWindowsStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn protected_windows() -> ProtectedWindowsStmt {
+    ProtectedWindowsStmt(
+        "SELECT DISTINCT w.table_uri, w.from_version, w.through_version FROM pse_ops.publication_windows AS w LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = w.publication_id WHERE EXISTS ( SELECT 1 FROM pse_ops.publication_intents AS i WHERE i.workspace_id = $1::pse_ops.workspace_id AND starts_with(w.table_uri, i.member_prefix)) AND (r.publication_id IS NULL OR (r.phase = $2 AND EXISTS ( SELECT 1 FROM pse_ops.reader_leases AS l WHERE l.publication_id = w.publication_id AND l.released_at IS NULL AND l.expires_at > now()))) ORDER BY w.table_uri, w.from_version",
+        None,
+    )
+}
+impl ProtectedWindowsStmt {
+    pub async fn prepare<'a, C: GenericClient>(
+        mut self,
+        client: &'a C,
+    ) -> Result<Self, tokio_postgres::Error> {
+        self.1 = Some(client.prepare(self.0).await?);
+        Ok(self)
+    }
+    fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s self,
+        client: &'c C,
+        workspace_id: &'a pse_model::generated::identities::WorkspaceId,
+        expiring: &'a pse_model::generated::enums::RetentionPhase,
+    ) -> ProtectedWindowsQuery<'c, 'a, 's, C, ProtectedWindows, 2> {
+        ProtectedWindowsQuery {
+            client,
+            params: [workspace_id, expiring],
+            query: self.0,
+            cached: self.1.as_ref(),
+            extractor: |
+                row: &tokio_postgres::Row,
+            | -> Result<ProtectedWindowsBorrowed, tokio_postgres::Error> {
+                Ok(ProtectedWindowsBorrowed {
+                    table_uri: row.try_get(0)?,
+                    from_version: row.try_get(1)?,
+                    through_version: row.try_get(2)?,
+                })
+            },
+            mapper: |it| ProtectedWindows::from(it),
+        }
+    }
+}
+impl<
+    'c,
+    'a,
+    's,
+    C: GenericClient,
+> crate::client::async_::Params<
+    'c,
+    'a,
+    's,
+    ProtectedWindowsParams,
+    ProtectedWindowsQuery<'c, 'a, 's, C, ProtectedWindows, 2>,
+    C,
+> for ProtectedWindowsStmt {
+    fn params(
+        &'s self,
+        client: &'c C,
+        params: &'a ProtectedWindowsParams,
+    ) -> ProtectedWindowsQuery<'c, 'a, 's, C, ProtectedWindows, 2> {
+        self.bind(client, &params.workspace_id, &params.expiring)
+    }
+}
+pub struct LiveIntentPrefixesStmt(&'static str, Option<tokio_postgres::Statement>);
+pub fn live_intent_prefixes() -> LiveIntentPrefixesStmt {
+    LiveIntentPrefixesStmt(
+        "SELECT i.member_prefix FROM pse_ops.publication_intents AS i WHERE i.workspace_id = $1::pse_ops.workspace_id AND i.abandoned_at IS NULL AND NOT EXISTS ( SELECT 1 FROM pse_ops.publications AS p WHERE p.publication_id = i.publication_id) ORDER BY i.member_prefix",
+        None,
+    )
+}
+impl LiveIntentPrefixesStmt {
     pub async fn prepare<'a, C: GenericClient>(
         mut self,
         client: &'a C,
@@ -1861,21 +3482,14 @@ impl ProtectedVersionsStmt {
         &'s self,
         client: &'c C,
         workspace_id: &'a pse_model::generated::identities::WorkspaceId,
-    ) -> ProtectedVersionQuery<'c, 'a, 's, C, ProtectedVersion, 1> {
-        ProtectedVersionQuery {
+    ) -> StringQuery<'c, 'a, 's, C, String, 1> {
+        StringQuery {
             client,
             params: [workspace_id],
             query: self.0,
             cached: self.1.as_ref(),
-            extractor: |
-                row: &tokio_postgres::Row,
-            | -> Result<ProtectedVersionBorrowed, tokio_postgres::Error> {
-                Ok(ProtectedVersionBorrowed {
-                    table_uri: row.try_get(0)?,
-                    delta_version: row.try_get(1)?,
-                })
-            },
-            mapper: |it| ProtectedVersion::from(it),
+            extractor: |row| Ok(row.try_get(0)?),
+            mapper: |it| it.into(),
         }
     }
 }

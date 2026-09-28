@@ -124,40 +124,72 @@ pub const PUBLICATION_HEADS: CopyIn = CopyIn {
     probe: "SELECT \"workspace_id\", \"publication_id\", \"advanced_at\" FROM pse_ops.\"publication_heads\" WHERE false",
     columns: &["workspace_id", "publication_id", "advanced_at"],
 };
+/// The binary copy into `publication_intents` (runtime.operational_publication_intents).
+pub const PUBLICATION_INTENTS: CopyIn = CopyIn {
+    table: "publication_intents",
+    statement: "COPY pse_ops.\"publication_intents\" (\"publication_id\", \"workspace_id\", \"attempt_id\", \"member_prefix\", \"prepared_at\", \"abandoned_at\", \"reclaimed_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"publication_id\", \"workspace_id\", \"attempt_id\", \"member_prefix\", \"prepared_at\", \"abandoned_at\", \"reclaimed_at\" FROM pse_ops.\"publication_intents\" WHERE false",
+    columns: &[
+        "publication_id",
+        "workspace_id",
+        "attempt_id",
+        "member_prefix",
+        "prepared_at",
+        "abandoned_at",
+        "reclaimed_at",
+    ],
+};
 /// The binary copy into `publication_members` (runtime.operational_publication_members).
 pub const PUBLICATION_MEMBERS: CopyIn = CopyIn {
     table: "publication_members",
-    statement: "COPY pse_ops.\"publication_members\" (\"publication_id\", \"member\", \"table_uri\", \"delta_version\", \"contract_fingerprint\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"publication_id\", \"member\", \"table_uri\", \"delta_version\", \"contract_fingerprint\" FROM pse_ops.\"publication_members\" WHERE false",
+    statement: "COPY pse_ops.\"publication_members\" (\"publication_id\", \"role\", \"catalog_name\", \"schema_name\", \"table_name\", \"relation_id\", \"relation_version\", \"contract_fingerprint\", \"table_uri\", \"delta_version\", \"selection_kind\", \"revision_column\", \"revision_id\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"publication_id\", \"role\", \"catalog_name\", \"schema_name\", \"table_name\", \"relation_id\", \"relation_version\", \"contract_fingerprint\", \"table_uri\", \"delta_version\", \"selection_kind\", \"revision_column\", \"revision_id\" FROM pse_ops.\"publication_members\" WHERE false",
     columns: &[
         "publication_id",
-        "member",
+        "role",
+        "catalog_name",
+        "schema_name",
+        "table_name",
+        "relation_id",
+        "relation_version",
+        "contract_fingerprint",
         "table_uri",
         "delta_version",
-        "contract_fingerprint",
+        "selection_kind",
+        "revision_column",
+        "revision_id",
     ],
+};
+/// The binary copy into `publication_windows` (runtime.operational_publication_windows).
+pub const PUBLICATION_WINDOWS: CopyIn = CopyIn {
+    table: "publication_windows",
+    statement: "COPY pse_ops.\"publication_windows\" (\"publication_id\", \"table_uri\", \"from_version\", \"through_version\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"publication_id\", \"table_uri\", \"from_version\", \"through_version\" FROM pse_ops.\"publication_windows\" WHERE false",
+    columns: &["publication_id", "table_uri", "from_version", "through_version"],
 };
 /// The binary copy into `publications` (runtime.operational_publications).
 pub const PUBLICATIONS: CopyIn = CopyIn {
     table: "publications",
-    statement: "COPY pse_ops.\"publications\" (\"publication_id\", \"workspace_id\", \"parent_publication\", \"attempt_id\", \"committed_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"publication_id\", \"workspace_id\", \"parent_publication\", \"attempt_id\", \"committed_at\" FROM pse_ops.\"publications\" WHERE false",
+    statement: "COPY pse_ops.\"publications\" (\"publication_id\", \"workspace_id\", \"parent_publication\", \"attempt_id\", \"kind\", \"committed_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"publication_id\", \"workspace_id\", \"parent_publication\", \"attempt_id\", \"kind\", \"committed_at\" FROM pse_ops.\"publications\" WHERE false",
     columns: &[
         "publication_id",
         "workspace_id",
         "parent_publication",
         "attempt_id",
+        "kind",
         "committed_at",
     ],
 };
 /// The binary copy into `reader_leases` (runtime.operational_reader_leases).
 pub const READER_LEASES: CopyIn = CopyIn {
     table: "reader_leases",
-    statement: "COPY pse_ops.\"reader_leases\" (\"lease_id\", \"publication_id\", \"holder\", \"acquired_at\", \"expires_at\", \"released_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"lease_id\", \"publication_id\", \"holder\", \"acquired_at\", \"expires_at\", \"released_at\" FROM pse_ops.\"reader_leases\" WHERE false",
+    statement: "COPY pse_ops.\"reader_leases\" (\"lease_id\", \"publication_id\", \"head_of\", \"holder\", \"acquired_at\", \"expires_at\", \"released_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"lease_id\", \"publication_id\", \"head_of\", \"holder\", \"acquired_at\", \"expires_at\", \"released_at\" FROM pse_ops.\"reader_leases\" WHERE false",
     columns: &[
         "lease_id",
         "publication_id",
+        "head_of",
         "holder",
         "acquired_at",
         "expires_at",
@@ -174,9 +206,17 @@ pub const RETENTION_MARKS: CopyIn = CopyIn {
 /// The binary copy into `settlements` (runtime.operational_settlements).
 pub const SETTLEMENTS: CopyIn = CopyIn {
     table: "settlements",
-    statement: "COPY pse_ops.\"settlements\" (\"settlement_id\", \"attempt_id\", \"outcome\", \"publication_id\", \"settled_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"settlement_id\", \"attempt_id\", \"outcome\", \"publication_id\", \"settled_at\" FROM pse_ops.\"settlements\" WHERE false",
-    columns: &["settlement_id", "attempt_id", "outcome", "publication_id", "settled_at"],
+    statement: "COPY pse_ops.\"settlements\" (\"settlement_id\", \"attempt_id\", \"outcome\", \"publication_id\", \"reason\", \"conflict_head\", \"settled_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"settlement_id\", \"attempt_id\", \"outcome\", \"publication_id\", \"reason\", \"conflict_head\", \"settled_at\" FROM pse_ops.\"settlements\" WHERE false",
+    columns: &[
+        "settlement_id",
+        "attempt_id",
+        "outcome",
+        "publication_id",
+        "reason",
+        "conflict_head",
+        "settled_at",
+    ],
 };
 /// The binary copy into `solutions` (runtime.operational_solutions).
 pub const SOLUTIONS: CopyIn = CopyIn {
@@ -242,7 +282,7 @@ pub const STUDY_POINTS: CopyIn = CopyIn {
 /// The binary copy into `workspaces` (runtime.operational_workspaces).
 pub const WORKSPACES: CopyIn = CopyIn {
     table: "workspaces",
-    statement: "COPY pse_ops.\"workspaces\" (\"workspace_id\", \"name\", \"root_uri\", \"created_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"workspace_id\", \"name\", \"root_uri\", \"created_at\" FROM pse_ops.\"workspaces\" WHERE false",
-    columns: &["workspace_id", "name", "root_uri", "created_at"],
+    statement: "COPY pse_ops.\"workspaces\" (\"workspace_id\", \"name\", \"root_uri\", \"maintenance_epoch\", \"created_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"workspace_id\", \"name\", \"root_uri\", \"maintenance_epoch\", \"created_at\" FROM pse_ops.\"workspaces\" WHERE false",
+    columns: &["workspace_id", "name", "root_uri", "maintenance_epoch", "created_at"],
 };

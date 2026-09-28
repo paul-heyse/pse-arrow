@@ -161,7 +161,7 @@ async fn run(
         super::operation::CommitKind::Data,
     )?;
     let state = context.state.clone();
-    let _writer = context.begin(&request.table).await?;
+    context.begin(&request.table)?;
     if let Some(attempt) = &request.attempt {
         let version = write_attempt(&request, attempt, input, &context)
             .await

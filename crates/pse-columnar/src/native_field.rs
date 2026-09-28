@@ -6,6 +6,10 @@ use std::sync::Arc;
 
 /// Human-readable field prose, deliberately excluded from execution/value identity.
 pub const DOCUMENTATION: &str = "pse.domain.doc";
+/// The presentation name of a registry named structure (for example `MemberDescriptor`).
+/// Like prose it is excluded from execution and value identity: naming a structure never
+/// changes a contract, a fingerprint or a stored value.
+pub const STRUCTURE_NAME: &str = "pse.domain.structure";
 /// What an observation or comparison is intended to establish.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MetadataPurpose {
@@ -90,10 +94,11 @@ pub fn project(field: &Field, purpose: MetadataPurpose) -> Result<Field, ArrowEr
         let mut field = field.clone();
         field.metadata_mut().retain(|key, _| match purpose {
             MetadataPurpose::PhysicalObservation => true,
-            MetadataPurpose::ExecutionIdentity => key != DOCUMENTATION,
+            MetadataPurpose::ExecutionIdentity => !matches!(key.as_str(), DOCUMENTATION | STRUCTURE_NAME),
             MetadataPurpose::ValueIdentity => !matches!(
                 key.as_str(),
                 DOCUMENTATION
+                    | STRUCTURE_NAME
                     | "pse.domain.role"
                     | "pse.semantic.role"
                     | "pse.domain.fk.relation"

@@ -463,8 +463,13 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert not runtime.durable
     ephemeral = prepared.start().wait()
     assert ephemeral.attempt_id is None
+    unregistered = pse.Workspace(
+        workspace_id=identity(240).to_hex(),
+        name="ephemeral",
+        root_uri=tmp_path.as_uri() + "/",
+    )
     with pytest.raises(pse.InspectionError, match="ephemeral"):
-        ephemeral.prepare_publication(tmp_path.as_uri() + "/", identity(240))
+        ephemeral.prepare_publication(unregistered)
     with pytest.raises(pse.InspectionError, match="durable runtime"):
         runtime.runs()
     assert durable_runtime.durable
@@ -512,20 +517,25 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert not result.diagnostics()
     durable_runtime.clear_program_cache()
     assert result.completion == completion
-    request = pse.PublicationRequest(
-        tmp_path.as_uri() + "/", identity(240), identity(241), identity(242)
+    workspace = durable_runtime.register_workspace(
+        f"ticket-{result.run_id.to_hex()}", tmp_path
     )
-    attempt = result.prepare_publication_request(request)
+    assert durable_runtime.workspace(workspace.name) == workspace
+    assert durable_runtime.head(workspace.id) is None
+    # The publication attempt is the durable attempt; the ticket exists before any effect.
+    attempt = result.prepare_publication(workspace, publication_id=identity(241))
     ticket = attempt.ticket
-    assert attempt.publication_id == request.publication_id
-    assert attempt.attempt_id == request.attempt_id
+    assert attempt.publication_id == identity(241)
+    assert attempt.attempt_id == result.attempt_id
     wire = msgspec.json.decode(ticket.json, type=dict[str, object])
     candidate = cast("dict[str, object]", wire["candidate"])
-    assert candidate["attempt_id"] == request.attempt_id.to_hex()
-    assert candidate["publication_id"] == request.publication_id.to_hex()
+    assert candidate["attempt_id"] == result.attempt_id.to_hex()
+    assert candidate["publication_id"] == identity(241).to_hex()
+    assert candidate["workspace_id"] == workspace.workspace_id
     assert not tuple(tmp_path.iterdir())
+    # Nothing was registered: the catalog proves nothing was committed.
     settled = durable_runtime.settle_publication(ticket)
-    assert isinstance(settled, pse.PublicationUnresolved)
+    assert isinstance(settled, pse.PublicationNoncommit)
     assert settled == durable_runtime.settle_publication(ticket)
     assert not tuple(tmp_path.iterdir())
 

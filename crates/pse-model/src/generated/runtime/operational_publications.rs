@@ -17,6 +17,8 @@ pub struct RuntimeOperationalPublicationsRow {
     pub r#parent_publication: Option<crate::generated::identities::PublicationId>,
     ///attempt_id
     pub r#attempt_id: crate::generated::identities::AttemptId,
+    ///kind
+    pub r#kind: crate::generated::enums::PublicationKind,
     ///committed_at
     pub r#committed_at: i64,
 }
@@ -31,6 +33,7 @@ impl crate::SemanticEq for RuntimeOperationalPublicationsRow {
                 &self.r#parent_publication,
                 &other.r#parent_publication,
             ) && crate::SemanticEq::semantic_eq(&self.r#attempt_id, &other.r#attempt_id)
+            && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
             && crate::SemanticEq::semantic_eq(
                 &self.r#committed_at,
                 &other.r#committed_at,
@@ -54,6 +57,8 @@ impl crate::SemanticFrame for RuntimeOperationalPublicationsRow {
         crate::SemanticFrame::frame(&self.r#parent_publication, hash);
         hash.str(stringify!(r#attempt_id));
         crate::SemanticFrame::frame(&self.r#attempt_id, hash);
+        hash.str(stringify!(r#kind));
+        crate::SemanticFrame::frame(&self.r#kind, hash);
         hash.str(stringify!(r#committed_at));
         crate::SemanticFrame::frame(&self.r#committed_at, hash);
     }
@@ -65,6 +70,7 @@ impl crate::HeapUsage for RuntimeOperationalPublicationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#workspace_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parent_publication))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#committed_at))
     }
 }

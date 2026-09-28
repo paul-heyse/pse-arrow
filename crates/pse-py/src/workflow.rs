@@ -245,24 +245,106 @@ impl NativeRuntime {
     fn clear_program_cache(&self) {
         self.inner.clear_program_cache();
     }
+    /// Settle a ticket whose commit outcome is unknown, by querying the catalog.
     fn settle_publication(&self, py: Python<'_>, ticket: &[u8]) -> PyResult<Vec<u8>> {
         if ticket.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
             return Err(invalid(py, "publication ticket exceeds input allowance"));
         }
         let ticket: native::PublicationTicket =
             serde_json::from_slice(ticket).map_err(|e| invalid(py, e.to_string()))?;
-        let cancel = pse_columnar::CancellationToken::new();
         let result = blocking(
             py,
             &self.owner,
             async {
-                Ok::<_, native::WorkflowError>(
-                    self.inner.settle_publication(&ticket, &cancel).await,
-                )
+                Ok::<_, native::WorkflowError>(self.inner.settle_publication(&ticket).await)
             },
-            || cancel.cancel(),
+            || {},
         )?;
         serde_json::to_vec(&result).map_err(|e| invalid(py, e.to_string()))
+    }
+    /// Register a publication workspace, or return the one of that name with the same
+    /// root; the workspace as JSON.
+    fn register_workspace(&self, py: Python<'_>, name: &str, root: &str) -> PyResult<Vec<u8>> {
+        let root = url::Url::parse(root).map_err(|e| invalid(py, e.to_string()))?;
+        let workspace = blocking(
+            py,
+            &self.owner,
+            self.inner.register_workspace(name, root),
+            || {},
+        )?;
+        serde_json::to_vec(&workspace).map_err(|e| invalid(py, e.to_string()))
+    }
+    /// A registered workspace by name, as JSON.
+    fn workspace(&self, py: Python<'_>, name: &str) -> PyResult<Vec<u8>> {
+        let workspace = blocking(py, &self.owner, self.inner.workspace(name), || {})?;
+        serde_json::to_vec(&workspace).map_err(|e| invalid(py, e.to_string()))
+    }
+    /// The head of a workspace; `None` before its first publication.
+    fn head(&self, py: Python<'_>, workspace_id: &str) -> PyResult<Option<String>> {
+        let workspace = id(py, workspace_id)?.into();
+        let head = blocking(py, &self.owner, self.inner.head(workspace), || {})?;
+        Ok(head.map(|head| pse_ids::SemanticId::from(head).to_hex()))
+    }
+    /// Open an exact publication under a catalog reader lease.
+    fn open(&self, py: Python<'_>, publication_id: &str) -> PyResult<inspection::Publication> {
+        let publication = id(py, publication_id)?.into();
+        let cancel = pse_columnar::CancellationToken::new();
+        let leased = blocking(
+            py,
+            &self.owner,
+            self.inner.open(publication, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(inspection::Publication::leased(
+            leased.publication().clone(),
+            leased.guard().clone(),
+            self.owner.clone(),
+        ))
+    }
+    /// Open the head of a workspace under a catalog reader lease.
+    fn open_head(&self, py: Python<'_>, workspace_id: &str) -> PyResult<inspection::Publication> {
+        let workspace = id(py, workspace_id)?.into();
+        let cancel = pse_columnar::CancellationToken::new();
+        let leased = blocking(
+            py,
+            &self.owner,
+            self.inner.open_head(workspace, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(inspection::Publication::leased(
+            leased.publication().clone(),
+            leased.guard().clone(),
+            self.owner.clone(),
+        ))
+    }
+    /// Export a publication for offline readers at `destination`, protected for
+    /// `valid_for_seconds`; the export receipt as JSON.
+    fn export_publication(
+        &self,
+        py: Python<'_>,
+        publication_id: &str,
+        destination: &str,
+        valid_for_seconds: f64,
+    ) -> PyResult<Vec<u8>> {
+        let publication = id(py, publication_id)?.into();
+        let destination = url::Url::parse(destination).map_err(|e| invalid(py, e.to_string()))?;
+        let valid_for = Duration::try_from_secs_f64(valid_for_seconds)
+            .map_err(|e| invalid(py, e.to_string()))?;
+        let cancel = pse_columnar::CancellationToken::new();
+        let receipt = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .export_publication(publication, destination, valid_for, &cancel),
+            || cancel.cancel(),
+        )?;
+        serde_json::to_vec(&receipt).map_err(|e| invalid(py, e.to_string()))
+    }
+    /// Release an export's lease; whether it was still held.
+    fn release_export(&self, py: Python<'_>, receipt: &[u8]) -> PyResult<bool> {
+        let receipt: native::ExportReceipt =
+            serde_json::from_slice(receipt).map_err(|e| invalid(py, e.to_string()))?;
+        blocking(py, &self.owner, self.inner.release_export(&receipt), || {})
     }
     #[pyo3(signature=(steps, *, continue_independent=false))]
     fn start(
@@ -432,51 +514,42 @@ impl NativeRunResult {
             .map(inspection::TableStream::from_batch)
             .map_err(|e| errors::diagnostic(py, e.as_ref()))
     }
-    #[pyo3(signature=(base, workspace_id, *, parent=None, publication_id=None, attempt_id=None))]
+    /// Prepare the publication of this durable attempt's results in a registered
+    /// workspace (JSON) against the exact expected parent; performs no write.
+    #[pyo3(signature=(workspace, *, parent=None, publication_id=None))]
     fn prepare_publication(
         &self,
         py: Python<'_>,
-        base: &str,
-        workspace_id: &str,
+        workspace: &[u8],
         parent: Option<&str>,
         publication_id: Option<&str>,
-        attempt_id: Option<&str>,
     ) -> PyResult<NativePublicationAttempt> {
-        let base = url::Url::parse(base).map_err(|e| invalid(py, e.to_string()))?;
-        let workspace_id = id(py, workspace_id)?;
-        let parent = parent.map(|p| id(py, p)).transpose()?;
-        let request = match (publication_id, attempt_id) {
-            (None, None) => native::PublicationRequest::new(base, workspace_id, parent),
-            (Some(publication), Some(attempt)) => native::PublicationRequest {
-                base,
-                workspace_id,
-                parent,
-                publication_id: id(py, publication)?,
-                attempt_id: id(py, attempt)?,
-            },
-            _ => {
-                return Err(invalid(
-                    py,
-                    "publication_id and attempt_id must be supplied together",
-                ));
-            }
-        };
+        let workspace: native::Workspace =
+            serde_json::from_slice(workspace).map_err(|e| invalid(py, e.to_string()))?;
+        let parent = parent.map(|p| id(py, p).map(Into::into)).transpose()?;
+        let publication_id = publication_id
+            .map(|p| id(py, p).map(Into::into))
+            .transpose()?;
         let attempt = py
             .detach(|| {
-                self.inner
-                    .prepare_publication_request(request, &pse_columnar::CancellationToken::new())
+                self.inner.prepare_publication(
+                    &workspace,
+                    parent,
+                    publication_id,
+                    &pse_columnar::CancellationToken::new(),
+                )
             })
             .map_err(|e| errors::diagnostic(py, &e))?;
         Ok(NativePublicationAttempt {
             owner: self.owner.clone(),
-            attempt_id: attempt.attempt_id.to_hex(),
-            publication_id: attempt.publication_id.to_hex(),
+            attempt_id: pse_ids::SemanticId::from(attempt.attempt_id).to_hex(),
+            publication_id: pse_ids::SemanticId::from(attempt.publication_id).to_hex(),
             ticket: serde_json::to_vec(&attempt.ticket).map_err(|e| invalid(py, e.to_string()))?,
             inner: Mutex::new(Some(attempt)),
         })
     }
 }
-/// Reviewable single-consumption native publication command; commit never reruns a solve.
+/// Reviewable single-consumption publication; commit never reruns a solve.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Debug)]
 pub(crate) struct NativePublicationAttempt {
@@ -493,7 +566,9 @@ impl NativePublicationAttempt {
     fn ticket(&self) -> Vec<u8> {
         self.ticket.clone()
     }
-    fn commit(&self, py: Python<'_>) -> PyResult<(String, i64)> {
+    /// Register the intent, write and admit the candidate, commit it once; the
+    /// publication as JSON. Never retried implicitly.
+    fn commit(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         let attempt = self
             .inner
             .lock()
@@ -502,12 +577,12 @@ impl NativePublicationAttempt {
             .ok_or_else(|| {
                 invalid(
                     py,
-                    "publication attempt already consumed; inspect native settlement before retry",
+                    "publication attempt already consumed; settle its ticket before a retry",
                 )
             })?;
         let cancel = pse_columnar::CancellationToken::new();
-        let root = blocking(py, &self.owner, attempt.commit(&cancel), || cancel.cancel())?;
-        Ok((root.location.to_string(), root.version))
+        let published = blocking(py, &self.owner, attempt.commit(&cancel), || cancel.cancel())?;
+        serde_json::to_vec(&published).map_err(|e| invalid(py, e.to_string()))
     }
 }
 

@@ -80,10 +80,8 @@ NativeStrategyAttempt = _native.NativeStrategyAttempt
 ProgressEvent = _native.ProgressEvent
 
 
-def _open_publication(
-    location: str, version: int, settings: EngineSettings
-) -> _NativePublication:
-    return _native.open_publication(location, version, settings)
+def _open_export(location: str, settings: EngineSettings) -> _NativePublication:
+    return _native.open_export(location, settings)
 
 
 class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
