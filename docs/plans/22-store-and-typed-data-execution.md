@@ -275,8 +275,8 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | W1 | B1 (R); B3a → B6 (T) | complete: B3a and B6 in merge `8934a521`, B1 in merge `fa5a075c` |
 | W2 | B2 (R); B4 (V); B7 (T) | complete: B4 in merge `ba5f9676`, B7 in merge `057ade3b`, B2 in merge `c664106e` |
 | W3 | O8 (R); B5 (V) | complete: B5 in merge `d26bdebe`, O8 in merge `4487adfc` |
-| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | G8 complete (merge `b80f8d4c`); O7 complete (merge in the next commit); B3b running |
-| W5 | O9; docs step | not started |
+| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | G8 complete (merge `b80f8d4c`); O7 complete (merge `f5909d1c`); B3b running |
+| W5 | O9; docs step | O9 running (started as soon as O7 landed) |
 | W6 | Scoped qualification | not started |
 
 ## Current checkpoint (2026-09-28)
