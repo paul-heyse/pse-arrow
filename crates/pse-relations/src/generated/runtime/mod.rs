@@ -71,7 +71,11 @@ pub mod r#operational_progress_values;
 ///Generated relation contract.
 pub mod r#operational_publication_heads;
 ///Generated relation contract.
+pub mod r#operational_publication_intents;
+///Generated relation contract.
 pub mod r#operational_publication_members;
+///Generated relation contract.
+pub mod r#operational_publication_windows;
 ///Generated relation contract.
 pub mod r#operational_publications;
 ///Generated relation contract.
@@ -92,6 +96,8 @@ pub mod r#operational_studies;
 pub mod r#operational_study_points;
 ///Generated relation contract.
 pub mod r#operational_workspaces;
+///Generated relation contract.
+pub mod r#publication_manifests;
 ///Generated relation contract.
 pub mod r#publications;
 ///Generated relation contract.

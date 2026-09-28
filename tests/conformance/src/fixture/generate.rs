@@ -100,7 +100,7 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
     } else {
         semantic::populate(registry, invariant, &mut valid, &mut invalid);
     }
-    let keys = invalid[&invariant.relation]
+    let mut keys: Vec<Vec<String>> = invalid[&invariant.relation]
         .iter()
         .take(if invariant.name == "cardinality:member_ordinal" || declared_key.is_some() {
             // Every row sharing a declared unique key offends, each under its own key.
@@ -116,6 +116,10 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
                 .collect()
         })
         .collect();
+    // A declared unique key containing the primary key (a composite reference target)
+    // repeats the primary key too: its offending rows share one key.
+    let mut seen = std::collections::BTreeSet::new();
+    keys.retain(|key| seen.insert(key.clone()));
     let convert = |rows: Rows, expected_keys| Fixture {
         invariant: invariant.qualified_name(),
         rows: rows

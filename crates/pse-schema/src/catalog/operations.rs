@@ -148,8 +148,17 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
     );
     // Two-phase deletion of a publication: no new reader leases, then files removed.
     enumeration(b, "RetentionPhase", ["expiring", "deleted"]);
-    // The outcome of settling an uncertain commit acknowledgement.
-    enumeration(b, "SettlementOutcome", ["committed", "proved_noncommit"]);
+    // The outcome of settling an uncertain commit acknowledgement: the publication is
+    // visible; nothing was or can be committed by that request as prepared (the head is
+    // still its expected parent); or it conflicts with the committed history (the head
+    // moved, or the attempt was published as another publication).
+    enumeration(
+        b,
+        "SettlementOutcome",
+        ["committed", "proved_noncommit", "conflict"],
+    );
+    // Whether a publication member is an output it publishes or an input it read.
+    enumeration(b, "PublicationMemberRole", ["output", "input"]);
 }
 
 fn declare_identities(b: &mut RegistryBuilder) {
@@ -168,7 +177,11 @@ fn declare_identities(b: &mut RegistryBuilder) {
         "An authored source bundle, content-addressed by its package content hash",
     );
     identity(b, "workspace", "One publication workspace in the catalog");
-    identity(b, "publication", "One committed publication in the catalog");
+    identity(
+        b,
+        "publication",
+        "One publication: registered as an intent before its first member write and committed at most once",
+    );
     identity(b, "settlement", "One settlement of an uncertain commit acknowledgement");
     identity(b, "reader_lease", "One reader lease protecting a publication");
 }
@@ -513,29 +526,64 @@ fn declare_catalog(b: &mut RegistryBuilder) {
                 column("workspace_id", T::id()).with_identity("workspace"),
                 column("name", text()),
                 column("root_uri", text()),
+                column("maintenance_epoch", int64()),
                 column("created_at", ts()),
             ],
-            "A publication workspace: a named root under which members are written. Its head row is created with it.",
+            "A publication workspace: a named root under which members are written. Its head row is created with it. `maintenance_epoch` advances before every maintenance effect (retirement, collection), so a reader's cache scope never outlives the maintenance it was read under (Plan 22 X10).",
         )
         .unique("name", &["name"])
+        .unique("root_uri", &["root_uri"])
         .check("name_nonempty", nonempty("name"))
-        .check("root_uri_nonempty", nonempty("root_uri")),
+        .check("root_uri_nonempty", nonempty("root_uri"))
+        .check("maintenance_epoch_nonnegative", "\"maintenance_epoch\" >= 0"),
+    );
+    b.declare_relation(
+        store(
+            "operational_publication_intents",
+            &["publication_id"],
+            vec![
+                column("publication_id", T::id()).with_identity("publication"),
+                column("workspace_id", T::id())
+                    .with_fk("runtime.operational_workspaces", "workspace_id"),
+                attempt_ref("attempt_id"),
+                column("member_prefix", text()),
+                column("prepared_at", ts()),
+                column("abandoned_at", ts()).optional(),
+                column("reclaimed_at", ts()).optional(),
+            ],
+            "Publication intents (Plan 22 X9), registered before the first member write: the publication identity, its durable attempt and the prefix every member it writes lives under. An intent without a publication is unpublished: reclaimable once abandoned, once its attempt is published as another publication, or once its attempt is stale or superseded. An abandoned intent never commits.",
+        )
+        .unique("member_prefix", &["member_prefix"])
+        .unique("identity", &["publication_id", "workspace_id", "attempt_id"])
+        .check("member_prefix_nonempty", nonempty("member_prefix"))
+        .check(
+            "reclaimed_after_abandoned",
+            "\"reclaimed_at\" IS NULL OR \"abandoned_at\" IS NOT NULL",
+        ),
     );
     b.declare_relation(
         store(
             "operational_publications",
             &["publication_id"],
             vec![
-                column("publication_id", T::id()).with_identity("publication"),
+                column("publication_id", T::id())
+                    .with_fk("runtime.operational_publication_intents", "publication_id"),
                 column("workspace_id", T::id())
                     .with_fk("runtime.operational_workspaces", "workspace_id"),
                 publication_ref("parent_publication").optional(),
                 attempt_ref("attempt_id"),
+                column("kind", T::enumeration("PublicationKind")),
                 column("committed_at", ts()),
             ],
-            "Immutable publication records. The attempt identity is unique: publication is idempotent per attempt, and settlement queries this relation.",
+            "Immutable publication records. Each commits its registered intent; the attempt identity is unique, so publication is idempotent per attempt and settlement queries this relation.",
         )
         .unique("attempt_id", &["attempt_id"])
+        .foreign_key(
+            "intent",
+            &["publication_id", "workspace_id", "attempt_id"],
+            "runtime.operational_publication_intents",
+            &["publication_id", "workspace_id", "attempt_id"],
+        )
         .check(
             "parent_is_another_publication",
             "\"parent_publication\" IS DISTINCT FROM \"publication_id\"",
@@ -555,19 +603,56 @@ fn declare_catalog(b: &mut RegistryBuilder) {
     b.declare_relation(
         store(
             "operational_publication_members",
-            &["publication_id", "member"],
+            &[
+                "publication_id",
+                "role",
+                "catalog_name",
+                "schema_name",
+                "table_name",
+            ],
             vec![
                 publication_ref("publication_id"),
-                column("member", text()),
+                column("role", T::enumeration("PublicationMemberRole")),
+                column("catalog_name", text()),
+                column("schema_name", text()),
+                column("table_name", text()),
+                column("relation_id", T::id()),
+                column("relation_version", int64()),
+                column("contract_fingerprint", T::hash()),
                 column("table_uri", text()),
                 column("delta_version", int64()),
-                column("contract_fingerprint", T::hash()),
+                column("selection_kind", T::enumeration("MemberSelectionKind")),
+                column("revision_column", text()).optional(),
+                column("revision_id", T::id()).optional(),
             ],
-            "The members of a publication: each names an exact Delta version of a table and the contract fingerprint it was written under.",
+            "The members of a publication, one registry `MemberDescriptor` per row: an output it publishes or an input it read, each naming an exact Delta version of a table, the relation contract it was written under and the rows selected (the full table or one revision).",
         )
-        .check("member_nonempty", nonempty("member"))
+        .check("catalog_name_nonempty", nonempty("catalog_name"))
+        .check("schema_name_nonempty", nonempty("schema_name"))
+        .check("table_name_nonempty", nonempty("table_name"))
         .check("table_uri_nonempty", nonempty("table_uri"))
-        .check("delta_version_nonnegative", "\"delta_version\" >= 0"),
+        .check("relation_version_nonnegative", "\"relation_version\" >= 0")
+        .check("delta_version_nonnegative", "\"delta_version\" >= 0")
+        .check(
+            "one_selection",
+            "(\"selection_kind\" = 'full' AND \"revision_column\" IS NULL AND \"revision_id\" IS NULL) OR (\"selection_kind\" = 'revision' AND \"revision_column\" IS NOT NULL AND \"revision_column\" <> '' AND \"revision_id\" IS NOT NULL)",
+        ),
+    );
+    b.declare_relation(
+        store(
+            "operational_publication_windows",
+            &["publication_id", "table_uri", "from_version"],
+            vec![
+                publication_ref("publication_id"),
+                column("table_uri", text()),
+                column("from_version", int64()),
+                column("through_version", int64()),
+            ],
+            "Change-data windows a publication read: every version of the table from `from_version` through `through_version` (inclusive) stays reachable while the publication is live (retention reason `changes`, finding T16).",
+        )
+        .check("table_uri_nonempty", nonempty("table_uri"))
+        .check("from_version_nonnegative", "\"from_version\" >= 0")
+        .check("ordered_window", "\"from_version\" <= \"through_version\""),
     );
     b.declare_relation(
         store(
@@ -578,13 +663,24 @@ fn declare_catalog(b: &mut RegistryBuilder) {
                 attempt_ref("attempt_id"),
                 column("outcome", T::enumeration("SettlementOutcome")),
                 publication_ref("publication_id").optional(),
+                column("reason", text()).optional(),
+                publication_ref("conflict_head").optional(),
                 column("settled_at", ts()),
             ],
-            "Settlement inquiries after an uncertain commit acknowledgement, and their outcome; a committed outcome names its publication.",
+            "Settlement inquiries after an uncertain commit acknowledgement, and their outcome: a committed outcome names its publication; a conflict names why and the head it met.",
         )
         .check(
             "committed_names_publication",
             "(\"outcome\" = 'committed') = (\"publication_id\" IS NOT NULL)",
+        )
+        .check(
+            "conflict_has_reason",
+            "(\"outcome\" = 'conflict') = (\"reason\" IS NOT NULL)",
+        )
+        .check("reason_nonempty", absent_or_nonempty("reason"))
+        .check(
+            "conflict_head_of_conflict",
+            "\"conflict_head\" IS NULL OR \"outcome\" = 'conflict'",
         ),
     );
     b.declare_relation(
@@ -594,12 +690,15 @@ fn declare_catalog(b: &mut RegistryBuilder) {
             vec![
                 column("lease_id", T::id()).with_identity("reader_lease"),
                 publication_ref("publication_id"),
+                column("head_of", T::id())
+                    .with_fk("runtime.operational_workspaces", "workspace_id")
+                    .optional(),
                 column("holder", text()),
                 column("acquired_at", ts()),
                 column("expires_at", ts()),
                 column("released_at", ts()).optional(),
             ],
-            "Reader leases: taken in a short transaction and released when the read is done; no reader holds a database session while it reads Delta files (finding T02).",
+            "Reader leases: taken, renewed and released in short transactions; no reader holds a database session while it reads Delta files (finding T02). A lease that resolved a workspace head records that workspace in `head_of`; an export is a lease held by `export:<destination>`.",
         )
         .check("holder_nonempty", nonempty("holder"))
         .check(
@@ -647,7 +746,9 @@ mod tests {
             "progress_events",
             "progress_values",
             "publication_heads",
+            "publication_intents",
             "publication_members",
+            "publication_windows",
             "publications",
             "reader_leases",
             "retention_marks",
@@ -661,7 +762,7 @@ mod tests {
         ] {
             assert!(tables.contains(&table), "{table} is not a store relation");
         }
-        assert_eq!(tables.len(), 18);
+        assert_eq!(tables.len(), 20);
         // Identities are owned by their keys and inherited through references.
         let owner = |name: &str| {
             registry
@@ -677,6 +778,15 @@ mod tests {
             ))
         );
         assert_eq!(owner("run"), None);
+        // A publication is owned by its intent, registered before any member write
+        // (Plan 22 X9); the committed publication inherits it through its reference.
+        assert_eq!(
+            owner("publication"),
+            Some((
+                "runtime.operational_publication_intents".to_owned(),
+                "publication_id".to_owned()
+            ))
+        );
         assert_eq!(
             registry.identity("source_bundle").map(|identity| identity.base),
             Some(IdentityBase::ContentHash)
@@ -714,6 +824,46 @@ mod tests {
             .unwrap();
         assert!(values.checks.contains_key("one_evidence_value"));
         assert_eq!(values.foreign_keys[0].target, "runtime.operational_progress_events");
+        // The catalog's O8 declarations: the flattened member descriptor with its role and
+        // selection rule, the settlement conflict, the windows and the intent reference.
+        let members = registry
+            .relation("runtime.operational_publication_members")
+            .unwrap();
+        assert!(members.checks.contains_key("one_selection"));
+        assert_eq!(
+            members.column("role").unwrap().enum_name(),
+            Some("PublicationMemberRole")
+        );
+        let publications = registry
+            .relation("runtime.operational_publications")
+            .unwrap();
+        assert_eq!(
+            publications.column("kind").unwrap().enum_name(),
+            Some("PublicationKind")
+        );
+        assert_eq!(
+            publications.foreign_keys[0].target,
+            "runtime.operational_publication_intents"
+        );
+        let workspaces = registry.relation("runtime.operational_workspaces").unwrap();
+        assert!(workspaces.column("maintenance_epoch").is_some());
+        assert!(
+            workspaces
+                .unique_keys
+                .iter()
+                .any(|key| key.columns == ["root_uri"])
+        );
+        let settlement = registry.enum_spec("SettlementOutcome").unwrap();
+        assert!(settlement.members.iter().any(|m| m.name == "conflict"));
+        let reasons = registry.enum_spec("RetentionReason").unwrap();
+        assert!(reasons.members.iter().all(|m| m.name != "output"));
+        assert!(
+            registry
+                .relation("runtime.operational_publication_windows")
+                .unwrap()
+                .checks
+                .contains_key("ordered_window")
+        );
     }
 
     #[test]

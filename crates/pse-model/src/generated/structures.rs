@@ -140,6 +140,39 @@ impl PartialEq for MemberDescriptor {
         crate::SemanticEq::semantic_eq(self, other)
     }
 }
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct VersionWindow {
+    ///table_uri
+    pub r#table_uri: String,
+    ///from_version
+    pub r#from_version: i64,
+    ///through_version
+    pub r#through_version: i64,
+}
+impl crate::SemanticEq for VersionWindow {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#table_uri, &other.r#table_uri)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#from_version,
+                &other.r#from_version,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#through_version,
+                &other.r#through_version,
+            )
+    }
+}
+impl PartialEq for VersionWindow {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
 impl crate::SemanticFrame for MemberDescriptorSelectionRevision {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#column));
@@ -204,5 +237,23 @@ impl crate::HeapUsage for MemberDescriptor {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#table_uri))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#delta_version))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#selection))
+    }
+}
+impl crate::SemanticFrame for VersionWindow {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#table_uri));
+        crate::SemanticFrame::frame(&self.r#table_uri, hash);
+        hash.str(stringify!(r#from_version));
+        crate::SemanticFrame::frame(&self.r#from_version, hash);
+        hash.str(stringify!(r#through_version));
+        crate::SemanticFrame::frame(&self.r#through_version, hash);
+    }
+}
+impl crate::HeapUsage for VersionWindow {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#table_uri))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#from_version))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#through_version))
     }
 }

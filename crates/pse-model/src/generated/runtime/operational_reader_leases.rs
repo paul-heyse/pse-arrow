@@ -13,6 +13,8 @@ pub struct RuntimeOperationalReaderLeasesRow {
     pub r#lease_id: crate::generated::identities::ReaderLeaseId,
     ///publication_id
     pub r#publication_id: crate::generated::identities::PublicationId,
+    ///head_of
+    pub r#head_of: Option<crate::generated::identities::WorkspaceId>,
     ///holder
     pub r#holder: String,
     ///acquired_at
@@ -28,7 +30,8 @@ impl crate::SemanticEq for RuntimeOperationalReaderLeasesRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#publication_id,
                 &other.r#publication_id,
-            ) && crate::SemanticEq::semantic_eq(&self.r#holder, &other.r#holder)
+            ) && crate::SemanticEq::semantic_eq(&self.r#head_of, &other.r#head_of)
+            && crate::SemanticEq::semantic_eq(&self.r#holder, &other.r#holder)
             && crate::SemanticEq::semantic_eq(&self.r#acquired_at, &other.r#acquired_at)
             && crate::SemanticEq::semantic_eq(&self.r#expires_at, &other.r#expires_at)
             && crate::SemanticEq::semantic_eq(&self.r#released_at, &other.r#released_at)
@@ -47,6 +50,8 @@ impl crate::SemanticFrame for RuntimeOperationalReaderLeasesRow {
         crate::SemanticFrame::frame(&self.r#lease_id, hash);
         hash.str(stringify!(r#publication_id));
         crate::SemanticFrame::frame(&self.r#publication_id, hash);
+        hash.str(stringify!(r#head_of));
+        crate::SemanticFrame::frame(&self.r#head_of, hash);
         hash.str(stringify!(r#holder));
         crate::SemanticFrame::frame(&self.r#holder, hash);
         hash.str(stringify!(r#acquired_at));
@@ -62,6 +67,7 @@ impl crate::HeapUsage for RuntimeOperationalReaderLeasesRow {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lease_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#publication_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#head_of))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#holder))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#acquired_at))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expires_at))

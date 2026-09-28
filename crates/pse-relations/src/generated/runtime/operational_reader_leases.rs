@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    232u8, 110u8, 119u8, 186u8, 129u8, 43u8, 255u8, 215u8, 240u8, 118u8, 12u8, 160u8,
-    105u8, 247u8, 183u8, 213u8, 136u8, 41u8, 246u8, 48u8, 25u8, 204u8, 59u8, 156u8,
-    113u8, 17u8, 81u8, 21u8, 2u8, 114u8, 81u8, 182u8,
+    118u8, 30u8, 174u8, 126u8, 22u8, 155u8, 201u8, 184u8, 174u8, 169u8, 3u8, 135u8,
+    212u8, 233u8, 61u8, 176u8, 66u8, 223u8, 85u8, 218u8, 229u8, 63u8, 154u8, 41u8, 246u8,
+    34u8, 241u8, 73u8, 19u8, 189u8, 121u8, 165u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalReaderLeasesRow {
     fn append(
@@ -40,18 +40,19 @@ impl crate::columnar::ArrowValue for RuntimeOperationalReaderLeasesRow {
             &self.r#publication_id,
             children[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#holder, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#head_of, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#holder, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#acquired_at,
-            children[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expires_at,
             children[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#released_at,
+            &self.r#expires_at,
             children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#released_at,
+            children[6usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -69,12 +70,15 @@ impl crate::columnar::ArrowValue for RuntimeOperationalReaderLeasesRow {
         <crate::generated::identities::PublicationId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            crate::generated::identities::WorkspaceId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Option<
             i64,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -93,22 +97,28 @@ impl crate::columnar::ArrowValue for RuntimeOperationalReaderLeasesRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#holder: <String as crate::columnar::ArrowValue>::read(
+            r#head_of: <Option<
+                crate::generated::identities::WorkspaceId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#acquired_at: <i64 as crate::columnar::ArrowValue>::read(
+            r#holder: <String as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#expires_at: <i64 as crate::columnar::ArrowValue>::read(
+            r#acquired_at: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#expires_at: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#released_at: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
         })
@@ -164,18 +174,19 @@ impl crate::columnar::RelationRow for RuntimeOperationalReaderLeasesRow {
             &self.r#publication_id,
             columns[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#holder, columns[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#head_of, columns[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#holder, columns[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#acquired_at,
-            columns[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#expires_at,
             columns[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#released_at,
+            &self.r#expires_at,
             columns[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#released_at,
+            columns[6usize].as_mut(),
         )?;
         Ok(())
     }
@@ -211,10 +222,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalReaderLeasesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        14_336_usize + size_of::<Self::Builder>()
+        17_408_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        112usize
+        136usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -225,6 +236,17 @@ impl crate::columnar::RelationRow for RuntimeOperationalReaderLeasesRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#head_of).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -259,7 +281,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "lease_id",
@@ -272,23 +294,28 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "holder",
+        name: "head_of",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "acquired_at",
+        name: "holder",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "expires_at",
+        name: "acquired_at",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "released_at",
+        name: "expires_at",
         position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "released_at",
+        position: 6usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -297,14 +324,16 @@ pub mod columns {
     pub const LEASE_ID: crate::columnar::ColumnReference = super::COLUMNS[0usize];
     ///publication_id
     pub const PUBLICATION_ID: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    ///head_of
+    pub const HEAD_OF: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///holder
-    pub const HOLDER: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const HOLDER: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///acquired_at
-    pub const ACQUIRED_AT: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const ACQUIRED_AT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///expires_at
-    pub const EXPIRES_AT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const EXPIRES_AT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///released_at
-    pub const RELEASED_AT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const RELEASED_AT: crate::columnar::ColumnReference = super::COLUMNS[6usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -313,6 +342,7 @@ pub struct RuntimeOperationalReaderLeasesView<'a> {
     batch: &'a crate::RecordBatch,
     lease_id_column: &'a arrow_array::FixedSizeBinaryArray,
     publication_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    head_of_column: &'a arrow_array::FixedSizeBinaryArray,
     holder_column: &'a arrow_array::StringArray,
     acquired_at_column: &'a arrow_array::TimestampMicrosecondArray,
     expires_at_column: &'a arrow_array::TimestampMicrosecondArray,
@@ -362,18 +392,21 @@ impl<'a> RuntimeOperationalReaderLeasesView<'a> {
             publication_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(1usize).as_ref())?,
+            head_of_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(2usize).as_ref())?,
             holder_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(2usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
             acquired_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(3usize).as_ref())?,
+            >(batch.column(4usize).as_ref())?,
             expires_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
             released_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -414,6 +447,18 @@ impl<'a> RuntimeOperationalReaderLeasesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "head_of",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn head_of_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.head_of_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "head_of", "`.")]
+    pub fn head_of_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "holder",
         "`, including its offsets and validity bitmap.",
     )]
@@ -422,7 +467,7 @@ impl<'a> RuntimeOperationalReaderLeasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "holder", "`.")]
     pub fn holder_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -436,7 +481,7 @@ impl<'a> RuntimeOperationalReaderLeasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "acquired_at", "`.")]
     pub fn acquired_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -448,7 +493,7 @@ impl<'a> RuntimeOperationalReaderLeasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "expires_at", "`.")]
     pub fn expires_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -462,7 +507,7 @@ impl<'a> RuntimeOperationalReaderLeasesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "released_at", "`.")]
     pub fn released_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -481,6 +526,7 @@ impl<'a> RuntimeOperationalReaderLeasesView<'a> {
                 self.publication_id_column,
                 index,
             )?,
+            r#head_of: crate::columnar::ArrowValue::read(self.head_of_column, index)?,
             r#holder: crate::columnar::ArrowValue::read(self.holder_column, index)?,
             r#acquired_at: crate::columnar::ArrowValue::read(
                 self.acquired_at_column,

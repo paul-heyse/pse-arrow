@@ -119,6 +119,24 @@ impl<'a> FromSql<'a> for crate::generated::enums::JobState {
         <Self as ToSql>::accepts(ty)
     }
 }
+impl ToSql for crate::generated::enums::MemberSelectionKind {
+    fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        out.extend_from_slice(self.as_str().as_bytes());
+        Ok(IsNull::No)
+    }
+    fn accepts(ty: &Type) -> bool {
+        enum_type(ty, "member_selection_kind", &["full", "revision"])
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::enums::MemberSelectionKind {
+    fn from_sql(_: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        Ok(postgres_protocol::types::text_from_sql(raw)?.parse()?)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
 impl ToSql for crate::generated::enums::NativeBackend {
     fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
         out.extend_from_slice(self.as_str().as_bytes());
@@ -235,6 +253,55 @@ impl<'a> FromSql<'a> for crate::generated::enums::NativeTermination {
         <Self as ToSql>::accepts(ty)
     }
 }
+impl ToSql for crate::generated::enums::PublicationKind {
+    fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        out.extend_from_slice(self.as_str().as_bytes());
+        Ok(IsNull::No)
+    }
+    fn accepts(ty: &Type) -> bool {
+        enum_type(
+            ty,
+            "publication_kind",
+            &[
+                "relations",
+                "source",
+                "model",
+                "case",
+                "problem",
+                "run",
+                "diagnostics",
+                "inspection",
+            ],
+        )
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::enums::PublicationKind {
+    fn from_sql(_: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        Ok(postgres_protocol::types::text_from_sql(raw)?.parse()?)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
+impl ToSql for crate::generated::enums::PublicationMemberRole {
+    fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        out.extend_from_slice(self.as_str().as_bytes());
+        Ok(IsNull::No)
+    }
+    fn accepts(ty: &Type) -> bool {
+        enum_type(ty, "publication_member_role", &["output", "input"])
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::enums::PublicationMemberRole {
+    fn from_sql(_: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        Ok(postgres_protocol::types::text_from_sql(raw)?.parse()?)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
 impl ToSql for crate::generated::enums::RetentionPhase {
     fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
         out.extend_from_slice(self.as_str().as_bytes());
@@ -287,7 +354,11 @@ impl ToSql for crate::generated::enums::SettlementOutcome {
         Ok(IsNull::No)
     }
     fn accepts(ty: &Type) -> bool {
-        enum_type(ty, "settlement_outcome", &["committed", "proved_noncommit"])
+        enum_type(
+            ty,
+            "settlement_outcome",
+            &["committed", "proved_noncommit", "conflict"],
+        )
     }
     postgres_types::to_sql_checked!();
 }
@@ -948,6 +1019,38 @@ for crate::generated::r#runtime::r#operational_publication_heads::RuntimeOperati
     }
 }
 impl<'a> FromSql<'a>
+for crate::generated::r#runtime::r#operational_publication_intents::RuntimeOperationalPublicationIntentsRow {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        let mut record = crate::postgres::Record::read(
+            ty,
+            raw,
+            &[
+                "publication_id",
+                "workspace_id",
+                "attempt_id",
+                "member_prefix",
+                "prepared_at",
+                "abandoned_at",
+                "reclaimed_at",
+            ],
+        )?;
+        let row = Self {
+            r#publication_id: record.value()?,
+            r#workspace_id: record.value()?,
+            r#attempt_id: record.value()?,
+            r#member_prefix: record.value()?,
+            r#prepared_at: record.micros()?,
+            r#abandoned_at: record.opt_micros()?,
+            r#reclaimed_at: record.opt_micros()?,
+        };
+        record.finish()?;
+        Ok(row)
+    }
+    fn accepts(ty: &Type) -> bool {
+        crate::postgres::composite(ty, "pse_ops", "publication_intents")
+    }
+}
+impl<'a> FromSql<'a>
 for crate::generated::r#runtime::r#operational_publication_members::RuntimeOperationalPublicationMembersRow {
     fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
         let mut record = crate::postgres::Record::read(
@@ -955,24 +1058,61 @@ for crate::generated::r#runtime::r#operational_publication_members::RuntimeOpera
             raw,
             &[
                 "publication_id",
-                "member",
+                "role",
+                "catalog_name",
+                "schema_name",
+                "table_name",
+                "relation_id",
+                "relation_version",
+                "contract_fingerprint",
                 "table_uri",
                 "delta_version",
-                "contract_fingerprint",
+                "selection_kind",
+                "revision_column",
+                "revision_id",
             ],
         )?;
         let row = Self {
             r#publication_id: record.value()?,
-            r#member: record.value()?,
+            r#role: record.value()?,
+            r#catalog_name: record.value()?,
+            r#schema_name: record.value()?,
+            r#table_name: record.value()?,
+            r#relation_id: record.value()?,
+            r#relation_version: record.value()?,
+            r#contract_fingerprint: record.value()?,
             r#table_uri: record.value()?,
             r#delta_version: record.value()?,
-            r#contract_fingerprint: record.value()?,
+            r#selection_kind: record.value()?,
+            r#revision_column: record.value()?,
+            r#revision_id: record.value()?,
         };
         record.finish()?;
         Ok(row)
     }
     fn accepts(ty: &Type) -> bool {
         crate::postgres::composite(ty, "pse_ops", "publication_members")
+    }
+}
+impl<'a> FromSql<'a>
+for crate::generated::r#runtime::r#operational_publication_windows::RuntimeOperationalPublicationWindowsRow {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        let mut record = crate::postgres::Record::read(
+            ty,
+            raw,
+            &["publication_id", "table_uri", "from_version", "through_version"],
+        )?;
+        let row = Self {
+            r#publication_id: record.value()?,
+            r#table_uri: record.value()?,
+            r#from_version: record.value()?,
+            r#through_version: record.value()?,
+        };
+        record.finish()?;
+        Ok(row)
+    }
+    fn accepts(ty: &Type) -> bool {
+        crate::postgres::composite(ty, "pse_ops", "publication_windows")
     }
 }
 impl<'a> FromSql<'a>
@@ -986,6 +1126,7 @@ for crate::generated::r#runtime::r#operational_publications::RuntimeOperationalP
                 "workspace_id",
                 "parent_publication",
                 "attempt_id",
+                "kind",
                 "committed_at",
             ],
         )?;
@@ -994,6 +1135,7 @@ for crate::generated::r#runtime::r#operational_publications::RuntimeOperationalP
             r#workspace_id: record.value()?,
             r#parent_publication: record.value()?,
             r#attempt_id: record.value()?,
+            r#kind: record.value()?,
             r#committed_at: record.micros()?,
         };
         record.finish()?;
@@ -1012,6 +1154,7 @@ for crate::generated::r#runtime::r#operational_reader_leases::RuntimeOperational
             &[
                 "lease_id",
                 "publication_id",
+                "head_of",
                 "holder",
                 "acquired_at",
                 "expires_at",
@@ -1021,6 +1164,7 @@ for crate::generated::r#runtime::r#operational_reader_leases::RuntimeOperational
         let row = Self {
             r#lease_id: record.value()?,
             r#publication_id: record.value()?,
+            r#head_of: record.value()?,
             r#holder: record.value()?,
             r#acquired_at: record.micros()?,
             r#expires_at: record.micros()?,
@@ -1060,13 +1204,23 @@ for crate::generated::r#runtime::r#operational_settlements::RuntimeOperationalSe
         let mut record = crate::postgres::Record::read(
             ty,
             raw,
-            &["settlement_id", "attempt_id", "outcome", "publication_id", "settled_at"],
+            &[
+                "settlement_id",
+                "attempt_id",
+                "outcome",
+                "publication_id",
+                "reason",
+                "conflict_head",
+                "settled_at",
+            ],
         )?;
         let row = Self {
             r#settlement_id: record.value()?,
             r#attempt_id: record.value()?,
             r#outcome: record.value()?,
             r#publication_id: record.value()?,
+            r#reason: record.value()?,
+            r#conflict_head: record.value()?,
             r#settled_at: record.micros()?,
         };
         record.finish()?;
@@ -1229,12 +1383,13 @@ for crate::generated::r#runtime::r#operational_workspaces::RuntimeOperationalWor
         let mut record = crate::postgres::Record::read(
             ty,
             raw,
-            &["workspace_id", "name", "root_uri", "created_at"],
+            &["workspace_id", "name", "root_uri", "maintenance_epoch", "created_at"],
         )?;
         let row = Self {
             r#workspace_id: record.value()?,
             r#name: record.value()?,
             r#root_uri: record.value()?,
+            r#maintenance_epoch: record.value()?,
             r#created_at: record.micros()?,
         };
         record.finish()?;

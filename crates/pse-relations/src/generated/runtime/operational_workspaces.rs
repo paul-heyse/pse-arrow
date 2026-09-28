@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    46u8, 235u8, 173u8, 150u8, 21u8, 92u8, 201u8, 151u8, 63u8, 77u8, 72u8, 173u8, 100u8,
-    64u8, 131u8, 143u8, 17u8, 248u8, 251u8, 175u8, 117u8, 38u8, 245u8, 67u8, 108u8, 57u8,
-    201u8, 82u8, 21u8, 79u8, 37u8, 14u8,
+    40u8, 69u8, 90u8, 93u8, 167u8, 130u8, 204u8, 43u8, 26u8, 191u8, 155u8, 12u8, 171u8,
+    185u8, 38u8, 59u8, 227u8, 234u8, 245u8, 8u8, 231u8, 245u8, 225u8, 78u8, 31u8, 64u8,
+    184u8, 245u8, 93u8, 227u8, 10u8, 198u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalWorkspacesRow {
     fn append(
@@ -42,8 +42,12 @@ impl crate::columnar::ArrowValue for RuntimeOperationalWorkspacesRow {
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#created_at,
+            &self.r#maintenance_epoch,
             children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#created_at,
+            children[4usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -61,6 +65,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalWorkspacesRow {
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -83,8 +88,12 @@ impl crate::columnar::ArrowValue for RuntimeOperationalWorkspacesRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#created_at: <i64 as crate::columnar::ArrowValue>::read(
+            r#maintenance_epoch: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#created_at: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
                 index,
             )?,
         })
@@ -142,8 +151,12 @@ impl crate::columnar::RelationRow for RuntimeOperationalWorkspacesRow {
         crate::columnar::ArrowValue::append(&self.r#name, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#root_uri, columns[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#created_at,
+            &self.r#maintenance_epoch,
             columns[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#created_at,
+            columns[4usize].as_mut(),
         )?;
         Ok(())
     }
@@ -179,10 +192,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalWorkspacesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        9_216_usize + size_of::<Self::Builder>()
+        11_264_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        72usize
+        88usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -202,6 +215,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalWorkspacesRow {
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
         Ok(bytes)
     }
 }
@@ -212,7 +229,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "workspace_id",
@@ -230,8 +247,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "created_at",
+        name: "maintenance_epoch",
         position: 3usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "created_at",
+        position: 4usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -242,8 +264,10 @@ pub mod columns {
     pub const NAME: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///root_uri
     pub const ROOT_URI: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///maintenance_epoch
+    pub const MAINTENANCE_EPOCH: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///created_at
-    pub const CREATED_AT: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const CREATED_AT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -253,6 +277,7 @@ pub struct RuntimeOperationalWorkspacesView<'a> {
     workspace_id_column: &'a arrow_array::FixedSizeBinaryArray,
     name_column: &'a arrow_array::StringArray,
     root_uri_column: &'a arrow_array::StringArray,
+    maintenance_epoch_column: &'a arrow_array::Int64Array,
     created_at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalWorkspacesView<'a> {
@@ -302,9 +327,12 @@ impl<'a> RuntimeOperationalWorkspacesView<'a> {
             root_uri_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
+            maintenance_epoch_column: crate::columnar::array::<
+                arrow_array::Int64Array,
+            >(batch.column(3usize).as_ref())?,
             created_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(3usize).as_ref())?,
+            >(batch.column(4usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -357,6 +385,18 @@ impl<'a> RuntimeOperationalWorkspacesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "maintenance_epoch",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn maintenance_epoch_column(&self) -> &'a arrow_array::Int64Array {
+        self.maintenance_epoch_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "maintenance_epoch", "`.")]
+    pub fn maintenance_epoch_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "created_at",
         "`, including its offsets and validity bitmap.",
     )]
@@ -365,7 +405,7 @@ impl<'a> RuntimeOperationalWorkspacesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "created_at", "`.")]
     pub fn created_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -385,6 +425,10 @@ impl<'a> RuntimeOperationalWorkspacesView<'a> {
             )?,
             r#name: crate::columnar::ArrowValue::read(self.name_column, index)?,
             r#root_uri: crate::columnar::ArrowValue::read(self.root_uri_column, index)?,
+            r#maintenance_epoch: crate::columnar::ArrowValue::read(
+                self.maintenance_epoch_column,
+                index,
+            )?,
             r#created_at: crate::columnar::ArrowValue::read(
                 self.created_at_column,
                 index,

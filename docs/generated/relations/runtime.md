@@ -1025,19 +1025,61 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
 | `publication_id` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
 | `advanced_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 
+## `operational_publication_intents`
+
+Publication intents (Plan 22 X9), registered before the first member write: the publication identity, its durable attempt and the prefix every member it writes lives under. An intent without a publication is unpublished: reclaimable once abandoned, once its attempt is published as another publication, or once its attempt is stale or superseded. An abandoned intent never commits.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `publication_id` | `semantic_id` | false | `key` | — | — |
+| `workspace_id` | `semantic_id` | false | `payload` | `runtime.operational_workspaces.workspace_id` | — |
+| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `member_prefix` | `Utf8` | false | `payload` | — | — |
+| `prepared_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `abandoned_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+| `reclaimed_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+
+Native row check `member_prefix_nonempty` (must be true):
+
+```sql
+"member_prefix" <> ''
+```
+
+Native row check `reclaimed_after_abandoned` (must be true):
+
+```sql
+"reclaimed_at" IS NULL OR "abandoned_at" IS NOT NULL
+```
+
 ## `operational_publication_members`
 
-The members of a publication: each names an exact Delta version of a table and the contract fingerprint it was written under.
+The members of a publication, one registry `MemberDescriptor` per row: an output it publishes or an input it read, each naming an exact Delta version of a table, the relation contract it was written under and the rows selected (the full table or one revision).
 
-Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id, member`.
+Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id, role, catalog_name, schema_name, table_name`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publications.publication_id` | — |
-| `member` | `Utf8` | false | `key` | — | — |
+| `role` | `enum:PublicationMemberRole` | false | `key` | — | — |
+| `catalog_name` | `Utf8` | false | `key` | — | — |
+| `schema_name` | `Utf8` | false | `key` | — | — |
+| `table_name` | `Utf8` | false | `key` | — | — |
+| `relation_id` | `semantic_id` | false | `payload` | — | — |
+| `relation_version` | `Int64` | false | `payload` | — | — |
+| `contract_fingerprint` | `content_hash` | false | `payload` | — | — |
 | `table_uri` | `Utf8` | false | `payload` | — | — |
 | `delta_version` | `Int64` | false | `payload` | — | — |
-| `contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `selection_kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `revision_column` | `Utf8` | true | `payload` | — | — |
+| `revision_id` | `semantic_id` | true | `payload` | — | — |
+
+Native row check `catalog_name_nonempty` (must be true):
+
+```sql
+"catalog_name" <> ''
+```
 
 Native row check `delta_version_nonnegative` (must be true):
 
@@ -1045,10 +1087,59 @@ Native row check `delta_version_nonnegative` (must be true):
 "delta_version" >= 0
 ```
 
-Native row check `member_nonempty` (must be true):
+Native row check `one_selection` (must be true):
 
 ```sql
-"member" <> ''
+("selection_kind" = 'full' AND "revision_column" IS NULL AND "revision_id" IS NULL) OR ("selection_kind" = 'revision' AND "revision_column" IS NOT NULL AND "revision_column" <> '' AND "revision_id" IS NOT NULL)
+```
+
+Native row check `relation_version_nonnegative` (must be true):
+
+```sql
+"relation_version" >= 0
+```
+
+Native row check `schema_name_nonempty` (must be true):
+
+```sql
+"schema_name" <> ''
+```
+
+Native row check `table_name_nonempty` (must be true):
+
+```sql
+"table_name" <> ''
+```
+
+Native row check `table_uri_nonempty` (must be true):
+
+```sql
+"table_uri" <> ''
+```
+
+## `operational_publication_windows`
+
+Change-data windows a publication read: every version of the table from `from_version` through `through_version` (inclusive) stays reachable while the publication is live (retention reason `changes`, finding T16).
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id, table_uri, from_version`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publications.publication_id` | — |
+| `table_uri` | `Utf8` | false | `key` | — | — |
+| `from_version` | `Int64` | false | `key` | — | — |
+| `through_version` | `Int64` | false | `payload` | — | — |
+
+Native row check `from_version_nonnegative` (must be true):
+
+```sql
+"from_version" >= 0
+```
+
+Native row check `ordered_window` (must be true):
+
+```sql
+"from_version" <= "through_version"
 ```
 
 Native row check `table_uri_nonempty` (must be true):
@@ -1059,16 +1150,17 @@ Native row check `table_uri_nonempty` (must be true):
 
 ## `operational_publications`
 
-Immutable publication records. The attempt identity is unique: publication is idempotent per attempt, and settlement queries this relation.
+Immutable publication records. Each commits its registered intent; the attempt identity is unique, so publication is idempotent per attempt and settlement queries this relation.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `publication_id` | `semantic_id` | false | `key` | — | — |
+| `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publication_intents.publication_id` | — |
 | `workspace_id` | `semantic_id` | false | `payload` | `runtime.operational_workspaces.workspace_id` | — |
 | `parent_publication` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
 | `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `kind` | `enum:PublicationKind` | false | `payload` | — | — |
 | `committed_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 
 Native row check `parent_is_another_publication` (must be true):
@@ -1079,7 +1171,7 @@ Native row check `parent_is_another_publication` (must be true):
 
 ## `operational_reader_leases`
 
-Reader leases: taken in a short transaction and released when the read is done; no reader holds a database session while it reads Delta files (finding T02).
+Reader leases: taken, renewed and released in short transactions; no reader holds a database session while it reads Delta files (finding T02). A lease that resolved a workspace head records that workspace in `head_of`; an export is a lease held by `export:<destination>`.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `lease_id`.
 
@@ -1087,6 +1179,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `lease_id`.
 |---|---|---|---|---|---|
 | `lease_id` | `semantic_id` | false | `key` | — | — |
 | `publication_id` | `semantic_id` | false | `payload` | `runtime.operational_publications.publication_id` | — |
+| `head_of` | `semantic_id` | true | `payload` | `runtime.operational_workspaces.workspace_id` | — |
 | `holder` | `Utf8` | false | `payload` | — | — |
 | `acquired_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 | `expires_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
@@ -1125,7 +1218,7 @@ Native row check `deleted_when_marked_deleted` (must be true):
 
 ## `operational_settlements`
 
-Settlement inquiries after an uncertain commit acknowledgement, and their outcome; a committed outcome names its publication.
+Settlement inquiries after an uncertain commit acknowledgement, and their outcome: a committed outcome names its publication; a conflict names why and the head it met.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `settlement_id`.
 
@@ -1135,12 +1228,32 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `settlement_id`.
 | `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
 | `outcome` | `enum:SettlementOutcome` | false | `payload` | — | — |
 | `publication_id` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
+| `reason` | `Utf8` | true | `payload` | — | — |
+| `conflict_head` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
 | `settled_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 
 Native row check `committed_names_publication` (must be true):
 
 ```sql
 ("outcome" = 'committed') = ("publication_id" IS NOT NULL)
+```
+
+Native row check `conflict_has_reason` (must be true):
+
+```sql
+("outcome" = 'conflict') = ("reason" IS NOT NULL)
+```
+
+Native row check `conflict_head_of_conflict` (must be true):
+
+```sql
+"conflict_head" IS NULL OR "outcome" = 'conflict'
+```
+
+Native row check `reason_nonempty` (must be true):
+
+```sql
+"reason" IS NULL OR "reason" <> ''
 ```
 
 ## `operational_solutions`
@@ -1257,7 +1370,7 @@ Native row check `point_index_nonnegative` (must be true):
 
 ## `operational_workspaces`
 
-A publication workspace: a named root under which members are written. Its head row is created with it.
+A publication workspace: a named root under which members are written. Its head row is created with it. `maintenance_epoch` advances before every maintenance effect (retirement, collection), so a reader's cache scope never outlives the maintenance it was read under (Plan 22 X10).
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
 
@@ -1266,7 +1379,14 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
 | `workspace_id` | `semantic_id` | false | `key` | — | — |
 | `name` | `Utf8` | false | `payload` | — | — |
 | `root_uri` | `Utf8` | false | `payload` | — | — |
+| `maintenance_epoch` | `Int64` | false | `payload` | — | — |
 | `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+
+Native row check `maintenance_epoch_nonnegative` (must be true):
+
+```sql
+"maintenance_epoch" >= 0
+```
 
 Native row check `name_nonempty` (must be true):
 
@@ -1278,6 +1398,78 @@ Native row check `root_uri_nonempty` (must be true):
 
 ```sql
 "root_uri" <> ''
+```
+
+## `publication_manifests`
+
+One publication record: identity, workspace, parent, durable attempt, kind, the exact input and member vectors and the change windows read. The operational catalog is the authority for what is published; an export writes this row once as version 1 of a one-row Delta table together with the reader lease protecting its members, the workspace maintenance epoch and the operational store fingerprint, so an offline reader opens exactly those members.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `publication_id` | `semantic_id` | false | `key` | — | — |
+| `workspace_id` | `semantic_id` | false | `payload` | — | — |
+| `parent_publication_id` | `semantic_id` | true | `payload` | — | — |
+| `attempt_id` | `semantic_id` | false | `payload` | — | — |
+| `kind` | `enum:PublicationKind` | false | `payload` | — | — |
+| `inputs` | `List` | false | `payload` | — | — |
+| `inputs.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
+| `inputs.item.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.schema_name` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.table_name` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.relation_version` | `Int64` | false | `payload` | — | — |
+| `inputs.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `inputs.item.table_uri` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.delta_version` | `Int64` | false | `payload` | — | — |
+| `inputs.item.selection` | `Struct` | false | `payload` | — | — |
+| `inputs.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `inputs.item.selection.revision` | `Struct` | true | `payload` | — | — |
+| `inputs.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
+| `members` | `List` | false | `payload` | — | — |
+| `members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
+| `members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `members.item.schema_name` | `Utf8` | false | `payload` | — | — |
+| `members.item.table_name` | `Utf8` | false | `payload` | — | — |
+| `members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `members.item.relation_version` | `Int64` | false | `payload` | — | — |
+| `members.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `members.item.table_uri` | `Utf8` | false | `payload` | — | — |
+| `members.item.delta_version` | `Int64` | false | `payload` | — | — |
+| `members.item.selection` | `Struct` | false | `payload` | — | — |
+| `members.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `members.item.selection.revision` | `Struct` | true | `payload` | — | — |
+| `members.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `members.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
+| `windows` | `List` | false | `payload` | — | — |
+| `windows.item` | `Struct VersionWindow` | false | `payload` | — | — |
+| `windows.item.table_uri` | `Utf8` | false | `payload` | — | — |
+| `windows.item.from_version` | `Int64` | false | `payload` | — | — |
+| `windows.item.through_version` | `Int64` | false | `payload` | — | — |
+| `exported_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+| `export_lease_id` | `semantic_id` | true | `payload` | — | — |
+| `export_expires_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+| `maintenance_epoch` | `Int64` | true | `payload` | — | — |
+| `store_fingerprint` | `content_hash` | true | `payload` | — | — |
+
+Native row check `export_expires_after_export` (must be true):
+
+```sql
+"exported_at" IS NULL OR "export_expires_at" > "exported_at"
+```
+
+Native row check `exported_together` (must be true):
+
+```sql
+("exported_at" IS NULL) = ("export_lease_id" IS NULL) AND ("exported_at" IS NULL) = ("export_expires_at" IS NULL) AND ("exported_at" IS NULL) = ("maintenance_epoch" IS NULL) AND ("exported_at" IS NULL) = ("store_fingerprint" IS NULL)
+```
+
+Native row check `parent_is_another_publication` (must be true):
+
+```sql
+"parent_publication_id" IS DISTINCT FROM "publication_id"
 ```
 
 ## `publications`

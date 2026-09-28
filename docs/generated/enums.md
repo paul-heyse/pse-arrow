@@ -1096,6 +1096,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `diagnostics` | `` | false |
 | `inspection` | `` | false |
 
+## `PublicationMemberRole`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `output` | `` | false |
+| `input` | `` | false |
+
 ## `QuantityAdditionKind`
 
 | Member | IDAES name | Deprecated |
@@ -1186,7 +1193,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `publication` | `` | false |
-| `output` | `` | false |
 | `attempt` | `` | false |
 | `changes` | `` | false |
 
@@ -1228,6 +1234,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `committed` | `` | false |
 | `proved_noncommit` | `` | false |
+| `conflict` | `` | false |
 
 ## `Severity`
 

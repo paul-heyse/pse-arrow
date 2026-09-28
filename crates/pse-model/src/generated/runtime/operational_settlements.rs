@@ -17,6 +17,10 @@ pub struct RuntimeOperationalSettlementsRow {
     pub r#outcome: crate::generated::enums::SettlementOutcome,
     ///publication_id
     pub r#publication_id: Option<crate::generated::identities::PublicationId>,
+    ///reason
+    pub r#reason: Option<String>,
+    ///conflict_head
+    pub r#conflict_head: Option<crate::generated::identities::PublicationId>,
     ///settled_at
     pub r#settled_at: i64,
 }
@@ -28,6 +32,10 @@ impl crate::SemanticEq for RuntimeOperationalSettlementsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#publication_id,
                 &other.r#publication_id,
+            ) && crate::SemanticEq::semantic_eq(&self.r#reason, &other.r#reason)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#conflict_head,
+                &other.r#conflict_head,
             ) && crate::SemanticEq::semantic_eq(&self.r#settled_at, &other.r#settled_at)
     }
 }
@@ -48,6 +56,10 @@ impl crate::SemanticFrame for RuntimeOperationalSettlementsRow {
         crate::SemanticFrame::frame(&self.r#outcome, hash);
         hash.str(stringify!(r#publication_id));
         crate::SemanticFrame::frame(&self.r#publication_id, hash);
+        hash.str(stringify!(r#reason));
+        crate::SemanticFrame::frame(&self.r#reason, hash);
+        hash.str(stringify!(r#conflict_head));
+        crate::SemanticFrame::frame(&self.r#conflict_head, hash);
         hash.str(stringify!(r#settled_at));
         crate::SemanticFrame::frame(&self.r#settled_at, hash);
     }
@@ -59,6 +71,8 @@ impl crate::HeapUsage for RuntimeOperationalSettlementsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#publication_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reason))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#conflict_head))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#settled_at))
     }
 }

@@ -1096,6 +1096,13 @@ class PublicationKind(StrEnum):
     INSPECTION = "inspection"
 
 
+class PublicationMemberRole(StrEnum):
+    """The declared PublicationMemberRole enumeration."""
+
+    OUTPUT = "output"
+    INPUT = "input"
+
+
 class QuantityAdditionKind(StrEnum):
     """The declared QuantityAdditionKind enumeration."""
 
@@ -1185,7 +1192,6 @@ class RetentionReason(StrEnum):
     """The declared RetentionReason enumeration."""
 
     PUBLICATION = "publication"
-    OUTPUT = "output"
     ATTEMPT = "attempt"
     CHANGES = "changes"
 
@@ -1227,6 +1233,7 @@ class SettlementOutcome(StrEnum):
 
     COMMITTED = "committed"
     PROVED_NONCOMMIT = "proved_noncommit"
+    CONFLICT = "conflict"
 
 
 class Severity(StrEnum):

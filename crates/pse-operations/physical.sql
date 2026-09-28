@@ -77,6 +77,13 @@ ALTER TABLE pse_ops.study_points
 
 ALTER TABLE pse_ops.workspaces
     ALTER COLUMN created_at SET DEFAULT now();
+ALTER TABLE pse_ops.publication_intents
+    ALTER COLUMN prepared_at SET DEFAULT now();
+-- Reclamation and attempt-prefix protection read a workspace's unpublished intents.
+CREATE INDEX publication_intents_workspace_idx
+    ON pse_ops.publication_intents (workspace_id, prepared_at)
+    WHERE reclaimed_at IS NULL;
+CREATE INDEX publication_intents_attempt_idx ON pse_ops.publication_intents (attempt_id);
 CREATE INDEX publications_workspace_idx ON pse_ops.publications (workspace_id, committed_at);
 ALTER TABLE pse_ops.publications
     ALTER COLUMN committed_at SET DEFAULT now();
@@ -85,6 +92,8 @@ ALTER TABLE pse_ops.publication_heads
 -- Protected-version computation joins members by table and version.
 CREATE INDEX publication_members_version_idx
     ON pse_ops.publication_members (table_uri, delta_version);
+CREATE INDEX publication_windows_table_idx
+    ON pse_ops.publication_windows (table_uri, from_version);
 CREATE INDEX settlements_attempt_idx ON pse_ops.settlements (attempt_id, settled_at);
 ALTER TABLE pse_ops.settlements
     ALTER COLUMN settled_at SET DEFAULT now();

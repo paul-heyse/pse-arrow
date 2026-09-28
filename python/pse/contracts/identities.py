@@ -28,7 +28,7 @@ ModelId = NewType("ModelId", v.SemanticId)
 # One authored package (entity identity `package`).
 PackageId = NewType("PackageId", v.SemanticId)
 
-# One committed publication in the catalog (entity identity `publication`).
+# One publication: registered as an intent before its first member write and committed at most once (entity identity `publication`).
 PublicationId = NewType("PublicationId", v.SemanticId)
 
 # One reader lease protecting a publication (entity identity `reader_lease`).

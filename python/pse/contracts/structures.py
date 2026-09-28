@@ -45,3 +45,12 @@ class MemberDescriptor:
     table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     selection: MemberDescriptorSelection = attrs.field(validator=attrs.validators.instance_of(MemberDescriptorSelection))
+
+
+@attrs.frozen(kw_only=True)
+class VersionWindow:
+    """Declared relation row or nested value."""
+
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    from_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    through_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))

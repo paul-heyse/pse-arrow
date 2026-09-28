@@ -15,6 +15,8 @@ pub struct RuntimeOperationalWorkspacesRow {
     pub r#name: String,
     ///root_uri
     pub r#root_uri: String,
+    ///maintenance_epoch
+    pub r#maintenance_epoch: i64,
     ///created_at
     pub r#created_at: i64,
 }
@@ -23,7 +25,10 @@ impl crate::SemanticEq for RuntimeOperationalWorkspacesRow {
         crate::SemanticEq::semantic_eq(&self.r#workspace_id, &other.r#workspace_id)
             && crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
             && crate::SemanticEq::semantic_eq(&self.r#root_uri, &other.r#root_uri)
-            && crate::SemanticEq::semantic_eq(&self.r#created_at, &other.r#created_at)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#maintenance_epoch,
+                &other.r#maintenance_epoch,
+            ) && crate::SemanticEq::semantic_eq(&self.r#created_at, &other.r#created_at)
     }
 }
 impl PartialEq for RuntimeOperationalWorkspacesRow {
@@ -41,6 +46,8 @@ impl crate::SemanticFrame for RuntimeOperationalWorkspacesRow {
         crate::SemanticFrame::frame(&self.r#name, hash);
         hash.str(stringify!(r#root_uri));
         crate::SemanticFrame::frame(&self.r#root_uri, hash);
+        hash.str(stringify!(r#maintenance_epoch));
+        crate::SemanticFrame::frame(&self.r#maintenance_epoch, hash);
         hash.str(stringify!(r#created_at));
         crate::SemanticFrame::frame(&self.r#created_at, hash);
     }
@@ -51,6 +58,7 @@ impl crate::HeapUsage for RuntimeOperationalWorkspacesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#workspace_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#root_uri))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#maintenance_epoch))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#created_at))
     }
 }

@@ -947,6 +947,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            184u8, 102u8, 229u8, 65u8, 60u8, 3u8, 68u8, 237u8, 169u8, 103u8, 157u8,
+            196u8, 204u8, 148u8, 38u8, 2u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationIntents(
+                super::r#runtime::r#operational_publication_intents::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             199u8, 235u8, 87u8, 186u8, 11u8, 242u8, 22u8, 72u8, 48u8, 68u8, 251u8, 77u8,
             45u8, 9u8, 180u8, 201u8,
         ])
@@ -954,6 +966,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationMembers(
                 super::r#runtime::r#operational_publication_members::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            191u8, 79u8, 141u8, 24u8, 68u8, 141u8, 97u8, 240u8, 76u8, 37u8, 164u8, 211u8,
+            73u8, 144u8, 6u8, 236u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationWindows(
+                super::r#runtime::r#operational_publication_windows::Row::rows(batch)?,
             ),
         );
     }
@@ -1074,6 +1098,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeOperationalWorkspaces(
                 super::r#runtime::r#operational_workspaces::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            192u8, 131u8, 237u8, 62u8, 131u8, 132u8, 155u8, 254u8, 202u8, 14u8, 195u8,
+            142u8, 129u8, 81u8, 74u8, 154u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimePublicationManifests(
+                super::r#runtime::r#publication_manifests::Row::rows(batch)?,
             ),
         );
     }
@@ -1505,7 +1541,13 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationHeads(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationIntents(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationMembers(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublicationWindows(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalPublications(
@@ -1536,6 +1578,9 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalWorkspaces(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimePublicationManifests(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimePublications(rows) => {

@@ -1063,14 +1063,45 @@ class RuntimeOperationalPublicationHeadsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeOperationalPublicationIntentsRow:
+    """Declared relation row or nested value."""
+
+    publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    member_prefix: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    prepared_at: datetime = attrs.field(validator=v.utc_timestamp)
+    abandoned_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+    reclaimed_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeOperationalPublicationMembersRow:
     """Declared relation row or nested value."""
 
     publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    role: e.PublicationMemberRole = attrs.field(validator=attrs.validators.instance_of(e.PublicationMemberRole))
+    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    relation_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     delta_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
-    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    selection_kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalPublicationWindowsRow:
+    """Declared relation row or nested value."""
+
+    publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    from_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    through_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -1081,6 +1112,7 @@ class RuntimeOperationalPublicationsRow:
     workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     parent_publication: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
     committed_at: datetime = attrs.field(validator=v.utc_timestamp)
 
 
@@ -1090,6 +1122,7 @@ class RuntimeOperationalReaderLeasesRow:
 
     lease_id: i.ReaderLeaseId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    head_of: i.WorkspaceId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     holder: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     acquired_at: datetime = attrs.field(validator=v.utc_timestamp)
     expires_at: datetime = attrs.field(validator=v.utc_timestamp)
@@ -1114,6 +1147,8 @@ class RuntimeOperationalSettlementsRow:
     attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     outcome: e.SettlementOutcome = attrs.field(validator=attrs.validators.instance_of(e.SettlementOutcome))
     publication_id: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    reason: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    conflict_head: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     settled_at: datetime = attrs.field(validator=v.utc_timestamp)
 
 
@@ -1190,7 +1225,27 @@ class RuntimeOperationalWorkspacesRow:
     workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     root_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    maintenance_epoch: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimePublicationManifestsRow:
+    """Declared relation row or nested value."""
+
+    publication_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    workspace_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parent_publication_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
+    inputs: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    windows: b.tuple[s.VersionWindow, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.VersionWindow), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    exported_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+    export_lease_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    export_expires_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+    maintenance_epoch: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    store_fingerprint: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
 
 
 @attrs.frozen(kw_only=True)

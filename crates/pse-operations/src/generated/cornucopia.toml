@@ -19,6 +19,7 @@
 "pse_ops.job_id" = "pse_model::generated::identities::JobId"
 "pse_ops.job_state" = "pse_model::generated::enums::JobState"
 "pse_ops.jobs" = { rust-type = "pse_model::generated::runtime::operational_jobs::RuntimeOperationalJobsRow", is-copy = false }
+"pse_ops.member_selection_kind" = "pse_model::generated::enums::MemberSelectionKind"
 "pse_ops.native_backend" = "pse_model::generated::enums::NativeBackend"
 "pse_ops.native_metric_kind" = "pse_model::generated::enums::NativeMetricKind"
 "pse_ops.native_run_state" = "pse_model::generated::enums::NativeRunState"
@@ -27,7 +28,11 @@
 "pse_ops.progress_values" = { rust-type = "pse_model::generated::runtime::operational_progress_values::RuntimeOperationalProgressValuesRow", is-copy = false }
 "pse_ops.publication_heads" = { rust-type = "pse_model::generated::runtime::operational_publication_heads::RuntimeOperationalPublicationHeadsRow", is-copy = false }
 "pse_ops.publication_id" = "pse_model::generated::identities::PublicationId"
+"pse_ops.publication_intents" = { rust-type = "pse_model::generated::runtime::operational_publication_intents::RuntimeOperationalPublicationIntentsRow", is-copy = false }
+"pse_ops.publication_kind" = "pse_model::generated::enums::PublicationKind"
+"pse_ops.publication_member_role" = "pse_model::generated::enums::PublicationMemberRole"
 "pse_ops.publication_members" = { rust-type = "pse_model::generated::runtime::operational_publication_members::RuntimeOperationalPublicationMembersRow", is-copy = false }
+"pse_ops.publication_windows" = { rust-type = "pse_model::generated::runtime::operational_publication_windows::RuntimeOperationalPublicationWindowsRow", is-copy = false }
 "pse_ops.publications" = { rust-type = "pse_model::generated::runtime::operational_publications::RuntimeOperationalPublicationsRow", is-copy = false }
 "pse_ops.reader_lease_id" = "pse_model::generated::identities::ReaderLeaseId"
 "pse_ops.reader_leases" = { rust-type = "pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow", is-copy = false }

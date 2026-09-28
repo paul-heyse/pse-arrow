@@ -3,17 +3,33 @@
   "rows": {
     "runtime.operational_publication_members": [
       {
+        "catalog_name": "[\"text\",\"value-1\"]",
         "contract_fingerprint": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
         "delta_version": "[\"i64\",1]",
-        "member": "[\"text\",\"value-1\"]",
         "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "relation_version": "[\"i64\",1]",
+        "revision_column": "[\"text\",\"value-1\"]",
+        "revision_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "role": "[\"enum\",\"output\"]",
+        "schema_name": "[\"text\",\"value-1\"]",
+        "selection_kind": "[\"enum\",\"full\"]",
+        "table_name": "[\"text\",\"value-1\"]",
         "table_uri": "[\"text\",\"value-1\"]"
       },
       {
+        "catalog_name": "[\"text\",\"value-1\"]",
         "contract_fingerprint": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
         "delta_version": "[\"i64\",1]",
-        "member": "[\"text\",\"value-1\"]",
         "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "relation_version": "[\"i64\",1]",
+        "revision_column": "[\"text\",\"value-1\"]",
+        "revision_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "role": "[\"enum\",\"output\"]",
+        "schema_name": "[\"text\",\"value-1\"]",
+        "selection_kind": "[\"enum\",\"full\"]",
+        "table_name": "[\"text\",\"value-1\"]",
         "table_uri": "[\"text\",\"value-1\"]"
       }
     ]
@@ -21,6 +37,9 @@
   "expected_keys": [
     [
       "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"enum\",\"output\"]",
+      "[\"text\",\"value-1\"]",
+      "[\"text\",\"value-1\"]",
       "[\"text\",\"value-1\"]"
     ]
   ]

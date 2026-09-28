@@ -12,6 +12,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     declare_retention(builder);
     declare_dependencies(builder);
     declare_artifacts(builder);
+    declare_manifests(builder);
     builder.declare_artifact_profile("relations", std::collections::BTreeSet::new());
     relation(
         builder,
@@ -53,6 +54,60 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("inputs", T::list(member())),
             column("members", T::list(member())),
         ]).checks(super::row_checks::for_relation(N::Runtime, "publications")));
+}
+
+/// The publication record (Plan 22 X12). Admitted candidates carry it before a catalog
+/// commit makes them visible; an export writes it once as version 1 of a one-row Delta
+/// table, with the export fields that let an offline reader open exactly those members.
+fn declare_manifests(builder: &mut RegistryBuilder) {
+    let micros = || T::native(crate::model::extension::timestamp_micros_storage());
+    let exported = ["export_lease_id", "export_expires_at", "maintenance_epoch", "store_fingerprint"]
+        .iter()
+        .map(|field| format!("(\"exported_at\" IS NULL) = (\"{field}\" IS NULL)"))
+        .collect::<Vec<_>>()
+        .join(" AND ");
+    builder.declare_relation(
+        crate::model::RelationDecl::new(
+            N::Runtime,
+            "publication_manifests",
+            1,
+            crate::model::Authority::Derived,
+            S::Sidecar,
+            "One publication record: identity, workspace, parent, durable attempt, kind, the exact input and member vectors and the change windows read. The operational catalog is the authority for what is published; an export writes this row once as version 1 of a one-row Delta table together with the reader lease protecting its members, the workspace maintenance epoch and the operational store fingerprint, so an offline reader opens exactly those members.",
+        )
+        .pk(&["publication_id"])
+        .granularity(crate::model::DerivationGranularity::Row)
+        .columns(vec![
+            T::key("publication_id", T::id(), "Publication identity."),
+            column("workspace_id", T::id()),
+            column("parent_publication_id", T::id()).optional(),
+            column("attempt_id", T::id()),
+            column("kind", T::enumeration("PublicationKind")),
+            column("inputs", T::list(member())),
+            column("members", T::list(member())),
+            column("windows", T::list(window())),
+            column("exported_at", micros()).optional(),
+            column("export_lease_id", T::id()).optional(),
+            column("export_expires_at", micros()).optional(),
+            column("maintenance_epoch", T::nonnegative(i64::MAX)).optional(),
+            column("store_fingerprint", T::hash()).optional(),
+        ])
+        .checks(
+            [
+                (
+                    "parent_is_another_publication".into(),
+                    "\"parent_publication_id\" IS DISTINCT FROM \"publication_id\"".into(),
+                ),
+                ("exported_together".into(), exported),
+                (
+                    "export_expires_after_export".into(),
+                    "\"exported_at\" IS NULL OR \"export_expires_at\" > \"exported_at\"".into(),
+                ),
+            ]
+            .into_iter()
+            .collect(),
+        ),
+    );
 }
 
 fn declare_artifacts(builder: &mut RegistryBuilder) {
@@ -236,10 +291,13 @@ fn declare_retention(builder: &mut RegistryBuilder) {
         ],
         "Typed native CDF identity; each event travels with its complete declared before/after row value.",
     );
+    // Why a table version stays reachable (Plan 22 X10): a live publication selects it
+    // (member or input); a live publication read it within a change window; or it lies
+    // under the member prefix of a live, unpublished intent.
     enumeration(
         builder,
         "RetentionReason",
-        ["publication", "output", "attempt", "changes"],
+        ["publication", "attempt", "changes"],
     );
     let columns = vec![
         T::key(
@@ -373,6 +431,23 @@ pub(super) fn member() -> T {
         selection().with_name("selection"),
     ])
     .named("MemberDescriptor")
+}
+
+/// One inclusive version window of a Delta table: the registry named structure
+/// `VersionWindow`.
+fn window() -> T {
+    T::structure(vec![
+        T::native(arrow_schema::DataType::Utf8)
+            .with_name("table_uri")
+            .with_nullable(false),
+        T::nonnegative(i64::MAX)
+            .with_name("from_version")
+            .with_nullable(false),
+        T::nonnegative(i64::MAX)
+            .with_name("through_version")
+            .with_nullable(false),
+    ])
+    .named("VersionWindow")
 }
 
 fn selection() -> T {
