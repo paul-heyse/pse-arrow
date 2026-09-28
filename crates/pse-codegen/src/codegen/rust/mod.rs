@@ -219,7 +219,7 @@ fn documents(reg: &Registry) -> Result<(TokenStream, TokenStream), SchemaError> 
         let doc = spec.doc;
         declarations.push(quote! {
             #[doc = #doc]
-            #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+            #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
             #[serde(deny_unknown_fields)]
             pub struct #name { #(#fields)* }
         });

@@ -5536,6 +5536,7 @@ dependencies = [
  "pse-ids",
  "pse-model",
  "pse-quantity",
+ "schemars",
  "semver",
  "serde",
  "thiserror 2.0.20",
