@@ -36,12 +36,22 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Scalar"\n'
+        f'quantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
+    )
     package = runtime.modeling_from_documents(
         [
             {
                 "package.toml": manifest,
-                "models/recycle.pse": "package recycle {def Root {param a:Scalar=2; var x:Scalar; let output:Scalar=x/2+a; port inlet:Scalar=x; annotation connectivity inlet(1,0); port outlet:Scalar=output; annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(1);}}",
+                "models/recycle.pse": (
+                    "package recycle {def Root {"
+                    "param a:Scalar=2; var x:Scalar; let output:Scalar=x/2+a; "
+                    "port inlet:Scalar=x; annotation connectivity inlet(1,0); "
+                    "port outlet:Scalar=output; annotation connectivity outlet(0,1); "
+                    "connect outlet -> inlet; annotation start x(1);"
+                    "}}"
+                ),
             }
         ],
         physical,

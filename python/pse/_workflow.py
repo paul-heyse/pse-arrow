@@ -19,34 +19,21 @@ from pse._build import (
 )
 from pse._inspection import Publication, TableStream
 from pse._modeling import ModelingPackage
-from pse._strategies import (
-    PreparedFlow,
-    PreparedStrategy,
-    StrategyResult,
-    _AnalysisDocument,
-)
 from pse._runs import (
+    ExportReceipt,
     PreparedOperation,
+    ProgressStream,
+    PublicationSettlement,
+    PublicationTicket,
     RunHandle,
     RunResult,
-    RunCompletion,
-    PublicationTicket,
-    PublicationCommitted,
-    PublicationNoncommit,
-    PublicationConflict,
-    PublicationUnresolved,
-    PublicationSettlement,
-    PublicationAttempt,
-    Published,
-    Workspace,
-    ExportReceipt,
     StudyHandle,
-    StudyStatus,
-    StudyPointStatus,
-    StudyCancel,
-    ProgressStream,
+    Workspace,
 )
-
+from pse._strategies import (
+    PreparedStrategy,
+    _AnalysisDocument,
+)
 from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import SolveSettings
 from pse.contracts.enums import AttemptState, JobState, StudyState
@@ -247,7 +234,8 @@ class Runtime:
         """Admit an exact package closure with manifest-owned physical type aliases."""
         return ModelingPackage(
             self._handle.modeling_from_documents(
-                [dict(bundle) for bundle in documents], physical._handle
+                [dict(bundle) for bundle in documents],
+                physical._handle,  # noqa: SLF001 - same native boundary
             )
         )
 

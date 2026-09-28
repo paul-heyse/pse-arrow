@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Owned generic modeling operations over registry-generated source and result contracts."""
+"""Owned generic modeling operations over registry-generated source and result rows."""
 
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, overload
@@ -10,44 +10,43 @@ import msgspec
 
 from pse import codec
 from pse._build import (
-    NativeAttempt,
-    EngineSettings,
-    SimulationSettings,
-    _NativeModelingTrajectory,
-    _NativeModelingNonlinearExplanation,
-    _NativeModelingNativeAnalysis,
-    _NativeModelingElasticAttempt,
-    ModelingDiagnosticSettings,
-    ModelingLimits,
-    ModelingFixturePolicy,
-    ModelingEventSettings,
-    ModelingModeSettings,
     DiagnosticReport,
+    EngineSettings,
+    ModelingDiagnosticSettings,
+    ModelingFixturePolicy,
+    ModelingLimits,
+    ModelingModeSettings,
+    NativeAttempt,
+    SimulationSettings,
+    _NativeModelingConformance,
     _NativeModelingDiagnostics,
     _NativeModelingDiagnosticSamples,
-    _NativeModelingConformance,
-    _NativeModelingPackage,
-    _NativeModelingResult,
+    _NativeModelingElasticAttempt,
     _NativeModelingInitialization,
     _NativeModelingInitializationAttempt,
+    _NativeModelingNativeAnalysis,
+    _NativeModelingNonlinearExplanation,
+    _NativeModelingPackage,
+    _NativeModelingResult,
     _NativeModelingStudy,
+    _NativeModelingTrajectory,
 )
 from pse._inspection import TableStream
 from pse._runs import PreparedOperation, StudyHandle, Workspace
 from pse._strategies import PreparedFlow, PreparedStrategy, _AnalysisDocument
 from pse.contracts.authored import (
-    AuthoredModelingDeclarationsRow,
-    AuthoredFitCasesRow,
-    AuthoredObservationsRow,
     AuthoredDatasetsRow,
+    AuthoredFitCasesRow,
+    AuthoredModelingDeclarationsRow,
+    AuthoredObservationsRow,
 )
 from pse.contracts.documents import PointOverlay, SolveSettings
-
-if TYPE_CHECKING:
-    from pse._workflow import Runtime
 from pse.contracts.enums import ModelingAnalysisRoute
 from pse.contracts.identities import DeclarationId, FitId, InstanceId, RunId
 from pse.contracts.values import ContentHash, SemanticId
+
+if TYPE_CHECKING:
+    from pse._workflow import Runtime
 
 
 class _DeclarationEdit(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
@@ -90,7 +89,10 @@ class ModelingResult:
         return self._handle.failure()
 
     def table(self, name: str) -> TableStream:
-        """Export runtime.modeling_checks or runtime.modeling_reports with owned buffers."""
+        """Export runtime.modeling_checks or runtime.modeling_reports.
+
+        The exported stream owns its buffers.
+        """
         return TableStream(self._handle.table(name))
 
 
@@ -108,7 +110,10 @@ class ModelingNativeAnalysis:
         return tuple(self._handle.attempt(i) for i in range(self._handle.attempt_count))
 
     def table(self) -> TableStream:
-        """Source-coordinate IIS/rays/ranges or scaled-Jacobian certificates and limits."""
+        """Source-coordinate IIS, rays and ranges, or scaled-Jacobian certificates.
+
+        The table also records the analysis limits.
+        """
         return TableStream(self._handle.table())
 
 
@@ -139,7 +144,10 @@ class ModelingElasticAttempt:
 
 @attrs.frozen
 class ModelingNonlinearExplanation:
-    """Local diagnostic evidence under unchanged bounds; never a global infeasibility proof."""
+    """Local diagnostic evidence under unchanged bounds; never a global infeasibility.
+
+    The evidence does not prove that the model is infeasible everywhere.
+    """
 
     _handle: _NativeModelingNonlinearExplanation
 
@@ -230,7 +238,7 @@ class ModelingConformance:
         )
 
     def fixture_statuses(self) -> TableStream:
-        """All discovered fixtures, including identities beyond a detailed check limit."""
+        """All discovered fixtures, including those beyond the detailed check limit."""
         return TableStream(self._handle.fixture_statuses())
 
     def result(self, fixture_id: DeclarationId) -> ModelingResult:
@@ -239,7 +247,10 @@ class ModelingConformance:
 
 @attrs.frozen
 class ModelingInitializationAttempt:
-    """One unchanged specification attempt, retaining preparation and interruption failures."""
+    """One unchanged specification attempt.
+
+    The attempt retains its preparation and interruption failures.
+    """
 
     _handle: _NativeModelingInitializationAttempt
 
@@ -274,7 +285,7 @@ class ModelingInitializationAttempt:
 
 @attrs.frozen
 class ModelingInitialization:
-    """Ordered initialization history; only an accepted original model commits values."""
+    """Ordered initialization history; only an accepted original model commits."""
 
     _handle: _NativeModelingInitialization
 
@@ -383,7 +394,10 @@ class ModelingDiagnostics:
 
 @attrs.frozen
 class ModelingTrajectory:
-    """Completed physical samples and the actual native termination, including partial runs."""
+    """Completed physical samples and the actual native termination.
+
+    Partial runs are included.
+    """
 
     _handle: _NativeModelingTrajectory
 
@@ -454,7 +468,10 @@ class ModelingDiagnosticSamples:
 
 @attrs.frozen
 class ModelingPackage:
-    """Immutable authored package sharing the deployment's compiler and execution service."""
+    """Immutable authored package.
+
+    It shares the deployment's compiler and execution service.
+    """
 
     _handle: _NativeModelingPackage
 
@@ -487,7 +504,8 @@ class ModelingPackage:
     ) -> "PreparedOperation":
         """Compile shared parameters over authored algebraic or integrated experiments.
 
-        Experiment settings are keyed by the experiment's instance: its ``experiment_id``.
+        Experiment settings are keyed by the experiment's instance, its
+        ``experiment_id``.
         """
         profiles = [(key.to_hex(), value) for key, value in (simulations or {}).items()]
         return PreparedOperation(
@@ -654,7 +672,10 @@ class ModelingPackage:
         tolerance: float = 1e-7,
         rank_relative: float = 1e-8,
     ) -> ModelingNativeAnalysis:
-        """Bounded LP/MILP evidence about the local scaled Jacobian, not nonlinear feasibility."""
+        """Bounded LP/MILP evidence about the local scaled Jacobian.
+
+        The evidence is not a statement about nonlinear feasibility.
+        """
         return ModelingNativeAnalysis(
             self._handle.diagnose_jacobian(
                 case_id.to_hex(),
@@ -691,7 +712,7 @@ class ModelingPackage:
     def inspect(
         self, case_id: DeclarationId, settings: SolveSettings
     ) -> dict[str, object]:
-        """Inspect instantiated member lineage and declared topology before execution."""
+        """Inspect instantiated member lineage and declared topology before running."""
         return codec.decode_json(
             self._handle.inspect(case_id.to_hex(), codec.encode_json(settings)),
             _AnalysisDocument,
@@ -765,7 +786,10 @@ class ModelingPackage:
         *,
         route: ModelingAnalysisRoute = ModelingAnalysisRoute.STEADY,
     ) -> ModelingResult:
-        """Use source fixture specifications and model starts through the native solver pipeline."""
+        """Solve a case through the native solver pipeline.
+
+        The case uses its source fixture specifications and model starts.
+        """
         return ModelingResult(
             self._handle.solve_case(
                 case_id.to_hex(), codec.encode_json(settings), route=route.value
@@ -785,7 +809,7 @@ class ModelingPackage:
         maximum_attempts: int = 128,
         time_limit: float = 60.0,
     ) -> ModelingInitialization:
-        """Run bounded stages and adaptive homotopy with original-model qualification."""
+        """Run bounded stages and adaptive homotopy, qualifying the original model."""
         return ModelingInitialization(
             self._handle.initialize(
                 case_id.to_hex(),
@@ -862,9 +886,8 @@ class ModelingPackage:
         """
         if runtime is None:
             if workspace is not None or overlays:
-                raise ValueError(
-                    "workspace and overlays select a durable study; pass runtime"
-                )
+                message = "workspace and overlays select a durable study; pass runtime"
+                raise ValueError(message)
             return ModelingStudy(
                 self._handle.study(
                     [case.to_hex() for case in case_ids],
@@ -874,7 +897,8 @@ class ModelingPackage:
                 )
             )
         if workspace is None:
-            raise ValueError("a durable study publishes in a workspace")
+            message = "a durable study publishes in a workspace"
+            raise ValueError(message)
         return StudyHandle(
             self._handle.start_study(
                 runtime._handle,  # noqa: SLF001 - same native boundary
@@ -899,7 +923,7 @@ class ModelingPackage:
         derivative_tolerance: float = 1e-4,
         fixture_policies: Mapping[DeclarationId, ModelingFixturePolicy] | None = None,
     ) -> ModelingConformance:
-        """Discover authored tests and run bounded shared checks without importing IDAES."""
+        """Discover authored tests and run bounded shared checks without IDAES."""
         return ModelingConformance(
             self._handle.conform(
                 codec.encode_json(settings),

@@ -2,9 +2,9 @@
 # Copyright (c) 2026 Paul Heyse
 """Targeted generic source, fixture and owned-result boundary checks."""
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 import msgspec
 import pyarrow as pa
@@ -12,7 +12,9 @@ import pytest
 
 import pse
 from pse import codec
+from pse.conformance import main as conformance_main
 from pse.contracts.enums import NativeBackend, NativeSolveIntent
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 
@@ -20,25 +22,30 @@ def identity(n: int) -> SemanticId:
     return SemanticId(bytes([n]) * 16)
 
 
+def declaration(n: int) -> DeclarationId:
+    """The identity an authored `@id` gives a case or fixture declaration."""
+    return DeclarationId(identity(n))
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize("modes", [("invalid",), ("auto", "off")])
 def test_conformance_cli_refuses_invalid_or_duplicate_fixture_presolve(
     modes: tuple[str, ...],
 ) -> None:
-    from pse.conformance import main
-
     arguments = ["unused", "--physical", "unused", "--memory-limit-bytes", "1"]
     for mode in modes:
         arguments.extend(["--fixture-presolve", identity(207).to_hex(), mode])
     with pytest.raises(SystemExit) as refused:
-        main(arguments)
+        conformance_main(arguments)
     assert refused.value.code == 2
 
 
 def quantity_aliases() -> str:
     return (
-        f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{identity(31).to_hex()}"\n'
-        f'\n[[quantity_aliases]]\nname = "Time"\nquantity_type_id = "{identity(222).to_hex()}"\n'
+        '\n[[quantity_aliases]]\nname = "Scalar"\n'
+        f'quantity_type_id = "{identity(31).to_hex()}"\n'
+        '\n[[quantity_aliases]]\nname = "Time"\n'
+        f'quantity_type_id = "{identity(222).to_hex()}"\n'
     )
 
 
@@ -83,7 +90,9 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
     )
     case = next(d.declaration_id for d in package.declarations() if d.name == "bounded")
     limits = pse.ModelingLimits(items=1)
-    assert limits.items == 1 and limits.depth > 0 and limits.members > 0
+    assert limits.items == 1
+    assert limits.depth > 0
+    assert limits.members > 0
     limited = package.with_limits(limits)
     with pytest.raises(pse.InspectionError, match="specialized item count"):
         limited.solve_case(case, pse.SolveSettings(intent=NativeSolveIntent.ROOT))
@@ -219,11 +228,15 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
   @id("{identity(225).to_hex()}") eq a:x+y==0;
   @id("{identity(226).to_hex()}") eq b:2*x+2*y==0;
  }}
- @id("{identity(220).to_hex()}") test sample fixture {{ dof 0; value root.x=1; value root.y=-1; }} {{
+ @id("{identity(220).to_hex()}") test sample fixture {{
+  dof 0; value root.x=1; value root.y=-1;
+ }} {{
   @id("{identity(227).to_hex()}") child root:D=D();
   @id("{identity(228).to_hex()}") expect root.x==1 tolerance 1e-6;
  }}
- @id("{identity(229).to_hex()}") case unstarted {{ @id("{identity(232).to_hex()}") child root:D=D(); }}
+ @id("{identity(229).to_hex()}") case unstarted {{
+  @id("{identity(232).to_hex()}") child root:D=D();
+ }}
 }}'''
     package = runtime.modeling_from_documents(
         [
@@ -270,29 +283,31 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     )
     assert msgspec.json.decode(settings.to_json()) == policy
     report = package.diagnose(
-        identity(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
+        declaration(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
     )
     missing = package.diagnose(
-        identity(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
+        declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
     )
-    assert missing.statistics()["missing_values"] == 2 and not missing.complete
+    assert missing.statistics()["missing_values"] == 2
+    assert not missing.complete
     assert pa.table(missing.table()).to_pylist()[0]["point"] == []
     _, missing_columns = missing.coordinates()
     supplied = package.diagnose_samples(
-        identity(229),
+        declaration(229),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
         ((identity(233), {missing_columns[0]: 1.0, missing_columns[1]: -1.0}),),
     )
     supplied_report = supplied.result(0)
-    assert supplied_report is not None and supplied_report.complete
+    assert supplied_report is not None
+    assert supplied_report.complete
     with pytest.raises(pse.InspectionError, match="missing case value"):
         package.solve_case(
-            identity(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+            declaration(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
         )
     rows, columns = report.coordinates()
     samples = package.diagnose_samples(
-        identity(220),
+        declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
         (
@@ -301,9 +316,11 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
             (identity(232), {}),
         ),
     )
-    assert samples.stop == "completed" and samples.unattempted == 0
+    assert samples.stop == "completed"
+    assert samples.unattempted == 0
     assert samples.ids() == (identity(230), identity(231), identity(232))
-    assert samples.result(0) is not None and samples.failure(1) is not None
+    assert samples.result(0) is not None
+    assert samples.failure(1) is not None
     sample_outcomes = pa.table(samples.table()).to_pylist()[0]["outcomes"]
     sample_findings = samples.findings()
     failure_rows = pa.table(sample_findings).to_pylist()
@@ -311,59 +328,67 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     assert failure_rows[0]["ordinal"] == 1
     assert failure_rows[0]["rule"]
     sampled = samples.result(2)
-    assert sampled is not None and sampled.complete
+    assert sampled is not None
+    assert sampled.complete
     reference = pse.ModelingDiagnosticSettings.from_json(
         (root / "packages/reference/diagnostics/idaes-2.13.json").read_text()
     )
     assert msgspec.json.decode(reference.to_json())["profile"] == "idaes-2.13"
     capped = package.diagnose_samples(
-        identity(220),
+        declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         reference,
         ((identity(230), {}), (identity(231), {})),
         maximum_samples=1,
     )
-    assert capped.stop == "sample_limit" and capped.unattempted == 1
+    assert capped.stop == "sample_limit"
+    assert capped.unattempted == 1
     native = package.diagnose_jacobian(
-        identity(220),
+        declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         maximum_attempts=4,
     )
     assert len(native.attempts()) == 4
     native_table = native.table()
     limited = package.diagnose_jacobian(
-        identity(220),
+        declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         maximum_attempts=1,
     )
     limited_row = pa.table(limited.table()).to_pylist()[0]
-    assert not limited_row["complete"] and len(limited_row["attempts"]) == 1
+    assert not limited_row["complete"]
+    assert len(limited_row["attempts"]) == 1
     del native, limited
     sample_table = samples.table()
     capped_table = capped.table()
     diagnostic_table = report.table()
     finding_table = report.table("runtime.modeling_findings")
     nonfinite = package.diagnose_samples(
-        identity(220),
+        declaration(220),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
         ((identity(234), {columns[0]: float("nan")}),),
     )
     nonfinite_report = nonfinite.result(0)
-    assert nonfinite_report is not None and not nonfinite_report.complete
+    assert nonfinite_report is not None
+    assert not nonfinite_report.complete
     nonfinite_point = nonfinite_report.table()
     nonfinite_findings = nonfinite_report.table("runtime.modeling_findings")
     del nonfinite, nonfinite_report
     del samples, capped
     del package, runtime
     assert sampled.rank == 1
-    assert report.complete and report.profile == "synthetic" and report.rank == 1
-    assert report.cutoff is not None and report.cutoff > 0
+    assert report.complete
+    assert report.profile == "synthetic"
+    assert report.rank == 1
+    assert report.cutoff is not None
+    assert report.cutoff > 0
     assert report.statistics()["variables"] == 2
     rows, columns = report.coordinates()
     assert len(rows) == len(columns) == 2
     modes = report.singular_modes()
-    assert len(modes) == 2 and len(modes[0][1]) == len(modes[0][2]) == 2
+    assert len(modes) == 2
+    assert len(modes[0][1]) == len(modes[0][2]) == 2
     assert report.findings()
     del report
     durable = pa.table(diagnostic_table).to_pylist()[0]
@@ -398,7 +423,8 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         for v in invalid_finding["observations"]
     )
     native_row = pa.table(native_table).to_pylist()[0]
-    assert native_row["complete"] and len(native_row["degenerate"]) == 1
+    assert native_row["complete"]
+    assert len(native_row["degenerate"]) == 1
     assert native_row["degenerate"][0]["irreducible_at_tolerance"]
     assert {v["source_id"] for v in native_row["row_nominals"]} == set(durable["rows"])
     assert native_row["row_nominals"] == durable["row_nominals"]
@@ -499,7 +525,9 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
   @id("{identity(205).to_hex()}") annotation report x("value");
   @id("{identity(206).to_hex()}") annotation valid x(0,1,extrapolate);
  }}
- @id("{identity(207).to_hex()}") test sample source "analytic:constant" revision "v1" fixture {{ dof -1; fix root.x = 2; }} {{
+ @id("{identity(207).to_hex()}") test sample
+  source "analytic:constant" revision "v1"
+  fixture {{ dof -1; fix root.x = 2; }} {{
   @id("{identity(208).to_hex()}") child root:D=D();
   @id("{identity(209).to_hex()}") expect root.x==2 tolerance 1e-6;
  }}
@@ -515,57 +543,72 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     )
     assert len(package.declarations()) == 9
     settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
-    result = package.solve_case(identity(207), settings)
-    assert result.accepted and result.outcome_kind == "constant_evaluation"
-    assert result.attempt() is None and result.failure() is None
+    result = package.solve_case(declaration(207), settings)
+    assert result.accepted
+    assert result.outcome_kind == "constant_evaluation"
+    assert result.attempt() is None
+    assert result.failure() is None
     local_policy = pse.ModelingFixturePolicy(
         codec.encode_json(settings), derivative_step=1e-7, derivative_cells=100
     )
     with pytest.raises(pse.InspectionError, match="unknown fixture"):
-        package.conform(settings, fixture_policies={identity(250): local_policy})
+        package.conform(settings, fixture_policies={declaration(250): local_policy})
     with pytest.raises(pse.InspectionError):
         pse.ModelingFixturePolicy(derivative_step=0)
     conformance = package.conform(
         settings,
         maximum_checks=64,
         derivative_cells=100,
-        fixture_policies={identity(207): local_policy},
+        fixture_policies={declaration(207): local_policy},
     )
     checks = pa.table(conformance.table())
-    assert conformance.passed and conformance.complete, checks.to_pylist()
+    assert conformance.passed, checks.to_pylist()
+    assert conformance.complete, checks.to_pylist()
     assert conformance.fixtures() == (identity(207),)
-    extracted = conformance.result(identity(207))
-    initialized = package.initialize(identity(207), settings, maximum_attempts=2)
-    assert initialized.completed and initialized.failure is None
+    extracted = conformance.result(declaration(207))
+    initialized = package.initialize(declaration(207), settings, maximum_attempts=2)
+    assert initialized.completed
+    assert initialized.failure is None
     history = initialized.attempts()
-    assert len(history) == 1 and history[0].kind == "original" and history[0].accepted
-    assert history[0].fraction is None and history[0].stage is None
-    assert history[0].preparation_error is None and history[0].interruption is None
+    assert len(history) == 1
+    assert history[0].kind == "original"
+    assert history[0].accepted
+    assert history[0].fraction is None
+    assert history[0].stage is None
+    assert history[0].preparation_error is None
+    assert history[0].interruption is None
     assert initialized.committed_values() is not None
     final = history[0].result()
-    assert final is not None and final.accepted
+    assert final is not None
+    assert final.accepted
     study = package.study(
-        (identity(207), identity(207)), settings, predecessors=(None, 0)
+        (declaration(207), declaration(207)), settings, predecessors=(None, 0)
     )
-    assert study.count == 2 and study.unattempted == 0
-    assert study.failure(0) is None and study.failure(1) is None
+    assert study.count == 2
+    assert study.unattempted == 0
+    assert study.failure(0) is None
+    assert study.failure(1) is None
     second = study.result(1)
-    assert second is not None and second.accepted
+    assert second is not None
+    assert second.accepted
     isolated = package.study(
-        (identity(207), identity(250), identity(207), identity(207)),
+        (declaration(207), declaration(250), declaration(207), declaration(207)),
         settings,
         predecessors=(None, None, 1, None),
     )
-    assert isolated.count == 4 and isolated.unattempted == 0
-    assert isolated.result(0) is not None and isolated.result(3) is not None
-    assert isolated.result(1) is None and isolated.failure(1) is not None
+    assert isolated.count == 4
+    assert isolated.unattempted == 0
+    assert isolated.result(0) is not None
+    assert isolated.result(3) is not None
+    assert isolated.result(1) is None
+    assert isolated.failure(1) is not None
     assert isolated.result(2) is None
     failed_predecessor = isolated.failure(2)
     assert failed_predecessor is not None
     assert failed_predecessor.rule == "modeling.study.predecessor"
     with pytest.raises(pse.InspectionError, match="integrated time axis"):
         package.simulate(
-            identity(207),
+            declaration(207),
             pse.SimulationSettings(
                 start=0.0,
                 end=1.0,
@@ -575,7 +618,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
             ),
         )
     with pytest.raises(pse.InspectionError, match="earlier point"):
-        package.study((identity(207),), settings, predecessors=(0,))
+        package.study((declaration(207),), settings, predecessors=(0,))
     initialization_table = initialized.table()
     study_table = study.table()
     isolated_table = isolated.table()
@@ -584,13 +627,14 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     del extracted, conformance, result, package, runtime
     del initialized, history, study, final, second
     initial = pa.table(initialization_table).to_pylist()[0]
-    assert initial["complete"] and initial["attempts"][0]["kind"] == "original"
+    assert initial["complete"]
+    assert initial["attempts"][0]["kind"] == "original"
     assert pa.table(study_table).to_pylist()[0]["points"][1]["predecessor"] == 0
     isolated_rows = pa.table(isolated_table).to_pylist()[0]["points"]
-    assert (
-        isolated_rows[1]["error"] is not None and isolated_rows[1]["result_id"] is None
-    )
-    assert isolated_rows[2]["predecessor"] == 1 and not isolated_rows[2]["accepted"]
+    assert isolated_rows[1]["error"] is not None
+    assert isolated_rows[1]["result_id"] is None
+    assert isolated_rows[2]["predecessor"] == 1
+    assert not isolated_rows[2]["accepted"]
     assert reports.column("value").to_pylist() == [2.0]
     assert any(
         row["within_validity"] is False and row["extrapolation_allowed"] is True
@@ -655,7 +699,10 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
     source = """package p {
- def D { var x:Scalar; eq lo:x*x>=4; eq hi:x*x<=1; eq spare:x*x<=100; annotation start x(1.5); }
+ def D {
+  var x:Scalar; eq lo:x*x>=4; eq hi:x*x<=1; eq spare:x*x<=100;
+  annotation start x(1.5);
+ }
  case run { child root:D=D(); }
 }"""
     manifest += quantity_aliases()
@@ -678,7 +725,7 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     explanation = package.explain_nonlinear(
         case,
         settings,
-        {row: 1.0 for row in rows},
+        dict.fromkeys(rows, 1.0),
         penalty_tolerance=1e-6,
         maximum_attempts=4,
         time_limit=30,
@@ -692,26 +739,30 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     limited = package.explain_nonlinear(
         case,
         settings,
-        {row: 1.0 for row in rows},
+        dict.fromkeys(rows, 1.0),
         penalty_tolerance=1e-6,
         maximum_attempts=1,
         time_limit=30,
     )
-    assert not limited.complete and limited.stop is not None
+    assert not limited.complete
+    assert limited.stop is not None
     limited_findings = pa.table(limited.findings()).to_pylist()
     assert limited_findings[0]["ordinal"] == 0
     assert limited_findings[0]["class"] == "resource_limit"
     assert limited_findings[0]["rule"] == "modeling.nonlinear.attempt_limit"
     del explanation, diagnostics, package, runtime
     durable = pa.table(explanation_table).to_pylist()[0]
-    assert durable["complete"] and len(durable["candidate_rows"]) == 2
+    assert durable["complete"]
+    assert len(durable["candidate_rows"]) == 2
     assert durable["attempts"][0]["observation"] == "local_obstruction"
     findings = {row["ordinal"]: row for row in pa.table(findings_table).to_pylist()}
     assert durable["attempts"][0]["failure_ordinal"] == 1
     assert findings[1]["rule"] == "modeling.qualification.rejected"
-    assert findings[1]["sources"] and findings[1]["observations"]
-    # The ℓ1 route builds no elastic model (ADR-0109 item 2a): the least-infeasible point
-    # names the original rows it leaves violated, all among the candidate rows (item 3).
+    assert findings[1]["sources"]
+    assert findings[1]["observations"]
+    # The L1 route builds no elastic model (ADR-0109 item 2a): the least-infeasible
+    # point names the original rows it leaves violated, all among the candidate rows
+    # (item 3).
     assert set(findings[1]["sources"]) <= set(durable["candidate_rows"])
     observations = {o["name"]: o["text"] for o in findings[1]["observations"]}
     assert observations["candidate_use"] == "diagnostic_only"
@@ -724,7 +775,8 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     assert result is not None
     assert not result.accepted
     attempt = result.attempt()
-    assert attempt is not None and attempt.backend == "pounce"
+    assert attempt is not None
+    assert attempt.backend == "pounce"
 
 
 @pytest.mark.unit
@@ -745,11 +797,16 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
     ) + quantity_aliases()
     source = """package pure {
       fn square(x:Scalar)->Scalar=x*x;
-      test positive fixture {dof 0; run pure;} {expect square(2)==4 tolerance 1e-12 relative 1e-8;}
-      test negative fixture {dof 0; run pure; failure invalid_model "compiler.missing";} {expect 1==1 tolerance 0;}
+      test positive fixture {dof 0; run pure;} {
+        expect square(2)==4 tolerance 1e-12 relative 1e-8;
+      }
+      test negative fixture {
+        dof 0; run pure; failure invalid_model "compiler.missing";
+      } {expect 1==1 tolerance 0;}
     }"""
     documents = {"package.toml": manifest, "models/pure.pse": source}
-    # Distinct budgets must be accepted even if another test already owns the process Runtime.
+    # Distinct budgets must be accepted even if another test already owns the process
+    # Runtime.
     for threads in (1, 2):
         result = pse.ModelingConformance.pure(
             [documents],
@@ -763,7 +820,8 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
             ),
             maximum_checks=32,
         )
-        assert result.passed and result.complete
+        assert result.passed
+        assert result.complete
         inventory = pa.table(result.fixture_statuses())
         assert inventory.num_rows == 2
         assert inventory.column("status").to_pylist() == ["passed", "passed"]
@@ -785,7 +843,8 @@ def test_pure_conformance_has_no_process_runtime_and_retains_findings(
         ),
         maximum_checks=1,
     )
-    assert not limited.complete and not limited.passed
+    assert not limited.complete
+    assert not limited.passed
     assert len(limited.fixtures()) == 2
     statuses = pa.table(limited.fixture_statuses()).column("status").to_pylist()
     assert sorted(statuses) == ["inconclusive", "unattempted"]

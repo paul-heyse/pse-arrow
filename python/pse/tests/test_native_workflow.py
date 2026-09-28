@@ -16,19 +16,30 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.contracts import documents
-from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse import codec
 from pse import modeling as w
 from pse.contracts import authored as a
+from pse.contracts import documents
 from pse.contracts import runtime as result_contracts
-from pse.contracts.enums import AttemptKind, AttemptState, ModelingAnalysisRoute
-from pse.contracts.identities import FitId, InstanceId, PublicationId
+from pse.contracts.enums import (
+    AttemptKind,
+    AttemptState,
+    ModelingAnalysisRoute,
+    NativeBackend,
+    NativeSolveIntent,
+    PresolvePolicyKind,
+)
+from pse.contracts.identities import DeclarationId, FitId, InstanceId, PublicationId
 from pse.contracts.values import ContentHash, SemanticId, SourceSpan
 
 
 def identity(n: int) -> SemanticId:
     return SemanticId(bytes([n]) * 16)
+
+
+def declaration(n: int) -> DeclarationId:
+    """The identity an authored `@id` gives a case or fixture declaration."""
+    return DeclarationId(identity(n))
 
 
 @pytest.mark.unit
@@ -95,12 +106,19 @@ def test_explicit_primal_seed_and_transactional_initialization(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{identity(31).to_hex()}"\n'
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Scalar"\n'
+        f'quantity_type_id = "{identity(31).to_hex()}"\n'
+    )
     package = runtime.modeling_from_documents(
         [
             {
                 "package.toml": manifest,
-                "models/roots.pse": "package roots {def Root {var x:Scalar; eq square:x*x==4; annotation start x(-1);}}",
+                "models/roots.pse": (
+                    "package roots {def Root {"
+                    "var x:Scalar; eq square:x*x==4; annotation start x(-1);"
+                    "}}"
+                ),
             }
         ],
         physical,
@@ -174,14 +192,21 @@ def package_documents(source: str) -> dict[str, str]:
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += f'\n[[quantity_aliases]]\nname = "Length"\nquantity_type_id = "{identity(30).to_hex()}"\n'
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Length"\n'
+        f'quantity_type_id = "{identity(30).to_hex()}"\n'
+    )
     return {"package.toml": manifest, "models/fixed.pse": source}
 
 
 def revision(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> pse.ModelingPackage:
-    source = f'package atomic {{ @id("{identity(101).to_hex()}") test Fixed fixture {{dof 0; fix x=2{{m}};}} {{var x:Length; annotation bounds x(0{{m}},10{{m}});}} }}'
+    source = (
+        f'package atomic {{ @id("{identity(101).to_hex()}") test Fixed '
+        "fixture {dof 0; fix x=2{m};} "
+        "{var x:Length; annotation bounds x(0{m},10{m});} }"
+    )
     return runtime.modeling_from_documents([package_documents(source)], physical)
 
 
@@ -197,7 +222,7 @@ def test_empty_library_is_admitted_but_missing_case_is_refused(
     assert not package.declarations()
     with pytest.raises(pse.InspectionError):
         package.prepare_solve(
-            identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+            declaration(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
         )
 
 
@@ -239,7 +264,7 @@ def test_revision_edit_is_atomic_and_has_no_python_math(
     )
     result = (
         model.prepare_solve(
-            identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+            declaration(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
         )
         .start()
         .wait()
@@ -255,7 +280,7 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
 ) -> None:
     model = revision(runtime, physical)
     settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
-    prepared = model.prepare_solve(identity(101), settings)
+    prepared = model.prepare_solve(declaration(101), settings)
     assert prepared.route.constant
     assert prepared.route.backend is None
     handle = prepared.start()
@@ -307,7 +332,7 @@ def test_solver_profile_refuses_unsupported_or_partial_controls(
     # its type, and by admission for the rules that relate its fields. A native option
     # outside the typed union cannot even be encoded.
     with pytest.raises((pse.InspectionError, TypeError)):
-        revision(runtime, physical).prepare_solve(identity(101), construct())
+        revision(runtime, physical).prepare_solve(declaration(101), construct())
 
 
 @pytest.mark.unit
@@ -315,7 +340,7 @@ def test_cancelled_async_waiter_does_not_consume_terminal_result(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
     prepared = revision(runtime, physical).prepare_solve(
-        identity(101),
+        declaration(101),
         pse.SolveSettings(intent=NativeSolveIntent.ROOT),
     )
     handle = runtime.start([prepared] * 20)
@@ -367,12 +392,18 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += f'\n[[quantity_aliases]]\nname = "Length"\nquantity_type_id = "{identity(30).to_hex()}"\n'
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Length"\n'
+        f'quantity_type_id = "{identity(30).to_hex()}"\n'
+    )
     package = runtime.modeling_from_documents(
         [
             {
                 "package.toml": manifest,
-                "models/fit.pse": "package fitting { def Measurement { param length:Length=2{m}; annotation check length(length>0{m}); } }",
+                "models/fit.pse": (
+                    "package fitting { def Measurement { param length:Length=2{m}; "
+                    "annotation check length(length>0{m}); } }"
+                ),
             }
         ],
         physical,
@@ -459,7 +490,8 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
         .read_all()
         .to_pylist()
     )
-    assert checks and all(row["satisfied"] for row in checks)
+    assert checks
+    assert all(row["satisfied"] for row in checks)
 
 
 @pytest.mark.unit
@@ -470,7 +502,7 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     tmp_path: Path,
 ) -> None:
     prepared = revision(runtime, physical).prepare_solve(
-        identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+        declaration(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     )
     # An ephemeral run records nothing and cannot publish (ADR-0112 Outcome 16).
     assert not runtime.durable
@@ -488,7 +520,9 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert durable_runtime.durable
     handle = (
         revision(durable_runtime, physical)
-        .prepare_solve(identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT))
+        .prepare_solve(
+            declaration(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+        )
         .start()
     )
     result = handle.wait()
@@ -535,7 +569,8 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     )
     assert durable_runtime.workspace(workspace.name) == workspace
     assert durable_runtime.head(workspace.id) is None
-    # The publication attempt is the durable attempt; the ticket exists before any effect.
+    # The publication attempt is the durable attempt; the ticket exists before any
+    # effect.
     attempt = result.prepare_publication(
         workspace, publication_id=PublicationId(identity(241))
     )
@@ -573,5 +608,6 @@ def test_compiler_failure_retains_typed_authored_source_span(
     assert report.source_locations, (report.message, report.rule, report.source_ids)
     location = report.source_locations[0]
     assert isinstance(location, pse.DiagnosticSourceLocation)
-    assert location.start is not None and location.end is not None
+    assert location.start is not None
+    assert location.end is not None
     assert 0 <= location.start <= location.end <= len(source)

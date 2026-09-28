@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""The query surface over the operational store (Plan 22 O9): progress streams, job
-listings and SQL over ``pse_ops`` joined with results."""
+"""The query surface over the operational store (Plan 22 O9).
+
+Progress streams, job listings and SQL over ``pse_ops`` joined with results.
+"""
 
 import uuid
 from pathlib import Path
@@ -18,6 +20,7 @@ from pse.contracts.enums import (
     NativeSolveIntent,
     PresolvePolicyKind,
 )
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 SOURCE = """package algebraic { def Root {
@@ -31,7 +34,7 @@ SOURCE = """package algebraic { def Root {
 } }"""
 
 
-def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, SemanticId]:
+def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -46,7 +49,10 @@ def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, SemanticId]:
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Scalar"\n'
+        f'quantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
+    )
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/root.pse": SOURCE}], physical
     )
@@ -84,10 +90,15 @@ def test_progress_stream_python(
     (listed,) = runtime.runs(run_id=result.run_id)
     assert listed.state == AttemptState.COMPLETED
     assert followed, "a durable Ipopt solve streams its iterations"
-    sequences = [event.sequence for event in followed if event.incumbent is None]
-    assert sequences == sorted(sequences) and len(set(sequences)) == len(sequences)
-    instants = [event.at for event in followed]
-    assert all(isinstance(at, int) for at in instants) and instants == sorted(instants)
+    # Every stored event carries its position and its instant.
+    positions = [event.sequence for event in followed if event.incumbent is None]
+    sequences = [sequence for sequence in positions if sequence is not None]
+    assert sequences == positions
+    assert sequences == sorted(sequences)
+    assert len(set(sequences)) == len(sequences)
+    instants = [event.at for event in followed if event.at is not None]
+    assert len(instants) == len(followed)
+    assert instants == sorted(instants)
     for event in followed:
         assert event.step == 0
         assert event.phase
@@ -142,7 +153,7 @@ def test_jobs_and_studies_listed_and_queried(
     study_hex = handle.study_id.to_hex()
     points = pa.table(
         runtime.query(
-            "SELECT p.point_index, j.state AS job_state, a.state AS attempt_state "
+            "SELECT p.point_index, j.state AS job_state, a.state AS attempt_state "  # noqa: S608 - literals of store-minted identities; query() binds no parameters
             "FROM pse_ops.study_points AS p "
             "JOIN pse_ops.jobs AS j ON j.job_id = p.job_id "
             "JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id "
@@ -152,22 +163,24 @@ def test_jobs_and_studies_listed_and_queried(
     assert [row["point_index"] for row in points] == [0, 1]
     assert {row["job_state"] for row in points} == {"queued"}
 
-    # Run the study here; its publication and every point's attempt are then queryable.
+    # Run the study here; its publication and every point's attempt are then
+    # queryable.
     assert runtime.work() >= 3
     published = handle.wait()
     literals = ", ".join("X'" + attempt + "'" for attempt in sorted(point_attempts))
     done = pa.table(
         runtime.query(
-            "SELECT count(*) AS completed FROM pse_ops.attempts "
+            "SELECT count(*) AS completed FROM pse_ops.attempts "  # noqa: S608 - literals of store-minted identities; query() binds no parameters
             f"WHERE state = 'completed' AND attempt_id IN ({literals})"
         )
     ).to_pylist()
     assert done == [{"completed": 2}]
     (publication,) = pa.table(
         runtime.query(
-            "SELECT p.publication_id, count(m.table_name) AS members "
+            "SELECT p.publication_id, count(m.table_name) AS members "  # noqa: S608 - literals of store-minted identities; query() binds no parameters
             "FROM pse_ops.publications AS p "
-            "JOIN pse_ops.publication_members AS m ON m.publication_id = p.publication_id "
+            "JOIN pse_ops.publication_members AS m "
+            "ON m.publication_id = p.publication_id "
             f"WHERE p.publication_id = X'{published.publication_id}' "
             "GROUP BY p.publication_id"
         )
@@ -179,7 +192,7 @@ def test_jobs_and_studies_listed_and_queried(
     assert result.attempt_id is not None
     joined = pa.table(
         runtime.query(
-            "SELECT a.state, s.step FROM pse_ops.attempts AS a "
+            "SELECT a.state, s.step FROM pse_ops.attempts AS a "  # noqa: S608 - literals of store-minted identities; query() binds no parameters
             "JOIN workspace.runtime.solve_runs AS s ON a.run_id = s.run_id "
             f"WHERE a.attempt_id = X'{result.attempt_id.to_hex()}'",
             result=result,

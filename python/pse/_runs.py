@@ -6,8 +6,10 @@ from collections.abc import Mapping
 from datetime import timedelta
 from types import TracebackType
 from typing import Self, TypeAlias
+
 import attrs
 import msgspec
+
 from pse import codec
 from pse._build import (
     DiagnosticReport,
@@ -53,7 +55,7 @@ class PreparedOperation:
 
     @property
     def eligibility(self) -> tuple[NativeEligibility, ...]:
-        """Typed eligibility row of every assessed backend, with registry reason codes."""
+        """Typed eligibility of every assessed backend, with registry reason codes."""
         return tuple(self._handle.eligibility)
 
     def with_start(self, seed: _NativeStart) -> "PreparedOperation":
@@ -77,15 +79,19 @@ class PreparedOperation:
 
 @attrs.frozen
 class PublicationTicket:
-    """Serialized publication request, saved before any effect; settle it after a
-    commit whose outcome is unknown."""
+    """Serialized publication request, saved before any effect.
+
+    Settle it after a commit whose outcome is unknown.
+    """
 
     json: bytes
 
 
 class Workspace(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """A registered publication workspace: one history with one head, whose members
-    are written under ``root_uri``."""
+    """A registered publication workspace: one history with one head.
+
+    Its members are written under ``root_uri``.
+    """
 
     workspace_id: str
     name: str
@@ -112,8 +118,11 @@ class Published(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
 
 
 class ExportReceipt(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """An export: the manifest location and the lease protecting its members until
-    ``expires_at`` (microseconds since the Unix epoch) or its release."""
+    """An export: the manifest location and the lease protecting its members.
+
+    The lease holds until ``expires_at`` (microseconds since the Unix epoch) or its
+    release.
+    """
 
     publication_id: str
     destination: str
@@ -358,8 +367,11 @@ class ProgressStream:
 
 
 class StudyPointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """One point of a durable study: its state, the point that seeds it, its latest try
-    and why it failed or was cancelled."""
+    """One point of a durable study.
+
+    It records its state, the point that seeds it, its latest try and why it failed
+    or was cancelled.
+    """
 
     point_index: int
     state: StudyPointState
@@ -371,8 +383,11 @@ class StudyPointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
 
 
 class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """A durable study: open while its points run, concluded once every point is
-    terminal, published once its one publication is committed."""
+    """A durable study and its lifecycle.
+
+    It is open while its points run, concluded once every point is terminal, and
+    published once its one publication is committed.
+    """
 
     study_id: str
     state: StudyState
@@ -390,8 +405,11 @@ class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
 
 
 class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """What cancelling a study did: points cancelled before they started, running
-    tries asked to stop, and whether the study concluded now or had already."""
+    """What cancelling a study did.
+
+    It lists the points cancelled before they started and the running tries asked to
+    stop, and says whether the study concluded now or had already.
+    """
 
     cancelled: tuple[int, ...]
     stopping: tuple[int, ...]
@@ -415,8 +433,10 @@ class StudyHandle:
         return msgspec.json.decode(self._handle.status(), type=StudyStatus)
 
     def cancel(self) -> StudyCancel:
-        """Cancel the points that have not started and stop the running tries; what
-        completed is still published."""
+        """Cancel the points that have not started and stop the running tries.
+
+        What completed is still published.
+        """
         return msgspec.json.decode(self._handle.cancel(), type=StudyCancel)
 
     def result(self) -> Published | None:

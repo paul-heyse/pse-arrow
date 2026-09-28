@@ -10,13 +10,13 @@ import pytest
 
 import pse
 from pse.contracts.enums import (
+    AttemptState,
     NativeBackend,
     NativeSolveIntent,
     NativeStartPolicy,
     PresolvePolicyKind,
     ReusePolicy,
 )
-from pse.contracts.enums import AttemptState
 from pse.contracts.values import SemanticId
 
 
@@ -42,7 +42,10 @@ def test_authored_solve_join_warm_start_checks_and_publication(
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Scalar"\n'
+        f'quantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
+    )
     source = """package algebraic { def Root {
         var x:Scalar;
         eq square:x*x==4;
@@ -75,13 +78,16 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     assert result.usable
     assert result.completion.solves[0].backend == "ipopt"
     rows = pa.table(result.table("runtime.solve_variables")).to_pylist()
-    assert len(rows) == 1 and rows[0]["value"] == pytest.approx(2, abs=1e-7)
+    assert len(rows) == 1
+    assert rows[0]["value"] == pytest.approx(2, abs=1e-7)
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
-    assert checks and all(row["satisfied"] for row in checks)
+    assert checks
+    assert all(row["satisfied"] for row in checks)
     seed = result.available_start()
     assert seed is not None
     warmed = prepared.with_start(seed).start().wait()
-    assert warmed.usable and warmed.run_id != result.run_id
+    assert warmed.usable
+    assert warmed.run_id != result.run_id
     primal = {SemanticId(rows[0]["symbol_id"]): 1.5}
     assert prepared.with_primal_start(primal).start().wait().usable
     aliases = pa.table(result.table("authored.package_quantity_aliases")).to_pylist()

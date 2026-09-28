@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Typed settings documents, registry names and typed eligibility (ADR-0113, ADR-0116)."""
+"""Typed settings documents, registry names, typed eligibility (ADR-0113, ADR-0116)."""
 
 import json
 from pathlib import Path
@@ -30,6 +30,7 @@ from pse.contracts.enums import (
     ReusePolicy,
     SensitivityCorrector,
 )
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 MODELS = """package settings {
@@ -72,7 +73,7 @@ def physical(runtime: pse.Runtime) -> pse.PhysicalContext:
 @pytest.fixture(scope="module")
 def cases(
     runtime: pse.Runtime, physical: pse.PhysicalContext
-) -> tuple[pse.ModelingPackage, dict[str, SemanticId]]:
+) -> tuple[pse.ModelingPackage, dict[str, DeclarationId]]:
     root = Path(__file__).resolve().parents[3]
     manifest = (
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
@@ -136,7 +137,9 @@ def test_backend_settings_typed() -> None:
         )
     with pytest.raises(msgspec.ValidationError):
         msgspec.json.decode(b'{"backend": "gurobi"}', type=pse.BackendSettings)
-    with pytest.raises(msgspec.ValidationError, match="Expected `float` >= 0.0|> 0.0"):
+    with pytest.raises(
+        msgspec.ValidationError, match=r"Expected `float` >= 0\.0|> 0\.0"
+    ):
         msgspec.json.decode(
             b'{"backend": "ipopt", "bound_push": -1.0}', type=pse.BackendSettings
         )
@@ -193,7 +196,7 @@ def test_solve_settings_enum_types() -> None:
 def test_solve_settings_backend_projection(
     runtime: pse.Runtime,
     physical: pse.PhysicalContext,
-    cases: tuple[pse.ModelingPackage, dict[str, SemanticId]],
+    cases: tuple[pse.ModelingPackage, dict[str, DeclarationId]],
 ) -> None:
     # Dynamics profile settings are versioned documents too.
     idas = pse.IdasSettings(
@@ -312,7 +315,7 @@ def test_solve_settings_backend_projection(
         "ordering": "amd",
     }
     # A document the native decoder refuses is refused at the entry point.
-    with pytest.raises(pse.InspectionError, match="bound_push|Tolerance"):
+    with pytest.raises(pse.InspectionError, match=r"bound_push|Tolerance"):
         package.solve_case(
             ids["Nlp"],
             pse.SolveSettings(
@@ -370,7 +373,7 @@ def test_solve_settings_backend_projection(
 
 @pytest.mark.unit
 def test_route_and_eligibility_are_typed(
-    cases: tuple[pse.ModelingPackage, dict[str, SemanticId]],
+    cases: tuple[pse.ModelingPackage, dict[str, DeclarationId]],
 ) -> None:
     package, ids = cases
     backends = {member.value for member in NativeBackend}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
+# ruff: noqa: N999 -- executable script name, not an importable module
 """Reproduce the narrow Delta source override from immutable git blobs and a patch.
 
 Default is verification; --apply rewrites only the declared generated vendor tree.

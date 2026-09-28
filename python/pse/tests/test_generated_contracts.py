@@ -10,8 +10,12 @@ import pyarrow as pa
 import pytest
 
 from pse.codec import converter, structure_rows
+from pse.contracts import runtime as runtime_contracts
 from pse.contracts import values as contract_values
-from pse.contracts.authored import AuthoredPackagesRow
+from pse.contracts.authored import (
+    AuthoredModelingDeclarationsFieldValue,
+    AuthoredPackagesRow,
+)
 from pse.contracts.enums import ModelingVariableDomain, PackageKind
 from pse.contracts.extension_types import PseEnum, PseOrdinalRef
 from pse.contracts.reference import ReferenceUnitsRow
@@ -92,16 +96,14 @@ def test_typed_publication_selection_has_a_payload_free_full_case() -> None:
 @pytest.mark.unit
 def test_member_descriptor_is_one_named_structure() -> None:
     # Every relation that lists members references the one registry structure.
-    from pse.contracts import runtime
-
-    manifest = attrs.fields_dict(runtime.RuntimePublicationManifestsRow)
-    release = attrs.fields_dict(runtime.RuntimeArtifactDescriptorsRow)[
+    manifest = attrs.fields_dict(runtime_contracts.RuntimePublicationManifestsRow)
+    release = attrs.fields_dict(runtime_contracts.RuntimeArtifactDescriptorsRow)[
         "release_members"
     ].type
     for annotation in (manifest["members"].type, manifest["inputs"].type, release):
         assert "MemberDescriptor" in str(annotation)
     assert "VersionWindow" in str(manifest["windows"].type)
-    assert not hasattr(runtime, "RuntimePublicationManifestsFieldMembersItem")
+    assert not hasattr(runtime_contracts, "RuntimePublicationManifestsFieldMembersItem")
     assert (
         attrs.fields_dict(MemberDescriptor)["selection"].type
         is MemberDescriptorSelection
@@ -212,8 +214,6 @@ def test_text_hook_preserves_actual_constructor_and_refuses_invalid_enum() -> No
 
 @pytest.mark.unit
 def test_modeling_declaration_tag_has_one_typed_payload() -> None:
-    from pse.contracts.authored import AuthoredModelingDeclarationsFieldValue
-
     payload: dict[str, object] = {
         field.metadata.get(FIELD_NAME_METADATA, field.name): None
         for field in attrs.fields(AuthoredModelingDeclarationsFieldValue)

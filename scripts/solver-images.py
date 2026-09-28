@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
+# ruff: noqa: N999 -- executable script name, not an importable module
 """Single authority for solver images and checked workflow literal projections."""
 
 from __future__ import annotations

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
+# ruff: noqa: N999 -- executable script name, not an importable module
 """Read-only comparison of GitHub settings with the declared full configuration."""
 
 from __future__ import annotations

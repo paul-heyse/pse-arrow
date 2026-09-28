@@ -20,6 +20,7 @@ from pse.contracts.enums import (
     StudyPointState,
     StudyState,
 )
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 SOURCE = """package algebraic { def Root {
@@ -33,7 +34,7 @@ SOURCE = """package algebraic { def Root {
 } }"""
 
 
-def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, SemanticId]:
+def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
@@ -48,7 +49,10 @@ def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, SemanticId]:
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Scalar"\n'
+        f'quantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
+    )
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/root.pse": SOURCE}], physical
     )
@@ -156,8 +160,11 @@ def test_durable_study_cancel_and_its_refusals(
     assert status.attempt_state == AttemptState.CANCELLED
     assert all(point.state == StudyPointState.CANCELLED for point in status.points)
 
-    # Overlays select a durable study; a package changed in memory has no authored sources.
+    # Overlays select a durable study; a package changed in memory has no authored
+    # sources.
     with pytest.raises(ValueError, match="durable study"):
+        # pyrefly: ignore[unexpected-keyword] -- the overloads reject this call; its
+        # runtime refusal is what is under test
         package.study((case,), settings, overlays=(PointOverlay(),))
     with pytest.raises(pse.InspectionError, match="changed in memory"):
         package.with_limits(pse.ModelingLimits()).study(

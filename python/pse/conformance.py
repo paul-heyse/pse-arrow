@@ -3,6 +3,7 @@
 """Command surface for native, data-authored model conformance."""
 
 import argparse
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -21,6 +22,7 @@ from pse import (
     codec,
 )
 from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 #: The command line's word for automatic backend selection (no explicit backend).
@@ -44,9 +46,15 @@ def _settings(
     )
 
 
+def _fixture(key: str) -> DeclarationId:
+    """The authored fixture declaration a command-line identity names."""
+    return DeclarationId(SemanticId.from_hex(key))
+
+
 def _documents(root: Path) -> dict[str, str]:
     if not (root / "package.toml").is_file():
-        raise ValueError(f"missing package.toml in {root}")
+        message = f"missing package.toml in {root}"
+        raise ValueError(message)
     return {
         path.relative_to(root).as_posix(): path.read_text()
         for path in root.rglob("*")
@@ -105,16 +113,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--expansion-depth", type=int)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args(argv)
-    selections: dict[SemanticId, tuple[str, str]] = {}
-    presolves: dict[SemanticId, str] = {}
-    derivatives: dict[SemanticId, tuple[float, float, int]] = {}
+    selections: dict[DeclarationId, tuple[str, str]] = {}
+    presolves: dict[DeclarationId, str] = {}
+    derivatives: dict[DeclarationId, tuple[float, float, int]] = {}
     for key, intent, backend in args.fixture_solver:
-        fixture = SemanticId.from_hex(key)
+        fixture = _fixture(key)
         if fixture in selections:
             parser.error("duplicate fixture solver policy")
         selections[fixture] = (intent, backend)
     for key, mode in args.fixture_presolve:
-        fixture = SemanticId.from_hex(key)
+        fixture = _fixture(key)
         if fixture in presolves:
             parser.error("duplicate fixture presolve policy")
         if mode not in {"auto", "off"}:
@@ -130,7 +138,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         for fixture in selections.keys() | presolves.keys()
     }
     for key, step, tolerance, cells in args.fixture_derivatives:
-        fixture = SemanticId.from_hex(key)
+        fixture = _fixture(key)
         if fixture in derivatives:
             parser.error("duplicate fixture derivative policy")
         derivatives[fixture] = (float(step), float(tolerance), int(cells))
@@ -201,11 +209,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     pa.table(result.findings()),
                 ),
             ):
-                with pa.OSFile(str(path), "wb") as destination:
-                    with pa.ipc.new_file(destination, payload.schema) as writer:
-                        writer.write_table(payload)
-        print(
-            f"passed={result.passed} complete={result.complete} checks={table.num_rows} fixtures={fixtures.num_rows}"
+                with (
+                    pa.OSFile(str(path), "wb") as destination,
+                    pa.ipc.new_file(destination, payload.schema) as writer,
+                ):
+                    writer.write_table(payload)
+        # The command's one-line verdict is its standard output.
+        sys.stdout.write(
+            f"passed={result.passed} complete={result.complete} "
+            f"checks={table.num_rows} fixtures={fixtures.num_rows}\n"
         )
         return 0 if result.passed else 1
 

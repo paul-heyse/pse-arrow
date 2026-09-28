@@ -115,7 +115,8 @@ def test_postponed_annotations_are_resolved_before_the_lint(tmp_path: Path) -> N
         encoding="utf-8",
     )
     spec = importlib.util.spec_from_file_location("postponed_contracts", module_path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     try:

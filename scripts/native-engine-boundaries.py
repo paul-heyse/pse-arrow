@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
+# ruff: noqa: N999 -- executable script name, not an importable module
 
 """Check N06 ownership from resolved Cargo metadata without executing product code."""
 

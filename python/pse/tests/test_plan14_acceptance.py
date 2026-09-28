@@ -13,16 +13,18 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse import codec
+from pse.contracts import authored
+from pse.contracts import runtime as runtime_contracts
 from pse.contracts.enums import (
+    AttemptKind,
+    AttemptState,
     HessianMode,
     NativeBackend,
     NativeSolveIntent,
     PresolvePolicyKind,
 )
-from pse import codec
-from pse.contracts import authored
-from pse.contracts import runtime as runtime_contracts
-from pse.contracts.enums import AttemptKind, AttemptState
+from pse.contracts.identities import DeclarationId
 from pse.contracts.values import SemanticId
 
 
@@ -54,7 +56,7 @@ def test_public_native_process_and_exact_results(
         ],
         physical,
     )
-    case = SemanticId.from_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015")
+    case = DeclarationId(SemanticId.from_hex("68ba8dc2d6b05d9a9fe1b1a3625d8015"))
     settings = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
     )
@@ -94,7 +96,8 @@ def test_public_native_process_and_exact_results(
         assert actual == pytest.approx(expected, abs=1e-5)
     assert result.usable
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
-    assert checks and all(row["satisfied"] for row in checks)
+    assert checks
+    assert all(row["satisfied"] for row in checks)
     source = pa.table(result.table("authored.modeling_declarations"))
     assert any(SemanticId(row["declaration_id"]) == case for row in source.to_pylist())
     arrays = table.column("value").chunks
@@ -120,14 +123,23 @@ def test_public_dynamic_and_transient_fit(
             if p.is_file()
         }
     )
-    identity = lambda n: SemanticId(bytes([n]) * 16)
+
+    def identity(n: int) -> SemanticId:
+        return SemanticId(bytes([n]) * 16)
+
     manifest = (
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
         .read_text()
         .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
-    manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{identity(31).to_hex()}"\n'
-    manifest += f'\n[[quantity_aliases]]\nname = "Time"\nquantity_type_id = "{identity(222).to_hex()}"\n'
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Scalar"\n'
+        f'quantity_type_id = "{identity(31).to_hex()}"\n'
+    )
+    manifest += (
+        '\n[[quantity_aliases]]\nname = "Time"\n'
+        f'quantity_type_id = "{identity(222).to_hex()}"\n'
+    )
     package = runtime.modeling_from_documents(
         [
             {
@@ -160,7 +172,8 @@ def test_public_dynamic_and_transient_fit(
         sensitivities=True,
     )
     simulation = package.simulate(case, settings)
-    assert simulation.accepted and simulation.termination == "completed"
+    assert simulation.accepted
+    assert simulation.termination == "completed"
     samples = pa.table(simulation.table()).to_pylist()
     assert len(samples) == 6
     assert {sample["time"] for sample in samples} == {0.0, 0.5, 1.0}
@@ -275,14 +288,17 @@ def test_public_dynamic_and_transient_fit(
     assert len(parameters) == 1
     assert parameters[0]["value"] == pytest.approx(3.0, abs=1e-5)
     run = pa.table(result.table("runtime.computation_runs")).to_pylist()
-    assert len(run) == 1 and run[0]["termination"] in {"success", "acceptable"}
-    assert run[0]["error"] is None and run[0]["estimate_qualified"]
+    assert len(run) == 1
+    assert run[0]["termination"] in {"success", "acceptable"}
+    assert run[0]["error"] is None
+    assert run[0]["estimate_qualified"]
     assert result.completion.computation == converter.structure(
         run[0], runtime_contracts.RuntimeComputationRunsRow
     )
     assert result.usable
     checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
-    assert checks and all(check["satisfied"] for check in checks)
+    assert checks
+    assert all(check["satisfied"] for check in checks)
 
 
 @pytest.mark.integration
