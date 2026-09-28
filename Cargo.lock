@@ -5575,6 +5575,7 @@ dependencies = [
  "pse-columnar",
  "pse-engine",
  "pse-ids",
+ "pse-kernels",
  "pse-model",
  "pse-modeling",
  "pse-relations",
@@ -5723,6 +5724,7 @@ dependencies = [
  "pse-kernels",
  "pse-quantity",
  "rustworkx-core",
+ "serde",
  "thiserror 2.0.20",
 ]
 

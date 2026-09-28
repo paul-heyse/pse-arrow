@@ -65,6 +65,7 @@ pse-buildinfo.workspace = true
 pse-catalog.workspace = true
 pse-schema.workspace = true
 pse-ids.workspace = true
+pse-kernels.workspace = true
 pse-rules.workspace = true
 tokio.workspace = true
 miette.workspace = true

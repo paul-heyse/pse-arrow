@@ -422,10 +422,7 @@ async fn actual_compile_failure_is_retryable_and_admission_is_finite() {
 #[tokio::test]
 async fn native_staged_recycle_and_singular_block_preserve_original_values() {
     use super::initialization::InitializationProfile;
-    use pse_backend_native::{
-        execution::BackendSettings,
-        solve::{Controls, SolverSelection, Termination},
-    };
+    use pse_backend_native::solve::{SolveIntent, Termination};
     for singular in [false, true] {
         let s = service();
         let mut input = inputs();
@@ -524,10 +521,10 @@ async fn native_staged_recycle_and_singular_block_preserve_original_values() {
                 initial.clone(),
                 BTreeMap::new(),
                 InitializationProfile {
-                    selection: SolverSelection::Auto,
-                    controls: Controls::default(),
-                    backend: BackendSettings::Default,
-                    numerics: Default::default(),
+                    solver: super::solves::SolverProfile {
+                        intent: SolveIntent::Initialize,
+                        ..Default::default()
+                    },
                     stages: vec![BTreeMap::new(), BTreeMap::new()],
                 },
             )
@@ -659,7 +656,7 @@ async fn solver_profile_refuses_mismatched_backend_before_artifact_construction(
 #[tokio::test]
 async fn initialization_prepares_conditional_programs_and_rejects_invalid_schedules() {
     use super::initialization::*;
-    use pse_backend_native::{execution::BackendSettings, solve::*};
+    use pse_backend_native::solve::*;
     let s = service();
     let w = s.workspace(inputs(), WorkspaceLimits::default()).unwrap();
     let p = s
@@ -668,10 +665,10 @@ async fn initialization_prepares_conditional_programs_and_rejects_invalid_schedu
         .unwrap();
     assert_eq!(p.boundaries().count(), 1);
     let profile = InitializationProfile {
-        selection: SolverSelection::Auto,
-        controls: Controls::default(),
-        backend: BackendSettings::Default,
-        numerics: Default::default(),
+        solver: super::solves::SolverProfile {
+            intent: SolveIntent::Initialize,
+            ..Default::default()
+        },
         stages: vec![BTreeMap::from([(id(1), 2.0)])],
     };
     assert!(
@@ -685,6 +682,97 @@ async fn initialization_prepares_conditional_programs_and_rejects_invalid_schedu
         )
         .is_err()
     );
+}
+/// F26: the initialization admission rules live in Rust `validate_profile`, which every
+/// caller reaches before native work; typed backend settings are route-typed.
+#[cfg(feature = "native-solvers")]
+#[tokio::test]
+async fn initialization_admission_in_rust() {
+    use super::{initialization::*, solves::SolverProfile};
+    use pse_backend_native::{ProblemError, execution::BackendSettings, presolve, solve::*};
+    let s = service();
+    let w = s.workspace(inputs(), WorkspaceLimits::default()).unwrap();
+    let p = s
+        .prepare_initialization(w, inputs(), id(5), profile(), DerivativeOrder::First)
+        .await
+        .unwrap();
+    let values = CaseValues {
+        scalars: BTreeMap::from([(id(1), 1.0)]),
+    };
+    let admit = |solver: SolverProfile| {
+        p.validate_profile(
+            &values,
+            &InitializationProfile {
+                solver,
+                stages: vec![BTreeMap::new()],
+            },
+        )
+        .map(|(routes, _)| routes)
+    };
+    let refused = |solver: SolverProfile| match admit(solver) {
+        Err(MathRuntimeError::Solve(ProblemError::Contract(_))) => true,
+        other => panic!("expected a typed contract refusal: {other:?}"),
+    };
+    let initialize = SolverProfile {
+        intent: SolveIntent::Initialize,
+        ..Default::default()
+    };
+    // The square free block routes to KINSOL under both root purposes.
+    let kinsol_route = vec![pse_backend_native::routing::Route::Native(Backend::Kinsol)];
+    assert_eq!(admit(initialize.clone()).unwrap(), kinsol_route);
+    assert!(
+        admit(SolverProfile {
+            intent: SolveIntent::Root,
+            ..initialize.clone()
+        })
+        .is_ok()
+    );
+    // The rules the Python adapter used to hold are refused here, before native work.
+    assert!(refused(SolverProfile {
+        intent: SolveIntent::Optimize,
+        ..initialize.clone()
+    }));
+    let explicit = presolve::Policy::new(
+        presolve::PolicyKind::Explicit,
+        &Options::new(),
+        Default::default(),
+    )
+    .unwrap();
+    assert!(refused(SolverProfile {
+        presolve: explicit,
+        ..initialize.clone()
+    }));
+    assert!(refused(SolverProfile {
+        convexity: pse_math::convexity::ConvexityPolicy::Numerical {
+            absolute: 1e-9,
+            relative: 1e-9,
+        },
+        ..initialize.clone()
+    }));
+    // Route-typed settings: KINSOL's method reaches the KINSOL block, and a KINSOL
+    // method on another route (here SCIP, eligible for this first-order block), or another
+    // backend's settings on the KINSOL route, is refused, never applied.
+    let kinsol =
+        BackendSettings::from_fields(Backend::Kinsol, serde_json::json!({"strategy": "newton"}))
+            .unwrap();
+    assert_eq!(
+        admit(SolverProfile {
+            backend: kinsol.clone(),
+            ..initialize.clone()
+        })
+        .unwrap(),
+        kinsol_route
+    );
+    assert!(refused(SolverProfile {
+        backend: kinsol,
+        selection: SolverSelection::Explicit(Backend::Scip),
+        ..initialize.clone()
+    }));
+    let highs = BackendSettings::from_fields(Backend::Highs, serde_json::json!({})).unwrap();
+    assert!(refused(SolverProfile {
+        backend: highs,
+        ..initialize
+    }));
 }
 
 #[tokio::test]

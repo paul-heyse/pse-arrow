@@ -78,6 +78,17 @@ pub enum ModelingInitializationStep {
     /// The unchanged requested specification.
     Original,
 }
+impl ModelingInitializationStep {
+    /// Registry kind of this step.
+    pub const fn kind(&self) -> pse_model::generated::enums::ModelingInitializationStep {
+        use pse_model::generated::enums::ModelingInitializationStep as K;
+        match self {
+            Self::Stage(_) => K::Stage,
+            Self::Homotopy(_) => K::Homotopy,
+            Self::Original => K::Original,
+        }
+    }
+}
 /// Preparation failures and native results share one ordered history. An interrupted
 /// attempt retains any native result produced while cancellation was joining.
 #[derive(Clone, Debug)]

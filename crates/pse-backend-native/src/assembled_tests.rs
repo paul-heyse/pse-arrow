@@ -146,20 +146,20 @@ fn explicit_cones_validate_storage_dimensions_parameters_and_psd() {
         GramCertificate::new(&q, 1.0, &faer::Mat::from_fn(1, 1, |_, _| 1.0), &[2.0], 10).unwrap();
     let mut p = ConicProblem {
         contract: assembled::contract(&a),
-        quadratic: clarabel::algebra::CscMatrix::new(1, 1, vec![0, 1], vec![0], vec![2.0]),
+        quadratic: conic::SparseMatrix::new(1, 1, vec![0, 1], vec![0], vec![2.0]),
         objective: vec![0.0],
-        constraints: clarabel::algebra::CscMatrix::new(1, 1, vec![0, 1], vec![0], vec![1.0]),
+        constraints: conic::SparseMatrix::new(1, 1, vec![0, 1], vec![0], vec![1.0]),
         rhs: vec![1.0],
-        cones: vec![clarabel::solver::SupportedConeT::NonnegativeConeT(1)],
+        cones: vec![conic::Cone::Nonnegative { dimension: 1 }],
         objective_constant: 0.0,
     };
     p.validate(&cert).unwrap();
-    p.cones = vec![clarabel::solver::SupportedConeT::PowerConeT(0.0)];
+    p.cones = vec![conic::Cone::Power { alpha: 0.0 }];
     assert!(p.validate(&cert).is_err());
-    p.cones = vec![clarabel::solver::SupportedConeT::ZeroConeT(1)];
-    p.quadratic.nzval[0] = -2.0;
+    p.cones = vec![conic::Cone::Zero { dimension: 1 }];
+    p.quadratic.values[0] = -2.0;
     assert!(p.validate(&cert).is_err());
-    p.quadratic.nzval[0] = 2.0;
-    p.constraints.rowval[0] = 2;
+    p.quadratic.values[0] = 2.0;
+    p.constraints.row_indices[0] = 2;
     assert!(p.validate(&cert).is_err());
 }

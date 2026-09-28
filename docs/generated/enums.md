@@ -676,6 +676,20 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `first_with_smooth_sensitivities` | `` | false |
 | `factorable` | `` | false |
 
+## `NativeIneligibility`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `not_linked` | `` | false |
+| `serial` | `` | false |
+| `not_square_root` | `` | false |
+| `no_objective` | `` | false |
+| `certification` | `` | false |
+| `class` | `` | false |
+| `derivatives` | `` | false |
+| `bounds` | `` | false |
+| `native_forms` | `` | false |
+
 ## `NativeMetricKind`
 
 | Member | IDAES name | Deprecated |

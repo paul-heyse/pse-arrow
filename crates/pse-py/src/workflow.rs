@@ -2,16 +2,19 @@
 // Copyright (c) 2026 Paul Heyse
 //! Mechanical public workflow projection; all mathematical policy remains native.
 mod modeling;
+mod routes;
 mod settings;
+pub(crate) use routes::{NativeEligibility, NativeIneligible, NativeRoute};
 pub(crate) use modeling::{NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingElasticAttempt, ModelingLimits, ModelingFixturePolicy, ModelingEventSettings, ModelingModeSettings, ModelingDiagnosticSettings, NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingTrajectory, NativeModelingConformance, NativeModelingInitialization, NativeModelingInitializationAttempt, NativeModelingStudy, NativeModelingPackage, NativeModelingResult};
 mod strategies;
 pub(crate) use strategies::{
-    NativeAttempt, NativePreparedFlow, NativePreparedStrategy, NativeStrategyResult,
+    NativeAttempt, NativePreparedFlow, NativePreparedStrategy, NativeStrategyAttempt,
+    NativeStrategyResult,
 };
 use crate::inspection::{self, errors, runtime};
 use pse_runtime::{CancelSource, workflow as native};
 use pyo3::prelude::*;
-pub(crate) use settings::SolveSettings;
+pub(crate) use settings::{BackendSettings, DiffsolSettings, IdasSettings, SolveSettings};
 use std::{
     future::Future,
     sync::{Arc, Mutex},
@@ -461,6 +464,7 @@ impl ProgressEvent {
 }
 
 /// Typed finite integration controls; native options serialize losslessly at the boundary.
+/// Every optional argument takes the native profile default when omitted.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
 pub(crate) struct SimulationSettings {
@@ -473,7 +477,7 @@ impl SimulationSettings {
         clippy::too_many_arguments,
         reason = "mechanical keyword-only projection of native integration controls"
     )]
-    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivities=false, rtol=1e-6, out_rtol=None, out_atol=None, initial_step=1e-4, max_steps=100000, max_events=1000, time_limit=300.0, max_cells=1000000,method="auto",trial_failures="terminal",numerics: "dict[str, object] | None"=None))]
+    #[pyo3(signature=(*, start, end, samples, atol, parameter_scales, sensitivities=None, rtol=None, out_rtol=None, out_atol=None, initial_step=None, max_steps: "int | None"=None, max_events: "int | None"=None, time_limit=None, max_cells: "int | None"=None, method=None, trial_failures=None, numerics: "dict[str, object] | None"=None, diffsol=None, idas=None))]
     fn new(
         py: Python<'_>,
         start: f64,
@@ -481,52 +485,83 @@ impl SimulationSettings {
         samples: Vec<f64>,
         atol: Vec<f64>,
         parameter_scales: Vec<f64>,
-        sensitivities: bool,
-        rtol: f64,
+        sensitivities: Option<bool>,
+        rtol: Option<f64>,
         out_rtol: Option<f64>,
         out_atol: Option<Vec<f64>>,
-        initial_step: f64,
-        max_steps: usize,
-        max_events: usize,
-        time_limit: f64,
-        max_cells: usize,
-        method: &str,
-        trial_failures: &str,
+        initial_step: Option<f64>,
+        #[pyo3(from_py_with = inspection::inputs::extract)] max_steps: Option<usize>,
+        #[pyo3(from_py_with = inspection::inputs::extract)] max_events: Option<usize>,
+        time_limit: Option<f64>,
+        #[pyo3(from_py_with = inspection::inputs::extract)] max_cells: Option<usize>,
+        method: Option<&str>,
+        trial_failures: Option<&str>,
         numerics: Option<&Bound<'_, pyo3::types::PyDict>>,
+        diffsol: Option<&DiffsolSettings>,
+        idas: Option<&IdasSettings>,
     ) -> PyResult<Self> {
-        let time_limit =
-            Duration::try_from_secs_f64(time_limit).map_err(|e| invalid(py, e.to_string()))?;
-        Ok(Self {
-            profile: native::SimulationProfile {
-                method: match method {
-                    "auto" => pse_backend_native::dynamics::Method::Auto,
-                    "diffsol" => pse_backend_native::dynamics::Method::Diffsol,
-                    "idas" => pse_backend_native::dynamics::Method::Idas,
-                    _ => return Err(invalid(py, "unknown dynamics method")),
-                },
-                trial_failures: match trial_failures {
-                    "terminal" => pse_backend_native::dynamics::TrialPolicy::Terminal,
-                    "recoverable" => pse_backend_native::dynamics::TrialPolicy::Recoverable,
-                    _ => return Err(invalid(py, "unknown trial failure policy")),
-                },
-                numerics: settings::numerical_policy(py, numerics)?,
-                start,
-                end,
-                samples,
-                atol,
-                parameter_scales,
-                sensitivities,
-                rtol,
-                out_rtol,
-                out_atol: out_atol.unwrap_or_default(),
-                initial_step,
-                max_steps,
-                max_events,
-                time_limit,
-                max_cells,
-                ..Default::default()
-            },
-        })
+        let mut profile = native::SimulationProfile {
+            start,
+            end,
+            samples,
+            atol,
+            parameter_scales,
+            out_rtol,
+            numerics: settings::numerical_policy(py, numerics)?,
+            ..Default::default()
+        };
+        if let Some(sensitivities) = sensitivities {
+            profile.sensitivities = sensitivities;
+        }
+        if let Some(rtol) = rtol {
+            profile.rtol = rtol;
+        }
+        if let Some(out_atol) = out_atol {
+            profile.out_atol = out_atol;
+        }
+        if let Some(initial_step) = initial_step {
+            profile.initial_step = initial_step;
+        }
+        if let Some(max_steps) = max_steps {
+            profile.max_steps = max_steps;
+        }
+        if let Some(max_events) = max_events {
+            profile.max_events = max_events;
+        }
+        if let Some(time_limit) = time_limit {
+            profile.time_limit =
+                Duration::try_from_secs_f64(time_limit).map_err(|e| invalid(py, e.to_string()))?;
+        }
+        if let Some(max_cells) = max_cells {
+            profile.max_cells = max_cells;
+        }
+        if let Some(method) = method {
+            profile.method = settings::named(py, "dynamics method", method)?;
+        }
+        if let Some(trial_failures) = trial_failures {
+            profile.trial_failures = settings::named(py, "trial failure policy", trial_failures)?;
+        }
+        if let Some(diffsol) = diffsol {
+            profile.diffsol = diffsol.inner;
+        }
+        if let Some(idas) = idas {
+            profile.idas = idas.inner.clone();
+        }
+        Ok(Self { profile })
+    }
+    /// Typed Diffsol scheme and linear solver in effect.
+    #[getter]
+    fn diffsol(&self) -> DiffsolSettings {
+        DiffsolSettings {
+            inner: self.profile.diffsol,
+        }
+    }
+    /// Typed IDAS controls in effect.
+    #[getter]
+    fn idas(&self) -> IdasSettings {
+        IdasSettings {
+            inner: self.profile.idas.clone(),
+        }
     }
     /// Round-trip the complete pinned native BDF and initialization options.
     fn to_json(&self, py: Python<'_>) -> PyResult<String> {
@@ -557,15 +592,17 @@ pub(crate) struct NativePreparedOperation {
 }
 #[pymethods]
 impl NativePreparedOperation {
+    /// Admitted algebraic route, before native execution.
     #[getter]
-    fn route(&self, py: Python<'_>) -> PyResult<String> {
+    fn route(&self, py: Python<'_>) -> PyResult<NativeRoute> {
         let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"algebraic route inspection requires an algebraic solve"));};
-        Ok(format!("{:?}",p.solve.route()))
+        Ok(p.solve.route().into())
     }
+    /// Typed eligibility row of every assessed adapter.
     #[getter]
-    fn eligibility(&self, py: Python<'_>) -> PyResult<Vec<(String,Vec<String>)>> {
+    fn eligibility(&self, py: Python<'_>) -> PyResult<Vec<NativeEligibility>> {
         let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"algebraic eligibility requires an algebraic solve"));};
-        Ok(p.solve.eligibility().iter().map(|e|(e.backend.as_str().into(),e.reasons.iter().map(ToString::to_string).collect())).collect())
+        Ok(p.solve.eligibility().iter().map(Into::into).collect())
     }
     fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
         let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"native warm starts require an algebraic solve"));};

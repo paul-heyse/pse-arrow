@@ -110,13 +110,14 @@ impl ModelingResult {
                 T::Inconclusive => C::Inconclusive,
                 _ => C::TrialRejected,
             };
+            // Registry names, never Rust `Debug` output (F30).
             result.observations.insert(
                 "termination".into(),
-                Observation::Text(format!("{:?}", native.termination.category)),
+                Observation::Text(native.termination.category.as_str().into()),
             );
             result.observations.insert(
                 "qualification".into(),
-                Observation::Text(format!("{:?}", native.qualification)),
+                Observation::Text(native.qualification.as_str().into()),
             );
             result.observations.insert(
                 "candidate_use".into(),

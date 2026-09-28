@@ -11,7 +11,9 @@ use pse_ids::{ContentHash, FramedHasher};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Native library passes, independently requested and qualified.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "snake_case")]
 pub enum Pass {
     /// Propagation using proved affine rows.
@@ -41,6 +43,19 @@ impl Pass {
     }
 }
 
+/// The kind of a [`Policy`]. Its serde spelling is the one boundary name of each kind
+/// (ADR-0113); native options and required passes belong to `Explicit` only.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyKind {
+    /// Identity transport.
+    Off,
+    /// Qualified source-backed passes.
+    #[default]
+    Auto,
+    /// Complete library controls.
+    Explicit,
+}
 /// User policy. Native options are retained in full rather than stringly reimplemented.
 #[derive(Clone, Debug, Default)]
 pub enum Policy {
@@ -319,6 +334,33 @@ impl Policy {
 }
 
 impl Policy {
+    /// A policy of `kind`. Native options and required passes are admitted only by an
+    /// explicit policy, which resolves them against the library registry.
+    ///
+    /// # Errors
+    /// Options or required passes for a non-explicit kind, or options the library refuses.
+    pub fn new(
+        kind: PolicyKind,
+        supplied: &crate::solve::Options,
+        required: BTreeSet<Pass>,
+    ) -> Result<Self, ProblemError> {
+        match kind {
+            PolicyKind::Explicit => Self::from_native_options(supplied, required),
+            _ if !supplied.is_empty() || !required.is_empty() => Err(ProblemError::Contract(
+                "native presolve options and required passes need an explicit policy".into(),
+            )),
+            PolicyKind::Off => Ok(Self::Off),
+            PolicyKind::Auto => Ok(Self::Auto),
+        }
+    }
+    /// The kind of this policy.
+    pub const fn kind(&self) -> PolicyKind {
+        match self {
+            Self::Off => PolicyKind::Off,
+            Self::Auto => PolicyKind::Auto,
+            Self::Explicit { .. } => PolicyKind::Explicit,
+        }
+    }
     /// Resolve the pinned library's complete presolve option registry. Names, native
     /// types and ranges are library-owned; qualification still checks physical meaning.
     pub fn from_native_options(

@@ -387,13 +387,8 @@ pub enum BackendSettings {
     /// HiGHS method, opt-in diagnostics and partial MIP start.
     #[cfg(feature = "highs")]
     Highs(crate::highs::Settings),
-    /// Clarabel's complete settings and preprocessing/data-update mode.
-    Clarabel {
-        /// Native settings.
-        native: Box<crate::conic::Settings>,
-        /// Reuse/preprocessing mode.
-        mode: crate::conic::Mode,
-    },
+    /// The pse-owned Clarabel settings: mode and every admitted native control.
+    Clarabel(crate::conic::Settings),
     /// SCIP's nested Ipopt linear solver, seed and node budget.
     Scip(ScipSettings),
 }
@@ -408,7 +403,7 @@ impl BackendSettings {
             Self::Kinsol(_) => Some(Backend::Kinsol),
             #[cfg(feature = "highs")]
             Self::Highs(_) => Some(Backend::Highs),
-            Self::Clarabel { .. } => Some(Backend::Clarabel),
+            Self::Clarabel(_) => Some(Backend::Clarabel),
             Self::Scip(_) => Some(Backend::Scip),
         }
     }
@@ -427,6 +422,108 @@ impl BackendSettings {
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
         crate::identity::of("pse.backend.settings.v1", self)
     }
+    /// The typed settings of `backend`, from its adapter settings type's serde fields.
+    /// Absent fields take that type's defaults and unknown fields are refused, so neither
+    /// names nor defaults are restated at the boundary (ADR-0113). Projecting a further
+    /// backend's settings is its one arm here.
+    ///
+    /// # Errors
+    /// Fields the adapter type refuses, a backend without typed settings, or an adapter
+    /// this binary does not link.
+    pub fn from_fields(backend: Backend, fields: serde_json::Value) -> Result<Self, ProblemError> {
+        fn typed<T: serde::de::DeserializeOwned>(
+            backend: Backend,
+            fields: serde_json::Value,
+        ) -> Result<T, ProblemError> {
+            serde_json::from_value(fields)
+                .map_err(|e| ProblemError::Contract(format!("{} settings: {e}", backend.as_str())))
+        }
+        match backend {
+            #[cfg(feature = "pounce")]
+            Backend::Pounce => typed(backend, fields).map(Self::Pounce),
+            #[cfg(feature = "kinsol")]
+            Backend::Kinsol => typed(backend, fields).map(Self::Kinsol),
+            #[cfg(feature = "highs")]
+            Backend::Highs => typed(backend, fields).map(Self::Highs),
+            Backend::Clarabel => typed(backend, fields).map(Self::Clarabel),
+            Backend::Scip => typed(backend, fields).map(Self::Scip),
+            // Typed Ipopt settings arrive with Plan 22 N1 as one arm here.
+            Backend::Ipopt => Err(ProblemError::Unsupported(
+                "ipopt has no typed settings in this build".into(),
+            )),
+            Backend::Diffsol | Backend::Idas => Err(ProblemError::Contract(format!(
+                "{} settings belong to the simulation profile",
+                backend.as_str()
+            ))),
+            #[allow(
+                unreachable_patterns,
+                reason = "the adapters whose features are not linked are refused here"
+            )]
+            _ => Err(ProblemError::Unavailable {
+                backend,
+                alternatives: vec![],
+            }),
+        }
+    }
+    /// The serde fields of these settings' adapter type; empty for native defaults.
+    ///
+    /// # Errors
+    /// A settings serializer refused its value.
+    pub fn fields(&self) -> Result<serde_json::Value, ProblemError> {
+        let value = match self {
+            Self::Default => return Ok(serde_json::Value::Object(serde_json::Map::new())),
+            #[cfg(feature = "pounce")]
+            Self::Pounce(settings) => serde_json::to_value(settings),
+            #[cfg(feature = "kinsol")]
+            Self::Kinsol(settings) => serde_json::to_value(settings),
+            #[cfg(feature = "highs")]
+            Self::Highs(settings) => serde_json::to_value(settings),
+            Self::Clarabel(settings) => serde_json::to_value(settings),
+            Self::Scip(settings) => serde_json::to_value(settings),
+        };
+        value.map_err(|e| ProblemError::Internal(format!("backend settings fields: {e}")))
+    }
+    /// The versioned boundary document of these settings.
+    ///
+    /// # Errors
+    /// Native defaults, which name no backend, or a refused serializer.
+    pub fn document(&self) -> Result<SettingsDocument, ProblemError> {
+        let backend = self.backend().ok_or_else(|| {
+            ProblemError::Contract("native default settings have no settings document".into())
+        })?;
+        Ok(SettingsDocument {
+            version: SETTINGS_VERSION,
+            backend,
+            settings: self.fields()?,
+        })
+    }
+    /// Admit a boundary document: its version must be [`SETTINGS_VERSION`].
+    ///
+    /// # Errors
+    /// An unknown version, or fields [`Self::from_fields`] refuses.
+    pub fn from_document(document: SettingsDocument) -> Result<Self, ProblemError> {
+        if document.version != SETTINGS_VERSION {
+            return Err(ProblemError::Contract(format!(
+                "unknown backend settings document version {}",
+                document.version
+            )));
+        }
+        Self::from_fields(document.backend, document.settings)
+    }
+}
+/// Version of the settings document that crosses the Python boundary (ADR-0113 §5).
+pub const SETTINGS_VERSION: u32 = 1;
+/// The versioned boundary document of typed backend settings: the registry backend and
+/// the serde fields of its adapter's settings type. Unknown fields are refused.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SettingsDocument {
+    /// Document version; must equal [`SETTINGS_VERSION`].
+    pub version: u32,
+    /// Registry backend whose adapter owns the settings type.
+    pub backend: Backend,
+    /// The adapter settings type's serde fields.
+    pub settings: serde_json::Value,
 }
 
 /// Worker-owned native state retained from the previous step of a finite sequence.

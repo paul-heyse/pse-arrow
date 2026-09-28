@@ -35,7 +35,7 @@ impl PreparedInitializationStrategy {
     /// Chosen routes, without an implicit failure fallback.
     pub fn strategies(&self) -> Result<Vec<native::routing::Route>, WorkflowError> {
         self.prepared
-            .strategies(&self.profile.controls, self.profile.selection)
+            .strategies(&self.profile.solver.controls, self.profile.solver.selection)
             .map_err(|e| MathRuntimeError::from(e).into())
     }
     /// Execute with this revision's original values and provider bindings.

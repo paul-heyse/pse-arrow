@@ -422,3 +422,61 @@ fn published_capabilities_equal_routing_rules() {
         assert!(rows.iter().all(|r| r.backend != adapter.backend()));
     }
 }
+
+/// ADR-0113: each adapter's settings type is its boundary form. Omitted fields take the
+/// Rust defaults, unknown fields and versions are refused, and documents round-trip with
+/// the same identity.
+#[test]
+fn settings_documents_round_trip_every_variant() {
+    use serde_json::json;
+    let mut variants = vec![
+        (Backend::Clarabel, json!({"mode": "reusable_data", "max_step_fraction": 0.9})),
+        (Backend::Scip, json!({"seed": 7, "nodes": 100})),
+    ];
+    if cfg!(feature = "highs") {
+        variants.push((Backend::Highs, json!({"method": "simplex"})));
+    }
+    if cfg!(feature = "pounce") {
+        variants.push((Backend::Pounce, json!({"method": "active_set_sqp"})));
+    }
+    if cfg!(feature = "kinsol") {
+        variants.push((
+            Backend::Kinsol,
+            json!({"strategy": "newton", "linear": {"spgmr": {"dimension": 8}}}),
+        ));
+    }
+    for (backend, fields) in variants {
+        let settings = BackendSettings::from_fields(backend, fields.clone()).unwrap();
+        assert_eq!(settings.backend(), Some(backend));
+        let document = settings.document().unwrap();
+        assert_eq!(document.version, SETTINGS_VERSION);
+        // Every supplied field is kept; every other field is present with its default.
+        let defaults = BackendSettings::from_fields(backend, json!({}))
+            .unwrap()
+            .fields()
+            .unwrap();
+        let effective = document.settings.as_object().unwrap();
+        assert_eq!(
+            effective.keys().collect::<Vec<_>>(),
+            defaults.as_object().unwrap().keys().collect::<Vec<_>>()
+        );
+        for (key, value) in fields.as_object().unwrap() {
+            assert_eq!(&effective[key], value, "{backend:?} {key}");
+        }
+        let text = serde_json::to_string(&document).unwrap();
+        let back = BackendSettings::from_document(serde_json::from_str(&text).unwrap()).unwrap();
+        assert_eq!(back.identity().unwrap(), settings.identity().unwrap());
+        // Unknown fields and document versions are refused.
+        let mut unknown = fields.clone();
+        unknown["not_a_field"] = json!(1);
+        assert!(BackendSettings::from_fields(backend, unknown).is_err());
+        let mut future = document.clone();
+        future.version += 1;
+        assert!(BackendSettings::from_document(future).is_err());
+    }
+    // Backends without algebraic settings are refused, never defaulted.
+    for backend in [Backend::Diffsol, Backend::Idas, Backend::Ipopt] {
+        assert!(BackendSettings::from_fields(backend, json!({})).is_err());
+    }
+    assert!(BackendSettings::Default.document().is_err());
+}

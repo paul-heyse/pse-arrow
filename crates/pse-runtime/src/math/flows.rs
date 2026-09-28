@@ -22,7 +22,9 @@ impl PreparedFlow {
     }
 }
 /// Tear policy is explicit; a heuristic never substitutes for an unavailable optimizer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The serde spelling is the boundary name of each method (ADR-0113).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TearMethod {
     /// Exact weighted feedback-edge MILP with native incumbent/bound/gap reporting.
     Highs,
@@ -118,6 +120,13 @@ impl MathService {
         controls: Controls,
     ) -> Result<SolveHandle<TearResult>, MathRuntimeError> {
         controls.validate()?;
+        // A tear selection is one fresh attempt: there is no retained seed or allocation.
+        if controls.start != StartPolicy::NoPriorStart || controls.reuse != ReusePolicy::Fresh {
+            return Err(ProblemError::Contract(
+                "tear selection has no retained seed or allocation".into(),
+            )
+            .into());
+        }
         if method == TearMethod::Highs && !cfg!(feature = "solver-highs") {
             return Err(ProblemError::Unavailable {
                 backend: Backend::Highs,

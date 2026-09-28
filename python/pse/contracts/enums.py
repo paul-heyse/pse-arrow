@@ -676,6 +676,20 @@ class NativeDerivativeCapability(StrEnum):
     FACTORABLE = "factorable"
 
 
+class NativeIneligibility(StrEnum):
+    """The declared NativeIneligibility enumeration."""
+
+    NOT_LINKED = "not_linked"
+    SERIAL = "serial"
+    NOT_SQUARE_ROOT = "not_square_root"
+    NO_OBJECTIVE = "no_objective"
+    CERTIFICATION = "certification"
+    CLASS = "class"
+    DERIVATIVES = "derivatives"
+    BOUNDS = "bounds"
+    NATIVE_FORMS = "native_forms"
+
+
 class NativeMetricKind(StrEnum):
     """The declared NativeMetricKind enumeration."""
 

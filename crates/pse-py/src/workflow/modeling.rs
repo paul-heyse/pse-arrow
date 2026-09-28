@@ -17,7 +17,7 @@ struct FlowConnectionDocument {
     connection: SemanticId,
     group: SemanticId,
     cost: f64,
-    policy: String,
+    policy: pse_runtime::math::flows::Policy,
 }
 fn flow_selection(py: Python<'_>, bytes: &[u8], allowance: usize) -> PyResult<pse_runtime::math::flows::ModelingFlowSelection> {
     if bytes.len()>allowance/4 {return Err(invalid(py,"flow selection exceeds workspace allowance"));}
@@ -26,11 +26,20 @@ fn flow_selection(py: Python<'_>, bytes: &[u8], allowance: usize) -> PyResult<ps
     for node in wire.nodes {if !nodes.insert(node) {return Err(invalid(py,"duplicate selected flow node"));}}
     let mut connections=BTreeMap::new();
     for c in wire.connections {
-        use pse_runtime::math::flows::{Decision,Policy};
-        let policy=match c.policy.as_str() {"free"=>Policy::Free,"mandatory"=>Policy::Mandatory,"forbidden"=>Policy::Forbidden,_=>return Err(invalid(py,"unknown tear policy"))};
-        if connections.insert(c.connection,Decision{id:c.group,cost:c.cost,policy}).is_some() {return Err(invalid(py,"duplicate selected connection"));}
+        use pse_runtime::math::flows::Decision;
+        if connections.insert(c.connection,Decision{id:c.group,cost:c.cost,policy:c.policy}).is_some() {return Err(invalid(py,"duplicate selected connection"));}
     }
     Ok(pse_runtime::math::flows::ModelingFlowSelection{nodes,connections})
+}
+
+/// The registry relation of a qualified table name; each result decides whether it holds
+/// that relation.
+fn relation(py: Python<'_>, name: &str) -> PyResult<SemanticId> {
+    pse_schema::registry()
+        .map_err(|e| errors::diagnostic(py, &e))?
+        .relation(name)
+        .map(|spec| spec.id)
+        .ok_or_else(|| invalid(py, "unknown result relation"))
 }
 
 pub(super) fn from_documents(
@@ -832,20 +841,13 @@ impl NativeModelingPackage {
     fn prepare_block_initialization(&self, py: Python<'_>, case_id: &str, settings: &SolveSettings, stages: Vec<BTreeMap<String,f64>>) -> PyResult<NativePreparedStrategy> {
         #[cfg(feature="native-solvers")]
         {
+            // Admission of the profile and stages is native (`validate_profile`).
             let root=id(py,case_id)?;
-            if !matches!(settings.profile.intent,pse_backend_native::solve::SolveIntent::Initialize|pse_backend_native::solve::SolveIntent::Root)
-                || matches!(settings.profile.presolve,pse_backend_native::presolve::Policy::Explicit{..})
-                || !matches!(settings.profile.convexity,pse_runtime::math::solves::ConvexityPolicy::Exact)
-                || !matches!(settings.profile.backend,pse_backend_native::execution::BackendSettings::Default) {
-                return Err(invalid(py,"initialization requires root/initialize intent and has no explicit preprocessing or convexity strategy"));
-            }
-            if stages.len()>4096 {return Err(invalid(py,"continuation stage allowance"));}
             let stages=stages.into_iter().map(|s|s.into_iter().map(|(k,v)|id(py,&k).map(|k|(k,v))).collect::<PyResult<_>>()).collect::<PyResult<_>>()?;
-            let profile=pse_runtime::math::initialization::InitializationProfile{selection:settings.profile.selection,controls:settings.profile.controls.clone(),backend:settings.profile.backend.clone(),numerics:settings.profile.numerics.clone(),stages};
             let cancel=CancelSource::new();
             let inner=blocking(py,&self.owner,async {
                 let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.profile.clone(),Default::default(),self.limits,&cancel).await?;
-                self.inner.prepare_block_initialization(&analysis,profile,&cancel).await
+                self.inner.prepare_block_initialization(&analysis,stages,&cancel).await
             },||cancel.cancel())?;
             Ok(NativePreparedStrategy{owner:self.owner.clone(),inner:strategies::Strategy::Initialization(inner)})
         }
@@ -1008,13 +1010,10 @@ pub(crate) struct NativeModelingElasticAttempt {
 }
 #[pymethods]
 impl NativeModelingElasticAttempt {
+    /// Registry name of the attempt's observation.
     #[getter]
     fn observation(&self) -> &'static str {
-        match self.owner.attempts[self.index].observation {
-            native::ElasticObservation::FeasibleWitness => "feasible_witness",
-            native::ElasticObservation::LocalObstruction => "local_obstruction",
-            native::ElasticObservation::Inconclusive => "inconclusive",
-        }
+        self.owner.attempts[self.index].observation.as_str()
     }
     #[getter]
     fn penalty(&self) -> Option<f64> {
@@ -1087,25 +1086,7 @@ impl NativeModelingTrajectory {
             .map(|e| inspection::DiagnosticReport::observe(e))
     }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        use pse_relations::generated::runtime::{
-            computation_runs, modeling_checks, modeling_reports, response_sensitivities,
-            simulation_events, simulation_samples,
-        };
-        let id = match name {
-            "runtime.modeling_trajectory_modes" => {
-                pse_relations::generated::runtime::modeling_trajectory_modes::RELATION_ID
-            }
-            "runtime.modeling_findings" => {
-                pse_relations::generated::runtime::modeling_findings::RELATION_ID
-            }
-            "runtime.modeling_checks" => modeling_checks::RELATION_ID,
-            "runtime.modeling_reports" => modeling_reports::RELATION_ID,
-            "runtime.computation_runs" => computation_runs::RELATION_ID,
-            "runtime.simulation_samples" => simulation_samples::RELATION_ID,
-            "runtime.simulation_events" => simulation_events::RELATION_ID,
-            "runtime.response_sensitivities" => response_sensitivities::RELATION_ID,
-            _ => return Err(invalid(py, "unknown modeling trajectory table")),
-        };
+        let id = relation(py, name)?;
         py.detach(|| {
             self.inner.tables().and_then(|mut tables| {
                 tables.remove(&id).ok_or_else(|| {
@@ -1195,16 +1176,10 @@ impl NativeModelingDiagnosticSamples {
     fn unattempted(&self) -> usize {
         self.inner.unattempted
     }
+    /// Registry name of the stop.
     #[getter]
     fn stop(&self) -> &'static str {
-        use native::DiagnosticSampleStop as S;
-        match self.inner.stop {
-            S::Completed => "completed",
-            S::SampleLimit => "sample_limit",
-            S::FindingLimit => "finding_limit",
-            S::TimeLimit => "time_limit",
-            S::Cancelled => "cancelled",
-        }
+        self.inner.stop.as_str()
     }
     fn ids(&self) -> Vec<String> {
         self.inner
@@ -1242,15 +1217,7 @@ impl NativeModelingDiagnosticSamples {
 #[pymethods]
 impl NativeModelingDiagnostics {
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        let id = match name {
-            "runtime.modeling_diagnostics" => {
-                pse_relations::generated::runtime::modeling_diagnostics::RELATION_ID
-            }
-            "runtime.modeling_findings" => {
-                pse_relations::generated::runtime::modeling_findings::RELATION_ID
-            }
-            _ => return Err(invalid(py, "unknown diagnostic table")),
-        };
+        let id = relation(py, name)?;
         let mut tables = py
             .detach(|| self.inner.tables())
             .map_err(|e| errors::diagnostic(py, &e))?;
@@ -1353,13 +1320,10 @@ pub(crate) struct NativeModelingInitializationAttempt {
 }
 #[pymethods]
 impl NativeModelingInitializationAttempt {
+    /// Registry name of the attempted step's kind.
     #[getter]
     fn kind(&self) -> &'static str {
-        match self.owner.attempts[self.index].step {
-            native::ModelingInitializationStep::Stage(_) => "stage",
-            native::ModelingInitializationStep::Homotopy(_) => "homotopy",
-            native::ModelingInitializationStep::Original => "original",
-        }
+        self.owner.attempts[self.index].step.kind().as_str()
     }
     #[getter]
     fn stage(&self) -> Option<String> {
@@ -1593,13 +1557,10 @@ impl NativeModelingResult {
             .as_ref()
             .map(|e| inspection::DiagnosticReport::observe(e))
     }
+    /// Registry run state of the outcome.
     #[getter]
     fn outcome_kind(&self) -> &'static str {
-        match &self.inner.outcome {
-            pse_runtime::math::solves::Outcome::Native(_) => "native",
-            pse_runtime::math::solves::Outcome::Constant(_) => "constant",
-            pse_runtime::math::solves::Outcome::Rejected(_) => "rejected",
-        }
+        self.inner.outcome.state().as_str()
     }
     fn attempt(&self) -> Option<NativeAttempt> {
         match &self.inner.outcome {
@@ -1616,18 +1577,7 @@ impl NativeModelingResult {
             .map(|e| inspection::DiagnosticReport::observe(e))
     }
     fn table(&self, py: Python<'_>, name: &str) -> PyResult<inspection::TableStream> {
-        let relation = match name {
-            "runtime.modeling_findings" => {
-                pse_relations::generated::runtime::modeling_findings::RELATION_ID
-            }
-            "runtime.modeling_checks" => {
-                pse_relations::generated::runtime::modeling_checks::RELATION_ID
-            }
-            "runtime.modeling_reports" => {
-                pse_relations::generated::runtime::modeling_reports::RELATION_ID
-            }
-            _ => return Err(invalid(py, "unknown modeling result relation")),
-        };
+        let relation = relation(py, name)?;
         py.detach(|| {
             self.inner.tables().and_then(|mut tables| {
                 tables.remove(&relation).ok_or_else(|| {

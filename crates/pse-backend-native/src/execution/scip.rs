@@ -13,7 +13,7 @@ use crate::{
 
 /// Linear solver of SCIP's nested Ipopt, which is the image's one Ipopt (ADR-0108). HSL
 /// and the Pardiso-project loader are not offered (ADR-0105 §5, T08).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum IpoptLinearSolver {
     /// Sequential MUMPS with METIS ordering.
@@ -36,7 +36,8 @@ impl IpoptLinearSolver {
 }
 /// Typed SCIP settings. Reserved native options derive from these and the shared controls;
 /// identity derives from serde.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Settings {
     /// Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`).
     pub nlp_linear_solver: IpoptLinearSolver,

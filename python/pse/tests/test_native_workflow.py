@@ -43,17 +43,23 @@ def test_explicit_cone_strategy_preserves_native_qualification(
         "variables": [port(201)],
         "rows": [port(202)],
         "objective_port": port(0),
-        "quadratic": {"m": 1, "n": 1, "colptr": [0, 0], "rowval": [], "nzval": []},
+        "quadratic": {
+            "rows": 1,
+            "columns": 1,
+            "column_starts": [0, 0],
+            "row_indices": [],
+            "values": [],
+        },
         "objective": [1.0],
         "constraints": {
-            "m": 1,
-            "n": 1,
-            "colptr": [0, 1],
-            "rowval": [0],
-            "nzval": [-1.0],
+            "rows": 1,
+            "columns": 1,
+            "column_starts": [0, 1],
+            "row_indices": [0],
+            "values": [-1.0],
         },
         "rhs": [-2.0],
-        "cones": [{"NonnegativeConeT": 1}],
+        "cones": [{"kind": "nonnegative", "dimension": 1}],
         "objective_constant": 3.0,
         "gram_factors": [],
         "gram_weights": [],
@@ -61,10 +67,12 @@ def test_explicit_cone_strategy_preserves_native_qualification(
     prepared = runtime.prepare_conic(
         request, physical, pse.SolveSettings(backend="clarabel")
     )
-    assert prepared.routes == ("Native(Clarabel)",)
+    assert [route.backend for route in prepared.routes] == ["clarabel"]
     result = prepared.run()
     assert not result.failures()
-    (attempt,) = result.attempts()
+    (row,) = result.attempts()
+    attempt = row.report
+    assert attempt is not None
     assert attempt.qualification == "optimal_within_tolerance"
     assert attempt.objective == pytest.approx(5.0, abs=1e-6)
     assert dict(attempt.primal())[identity(201).to_hex()] == pytest.approx(
@@ -226,7 +234,8 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
     model = revision(runtime, physical)
     settings = pse.SolveSettings(intent="root")
     prepared = model.prepare_solve(identity(101), settings)
-    assert prepared.route == "Constant"
+    assert prepared.route.constant
+    assert prepared.route.backend is None
     handle = prepared.start()
     result = handle.wait()
 

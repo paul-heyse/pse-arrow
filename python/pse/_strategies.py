@@ -6,7 +6,15 @@ import attrs
 import msgspec
 
 from pse import codec
-from pse._build import NativeAttempt, SolveSettings, _NativePreparedFlow, _NativePreparedStrategy, _NativeStrategyResult
+from pse._build import (
+    DiagnosticReport,
+    NativeRoute,
+    NativeStrategyAttempt,
+    SolveSettings,
+    _NativePreparedFlow,
+    _NativePreparedStrategy,
+    _NativeStrategyResult,
+)
 
 
 class _AnalysisDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
@@ -39,8 +47,8 @@ class PreparedStrategy:
     _handle: _NativePreparedStrategy
 
     @property
-    def routes(self) -> tuple[str, ...]:
-        """Routes selected before execution, without implicit failure fallback."""
+    def routes(self) -> tuple[NativeRoute, ...]:
+        """Typed routes selected before execution, without implicit failure fallback."""
         return tuple(self._handle.routes)
 
     def run(self) -> "StrategyResult":
@@ -63,13 +71,18 @@ class StrategyResult:
             else codec.decode_json(data.encode(), _AnalysisDocument).payload
         )
 
-    def attempts(self) -> tuple[NativeAttempt, ...]:
-        """Actual native attempts with termination, qualification and progress."""
+    def attempts(self) -> tuple[NativeStrategyAttempt, ...]:
+        """Every attempt in order: its native report or the typed failure before one."""
         return tuple(self._handle.attempts())
 
-    def failures(self) -> tuple[tuple[int, str], ...]:
-        """Attributable failures before a native report became available."""
-        return tuple(self._handle.failures())
+    def failures(self) -> tuple[tuple[int, DiagnosticReport], ...]:
+        """Typed failures before a native report, indexed like ``attempts()``."""
+        failures: list[tuple[int, DiagnosticReport]] = []
+        for index, attempt in enumerate(self.attempts()):
+            failure = attempt.failure
+            if failure is not None:
+                failures.append((index, failure))
+        return tuple(failures)
 
     def initialization(self) -> dict[str, object] | None:
         """Original values, committed unknowns and temporary stage evidence."""

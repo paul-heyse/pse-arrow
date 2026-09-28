@@ -6282,6 +6282,141 @@ impl core::str::FromStr for NativeDerivativeCapability {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NativeIneligibility {
+    ///not_linked
+    #[serde(rename = "not_linked")]
+    NotLinked,
+    ///serial
+    #[serde(rename = "serial")]
+    Serial,
+    ///not_square_root
+    #[serde(rename = "not_square_root")]
+    NotSquareRoot,
+    ///no_objective
+    #[serde(rename = "no_objective")]
+    NoObjective,
+    ///certification
+    #[serde(rename = "certification")]
+    Certification,
+    ///class
+    #[serde(rename = "class")]
+    Class,
+    ///derivatives
+    #[serde(rename = "derivatives")]
+    Derivatives,
+    ///bounds
+    #[serde(rename = "bounds")]
+    Bounds,
+    ///native_forms
+    #[serde(rename = "native_forms")]
+    NativeForms,
+}
+impl crate::SemanticEq for NativeIneligibility {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativeIneligibility {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 9usize] = [
+        Self::NotLinked,
+        Self::Serial,
+        Self::NotSquareRoot,
+        Self::NoObjective,
+        Self::Certification,
+        Self::Class,
+        Self::Derivatives,
+        Self::Bounds,
+        Self::NativeForms,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NotLinked => "not_linked",
+            Self::Serial => "serial",
+            Self::NotSquareRoot => "not_square_root",
+            Self::NoObjective => "no_objective",
+            Self::Certification => "certification",
+            Self::Class => "class",
+            Self::Derivatives => "derivatives",
+            Self::Bounds => "bounds",
+            Self::NativeForms => "native_forms",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::NotLinked => 0usize,
+            Self::Serial => 1usize,
+            Self::NotSquareRoot => 2usize,
+            Self::NoObjective => 3usize,
+            Self::Certification => 4usize,
+            Self::Class => 5usize,
+            Self::Derivatives => 6usize,
+            Self::Bounds => 7usize,
+            Self::NativeForms => 8usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::NotLinked => None,
+            Self::Serial => None,
+            Self::NotSquareRoot => None,
+            Self::NoObjective => None,
+            Self::Certification => None,
+            Self::Class => None,
+            Self::Derivatives => None,
+            Self::Bounds => None,
+            Self::NativeForms => None,
+        }
+    }
+}
+impl core::str::FromStr for NativeIneligibility {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "not_linked" => Ok(Self::NotLinked),
+            "serial" => Ok(Self::Serial),
+            "not_square_root" => Ok(Self::NotSquareRoot),
+            "no_objective" => Ok(Self::NoObjective),
+            "certification" => Ok(Self::Certification),
+            "class" => Ok(Self::Class),
+            "derivatives" => Ok(Self::Derivatives),
+            "bounds" => Ok(Self::Bounds),
+            "native_forms" => Ok(Self::NativeForms),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(NativeIneligibility).to_owned(),
+                    enumeration: stringify!(NativeIneligibility).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NativeMetricKind {
     ///real
     #[serde(rename = "real")]
@@ -9460,6 +9595,16 @@ impl crate::HeapUsage for NativeDerivativeCapability {
     }
 }
 impl crate::SemanticFrame for NativeDerivativeCapability {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NativeIneligibility {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeIneligibility {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

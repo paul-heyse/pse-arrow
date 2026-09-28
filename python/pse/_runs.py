@@ -6,8 +6,9 @@ from typing import TypeAlias
 import attrs
 import msgspec
 from pse import codec
-from pse._build import (DiagnosticReport, ProgressEvent, _NativePreparedOperation,
-    _NativePublicationAttempt, _NativeRunHandle, _NativeRunResult, _NativeStart)
+from pse._build import (DiagnosticReport, NativeEligibility, NativeRoute,
+    ProgressEvent, _NativePreparedOperation, _NativePublicationAttempt,
+    _NativeRunHandle, _NativeRunResult, _NativeStart)
 from pse._inspection import TableStream
 from pse.contracts import runtime as result_contracts
 from pse.contracts.values import ContentHash, SemanticId
@@ -24,14 +25,14 @@ class PreparedOperation:
         return ContentHash.from_prefixed(self._handle.identity)
 
     @property
-    def route(self) -> str:
+    def route(self) -> NativeRoute:
         """Admitted algebraic route, before native execution."""
         return self._handle.route
 
     @property
-    def eligibility(self) -> tuple[tuple[str, tuple[str, ...]], ...]:
-        """Algebraic backend alternatives and their preparation refusals."""
-        return tuple((name, tuple(reasons)) for name, reasons in self._handle.eligibility)
+    def eligibility(self) -> tuple[NativeEligibility, ...]:
+        """Typed eligibility row of every assessed backend, with registry reason codes."""
+        return tuple(self._handle.eligibility)
 
     def with_start(self, seed: _NativeStart) -> "PreparedOperation":
         """Select a compatible owned numerical seed for an algebraic solve."""

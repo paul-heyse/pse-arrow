@@ -42,6 +42,16 @@ pub enum ObligationStatus {
     /// The projection cannot establish validity throughout the box.
     Unestablished,
 }
+impl ObligationStatus {
+    /// Stable report spelling, independent of Rust debug output.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Discharged => "discharged",
+            Self::Violated => "violated",
+            Self::Unestablished => "unestablished",
+        }
+    }
+}
 /// A hard sign domain implied by a retained original obligation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct GuardSign {

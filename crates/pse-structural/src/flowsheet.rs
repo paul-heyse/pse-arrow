@@ -27,8 +27,9 @@ pub struct Connection {
     /// Source-port/destination-port physical bindings.
     pub bindings: Vec<(SemanticId, SemanticId)>,
 }
-/// User constraint on one explicit decision group.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// User constraint on one explicit decision group. The serde spelling is its boundary name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Policy {
     /// Native optimizer may select it.
     Free,

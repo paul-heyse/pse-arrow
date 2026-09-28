@@ -180,6 +180,31 @@ pub enum ConvexityPolicy {
         relative: f64,
     },
 }
+impl ConvexityPolicy {
+    /// The policy of optional numerical tolerances: none is exact certification; both,
+    /// finite and nonnegative, permit numerical assessment.
+    ///
+    /// # Errors
+    /// Exactly one tolerance, or a nonfinite or negative one.
+    pub fn from_tolerances(
+        absolute: Option<f64>,
+        relative: Option<f64>,
+    ) -> Result<Self, MathError> {
+        match (absolute, relative) {
+            (None, None) => Ok(Self::Exact),
+            (Some(absolute), Some(relative))
+                if [absolute, relative]
+                    .iter()
+                    .all(|v| v.is_finite() && *v >= 0.0) =>
+            {
+                Ok(Self::Numerical { absolute, relative })
+            }
+            _ => Err(MathError::Contract(
+                "numerical convexity requires both finite nonnegative tolerances".into(),
+            )),
+        }
+    }
+}
 /// A bounded assessment that did not establish either requested conclusion.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum InconclusiveReason {

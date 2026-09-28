@@ -92,23 +92,35 @@ fn coefficient_conic() {
         );
         assert!(!r.metrics.is_empty());
     }
-    use clarabel::{algebra::CscMatrix, solver::SupportedConeT::*};
+    use conic::{Cone, SparseMatrix};
+    let reusable = conic::Settings {
+        mode: conic::Mode::ReusableData,
+        ..Default::default()
+    };
     // Every advertised cone has an analytic boundary optimum, independent of the solver.
     for (cone, rhs, row, expected) in [
-        (ZeroConeT(1), vec![0.], 0, 0.),
-        (PSDTriangleConeT(2), vec![0., 0., 1.], 0, 0.),
-        (NonnegativeConeT(1), vec![0.], 0, 0.),
-        (SecondOrderConeT(3), vec![0., 3., 4.], 0, 5.),
-        (ExponentialConeT(), vec![0., 1., 0.], 2, 1.),
-        (PowerConeT(0.5), vec![0., 1., 1.], 0, 1.),
-        (GenPowerConeT(vec![0.5, 0.5], 1), vec![0., 1., 1.], 0, 1.),
+        (Cone::Zero { dimension: 1 }, vec![0.], 0, 0.),
+        (Cone::PsdTriangle { order: 2 }, vec![0., 0., 1.], 0, 0.),
+        (Cone::Nonnegative { dimension: 1 }, vec![0.], 0, 0.),
+        (Cone::SecondOrder { dimension: 3 }, vec![0., 3., 4.], 0, 5.),
+        (Cone::Exponential, vec![0., 1., 0.], 2, 1.),
+        (Cone::Power { alpha: 0.5 }, vec![0., 1., 1.], 0, 1.),
+        (
+            Cone::GeneralizedPower {
+                alpha: vec![0.5, 0.5],
+                dimension: 1,
+            },
+            vec![0., 1., 1.],
+            0,
+            1.,
+        ),
     ] {
         let m = rhs.len();
         let p = ConicProblem {
             contract: contract(m),
-            quadratic: CscMatrix::zeros((1, 1)),
+            quadratic: SparseMatrix::zeros(1, 1),
             objective: vec![1.],
-            constraints: CscMatrix::new(m, 1, vec![0, 1], vec![row], vec![-1.]),
+            constraints: SparseMatrix::new(m, 1, vec![0, 1], vec![row], vec![-1.]),
             rhs,
             cones: vec![cone],
             objective_constant: 0.,
@@ -121,8 +133,7 @@ fn coefficient_conic() {
             &certificate,
             &controls,
             &accuracy,
-            Default::default(),
-            conic::Mode::ReusableData,
+            &reusable,
             stamp(Backend::Clarabel),
         )
         .unwrap();
@@ -131,7 +142,7 @@ fn coefficient_conic() {
                 &p,
                 &controls,
                 &accuracy,
-                Default::default(),
+                &reusable,
                 execution(&controls),
                 &Tolerances {
                     variables: vec![1e-6],

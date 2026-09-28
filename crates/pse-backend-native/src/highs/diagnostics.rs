@@ -5,7 +5,8 @@ use super::*;
 use pse_ids::SemanticId;
 
 /// Requested native diagnostic work, bounded by the original attempt's deadline.
-#[derive(Clone, Debug, Default, serde::Serialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Request {
     /// Native primal/dual rays when available for the continuous model.
     pub rays: bool,
@@ -18,7 +19,8 @@ pub struct Request {
     pub relaxation: Option<Penalties>,
 }
 /// Complete physical penalty declarations for native feasibility relaxation.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Penalties {
     /// Global lower-bound, upper-bound and constraint penalties.
     pub global: [f64; 3],

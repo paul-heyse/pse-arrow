@@ -64,7 +64,8 @@ impl Function {
     }
 }
 /// KINSOL nonlinear strategy, without a project-owned Newton method.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Strategy {
     /// Declared constant linear splitting with native Anderson acceleration.
     Picard,
@@ -77,7 +78,8 @@ pub enum Strategy {
 }
 /// Selected native linear algebra. Dense allocation has an explicit dimension ceiling;
 /// the matrix-free Krylov routes use the analytic Jacobian-vector product.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Linear {
     /// Vendored SuiteSparse KLU with analytic CSC Jacobian.
     Klu,
@@ -120,7 +122,8 @@ impl Linear {
     }
 }
 /// Inexact-Newton forcing term of the Krylov routes (`KINSetEtaForm`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum Eta {
     /// Eisenstat-Walker choice 1, KINSOL's default.
     #[default]
@@ -136,7 +139,8 @@ pub enum Eta {
     Constant(f64),
 }
 /// Anderson-acceleration QR orthogonalization (`KINSetOrthAA`), fixed at allocation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Orthogonalization {
     /// Modified Gram-Schmidt, KINSOL's default.
     #[default]
@@ -173,7 +177,8 @@ pub struct Settings {
 /// Caller-selected KINSOL method controls: the adapter's pse-owned settings type.
 /// Characteristic scales and the scaled-step tolerance are never caller inputs;
 /// [`Settings::from_policy`] derives them from the resolved numerical policy.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Method {
     /// Nonlinear strategy.
     pub strategy: Strategy,
@@ -1104,9 +1109,10 @@ impl Session {
         report
             .provenance
             .insert("native".into(), crate::sundials_version());
-        report
-            .provenance
-            .insert("settings".into(), format!("{:?}", self.settings));
+        // The typed method's serde encoding, never Rust `Debug` output (F30).
+        if let Ok(method) = serde_json::to_string(&self.settings.method) {
+            report.provenance.insert("settings".into(), method);
+        }
         self.callback.state.finish(&mut report);
         let x = shifted(unsafe { values(self.x, n) }?, &self.callback.offsets, 1.0);
         if x.iter().all(|v| v.is_finite()) {

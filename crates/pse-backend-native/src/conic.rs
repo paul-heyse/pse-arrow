@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Explicit Clarabel cones, bounded data reuse and source-space postprocessing.
+//! Explicit cones, bounded data reuse and source-space postprocessing. The boundary
+//! vocabulary ([`SparseMatrix`], [`Cone`], [`Settings`]) is pse-owned: it is the Python wire
+//! format and the request identity, and it maps to Clarabel only inside this adapter, so a
+//! Clarabel upgrade cannot change a Python contract or an identity (F09).
 use crate::{
     ConicProblem, ProblemError,
     quality::{Quality, Tolerances, Violation, interval},
@@ -9,64 +12,330 @@ use crate::{
         Execution, Metric, NativeTermination, ResolvedAccuracy, SolveReport, Termination,
     },
 };
-/// Pinned native CSC request storage; no parallel sparse matrix wire contract.
-pub use clarabel::algebra::CscMatrix as Matrix;
-/// Complete native cone vocabulary.
-pub use clarabel::solver::SupportedConeT as Cone;
+use clarabel::solver::traits::Settings as _;
 use clarabel::{
     algebra::CscMatrix,
     solver::{DefaultInfo, DefaultSettings, DefaultSolver, IPSolver, SolverStatus, SupportedConeT},
 };
 use std::collections::BTreeMap;
-/// Complete pinned Clarabel settings.
-pub type Settings = DefaultSettings<f64>;
-use clarabel::solver::traits::Settings as _;
-/// Stable typed cone identity, including every feature-gated dimension and exponent.
-pub fn cone_key(cones: &[Cone<f64>]) -> pse_ids::ContentHash {
-    let mut h = pse_ids::FramedHasher::new("pse.cone.layout.v1");
-    h.u64(cones.len() as u64);
-    for c in cones {
-        use Cone::{
-            ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT,
-            ZeroConeT,
-        };
-        match c {
-            ZeroConeT(n) => {
-                h.u64(0).u64(*n as u64);
-            }
-            NonnegativeConeT(n) => {
-                h.u64(1).u64(*n as u64);
-            }
-            SecondOrderConeT(n) => {
-                h.u64(2).u64(*n as u64);
-            }
-            ExponentialConeT() => {
-                h.u64(3);
-            }
-            PowerConeT(a) => {
-                h.u64(4).u64(a.to_bits());
-            }
-            GenPowerConeT(a, d) => {
-                h.u64(5).u64(*d as u64).u64(a.len() as u64);
-                for v in a {
-                    h.u64(v.to_bits());
-                }
-            }
-            #[cfg(feature = "sdp")]
-            SupportedConeT::PSDTriangleConeT(n) => {
-                h.u64(6).u64(*n as u64);
-            }
+
+/// Compressed-sparse-column matrix of the conic boundary.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SparseMatrix {
+    /// Row count.
+    pub rows: usize,
+    /// Column count.
+    pub columns: usize,
+    /// Offsets of each column's entries: `columns + 1` of them, from zero.
+    pub column_starts: Vec<usize>,
+    /// Row of each entry, strictly increasing within a column.
+    pub row_indices: Vec<usize>,
+    /// Value of each entry.
+    pub values: Vec<f64>,
+}
+impl SparseMatrix {
+    /// A matrix from complete CSC storage; [`Self::validate`] checks it.
+    pub fn new(
+        rows: usize,
+        columns: usize,
+        column_starts: Vec<usize>,
+        row_indices: Vec<usize>,
+        values: Vec<f64>,
+    ) -> Self {
+        Self {
+            rows,
+            columns,
+            column_starts,
+            row_indices,
+            values,
         }
     }
-    h.finish_hash()
+    /// A `rows` by `columns` matrix without entries.
+    pub fn zeros(rows: usize, columns: usize) -> Self {
+        Self::new(rows, columns, vec![0; columns + 1], vec![], vec![])
+    }
+    /// The `n` by `n` identity.
+    pub fn identity(n: usize) -> Self {
+        Self::new(n, n, (0..=n).collect(), (0..n).collect(), vec![1.0; n])
+    }
+    /// Validate the CSC storage: `columns + 1` nondecreasing offsets from zero to the entry
+    /// count, one row per value, and rows in range and strictly increasing per column.
+    ///
+    /// # Errors
+    /// Malformed storage.
+    pub fn validate(&self) -> Result<(), ProblemError> {
+        let invalid = |what: &str| Err(ProblemError::Contract(format!("sparse matrix {what}")));
+        if self.column_starts.len() != self.columns.saturating_add(1)
+            || self.column_starts.first() != Some(&0)
+            || self.column_starts.last() != Some(&self.row_indices.len())
+            || self.row_indices.len() != self.values.len()
+        {
+            return invalid("dimensions");
+        }
+        if self.column_starts.windows(2).any(|w| w[0] > w[1]) {
+            return invalid("column offsets");
+        }
+        for c in 0..self.columns {
+            let rows = &self.row_indices[self.column(c)];
+            if rows.windows(2).any(|w| w[0] >= w[1]) || rows.iter().any(|r| *r >= self.rows) {
+                return invalid("row indices");
+            }
+        }
+        Ok(())
+    }
+    /// The entry range of column `c` in validated storage.
+    pub fn column(&self, c: usize) -> std::ops::Range<usize> {
+        self.column_starts[c]..self.column_starts[c + 1]
+    }
+    pub(crate) fn to_clarabel(&self) -> CscMatrix<f64> {
+        CscMatrix::new(
+            self.rows,
+            self.columns,
+            self.column_starts.clone(),
+            self.row_indices.clone(),
+            self.values.clone(),
+        )
+    }
+}
+
+/// One explicit cone block of the conic boundary.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Cone {
+    /// `s = 0`.
+    Zero {
+        /// Rows in the block.
+        dimension: usize,
+    },
+    /// `s >= 0`.
+    Nonnegative {
+        /// Rows in the block.
+        dimension: usize,
+    },
+    /// `s_0 >= ||(s_1, ...)||`.
+    SecondOrder {
+        /// Rows in the block, including the leading one.
+        dimension: usize,
+    },
+    /// The closed exponential cone over three rows.
+    Exponential,
+    /// The three-row power cone with exponent `alpha` in (0, 1).
+    Power {
+        /// Exponent.
+        alpha: f64,
+    },
+    /// The generalized power cone: `alpha.len()` scaled rows, then `dimension` rows under
+    /// the norm.
+    GeneralizedPower {
+        /// Positive exponents summing to one.
+        alpha: Vec<f64>,
+        /// Rows under the norm.
+        dimension: usize,
+    },
+    /// Symmetric positive semidefinite matrices of `order`, as the scaled upper triangle.
+    /// A build without the SDP profile refuses it.
+    PsdTriangle {
+        /// Matrix order.
+        order: usize,
+    },
+}
+impl Cone {
+    /// Rows occupied by this block, saturating; [`ConicProblem::validate`] checks overflow.
+    pub fn dim(&self) -> usize {
+        match self {
+            Self::Zero { dimension }
+            | Self::Nonnegative { dimension }
+            | Self::SecondOrder { dimension } => *dimension,
+            Self::Exponential | Self::Power { .. } => 3,
+            Self::GeneralizedPower { alpha, dimension } => alpha.len().saturating_add(*dimension),
+            Self::PsdTriangle { order } => order.saturating_mul(order.saturating_add(1)) / 2,
+        }
+    }
+    /// The Clarabel cone of this block.
+    pub(crate) fn to_clarabel(&self) -> Result<SupportedConeT<f64>, ProblemError> {
+        Ok(match self {
+            Self::Zero { dimension } => SupportedConeT::ZeroConeT(*dimension),
+            Self::Nonnegative { dimension } => SupportedConeT::NonnegativeConeT(*dimension),
+            Self::SecondOrder { dimension } => SupportedConeT::SecondOrderConeT(*dimension),
+            Self::Exponential => SupportedConeT::ExponentialConeT(),
+            Self::Power { alpha } => SupportedConeT::PowerConeT(*alpha),
+            Self::GeneralizedPower { alpha, dimension } => {
+                SupportedConeT::GenPowerConeT(alpha.clone(), *dimension)
+            }
+            #[cfg(feature = "sdp")]
+            Self::PsdTriangle { order } => SupportedConeT::PSDTriangleConeT(*order),
+            #[cfg(not(feature = "sdp"))]
+            Self::PsdTriangle { .. } => {
+                return Err(ProblemError::Unsupported(
+                    "PSD cones need the Clarabel SDP profile, which this build does not link"
+                        .into(),
+                ));
+            }
+        })
+    }
+}
+fn clarabel_cones(cones: &[Cone]) -> Result<Vec<SupportedConeT<f64>>, ProblemError> {
+    cones.iter().map(Cone::to_clarabel).collect()
+}
+/// Layout identity of a cone sequence: every kind, dimension and exponent bit of the pse
+/// encoding, never Clarabel's.
+///
+/// # Errors
+/// The identity serializer refused a value.
+pub fn cone_key(cones: &[Cone]) -> Result<pse_ids::ContentHash, ProblemError> {
+    crate::identity::of("pse.cone.layout.v2", cones)
 }
 /// Native preprocessing and mutable-data reuse are distinct execution profiles.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Mode {
     /// Native presolve/chordal preprocessing may change the native layout.
+    #[default]
     SingleSolve,
-    /// Preserve structure to use Clarabel's data update API.
+    /// Preserve structure to use Clarabel's data update API: native presolve, input
+    /// zero-dropping and chordal decomposition are disabled whatever [`Settings`] request.
     ReusableData,
+}
+/// Clique merging of the chordal decomposition.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MergeMethod {
+    /// No merging.
+    None,
+    /// Merge a clique into its parent.
+    ParentChild,
+    /// Clique-graph merging.
+    CliqueGraph,
+}
+impl MergeMethod {
+    /// The native setting value.
+    #[cfg_attr(
+        not(feature = "sdp"),
+        expect(dead_code, reason = "the native merge setting exists only with SDP")
+    )]
+    const fn native(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::ParentChild => "parent_child",
+            Self::CliqueGraph => "clique_graph",
+        }
+    }
+}
+/// The chordal-decomposition defaults: Clarabel's `sdp` builder defaults. They are stated
+/// once because a build without SDP has no native fields to read them from; the
+/// `clarabel_boundary_types_are_pse_owned` test checks them against the library.
+const CHORDAL_DEFAULTS: (bool, MergeMethod, bool, bool) =
+    (true, MergeMethod::CliqueGraph, true, true);
+/// The Clarabel adapter's settings type: the mode plus every admitted native control.
+/// Iteration and time budgets, stopping tolerances, equilibration, threads and the direct
+/// KKT method are owned by the shared controls and the resolved accuracy, so they are not
+/// fields. Native defaults are the pinned library's. Identity derives from serde.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Settings {
+    /// Preprocessing or data-update mode.
+    pub mode: Mode,
+    /// Maximum interior step fraction.
+    pub max_step_fraction: f64,
+    /// Absolute infeasibility tolerance.
+    pub tol_infeas_abs: f64,
+    /// Relative infeasibility tolerance.
+    pub tol_infeas_rel: f64,
+    /// KKT ratio tolerance.
+    pub tol_ktratio: f64,
+    /// Reduced absolute infeasibility tolerance.
+    pub reduced_tol_infeas_abs: f64,
+    /// Reduced relative infeasibility tolerance.
+    pub reduced_tol_infeas_rel: f64,
+    /// Reduced KKT ratio tolerance.
+    pub reduced_tol_ktratio: f64,
+    /// Equilibration iterations.
+    pub equilibrate_max_iter: u32,
+    /// Minimum equilibration scaling.
+    pub equilibrate_min_scaling: f64,
+    /// Maximum equilibration scaling.
+    pub equilibrate_max_scaling: f64,
+    /// Line-search backtracking factor.
+    pub linesearch_backtrack_step: f64,
+    /// Minimum step length before switching to symmetric scaling.
+    pub min_switch_step_length: f64,
+    /// Minimum step length before termination.
+    pub min_terminate_step_length: f64,
+    /// Static KKT regularization.
+    pub static_regularization_enable: bool,
+    /// Constant static regularization.
+    pub static_regularization_constant: f64,
+    /// Proportional static regularization.
+    pub static_regularization_proportional: f64,
+    /// Dynamic KKT regularization.
+    pub dynamic_regularization_enable: bool,
+    /// Dynamic regularization threshold.
+    pub dynamic_regularization_eps: f64,
+    /// Dynamic regularization shift.
+    pub dynamic_regularization_delta: f64,
+    /// KKT iterative refinement.
+    pub iterative_refinement_enable: bool,
+    /// Refinement relative tolerance.
+    pub iterative_refinement_reltol: f64,
+    /// Refinement absolute tolerance.
+    pub iterative_refinement_abstol: f64,
+    /// Refinement iterations.
+    pub iterative_refinement_max_iter: u32,
+    /// Refinement stall ratio.
+    pub iterative_refinement_stop_ratio: f64,
+    /// Native presolve; `ReusableData` disables it.
+    pub presolve_enable: bool,
+    /// Drop explicit input zeros; `ReusableData` disables it.
+    pub input_sparse_dropzeros: bool,
+    /// Chordal decomposition of PSD cones; `ReusableData` disables it. Without the SDP
+    /// profile only the chordal defaults are admitted.
+    pub chordal_decomposition_enable: bool,
+    /// Clique merging.
+    pub chordal_decomposition_merge_method: MergeMethod,
+    /// Compact the decomposed problem.
+    pub chordal_decomposition_compact: bool,
+    /// Complete the dual of decomposed PSD cones.
+    pub chordal_decomposition_complete_dual: bool,
+}
+impl Default for Settings {
+    fn default() -> Self {
+        let d = DefaultSettings::<f64>::default();
+        let (enable, merge, compact, complete) = CHORDAL_DEFAULTS;
+        Self {
+            mode: Mode::SingleSolve,
+            max_step_fraction: d.max_step_fraction,
+            tol_infeas_abs: d.tol_infeas_abs,
+            tol_infeas_rel: d.tol_infeas_rel,
+            tol_ktratio: d.tol_ktratio,
+            reduced_tol_infeas_abs: d.reduced_tol_infeas_abs,
+            reduced_tol_infeas_rel: d.reduced_tol_infeas_rel,
+            reduced_tol_ktratio: d.reduced_tol_ktratio,
+            equilibrate_max_iter: d.equilibrate_max_iter,
+            equilibrate_min_scaling: d.equilibrate_min_scaling,
+            equilibrate_max_scaling: d.equilibrate_max_scaling,
+            linesearch_backtrack_step: d.linesearch_backtrack_step,
+            min_switch_step_length: d.min_switch_step_length,
+            min_terminate_step_length: d.min_terminate_step_length,
+            static_regularization_enable: d.static_regularization_enable,
+            static_regularization_constant: d.static_regularization_constant,
+            static_regularization_proportional: d.static_regularization_proportional,
+            dynamic_regularization_enable: d.dynamic_regularization_enable,
+            dynamic_regularization_eps: d.dynamic_regularization_eps,
+            dynamic_regularization_delta: d.dynamic_regularization_delta,
+            iterative_refinement_enable: d.iterative_refinement_enable,
+            iterative_refinement_reltol: d.iterative_refinement_reltol,
+            iterative_refinement_abstol: d.iterative_refinement_abstol,
+            iterative_refinement_max_iter: d.iterative_refinement_max_iter,
+            iterative_refinement_stop_ratio: d.iterative_refinement_stop_ratio,
+            presolve_enable: d.presolve_enable,
+            input_sparse_dropzeros: d.input_sparse_dropzeros,
+            chordal_decomposition_enable: enable,
+            chordal_decomposition_merge_method: merge,
+            chordal_decomposition_compact: compact,
+            chordal_decomposition_complete_dual: complete,
+        }
+    }
 }
 /// A native Clarabel model owned by one admitted worker.
 pub struct Session {
@@ -93,10 +362,11 @@ struct Data {
     cones: Vec<SupportedConeT<f64>>,
     bounds: Vec<(usize, bool)>,
 }
-fn data(p: &ConicProblem) -> Data {
+/// Clarabel's native data: pse cones and matrices mapped, finite bounds appended as rows.
+fn data(p: &ConicProblem) -> Result<Data, ProblemError> {
     let mut bounds = Vec::new();
     let mut rhs = p.rhs.clone();
-    let mut cones = p.cones.clone();
+    let mut cones = clarabel_cones(&p.cones)?;
     for (i, v) in p.contract.variables.iter().enumerate() {
         if v.lower.is_finite() {
             bounds.push((i, true));
@@ -113,37 +383,40 @@ fn data(p: &ConicProblem) -> Data {
     let mut colptr = vec![0];
     let mut rowval = Vec::new();
     let mut nzval = Vec::new();
-    for c in 0..p.constraints.n {
-        for k in p.constraints.colptr[c]..p.constraints.colptr[c + 1] {
-            rowval.push(p.constraints.rowval[k]);
-            nzval.push(p.constraints.nzval[k]);
+    let constraints = &p.constraints;
+    for c in 0..constraints.columns {
+        for k in constraints.column(c) {
+            rowval.push(constraints.row_indices[k]);
+            nzval.push(constraints.values[k]);
         }
         for (r, &(v, lower)) in bounds.iter().enumerate() {
             if c == v {
-                rowval.push(p.constraints.m + r);
+                rowval.push(constraints.rows + r);
                 nzval.push(if lower { -1.0 } else { 1.0 });
             }
         }
         colptr.push(rowval.len());
     }
-    Data {
-        a: CscMatrix::new(rhs.len(), p.constraints.n, colptr, rowval, nzval),
+    Ok(Data {
+        a: CscMatrix::new(rhs.len(), constraints.columns, colptr, rowval, nzval),
         rhs,
         cones,
         bounds,
-    }
+    })
 }
+/// Map the pse settings, the shared controls and the resolved accuracy to Clarabel's
+/// complete native settings. Only this adapter sees `DefaultSettings`.
 fn settings(
-    mut settings: DefaultSettings<f64>,
+    pse: &Settings,
     controls: &Controls,
     accuracy: &ResolvedAccuracy,
     mode: Mode,
 ) -> Result<DefaultSettings<f64>, ProblemError> {
     controls.validate()?;
-    // Full settings are exposed directly; there is no unvalidated string option channel.
+    // The typed settings are complete; there is no unvalidated string option channel.
     if !controls.options.is_empty() {
         return Err(ProblemError::Unsupported(
-            "Clarabel uses typed DefaultSettings instead of native option strings".into(),
+            "Clarabel uses typed settings instead of native option strings".into(),
         ));
     }
     if controls.threads != 1 {
@@ -151,17 +424,53 @@ fn settings(
             "Clarabel QDLDL/serial-netlib profile requires one core".into(),
         ));
     }
-    let defaults = DefaultSettings::<f64>::default();
-    if settings.tol_gap_abs != defaults.tol_gap_abs
-        || settings.tol_gap_rel != defaults.tol_gap_rel
-        || settings.tol_feas != defaults.tol_feas
-        || settings.reduced_tol_gap_abs != defaults.reduced_tol_gap_abs
-        || settings.reduced_tol_gap_rel != defaults.reduced_tol_gap_rel
-        || settings.reduced_tol_feas != defaults.reduced_tol_feas
-        || settings.equilibrate_enable != defaults.equilibrate_enable
+    let mut settings = DefaultSettings::<f64> {
+        max_step_fraction: pse.max_step_fraction,
+        tol_infeas_abs: pse.tol_infeas_abs,
+        tol_infeas_rel: pse.tol_infeas_rel,
+        tol_ktratio: pse.tol_ktratio,
+        reduced_tol_infeas_abs: pse.reduced_tol_infeas_abs,
+        reduced_tol_infeas_rel: pse.reduced_tol_infeas_rel,
+        reduced_tol_ktratio: pse.reduced_tol_ktratio,
+        equilibrate_max_iter: pse.equilibrate_max_iter,
+        equilibrate_min_scaling: pse.equilibrate_min_scaling,
+        equilibrate_max_scaling: pse.equilibrate_max_scaling,
+        linesearch_backtrack_step: pse.linesearch_backtrack_step,
+        min_switch_step_length: pse.min_switch_step_length,
+        min_terminate_step_length: pse.min_terminate_step_length,
+        static_regularization_enable: pse.static_regularization_enable,
+        static_regularization_constant: pse.static_regularization_constant,
+        static_regularization_proportional: pse.static_regularization_proportional,
+        dynamic_regularization_enable: pse.dynamic_regularization_enable,
+        dynamic_regularization_eps: pse.dynamic_regularization_eps,
+        dynamic_regularization_delta: pse.dynamic_regularization_delta,
+        iterative_refinement_enable: pse.iterative_refinement_enable,
+        iterative_refinement_reltol: pse.iterative_refinement_reltol,
+        iterative_refinement_abstol: pse.iterative_refinement_abstol,
+        iterative_refinement_max_iter: pse.iterative_refinement_max_iter,
+        iterative_refinement_stop_ratio: pse.iterative_refinement_stop_ratio,
+        presolve_enable: pse.presolve_enable,
+        input_sparse_dropzeros: pse.input_sparse_dropzeros,
+        ..DefaultSettings::default()
+    };
+    #[cfg(feature = "sdp")]
     {
-        return Err(ProblemError::Contract(
-            "Clarabel accuracy and scaling are owned by the resolved numerical policy".into(),
+        settings.chordal_decomposition_enable = pse.chordal_decomposition_enable;
+        settings.chordal_decomposition_merge_method =
+            pse.chordal_decomposition_merge_method.native().into();
+        settings.chordal_decomposition_compact = pse.chordal_decomposition_compact;
+        settings.chordal_decomposition_complete_dual = pse.chordal_decomposition_complete_dual;
+    }
+    #[cfg(not(feature = "sdp"))]
+    if (
+        pse.chordal_decomposition_enable,
+        pse.chordal_decomposition_merge_method,
+        pse.chordal_decomposition_compact,
+        pse.chordal_decomposition_complete_dual,
+    ) != CHORDAL_DEFAULTS
+    {
+        return Err(ProblemError::Unsupported(
+            "chordal decomposition settings need the Clarabel SDP profile".into(),
         ));
     }
     settings.max_iter = controls.iterations;
@@ -199,51 +508,54 @@ impl Session {
         certificate: &dyn pse_math::convexity::QuadraticEvidence,
         controls: &Controls,
         accuracy: &ResolvedAccuracy,
-        native: DefaultSettings<f64>,
-        mode: Mode,
+        pse: &Settings,
         compatibility: Compatibility,
     ) -> Result<Self, ProblemError> {
         p.validate(certificate)?;
-        let settings = settings(native, controls, accuracy, mode)?;
-        let d = data(p);
-        let solver =
-            DefaultSolver::new(&p.quadratic, &p.objective, &d.a, &d.rhs, &d.cones, settings)
-                .map_err(|e| ProblemError::Contract(format!("Clarabel problem: {e}")))?;
+        let settings = settings(pse, controls, accuracy, pse.mode)?;
+        let d = data(p)?;
+        let quadratic = p.quadratic.to_clarabel();
+        let solver = DefaultSolver::new(&quadratic, &p.objective, &d.a, &d.rhs, &d.cones, settings)
+            .map_err(|e| ProblemError::Contract(format!("Clarabel problem: {e}")))?;
         Ok(Self {
             solver,
             compatibility,
-            mode,
+            mode: pse.mode,
             rows: p.rhs.len(),
             bounds: d.bounds,
             signature: d.cones,
             a_pattern: (d.a.colptr, d.a.rowval),
-            p_pattern: (p.quadratic.colptr.clone(), p.quadratic.rowval.clone()),
+            p_pattern: (quadratic.colptr, quadratic.rowval),
         })
     }
-    /// Native update restrictions are checked before updating any part of the model.
+    /// Native update restrictions, including the session's fixed mode, are checked before
+    /// updating any part of the model.
     pub fn update(
         &mut self,
         p: &ConicProblem,
         certificate: &dyn pse_math::convexity::QuadraticEvidence,
+        pse: &Settings,
         compatibility: Compatibility,
     ) -> Result<(), ProblemError> {
         p.validate(certificate)?;
-        let d = data(p);
+        let d = data(p)?;
+        let quadratic = p.quadratic.to_clarabel();
         if self.mode != Mode::ReusableData
+            || pse.mode != self.mode
             || !self.solver.is_data_update_allowed()
             || !self.compatibility.same_session(&compatibility)
             || compatibility.backend != Backend::Clarabel
             || self.signature != d.cones
             || self.bounds != d.bounds
             || self.a_pattern != (d.a.colptr.clone(), d.a.rowval.clone())
-            || self.p_pattern != (p.quadratic.colptr.clone(), p.quadratic.rowval.clone())
+            || self.p_pattern != (quadratic.colptr.clone(), quadratic.rowval.clone())
         {
             return Err(ProblemError::Unsupported(
                 "Clarabel update changes layout or requires disabled preprocessing".into(),
             ));
         }
         self.solver
-            .update_data(&p.quadratic, &p.objective, &d.a, &d.rhs)
+            .update_data(&quadratic, &p.objective, &d.a, &d.rhs)
             .map_err(|e| ProblemError::Contract(format!("Clarabel update: {e}")))?;
         self.compatibility = compatibility;
         Ok(())
@@ -254,12 +566,12 @@ impl Session {
         p: &ConicProblem,
         controls: &Controls,
         accuracy: &ResolvedAccuracy,
-        native: DefaultSettings<f64>,
+        pse: &Settings,
         execution: Execution,
         tolerances: &Tolerances,
     ) -> Result<SolveReport, ProblemError> {
         tolerances.validate(p.contract.variables.len(), p.contract.rows.len())?;
-        let settings = settings(native, controls, accuracy, self.mode)?;
+        let settings = settings(pse, controls, accuracy, self.mode)?;
         let settings_json =
             serde_json::to_string(&settings).map_err(|e| ProblemError::Internal(e.to_string()))?;
         self.solver
@@ -483,15 +795,12 @@ pub fn svec(matrix: faer::MatRef<'_, f64>) -> Result<Vec<f64>, ProblemError> {
 /// Original-space cone violation. Symmetric eigenvalues use faer; nonsymmetric
 /// closed-cone predicates are boundary glue because Clarabel's public margins
 /// deliberately panic for exponential and power cones.
-fn cone_violation(cone: &SupportedConeT<f64>, s: &[f64]) -> Result<f64, ProblemError> {
-    use SupportedConeT::{
-        ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT, ZeroConeT,
-    };
+fn cone_violation(cone: &Cone, s: &[f64]) -> Result<f64, ProblemError> {
     let violation = match cone {
-        ZeroConeT(_) => s.iter().map(|v| v.abs()).fold(0.0, f64::max),
-        NonnegativeConeT(_) => s.iter().map(|v| -v).fold(0.0, f64::max),
-        SecondOrderConeT(_) => s[1..].iter().fold(0.0f64, |a, v| a.hypot(*v)) - s[0],
-        ExponentialConeT() => {
+        Cone::Zero { .. } => s.iter().map(|v| v.abs()).fold(0.0, f64::max),
+        Cone::Nonnegative { .. } => s.iter().map(|v| -v).fold(0.0, f64::max),
+        Cone::SecondOrder { .. } => s[1..].iter().fold(0.0f64, |a, v| a.hypot(*v)) - s[0],
+        Cone::Exponential => {
             let (x, y, z) = (s[0], s[1], s[2]);
             if y > 0.0 && z > 0.0 {
                 (x - y * (z.ln() - y.ln())).max(-y).max(-z)
@@ -502,19 +811,19 @@ fn cone_violation(cone: &SupportedConeT<f64>, s: &[f64]) -> Result<f64, ProblemE
                 x.max(0.0).hypot(y).hypot((-z).max(0.0))
             }
         }
-        PowerConeT(a) => power_violation(&[*a, 1.0 - *a], &s[..2], s[2].abs()),
-        GenPowerConeT(a, d) => power_violation(
-            a,
-            &s[..a.len()],
-            s[a.len()..a.len() + d]
+        Cone::Power { alpha } => power_violation(&[*alpha, 1.0 - *alpha], &s[..2], s[2].abs()),
+        Cone::GeneralizedPower { alpha, dimension } => power_violation(
+            alpha,
+            &s[..alpha.len()],
+            s[alpha.len()..alpha.len() + dimension]
                 .iter()
                 .fold(0.0f64, |v, x| v.hypot(*x)),
         ),
-        #[cfg(feature = "sdp")]
-        SupportedConeT::PSDTriangleConeT(n) => {
-            let mut m = faer::Mat::zeros(*n, *n);
+        Cone::PsdTriangle { order } => {
+            let n = *order;
+            let mut m = faer::Mat::zeros(n, n);
             let mut k = 0;
-            for c in 0..*n {
+            for c in 0..n {
                 for r in 0..=c {
                     let v = s[k]
                         / if r == c {
@@ -552,23 +861,11 @@ fn power_violation(alpha: &[f64], x: &[f64], norm: f64) -> f64 {
     };
     (norm - product).max(negative)
 }
-pub(crate) fn dim(cone: &SupportedConeT<f64>) -> usize {
-    use SupportedConeT::{
-        ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT, ZeroConeT,
-    };
-    match cone {
-        ZeroConeT(n) | NonnegativeConeT(n) | SecondOrderConeT(n) => *n,
-        ExponentialConeT() | PowerConeT(_) => 3,
-        GenPowerConeT(a, d) => a.len() + d,
-        #[cfg(feature = "sdp")]
-        SupportedConeT::PSDTriangleConeT(n) => n * (n + 1) / 2,
-    }
-}
 fn quality(p: &ConicProblem, x: &[f64], t: &Tolerances) -> Result<Quality, ProblemError> {
     let mut s = p.rhs.clone();
     for (c, &x) in x.iter().enumerate() {
-        for k in p.constraints.colptr[c]..p.constraints.colptr[c + 1] {
-            s[p.constraints.rowval[k]] -= p.constraints.nzval[k] * x;
+        for k in p.constraints.column(c) {
+            s[p.constraints.row_indices[k]] -= p.constraints.values[k] * x;
         }
     }
     if s.iter().any(|v| !v.is_finite()) {
@@ -577,15 +874,12 @@ fn quality(p: &ConicProblem, x: &[f64], t: &Tolerances) -> Result<Quality, Probl
     let mut rows = Vec::new();
     let mut start = 0;
     for cone in &p.cones {
-        let end = start + dim(cone);
-        if matches!(
-            cone,
-            SupportedConeT::ZeroConeT(_) | SupportedConeT::NonnegativeConeT(_)
-        ) {
+        let end = start + cone.dim();
+        if matches!(cone, Cone::Zero { .. } | Cone::Nonnegative { .. }) {
             for (i, slack) in s.iter().enumerate().take(end).skip(start) {
                 rows.push(Violation {
                     id: p.contract.rows[i],
-                    physical: if matches!(cone, SupportedConeT::ZeroConeT(_)) {
+                    physical: if matches!(cone, Cone::Zero { .. }) {
                         slack.abs()
                     } else {
                         (-slack).max(0.0)
@@ -636,68 +930,72 @@ mod tests {
     #[test]
     fn closed_nonsymmetric_cones_handle_boundaries_without_library_panics() {
         assert_eq!(
-            cone_violation(&SupportedConeT::ExponentialConeT(), &[-1.0, 0.0, 2.0]).unwrap(),
+            cone_violation(&Cone::Exponential, &[-1.0, 0.0, 2.0]).unwrap(),
             0.0
         );
         assert_eq!(
-            cone_violation(&SupportedConeT::PowerConeT(0.5), &[1.0, 1.0, -1.0]).unwrap(),
+            cone_violation(&Cone::Power { alpha: 0.5 }, &[1.0, 1.0, -1.0]).unwrap(),
             0.0
         );
-        assert!(
-            cone_violation(&SupportedConeT::ExponentialConeT(), &[2.0, 1.0, 1.0]).unwrap() > 0.0
-        );
+        assert!(cone_violation(&Cone::Exponential, &[2.0, 1.0, 1.0]).unwrap() > 0.0);
     }
     #[test]
     fn all_cone_quality_profiles_have_finite_boundary_measurements() {
-        use SupportedConeT::*;
         for (cone, point) in [
-            (ZeroConeT(2), vec![0., 0.]),
-            (NonnegativeConeT(2), vec![0., 2.]),
-            (SecondOrderConeT(3), vec![5., 3., 4.]),
-            (ExponentialConeT(), vec![0., 1., 1.]),
-            (PowerConeT(0.25), vec![1., 1., 1.]),
-            (GenPowerConeT(vec![0.5, 0.5], 2), vec![1., 1., 0.6, 0.8]),
+            (Cone::Zero { dimension: 2 }, vec![0., 0.]),
+            (Cone::Nonnegative { dimension: 2 }, vec![0., 2.]),
+            (Cone::SecondOrder { dimension: 3 }, vec![5., 3., 4.]),
+            (Cone::Exponential, vec![0., 1., 1.]),
+            (Cone::Power { alpha: 0.25 }, vec![1., 1., 1.]),
+            (
+                Cone::GeneralizedPower {
+                    alpha: vec![0.5, 0.5],
+                    dimension: 2,
+                },
+                vec![1., 1., 0.6, 0.8],
+            ),
+            (Cone::PsdTriangle { order: 2 }, vec![1., 0., 2.]),
         ] {
             assert!(cone_violation(&cone, &point).unwrap().abs() < 1e-12);
         }
         assert!(
-            cone_violation(&ExponentialConeT(), &[2.0, -1.0, -1.0])
+            cone_violation(&Cone::Exponential, &[2.0, -1.0, -1.0])
                 .unwrap()
                 .is_finite()
         );
-        #[cfg(feature = "sdp")]
-        {
-            assert_eq!(
-                cone_violation(&PSDTriangleConeT(2), &[1., 0., 2.]).unwrap(),
-                0.
-            );
-            assert!(cone_violation(&PSDTriangleConeT(2), &[-1., 0., 2.]).unwrap() > 0.);
-        }
+        assert!(cone_violation(&Cone::PsdTriangle { order: 2 }, &[-1., 0., 2.]).unwrap() > 0.);
     }
-    #[test]
-    fn native_conic_bounds_and_data_reuse_preserve_original_rows() {
+    fn reuse_problem() -> (ConicProblem, GramCertificate) {
         let mut contract = crate::solver_tests::contract();
         contract.variables[0].lower = 0.0;
         contract.variables[0].upper = 4.0;
-        let mut p = ConicProblem {
+        let p = ConicProblem {
             contract,
-            quadratic: CscMatrix::zeros((1, 1)),
+            quadratic: SparseMatrix::zeros(1, 1),
             objective: vec![1.0],
-            constraints: CscMatrix::new(1, 1, vec![0, 1], vec![0], vec![-1.0]),
+            constraints: SparseMatrix::new(1, 1, vec![0, 1], vec![0], vec![-1.0]),
             rhs: vec![0.0],
-            cones: vec![SupportedConeT::NonnegativeConeT(1)],
+            cones: vec![Cone::Nonnegative { dimension: 1 }],
             objective_constant: 3.0,
         };
         let q = faer::sparse::SparseColMat::try_new_from_triplets(1, 1, &[]).unwrap();
         let certificate = GramCertificate::new(&q, 1.0, &faer::Mat::zeros(0, 1), &[], 10).unwrap();
+        (p, certificate)
+    }
+    #[test]
+    fn native_conic_bounds_and_data_reuse_preserve_original_rows() {
+        let (mut p, certificate) = reuse_problem();
         let stamp = crate::solver_tests::stamp(Backend::Clarabel);
+        let reusable = Settings {
+            mode: Mode::ReusableData,
+            ..Settings::default()
+        };
         let mut session = Session::new(
             &p,
             &certificate,
             &Controls::default(),
             &ResolvedAccuracy::nominal(),
-            Settings::default(),
-            Mode::ReusableData,
+            &reusable,
             stamp.clone(),
         )
         .unwrap();
@@ -705,8 +1003,230 @@ mod tests {
         assert_eq!(session.rows, 1);
         p.objective[0] = 2.0;
         p.contract.variables[0].upper = 3.0;
-        session.update(&p, &certificate, stamp.clone()).unwrap();
+        session
+            .update(&p, &certificate, &reusable, stamp.clone())
+            .unwrap();
+        // A different mode never updates a retained session.
+        assert!(
+            session
+                .update(&p, &certificate, &Settings::default(), stamp.clone())
+                .is_err()
+        );
         p.contract.variables[0].upper = f64::INFINITY;
-        assert!(session.update(&p, &certificate, stamp).is_err());
+        assert!(session.update(&p, &certificate, &reusable, stamp).is_err());
+    }
+    /// The conic boundary vocabulary is pse-owned (F09): its encoding is pinned here, the
+    /// layout and request identities derive from it alone, and Clarabel sees only the
+    /// adapter's mapping. A Clarabel serde change therefore cannot move an identity or a
+    /// Python contract.
+    #[test]
+    fn clarabel_boundary_types_are_pse_owned() {
+        // (a) Pinned pse encoding of every cone kind and of the matrix.
+        let cones = vec![
+            Cone::Zero { dimension: 1 },
+            Cone::Nonnegative { dimension: 2 },
+            Cone::SecondOrder { dimension: 3 },
+            Cone::Exponential,
+            Cone::Power { alpha: 0.5 },
+            Cone::GeneralizedPower {
+                alpha: vec![0.25, 0.75],
+                dimension: 1,
+            },
+            Cone::PsdTriangle { order: 2 },
+        ];
+        let encoded = serde_json::to_string(&cones).unwrap();
+        assert_eq!(
+            encoded,
+            concat!(
+                r#"[{"kind":"zero","dimension":1},{"kind":"nonnegative","dimension":2},"#,
+                r#"{"kind":"second_order","dimension":3},{"kind":"exponential"},"#,
+                r#"{"kind":"power","alpha":0.5},"#,
+                r#"{"kind":"generalized_power","alpha":[0.25,0.75],"dimension":1},"#,
+                r#"{"kind":"psd_triangle","order":2}]"#
+            )
+        );
+        assert_eq!(serde_json::from_str::<Vec<Cone>>(&encoded).unwrap(), cones);
+        assert!(
+            serde_json::from_str::<Cone>(r#"{"kind":"zero","dimension":1,"extra":0}"#).is_err()
+        );
+        assert!(serde_json::from_str::<Cone>(r#"{"ZeroConeT":1}"#).is_err());
+        let matrix = SparseMatrix::new(2, 2, vec![0, 1, 2], vec![0, 1], vec![1.5, -2.0]);
+        let encoded = serde_json::to_string(&matrix).unwrap();
+        assert_eq!(
+            encoded,
+            r#"{"rows":2,"columns":2,"column_starts":[0,1,2],"row_indices":[0,1],"values":[1.5,-2.0]}"#
+        );
+        assert_eq!(
+            serde_json::from_str::<SparseMatrix>(&encoded).unwrap(),
+            matrix
+        );
+        assert!(
+            serde_json::from_str::<SparseMatrix>(
+                r#"{"m":1,"n":1,"colptr":[0,0],"rowval":[],"nzval":[]}"#
+            )
+            .is_err()
+        );
+        matrix.validate().unwrap();
+        assert!(
+            SparseMatrix::new(2, 1, vec![0, 2], vec![1, 0], vec![1., 1.])
+                .validate()
+                .is_err()
+        );
+        assert!(
+            SparseMatrix::new(1, 1, vec![0, 1], vec![1], vec![1.])
+                .validate()
+                .is_err()
+        );
+        // Settings: defaults are the pinned library's, round trip exactly, and refuse
+        // unknown or policy-owned fields.
+        let defaults = Settings::default();
+        let encoded = serde_json::to_string(&defaults).unwrap();
+        assert_eq!(
+            serde_json::from_str::<Settings>(&encoded).unwrap(),
+            defaults
+        );
+        assert_eq!(serde_json::from_str::<Settings>("{}").unwrap(), defaults);
+        assert!(serde_json::from_str::<Settings>(r#"{"tol_feas":1e-6}"#).is_err());
+        assert!(serde_json::from_str::<Settings>(r#"{"max_iter":5}"#).is_err());
+        let library = DefaultSettings::<f64>::default();
+        assert_eq!(defaults.max_step_fraction, library.max_step_fraction);
+        assert_eq!(defaults.presolve_enable, library.presolve_enable);
+        #[cfg(feature = "sdp")]
+        assert_eq!(
+            CHORDAL_DEFAULTS,
+            (
+                library.chordal_decomposition_enable,
+                [
+                    MergeMethod::None,
+                    MergeMethod::ParentChild,
+                    MergeMethod::CliqueGraph
+                ]
+                .into_iter()
+                .find(|m| m.native() == library.chordal_decomposition_merge_method)
+                .unwrap(),
+                library.chordal_decomposition_compact,
+                library.chordal_decomposition_complete_dual,
+            )
+        );
+        let reusable: Settings = serde_json::from_str(
+            r#"{"mode":"reusable_data","max_step_fraction":0.9,"presolve_enable":true}"#,
+        )
+        .unwrap();
+        assert_eq!(reusable.mode, Mode::ReusableData);
+
+        // (b) Identities come from the pse encoding only, never from Clarabel's.
+        let key = cone_key(&cones).unwrap();
+        assert_eq!(
+            key,
+            crate::identity::of("pse.cone.layout.v2", &cones).unwrap()
+        );
+        assert_ne!(
+            key,
+            cone_key(&[Cone::Zero { dimension: 1 }]).unwrap(),
+            "layout identity covers every block"
+        );
+        #[cfg(feature = "sdp")]
+        {
+            let mapped = clarabel_cones(&cones).unwrap();
+            assert_ne!(
+                serde_json::to_string(&cones).unwrap(),
+                serde_json::to_string(&mapped).unwrap()
+            );
+        }
+        assert_ne!(
+            serde_json::to_string(&matrix).unwrap(),
+            serde_json::to_string(&matrix.to_clarabel()).unwrap()
+        );
+
+        // (c) The mapping reaches Clarabel.
+        for (cone, native) in [
+            (Cone::Zero { dimension: 1 }, SupportedConeT::ZeroConeT(1)),
+            (
+                Cone::Nonnegative { dimension: 2 },
+                SupportedConeT::NonnegativeConeT(2),
+            ),
+            (
+                Cone::SecondOrder { dimension: 3 },
+                SupportedConeT::SecondOrderConeT(3),
+            ),
+            (Cone::Exponential, SupportedConeT::ExponentialConeT()),
+            (Cone::Power { alpha: 0.5 }, SupportedConeT::PowerConeT(0.5)),
+            (
+                Cone::GeneralizedPower {
+                    alpha: vec![0.25, 0.75],
+                    dimension: 1,
+                },
+                SupportedConeT::GenPowerConeT(vec![0.25, 0.75], 1),
+            ),
+        ] {
+            assert_eq!(cone.to_clarabel().unwrap(), native);
+        }
+        #[cfg(feature = "sdp")]
+        assert_eq!(
+            Cone::PsdTriangle { order: 2 }.to_clarabel().unwrap(),
+            SupportedConeT::PSDTriangleConeT(2)
+        );
+        #[cfg(not(feature = "sdp"))]
+        assert!(matches!(
+            Cone::PsdTriangle { order: 2 }.to_clarabel(),
+            Err(ProblemError::Unsupported(_))
+        ));
+        let native = matrix.to_clarabel();
+        assert_eq!(
+            (
+                native.m,
+                native.n,
+                &native.colptr,
+                &native.rowval,
+                &native.nzval
+            ),
+            (
+                2,
+                2,
+                &matrix.column_starts,
+                &matrix.row_indices,
+                &matrix.values
+            )
+        );
+        let custom = Settings {
+            max_step_fraction: 0.9,
+            presolve_enable: false,
+            ..Settings::default()
+        };
+        let accuracy = ResolvedAccuracy::nominal();
+        let mapped = settings(&custom, &Controls::default(), &accuracy, custom.mode).unwrap();
+        assert_eq!(mapped.max_step_fraction, 0.9);
+        assert!(!mapped.presolve_enable);
+        assert_eq!(mapped.tol_feas, accuracy.feasibility);
+        let single = settings(
+            &reusable,
+            &Controls::default(),
+            &accuracy,
+            Mode::SingleSolve,
+        )
+        .unwrap();
+        assert!(single.presolve_enable);
+        let reused = settings(
+            &reusable,
+            &Controls::default(),
+            &accuracy,
+            Mode::ReusableData,
+        )
+        .unwrap();
+        assert!(!reused.presolve_enable && !reused.input_sparse_dropzeros);
+        assert_eq!(reused.max_step_fraction, 0.9);
+        #[cfg(not(feature = "sdp"))]
+        assert!(matches!(
+            settings(
+                &Settings {
+                    chordal_decomposition_enable: false,
+                    ..Settings::default()
+                },
+                &Controls::default(),
+                &accuracy,
+                Mode::SingleSolve
+            ),
+            Err(ProblemError::Unsupported(_))
+        ));
     }
 }

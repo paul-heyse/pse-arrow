@@ -502,7 +502,7 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
     assert len(package.declarations()) == 9
     settings = pse.SolveSettings(intent="root")
     result = package.solve_case(identity(207), settings)
-    assert result.accepted and result.outcome_kind == "constant"
+    assert result.accepted and result.outcome_kind == "constant_evaluation"
     assert result.attempt() is None and result.failure() is None
     local_policy = pse.ModelingFixturePolicy(
         settings, derivative_step=1e-7, derivative_cells=100

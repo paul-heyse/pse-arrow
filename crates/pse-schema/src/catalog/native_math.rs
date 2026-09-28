@@ -401,6 +401,23 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             "primal_dual_and_basis",
         ],
     );
+    // Why one adapter cannot represent a request: the typed eligibility reason code that
+    // crosses the Python boundary (ADR-0113 §3).
+    enumeration(
+        b,
+        "NativeIneligibility",
+        [
+            "not_linked",
+            "serial",
+            "not_square_root",
+            "no_objective",
+            "certification",
+            "class",
+            "derivatives",
+            "bounds",
+            "native_forms",
+        ],
+    );
     // Constraint handlers a native realization leaves to the backend (ADR-0104).
     enumeration(
         b,
@@ -559,10 +576,10 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                     ("experiment_id", T::id()),
                     ("case_id", T::id()),
                     ("route", T::enumeration("ModelingAnalysisRoute")),
-                    ("bindings", T::list(record(vec![
-                        ("parameter_id", T::id()),
-                        ("path", text()),
-                    ]))),
+                    (
+                        "bindings",
+                        T::list(record(vec![("parameter_id", T::id()), ("path", text())])),
+                    ),
                 ])),
             ),
             column(

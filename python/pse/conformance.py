@@ -20,6 +20,14 @@ from pse import (
 )
 from pse.contracts.values import SemanticId
 
+#: The command line's word for automatic backend selection (no explicit backend).
+AUTOMATIC = "auto"
+
+
+def _selected(backend: str) -> str | None:
+    """Map the command-line backend word to an explicit registry backend or none."""
+    return None if backend == AUTOMATIC else backend
+
 
 def _documents(root: Path) -> dict[str, str]:
     if not (root / "package.toml").is_file():
@@ -44,7 +52,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="execute explicit pure fixtures without workflow or solver services",
     )
-    parser.add_argument("--backend", default="auto")
+    parser.add_argument(
+        "--backend",
+        default=AUTOMATIC,
+        help=f"registry backend name, or {AUTOMATIC} for automatic selection",
+    )
     parser.add_argument("--intent", choices=("root", "optimize"), default="root")
     parser.add_argument("--presolve", choices=("auto", "off"), default="auto")
     parser.add_argument("--time-limit", type=float, default=600)
@@ -96,7 +108,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     solvers = {
         fixture: SolveSettings(
             intent=selections.get(fixture, (args.intent, args.backend))[0],
-            backend=selections.get(fixture, (args.intent, args.backend))[1],
+            backend=_selected(selections.get(fixture, (args.intent, args.backend))[1]),
             presolve=presolves.get(fixture, args.presolve),
             time_limit=args.time_limit,
         )
@@ -158,7 +170,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             result = package.conform(
                 SolveSettings(
-                    backend=args.backend,
+                    backend=_selected(args.backend),
                     intent=args.intent,
                     presolve=args.presolve,
                     time_limit=args.time_limit,

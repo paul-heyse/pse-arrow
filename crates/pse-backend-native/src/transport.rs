@@ -114,16 +114,16 @@ pub fn cone_normalization(
     p: &ConicProblem,
     policy: &pse_model::numerics::ResolvedNumericalPolicy,
 ) -> Result<Normalization, ProblemError> {
-    use clarabel::solver::SupportedConeT::{NonnegativeConeT, ZeroConeT};
+    use crate::conic::Cone;
     let ids: Vec<_> = p.contract.variables.iter().map(|v| v.id).collect();
     let mut n = Normalization::from_policy(policy, &ids, &p.contract.rows)?;
     let mut start = 0;
     for cone in &p.cones {
-        let end = start + crate::conic::dim(cone);
+        let end = start + cone.dim();
         if end > n.rows.len() {
             return Err(ProblemError::Internal("cone scale inventory".into()));
         }
-        if !matches!(cone, ZeroConeT(_) | NonnegativeConeT(_)) {
+        if !matches!(cone, Cone::Zero { .. } | Cone::Nonnegative { .. }) {
             let mut required = None;
             let mut physical = None;
             for id in &p.contract.rows[start..end] {
@@ -179,11 +179,11 @@ pub fn conic(
     let q = p.full_quadratic()?;
     let (q, proof) = normalize_quadratic(&q, 1.0, &n.variables, n.objective, proof)?;
     let mut quadratic = p.quadratic.clone();
-    for c in 0..quadratic.n {
-        for k in quadratic.colptr[c]..quadratic.colptr[c + 1] {
-            quadratic.nzval[k] = div(
+    for c in 0..quadratic.columns {
+        for k in quadratic.column(c) {
+            quadratic.values[k] = div(
                 mul(
-                    mul(quadratic.nzval[k], n.variables[quadratic.rowval[k]])?,
+                    mul(quadratic.values[k], n.variables[quadratic.row_indices[k]])?,
                     n.variables[c],
                 )?,
                 n.objective,
@@ -193,11 +193,11 @@ pub fn conic(
     // The checked congruence and upper-triangle storage represent the same unchanged Q.
     proof.validate(&q, 1.0)?;
     let mut constraints = p.constraints.clone();
-    for c in 0..constraints.n {
-        for k in constraints.colptr[c]..constraints.colptr[c + 1] {
-            constraints.nzval[k] = div(
-                mul(constraints.nzval[k], n.variables[c])?,
-                n.rows[constraints.rowval[k]],
+    for c in 0..constraints.columns {
+        for k in constraints.column(c) {
+            constraints.values[k] = div(
+                mul(constraints.values[k], n.variables[c])?,
+                n.rows[constraints.row_indices[k]],
             )?;
         }
     }
@@ -657,7 +657,7 @@ mod tests {
     }
     #[test]
     fn coordinate_transport_cone_blocks_and_underflow() {
-        use clarabel::{algebra::CscMatrix, solver::SupportedConeT};
+        use crate::conic::{Cone, SparseMatrix};
         use pse_model::{generated::enums::NumericalTarget, numerics::NumericalPolicy};
         let q = pse_quantity::standard::standard_registry().unwrap();
         let qty = pse_quantity::standard::ids::quantity("neutral");
@@ -666,12 +666,12 @@ mod tests {
         c.rows = vec![id(2), id(3)];
         let p = ConicProblem {
             contract: c,
-            quadratic: CscMatrix::zeros((1, 1)),
-            constraints: CscMatrix::zeros((2, 1)),
+            quadratic: SparseMatrix::zeros(1, 1),
+            constraints: SparseMatrix::zeros(2, 1),
             objective: vec![0.0],
             objective_constant: 0.0,
             rhs: vec![2.0, 1.0],
-            cones: vec![SupportedConeT::SecondOrderConeT(2)],
+            cones: vec![Cone::SecondOrder { dimension: 2 }],
         };
         let targets = vec![
             pse_math::numerics::TargetSpec {

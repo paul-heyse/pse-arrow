@@ -36,10 +36,13 @@ def test_authored_recycle_uses_declared_ports_and_owned_results(inspection_setti
     assert selected["cost"] == 2.0
     request: dict[str, object] = {"tears": selected["decisions"], "units": [{"node": case.to_hex(), "inputs": [inlet["id"]], "outputs": [outlet["id"]]}], "anderson": 1, "damping": 1.0}
     prepared = package.prepare_recycle(case, selection, request, settings)
-    assert prepared.routes == ("Kinsol.FixedPoint",)
+    assert [route.backend for route in prepared.routes] == ["kinsol"]
     result = prepared.run()
     del package, runtime, flow, prepared
     assert not result.failures()
-    (attempt,) = result.attempts()
+    (row,) = result.attempts()
+    attempt = row.report
+    assert attempt is not None
+    assert row.failure is None
     assert attempt.qualification == "feasible"
     assert dict(attempt.primal())[cast("str", inlet["id"])] == pytest.approx(4.0, abs=1e-6)

@@ -24,7 +24,8 @@ static LIFECYCLE: RwLock<()> = RwLock::new(());
 thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(false)};}
 
 /// Explicit native method; automatic remains a native class-specific decision.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Method {
     /// Native method selection.
     Choose,
@@ -35,8 +36,10 @@ pub enum Method {
     /// First-order primal-dual LP method.
     Pdlp,
 }
-/// The HiGHS adapter's settings type on the unified lifecycle; identity derives from serde.
-#[derive(Clone, Debug, serde::Serialize)]
+/// The HiGHS adapter's settings type on the unified lifecycle; identity derives from serde,
+/// and absent fields take these defaults across the Python boundary (ADR-0113).
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct Settings {
     /// Eligible LP algorithm; mixed models retain native class routing.
     pub method: Method,

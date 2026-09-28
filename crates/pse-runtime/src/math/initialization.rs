@@ -10,7 +10,7 @@ use super::{
 };
 use pse_backend_native::{
     self as native,
-    execution::{self, BackendSettings},
+    execution,
     kinsol,
     quality::Tolerances,
     solve::*,
@@ -64,7 +64,11 @@ impl PreparedInitialization {
             })
             .collect()
     }
-    /// Shared preparation/submission admission for immutable stage overlays.
+    /// Shared preparation/submission admission for immutable stage overlays. This is the
+    /// one admission of an initialization request (F26): its intent must be a root or
+    /// initialization purpose, it carries no explicit preprocessing or numerical convexity
+    /// strategy (blocks run without either), and its typed backend settings must belong to
+    /// every block's route, so another backend's settings never apply to a block.
     pub fn validate_profile(
         &self,
         values: &CaseValues,
@@ -76,22 +80,39 @@ impl PreparedInitialization {
         ),
         MathRuntimeError,
     > {
-        profile.controls.validate()?;
+        let solver = &profile.solver;
+        solver.controls.validate()?;
+        if !matches!(solver.intent, SolveIntent::Initialize | SolveIntent::Root) {
+            return Err(native::ProblemError::Contract(
+                "initialization requires the root or initialize intent".into(),
+            )
+            .into());
+        }
+        if matches!(solver.presolve, native::presolve::Policy::Explicit { .. })
+            || solver.convexity != pse_math::convexity::ConvexityPolicy::Exact
+        {
+            return Err(native::ProblemError::Contract(
+                "initialization blocks have no explicit preprocessing or numerical convexity strategy"
+                    .into(),
+            )
+            .into());
+        }
         // Blocks differ in coordinates, so reuse cannot be required; a stage's block may
         // reuse its predecessor stage's retained session when allowed.
-        if profile.controls.start == StartPolicy::Explicit
-            || profile.controls.reuse == ReusePolicy::RequireReuse
+        if solver.controls.start == StartPolicy::Explicit
+            || solver.controls.reuse == ReusePolicy::RequireReuse
         {
             return Err(native::ProblemError::Contract("initialization uses declared guesses or previous accepted stages; blocks cannot require native reuse".into()).into());
         }
-        let strategies = self.strategies(&profile.controls, profile.selection)?;
-        // Typed settings must belong to every block's route; KINSOL scales stay per block.
+        let strategies = self.strategies(&solver.controls, solver.selection)?;
+        // Typed settings are route-typed: they must belong to every block's route, so a
+        // KINSOL method never reaches an NLP block. KINSOL scales stay per block.
         for route in &strategies {
             if let native::routing::Route::Native(backend) = route {
-                execution::adapter(*backend).admit_settings(&profile.backend, &profile.controls)?;
+                execution::adapter(*backend).admit_settings(&solver.backend, &solver.controls)?;
             }
         }
-        if profile.controls.threads != 1
+        if solver.controls.threads != 1
             || profile.stages.is_empty()
             || profile
                 .stages
@@ -107,7 +128,7 @@ impl PreparedInitialization {
             &self.quantities,
             &self.targets,
             &self.requirements,
-            &profile.numerics,
+            &solver.numerics,
         )?);
         let solved: BTreeSet<_> = self
             .boundaries()
@@ -189,18 +210,14 @@ pub struct StageAttempt {
     /// All required blocks completed with independently accepted coordinates.
     pub completed: bool,
 }
-/// Explicit finite continuation data and physical acceptance scales.
+/// Explicit finite continuation data and the solve profile of every block.
 #[derive(Clone, Debug)]
 pub struct InitializationProfile {
-    /// Contextual selection applied to each structural block.
-    pub selection: SolverSelection,
-    /// Same finite execution policy used by other native attempts.
-    pub controls: Controls,
-    /// Typed backend settings honoured by every block's route, as in a solve; KINSOL
-    /// method controls select KLU, bounded dense or matrix-free SPGMR.
-    pub backend: BackendSettings,
-    /// ID-keyed numerical meaning shared with ordinary solve preparation.
-    pub numerics: pse_model::numerics::NumericalPolicy,
+    /// The request's solve profile: selection applied to each structural block, finite
+    /// controls, route-typed backend settings and ID-keyed numerical meaning. Blocks run
+    /// under the initialize intent without preprocessing; [`PreparedInitialization::
+    /// validate_profile`] refuses a profile that asks for anything else.
+    pub solver: SolverProfile,
     /// Finite prescribed parameter/fixed-coordinate replacements. Use one empty map
     /// for ordinary initialization. Prior values seed a stage only under PreviousAccepted start policy.
     pub stages: Vec<BTreeMap<SemanticId, f64>>,
@@ -463,6 +480,7 @@ impl MathService {
         profile: InitializationProfile,
     ) -> Result<SolveHandle<InitializationReport>, MathRuntimeError> {
         let (strategies, numerics) = prepared.validate_profile(&values, &profile)?;
+        let controls = &profile.solver.controls;
         let size = prepared.blocks.iter().try_fold(
             values.scalars.len().saturating_mul(64),
             |total, b| {
@@ -472,14 +490,14 @@ impl MathService {
                     .len()
                     .checked_add(b.boundary.members.rows.len())
                     .and_then(|v| v.checked_mul(512))
-                    .and_then(|v| v.checked_add(profile.controls.report_allowance().ok()?))
+                    .and_then(|v| v.checked_add(controls.report_allowance().ok()?))
                     .and_then(|v| v.checked_mul(profile.stages.len()))
                     .and_then(|v| total.checked_add(v))
                     .ok_or(MathRuntimeError::Limit("initialization result allowance"))
             },
         )?;
         let owner = self.reserve("math:initialization-results", size)?;
-        let progress = Arc::new(Progress::new(profile.controls.history));
+        let progress = Arc::new(Progress::new(controls.history));
         let session = self.open_session()?;
         let service = self.clone();
         let events = progress.clone();
@@ -535,7 +553,7 @@ impl Blocks<'_> {
             .boundaries()
             .flat_map(|b| b.members.columns.iter().copied())
             .collect();
-        let previous_accepted = self.profile.controls.start == StartPolicy::PreviousAccepted;
+        let previous_accepted = self.profile.solver.controls.start == StartPolicy::PreviousAccepted;
         for (stage, updates) in self.profile.stages.iter().enumerate() {
             // The stage overlay exists only in this stage's working values; the original
             // specification is never written.
@@ -652,14 +670,13 @@ impl Blocks<'_> {
             block.executable.clone(),
             values.clone(),
             self.providers.clone(),
+            // Admitted by `validate_profile`: a root or initialize intent, exact
+            // convexity and no explicit preprocessing; blocks run the initialize intent
+            // on their identity transport.
             SolverProfile {
                 presolve: native::presolve::Policy::Off,
-                numerics: self.profile.numerics.clone(),
-                convexity: pse_math::convexity::ConvexityPolicy::Exact,
                 intent: SolveIntent::Initialize,
-                selection: self.profile.selection,
-                controls: self.profile.controls.clone(),
-                backend: self.profile.backend.clone(),
+                ..self.profile.solver.clone()
             },
             self.numerics.clone(),
             self.strategies[index],

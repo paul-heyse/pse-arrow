@@ -73,6 +73,13 @@ _NativeRunHandle = _native.NativeRunHandle
 _NativeRunResult = _native.NativeRunResult
 _NativePublicationAttempt = _native.NativePublicationAttempt
 SolveSettings = _native.SolveSettings
+BackendSettings = _native.BackendSettings
+DiffsolSettings = _native.DiffsolSettings
+IdasSettings = _native.IdasSettings
+NativeRoute = _native.NativeRoute
+NativeEligibility = _native.NativeEligibility
+NativeIneligible = _native.NativeIneligible
+NativeStrategyAttempt = _native.NativeStrategyAttempt
 ProgressEvent = _native.ProgressEvent
 
 

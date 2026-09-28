@@ -49,6 +49,21 @@ pub struct SolverProfile {
     /// Complete backend-specific typed settings.
     pub backend: BackendSettings,
 }
+/// The one owner of request defaults: every boundary takes an omitted field from here
+/// rather than restating it (ADR-0113).
+impl Default for SolverProfile {
+    fn default() -> Self {
+        Self {
+            presolve: native::presolve::Policy::default(),
+            numerics: NumericalPolicy::default(),
+            convexity: ConvexityPolicy::default(),
+            intent: SolveIntent::Optimize,
+            selection: SolverSelection::Auto,
+            controls: Controls::default(),
+            backend: BackendSettings::Default,
+        }
+    }
+}
 /// A compiled case with its selected values, providers and convexity evidence.
 #[derive(Clone, Debug)]
 struct AlgebraicCase {
@@ -322,6 +337,15 @@ pub enum Outcome {
     Rejected(Arc<MathRuntimeError>),
 }
 impl Outcome {
+    /// Registry run state of this outcome: the one name of each kind of step result.
+    pub const fn state(&self) -> pse_model::generated::enums::NativeRunState {
+        use pse_model::generated::enums::NativeRunState;
+        match self {
+            Self::Native(_) => NativeRunState::Native,
+            Self::Constant(_) => NativeRunState::ConstantEvaluation,
+            Self::Rejected(_) => NativeRunState::Rejected,
+        }
+    }
     /// The native candidate-use decision of the workflow completion owner (§16.6,
     /// ADR-0106). Seeding, commits, homotopy, studies and publication consume it.
     pub(crate) fn candidate_use(&self) -> crate::workflow::numerics::CandidateDecision {
@@ -883,12 +907,12 @@ impl MathService {
             .iter()
             .try_fold(0usize, |n, a| {
                 n.checked_add(
-                    a.colptr
+                    a.column_starts
                         .capacity()
-                        .checked_add(a.rowval.capacity())?
+                        .checked_add(a.row_indices.capacity())?
                         .checked_mul(size_of::<usize>())?,
                 )?
-                .checked_add(a.nzval.capacity().checked_mul(size_of::<f64>())?)
+                .checked_add(a.values.capacity().checked_mul(size_of::<f64>())?)
             })
             .ok_or(MathRuntimeError::Limit("conic product extent"))?;
         let bytes = (problem.contract.variables.len() + problem.contract.rows.len())
@@ -973,7 +997,7 @@ impl MathService {
         h.hash(&problem.contract.identity);
         let mut session = FramedHasher::new("pse.solver.conic-session.v1");
         hash_session(&mut session, &profile)?;
-        h.hash(&native::conic::cone_key(&problem.cones));
+        h.hash(&native::conic::cone_key(&problem.cones)?);
         for v in &problem.contract.variables {
             h.id(&v.id);
         }
@@ -981,20 +1005,20 @@ impl MathService {
             h.id(id);
         }
         for a in [&problem.quadratic, &problem.constraints] {
-            h.u64(a.m as u64)
-                .u64(a.n as u64)
-                .u64(a.colptr.len() as u64)
-                .u64(a.rowval.len() as u64);
-            for v in a.colptr.iter().chain(&a.rowval) {
+            h.u64(a.rows as u64)
+                .u64(a.columns as u64)
+                .u64(a.column_starts.len() as u64)
+                .u64(a.row_indices.len() as u64);
+            for v in a.column_starts.iter().chain(&a.row_indices) {
                 h.u64(*v as u64);
             }
         }
         let mut d = FramedHasher::new("pse.solver.conic-data.v1");
         for x in problem
             .quadratic
-            .nzval
+            .values
             .iter()
-            .chain(&problem.constraints.nzval)
+            .chain(&problem.constraints.values)
             .chain(&problem.objective)
             .chain(&problem.rhs)
         {

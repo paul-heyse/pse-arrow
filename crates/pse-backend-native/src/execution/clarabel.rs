@@ -52,9 +52,10 @@ impl BackendExecution for Clarabel {
         else {
             return Err(super::representation(Backend::Clarabel));
         };
-        let (native, mode) = match input.settings {
-            BackendSettings::Default => (conic::Settings::default(), conic::Mode::SingleSolve),
-            BackendSettings::Clarabel { native, mode } => ((**native).clone(), *mode),
+        let defaults = conic::Settings::default();
+        let settings = match input.settings {
+            BackendSettings::Default => &defaults,
+            BackendSettings::Clarabel(settings) => settings,
             #[allow(
                 unreachable_patterns,
                 reason = "other adapters' variants exist only when their features are linked"
@@ -66,7 +67,9 @@ impl BackendExecution for Clarabel {
             Backend::Clarabel,
             input.controls.reuse,
             |session: &mut conic::Session| {
-                Ok(session.update(problem, certificate, stamp.clone()).is_ok())
+                Ok(session
+                    .update(problem, certificate, settings, stamp.clone())
+                    .is_ok())
             },
             || {
                 conic::Session::new(
@@ -74,8 +77,7 @@ impl BackendExecution for Clarabel {
                     certificate,
                     input.controls,
                     input.accuracy,
-                    native.clone(),
-                    mode,
+                    settings,
                     stamp.clone(),
                 )
             },
@@ -84,7 +86,7 @@ impl BackendExecution for Clarabel {
             problem,
             input.controls,
             input.accuracy,
-            native,
+            settings,
             input.execution,
             input.tolerances,
         )?;

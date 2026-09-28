@@ -499,7 +499,7 @@ impl ModelingPackage {
                 let mut f = finding("domain.potential_evaluation_error", [*id], None, None);
                 f.observations.insert(
                     "box_status".into(),
-                    Observation::Text(format!("{status:?}")),
+                    Observation::Text(status.as_str().into()),
                 );
                 report.push(f, maximum, product);
             }

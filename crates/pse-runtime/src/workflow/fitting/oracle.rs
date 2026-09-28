@@ -1617,7 +1617,14 @@ mod tests {
                 root,
                 pse_model::generated::enums::ModelingAnalysisRoute::Steady,
                 compiler,
-                ipopt(SolveIntent::Initialize),
+                // Initialization blocks prepare first derivatives only.
+                SolverProfile {
+                    controls: Controls {
+                        hessian: native::solve::HessianMode::LimitedMemory,
+                        ..Controls::default()
+                    },
+                    ..ipopt(SolveIntent::Initialize)
+                },
                 Default::default(),
                 Default::default(),
                 &cancel,
@@ -1625,21 +1632,7 @@ mod tests {
             .await
             .unwrap();
         let initialized = package
-            .prepare_block_initialization(
-                &analysis,
-                crate::math::initialization::InitializationProfile {
-                    selection: SolverSelection::Explicit(Backend::Ipopt),
-                    // Initialization blocks prepare first derivatives only.
-                    controls: Controls {
-                        hessian: native::solve::HessianMode::LimitedMemory,
-                        ..Controls::default()
-                    },
-                    backend: native::execution::BackendSettings::Default,
-                    numerics: Default::default(),
-                    stages: vec![BTreeMap::new()],
-                },
-                &cancel,
-            )
+            .prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel)
             .await
             .unwrap()
             .start()

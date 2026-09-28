@@ -17,6 +17,7 @@ PEP 563 annotations remain prohibited: boundary validators inspect resolved type
 import importlib.metadata
 
 from pse._build import (
+    BackendSettings,
     BuildInfo,
     CacheReport,
     CacheSettings,
@@ -28,8 +29,15 @@ from pse._build import (
     DiagnosticReport,
     DiagnosticSourceLocation,
     DiagnosticSpan,
+    DiffsolSettings,
     EngineSettings,
+    IdasSettings,
     InspectionError,
+    NativeAttempt,
+    NativeEligibility,
+    NativeIneligible,
+    NativeRoute,
+    NativeStrategyAttempt,
     ProgressEvent,
     ResourceConsumer,
     ResourceReport,
@@ -67,6 +75,7 @@ from pse._workflow import (
 from pse.contracts import extension_types
 
 __all__ = [
+    "BackendSettings",
     "BuildInfo",
     "CacheReport",
     "CacheSettings",
@@ -78,8 +87,10 @@ __all__ = [
     "DiagnosticReport",
     "DiagnosticSourceLocation",
     "DiagnosticSpan",
+    "DiffsolSettings",
     "EngineSettings",
     "FieldTransfer",
+    "IdasSettings",
     "InspectionError",
     "ModelingNativeAnalysis",
     "ModelingDiagnostics",
@@ -98,6 +109,11 @@ __all__ = [
     "ModelingInitialization",
     "ModelingInitializationAttempt",
     "ModelingStudy",
+    "NativeAttempt",
+    "NativeEligibility",
+    "NativeIneligible",
+    "NativeRoute",
+    "NativeStrategyAttempt",
     "PhysicalContext",
     "PreparedFlow",
     "PreparedOperation",

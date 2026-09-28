@@ -11,49 +11,82 @@ fn id(n: u32) -> SemanticId {
     named_id(SemanticId::NIL, &format!("process-cost.{n}"))
 }
 fn neutral(physical: &workflow::PhysicalContext) -> (SemanticId, SemanticId) {
-    let q=physical.quantities().neutral_dimensionless().unwrap();
-    (q.as_id(),physical.quantities().quantity_type(q).unwrap().canonical_unit.as_id())
+    let q = physical.quantities().neutral_dimensionless().unwrap();
+    (
+        q.as_id(),
+        physical
+            .quantities()
+            .quantity_type(q)
+            .unwrap()
+            .canonical_unit
+            .as_id(),
+    )
 }
 fn port(symbol: SemanticId, physical: &workflow::PhysicalContext) -> Value {
-    let (q,u)=neutral(physical);
+    let (q, u) = neutral(physical);
     json!({"symbol_id":symbol,"quantity_id":q,"unit_id":u})
 }
-async fn algebraic(owner: &WorkflowRuntime, quadratic: bool, mixed: bool) -> (workflow::ModelingPackage,SemanticId) {
-    let physical=physical(owner).await;
-    let (q,_)=neutral(&physical);
-    let (a,b)=if mixed {(1e-6,1e6)} else {(2.0,3.0)};
-    let equations=if quadratic {"let cost:Scalar=(x-a)*(x-a)+(y-b)*(y-b); annotation objective cost(minimize);"} else {"eq first:x==a; eq second:y==b;"};
-    let source=format!("package benchmark {{def Root {{param a:Scalar={a}; param b:Scalar={b}; var x:Scalar; var y:Scalar; annotation start x(a*0.9); annotation start y(b*0.9); annotation nominal x(a); annotation nominal y(b); {equations} annotation check x(abs(x-a)<=a*1e-7); annotation check y(abs(y-b)<=b*1e-7);}} }}");
-    let rows=pse_authoring::language::parse(&source,id(1),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
-    let root=rows.iter().find(|r|r.name=="Root").unwrap().declaration_id;
-    (runtime(owner).modeling_package(rows,physical,BTreeMap::from([("Scalar".into(),q.into())])).unwrap(),root)
+async fn algebraic(
+    owner: &WorkflowRuntime,
+    quadratic: bool,
+    mixed: bool,
+) -> (workflow::ModelingPackage, SemanticId) {
+    let physical = physical(owner).await;
+    let (q, _) = neutral(&physical);
+    let (a, b) = if mixed { (1e-6, 1e6) } else { (2.0, 3.0) };
+    let equations = if quadratic {
+        "let cost:Scalar=(x-a)*(x-a)+(y-b)*(y-b); annotation objective cost(minimize);"
+    } else {
+        "eq first:x==a; eq second:y==b;"
+    };
+    let source = format!(
+        "package benchmark {{def Root {{param a:Scalar={a}; param b:Scalar={b}; var x:Scalar; var y:Scalar; annotation start x(a*0.9); annotation start y(b*0.9); annotation nominal x(a); annotation nominal y(b); {equations} annotation check x(abs(x-a)<=a*1e-7); annotation check y(abs(y-b)<=b*1e-7);}} }}"
+    );
+    let rows = pse_authoring::language::parse(
+        &source,
+        id(1),
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Root")
+        .unwrap()
+        .declaration_id;
+    (
+        runtime(owner)
+            .modeling_package(
+                rows,
+                physical,
+                BTreeMap::from([("Scalar".into(), q.into())]),
+            )
+            .unwrap(),
+        root,
+    )
 }
 
 async fn cone(owner: &WorkflowRuntime) {
-    let physical=physical(owner).await;
+    let physical = physical(owner).await;
     let request = workflow::ConicRequest {
         variables: vec![serde_json::from_value(port(id(20), &physical)).unwrap()],
         rows: vec![serde_json::from_value(port(id(50), &physical)).unwrap()],
         objective_port: serde_json::from_value(port(SemanticId::NIL, &physical)).unwrap(),
-        quadratic: native::conic::Matrix::zeros((1, 1)),
+        quadratic: native::conic::SparseMatrix::zeros(1, 1),
         objective: vec![1.],
-        constraints: native::conic::Matrix::new(1, 1, vec![0, 1], vec![0], vec![-1.]),
+        constraints: native::conic::SparseMatrix::new(1, 1, vec![0, 1], vec![0], vec![-1.]),
         rhs: vec![-2.],
-        cones: vec![native::conic::Cone::NonnegativeConeT(1)],
+        cones: vec![native::conic::Cone::Nonnegative { dimension: 1 }],
         objective_constant: 3.,
         gram_factors: vec![],
         gram_weights: vec![],
     };
     let prepared = runtime(owner)
-        .prepare_conic(
-            request,
-            &physical,
-            profile(Backend::Clarabel, true),
-        )
+        .prepare_conic(request, &physical, profile(Backend::Clarabel, true))
         .await
         .unwrap();
     let result = prepared.start().unwrap().finish().await.unwrap();
-    let pse_runtime::math::solves::Outcome::Native(report) = &result.outcomes[0] else {
+    let pse_runtime::math::solves::Outcome::Native(report) = &result.outcome else {
         panic!("missing cone result")
     };
     near(report.candidate.as_ref().unwrap().primal[0], 2., 1e-6);
@@ -66,29 +99,115 @@ async fn cone(owner: &WorkflowRuntime) {
 }
 
 async fn recycle(owner: &WorkflowRuntime) {
-    let physical=physical(owner).await;
+    let physical = physical(owner).await;
     let (q, _) = neutral(&physical);
     let rows=pse_authoring::language::parse("package benchmark {def Root {param a:Scalar=2; var x:Scalar; let result:Scalar=x/2+a; port inlet:Scalar=x; port outlet:Scalar=result; connect outlet -> inlet; annotation start x(1);}}",id(1),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
-    let root=rows.iter().find(|r|r.name=="Root").unwrap().declaration_id;
-    let package=runtime(owner).modeling_package(rows,physical,BTreeMap::from([("Scalar".into(),q.into())])).unwrap();
-    let cancel=CancelSource::new();
-    let analysis=package.declared_analysis(root,pse_relations::generated::enums::ModelingAnalysisRoute::Steady,compiler(),profile(Backend::Kinsol,false),Default::default(),Default::default(),&cancel).await.unwrap();
-    let model=package.prepare(root,root,analysis.bindings.clone(),analysis.limits,&cancel).await.unwrap();
-    let product=&model.compiled().model;
-    let port=|name:&str|product.ports.values().find(|p|p.lineage.path.ends_with(&format!(".{name}"))).unwrap().id;
-    let (input,output)=(port("inlet"),port("outlet"));
-    let selection=pse_compiler::workspace::ModelingFlowSelection{nodes:std::collections::BTreeSet::from([root]),connections:product.connections.keys().map(|id|(*id,pse_runtime::math::flows::Decision{id:*id,cost:2.0,policy:pse_runtime::math::flows::Policy::Mandatory})).collect()};
-    let flow=package.prepare_flow(&analysis,selection.clone(),&cancel).await.unwrap();
-    let selected=owner.runtime.math().select_tears(flow,pse_runtime::math::flows::TearMethod::UnweightedHeuristic,Controls::default()).unwrap().finish().await.unwrap().selected.clone().unwrap();
-    let request=workflow::RecycleRequest{tears:selected.decisions,units:vec![workflow::CausalUnitRequest{node:root,inputs:std::collections::BTreeSet::from([input]),outputs:std::collections::BTreeSet::from([output])}],anderson:1,damping:1.0};
-    let prepared=package.prepare_recycle(&analysis,selection,request,&cancel).await.unwrap();
-    let result=prepared.start().unwrap().finish().await.unwrap();
-    near(result.report.candidate.as_ref().unwrap().primal[0],4.,1e-6);
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let package = runtime(owner)
+        .modeling_package(
+            rows,
+            physical,
+            BTreeMap::from([("Scalar".into(), q.into())]),
+        )
+        .unwrap();
+    let cancel = CancelSource::new();
+    let analysis = package
+        .declared_analysis(
+            root,
+            pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
+            compiler(),
+            profile(Backend::Kinsol, false),
+            Default::default(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let model = package
+        .prepare(
+            root,
+            root,
+            analysis.bindings.clone(),
+            analysis.limits,
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let product = &model.compiled().model;
+    let port = |name: &str| {
+        product
+            .ports
+            .values()
+            .find(|p| p.lineage.path.ends_with(&format!(".{name}")))
+            .unwrap()
+            .id
+    };
+    let (input, output) = (port("inlet"), port("outlet"));
+    let selection = pse_compiler::workspace::ModelingFlowSelection {
+        nodes: std::collections::BTreeSet::from([root]),
+        connections: product
+            .connections
+            .keys()
+            .map(|id| {
+                (
+                    *id,
+                    pse_runtime::math::flows::Decision {
+                        id: *id,
+                        cost: 2.0,
+                        policy: pse_runtime::math::flows::Policy::Mandatory,
+                    },
+                )
+            })
+            .collect(),
+    };
+    let flow = package
+        .prepare_flow(&analysis, selection.clone(), &cancel)
+        .await
+        .unwrap();
+    let selected = owner
+        .runtime
+        .math()
+        .select_tears(
+            flow,
+            pse_runtime::math::flows::TearMethod::UnweightedHeuristic,
+            Controls::default(),
+        )
+        .unwrap()
+        .finish()
+        .await
+        .unwrap()
+        .selected
+        .clone()
+        .unwrap();
+    let request = workflow::RecycleRequest {
+        tears: selected.decisions,
+        units: vec![workflow::CausalUnitRequest {
+            node: root,
+            inputs: std::collections::BTreeSet::from([input]),
+            outputs: std::collections::BTreeSet::from([output]),
+        }],
+        anderson: 1,
+        damping: 1.0,
+    };
+    let prepared = package
+        .prepare_recycle(&analysis, selection, request, &cancel)
+        .await
+        .unwrap();
+    let result = prepared.start().unwrap().finish().await.unwrap();
+    near(
+        result.report.candidate.as_ref().unwrap().primal[0],
+        4.,
+        1e-6,
+    );
     assert!(result.report.quality.as_ref().unwrap().feasible());
 }
 
 async fn sparse_fit(owner: &WorkflowRuntime, n: usize) {
-    let physical=physical(owner).await;
+    let physical = physical(owner).await;
     let (q, u) = neutral(&physical);
     let source = format!(
         "package benchmark {{ def Identity {{ {} }} }}",
@@ -165,65 +284,155 @@ async fn run(owner: &WorkflowRuntime, operation: &str, size: usize) {
         "sparse-fit" => sparse_fit(owner, size).await,
         "mixed-scale" | "qp" | "value-sweep" => {
             let quadratic = operation == "qp";
-            let mixed=operation=="mixed-scale";
-            let (package,root)=algebraic(owner,quadratic,mixed).await;
-            let cancel=CancelSource::new();
-            let mut selected=profile(if quadratic {Backend::Highs} else {Backend::Kinsol},quadratic);
-            selected.presolve=native::presolve::Policy::Off;
-            let mut analysis=package.declared_analysis(root,pse_relations::generated::enums::ModelingAnalysisRoute::Steady,compiler(),selected,Default::default(),seed_limits(),&cancel).await.unwrap();
-            let count=if operation=="value-sweep" {1000} else {1};
+            let mixed = operation == "mixed-scale";
+            let (package, root) = algebraic(owner, quadratic, mixed).await;
+            let cancel = CancelSource::new();
+            let mut selected = profile(
+                if quadratic {
+                    Backend::Highs
+                } else {
+                    Backend::Kinsol
+                },
+                quadratic,
+            );
+            selected.presolve = native::presolve::Policy::Off;
+            let mut analysis = package
+                .declared_analysis(
+                    root,
+                    pse_relations::generated::enums::ModelingAnalysisRoute::Steady,
+                    compiler(),
+                    selected,
+                    Default::default(),
+                    seed_limits(),
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let count = if operation == "value-sweep" { 1000 } else { 1 };
             for point in 0..count {
-                let expected=[if mixed {1e-6} else {2.0+point as f64/1000.0},if mixed {1e6} else {3.0}];
-                analysis.case.values.insert("a".into(),expected[0]);
-                let prepared=package.prepare_analysis(&analysis,&cancel).await.unwrap();
-                let symbol=|name:&str|prepared.model.model.compiled().model.symbols.values().find(|s|s.lineage.path.ends_with(&format!(".{name}"))).unwrap().id;
-                let coordinates=[symbol("x"),symbol("y")];
-                let result=prepared.start().unwrap().wait().await.unwrap();
+                let expected = [
+                    if mixed {
+                        1e-6
+                    } else {
+                        2.0 + point as f64 / 1000.0
+                    },
+                    if mixed { 1e6 } else { 3.0 },
+                ];
+                analysis.case.values.insert("a".into(), expected[0]);
+                let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+                let symbol = |name: &str| {
+                    prepared
+                        .model
+                        .model
+                        .compiled()
+                        .model
+                        .symbols
+                        .values()
+                        .find(|s| s.lineage.path.ends_with(&format!(".{name}")))
+                        .unwrap()
+                        .id
+                };
+                let coordinates = [symbol("x"), symbol("y")];
+                let result = prepared.start().unwrap().wait().await.unwrap();
                 authored_success(&result);
-                for (id,expected) in coordinates.into_iter().zip(expected) {
-                    near(variable(&result,id),expected,expected.abs()*1e-7);
+                for (id, expected) in coordinates.into_iter().zip(expected) {
+                    near(variable(&result, id), expected, expected.abs() * 1e-7);
                 }
             }
         }
 
         "vessel" | "dynamic-rebind" => {
-            let package=seed_package(owner).await;
-            let root=SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap();
-            let cancel=CancelSource::new();
-            let prepared=package.declared_simulation(root,compiler(),None,seed_limits(),&cancel).await.unwrap();
-            if operation=="vessel" {
-                let result=prepared.run(&cancel).await.unwrap();
-                assert!(result.accepted,"{result:?}");
+            let package = seed_package(owner).await;
+            let root = SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap();
+            let cancel = CancelSource::new();
+            let prepared = package
+                .declared_simulation(root, compiler(), None, seed_limits(), &cancel)
+                .await
+                .unwrap();
+            if operation == "vessel" {
+                let result = prepared.run(&cancel).await.unwrap();
+                assert!(result.accepted, "{result:?}");
                 std::hint::black_box(result.tables().unwrap());
             } else {
-                let analysis=package.declared_analysis(root,pse_relations::generated::enums::ModelingAnalysisRoute::Integrated,compiler(),profile(Backend::Ipopt,false),Default::default(),seed_limits(),&cancel).await.unwrap();
+                let analysis = package
+                    .declared_analysis(
+                        root,
+                        pse_relations::generated::enums::ModelingAnalysisRoute::Integrated,
+                        compiler(),
+                        profile(Backend::Ipopt, false),
+                        Default::default(),
+                        seed_limits(),
+                        &cancel,
+                    )
+                    .await
+                    .unwrap();
                 for step in 1..=4 {
-                    let mut case=analysis.case.clone();
-                    case.values.insert("root.heat".into(),step as f64);
-                    let rebound=package.prepare_simulation(root,root,analysis.bindings.clone(),seed_limits(),case,compiler(),prepared.profile().clone(),&cancel).await.unwrap();
-                    let result=rebound.run(&cancel).await.unwrap();
-                    assert!(result.accepted,"{result:?}");
+                    let mut case = analysis.case.clone();
+                    case.values.insert("root.heat".into(), step as f64);
+                    let rebound = package
+                        .prepare_simulation(
+                            root,
+                            root,
+                            analysis.bindings.clone(),
+                            seed_limits(),
+                            case,
+                            compiler(),
+                            prepared.profile().clone(),
+                            &cancel,
+                        )
+                        .await
+                        .unwrap();
+                    let result = rebound.run(&cancel).await.unwrap();
+                    assert!(result.accepted, "{result:?}");
                 }
             }
         }
         "fit" | "evented-fit" => {
-            let package=seed_package(owner).await;
-            let (fit,mut selected)=heat_fit(&package,"transient").await;
-            if operation=="evented-fit" {
-                let root=SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap();
-                let simulation=package.declared_simulation(root,compiler(),None,seed_limits(),&CancelSource::new()).await.unwrap();
-                let mut integration=simulation.profile().clone();
-                integration.method=native::dynamics::Method::Diffsol;
-                integration.rtol=1e-6;
+            let package = seed_package(owner).await;
+            let (fit, mut selected) = heat_fit(&package, "transient").await;
+            if operation == "evented-fit" {
+                let root = SemanticId::parse_hex("29dd6a1a3e444acfbf14992087f9d32c").unwrap();
+                let simulation = package
+                    .declared_simulation(
+                        root,
+                        compiler(),
+                        None,
+                        seed_limits(),
+                        &CancelSource::new(),
+                    )
+                    .await
+                    .unwrap();
+                let mut integration = simulation.profile().clone();
+                integration.method = native::dynamics::Method::Diffsol;
+                integration.rtol = 1e-6;
                 integration.atol.fill(1e-8);
-                integration.changes.push(native::dynamics::InputChange{time:0.5,parameters:simulation.parameters().to_vec()});
-                let experiment=SemanticId::parse_hex("b39f24e05b7d5490904f6138b4d7e080").unwrap();
-                selected.simulations.insert(experiment,integration);
+                integration.changes.push(native::dynamics::InputChange {
+                    time: 0.5,
+                    parameters: simulation.parameters().to_vec(),
+                });
+                let experiment = SemanticId::parse_hex("b39f24e05b7d5490904f6138b4d7e080").unwrap();
+                selected.simulations.insert(experiment, integration);
             }
-            let result=package.prepare_fit(fit,selected,compiler(),seed_limits(),&CancelSource::new()).await.unwrap().start().unwrap().wait().await.unwrap();
-            let RunReport::Fit(report)=result.report().unwrap() else {panic!("missing fit")};
-            near(report.candidate.as_ref().unwrap()[0],10.,2e-3);
-            assert!(report.estimate_qualified(),"{report:?}");
+            let result = package
+                .prepare_fit(
+                    fit,
+                    selected,
+                    compiler(),
+                    seed_limits(),
+                    &CancelSource::new(),
+                )
+                .await
+                .unwrap()
+                .start()
+                .unwrap()
+                .wait()
+                .await
+                .unwrap();
+            let RunReport::Fit(report) = result.report().unwrap() else {
+                panic!("missing fit")
+            };
+            near(report.candidate.as_ref().unwrap()[0], 10., 2e-3);
+            assert!(report.estimate_qualified(), "{report:?}");
         }
         _ => panic!("unknown extended workload {operation}"),
     }

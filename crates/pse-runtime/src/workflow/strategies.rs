@@ -9,7 +9,9 @@ use crate::math::{
 use pse_backend_native as native;
 #[cfg(any(feature = "solver-kinsol", test))]
 use pse_backend_native::solve::*;
-use pse_ids::{FramedHasher, SemanticId};
+#[cfg(feature = "solver-kinsol")]
+use pse_ids::FramedHasher;
+use pse_ids::SemanticId;
 use pse_kernels::DerivativeOrder;
 use std::sync::Arc;
 
@@ -35,16 +37,16 @@ pub struct ConicRequest {
     pub rows: Vec<AnalysisPort>,
     /// Physical objective coordinate, with NIL identity.
     pub objective_port: AnalysisPort,
-    /// Native upper triangular Q in 1/2 x'Qx + c'x + constant.
-    pub quadratic: native::conic::Matrix<f64>,
-    /// Native objective coefficients.
+    /// Upper triangular Q in 1/2 x'Qx + c'x + constant.
+    pub quadratic: native::conic::SparseMatrix,
+    /// Objective coefficients.
     pub objective: Vec<f64>,
-    /// Native A in Ax+s=b.
-    pub constraints: native::conic::Matrix<f64>,
+    /// A in Ax+s=b.
+    pub constraints: native::conic::SparseMatrix,
     /// Exact authored b.
     pub rhs: Vec<f64>,
-    /// Library-owned cone vocabulary.
-    pub cones: Vec<native::conic::Cone<f64>>,
+    /// Cone blocks in the pse-owned vocabulary, mapped to the library only by its adapter.
+    pub cones: Vec<native::conic::Cone>,
     /// Original objective constant.
     pub objective_constant: f64,
     /// Explicit sum-of-squares witness factors, one row per weight.
@@ -87,9 +89,9 @@ impl Runtime {
         if bytes.len() > self.shared.budget().math.workspace_bytes / 4 {
             return Err(contract("cone request exceeds workspace allowance"));
         }
-        let mut identity = FramedHasher::new("pse.explicit-conic.v1");
-        identity.part(&bytes);
-        let identity = identity.finish_hash();
+        // Identity of the pse-owned request encoding, independent of any library's serde.
+        let identity = native::identity::of("pse.explicit-conic.v2", &request)
+            .map_err(MathRuntimeError::from)?;
         let target = |p: &AnalysisPort, kind| pse_math::numerics::TargetSpec {
             id: p.symbol_id,
             kind,
@@ -152,11 +154,8 @@ impl Runtime {
                     cones: source.cones.clone(),
                     objective_constant: source.objective_constant,
                 };
-                problem
-                    .quadratic
-                    .check_format()
-                    .map_err(|e| native::ProblemError::Contract(e.to_string()))?;
-                if problem.quadratic.m != n || problem.quadratic.n != n {
+                problem.quadratic.validate()?;
+                if problem.quadratic.rows != n || problem.quadratic.columns != n {
                     return Err(
                         native::ProblemError::Contract("cone quadratic extent".into()).into(),
                     );
@@ -182,8 +181,8 @@ impl Runtime {
                 let sparse = [&problem.quadratic, &problem.constraints]
                     .iter()
                     .map(|a| {
-                        (a.colptr.capacity() + a.rowval.capacity()) * size_of::<usize>()
-                            + a.nzval.capacity() * size_of::<f64>()
+                        (a.column_starts.capacity() + a.row_indices.capacity()) * size_of::<usize>()
+                            + a.values.capacity() * size_of::<f64>()
                     })
                     .sum::<usize>();
                 // Keep known conic buffers and a distinct opaque certificate allowance.

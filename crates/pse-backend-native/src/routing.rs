@@ -11,10 +11,8 @@ use crate::{
     },
 };
 use pse_kernels::DerivativeOrder;
-use pse_model::generated::enums::{ModelingVariableDomain, NativeConstraintForm};
-use pse_math::{
-    facts::{BoundShape, ProblemFacts},
-};
+use pse_math::facts::{BoundShape, ProblemFacts};
+use pse_model::generated::enums::{ModelingVariableDomain, NativeConstraintForm, NativeIneligibility};
 /// Selected execution class, including the zero-variable path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {
@@ -89,15 +87,31 @@ impl std::fmt::Display for Ineligible {
                     _ => "first",
                 }
             ),
-            Self::Bounds { signs: true } => {
-                f.write_str("cannot represent two-sided bounds; only one-sided (shifted sign) bounds")
-            }
+            Self::Bounds { signs: true } => f.write_str(
+                "cannot represent two-sided bounds; only one-sided (shifted sign) bounds",
+            ),
             Self::Bounds { signs: false } => f.write_str("cannot represent variable bounds"),
             Self::NativeForms { missing } => write!(
                 f,
                 "native {} realization needs constraint handlers this adapter lacks",
                 native_forms(missing)
             ),
+        }
+    }
+}
+impl Ineligible {
+    /// Registry reason code: the one name of this reason across the Python boundary.
+    pub const fn code(&self) -> NativeIneligibility {
+        match self {
+            Self::NotLinked => NativeIneligibility::NotLinked,
+            Self::Serial => NativeIneligibility::Serial,
+            Self::NotSquareRoot => NativeIneligibility::NotSquareRoot,
+            Self::NoObjective => NativeIneligibility::NoObjective,
+            Self::Certification => NativeIneligibility::Certification,
+            Self::Class { .. } => NativeIneligibility::Class,
+            Self::Derivatives { .. } => NativeIneligibility::Derivatives,
+            Self::Bounds { .. } => NativeIneligibility::Bounds,
+            Self::NativeForms { .. } => NativeIneligibility::NativeForms,
         }
     }
 }
@@ -179,7 +193,9 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
     }
 }
 fn continuous(f: &ProblemFacts) -> bool {
-    f.domains.iter().all(|d| *d == ModelingVariableDomain::Continuous)
+    f.domains
+        .iter()
+        .all(|d| *d == ModelingVariableDomain::Continuous)
 }
 fn square_root(f: &ProblemFacts) -> bool {
     f.equalities && f.rows == f.variables && !f.objective && continuous(f)

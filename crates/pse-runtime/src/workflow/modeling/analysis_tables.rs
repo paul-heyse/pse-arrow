@@ -355,7 +355,7 @@ impl ModelingInitializationReport {
     }
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::{
-            enums::ModelingInitializationStep as K, runtime::modeling_initializations::*,
+            runtime::modeling_initializations::*,
         };
         one(&self.runtime, self._owner.size(), || {
             RuntimeModelingInitializationsRow {
@@ -378,14 +378,11 @@ impl ModelingInitializationReport {
                     .iter()
                     .enumerate()
                     .map(|(index, a)| {
-                        let (kind, stage, fraction) = match &a.step {
-                            ModelingInitializationStep::Stage(s) => {
-                                (K::Stage, Some(s.clone()), None)
-                            }
-                            ModelingInitializationStep::Homotopy(f) => {
-                                (K::Homotopy, None, Some(*f))
-                            }
-                            ModelingInitializationStep::Original => (K::Original, None, None),
+                        let kind = a.step.kind();
+                        let (stage, fraction) = match &a.step {
+                            ModelingInitializationStep::Stage(s) => (Some(s.clone()), None),
+                            ModelingInitializationStep::Homotopy(f) => (None, Some(*f)),
+                            ModelingInitializationStep::Original => (None, None),
                         };
                         RuntimeModelingInitializationsFieldAttemptsItem {
                             kind,

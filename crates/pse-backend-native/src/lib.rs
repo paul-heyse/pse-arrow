@@ -622,47 +622,41 @@ impl CoefficientProblem {
         quality::Observation::from_values(Some(self.objective_at(x)), values, bounds)
     }
 }
-/// Native conic data in Clarabel's own matrix and cone vocabulary, separate from NLP.
+/// Explicit conic data in the pse-owned boundary vocabulary ([`conic::SparseMatrix`],
+/// [`conic::Cone`]), separate from NLP. Only the Clarabel adapter maps it to native types.
 #[derive(Debug)]
 pub struct ConicProblem {
     /// Source variable and row identities.
     pub contract: OracleContract,
     /// Symmetric objective matrix, upper triangle only.
-    pub quadratic: clarabel::algebra::CscMatrix<f64>,
+    pub quadratic: conic::SparseMatrix,
     /// Linear objective.
     pub objective: Vec<f64>,
     /// Constraint matrix in A x + s = b.
-    pub constraints: clarabel::algebra::CscMatrix<f64>,
+    pub constraints: conic::SparseMatrix,
     /// Right-hand side.
     pub rhs: Vec<f64>,
     /// Cone blocks in constraint row order.
-    pub cones: Vec<clarabel::solver::SupportedConeT<f64>>,
+    pub cones: Vec<conic::Cone>,
     /// Constant survives reporting even though native minimization omits it.
     pub objective_constant: f64,
 }
 impl ConicProblem {
-    /// Validate library CSC storage, explicit cone parameters, and PSD evidence.
+    /// Validate CSC storage, explicit cone parameters, and PSD evidence.
     pub fn validate(
         &self,
         certificate: &dyn pse_math::convexity::QuadraticEvidence,
     ) -> Result<(), ProblemError> {
-        use clarabel::solver::SupportedConeT::{
-            ExponentialConeT, GenPowerConeT, NonnegativeConeT, PowerConeT, SecondOrderConeT,
-            ZeroConeT,
-        };
+        use conic::Cone;
         self.contract.validate(DerivativeOrder::Value)?;
-        self.quadratic
-            .check_format()
-            .map_err(|e| ProblemError::Contract(e.to_string()))?;
-        self.constraints
-            .check_format()
-            .map_err(|e| ProblemError::Contract(e.to_string()))?;
+        self.quadratic.validate()?;
+        self.constraints.validate()?;
         let n = self.contract.variables.len();
         let m = self.contract.rows.len();
-        if self.quadratic.m != n
-            || self.quadratic.n != n
-            || self.constraints.m != m
-            || self.constraints.n != n
+        if self.quadratic.rows != n
+            || self.quadratic.columns != n
+            || self.constraints.rows != m
+            || self.constraints.columns != n
             || self.objective.len() != n
             || self.rhs.len() != m
             || !self.objective_constant.is_finite()
@@ -670,8 +664,8 @@ impl ConicProblem {
                 .objective
                 .iter()
                 .chain(&self.rhs)
-                .chain(&self.quadratic.nzval)
-                .chain(&self.constraints.nzval)
+                .chain(&self.quadratic.values)
+                .chain(&self.constraints.values)
                 .any(|v| !v.is_finite())
         {
             return Err(ProblemError::Contract("conic dimensions or values".into()));
@@ -679,20 +673,27 @@ impl ConicProblem {
         let mut count = 0usize;
         for cone in &self.cones {
             let dim = match cone {
-                ZeroConeT(d) | NonnegativeConeT(d) | SecondOrderConeT(d) if *d > 0 => *d,
-                ExponentialConeT() => 3,
-                #[cfg(feature = "sdp")]
-                clarabel::solver::SupportedConeT::PSDTriangleConeT(d) if *d > 0 => d
+                Cone::Zero { dimension: d }
+                | Cone::Nonnegative { dimension: d }
+                | Cone::SecondOrder { dimension: d }
+                    if *d > 0 =>
+                {
+                    *d
+                }
+                Cone::Exponential => 3,
+                Cone::PsdTriangle { order: d } if *d > 0 => d
                     .checked_add(1)
                     .and_then(|v| d.checked_mul(v))
                     .and_then(|v| v.checked_div(2))
                     .ok_or_else(|| ProblemError::Unsupported("PSD dimension overflow".into()))?,
-                PowerConeT(a) if a.is_finite() && *a > 0.0 && *a < 1.0 => 3,
-                GenPowerConeT(a, d)
-                    if *d > 0
-                        && !a.is_empty()
-                        && a.iter().all(|v| v.is_finite() && *v > 0.0)
-                        && (a.iter().sum::<f64>() - 1.0).abs() <= 1e-12 =>
+                Cone::Power { alpha: a } if a.is_finite() && *a > 0.0 && *a < 1.0 => 3,
+                Cone::GeneralizedPower {
+                    alpha: a,
+                    dimension: d,
+                } if *d > 0
+                    && !a.is_empty()
+                    && a.iter().all(|v| v.is_finite() && *v > 0.0)
+                    && (a.iter().sum::<f64>() - 1.0).abs() <= 1e-12 =>
                 {
                     a.len().checked_add(*d).ok_or_else(|| {
                         ProblemError::Unsupported("cone dimension overflow".into())
@@ -712,17 +713,17 @@ impl ConicProblem {
         certificate.validate(&self.full_quadratic()?, 1.0)?;
         Ok(())
     }
-    /// Symmetric quadratic represented by native upper-triangle storage.
+    /// Symmetric quadratic represented by upper-triangle storage.
     pub fn full_quadratic(&self) -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
         let n = self.contract.variables.len();
-        let mut entries = Vec::with_capacity(self.quadratic.nzval.len() * 2);
+        let mut entries = Vec::with_capacity(self.quadratic.values.len() * 2);
         for c in 0..n {
-            for k in self.quadratic.colptr[c]..self.quadratic.colptr[c + 1] {
-                let r = self.quadratic.rowval[k];
-                let v = self.quadratic.nzval[k];
+            for k in self.quadratic.column(c) {
+                let r = self.quadratic.row_indices[k];
+                let v = self.quadratic.values[k];
                 if r > c {
                     return Err(ProblemError::Contract(
-                        "Clarabel quadratic must be upper triangular".into(),
+                        "conic quadratic must be upper triangular".into(),
                     ));
                 }
                 entries.push(faer::sparse::Triplet::new(r, c, v));

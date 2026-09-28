@@ -493,18 +493,16 @@ impl ModelingPackage {
             .unwrap_or_default();
         Ok((bindings, case))
     }
-    /// Prepare predecessor-ordered conditional initialization without changing the original specification.
+    /// Prepare predecessor-ordered conditional initialization under the analysis's solve
+    /// profile and the supplied continuation stages, without changing the original
+    /// specification. The profile is admitted in Rust before any native work (F26).
     #[cfg(feature="solver-kinsol")]
     pub async fn prepare_block_initialization(
-        &self, a: &ModelingAnalysis, profile: crate::math::initialization::InitializationProfile,
+        &self, a: &ModelingAnalysis, stages: Vec<BTreeMap<SemanticId, f64>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy,WorkflowError> {
-        let order=if profile.controls.hessian==pse_backend_native::solve::HessianMode::Exact {pse_kernels::DerivativeOrder::Second} else {pse_kernels::DerivativeOrder::First};
-        let mut solver=a.solver.clone();
-        solver.selection=profile.selection;
-        solver.controls=profile.controls.clone();
-        solver.numerics=profile.numerics.clone();
-        let resolved=self.resolve_case(a.root,a.instance,a.bindings.clone(),a.limits,a.case.clone(),order,a.compiler,solver,a.numerical.clone(),BTreeMap::new(),BTreeMap::new(),false,cancel).await?;
+        let profile=crate::math::initialization::InitializationProfile{solver:a.solver.clone(),stages};
+        let resolved=self.resolve_case(a.root,a.instance,a.bindings.clone(),a.limits,a.case.clone(),a.order,a.compiler,a.solver.clone(),a.numerical.clone(),BTreeMap::new(),BTreeMap::new(),false,cancel).await?;
         let prepared=self.runtime.native().prepare_modeling_initialization(self.workspace.clone(),resolved.model.case,a.compiler,resolved.numerical,cancel).await?;
         prepared.validate_profile(&resolved.model.values,&profile)?;
         Ok(super::PreparedInitializationStrategy{runtime:self.runtime.clone(),values:resolved.model.values,providers:resolved.providers,prepared,profile})

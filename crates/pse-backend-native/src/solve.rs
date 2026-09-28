@@ -43,8 +43,10 @@ pub enum OptionValue {
 }
 /// Effective options retain origin, including native defaults when queried.
 pub type Options = BTreeMap<String, OptionValue>;
-/// Derivative policy does not silently enable finite differences.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+/// Derivative policy does not silently enable finite differences. Its serde spelling is
+/// the one name of each value across the Python boundary (ADR-0113).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum HessianMode {
     /// Exact weighted Lagrangian Hessian.
     Exact,
@@ -64,8 +66,9 @@ pub enum Preconditioner {
     /// entry leaves its row unscaled.
     Jacobi,
 }
-/// Compatible native state retention requirement.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+/// Compatible native state retention requirement; the serde spelling is its boundary name.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ReusePolicy {
     /// Always construct a fresh native model.
     Fresh,

@@ -75,7 +75,8 @@ mod _native {
             NativeModelingResult, NativePhysicalContext, NativePreparedFlow,
             NativePreparedOperation, NativePreparedStrategy, NativePublicationAttempt,
             NativeRunHandle, NativeRunResult, NativeRuntime, NativeStart, NativeStrategyResult,
-            ProgressEvent, SimulationSettings, SolveSettings,
+            ProgressEvent, SimulationSettings, SolveSettings, BackendSettings, DiffsolSettings,
+            IdasSettings, NativeRoute, NativeEligibility, NativeIneligible, NativeStrategyAttempt,
         },
     };
 
