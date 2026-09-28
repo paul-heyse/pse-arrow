@@ -16,10 +16,11 @@ use crate::{
 use pse_ipopt_sys as ffi;
 use pse_math::binding::ObjectiveSense;
 pub use runtime::{Build, Runtime, build};
-pub use settings::{
+pub use crate::settings::ipopt::{
     Linear, MuStrategy, MumpsOrdering, PardisoMatching, PardisoOrdering, Settings, SpralOrdering,
-    SpralPivot, SpralScaling, admit,
+    SpralPivot, SpralScaling,
 };
+pub use settings::admit;
 use std::{
     ffi::{CString, c_void},
     ptr::NonNull,
@@ -657,7 +658,7 @@ impl Session {
         reject_reserved(&controls.options, &RESTART_OPTIONS)?;
         let mut options = controls.options.clone();
         options.extend(accuracy.nlp_options());
-        options.extend(settings.options());
+        options.extend(settings::options(settings));
         options.extend([
             ("option_file_name".into(), OptionValue::Text(String::new())),
             (
@@ -1207,7 +1208,7 @@ mod tests {
                 serde_json::from_str(&report.provenance["linear"]).unwrap();
             assert_eq!(
                 linear,
-                serde_json::json!({"spral": {"ordering": "metis", "scaling": "matching", "pivot": "block"}})
+                serde_json::json!({"kind": "spral", "ordering": "metis", "scaling": "matching", "pivot": "block"})
             );
         }
     }

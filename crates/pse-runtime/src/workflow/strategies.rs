@@ -90,7 +90,7 @@ impl Runtime {
             return Err(contract("cone request exceeds workspace allowance"));
         }
         // Identity of the pse-owned request encoding, independent of any library's serde.
-        let identity = native::identity::of(pse_ids::Frame::ExplicitConicV2, &request)
+        let identity = native::identity::of(pse_ids::Frame::ExplicitConicV3, &request)
             .map_err(MathRuntimeError::from)?;
         let target = |p: &AnalysisPort, kind| pse_math::numerics::TargetSpec {
             id: p.symbol_id,

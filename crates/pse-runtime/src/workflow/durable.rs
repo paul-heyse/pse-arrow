@@ -520,10 +520,52 @@ fn identities(
     })
 }
 
-const fn termination(code: TerminationCode, detail: serde_json::Value) -> Termination {
+/// Version 1 of the typed detail of an attempt's termination, stored as the attempt's
+/// termination-detail document (ADR-0116 Outcome 6): the typed values that explain why the
+/// try ended as it did.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TerminationDetail {
+    /// Document version.
+    pub version: pse_model::document::Version<1>,
+    /// Why the try ended.
+    pub cause: TerminationCause,
+}
+
+/// The cause of a try's end, beside its typed termination code.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum TerminationCause {
+    /// The run failed with an error, or cancellation stopped it.
+    Error {
+        /// The error's message.
+        message: String,
+        /// The violated named contract the error reports.
+        rule: String,
+    },
+    /// Infrastructure failed the try; it is retried under the job's policy.
+    Infrastructure {
+        /// The error's message.
+        message: String,
+    },
+    /// The joined run was assessed.
+    Assessment {
+        /// Every requested candidate is a result.
+        usable: bool,
+        /// The use of each requested candidate, in request order.
+        candidate_use: Vec<CandidateUse>,
+    },
+}
+
+fn termination(code: TerminationCode, cause: TerminationCause) -> Termination {
+    let detail = TerminationDetail {
+        version: pse_model::document::Version,
+        cause,
+    };
     Termination {
         code,
-        detail: Some(detail),
+        // Strings, Booleans and registry spellings always encode.
+        detail: serde_json::to_value(detail).ok(),
     }
 }
 
@@ -541,10 +583,10 @@ fn failure(error: &WorkflowError, cancelled: bool) -> Outcome {
         WorkflowError::Math(M::Infrastructure(_)) => true,
         _ => false,
     };
-    let detail = serde_json::json!({
-        "error": error.to_string(),
-        "rule": error.boundary_diagnostic().rule,
-    });
+    let detail = TerminationCause::Error {
+        message: error.to_string(),
+        rule: error.boundary_diagnostic().rule,
+    };
     if cancelled || is_cancel {
         Outcome {
             state: AttemptState::Cancelled,
@@ -570,7 +612,9 @@ fn infrastructure(error: &WorkflowError) -> Outcome {
         state: AttemptState::Failed,
         termination: termination(
             TerminationCode::Runtime(RuntimeTermination::Infrastructure),
-            serde_json::json!({ "error": error.to_string() }),
+            TerminationCause::Infrastructure {
+                message: error.to_string(),
+            },
         ),
         reason: error.to_string(),
         retryable: true,
@@ -585,10 +629,10 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
         Ok(report) => report,
         Err(error) => return failure(error, cancelled),
     };
-    let uses: Vec<&str> = result
+    let uses: Vec<CandidateUse> = result
         .assessments()
         .iter()
-        .map(|a| a.usability.as_str())
+        .map(|a| a.usability)
         .collect();
     let usable = |a: &&pse_model::generated::runtime::candidate_assessments::Row| {
         matches!(
@@ -620,7 +664,10 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
             ),
         (_, Err(_)) => TerminationCode::Runtime(RuntimeTermination::Unassessed),
     };
-    let detail = serde_json::json!({ "usable": result.usable(), "candidate_use": uses });
+    let detail = TerminationCause::Assessment {
+        usable: result.usable(),
+        candidate_use: uses,
+    };
     let (state, reason) = if cancelled {
         (AttemptState::Cancelled, "cancellation requested")
     } else if result.usable() {

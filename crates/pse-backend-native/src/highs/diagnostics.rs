@@ -5,44 +5,7 @@ use super::*;
 use enum_map::EnumMap;
 use pse_ids::SemanticId;
 
-/// Requested native diagnostic work, bounded by the original attempt's deadline.
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Request {
-    /// Native primal/dual rays when available for the continuous model.
-    pub rays: bool,
-    /// Native irreducible infeasible subsystem; MIP scope is its LP relaxation.
-    pub iis: bool,
-    /// Basis sensitivity ranges for an optimal continuous LP with a valid basis.
-    pub ranging: bool,
-    /// Separate feasibility-relaxation solve on a copied LP/MIP. Negative penalties
-    /// forbid violation, as in the native API; no penalty is inferred from units.
-    pub relaxation: Option<Penalties>,
-    /// Duals of the MIP's LP with its discrete columns fixed at the solution
-    /// (`Highs_getFixedLp`), conditional on that commitment.
-    pub fixed_lp: bool,
-    /// Rows of the basis inverse `B⁻¹` at these basis positions, with the basic variables,
-    /// for an optimal continuous LP with a valid basis.
-    pub basis_inverse: Option<Vec<usize>>,
-    /// Native presolve of a copied model: the presolved LP and, for a continuous LP, the
-    /// postsolved solution of that LP.
-    pub presolve: bool,
-    /// The MIP solver's cut pool after root cut generation (callback kind 7).
-    pub cut_pool: bool,
-}
-impl Request {
-    /// Any diagnostic work was requested.
-    pub fn any(&self) -> bool {
-        self.rays
-            || self.iis
-            || self.ranging
-            || self.relaxation.is_some()
-            || self.fixed_lp
-            || self.basis_inverse.is_some()
-            || self.presolve
-            || self.cut_pool
-    }
-}
+pub use crate::settings::highs::{Penalties, Request};
 /// The LP of a MIP with its discrete columns fixed at the MIP solution, solved separately.
 /// Its duals price the constraints conditional on that commitment (PS-12); they are not
 /// duals of the MIP, whose discrete decisions have none.
@@ -193,29 +156,16 @@ impl CutPool {
         Some(pool)
     }
 }
-/// Complete physical penalty declarations for native feasibility relaxation.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Penalties {
-    /// Global lower-bound, upper-bound and constraint penalties.
-    pub global: [f64; 3],
-    /// Optional per-variable lower-bound penalties.
-    pub lower: Option<Vec<f64>>,
-    /// Optional per-variable upper-bound penalties.
-    pub upper: Option<Vec<f64>>,
-    /// Optional per-row penalties.
-    pub rows: Option<Vec<f64>>,
-}
 impl Penalties {
-    /// Validate complete dimensions and finite weights before native mutation.
+    /// Validate complete dimensions and finite per-entry weights before native mutation;
+    /// the global weights are finite by type.
     pub fn validate(&self, n: usize, m: usize) -> Result<(), ProblemError> {
-        if self.global.iter().any(|v| !v.is_finite())
-            || [(&self.lower, n), (&self.upper, n), (&self.rows, m)]
-                .iter()
-                .any(|(v, n)| {
-                    v.as_ref()
-                        .is_some_and(|v| v.len() != *n || v.iter().any(|v| !v.is_finite()))
-                })
+        if [(&self.lower, n), (&self.upper, n), (&self.rows, m)]
+            .iter()
+            .any(|(v, n)| {
+                v.as_ref()
+                    .is_some_and(|v| v.len() != *n || v.iter().any(|v| !v.is_finite()))
+            })
         {
             return Err(ProblemError::Contract(
                 "relaxation penalty dimensions/values".into(),
@@ -617,9 +567,9 @@ impl Session {
                 let status = unsafe {
                     ffi::Highs_feasibilityRelaxation(
                         ptr,
-                        v.global[0],
-                        v.global[1],
-                        v.global[2],
+                        v.global[0].into_inner(),
+                        v.global[1].into_inner(),
+                        v.global[2].into_inner(),
                         data(&v.lower),
                         data(&v.upper),
                         data(&v.rows),

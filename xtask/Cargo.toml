@@ -29,6 +29,7 @@ package-fixtures = [
   "dep:pse-relations",
   "dep:pse-runtime",
   "dep:pse-rules",
+  "dep:pse-backend-native",
 ]
 
 [dependencies]
@@ -46,6 +47,9 @@ pse-quantity.workspace = true
 pse-relations = { workspace = true, optional = true }
 pse-runtime = { workspace = true, optional = true }
 pse-rules = { workspace = true, optional = true }
+# The boundary documents whose schemas the generator publishes (ADR-0116 Outcome 7).
+pse-backend-native = { workspace = true, optional = true }
+schemars.workspace = true
 serde_json.workspace = true
 clap.workspace = true
 cargo_metadata.workspace = true

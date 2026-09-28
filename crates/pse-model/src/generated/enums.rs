@@ -62,6 +62,21 @@ impl ArtifactReconstruction {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ArtifactReconstruction {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ArtifactReconstruction))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ArtifactReconstruction)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["none", "exact_release"] })
+    }
+}
 impl core::str::FromStr for ArtifactReconstruction {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -142,6 +157,21 @@ impl AssertionStatus {
             Self::Fail => None,
             Self::Obsolete => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AssertionStatus {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AssertionStatus))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(AssertionStatus)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["pass", "fail", "obsolete"] }
+        )
     }
 }
 impl core::str::FromStr for AssertionStatus {
@@ -225,6 +255,21 @@ impl AttemptKind {
             Self::Simulation => None,
             Self::Fit => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AttemptKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AttemptKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(AttemptKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["modeling", "simulation", "fit"] }
+        )
     }
 }
 impl core::str::FromStr for AttemptKind {
@@ -354,6 +399,22 @@ impl AttemptState {
             Self::Stale => None,
             Self::Superseded => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for AttemptState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(AttemptState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(AttemptState)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["planned", "queued", "running", "completed",
+            "partial", "failed", "cancelled", "stale", "superseded"] }
+        )
     }
 }
 impl core::str::FromStr for AttemptState {
@@ -490,6 +551,19 @@ impl BoundKind {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for BoundKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(BoundKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(BoundKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["finite", "unbounded"] })
+    }
+}
 impl core::str::FromStr for BoundKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -581,6 +655,22 @@ impl BoundStatus {
             Self::AtUpper => None,
             Self::Violated => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for BoundStatus {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(BoundStatus))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(BoundStatus)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["interior", "at_lower", "at_upper",
+            "violated"] }
+        )
     }
 }
 impl core::str::FromStr for BoundStatus {
@@ -685,6 +775,22 @@ impl CandidateUse {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for CandidateUse {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(CandidateUse))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(CandidateUse)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["usable", "qualified_unclosed", "seed_only",
+            "diagnostic_only", "unusable"] }
+        )
+    }
+}
 impl core::str::FromStr for CandidateUse {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -781,6 +887,22 @@ impl ChangeKind {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ChangeKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ChangeKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ChangeKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["insert", "delete", "update_preimage",
+            "update_postimage"] }
+        )
+    }
+}
 impl core::str::FromStr for ChangeKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -865,6 +987,23 @@ impl ClarabelMergeMethod {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ClarabelMergeMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ClarabelMergeMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ClarabelMergeMethod)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["none", "parent_child", "clique_graph"] }
+        )
+    }
+}
 impl core::str::FromStr for ClarabelMergeMethod {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -940,6 +1079,21 @@ impl ClarabelMode {
             Self::SingleSolve => None,
             Self::ReusableData => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ClarabelMode {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ClarabelMode))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ClarabelMode)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["single_solve", "reusable_data"] }
+        )
     }
 }
 impl core::str::FromStr for ClarabelMode {
@@ -1035,6 +1189,22 @@ impl ClosureAssessment {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ClosureAssessment {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ClosureAssessment))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ClosureAssessment)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["not_required", "closed", "unclosed",
+            "unavailable"] }
+        )
+    }
+}
 impl core::str::FromStr for ClosureAssessment {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -1111,6 +1281,21 @@ impl ClosurePolicy {
             Self::RequireClosed => None,
             Self::AllowUnclosed => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ClosurePolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ClosurePolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ClosurePolicy)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["require_closed", "allow_unclosed"] }
+        )
     }
 }
 impl core::str::FromStr for ClosurePolicy {
@@ -1223,6 +1408,19 @@ impl ComputationKind {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ComputationKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ComputationKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ComputationKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["simulation", "fit"] })
+    }
+}
 impl core::str::FromStr for ComputationKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -1321,6 +1519,24 @@ impl ConstraintScalingScheme {
             Self::InverseMaximum => Some("inverseMaximum"),
             Self::InverseMinimum => Some("inverseMinimum"),
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ConstraintScalingScheme {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ConstraintScalingScheme))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ConstraintScalingScheme)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["harmonicMean", "inverseSum", "inverseRSS",
+            "inverseMaximum", "inverseMinimum"] }
+        )
     }
 }
 impl core::str::FromStr for ConstraintScalingScheme {
@@ -1476,6 +1692,23 @@ impl DiagnosticSeverity {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for DiagnosticSeverity {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(DiagnosticSeverity))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(DiagnosticSeverity)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["error", "warning", "info"] }
+        )
+    }
+}
 impl core::str::FromStr for DiagnosticSeverity {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -1551,6 +1784,19 @@ impl DiffsolLinear {
             Self::FaerLu => None,
             Self::Klu => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for DiffsolLinear {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(DiffsolLinear))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(DiffsolLinear)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["faer_lu", "klu"] })
     }
 }
 impl core::str::FromStr for DiffsolLinear {
@@ -1644,6 +1890,21 @@ impl DiffsolMethod {
             Self::Esdirk34 => None,
             Self::Tsit45 => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for DiffsolMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(DiffsolMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(DiffsolMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["bdf", "tr_bdf2", "esdirk34", "tsit45"] }
+        )
     }
 }
 impl core::str::FromStr for DiffsolMethod {
@@ -1743,6 +2004,22 @@ impl DualQualification {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for DualQualification {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(DualQualification))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(DualQualification)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["evaluated_kkt_not_sensitivity_certified",
+            "unavailable_or_invalid", "unavailable", "not_applicable_parameter"] }
+        )
+    }
+}
 impl core::str::FromStr for DualQualification {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -1827,6 +2104,21 @@ impl DynamicsMethod {
             Self::Diffsol => None,
             Self::Idas => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for DynamicsMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(DynamicsMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(DynamicsMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["auto", "diffsol", "idas"] }
+        )
     }
 }
 impl core::str::FromStr for DynamicsMethod {
@@ -1935,6 +2227,22 @@ impl EntityKind {
             Self::Constant => None,
             Self::Dataset => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for EntityKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(EntityKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(EntityKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["package", "unit", "unit_set",
+            "quantity_kind", "constant", "dataset"] }
+        )
     }
 }
 impl core::str::FromStr for EntityKind {
@@ -2055,6 +2363,24 @@ impl EvidenceUnavailableReason {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for EvidenceUnavailableReason {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(EvidenceUnavailableReason))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(EvidenceUnavailableReason)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["not_requested", "not_computed",
+            "not_applicable", "unsupported", "failed", "unknown", "nonfinite"] }
+        )
+    }
+}
 impl core::str::FromStr for EvidenceUnavailableReason {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -2160,6 +2486,24 @@ impl ExternalDerivativeSource {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ExternalDerivativeSource {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ExternalDerivativeSource))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ExternalDerivativeSource)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["analytic", "symbolic", "automatic",
+            "supplied", "implicit"] }
+        )
+    }
+}
 impl core::str::FromStr for ExternalDerivativeSource {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -2239,6 +2583,21 @@ impl ExtrapolationPolicy {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ExtrapolationPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ExtrapolationPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ExtrapolationPolicy)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["reject", "extrapolate"] })
+    }
+}
 impl core::str::FromStr for ExtrapolationPolicy {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -2270,6 +2629,252 @@ impl crate::HeapUsage for FailureClass {
 impl crate::SemanticFrame for FailureClass {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum FeralOrdering {
+    ///Approximate minimum degree.
+    #[serde(rename = "amd")]
+    Amd,
+    ///Approximate minimum fill.
+    #[serde(rename = "amf")]
+    Amf,
+    ///METIS multilevel nested dissection.
+    #[serde(rename = "metis_nd")]
+    MetisNd,
+    ///SCOTCH nested dissection.
+    #[serde(rename = "scotch_nd")]
+    ScotchNd,
+    ///KaHIP nested dissection.
+    #[serde(rename = "kahip_nd")]
+    KahipNd,
+    ///FERAL's size- and shape-based choice.
+    #[serde(rename = "auto")]
+    Auto,
+    ///Race the candidate orderings and keep the least fill.
+    #[serde(rename = "auto_race")]
+    AutoRace,
+}
+impl crate::SemanticEq for FeralOrdering {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl FeralOrdering {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 7usize] = [
+        Self::Amd,
+        Self::Amf,
+        Self::MetisNd,
+        Self::ScotchNd,
+        Self::KahipNd,
+        Self::Auto,
+        Self::AutoRace,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Amd => "amd",
+            Self::Amf => "amf",
+            Self::MetisNd => "metis_nd",
+            Self::ScotchNd => "scotch_nd",
+            Self::KahipNd => "kahip_nd",
+            Self::Auto => "auto",
+            Self::AutoRace => "auto_race",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Amd => 0usize,
+            Self::Amf => 1usize,
+            Self::MetisNd => 2usize,
+            Self::ScotchNd => 3usize,
+            Self::KahipNd => 4usize,
+            Self::Auto => 5usize,
+            Self::AutoRace => 6usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Amd => None,
+            Self::Amf => None,
+            Self::MetisNd => None,
+            Self::ScotchNd => None,
+            Self::KahipNd => None,
+            Self::Auto => None,
+            Self::AutoRace => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for FeralOrdering {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(FeralOrdering))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(FeralOrdering)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["amd", "amf", "metis_nd", "scotch_nd",
+            "kahip_nd", "auto", "auto_race"] }
+        )
+    }
+}
+impl core::str::FromStr for FeralOrdering {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "amd" => Ok(Self::Amd),
+            "amf" => Ok(Self::Amf),
+            "metis_nd" => Ok(Self::MetisNd),
+            "scotch_nd" => Ok(Self::ScotchNd),
+            "kahip_nd" => Ok(Self::KahipNd),
+            "auto" => Ok(Self::Auto),
+            "auto_race" => Ok(Self::AutoRace),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(FeralOrdering).to_owned(),
+                    enumeration: stringify!(FeralOrdering).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum FeralScaling {
+    ///Knight–Ruiz infinity-norm equilibration.
+    #[serde(rename = "inf_norm")]
+    InfNorm,
+    ///MC64-style symmetric matching scaling.
+    #[serde(rename = "mc64_symmetric")]
+    Mc64Symmetric,
+    ///No scaling.
+    #[serde(rename = "identity")]
+    Identity,
+    ///MC64 for arrow-KKT shapes, infinity-norm otherwise.
+    #[serde(rename = "auto")]
+    Auto,
+}
+impl crate::SemanticEq for FeralScaling {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl FeralScaling {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = [
+        Self::InfNorm,
+        Self::Mc64Symmetric,
+        Self::Identity,
+        Self::Auto,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::InfNorm => "inf_norm",
+            Self::Mc64Symmetric => "mc64_symmetric",
+            Self::Identity => "identity",
+            Self::Auto => "auto",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::InfNorm => 0usize,
+            Self::Mc64Symmetric => 1usize,
+            Self::Identity => 2usize,
+            Self::Auto => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::InfNorm => None,
+            Self::Mc64Symmetric => None,
+            Self::Identity => None,
+            Self::Auto => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for FeralScaling {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(FeralScaling))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(FeralScaling)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["inf_norm", "mc64_symmetric", "identity",
+            "auto"] }
+        )
+    }
+}
+impl core::str::FromStr for FeralScaling {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "inf_norm" => Ok(Self::InfNorm),
+            "mc64_symmetric" => Ok(Self::Mc64Symmetric),
+            "identity" => Ok(Self::Identity),
+            "auto" => Ok(Self::Auto),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(FeralScaling).to_owned(),
+                    enumeration: stringify!(FeralScaling).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
     }
 }
 /// A string enumeration projected from the registry.
@@ -2330,6 +2935,19 @@ impl FindingSeverity {
             Self::Error => None,
             Self::Warning => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for FindingSeverity {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(FindingSeverity))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(FindingSeverity)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["error", "warning"] })
     }
 }
 impl core::str::FromStr for FindingSeverity {
@@ -2406,6 +3024,21 @@ impl HessianMode {
             Self::Exact => None,
             Self::LimitedMemory => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for HessianMode {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(HessianMode))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(HessianMode)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["exact", "limited_memory"] }
+        )
     }
 }
 impl core::str::FromStr for HessianMode {
@@ -2496,6 +3129,21 @@ impl HighsMethod {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for HighsMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(HighsMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(HighsMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["choose", "simplex", "ipm", "pdlp"] }
+        )
+    }
+}
 impl core::str::FromStr for HighsMethod {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -2574,6 +3222,19 @@ impl IdPolicy {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for IdPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(IdPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(IdPolicy)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["explicit", "named"] })
+    }
+}
 impl core::str::FromStr for IdPolicy {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -2650,6 +3311,23 @@ impl IdasInitialization {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for IdasInitialization {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(IdasInitialization))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(IdasInitialization)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["algebraic_and_rates", "steady_states"] }
+        )
+    }
+}
 impl core::str::FromStr for IdasInitialization {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -2724,6 +3402,21 @@ impl InputConsumptionKind {
             Self::Whole => None,
             Self::Columns => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for InputConsumptionKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(InputConsumptionKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(InputConsumptionKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["whole", "columns"] })
     }
 }
 impl core::str::FromStr for InputConsumptionKind {
@@ -2823,6 +3516,21 @@ impl IpoptLinearSolver {
             Self::Spral => None,
             Self::Pardisomkl => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for IpoptLinearSolver {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(IpoptLinearSolver))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(IpoptLinearSolver)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["mumps", "spral", "pardisomkl"] }
+        )
     }
 }
 impl core::str::FromStr for IpoptLinearSolver {
@@ -2926,6 +3634,22 @@ impl JobState {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for JobState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(JobState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(JobState)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["queued", "running", "completed", "failed",
+            "cancelled"] }
+        )
+    }
+}
 impl core::str::FromStr for JobState {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -3020,6 +3744,24 @@ impl KinsolOrthogonalization {
             Self::ClassicalGramSchmidt2 => None,
             Self::DelayedClassicalGramSchmidt2 => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for KinsolOrthogonalization {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(KinsolOrthogonalization))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(KinsolOrthogonalization)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["modified_gram_schmidt", "inverse_compact_wy",
+            "classical_gram_schmidt2", "delayed_classical_gram_schmidt2"] }
+        )
     }
 }
 impl core::str::FromStr for KinsolOrthogonalization {
@@ -3117,6 +3859,22 @@ impl KinsolStrategy {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for KinsolStrategy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(KinsolStrategy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(KinsolStrategy)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["picard", "newton", "line_search",
+            "fixed_point"] }
+        )
+    }
+}
 impl core::str::FromStr for KinsolStrategy {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -3193,6 +3951,21 @@ impl MemberSelectionKind {
             Self::Full => None,
             Self::Revision => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for MemberSelectionKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(MemberSelectionKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(MemberSelectionKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["full", "revision"] })
     }
 }
 impl core::str::FromStr for MemberSelectionKind {
@@ -3288,6 +4061,22 @@ impl MigrationOp {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for MigrationOp {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(MigrationOp))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(MigrationOp)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["add_column", "drop_column", "rename_column",
+            "change_nullable"] }
+        )
+    }
+}
 impl core::str::FromStr for MigrationOp {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -3364,6 +4153,23 @@ impl ModelingAccumulatorMode {
             Self::Conservation => None,
             Self::Accounting => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingAccumulatorMode {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingAccumulatorMode))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingAccumulatorMode)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["conservation", "accounting"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingAccumulatorMode {
@@ -3446,6 +4252,23 @@ impl ModelingAnalysisRoute {
             Self::Integrated => None,
             Self::Simultaneous => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingAnalysisRoute {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingAnalysisRoute))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingAnalysisRoute)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["steady", "integrated", "simultaneous"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingAnalysisRoute {
@@ -3547,6 +4370,22 @@ impl ModelingCheckKind {
             Self::Closure => None,
             Self::Validity => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingCheckKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingCheckKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ModelingCheckKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["expectation", "check", "original_equation",
+            "closure", "validity"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingCheckKind {
@@ -3680,6 +4519,25 @@ impl ModelingConformanceKind {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingConformanceKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingConformanceKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingConformanceKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["coverage", "preparation",
+            "degrees_of_freedom", "derivatives", "envelope", "start_to_solve", "closure",
+            "expectation", "check"] }
+        )
+    }
+}
 impl core::str::FromStr for ModelingConformanceKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -3792,6 +4650,24 @@ impl ModelingConformanceStatus {
             Self::Cancelled => None,
             Self::Unattempted => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingConformanceStatus {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingConformanceStatus))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingConformanceStatus)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["passed", "failed", "inconclusive",
+            "not_applicable", "cancelled", "unattempted"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingConformanceStatus {
@@ -3917,6 +4793,24 @@ impl ModelingContributionRole {
             Self::Positive => None,
             Self::Negative => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingContributionRole {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingContributionRole))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingContributionRole)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["inflow", "outflow", "generation",
+            "consumption", "accumulation", "transfer", "positive", "negative"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingContributionRole {
@@ -4333,6 +5227,31 @@ impl ModelingDeclarationKind {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingDeclarationKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingDeclarationKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingDeclarationKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["relaxation", "continuation", "package",
+            "entity_kind", "interface", "definition", "case", "test", "stage",
+            "implicit", "regime", "disjunction", "alternative", "parameter", "variable",
+            "let", "alias", "attribute", "set", "child", "port", "preset", "scope_value",
+            "function", "equation", "sos1", "sos2", "atmost", "atleast", "exactly",
+            "piecewise", "logic", "table", "dataset", "entity", "enum", "import", "when",
+            "accumulator", "contribution", "connection", "annotation", "requirement",
+            "expectation", "continuous", "difference_scheme", "collocation_scheme",
+            "discretization", "realization"] }
+        )
+    }
+}
 impl core::str::FromStr for ModelingDeclarationKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -4480,6 +5399,24 @@ impl ModelingDiagnosticSampleStop {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingDiagnosticSampleStop {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingDiagnosticSampleStop))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingDiagnosticSampleStop)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["completed", "sample_limit", "finding_limit",
+            "time_limit", "cancelled"] }
+        )
+    }
+}
 impl core::str::FromStr for ModelingDiagnosticSampleStop {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -4567,6 +5504,24 @@ impl ModelingElasticObservation {
             Self::LocalObstruction => None,
             Self::Inconclusive => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingElasticObservation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingElasticObservation))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingElasticObservation)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["feasible_witness", "local_obstruction",
+            "inconclusive"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingElasticObservation {
@@ -4668,6 +5623,23 @@ impl ModelingFixtureBinding {
             Self::Lower => None,
             Self::Upper => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingFixtureBinding {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingFixtureBinding))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingFixtureBinding)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["value", "fix", "free", "lower", "upper"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingFixtureBinding {
@@ -4773,6 +5745,24 @@ impl ModelingFixtureExecution {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingFixtureExecution {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingFixtureExecution))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingFixtureExecution)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["pure", "steady", "initialized", "integrated",
+            "simultaneous"] }
+        )
+    }
+}
 impl core::str::FromStr for ModelingFixtureExecution {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -4856,6 +5846,23 @@ impl ModelingInitializationStep {
             Self::Homotopy => None,
             Self::Original => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingInitializationStep {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingInitializationStep))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingInitializationStep)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["stage", "homotopy", "original"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingInitializationStep {
@@ -4950,6 +5957,24 @@ impl ModelingRealValueKind {
             Self::PositiveInfinity => None,
             Self::Indeterminate => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingRealValueKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingRealValueKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingRealValueKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["finite", "negative_infinity",
+            "positive_infinity", "indeterminate"] }
+        )
     }
 }
 impl core::str::FromStr for ModelingRealValueKind {
@@ -5096,6 +6121,25 @@ impl ModelingRealizationPolicy {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingRealizationPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingRealizationPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingRealizationPolicy)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["inline", "nested", "accelerated", "big_m",
+            "derived_big_m", "hull", "indicator", "linear", "native", "sos2",
+            "incremental"] }
+        )
+    }
+}
 impl core::str::FromStr for ModelingRealizationPolicy {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -5205,6 +6249,24 @@ impl ModelingVariableDomain {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ModelingVariableDomain {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ModelingVariableDomain))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ModelingVariableDomain)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["continuous", "integer", "binary",
+            "semicontinuous", "semiinteger"] }
+        )
+    }
+}
 impl core::str::FromStr for ModelingVariableDomain {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -5282,6 +6344,19 @@ impl MuStrategy {
             Self::Monotone => None,
             Self::Adaptive => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for MuStrategy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(MuStrategy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(MuStrategy)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["monotone", "adaptive"] })
     }
 }
 impl core::str::FromStr for MuStrategy {
@@ -5382,6 +6457,21 @@ impl MumpsOrdering {
             Self::Metis => None,
             Self::Qamd => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for MumpsOrdering {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(MumpsOrdering))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(MumpsOrdering)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["amd", "amf", "pord", "metis", "qamd"] }
+        )
     }
 }
 impl core::str::FromStr for MumpsOrdering {
@@ -5532,6 +6622,23 @@ impl NativeAssurance {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeAssurance {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeAssurance))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativeAssurance)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["none", "feasible", "local_stationary",
+            "native_optimal", "certificate", "global_bound", "proven_infeasible",
+            "exact_certificate", "sos_bound_nonrigorous"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeAssurance {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -5658,6 +6765,22 @@ impl NativeBackend {
             Self::Idas => None,
             Self::Scip => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeBackend {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeBackend))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativeBackend)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["ipopt", "pounce", "kinsol", "highs",
+            "clarabel", "diffsol", "idas", "scip"] }
+        )
     }
 }
 impl core::str::FromStr for NativeBackend {
@@ -5815,6 +6938,26 @@ impl NativeBoundaryClass {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeBoundaryClass {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeBoundaryClass))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeBoundaryClass)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["invalid_model", "unsupported",
+            "resource_limit", "trial_rejected", "nonfinite", "infrastructure",
+            "cancelled", "conflict", "incompatible", "internal", "numerical",
+            "inconclusive"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeBoundaryClass {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -5916,6 +7059,24 @@ impl NativeCandidateKind {
             Self::FeasiblePoint => None,
             Self::ConstantEvaluation => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeCandidateKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeCandidateKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeCandidateKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["final_iterate", "best_iterate",
+            "feasible_point", "constant_evaluation"] }
+        )
     }
 }
 impl core::str::FromStr for NativeCandidateKind {
@@ -6032,6 +7193,24 @@ impl NativeConstraintForm {
             Self::Xor => None,
             Self::Cardinality => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeConstraintForm {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeConstraintForm))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeConstraintForm)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["indicator", "sos1", "sos2", "and", "or",
+            "xor", "cardinality"] }
+        )
     }
 }
 impl core::str::FromStr for NativeConstraintForm {
@@ -6158,6 +7337,24 @@ impl NativeDependencyEvidenceKind {
             Self::Selection => None,
             Self::Projection => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeDependencyEvidenceKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeDependencyEvidenceKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeDependencyEvidenceKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["absent", "present", "text", "identity",
+            "identified_text", "fingerprint", "selection", "projection"] }
+        )
     }
 }
 impl core::str::FromStr for NativeDependencyEvidenceKind {
@@ -6301,6 +7498,24 @@ impl NativeDependencyKind {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeDependencyKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeDependencyKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeDependencyKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["operation", "input", "contract", "function",
+            "rule", "setting", "policy", "provider", "scope", "observation"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeDependencyKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -6407,6 +7622,25 @@ impl NativeDerivativeCapability {
             Self::FirstWithSmoothSensitivities => None,
             Self::Factorable => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeDerivativeCapability {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeDerivativeCapability))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeDerivativeCapability)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["exact_hessian_or_limited_memory",
+            "jacobian_or_product", "coefficients", "first_with_smooth_sensitivities",
+            "factorable"] }
+        )
     }
 }
 impl core::str::FromStr for NativeDerivativeCapability {
@@ -6540,6 +7774,25 @@ impl NativeIneligibility {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeIneligibility {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeIneligibility))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeIneligibility)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["not_linked", "serial", "not_square_root",
+            "no_objective", "certification", "class", "derivatives", "bounds",
+            "native_forms"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeIneligibility {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -6647,6 +7900,22 @@ impl NativeMetricKind {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeMetricKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeMetricKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativeMetricKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["real", "integer", "boolean", "text",
+            "unavailable"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeMetricKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -6724,6 +7993,21 @@ impl NativeObjectiveSense {
             Self::Minimize => None,
             Self::Maximize => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeObjectiveSense {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeObjectiveSense))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeObjectiveSense)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["minimize", "maximize"] })
     }
 }
 impl core::str::FromStr for NativeObjectiveSense {
@@ -6875,6 +8159,26 @@ impl NativeProblemClass {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeProblemClass {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeProblemClass))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeProblemClass)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["smooth_nlp", "square_root",
+            "declared_fixed_point", "linear", "mixed_linear", "convex_quadratic",
+            "continuous_cone", "ode", "semi_explicit_index1", "nonconvex_quadratic",
+            "mixed_integer_quadratic", "mixed_integer_nonlinear"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeProblemClass {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -6985,6 +8289,24 @@ impl NativeQualification {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeQualification {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeQualification))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeQualification)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["unqualified", "feasible", "stationary",
+            "optimal_within_tolerance", "gap_qualified"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeQualification {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -7079,6 +8401,22 @@ impl NativeRunState {
             Self::Rejected => None,
             Self::Unattempted => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeRunState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeRunState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativeRunState)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["native", "constant_evaluation", "rejected",
+            "unattempted"] }
+        )
     }
 }
 impl core::str::FromStr for NativeRunState {
@@ -7183,6 +8521,22 @@ impl NativeSolveIntent {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeSolveIntent {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeSolveIntent))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativeSolveIntent)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["optimize", "root", "feasible_point",
+            "initialize", "certify"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeSolveIntent {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -7270,6 +8624,22 @@ impl NativeStartPolicy {
             Self::PreviousAccepted => None,
             Self::Explicit => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeStartPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeStartPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativeStartPolicy)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["no_prior_start", "previous_accepted",
+            "explicit"] }
+        )
     }
 }
 impl core::str::FromStr for NativeStartPolicy {
@@ -7464,6 +8834,25 @@ impl NativeTermination {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeTermination {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeTermination))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NativeTermination)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["success", "acceptable", "feasible_only",
+            "infeasible", "unbounded", "infeasible_or_unbounded", "limit",
+            "iteration_limit", "resource_exhausted", "inconclusive", "objective_limit",
+            "solution_limit", "time_limit", "cancelled", "numerical", "evaluation",
+            "panic", "invalid"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeTermination {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -7580,6 +8969,24 @@ impl NativeWarmCapability {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeWarmCapability {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeWarmCapability))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeWarmCapability)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["none", "primal", "primal_dual",
+            "primal_dual_and_working_set", "primal_dual_and_basis"] }
+        )
+    }
+}
 impl core::str::FromStr for NativeWarmCapability {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -7657,6 +9064,23 @@ impl NumericalCoordinates {
             Self::Physical => None,
             Self::Normalized => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalCoordinates {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalCoordinates))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalCoordinates)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["physical", "normalized"] }
+        )
     }
 }
 impl core::str::FromStr for NumericalCoordinates {
@@ -7750,6 +9174,24 @@ impl NumericalProvenanceField {
             Self::RelativeTolerance => None,
             Self::CoordinateScale => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalProvenanceField {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalProvenanceField))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NumericalProvenanceField)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["nominal", "absolute_tolerance",
+            "relative_tolerance", "coordinate_scale"] }
+        )
     }
 }
 impl core::str::FromStr for NumericalProvenanceField {
@@ -7875,6 +9317,23 @@ impl NumericalSource {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalSource {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalSource))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NumericalSource)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["analysis", "case", "model", "model_hint",
+            "property_default", "derived_nominal", "quantity_nominal",
+            "canonical_fallback"] }
+        )
+    }
+}
 impl core::str::FromStr for NumericalSource {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -7981,6 +9440,22 @@ impl NumericalTarget {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NumericalTarget {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NumericalTarget))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(NumericalTarget)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["variable", "row", "objective", "observable",
+            "closure"] }
+        )
+    }
+}
 impl core::str::FromStr for NumericalTarget {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -8058,6 +9533,23 @@ impl ObservationTimeBasis {
             Self::Elapsed => None,
             Self::ModelClock => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ObservationTimeBasis {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ObservationTimeBasis))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ObservationTimeBasis)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["elapsed", "model_clock"] }
+        )
     }
 }
 impl core::str::FromStr for ObservationTimeBasis {
@@ -8187,6 +9679,21 @@ impl PackageKind {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for PackageKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(PackageKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(PackageKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["reference", "library", "model", "case"] }
+        )
+    }
+}
 impl core::str::FromStr for PackageKind {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -8275,6 +9782,22 @@ impl PardisoMatching {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for PardisoMatching {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(PardisoMatching))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(PardisoMatching)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["complete", "complete_plus2x2", "constraints"]
+            }
+        )
+    }
+}
 impl core::str::FromStr for PardisoMatching {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -8356,6 +9879,21 @@ impl PardisoOrdering {
             Self::Metis => None,
             Self::ParallelMetis => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for PardisoOrdering {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(PardisoOrdering))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(PardisoOrdering)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["amd", "metis", "parallel_metis"] }
+        )
     }
 }
 impl core::str::FromStr for PardisoOrdering {
@@ -8445,6 +9983,22 @@ impl PounceMethod {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for PounceMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(PounceMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(PounceMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["interior_point", "active_set_sqp",
+            "l1_exact_penalty"] }
+        )
+    }
+}
 impl core::str::FromStr for PounceMethod {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -8522,6 +10076,19 @@ impl Preconditioner {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for Preconditioner {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(Preconditioner))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(Preconditioner)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["none", "jacobi"] })
+    }
+}
 impl core::str::FromStr for Preconditioner {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -8532,6 +10099,233 @@ impl core::str::FromStr for Preconditioner {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(Preconditioner).to_owned(),
                     enumeration: stringify!(Preconditioner).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum PresolvePass {
+    ///Propagation using proved affine rows.
+    #[serde(rename = "linear_bounds")]
+    LinearBounds,
+    ///Library redundancy analysis.
+    #[serde(rename = "redundant_rows")]
+    RedundantRows,
+    ///Library affine column elimination and recovery.
+    #[serde(rename = "affine_elimination")]
+    AffineElimination,
+    ///Native expression-tape interval propagation.
+    #[serde(rename = "fbbt")]
+    Fbbt,
+    ///Equality-rank diagnostics, without objective-changing remedies.
+    #[serde(rename = "rank_diagnostics")]
+    RankDiagnostics,
+    ///Explicit safe auxiliary nonlinear reduction.
+    #[serde(rename = "auxiliary")]
+    Auxiliary,
+}
+impl crate::SemanticEq for PresolvePass {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl PresolvePass {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 6usize] = [
+        Self::LinearBounds,
+        Self::RedundantRows,
+        Self::AffineElimination,
+        Self::Fbbt,
+        Self::RankDiagnostics,
+        Self::Auxiliary,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::LinearBounds => "linear_bounds",
+            Self::RedundantRows => "redundant_rows",
+            Self::AffineElimination => "affine_elimination",
+            Self::Fbbt => "fbbt",
+            Self::RankDiagnostics => "rank_diagnostics",
+            Self::Auxiliary => "auxiliary",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::LinearBounds => 0usize,
+            Self::RedundantRows => 1usize,
+            Self::AffineElimination => 2usize,
+            Self::Fbbt => 3usize,
+            Self::RankDiagnostics => 4usize,
+            Self::Auxiliary => 5usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::LinearBounds => None,
+            Self::RedundantRows => None,
+            Self::AffineElimination => None,
+            Self::Fbbt => None,
+            Self::RankDiagnostics => None,
+            Self::Auxiliary => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for PresolvePass {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(PresolvePass))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(PresolvePass)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["linear_bounds", "redundant_rows",
+            "affine_elimination", "fbbt", "rank_diagnostics", "auxiliary"] }
+        )
+    }
+}
+impl core::str::FromStr for PresolvePass {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "linear_bounds" => Ok(Self::LinearBounds),
+            "redundant_rows" => Ok(Self::RedundantRows),
+            "affine_elimination" => Ok(Self::AffineElimination),
+            "fbbt" => Ok(Self::Fbbt),
+            "rank_diagnostics" => Ok(Self::RankDiagnostics),
+            "auxiliary" => Ok(Self::Auxiliary),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(PresolvePass).to_owned(),
+                    enumeration: stringify!(PresolvePass).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum PresolvePolicyKind {
+    ///Identity transport: source coordinates are preserved.
+    #[serde(rename = "off")]
+    Off,
+    ///Only qualified source-backed passes.
+    #[serde(rename = "auto")]
+    Auto,
+    ///Complete library controls; required ineligible passes fail admission.
+    #[serde(rename = "explicit")]
+    Explicit,
+}
+impl crate::SemanticEq for PresolvePolicyKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl PresolvePolicyKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Off, Self::Auto, Self::Explicit];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Auto => "auto",
+            Self::Explicit => "explicit",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Off => 0usize,
+            Self::Auto => 1usize,
+            Self::Explicit => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Off => None,
+            Self::Auto => None,
+            Self::Explicit => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for PresolvePolicyKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(PresolvePolicyKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(PresolvePolicyKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["off", "auto", "explicit"] }
+        )
+    }
+}
+impl core::str::FromStr for PresolvePolicyKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "off" => Ok(Self::Off),
+            "auto" => Ok(Self::Auto),
+            "explicit" => Ok(Self::Explicit),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(PresolvePolicyKind).to_owned(),
+                    enumeration: stringify!(PresolvePolicyKind).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -8641,6 +10435,22 @@ impl PublicationKind {
             Self::Diagnostics => None,
             Self::Inspection => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for PublicationKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(PublicationKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(PublicationKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["relations", "source", "model", "case",
+            "problem", "run", "diagnostics", "inspection"] }
+        )
     }
 }
 impl core::str::FromStr for PublicationKind {
@@ -8767,6 +10577,24 @@ impl QuantityPreconditionKind {
             Self::OperandQuantityContract => None,
             Self::SameReferenceDifferences => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for QuantityPreconditionKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(QuantityPreconditionKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(QuantityPreconditionKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["equal_operand_bases",
+            "operand_quantity_contract", "same_reference_differences"] }
+        )
     }
 }
 impl core::str::FromStr for QuantityPreconditionKind {
@@ -8948,6 +10776,19 @@ impl RetentionPhase {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for RetentionPhase {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(RetentionPhase))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(RetentionPhase)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["expiring", "deleted"] })
+    }
+}
 impl core::str::FromStr for RetentionPhase {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -9041,6 +10882,22 @@ impl RetentionReason {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for RetentionReason {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(RetentionReason))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(RetentionReason)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["publication", "output", "attempt", "changes"]
+            }
+        )
+    }
+}
 impl core::str::FromStr for RetentionReason {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -9127,6 +10984,21 @@ impl ReusePolicy {
             Self::AllowRebuild => None,
             Self::RequireReuse => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ReusePolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ReusePolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ReusePolicy)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["fresh", "allow_rebuild", "require_reuse"] }
+        )
     }
 }
 impl core::str::FromStr for ReusePolicy {
@@ -9230,6 +11102,24 @@ impl RuntimeTermination {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for RuntimeTermination {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(RuntimeTermination))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(RuntimeTermination)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["cancelled", "infrastructure", "unattempted",
+            "constant_evaluation", "unassessed"] }
+        )
+    }
+}
 impl core::str::FromStr for RuntimeTermination {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -9326,6 +11216,23 @@ impl SensitivityCorrector {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for SensitivityCorrector {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(SensitivityCorrector))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(SensitivityCorrector)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["simultaneous", "staggered"] }
+        )
+    }
+}
 impl core::str::FromStr for SensitivityCorrector {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -9400,6 +11307,21 @@ impl SettlementOutcome {
             Self::Committed => None,
             Self::ProvedNoncommit => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for SettlementOutcome {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(SettlementOutcome))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(SettlementOutcome)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["committed", "proved_noncommit"] }
+        )
     }
 }
 impl core::str::FromStr for SettlementOutcome {
@@ -9512,6 +11434,19 @@ impl SpralOrdering {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for SpralOrdering {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(SpralOrdering))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(SpralOrdering)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["metis", "matching"] })
+    }
+}
 impl core::str::FromStr for SpralOrdering {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -9592,6 +11527,21 @@ impl SpralPivot {
             Self::Block => None,
             Self::Threshold => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for SpralPivot {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(SpralPivot))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(SpralPivot)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["aggressive", "block", "threshold"] }
+        )
     }
 }
 impl core::str::FromStr for SpralPivot {
@@ -9693,6 +11643,22 @@ impl SpralScaling {
             Self::Matching => None,
             Self::Ruiz => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for SpralScaling {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(SpralScaling))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(SpralScaling)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["none", "mc64", "auction", "matching", "ruiz"]
+            }
+        )
     }
 }
 impl core::str::FromStr for SpralScaling {
@@ -9815,6 +11781,22 @@ impl StateSign {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StateSign {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StateSign))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StateSign)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["free", "non_negative", "positive",
+            "non_positive", "negative"] }
+        )
+    }
+}
 impl core::str::FromStr for StateSign {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -9898,6 +11880,19 @@ impl StoredSeedKind {
             Self::Nlp => None,
             Self::Highs => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StoredSeedKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StoredSeedKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StoredSeedKind)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["root", "nlp", "highs"] })
     }
 }
 impl core::str::FromStr for StoredSeedKind {
@@ -10001,6 +11996,22 @@ impl StudyPointState {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyPointState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyPointState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyPointState)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["pending", "assigned", "completed", "failed",
+            "cancelled"] }
+        )
+    }
+}
 impl core::str::FromStr for StudyPointState {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -10086,6 +12097,21 @@ impl StudyState {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StudyState {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StudyState))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(StudyState)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["open", "completed", "cancelled"] }
+        )
+    }
+}
 impl core::str::FromStr for StudyState {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -10118,6 +12144,97 @@ impl crate::HeapUsage for SubjectRule {
 impl crate::SemanticFrame for SubjectRule {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum TearMethod {
+    ///Exact weighted feedback-edge MILP with native incumbent, bound and gap reporting.
+    #[serde(rename = "highs")]
+    Highs,
+    ///Explicit unweighted greedy feedback arc set.
+    #[serde(rename = "unweighted_heuristic")]
+    UnweightedHeuristic,
+}
+impl crate::SemanticEq for TearMethod {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl TearMethod {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Highs, Self::UnweightedHeuristic];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Highs => "highs",
+            Self::UnweightedHeuristic => "unweighted_heuristic",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Highs => 0usize,
+            Self::UnweightedHeuristic => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Highs => None,
+            Self::UnweightedHeuristic => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for TearMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(TearMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(TearMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["highs", "unweighted_heuristic"] }
+        )
+    }
+}
+impl core::str::FromStr for TearMethod {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "highs" => Ok(Self::Highs),
+            "unweighted_heuristic" => Ok(Self::UnweightedHeuristic),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(TearMethod).to_owned(),
+                    enumeration: stringify!(TearMethod).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
     }
 }
 /// A string enumeration projected from the registry.
@@ -10204,6 +12321,22 @@ impl TerminationClass {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for TerminationClass {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(TerminationClass))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(TerminationClass)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["native", "run_state", "trajectory",
+            "runtime", "rule"] }
+        )
+    }
+}
 impl core::str::FromStr for TerminationClass {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -10281,6 +12414,23 @@ impl TimeCoordinateKind {
             Self::AbsoluteOrigin => None,
             Self::ElapsedDuration => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for TimeCoordinateKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(TimeCoordinateKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(TimeCoordinateKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["absolute_origin", "elapsed_duration"] }
+        )
     }
 }
 impl core::str::FromStr for TimeCoordinateKind {
@@ -10404,6 +12554,24 @@ impl TrajectoryTermination {
         }
     }
 }
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for TrajectoryTermination {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(TrajectoryTermination))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(TrajectoryTermination)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["completed", "event", "cancelled",
+            "time_limit", "step_limit", "event_limit", "failed", "panic"] }
+        )
+    }
+}
 impl core::str::FromStr for TrajectoryTermination {
     type Err = crate::ModelError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -10484,6 +12652,21 @@ impl TrialPolicy {
             Self::Terminal => None,
             Self::Recoverable => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for TrialPolicy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(TrialPolicy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(TrialPolicy)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["terminal", "recoverable"] }
+        )
     }
 }
 impl core::str::FromStr for TrialPolicy {
@@ -10577,6 +12760,21 @@ impl TruthValue {
             Self::Unknown => None,
             Self::Conflict => None,
         }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for TruthValue {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(TruthValue))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(TruthValue)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["true", "false", "unknown", "conflict"] }
+        )
     }
 }
 impl core::str::FromStr for TruthValue {
@@ -10840,6 +13038,26 @@ impl crate::HeapUsage for ExtrapolationPolicy {
     }
 }
 impl crate::SemanticFrame for ExtrapolationPolicy {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for FeralOrdering {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for FeralOrdering {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for FeralScaling {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for FeralScaling {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -11414,6 +13632,26 @@ impl crate::SemanticFrame for Preconditioner {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for PresolvePass {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for PresolvePass {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for PresolvePolicyKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for PresolvePolicyKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for PublicationKind {
     fn heap_bytes(&self) -> usize {
         0
@@ -11560,6 +13798,16 @@ impl crate::HeapUsage for StudyState {
     }
 }
 impl crate::SemanticFrame for StudyState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for TearMethod {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for TearMethod {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

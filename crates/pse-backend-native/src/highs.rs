@@ -25,34 +25,7 @@ mod mip_tests;
 static LIFECYCLE: RwLock<()> = RwLock::new(());
 thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(false)};}
 
-/// Explicit native LP method, a registry vocabulary (ADR-0115 Outcome 3); automatic
-/// remains a native class-specific decision.
-pub use pse_model::generated::enums::HighsMethod as Method;
-/// The HiGHS adapter's settings type on the unified lifecycle; identity derives from serde,
-/// and absent fields take these defaults across the Python boundary (ADR-0113).
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Settings {
-    /// Eligible LP algorithm; mixed models retain native class routing.
-    pub method: Method,
-    /// MIP node budget, separate from the iteration budget (F10). `None` leaves the native
-    /// default (no node limit), so the time limit alone bounds the search.
-    pub nodes: Option<u32>,
-    /// Opt-in native work, separate from the original candidate.
-    pub diagnostics: diagnostics::Request,
-    /// Partial source-attributed MIP start, with unspecified coordinates absent.
-    pub sparse_start: Option<BTreeMap<pse_ids::SemanticId, f64>>,
-}
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            method: Method::Choose,
-            nodes: None,
-            diagnostics: Default::default(),
-            sparse_start: None,
-        }
-    }
-}
+pub use crate::settings::highs::{Method, Settings};
 
 /// Native model reuse is confined to one admitted worker and finite caller sequence.
 pub struct Session {
@@ -1623,7 +1596,7 @@ mod tests {
         let request = crate::transport::diagnostic_request(
             &diagnostics::Request {
                 relaxation: Some(diagnostics::Penalties {
-                    global: [-1., -1., 1.],
+                    global: [-1., -1., 1.].map(|v| pse_model::scalars::FiniteBound::try_new(v).unwrap()),
                     lower: None,
                     upper: None,
                     rows: None,

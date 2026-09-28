@@ -23,6 +23,8 @@ petgraph.workspace = true
 pse-diagnostics.workspace = true
 winnow = { workspace = true, features = ["ascii", "parser"] }
 serde.workspace = true
+# The JSON Schema of the hydrated authoring documents (ADR-0116 Outcome 10).
+schemars.workspace = true
 semver.workspace = true
 uuid.workspace = true
 pse-ids.workspace = true

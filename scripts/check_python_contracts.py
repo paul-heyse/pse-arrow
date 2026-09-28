@@ -14,10 +14,20 @@ def main() -> None:
     repository = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=repository)
-    candidate = parser.parse_args().root.resolve()
+    parser.add_argument(
+        "--documents",
+        action="store_true",
+        help="check the candidate document types against the checkout's contracts",
+    )
+    arguments = parser.parse_args()
+    candidate = arguments.root.resolve()
     contracts = candidate / "python/pse/contracts"
-    if not (contracts / "__init__.py").is_file():
-        parser.error(f"candidate contracts are absent: {contracts}")
+    if arguments.documents:
+        target = contracts / "documents/__init__.py"
+    else:
+        target = contracts / "__init__.py"
+    if not target.is_file():
+        parser.error(f"candidate contracts are absent: {target}")
     package = ModuleType("pse")
     package.__path__ = [str(candidate / "python/pse"), str(repository / "python/pse")]
     sys.modules["pse"] = package
@@ -35,14 +45,16 @@ def main() -> None:
         setattr(boundary, name, getattr(native, name))
     sys.modules["pse._build"] = boundary
     root = importlib.import_module("pse.contracts")
-    if (
-        root.__file__ is None
-        or Path(root.__file__).resolve() != contracts / "__init__.py"
-    ):
+    if arguments.documents:
+        # The document types are checked against the checkout's registry contracts, from
+        # the candidate's own directory.
+        root.__path__ = [str(contracts), *root.__path__]
+        root = importlib.import_module("pse.contracts.documents")
+    if root.__file__ is None or Path(root.__file__).resolve() != target:
         parser.error("loaded contracts do not belong to the candidate tree")
     governance = importlib.import_module("pse.governance")
     governance.check(root)
-    print(f"contract annotations: OK ({contracts})")
+    print(f"contract annotations: OK ({target.parent})")
 
 
 if __name__ == "__main__":

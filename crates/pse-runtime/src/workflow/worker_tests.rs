@@ -4,6 +4,7 @@
 //! 18 databases. The worker binary's end-to-end journey is `tests/worker.rs`.
 use super::durable_tests::quick;
 use super::*;
+use crate::math::settings::SolveSettings;
 use pse_backend_native::solve::{Backend, SolveIntent};
 use pse_operations::{
     jobs::{JobState, RetryPolicy},
@@ -64,7 +65,7 @@ pub(super) fn sources(source: &str) -> (BTreeMap<String, String>, BTreeMap<Strin
 pub(super) async fn authored_job(
     runtime: &Runtime,
     source: &str,
-    profile: JobProfile,
+    settings: SolveSettings,
 ) -> ModelingJob {
     let Durability::Durable(operations) = runtime.durability() else {
         panic!("a durable runtime stores sources");
@@ -85,20 +86,22 @@ pub(super) async fn authored_job(
         .unwrap()
         .declaration_id;
     ModelingJob {
+        version: pse_model::document::Version,
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
         case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
-        profile,
+        settings,
+        start: JobStart::Fresh,
     }
 }
 
-pub(super) fn ipopt() -> JobProfile {
-    JobProfile {
+pub(super) fn ipopt() -> SolveSettings {
+    SolveSettings {
         intent: SolveIntent::FeasiblePoint,
         backend: Some(Backend::Ipopt),
-        presolve: JobPresolve::Off,
-        ..JobProfile::default()
+        presolve: pse_backend_native::presolve::PolicyKind::Off,
+        ..SolveSettings::default()
     }
 }
 
@@ -132,7 +135,7 @@ async fn worker_runs_an_authored_job_and_stores_its_seed() {
     let job = authored_job(&runtime, SQUARE, ipopt()).await;
     let operations = operations(&runtime);
     let enqueued = operations
-        .enqueue_modeling(&job, "square", retry(), 0)
+        .enqueue(&job, "square", retry(), 0)
         .await
         .unwrap();
     // The payload's sources round-trip through the store with verified hashes.
@@ -167,47 +170,178 @@ async fn unknown_payload_version_refused() {
     let database = TestDatabase::create().await.unwrap();
     let runtime = job_durable(&database, "worker-a", quick()).await;
     let operations = operations(&runtime);
-    let enqueued = operations
-        .enqueue(
+    // A payload from a newer build: an unknown column version, and a known column version
+    // whose document states another version. Both are written past the typed enqueue, as
+    // another build would.
+    let job = authored_job(&runtime, SQUARE, ipopt()).await;
+    let mut restated = serde_json::to_value(&job).unwrap();
+    restated["version"] = serde_json::json!(3);
+    let mut enqueued = Vec::new();
+    for (key, version, payload) in [
+        (
+            "future-column",
             MODELING_JOB_VERSION + 1,
             serde_json::json!({ "from": "a newer build" }),
-            "future",
-            retry(),
-            0,
-        )
-        .await
-        .unwrap();
-    let processed = runtime.work_once().await.unwrap();
-    let Processed::Ran { record, .. } = &processed else {
-        panic!("{processed:?}")
-    };
-    let attempt = record.attempt.as_ref().unwrap();
-    assert_eq!(attempt.state, AttemptState::Failed);
-    // The typed diagnostic code, with the violated named contract in the detail (X4).
-    assert_eq!(
-        pse_operations::attempts::TerminationCode::of(attempt).unwrap(),
-        Some(pse_operations::attempts::TerminationCode::Rule(
-            pse_diagnostics::DiagnosticCode::ConfigInvalid
-        ))
-    );
-    let detail: serde_json::Value =
-        serde_json::from_str(attempt.termination_detail.as_deref().unwrap()).unwrap();
-    assert_eq!(detail["rule"], "workflow.job_payload_version");
-    // A refusal is not an infrastructure failure: it is not retried, whatever the policy.
-    let job = operations
-        .store()
-        .jobs()
-        .get(enqueued.job_id())
-        .await
-        .unwrap();
-    assert_eq!(job.state, JobState::Failed);
-    assert_eq!(job.attempt_id, enqueued.attempt_id());
+        ),
+        ("future-document", MODELING_JOB_VERSION, restated),
+    ] {
+        enqueued.push(
+            operations
+                .store()
+                .jobs()
+                .enqueue(&pse_operations::jobs::NewJob {
+                    attempt: pse_operations::attempts::NewAttempt {
+                        attempt_id: pse_operations::mint_id(),
+                        run_id: pse_operations::mint_id(),
+                        kind: pse_operations::attempts::AttemptKind::Modeling,
+                        request_identity: job.request_identity().unwrap(),
+                        preparation_identity: None,
+                        parent_attempt: None,
+                    },
+                    idempotency_key: key.to_owned(),
+                    payload_version: version,
+                    payload,
+                    priority: 0,
+                    retry: retry(),
+                })
+                .await
+                .unwrap(),
+        );
+    }
+    for (index, enqueued) in enqueued.into_iter().enumerate() {
+        let processed = runtime.work_once().await.unwrap();
+        let Processed::Ran { record, .. } = &processed else {
+            panic!("{processed:?}")
+        };
+        assert_eq!(record.attempt_id, enqueued.attempt_id());
+        let attempt = record.attempt.as_ref().unwrap();
+        assert_eq!(attempt.state, AttemptState::Failed);
+        // The typed cause, in the versioned termination detail.
+        let detail: TerminationDetail =
+            serde_json::from_str(attempt.termination_detail.as_deref().unwrap()).unwrap();
+        let TerminationCause::Error { rule, message } = detail.cause else {
+            panic!("{detail:?}")
+        };
+        if index == 0 {
+            // The typed diagnostic code, with the violated named contract (X4).
+            assert_eq!(
+                pse_operations::attempts::TerminationCode::of(attempt).unwrap(),
+                Some(pse_operations::attempts::TerminationCode::Rule(
+                    pse_diagnostics::DiagnosticCode::ConfigInvalid
+                ))
+            );
+            assert_eq!(rule, "workflow.job_payload_version");
+        } else {
+            assert!(message.contains("unknown document version 3"), "{message}");
+        }
+        // A refusal is not an infrastructure failure: it is not retried, whatever the policy.
+        let job = operations
+            .store()
+            .jobs()
+            .get(enqueued.job_id())
+            .await
+            .unwrap();
+        assert_eq!(job.state, JobState::Failed);
+        assert_eq!(job.attempt_id, enqueued.attempt_id());
+    }
     assert!(matches!(
         runtime.work_once().await.unwrap(),
         Processed::Idle
     ));
     drop(runtime);
     database.remove().await.unwrap();
+}
+
+/// The request identity is framed from the typed payload, so two encodings of one job that
+/// differ only in key order have one identity, and a changed setting changes it
+/// (ADR-0116 Outcome 9).
+#[test]
+fn job_request_identity_independent_of_key_order() {
+    fn reversed(value: serde_json::Value) -> serde_json::Value {
+        match value {
+            serde_json::Value::Object(map) => serde_json::Value::Object(
+                map.into_iter()
+                    .rev()
+                    .map(|(key, value)| (key, reversed(value)))
+                    .collect(),
+            ),
+            serde_json::Value::Array(items) => {
+                serde_json::Value::Array(items.into_iter().map(reversed).collect())
+            }
+            other => other,
+        }
+    }
+    let job = ModelingJob {
+        version: pse_model::document::Version,
+        physical: pse_ids::ContentHash::from_bytes([1; 32]),
+        modeling: vec![pse_ids::ContentHash::from_bytes([2; 32])],
+        case: pse_ids::SemanticId::from_bytes([3; 16]),
+        route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+        settings: ipopt(),
+        start: JobStart::Fresh,
+    };
+    let forward = serde_json::to_string(&job).unwrap();
+    let backward = serde_json::to_string(&reversed(serde_json::to_value(&job).unwrap())).unwrap();
+    assert_ne!(forward, backward);
+    let decoded = |text: &str| serde_json::from_str::<ModelingJob>(text).unwrap();
+    assert_eq!(
+        decoded(&forward).request_identity().unwrap(),
+        decoded(&backward).request_identity().unwrap()
+    );
+    assert_eq!(
+        decoded(&forward).request_identity().unwrap(),
+        job.request_identity().unwrap()
+    );
+    let mut changed = job.clone();
+    changed.settings.controls.iterations += 1;
+    assert_ne!(
+        changed.request_identity().unwrap(),
+        job.request_identity().unwrap()
+    );
+    let mut resumed = job.clone();
+    resumed.start = JobStart::ResumeFromParent;
+    assert_ne!(
+        resumed.request_identity().unwrap(),
+        job.request_identity().unwrap()
+    );
+}
+
+/// The termination detail is a typed, versioned document: its cause is tagged by kind, its
+/// candidate uses are registry vocabularies, and another version is refused.
+#[test]
+fn termination_detail_versioned_and_typed() {
+    let detail = TerminationDetail {
+        version: pse_model::document::Version,
+        cause: TerminationCause::Assessment {
+            usable: false,
+            candidate_use: vec![
+                pse_model::generated::enums::CandidateUse::Usable,
+                pse_model::generated::enums::CandidateUse::DiagnosticOnly,
+            ],
+        },
+    };
+    let value = serde_json::to_value(&detail).unwrap();
+    assert_eq!(
+        value,
+        serde_json::json!({
+            "version": 1,
+            "cause": {"kind": "assessment", "usable": false, "candidate_use": ["usable", "diagnostic_only"]},
+        })
+    );
+    assert_eq!(serde_json::from_value::<TerminationDetail>(value.clone()).unwrap(), detail);
+    let mut future = value.clone();
+    future["version"] = serde_json::json!(2);
+    assert!(serde_json::from_value::<TerminationDetail>(future).is_err());
+    let mut untyped = value;
+    untyped["cause"]["candidate_use"] = serde_json::json!(["maybe"]);
+    assert!(serde_json::from_value::<TerminationDetail>(untyped).is_err());
+    // The source manifest is versioned the same way.
+    let manifest = serde_json::json!({"version": 1, "paths": ["package.toml"]});
+    assert!(serde_json::from_value::<SourceManifest>(manifest).is_ok());
+    assert!(
+        serde_json::from_value::<SourceManifest>(serde_json::json!({"paths": ["package.toml"]}))
+            .is_err()
+    );
 }
 
 /// A worker whose lease is renewed rarely: only the `LISTEN` path can stop a try quickly.
@@ -235,7 +369,7 @@ async fn blocked_try(
 ) {
     let job = authored_job(runtime, SQUARE, ipopt()).await;
     let enqueued = operations(runtime)
-        .enqueue_modeling(&job, "blocked", retry(), 0)
+        .enqueue(&job, "blocked", retry(), 0)
         .await
         .unwrap();
     let lock = store_lock::Lock::source_bundles(database).await;

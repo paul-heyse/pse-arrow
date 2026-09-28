@@ -297,6 +297,11 @@ codegen-bindgen-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only bindgen --check
 
 [group('local')]
+[doc('The published document and authoring JSON Schemas and the Python document types match a fresh derivation from the owning crates (ADR-0116)')]
+codegen-schemas-check:
+    bash scripts/native_exec.sh cargo run -p xtask --locked -- codegen --only schemas --check
+
+[group('local')]
 governance-tests *args:
     cargo nextest {{ nextest_action }} -p pse-tests-governance -p pse-relations --locked {{ validate }} {{ args }}
 

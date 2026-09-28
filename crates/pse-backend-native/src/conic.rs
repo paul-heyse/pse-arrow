@@ -20,7 +20,7 @@ use clarabel::{
 use std::collections::BTreeMap;
 
 /// Compressed-sparse-column matrix of the conic boundary.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SparseMatrix {
     /// Row count.
@@ -100,7 +100,7 @@ impl SparseMatrix {
 }
 
 /// One explicit cone block of the conic boundary.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Cone {
     /// `s = 0`.
@@ -184,7 +184,7 @@ fn clarabel_cones(cones: &[Cone]) -> Result<Vec<SupportedConeT<f64>>, ProblemErr
 /// # Errors
 /// The identity serializer refused a value.
 pub fn cone_key(cones: &[Cone]) -> Result<pse_ids::ContentHash, ProblemError> {
-    crate::identity::of(pse_ids::Frame::ConeLayoutV2, cones)
+    crate::identity::of(pse_ids::Frame::ConeLayoutV3, cones)
 }
 /// Native preprocessing and mutable-data reuse are distinct execution profiles
 /// (`ReusableData` disables native presolve, input zero-dropping and chordal decomposition
@@ -212,8 +212,9 @@ const CHORDAL_DEFAULTS: (bool, MergeMethod, bool, bool) =
 /// Iteration and time budgets, stopping tolerances, equilibration, threads and the direct
 /// KKT method are owned by the shared controls and the resolved accuracy, so they are not
 /// fields. Native defaults are the pinned library's. Identity derives from serde.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
+#[schemars(rename = "ClarabelSettings")]
 pub struct Settings {
     /// Preprocessing or data-update mode.
     pub mode: Mode,
@@ -1117,7 +1118,7 @@ mod tests {
         let key = cone_key(&cones).unwrap();
         assert_eq!(
             key,
-            crate::identity::of(pse_ids::Frame::ConeLayoutV2, &cones).unwrap()
+            crate::identity::of(pse_ids::Frame::ConeLayoutV3, &cones).unwrap()
         );
         assert_ne!(
             key,

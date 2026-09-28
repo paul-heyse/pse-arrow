@@ -18,8 +18,8 @@
 ///
 /// Each generated type derives `Clone`, `Copy`, `PartialEq`, `Eq`, `PartialOrd`, `Ord`,
 /// `Hash` and `Debug`; carries `from_id`/`as_id`, `const` `from_bytes`/`as_bytes` and the
-/// two `From` conversions; renders the base value through `Display`; and serializes
-/// exactly as its base value does.
+/// two `From` conversions; renders the base value through `Display`; and serializes, and
+/// states its JSON Schema, exactly as its base value does.
 ///
 /// ```
 /// pse_ids::semantic_id_newtype! {
@@ -112,6 +112,20 @@ macro_rules! __typed_identity {
                 serializer: S,
             ) -> ::core::result::Result<S::Ok, S::Error> {
                 $crate::__serde::Serialize::serialize(&self.0, serializer)
+            }
+        }
+
+        impl $crate::__schemars::JsonSchema for $name {
+            fn inline_schema() -> bool {
+                true
+            }
+            fn schema_name() -> ::std::borrow::Cow<'static, str> {
+                <$base as $crate::__schemars::JsonSchema>::schema_name()
+            }
+            fn json_schema(
+                generator: &mut $crate::__schemars::SchemaGenerator,
+            ) -> $crate::__schemars::Schema {
+                <$base as $crate::__schemars::JsonSchema>::json_schema(generator)
             }
         }
 

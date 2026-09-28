@@ -12,52 +12,10 @@ use pse_ids::{ContentHash, FramedHasher};
 use pse_math::index::{OriginalCol, OriginalRow, PresolvedCol, PresolvedRow, TiVec};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Native library passes, independently requested and qualified.
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
-)]
-#[serde(rename_all = "snake_case")]
-pub enum Pass {
-    /// Propagation using proved affine rows.
-    LinearBounds,
-    /// Library redundancy analysis.
-    RedundantRows,
-    /// Library affine column elimination and recovery.
-    AffineElimination,
-    /// Native expression-tape interval propagation.
-    Fbbt,
-    /// Equality-rank diagnostics, without objective-changing remedies.
-    RankDiagnostics,
-    /// Explicit safe auxiliary nonlinear reduction.
-    Auxiliary,
-}
-impl Pass {
-    /// Stable report spelling, independent of Rust debug output.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::LinearBounds => "linear_bounds",
-            Self::RedundantRows => "redundant_rows",
-            Self::AffineElimination => "affine_elimination",
-            Self::Fbbt => "fbbt",
-            Self::RankDiagnostics => "rank_diagnostics",
-            Self::Auxiliary => "auxiliary",
-        }
-    }
-}
-
-/// The kind of a [`Policy`]. Its serde spelling is the one boundary name of each kind
-/// (ADR-0113); native options and required passes belong to `Explicit` only.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PolicyKind {
-    /// Identity transport.
-    Off,
-    /// Qualified source-backed passes.
-    #[default]
-    Auto,
-    /// Complete library controls.
-    Explicit,
-}
+/// The native library passes, independently requested and qualified, and the kind of a
+/// [`Policy`]: registry vocabularies whose spellings are their one boundary name (ADR-0115
+/// Outcome 3). Native options and required passes belong to an explicit policy only.
+pub use pse_model::generated::enums::{PresolvePass as Pass, PresolvePolicyKind as PolicyKind};
 /// User policy. Native options are retained in full rather than stringly reimplemented.
 #[derive(Clone, Debug, Default)]
 pub enum Policy {

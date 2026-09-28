@@ -478,9 +478,9 @@ pub fn diagnostic_request(
                 })
                 .collect::<Result<Vec<_>, ProblemError>>()
         };
-        p.lower = Some(scale(&p.lower, p.global[0], &n.variables)?);
-        p.upper = Some(scale(&p.upper, p.global[1], &n.variables)?);
-        p.rows = Some(scale(&p.rows, p.global[2], &n.rows)?);
+        p.lower = Some(scale(&p.lower, p.global[0].into_inner(), &n.variables)?);
+        p.upper = Some(scale(&p.upper, p.global[1].into_inner(), &n.variables)?);
+        p.rows = Some(scale(&p.rows, p.global[2].into_inner(), &n.rows)?);
     }
     Ok(out)
 }

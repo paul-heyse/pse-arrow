@@ -184,9 +184,9 @@ frames! {
 
     // ---- native solvers (pse-backend-native)
     /// Complete backend settings, derived from serde.
-    BackendSettingsV3 => "pse.backend.settings.v3",
+    BackendSettingsV4 => "pse.backend.settings.v4",
     /// A cone sequence layout in the pse encoding.
-    ConeLayoutV2 => "pse.cone.layout.v2",
+    ConeLayoutV3 => "pse.cone.layout.v3",
     /// A factorable problem's variable domains.
     FactorableDomainV1 => "pse.factorable.domain.v1",
     /// The continuous problem of a fixed discrete assignment.
@@ -200,11 +200,11 @@ frames! {
     /// A Jacobian diagnostic problem.
     JacobianDiagnosticProblemV1 => "pse.jacobian-diagnostic.problem.v1",
     /// Resolved native accuracy budgets.
-    NativeAccuracyV2 => "pse.native.accuracy.v2",
+    NativeAccuracyV3 => "pse.native.accuracy.v3",
     /// Every linked adapter's native build.
     NativeBuildV1 => "pse.native.build.v1",
     /// Native solve controls.
-    NativeControlsV1 => "pse.native.controls.v1",
+    NativeControlsV2 => "pse.native.controls.v2",
     /// The linked Ipopt build.
     NativeIpoptBuildV1 => "pse.native.ipopt.build.v1",
     /// A seed's content, without its execution origin.
@@ -230,13 +230,13 @@ frames! {
     /// A completed step's request lineage.
     CompletedRequestV2 => "pse.completed.request.v2",
     /// A durable job request.
-    DurableJobRequestV1 => "pse.durable.job_request.v1",
+    DurableJobRequestV2 => "pse.durable.job_request.v2",
     /// A durable modeling request.
     DurableModelingRequestV1 => "pse.durable.modeling_request.v1",
     /// A dynamic simulation profile.
     DynamicProfileV3 => "pse.dynamic.profile.v3",
     /// An explicit conic request.
-    ExplicitConicV2 => "pse.explicit-conic.v2",
+    ExplicitConicV3 => "pse.explicit-conic.v3",
     /// A fitting coordinate alias of an experiment and source.
     FitCoordinateV1 => "pse.fit.coordinate.v1",
     /// A prepared fit.

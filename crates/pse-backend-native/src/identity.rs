@@ -1,8 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Settings identity derived from serde. Every serialized field, variant and float bit
+//! Document identity derived from serde. Every serialized field, variant and float bit
 //! pattern is framed, so a field added to a settings type changes identity without a
-//! hand-written field list (F09). This is identity only; it is not a wire format.
+//! hand-written field list (F09). What is framed is the serde data model of the typed value:
+//! field names and variant spellings (the registry and serde spellings), never Rust type
+//! names, and a newtype frames as the value it wraps. A renamed or wrapped type keeps its
+//! identity, and two JSON texts that decode to the same typed value frame identically
+//! whatever their key order (ADR-0116 Outcome 9). This is identity only; it is not a wire
+//! format.
 use crate::ProblemError;
 use pse_ids::{ContentHash, Frame, FramedHasher};
 use serde::ser::{self, Serialize};
@@ -129,35 +134,37 @@ impl<'a> ser::Serializer for Framer<'a> {
         self.0.str("unit");
         Ok(())
     }
-    fn serialize_unit_struct(self, name: &'static str) -> Result<(), Error> {
-        self.0.str("unit_struct").str(name);
-        Ok(())
+    // Container names are Rust type names, never part of the encoding (a renamed type
+    // keeps its identity); variant names are the serde spellings, which are.
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<(), Error> {
+        self.serialize_unit()
     }
     fn serialize_unit_variant(
         self,
-        name: &'static str,
+        _name: &'static str,
         _index: u32,
         variant: &'static str,
     ) -> Result<(), Error> {
-        self.0.str("unit_variant").str(name).str(variant);
+        self.0.str("unit_variant").str(variant);
         Ok(())
     }
+    /// A newtype is its inner value, as in every self-describing serde format, so a
+    /// validated scalar or a typed identity frames exactly as the value it wraps.
     fn serialize_newtype_struct<T: Serialize + ?Sized>(
         self,
-        name: &'static str,
+        _name: &'static str,
         value: &T,
     ) -> Result<(), Error> {
-        self.0.str("newtype_struct").str(name);
         value.serialize(self)
     }
     fn serialize_newtype_variant<T: Serialize + ?Sized>(
         self,
-        name: &'static str,
+        _name: &'static str,
         _index: u32,
         variant: &'static str,
         value: &T,
     ) -> Result<(), Error> {
-        self.0.str("newtype_variant").str(name).str(variant);
+        self.0.str("newtype_variant").str(variant);
         value.serialize(self)
     }
     fn serialize_seq(self, _len: Option<usize>) -> Result<Compound<'a>, Error> {
@@ -170,38 +177,38 @@ impl<'a> ser::Serializer for Framer<'a> {
     }
     fn serialize_tuple_struct(
         self,
-        name: &'static str,
+        _name: &'static str,
         _len: usize,
     ) -> Result<Compound<'a>, Error> {
-        self.0.str("tuple_struct").str(name);
+        self.0.str("tuple_struct");
         Ok(Compound(self.0))
     }
     fn serialize_tuple_variant(
         self,
-        name: &'static str,
+        _name: &'static str,
         _index: u32,
         variant: &'static str,
         _len: usize,
     ) -> Result<Compound<'a>, Error> {
-        self.0.str("tuple_variant").str(name).str(variant);
+        self.0.str("tuple_variant").str(variant);
         Ok(Compound(self.0))
     }
     fn serialize_map(self, _len: Option<usize>) -> Result<Compound<'a>, Error> {
         self.0.str("map");
         Ok(Compound(self.0))
     }
-    fn serialize_struct(self, name: &'static str, _len: usize) -> Result<Compound<'a>, Error> {
-        self.0.str("struct").str(name);
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Compound<'a>, Error> {
+        self.0.str("struct");
         Ok(Compound(self.0))
     }
     fn serialize_struct_variant(
         self,
-        name: &'static str,
+        _name: &'static str,
         _index: u32,
         variant: &'static str,
         _len: usize,
     ) -> Result<Compound<'a>, Error> {
-        self.0.str("struct_variant").str(name).str(variant);
+        self.0.str("struct_variant").str(variant);
         Ok(Compound(self.0))
     }
 }
@@ -324,8 +331,8 @@ mod tests {
             items: vec![Some(1), None],
             tag: None,
         };
-        let key = of(Frame::BackendSettingsV3, &base).unwrap();
-        assert_eq!(key, of(Frame::BackendSettingsV3, &base).unwrap());
+        let key = of(Frame::BackendSettingsV4, &base).unwrap();
+        assert_eq!(key, of(Frame::BackendSettingsV4, &base).unwrap());
         for changed in [
             Probe {
                 value: -0.0,
@@ -344,18 +351,18 @@ mod tests {
                 ..base_clone(&base)
             },
         ] {
-            assert_ne!(key, of(Frame::BackendSettingsV3, &changed).unwrap());
+            assert_ne!(key, of(Frame::BackendSettingsV4, &changed).unwrap());
         }
         // A sequence boundary cannot move between adjacent fields.
         let split = (vec![1_u32, 2], vec![3_u32]);
         let moved = (vec![1_u32], vec![2_u32, 3]);
         assert_ne!(
-            of(Frame::BackendSettingsV3, &split).unwrap(),
-            of(Frame::BackendSettingsV3, &moved).unwrap()
+            of(Frame::BackendSettingsV4, &split).unwrap(),
+            of(Frame::BackendSettingsV4, &moved).unwrap()
         );
         assert_ne!(
-            of(Frame::BackendSettingsV3, &f64::INFINITY).unwrap(),
-            of(Frame::BackendSettingsV3, &f64::NAN).unwrap()
+            of(Frame::BackendSettingsV4, &f64::INFINITY).unwrap(),
+            of(Frame::BackendSettingsV4, &f64::NAN).unwrap()
         );
     }
     fn base_clone(p: &Probe) -> Probe {
@@ -364,5 +371,43 @@ mod tests {
             items: p.items.clone(),
             tag: p.tag,
         }
+    }
+    /// A Rust type name is not part of a document's encoding: renaming a type, or wrapping
+    /// a value in a newtype, leaves its identity; a field or variant spelling does not.
+    #[test]
+    fn identity_ignores_type_names_and_newtype_wrappers() {
+        #[derive(serde::Serialize)]
+        struct Before {
+            mode: Mode,
+            limit: f64,
+        }
+        #[derive(serde::Serialize)]
+        struct After {
+            mode: Renamed,
+            limit: Wrapped,
+        }
+        #[derive(serde::Serialize)]
+        #[serde(rename_all = "snake_case")]
+        enum Mode {
+            Fast,
+        }
+        #[derive(serde::Serialize)]
+        #[serde(rename_all = "snake_case")]
+        enum Renamed {
+            Fast,
+        }
+        #[derive(serde::Serialize)]
+        struct Wrapped(f64);
+        #[derive(serde::Serialize)]
+        struct Respelled {
+            mode: Mode,
+            bound: f64,
+        }
+        let frame = Frame::BackendSettingsV4;
+        let before = of(frame, &Before { mode: Mode::Fast, limit: 2.0 }).unwrap();
+        let after = of(frame, &After { mode: Renamed::Fast, limit: Wrapped(2.0) }).unwrap();
+        assert_eq!(before, after);
+        let respelled = of(frame, &Respelled { mode: Mode::Fast, bound: 2.0 }).unwrap();
+        assert_ne!(before, respelled);
     }
 }

@@ -9,6 +9,7 @@ pub mod initialization;
 mod jobs;
 pub mod modeling;
 mod products;
+pub mod settings;
 pub mod solves;
 mod staged;
 pub use artifacts::Artifact;

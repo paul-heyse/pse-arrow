@@ -8,20 +8,6 @@ from typing import Final, final
 __version__: Final[str]
 
 @final
-class BackendSettings:
-    def __eq__(self, other: object, /) -> bool: ...
-    def __new__(cls, backend: str, /, **fields: object) -> BackendSettings: ...
-    def __repr__(self, /) -> str: ...
-    @property
-    def backend(self, /) -> str: ...
-    def fields(self, /) -> dict[str, object]: ...
-    @staticmethod
-    def from_json(source: str) -> BackendSettings: ...
-    @property
-    def identity(self, /) -> str: ...
-    def to_json(self, /) -> str: ...
-
-@final
 class CacheReport:
     @property
     def active_loads(self, /) -> int | None: ...
@@ -208,16 +194,6 @@ class DiagnosticSpan:
     def start_line(self, /) -> int: ...
 
 @final
-class DiffsolSettings:
-    def __eq__(self, other: object, /) -> bool: ...
-    def __new__(cls, /, **fields: object) -> DiffsolSettings: ...
-    def __repr__(self, /) -> str: ...
-    def fields(self, /) -> dict[str, object]: ...
-    @staticmethod
-    def from_json(source: str) -> DiffsolSettings: ...
-    def to_json(self, /) -> str: ...
-
-@final
 class EngineSettings:
     def __new__(
         cls,
@@ -294,16 +270,6 @@ class EngineSettings:
     @property
     def top_consumers(self, /) -> int: ...
 
-@final
-class IdasSettings:
-    def __eq__(self, other: object, /) -> bool: ...
-    def __new__(cls, /, **fields: object) -> IdasSettings: ...
-    def __repr__(self, /) -> str: ...
-    def fields(self, /) -> dict[str, object]: ...
-    @staticmethod
-    def from_json(source: str) -> IdasSettings: ...
-    def to_json(self, /) -> str: ...
-
 class InspectionError(Exception):
     report: DiagnosticReport
 
@@ -331,7 +297,7 @@ class ModelingFixturePolicy:
     def __new__(
         cls,
         /,
-        settings: SolveSettings | None = None,
+        settings: bytes | None = None,
         *,
         derivative_step: float | None = None,
         derivative_tolerance: float | None = None,
@@ -533,7 +499,7 @@ class NativeModelingPackage:
     def conform(
         self,
         /,
-        settings: SolveSettings,
+        settings: bytes,
         *,
         maximum_fixtures: int = 1024,
         maximum_checks: int = 16384,
@@ -544,17 +510,13 @@ class NativeModelingPackage:
     ) -> NativeModelingConformance: ...
     def declarations(self, /) -> bytes: ...
     def diagnose(
-        self,
-        /,
-        case_id: str,
-        settings: SolveSettings,
-        diagnostics: ModelingDiagnosticSettings,
+        self, /, case_id: str, settings: bytes, diagnostics: ModelingDiagnosticSettings
     ) -> NativeModelingDiagnostics: ...
     def diagnose_jacobian(
         self,
         /,
         case_id: str,
-        settings: SolveSettings,
+        settings: bytes,
         *,
         maximum_rows: int = 32,
         maximum_entries: int = 100000,
@@ -567,7 +529,7 @@ class NativeModelingPackage:
         self,
         /,
         case_id: str,
-        settings: SolveSettings,
+        settings: bytes,
         *,
         rays: bool = False,
         iis: bool = False,
@@ -582,7 +544,7 @@ class NativeModelingPackage:
         self,
         /,
         case_id: str,
-        settings: SolveSettings,
+        settings: bytes,
         diagnostics: ModelingDiagnosticSettings,
         samples: Sequence[tuple[str, dict[str, float]]],
         maximum_samples: int,
@@ -592,7 +554,7 @@ class NativeModelingPackage:
         self,
         /,
         case_id: str,
-        settings: SolveSettings,
+        settings: bytes,
         nominals: dict[str, float],
         *,
         penalty_tolerance: float,
@@ -603,7 +565,7 @@ class NativeModelingPackage:
         self,
         /,
         case_id: str,
-        settings: SolveSettings,
+        settings: bytes,
         *,
         stages: Sequence[str] = ...,
         homotopy: bool = False,
@@ -613,19 +575,15 @@ class NativeModelingPackage:
         maximum_attempts: int = 128,
         time_limit: float = 60.0,
     ) -> NativeModelingInitialization: ...
-    def inspect(self, /, case_id: str, settings: SolveSettings) -> bytes: ...
+    def inspect(self, /, case_id: str, settings: bytes) -> bytes: ...
     def prepare_block_initialization(
-        self,
-        /,
-        case_id: str,
-        settings: SolveSettings,
-        stages: Sequence[dict[str, float]],
+        self, /, case_id: str, settings: bytes, stages: Sequence[dict[str, float]]
     ) -> NativePreparedStrategy: ...
     def prepare_fit(
         self,
         /,
         fit_id: str,
-        settings: SolveSettings,
+        settings: bytes,
         simulations: Sequence[tuple[str, SimulationSettings]],
         *,
         modes: Sequence[tuple[str, Sequence[ModelingModeSettings]]] | None = None,
@@ -633,10 +591,10 @@ class NativeModelingPackage:
         max_cells: int = 1000000,
     ) -> NativePreparedOperation: ...
     def prepare_flow(
-        self, /, case_id: str, selection: bytes, settings: SolveSettings
+        self, /, case_id: str, selection: bytes, settings: bytes
     ) -> NativePreparedFlow: ...
     def prepare_recycle(
-        self, /, case_id: str, selection: bytes, request: bytes, settings: SolveSettings
+        self, /, case_id: str, selection: bytes, request: bytes, settings: bytes
     ) -> NativePreparedStrategy: ...
     def prepare_simulation(
         self,
@@ -646,7 +604,7 @@ class NativeModelingPackage:
         modes: Sequence[ModelingModeSettings] | None = None,
     ) -> NativePreparedOperation: ...
     def prepare_solve(
-        self, /, case_id: str, settings: SolveSettings, *, route: str = "steady"
+        self, /, case_id: str, settings: bytes, *, route: str = "steady"
     ) -> NativePreparedOperation: ...
     def simulate(
         self,
@@ -656,13 +614,13 @@ class NativeModelingPackage:
         modes: Sequence[ModelingModeSettings] | None = None,
     ) -> NativeModelingTrajectory: ...
     def solve_case(
-        self, /, case_id: str, settings: SolveSettings, *, route: str = "steady"
+        self, /, case_id: str, settings: bytes, *, route: str = "steady"
     ) -> NativeModelingResult: ...
     def study(
         self,
         /,
         case_ids: Sequence[str],
-        settings: SolveSettings,
+        settings: bytes,
         *,
         predecessors: Sequence[int | None] = ...,
         maximum_points: int = 1024,
@@ -721,9 +679,7 @@ class NativePhysicalContext:
 @final
 class NativePreparedFlow:
     def graph_json(self, /) -> str: ...
-    def select_tears(
-        self, /, method: str, settings: SolveSettings
-    ) -> NativeStrategyResult: ...
+    def select_tears(self, /, method: str, settings: bytes) -> NativeStrategyResult: ...
 
 @final
 class NativePreparedOperation:
@@ -815,11 +771,7 @@ class NativeRuntime:
         self, /, documents: dict[str, str]
     ) -> NativePhysicalContext: ...
     def prepare_conic(
-        self,
-        /,
-        request: bytes,
-        physical: NativePhysicalContext,
-        settings: SolveSettings,
+        self, /, request: bytes, physical: NativePhysicalContext, settings: bytes
     ) -> NativePreparedStrategy: ...
     def runs(
         self,
@@ -937,63 +889,16 @@ class SimulationSettings:
         method: str | None = None,
         trial_failures: str | None = None,
         numerics: dict[str, object] | None = None,
-        diffsol: DiffsolSettings | None = None,
-        idas: IdasSettings | None = None,
+        diffsol: bytes | None = None,
+        idas: bytes | None = None,
     ) -> SimulationSettings: ...
     @property
-    def diffsol(self, /) -> DiffsolSettings: ...
+    def diffsol(self, /) -> bytes: ...
     @staticmethod
     def from_json(source: str) -> SimulationSettings: ...
     @property
-    def idas(self, /) -> IdasSettings: ...
+    def idas(self, /) -> bytes: ...
     def to_json(self, /) -> str: ...
-
-@final
-class SolveSettings:
-    def __new__(
-        cls,
-        /,
-        *,
-        numerics: dict[str, object] | None = None,
-        intent: str | None = None,
-        backend: str | None = None,
-        settings: BackendSettings | None = None,
-        presolve: str | None = None,
-        presolve_options: dict[str, bool | int | float | str] | None = None,
-        required_passes: Sequence[str] | None = None,
-        time_limit: float | None = None,
-        iterations: int | None = None,
-        threads: int | None = None,
-        history: int | None = None,
-        hessian: str | None = None,
-        reuse: str | None = None,
-        start: str | None = None,
-        options: dict[str, bool | int | float | str] | None = None,
-        convexity_absolute: float | None = None,
-        convexity_relative: float | None = None,
-    ) -> SolveSettings: ...
-    @property
-    def backend(self, /) -> str | None: ...
-    @property
-    def hessian(self, /) -> str: ...
-    @property
-    def history(self, /) -> int: ...
-    @property
-    def intent(self, /) -> str: ...
-    @property
-    def iterations(self, /) -> int: ...
-    @property
-    def presolve(self, /) -> str: ...
-    @property
-    def reuse(self, /) -> str: ...
-    @property
-    def settings(self, /) -> BackendSettings | None: ...
-    @property
-    def start(self, /) -> str: ...
-    @property
-    def threads(self, /) -> int: ...
-    @property
-    def time_limit(self, /) -> float: ...
 
 @final
 class TableName:

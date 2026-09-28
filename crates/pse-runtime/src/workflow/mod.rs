@@ -5,14 +5,17 @@ mod completion;
 mod diagnostics;
 mod durable;
 pub use completion::Completion;
-pub use durable::{Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability};
+pub use durable::{
+    Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability, TerminationCause,
+    TerminationDetail,
+};
 pub use pse_operations::attempts::AttemptFilter;
 /// The operational store a process connects to: `PSE_DATABASE_URL`, else the development
 /// default (ADR-0114 Outcome 21).
 pub use pse_operations::database_url_from_env;
 mod worker;
 pub use worker::{
-    JobPresolve, JobProfile, MODELING_JOB_VERSION, ModelingJob, Processed, WorkerSettings,
+    JobStart, MODELING_JOB_VERSION, ModelingJob, Processed, SourceManifest, WorkerSettings,
 };
 pub(crate) mod numerics;
 mod staged;

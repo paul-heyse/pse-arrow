@@ -31,6 +31,7 @@ pub mod recycle;
 pub mod routing;
 #[cfg(feature = "scip")]
 pub mod scip;
+pub mod settings;
 pub mod solve;
 /// Original-equation structural admission.
 pub mod structural;

@@ -16,6 +16,8 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts import documents
+from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse import codec
 from pse import modeling as w
 from pse.contracts import authored as a
@@ -65,7 +67,7 @@ def test_explicit_cone_strategy_preserves_native_qualification(
         "gram_weights": [],
     }
     prepared = runtime.prepare_conic(
-        request, physical, pse.SolveSettings(backend="clarabel")
+        request, physical, pse.SolveSettings(backend=NativeBackend.CLARABEL)
     )
     assert [route.backend for route in prepared.routes] == ["clarabel"]
     result = prepared.run()
@@ -105,7 +107,7 @@ def test_explicit_primal_seed_and_transactional_initialization(
     case = next(
         row.declaration_id for row in package.declarations() if row.name == "Root"
     )
-    settings = pse.SolveSettings(intent="root", backend="kinsol", presolve="off")
+    settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT, backend=NativeBackend.KINSOL, presolve=PresolvePolicyKind.OFF)
     member = cast(
         "list[dict[str, object]]", package.inspect(case, settings)["members"]
     )[0]
@@ -119,7 +121,7 @@ def test_explicit_primal_seed_and_transactional_initialization(
     assert snapshot["payload"]["primal"][0] == pytest.approx(2.0, abs=1e-6)
     assert snapshot["origin"]["run"] == explicit.run_id.to_hex()
     result = package.prepare_block_initialization(
-        case, pse.SolveSettings(intent="initialize", backend="kinsol"), [{}]
+        case, pse.SolveSettings(intent=NativeSolveIntent.INITIALIZE, backend=NativeBackend.KINSOL), [{}]
     ).run()
     stage = result.initialization()
     assert stage is not None
@@ -185,7 +187,7 @@ def test_empty_library_is_admitted_but_missing_case_is_refused(
     package = runtime.modeling_from_documents([{"package.toml": manifest}], physical)
     assert not package.declarations()
     with pytest.raises(pse.InspectionError):
-        package.prepare_solve(identity(101), pse.SolveSettings(intent="root"))
+        package.prepare_solve(identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT))
 
 
 @pytest.mark.unit
@@ -195,7 +197,7 @@ def test_native_capability_discovery_and_hard_cut(runtime: pse.Runtime) -> None:
     assert "clarabel" in {c.backend for c in capabilities}
     assert all(c.classes and c.reuse and c.cancellation for c in capabilities)
     for capability in capabilities:
-        pse.SolveSettings(backend=capability.backend)
+        pse.SolveSettings(backend=NativeBackend(capability.backend))
     assert not hasattr(pse, "probe_host")
     assert not hasattr(pse, "HostCapabilities")
 
@@ -225,7 +227,7 @@ def test_revision_edit_is_atomic_and_has_no_python_math(
         == "Renamed"
     )
     result = (
-        model.prepare_solve(identity(101), pse.SolveSettings(intent="root"))
+        model.prepare_solve(identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT))
         .start()
         .wait()
     )
@@ -239,7 +241,7 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
     model = revision(runtime, physical)
-    settings = pse.SolveSettings(intent="root")
+    settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     prepared = model.prepare_solve(identity(101), settings)
     assert prepared.route.constant
     assert prepared.route.backend is None
@@ -273,19 +275,26 @@ def test_blocking_async_share_terminal_report_and_last_array_owner(
 @pytest.mark.parametrize(
     "construct",
     [
-        lambda: pse.SolveSettings(presolve="magic"),
-        lambda: pse.SolveSettings(time_limit=-1.0),
-        lambda: pse.SolveSettings(numerics={"integrality": -1.0}),
+        lambda: pse.SolveSettings(presolve=cast("PresolvePolicyKind", "magic")),
+        lambda: pse.SolveSettings(controls=pse.SolveControls(time_limit=-1.0)),
+        lambda: pse.SolveSettings(numerics=documents.NumericalPolicy(integrality=-1.0)),
+        lambda: pse.SolveSettings(presolve_options={"max_passes": 3}),
+        lambda: pse.SolveSettings(convexity_absolute=1e-9),
         lambda: pse.SolveSettings(
-            options={"invalid": cast("str", object())},
+            controls=pse.SolveControls(options={"invalid": cast("str", object())})
         ),
     ],
 )
 def test_solver_profile_refuses_unsupported_or_partial_controls(
+    runtime: pse.Runtime,
+    physical: pse.PhysicalContext,
     construct: Callable[[], pse.SolveSettings],
 ) -> None:
-    with pytest.raises((pse.InspectionError, TypeError, ValueError)):
-        construct()
+    # A document is refused where it enters native code: at decoding for a value outside
+    # its type, and by admission for the rules that relate its fields. A native option
+    # outside the typed union cannot even be encoded.
+    with pytest.raises((pse.InspectionError, TypeError)):
+        revision(runtime, physical).prepare_solve(identity(101), construct())
 
 
 @pytest.mark.unit
@@ -294,7 +303,7 @@ def test_cancelled_async_waiter_does_not_consume_terminal_result(
 ) -> None:
     prepared = revision(runtime, physical).prepare_solve(
         identity(101),
-        pse.SolveSettings(intent="root"),
+        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
     )
     handle = runtime.start([prepared] * 20)
 
@@ -417,7 +426,7 @@ def test_fixed_fitting_sources_round_trip_and_use_shared_result_lifecycle(
     package = package.with_fit_data((fit,), (observation,), (dataset,))
     job = package.prepare_fit(
         identity(158),
-        pse.SolveSettings(intent="optimize"),
+        pse.SolveSettings(intent=NativeSolveIntent.OPTIMIZE),
     ).start()
     result = job.wait()
     rows = (
@@ -448,7 +457,7 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     tmp_path: Path,
 ) -> None:
     prepared = revision(runtime, physical).prepare_solve(
-        identity(101), pse.SolveSettings(intent="root")
+        identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     )
     # An ephemeral run records nothing and cannot publish (ADR-0112 Outcome 16).
     assert not runtime.durable
@@ -461,7 +470,7 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert durable_runtime.durable
     handle = (
         revision(durable_runtime, physical)
-        .prepare_solve(identity(101), pse.SolveSettings(intent="root"))
+        .prepare_solve(identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT))
         .start()
     )
     result = handle.wait()

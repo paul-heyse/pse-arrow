@@ -162,6 +162,14 @@ serde = { version = "=1.0.229", features = ["derive", "rc"] }
 # Manifest and extension-metadata JSON only (blueprint §4.3): never a hash input, never
 # relation data. Identity framing lives in pse-ids (blueprint §5.3).
 serde_json = "=1.0.151"
+# JSON Schema (draft 2020-12) of the Rust-owned boundary documents, derived from their
+# serde types; the generator publishes the schemas and the Python msgspec types from them
+# (ADR-0116 Outcome 7).
+schemars = "=1.2.2"
+# Validated single-value settings domains (ADR-0116 Outcome 8): a value outside its domain
+# cannot be constructed or decoded. `derive_unchecked` carries the schemars 1.x derive,
+# whose field attribute states the constraint in the schema.
+nutype = { version = "=0.8.0", features = ["serde", "derive_unchecked"] }
 bytes = "=1.12.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["std"] }
 serde-saphyr = "=1.2.0"

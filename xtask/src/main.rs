@@ -127,6 +127,10 @@ enum Target {
     Queries,
     /// `bindgen` output for the Ipopt C API.
     Bindgen,
+    /// The JSON Schemas of the Rust-owned boundary documents and of the authoring
+    /// documents, and the Python msgspec document types (ADR-0116 Outcome 7). Derived from
+    /// the owning crates' types, so it needs the complete (package-fixtures) build.
+    Schemas,
 }
 
 fn main() -> Result<()> {

@@ -11,6 +11,8 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse import codec
+from pse.contracts.enums import NativeBackend, NativeSolveIntent
 from pse.contracts.values import SemanticId
 
 
@@ -84,21 +86,21 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
     assert limits.items == 1 and limits.depth > 0 and limits.members > 0
     limited = package.with_limits(limits)
     with pytest.raises(pse.InspectionError, match="specialized item count"):
-        limited.solve_case(case, pse.SolveSettings(intent="root"))
-    assert package.solve_case(case, pse.SolveSettings(intent="root")).accepted
+        limited.solve_case(case, pse.SolveSettings(intent=NativeSolveIntent.ROOT))
+    assert package.solve_case(case, pse.SolveSettings(intent=NativeSolveIntent.ROOT)).accepted
     assert (
         package.with_limits(pse.ModelingLimits())
-        .solve_case(case, pse.SolveSettings(intent="root"))
+        .solve_case(case, pse.SolveSettings(intent=NativeSolveIntent.ROOT))
         .accepted
     )
     assert limits.body_occurrences is None
     with pytest.raises(pse.InspectionError, match="occurrences"):
         package.with_limits(pse.ModelingLimits(body_occurrences=1)).solve_case(
-            case, pse.SolveSettings(intent="root")
+            case, pse.SolveSettings(intent=NativeSolveIntent.ROOT)
         )
     assert (
         package.with_limits(pse.ModelingLimits(body_occurrences=65536))
-        .solve_case(case, pse.SolveSettings(intent="root"))
+        .solve_case(case, pse.SolveSettings(intent=NativeSolveIntent.ROOT))
         .accepted
     )
     with pytest.raises(pse.InspectionError, match="positive"):
@@ -265,27 +267,27 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
         msgspec.json.encode(policy).decode()
     )
     assert msgspec.json.decode(settings.to_json()) == policy
-    report = package.diagnose(identity(220), pse.SolveSettings(intent="root"), settings)
+    report = package.diagnose(identity(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings)
     missing = package.diagnose(
-        identity(229), pse.SolveSettings(intent="root"), settings
+        identity(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT), settings
     )
     assert missing.statistics()["missing_values"] == 2 and not missing.complete
     assert pa.table(missing.table()).to_pylist()[0]["point"] == []
     _, missing_columns = missing.coordinates()
     supplied = package.diagnose_samples(
         identity(229),
-        pse.SolveSettings(intent="root"),
+        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
         ((identity(233), {missing_columns[0]: 1.0, missing_columns[1]: -1.0}),),
     )
     supplied_report = supplied.result(0)
     assert supplied_report is not None and supplied_report.complete
     with pytest.raises(pse.InspectionError, match="missing case value"):
-        package.solve_case(identity(229), pse.SolveSettings(intent="root"))
+        package.solve_case(identity(229), pse.SolveSettings(intent=NativeSolveIntent.ROOT))
     rows, columns = report.coordinates()
     samples = package.diagnose_samples(
         identity(220),
-        pse.SolveSettings(intent="root"),
+        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
         (
             (identity(230), {columns[0]: 2.0}),
@@ -310,19 +312,19 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     assert msgspec.json.decode(reference.to_json())["profile"] == "idaes-2.13"
     capped = package.diagnose_samples(
         identity(220),
-        pse.SolveSettings(intent="root"),
+        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         reference,
         ((identity(230), {}), (identity(231), {})),
         maximum_samples=1,
     )
     assert capped.stop == "sample_limit" and capped.unattempted == 1
     native = package.diagnose_jacobian(
-        identity(220), pse.SolveSettings(intent="root"), maximum_attempts=4
+        identity(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), maximum_attempts=4
     )
     assert len(native.attempts()) == 4
     native_table = native.table()
     limited = package.diagnose_jacobian(
-        identity(220), pse.SolveSettings(intent="root"), maximum_attempts=1
+        identity(220), pse.SolveSettings(intent=NativeSolveIntent.ROOT), maximum_attempts=1
     )
     limited_row = pa.table(limited.table()).to_pylist()[0]
     assert not limited_row["complete"] and len(limited_row["attempts"]) == 1
@@ -333,7 +335,7 @@ def test_modeling_diagnostics_inspect_singular_case_without_solver_admission(
     finding_table = report.table("runtime.modeling_findings")
     nonfinite = package.diagnose_samples(
         identity(220),
-        pse.SolveSettings(intent="root"),
+        pse.SolveSettings(intent=NativeSolveIntent.ROOT),
         settings,
         ((identity(234), {columns[0]: float("nan")}),),
     )
@@ -429,7 +431,7 @@ def test_modeling_native_linear_diagnostics_preserve_scope_and_source_coordinate
         for d in package.declarations()
         if d.name in {"bad", "good", "curved"}
     }
-    settings = pse.SolveSettings(backend="highs", time_limit=30)
+    settings = pse.SolveSettings(backend=NativeBackend.HIGHS, controls=pse.SolveControls(time_limit=30))
     bad = package.diagnose_linear(
         cases["bad"], settings, iis=True, rays=True, relaxation=(-1, -1, 1)
     )
@@ -500,12 +502,12 @@ def test_modeling_authored_fixture_shared_checks_and_owned_tables(
         physical(runtime),
     )
     assert len(package.declarations()) == 9
-    settings = pse.SolveSettings(intent="root")
+    settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     result = package.solve_case(identity(207), settings)
     assert result.accepted and result.outcome_kind == "constant_evaluation"
     assert result.attempt() is None and result.failure() is None
     local_policy = pse.ModelingFixturePolicy(
-        settings, derivative_step=1e-7, derivative_cells=100
+        codec.encode_json(settings), derivative_step=1e-7, derivative_cells=100
     )
     with pytest.raises(pse.InspectionError, match="unknown fixture"):
         package.conform(settings, fixture_policies={identity(250): local_policy})
@@ -650,7 +652,7 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
         physical(runtime),
     )
     case = next(d.declaration_id for d in package.declarations() if d.name == "run")
-    settings = pse.SolveSettings(backend="ipopt", intent="optimize")
+    settings = pse.SolveSettings(backend=NativeBackend.IPOPT, intent=NativeSolveIntent.OPTIMIZE)
     diagnostics = package.diagnose(
         case,
         settings,

@@ -10,11 +10,12 @@ from pse._build import (
     DiagnosticReport,
     NativeRoute,
     NativeStrategyAttempt,
-    SolveSettings,
     _NativePreparedFlow,
     _NativePreparedStrategy,
     _NativeStrategyResult,
 )
+from pse.contracts.documents import SolveSettings
+from pse.contracts.enums import TearMethod
 
 
 class _AnalysisDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
@@ -35,9 +36,9 @@ class PreparedFlow:
             self._handle.graph_json().encode(), _AnalysisDocument
         ).payload
 
-    def select_tears(self, method: str, settings: SolveSettings) -> "StrategyResult":
+    def select_tears(self, method: TearMethod, settings: SolveSettings) -> "StrategyResult":
         """Run the explicitly selected native MILP or policy-respecting heuristic."""
-        return StrategyResult(self._handle.select_tears(method, settings))
+        return StrategyResult(self._handle.select_tears(method, codec.encode_json(settings)))
 
 
 @attrs.frozen

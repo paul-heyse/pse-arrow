@@ -21,7 +21,19 @@ fn sorted_json(mut value: serde_json::Value) -> String {
     value.to_string()
 }
 
-pub(super) fn generate(reg: &Registry) -> Result<String, SchemaError> {
+/// The authoring JSON Schema of the source documents an author writes, before parsing and
+/// identity hydration.
+///
+/// This emitter stays rather than a schemars derivation (ADR-0116 Outcome 10, Plan 22
+/// B5.6): the generated authoring document structs are the *hydrated* documents, so their
+/// derived schema requires the parser-span and package-integrity columns no source states,
+/// and cannot express the identity alias `id` with its UUID form or the package-context
+/// columns an author omits. On the contract the two share, fields and registry
+/// vocabularies, they agree (`authoring_schema_equivalent_under_schemars` in xtask).
+///
+/// # Errors
+/// [`SchemaError::Codegen`] for a declaration with no JSON projection.
+pub fn generate(reg: &Registry) -> Result<String, SchemaError> {
     let mut definitions = Vec::new();
     for relation in reg.relations() {
         let mut properties = Vec::new();

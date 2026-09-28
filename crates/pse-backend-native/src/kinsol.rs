@@ -63,74 +63,7 @@ impl Function {
         }
     }
 }
-/// KINSOL nonlinear strategy, without a project-owned Newton method, and the Anderson
-/// acceleration QR orthogonalization (`KINSetOrthAA`, fixed at allocation): registry
-/// vocabularies (ADR-0115 Outcome 3).
-pub use pse_model::generated::enums::{
-    KinsolOrthogonalization as Orthogonalization, KinsolStrategy as Strategy,
-};
-/// Selected native linear algebra. Dense allocation has an explicit dimension ceiling;
-/// the matrix-free Krylov routes use the analytic Jacobian-vector product.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum Linear {
-    /// Vendored SuiteSparse KLU with analytic CSC Jacobian.
-    Klu,
-    /// Serial dense factorization for explicitly small systems.
-    Dense {
-        /// Maximum admitted dimension.
-        limit: usize,
-    },
-    /// Matrix-free native GMRES.
-    Spgmr {
-        /// Maximum Krylov subspace dimension.
-        dimension: usize,
-    },
-    /// Matrix-free native flexible GMRES.
-    Spfgmr {
-        /// Maximum Krylov subspace dimension.
-        dimension: usize,
-    },
-    /// Matrix-free native BiCGStab.
-    Spbcgs {
-        /// Maximum Krylov subspace dimension.
-        dimension: usize,
-    },
-    /// Matrix-free native transpose-free QMR.
-    Sptfqmr {
-        /// Maximum Krylov subspace dimension.
-        dimension: usize,
-    },
-}
-impl Linear {
-    /// Krylov subspace dimension of a matrix-free route.
-    pub const fn krylov(self) -> Option<usize> {
-        match self {
-            Self::Spgmr { dimension }
-            | Self::Spfgmr { dimension }
-            | Self::Spbcgs { dimension }
-            | Self::Sptfqmr { dimension } => Some(dimension),
-            Self::Klu | Self::Dense { .. } => None,
-        }
-    }
-}
-/// Inexact-Newton forcing term of the Krylov routes (`KINSetEtaForm`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub enum Eta {
-    /// Eisenstat-Walker choice 1, KINSOL's default.
-    #[default]
-    Choice1,
-    /// Eisenstat-Walker choice 2 (`KINSetEtaParams`).
-    Choice2 {
-        /// Safeguard factor in (0, 1].
-        gamma: f64,
-        /// Power in (1, 2].
-        alpha: f64,
-    },
-    /// A constant forcing term in (0, 1] (`KINSetEtaConstValue`).
-    Constant(f64),
-}
+pub use crate::settings::kinsol::{Eta, Linear, Method, Orthogonalization, Strategy};
 /// The native `KINSetOrthAA` code of an orthogonalization.
 const fn orthogonalization_code(orthogonalization: Orthogonalization) -> i32 {
     match orthogonalization {
@@ -151,52 +84,6 @@ pub struct Settings {
     pub residual_scales: Vec<f64>,
     /// Positive scaled-step stopping tolerance.
     pub step_tolerance: f64,
-}
-/// Caller-selected KINSOL method controls: the adapter's pse-owned settings type.
-/// Characteristic scales and the scaled-step tolerance are never caller inputs;
-/// [`Settings::from_policy`] derives them from the resolved numerical policy.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(default, deny_unknown_fields)]
-pub struct Method {
-    /// Nonlinear strategy.
-    pub strategy: Strategy,
-    /// Native linear solver for equation profiles.
-    pub linear: Linear,
-    /// Native Anderson history; zero disables acceleration.
-    pub anderson: usize,
-    /// Damping in (0,1].
-    pub damping: f64,
-    /// Maximum nonlinear iterations between linear setups.
-    pub setup_interval: u32,
-    /// Maximum scaled Newton step (`KINSetMaxNewtonStep`), at least one scaled unit
-    /// because KINSOL raises a smaller cap to one; `None` keeps KINSOL's
-    /// `1000 * ||D_u u_0||`.
-    pub max_newton_step: Option<f64>,
-    /// Inexact-Newton forcing term; Krylov routes only.
-    pub eta: Eta,
-    /// Krylov preconditioner from the analytic Jacobian (`KINSetPreconditioner`);
-    /// KINSOL preconditions on the right.
-    pub preconditioner: Preconditioner,
-    /// Anderson QR orthogonalization; Anderson acceleration only.
-    pub orthogonalization: Orthogonalization,
-    /// Iterations before Anderson acceleration starts (`KINSetDelayAA`); Anderson only.
-    pub anderson_delay: usize,
-}
-impl Default for Method {
-    fn default() -> Self {
-        Self {
-            strategy: Strategy::LineSearch,
-            linear: Linear::Klu,
-            anderson: 0,
-            damping: 1.0,
-            setup_interval: 10,
-            max_newton_step: None,
-            eta: Eta::default(),
-            preconditioner: Preconditioner::None,
-            orthogonalization: Orthogonalization::ModifiedGramSchmidt,
-            anderson_delay: 0,
-        }
-    }
 }
 /// Native sign constraints and the coordinate shift that makes each one-sided bound a
 /// sign bound: KINSOL iterates `u = x - offset`, so `x >= l` becomes `u >= 0` and
@@ -305,9 +192,6 @@ impl Settings {
                 .iter()
                 .chain(&self.residual_scales)
                 .any(|v| !v.is_finite() || *v <= 0.0)
-            || !m.damping.is_finite()
-            || m.damping <= 0.0
-            || m.damping > 1.0
             || m.setup_interval == 0
             || !self.step_tolerance.is_finite()
             || self.step_tolerance <= 0.0
@@ -341,14 +225,14 @@ impl Settings {
             ));
         }
         match m.linear {
-            Linear::Dense { limit } if limit == 0 || n > limit => {
+            Linear::Dense { limit } if n > limit.into_inner() => {
                 return Err(ProblemError::Unsupported(
                     "KINSOL dense dimension limit".into(),
                 ));
             }
             linear if linear
                 .krylov()
-                .is_some_and(|d| d == 0 || i32::try_from(d).is_err()) =>
+                .is_some_and(|d| i32::try_from(d).is_err()) =>
             {
                 return Err(ProblemError::Contract("KINSOL Krylov dimension".into()));
             }
@@ -358,10 +242,10 @@ impl Settings {
         if m.max_newton_step.is_some_and(|v| !(v.is_finite() && v >= 1.0))
             || match m.eta {
                 Eta::Choice1 => false,
-                Eta::Choice2 { gamma, alpha } => {
-                    !(gamma > 0.0 && gamma <= 1.0 && alpha > 1.0 && alpha <= 2.0)
+                Eta::Choice2 { alpha, .. } => {
+                    !(alpha > 1.0 && alpha <= 2.0)
                 }
-                Eta::Constant(v) => !(v > 0.0 && v <= 1.0),
+                Eta::Constant { .. } => false,
             }
             || (m.eta != Eta::default() && !krylov)
             || (m.preconditioner != Preconditioner::None && (!krylov || fixed))
@@ -911,7 +795,7 @@ impl Session {
                     | Linear::Spfgmr { dimension }
                     | Linear::Spbcgs { dimension }
                     | Linear::Sptfqmr { dimension } => {
-                        let maxl = i32::try_from(dimension)
+                        let maxl = i32::try_from(dimension.into_inner())
                             .map_err(|_| ProblemError::Contract("KINSOL Krylov dimension".into()))?;
                         let side = match method.preconditioner {
                             Preconditioner::None => ffi::SUN_PREC_NONE,
@@ -1000,8 +884,8 @@ impl Session {
         let method = self.settings.method;
         let (eta, eta_constant, eta_gamma, eta_alpha) = match method.eta {
             Eta::Choice1 => (ffi::KIN_ETACHOICE1, 0.0, 0.0, 0.0),
-            Eta::Choice2 { gamma, alpha } => (ffi::KIN_ETACHOICE2, 0.0, gamma, alpha),
-            Eta::Constant(value) => (ffi::KIN_ETACONSTANT, value, 0.0, 0.0),
+            Eta::Choice2 { gamma, alpha } => (ffi::KIN_ETACHOICE2, 0.0, gamma.into_inner(), alpha),
+            Eta::Constant { value } => (ffi::KIN_ETACONSTANT, value.into_inner(), 0.0, 0.0),
         };
         let delay = std::ffi::c_long::try_from(method.anderson_delay)
             .map_err(|_| ProblemError::Contract("KINSOL Anderson delay".into()))?;
@@ -1022,9 +906,9 @@ impl Session {
                 ffi::KINSetScaledStepTol(self.mem, self.settings.step_tolerance),
                 "step tolerance",
             )?;
-            check(ffi::KINSetDamping(self.mem, method.damping), "damping")?;
+            check(ffi::KINSetDamping(self.mem, method.damping.into_inner()), "damping")?;
             check(
-                ffi::KINSetDampingAA(self.mem, method.damping),
+                ffi::KINSetDampingAA(self.mem, method.damping.into_inner()),
                 "Anderson damping",
             )?;
             check(
@@ -1225,6 +1109,13 @@ pub fn termination(code: i32) -> NativeTermination {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pse_model::scalars::{Fraction, PositiveCount};
+    fn positive(n: usize) -> PositiveCount {
+        PositiveCount::try_new(n).unwrap()
+    }
+    fn fraction(v: f64) -> Fraction {
+        Fraction::try_new(v).unwrap()
+    }
     #[test]
     fn abi_and_native_entrypoints() {
         assert_eq!(size_of::<ffi::sunrealtype>(), 8);
@@ -1297,7 +1188,7 @@ mod tests {
         updated.method.strategy = Strategy::Newton;
         updated.variable_scales = vec![2.0];
         updated.residual_scales = vec![3.0];
-        updated.method.damping = 0.7;
+        updated.method.damping = fraction(0.7);
         updated.method.setup_interval = 4;
         updated.method.max_newton_step = Some(5.0);
         updated.step_tolerance = 2e-7;
@@ -1340,7 +1231,7 @@ mod tests {
         };
         let feasibility = 1e-7;
         let method = Method {
-            linear: Linear::Dense { limit: 8 },
+            linear: Linear::Dense { limit: positive(8) },
             anderson: 1,
             ..Method::default()
         };
@@ -1434,7 +1325,7 @@ mod tests {
                 Settings {
                     method: Method {
                         strategy,
-                        linear: Linear::Dense { limit: 4 },
+                        linear: Linear::Dense { limit: positive(4) },
                         ..Method::default()
                     },
                     ..settings()
@@ -1449,7 +1340,7 @@ mod tests {
                 Settings {
                     method: Method {
                         strategy,
-                        linear: Linear::Spgmr { dimension: 4 },
+                        linear: Linear::Spgmr { dimension: positive(4) },
                         ..Method::default()
                     },
                     ..settings()
@@ -1568,19 +1459,19 @@ mod tests {
     #[test]
     fn kinsol_krylov_variants_solve() {
         for linear in [
-            Linear::Spgmr { dimension: 3 },
-            Linear::Spfgmr { dimension: 3 },
-            Linear::Spbcgs { dimension: 3 },
-            Linear::Sptfqmr { dimension: 3 },
+            Linear::Spgmr { dimension: positive(3) },
+            Linear::Spfgmr { dimension: positive(3) },
+            Linear::Spbcgs { dimension: positive(3) },
+            Linear::Sptfqmr { dimension: positive(3) },
         ] {
             for preconditioner in [Preconditioner::None, Preconditioner::Jacobi] {
                 for eta in [
                     Eta::Choice1,
                     Eta::Choice2 {
-                        gamma: 0.9,
+                        gamma: fraction(0.9),
                         alpha: 1.5,
                     },
-                    Eta::Constant(0.05),
+                    Eta::Constant { value: fraction(0.05) },
                 ] {
                     let method = Method {
                         linear,
@@ -1699,12 +1590,12 @@ mod tests {
         let c = crate::solver_tests::Polynomial::new().c;
         for method in [
             Method {
-                eta: Eta::Constant(0.1),
+                eta: Eta::Constant { value: fraction(0.1) },
                 ..Method::default()
             },
             Method {
                 preconditioner: Preconditioner::Jacobi,
-                linear: Linear::Dense { limit: 4 },
+                linear: Linear::Dense { limit: positive(4) },
                 ..Method::default()
             },
             Method {
@@ -1720,15 +1611,11 @@ mod tests {
                 ..Method::default()
             },
             Method {
-                linear: Linear::Sptfqmr { dimension: 3 },
+                linear: Linear::Sptfqmr { dimension: positive(3) },
                 eta: Eta::Choice2 {
-                    gamma: 0.0,
-                    alpha: 1.5,
+                    gamma: fraction(0.9),
+                    alpha: 2.5,
                 },
-                ..Method::default()
-            },
-            Method {
-                linear: Linear::Spbcgs { dimension: 0 },
                 ..Method::default()
             },
         ] {
@@ -1741,6 +1628,13 @@ mod tests {
                     .is_err(),
                 "{method:?}"
             );
+        }
+        // A zero Krylov dimension or safeguard factor cannot be constructed or decoded.
+        for method in [
+            serde_json::json!({"linear": {"kind": "spbcgs", "dimension": 0}}),
+            serde_json::json!({"eta": {"kind": "choice2", "gamma": 0.0, "alpha": 1.5}}),
+        ] {
+            assert!(serde_json::from_value::<Method>(method).is_err());
         }
     }
     /// Plan 22 Y6: a nonzero one-sided bound is a sign bound on shifted coordinates, so a

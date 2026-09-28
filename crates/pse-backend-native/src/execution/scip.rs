@@ -14,8 +14,9 @@ use pse_model::generated::enums::NativeConstraintForm;
 
 /// Typed SCIP settings. Reserved native options derive from these and the shared controls;
 /// identity derives from serde.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
+#[schemars(rename = "ScipSettings")]
 pub struct Settings {
     /// Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`): the image's one
     /// Ipopt, so the same type the Ipopt adapter's settings select.

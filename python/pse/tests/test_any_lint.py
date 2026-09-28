@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import attrs
+import msgspec
 import pytest
 
 import pse
@@ -186,3 +187,36 @@ def test_generation_lints_the_candidate_instead_of_installed_contracts(
     )
     assert result.returncode != 0
     assert "contracts.invalid.Invalid.value" in result.stderr
+
+
+class _StructAny(msgspec.Struct, frozen=True):
+    payload: Any
+
+
+class _StructBareDict(msgspec.Struct, frozen=True):
+    payload: dict
+
+
+class _StructNested(msgspec.Struct, frozen=True):
+    inner: tuple[_StructBareDict, ...]
+
+
+@pytest.mark.unit
+def test_documents_pass_any_lint() -> None:
+    """The generated msgspec document types are fully typed (ADR-0116 Outcome 11)."""
+    documents = importlib.import_module("pse.contracts.documents")
+    governance.check(documents)
+    # Every generated document class is linted, including the tagged alternatives.
+    structs = [
+        value
+        for value in vars(documents).values()
+        if isinstance(value, type) and issubclass(value, msgspec.Struct)
+    ]
+    assert documents.SolveSettings in structs
+    assert documents.IpoptLinearMumps in structs
+    with pytest.raises(ContractTypeError) as caught:
+        governance.check_class(_StructAny)
+    assert caught.value.reason == "typing.Any"
+    with pytest.raises(ContractTypeError) as caught:
+        governance.check_class(_StructNested)
+    assert caught.value.reason == "a bare dict"

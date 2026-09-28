@@ -82,6 +82,7 @@ GROUPS = {
         "codegen-postgres-check",
         "codegen-queries-check",
         "codegen-bindgen-check",
+        "codegen-schemas-check",
     ),
     "codegen-contracts-check": (
         "codegen-rust-contracts-check",

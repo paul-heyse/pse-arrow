@@ -3,7 +3,10 @@
 //! The `pse-worker` binary end to end (Plan 22 O4, O6): a job is enqueued in an isolated
 //! operational store, the worker runs it in a child process and records its attempt, and
 //! another process reuses the seed the worker stored. Run with `just worker-test`.
-use pse_backend_native::solve::{Backend, SolveIntent};
+use pse_backend_native::{
+    presolve::PolicyKind,
+    solve::{Backend, SolveIntent},
+};
 use pse_operations::{
     attempts::{NativeTermination, TerminationCode},
     jobs::{JobState, RetryPolicy},
@@ -13,8 +16,9 @@ use pse_operations::{
 use pse_runtime::{
     CancelSource, SharedRuntime,
     authoring_driver::document::{OwnedDocumentSet, load_package_texts_owned},
+    math::settings::SolveSettings,
     workflow::{
-        Durability, JobPresolve, JobProfile, LeasePolicy, ModelingJob, ModelingPackage, Operations,
+        Durability, JobStart, LeasePolicy, ModelingJob, ModelingPackage, Operations,
         RunDurability, Runtime, StartSource, StoredStart,
     },
 };
@@ -132,12 +136,12 @@ async fn package(
     runtime.modeling_from_documents(&modeling, context).unwrap()
 }
 
-fn profile() -> JobProfile {
-    JobProfile {
+fn settings() -> SolveSettings {
+    SolveSettings {
         intent: SolveIntent::FeasiblePoint,
         backend: Some(Backend::Ipopt),
-        presolve: JobPresolve::Off,
-        ..JobProfile::default()
+        presolve: PolicyKind::Off,
+        ..SolveSettings::default()
     }
 }
 
@@ -158,14 +162,16 @@ async fn worker_runs_authored_case_end_to_end() {
         .unwrap()
         .declaration_id;
     let job = ModelingJob {
+        version: pse_model::document::Version,
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
         case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
-        profile: profile(),
+        settings: settings(),
+        start: JobStart::Fresh,
     };
     let enqueued = operations
-        .enqueue_modeling(&job, "square-end-to-end", RetryPolicy::ONCE, 0)
+        .enqueue(&job, "square-end-to-end", RetryPolicy::ONCE, 0)
         .await
         .unwrap();
 
@@ -247,7 +253,7 @@ async fn stored_seed_reused_across_processes(
             job.case.into(),
             job.route,
             Default::default(),
-            job.profile.solver().unwrap(),
+            job.settings.clone().profile().unwrap(),
             Default::default(),
             pse_modeling::Limits::default(),
             &cancel,

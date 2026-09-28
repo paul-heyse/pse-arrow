@@ -23,6 +23,10 @@ pse-diagnostics.workspace = true
 # Platform vocabularies the generated enums re-export (ADR-0117).
 pse-vocabulary.workspace = true
 serde.workspace = true
+# The JSON Schema of registry vocabularies and settings values inside boundary documents
+# (ADR-0116 Outcome 7); the validated scalars are nutype types (Outcome 8).
+schemars.workspace = true
+nutype.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 postgres-types = { workspace = true, optional = true }
@@ -39,3 +43,6 @@ postgres = [
   "dep:postgres-types",
   "dep:postgres-protocol",
 ]
+
+[dev-dependencies]
+serde_json.workspace = true

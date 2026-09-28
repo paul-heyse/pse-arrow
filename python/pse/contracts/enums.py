@@ -382,6 +382,27 @@ class FailureClass(StrEnum):
     USER_MODEL = "user.model"
 
 
+class FeralOrdering(StrEnum):
+    """The declared FeralOrdering enumeration."""
+
+    AMD = "amd"
+    AMF = "amf"
+    METIS_ND = "metis_nd"
+    SCOTCH_ND = "scotch_nd"
+    KAHIP_ND = "kahip_nd"
+    AUTO = "auto"
+    AUTO_RACE = "auto_race"
+
+
+class FeralScaling(StrEnum):
+    """The declared FeralScaling enumeration."""
+
+    INF_NORM = "inf_norm"
+    MC64_SYMMETRIC = "mc64_symmetric"
+    IDENTITY = "identity"
+    AUTO = "auto"
+
+
 class FindingSeverity(StrEnum):
     """The declared FindingSeverity enumeration."""
 
@@ -1083,6 +1104,25 @@ class Preconditioner(StrEnum):
     JACOBI = "jacobi"
 
 
+class PresolvePass(StrEnum):
+    """The declared PresolvePass enumeration."""
+
+    LINEAR_BOUNDS = "linear_bounds"
+    REDUNDANT_ROWS = "redundant_rows"
+    AFFINE_ELIMINATION = "affine_elimination"
+    FBBT = "fbbt"
+    RANK_DIAGNOSTICS = "rank_diagnostics"
+    AUXILIARY = "auxiliary"
+
+
+class PresolvePolicyKind(StrEnum):
+    """The declared PresolvePolicyKind enumeration."""
+
+    OFF = "off"
+    AUTO = "auto"
+    EXPLICIT = "explicit"
+
+
 class PublicationKind(StrEnum):
     """The declared PublicationKind enumeration."""
 
@@ -1320,6 +1360,13 @@ class SubjectRule(StrEnum):
     PRESERVE = "preserve"
     REQUIRE_EQUAL = "require_equal"
     DECLARED_RESULT = "declared_result"
+
+
+class TearMethod(StrEnum):
+    """The declared TearMethod enumeration."""
+
+    HIGHS = "highs"
+    UNWEIGHTED_HEURISTIC = "unweighted_heuristic"
 
 
 class TerminationClass(StrEnum):

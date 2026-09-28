@@ -10,14 +10,14 @@ Import registers the declared Arrow extension types and checks package/native
 version and generated registry identity. Exhaustive annotation checks run through
 ``just python-contracts-check``; dynamic converter hooks check their own classes.
 
-PEP 563 annotations remain prohibited: boundary validators inspect resolved types.
+Settings are the generated msgspec document types of ``pse.contracts.documents``;
+native entry points receive their JSON encoding (ADR-0116).
 
 """
 
 import importlib.metadata
 
 from pse._build import (
-    BackendSettings,
     BuildInfo,
     CacheReport,
     CacheSettings,
@@ -29,9 +29,7 @@ from pse._build import (
     DiagnosticReport,
     DiagnosticSourceLocation,
     DiagnosticSpan,
-    DiffsolSettings,
     EngineSettings,
-    IdasSettings,
     InspectionError,
     NativeAttempt,
     NativeEligibility,
@@ -43,7 +41,6 @@ from pse._build import (
     ResourceConsumer,
     ResourceReport,
     SimulationSettings,
-    SolveSettings,
     TableName,
     _check_native_compatibility,
     build_info,
@@ -75,12 +72,26 @@ from pse._workflow import (
     StrategyResult,
 )
 from pse.contracts import extension_types
+from pse.contracts.documents import (
+    BackendSettings,
+    ClarabelSettings,
+    DiffsolSettings,
+    HighsSettings,
+    IdasSettings,
+    IpoptSettings,
+    KinsolSettings,
+    PounceSettings,
+    ScipSettings,
+    SolveControls,
+    SolveSettings,
+)
 
 __all__ = [
     "BackendSettings",
     "BuildInfo",
     "CacheReport",
     "CacheSettings",
+    "ClarabelSettings",
     "DiagnosticAnnotation",
     "DiagnosticCause",
     "DiagnosticContext",
@@ -92,8 +103,11 @@ __all__ = [
     "DiffsolSettings",
     "EngineSettings",
     "FieldTransfer",
+    "HighsSettings",
     "IdasSettings",
     "InspectionError",
+    "IpoptSettings",
+    "KinsolSettings",
     "ModelingNativeAnalysis",
     "ModelingDiagnostics",
     "ModelingDiagnosticSamples",
@@ -119,6 +133,7 @@ __all__ = [
     "OperationalAttempt",
     "OperationalStore",
     "PhysicalContext",
+    "PounceSettings",
     "PreparedFlow",
     "PreparedOperation",
     "PreparedStrategy",
@@ -139,7 +154,9 @@ __all__ = [
     "RunHandle",
     "RunResult",
     "Runtime",
+    "ScipSettings",
     "SimulationSettings",
+    "SolveControls",
     "SolveSettings",
     "SolverCapability",
     "StrategyResult",

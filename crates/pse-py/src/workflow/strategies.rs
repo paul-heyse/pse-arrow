@@ -37,8 +37,9 @@ impl NativePreparedFlow {
         &self,
         py: Python<'_>,
         method: &str,
-        settings: &SolveSettings,
+        settings: &[u8],
     ) -> PyResult<NativeStrategyResult> {
+        let settings = settings::solve_profile(py, settings)?;
         let method: pse_runtime::math::flows::TearMethod =
             settings::named(py, "tear method", method)?;
         let handle = py
@@ -47,7 +48,7 @@ impl NativePreparedFlow {
                 self.math.select_tears(
                     self.inner.clone(),
                     method,
-                    settings.profile.controls.clone(),
+                    settings.controls.clone(),
                 )
             })
             .map_err(|e| errors::diagnostic(py, &e))?;

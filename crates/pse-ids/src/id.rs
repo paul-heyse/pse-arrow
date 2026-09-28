@@ -255,6 +255,32 @@ impl<'de> serde::Deserialize<'de> for ContentHash {
     }
 }
 
+/// An identity in a boundary document is its serde text: 32 hexadecimal digits.
+impl schemars::JsonSchema for SemanticId {
+    fn inline_schema() -> bool {
+        true
+    }
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "SemanticId".into()
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type": "string", "pattern": "^[0-9a-fA-F]{32}$" })
+    }
+}
+
+/// A content hash in a boundary document is its prefixed serde text.
+impl schemars::JsonSchema for ContentHash {
+    fn inline_schema() -> bool {
+        true
+    }
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        "ContentHash".into()
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type": "string", "pattern": "^blake3:[0-9a-fA-F]{64}$" })
+    }
+}
+
 /// Declares a role newtype over [`ContentHash`] with a `Display` that delegates.
 macro_rules! hash_role {
     ($(#[$meta:meta])* $name:ident) => {

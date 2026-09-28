@@ -74,7 +74,12 @@ fn semantic_item(item: &syn::Item, names: &BTreeSet<String>, relative: &std::pat
                     path.segments.last().is_some_and(|part| {
                         matches!(
                             part.ident.to_string().as_str(),
-                            "FromStr" | "PartialEq" | "SemanticEq" | "HeapUsage" | "SemanticFrame"
+                            "FromStr"
+                                | "PartialEq"
+                                | "SemanticEq"
+                                | "HeapUsage"
+                                | "SemanticFrame"
+                                | "JsonSchema"
                         )
                     })
                 })

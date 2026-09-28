@@ -9,6 +9,7 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts.enums import NativeBackend, NativeSolveIntent, NativeStartPolicy, PresolvePolicyKind, ReusePolicy
 from pse.contracts.enums import AttemptState
 from pse.contracts.values import SemanticId
 
@@ -42,7 +43,7 @@ def test_authored_solve_join_warm_start_checks_and_publication(
         [{"package.toml": manifest, "models/root.pse": source}], physical
     )
     case = next(row.declaration_id for row in package.declarations() if row.name == "Root")
-    settings = pse.SolveSettings(backend="ipopt", intent="feasible_point", presolve="off")
+    settings = pse.SolveSettings(backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT, presolve=PresolvePolicyKind.OFF)
     prepared = package.prepare_solve(case, settings)
     handle = prepared.start()
 
@@ -80,7 +81,7 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     settled = runtime.settle_publication(ticket)
     assert isinstance(settled, pse.PublicationCommitted)
     assert settled.root.location == location and settled.root.version == version
-    following = package.prepare_solve(case, pse.SolveSettings(backend="ipopt", intent="feasible_point", presolve="off", reuse="require_reuse", start="previous_accepted"))
+    following = package.prepare_solve(case, pse.SolveSettings(backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT, presolve=PresolvePolicyKind.OFF, controls=pse.SolveControls(reuse=ReusePolicy.REQUIRE_REUSE, start=NativeStartPolicy.PREVIOUS_ACCEPTED)))
     sequence = runtime.start([prepared, following]).wait()
     assert sequence.usable
     assert len(sequence.completion.solves) == 2

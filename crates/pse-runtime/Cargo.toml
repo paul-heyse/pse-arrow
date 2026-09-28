@@ -47,6 +47,8 @@ pse-math.workspace = true
 pse-kernels.workspace = true
 pse-structural.workspace = true
 serde.workspace = true
+# The JSON Schema of the solve settings and job documents (ADR-0116 Outcome 7).
+schemars.workspace = true
 serde-saphyr.workspace = true
 toml.workspace = true
 pse-model.workspace = true

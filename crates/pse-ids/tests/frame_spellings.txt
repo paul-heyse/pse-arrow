@@ -10,16 +10,12 @@
 # Five test-only spellings were not cataloged: pse.test.domain.a.v1, pse.test.domain.b.v1,
 # pse.test.framing.v1, pse.test.identity.v1 and pse.test.pounce.v1. Those tests key on
 # cataloged frames instead; no stored identity was derived under them.
-pse.backend.settings.v3
 pse.causal-map.v2
 pse.compiler.modeling-view.v2
 pse.completed.environment.v1
 pse.completed.request.v2
-pse.cone.layout.v2
-pse.durable.job_request.v1
 pse.durable.modeling_request.v1
 pse.dynamic.profile.v3
-pse.explicit-conic.v2
 pse.factorable.domain.v1
 pse.factorable.fixed-assignment.profile.v1
 pse.factorable.fixed-assignment.v1
@@ -69,9 +65,7 @@ pse.modeling.member.v1
 pse.modeling.mesh-coordinate.v1
 pse.modeling.source-revision.v1
 pse.modeling.typed-constant.v1
-pse.native.accuracy.v2
 pse.native.build.v1
-pse.native.controls.v1
 pse.native.ipopt.build.v1
 pse.native.seed.v2
 pse.native.structural-scope.v1
@@ -118,3 +112,14 @@ pse:typed-row-key:v1
 # Added after the capture, each registered deliberately with its packet:
 # Plan 22 B1 (ADR-0114 Outcome 23), the operational store's schema fingerprint.
 pse.ops.schema.v1
+# Plan 22 B5 (ADR-0116 Outcome 9): the serde-derived document identities frame the serde
+# data model without Rust type names, and the durable job request is framed from the typed
+# payload. Each replaces the previous version of its frame (backend.settings.v3,
+# cone.layout.v2, native.accuracy.v2, native.controls.v1, durable.job_request.v1,
+# explicit-conic.v2), which is no longer declared.
+pse.backend.settings.v4
+pse.cone.layout.v3
+pse.durable.job_request.v2
+pse.explicit-conic.v3
+pse.native.accuracy.v3
+pse.native.controls.v2

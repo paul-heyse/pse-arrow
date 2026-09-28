@@ -382,6 +382,27 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `internal.invariant` | `` | false |
 | `user.model` | `` | false |
 
+## `FeralOrdering`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `amd` | `` | false |
+| `amf` | `` | false |
+| `metis_nd` | `` | false |
+| `scotch_nd` | `` | false |
+| `kahip_nd` | `` | false |
+| `auto` | `` | false |
+| `auto_race` | `` | false |
+
+## `FeralScaling`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `inf_norm` | `` | false |
+| `mc64_symmetric` | `` | false |
+| `identity` | `` | false |
+| `auto` | `` | false |
+
 ## `FindingSeverity`
 
 | Member | IDAES name | Deprecated |
@@ -1083,6 +1104,25 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `none` | `` | false |
 | `jacobi` | `` | false |
 
+## `PresolvePass`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `linear_bounds` | `` | false |
+| `redundant_rows` | `` | false |
+| `affine_elimination` | `` | false |
+| `fbbt` | `` | false |
+| `rank_diagnostics` | `` | false |
+| `auxiliary` | `` | false |
+
+## `PresolvePolicyKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `off` | `` | false |
+| `auto` | `` | false |
+| `explicit` | `` | false |
+
 ## `PublicationKind`
 
 | Member | IDAES name | Deprecated |
@@ -1321,6 +1361,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `preserve` | `` | false |
 | `require_equal` | `` | false |
 | `declared_result` | `` | false |
+
+## `TearMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `highs` | `` | false |
+| `unweighted_heuristic` | `` | false |
 
 ## `TerminationClass`
 

@@ -154,6 +154,16 @@ fn identities(reg: &Registry) -> String {
     source
 }
 
+/// The Python member name of a declared enumeration member spelling.
+pub(super) fn member_name(spelling: &str) -> String {
+    let variant = spelling.to_ascii_uppercase().replace(['-', '.'], "_");
+    if variant.starts_with(|character: char| character.is_ascii_digit()) {
+        format!("MEMBER_{variant}")
+    } else {
+        variant
+    }
+}
+
 fn enumerations(reg: &Registry) -> String {
     let mut source = String::from(
         "\"\"\"Declared string enumerations; ordinal codes are presentation only.\"\"\"\n\nfrom enum import StrEnum\n",
@@ -167,12 +177,7 @@ fn enumerations(reg: &Registry) -> String {
             spec.name
         );
         for member in &spec.members {
-            let variant = member.name.to_ascii_uppercase().replace(['-', '.'], "_");
-            let variant = if variant.starts_with(|character: char| character.is_ascii_digit()) {
-                format!("MEMBER_{variant}")
-            } else {
-                variant
-            };
+            let variant = member_name(member.name);
             let annotation = if variant == "PASS" {
                 "  # noqa: S105 -- declared enumeration spelling"
             } else {

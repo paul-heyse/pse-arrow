@@ -16,17 +16,30 @@ from pse import (
     ModelingFixturePolicy,
     ModelingLimits,
     Runtime,
+    SolveControls,
     SolveSettings,
+    codec,
 )
+from pse.contracts.enums import NativeBackend, NativeSolveIntent, PresolvePolicyKind
 from pse.contracts.values import SemanticId
 
 #: The command line's word for automatic backend selection (no explicit backend).
 AUTOMATIC = "auto"
 
 
-def _selected(backend: str) -> str | None:
+def _selected(backend: str) -> NativeBackend | None:
     """Map the command-line backend word to an explicit registry backend or none."""
-    return None if backend == AUTOMATIC else backend
+    return None if backend == AUTOMATIC else NativeBackend(backend)
+
+
+def _settings(intent: str, backend: str, presolve: str, time_limit: float) -> SolveSettings:
+    """The typed solve settings of the command line's words."""
+    return SolveSettings(
+        intent=NativeSolveIntent(intent),
+        backend=_selected(backend),
+        presolve=PresolvePolicyKind(presolve),
+        controls=SolveControls(time_limit=time_limit),
+    )
 
 
 def _documents(root: Path) -> dict[str, str]:
@@ -106,11 +119,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error("fixture presolve must be auto or off")
         presolves[fixture] = mode
     solvers = {
-        fixture: SolveSettings(
-            intent=selections.get(fixture, (args.intent, args.backend))[0],
-            backend=_selected(selections.get(fixture, (args.intent, args.backend))[1]),
-            presolve=presolves.get(fixture, args.presolve),
-            time_limit=args.time_limit,
+        fixture: _settings(
+            selections.get(fixture, (args.intent, args.backend))[0],
+            selections.get(fixture, (args.intent, args.backend))[1],
+            presolves.get(fixture, args.presolve),
+            args.time_limit,
         )
         for fixture in selections.keys() | presolves.keys()
     }
@@ -123,7 +136,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("pure conformance does not consume native fixture policies")
     fixture_policies = {
         fixture: ModelingFixturePolicy(
-            solvers.get(fixture),
+            None if fixture not in solvers else codec.encode_json(solvers[fixture]),
             derivative_step=derivatives[fixture][0] if fixture in derivatives else None,
             derivative_tolerance=derivatives[fixture][1]
             if fixture in derivatives
@@ -169,12 +182,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 limits
             )
             result = package.conform(
-                SolveSettings(
-                    backend=_selected(args.backend),
-                    intent=args.intent,
-                    presolve=args.presolve,
-                    time_limit=args.time_limit,
-                ),
+                _settings(args.intent, args.backend, args.presolve, args.time_limit),
                 maximum_fixtures=args.maximum_fixtures,
                 maximum_checks=args.maximum_checks,
                 derivative_cells=args.derivative_cells,

@@ -21,6 +21,8 @@ pse-diagnostics.workspace = true
 pse-ids.workspace = true
 serde.workspace = true
 strum.workspace = true
+# The member spellings as a JSON Schema inside boundary documents (ADR-0116 Outcome 7).
+schemars.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 
