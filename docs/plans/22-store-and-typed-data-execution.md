@@ -289,7 +289,7 @@ The model and case semantics follow the maintainer's decision on B3b's proposal 
 | W3 | O8 (R); B5 (V) | complete: B5 in merge `d26bdebe`, O8 in merge `4487adfc` |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | complete: G8 in merge `b80f8d4c`, O7 in merge `f5909d1c`, B3b in merge `3c6407ad` |
 | W5 | O9; B3c; docs step | complete: O9 in merge `3a097532`, B3c in `4b9d16f7`/`3d878717`, docs step in `12321374`/`425a7b9c` (revision 67) and `0e727af5` (revision 68) |
-| W6 | Scoped qualification | complete: see the W6 checkpoint; the run-identity fix `598b82ef` has not been run |
+| W6 | Scoped qualification | complete (see the W6 checkpoint) |
 
 ## Current checkpoint (2026-09-28)
 
@@ -861,7 +861,7 @@ local immutable image id. By maintainer direction (decision 8), use-case and jou
 |---|---|
 | `cargo fmt --all -- --check` | clean |
 | `just clippy` (`clippy-default`, `clippy-no-default`) | both passed |
-| `just quality` | every check passed except `lint-toml`, which failed only on the two `packages/reference/*/package.toml` files, since excluded (`7281ac97`, not re-run) |
+| `just quality` | every check passed except `lint-toml`, which failed only on the two `packages/reference/*/package.toml` files, since excluded from taplo (`7281ac97`) |
 | `just governance` (governance tests, all seven codegen checks, `family-check`) | passed |
 | `just adr-lint`; `just docs`; `just docs-test` | passed; 144 chapters built; 8 passed |
 | `just db-test` / `just worker-test` / `just publication-test` | 61 / 4 / 9 passed |
@@ -873,9 +873,9 @@ local immutable image id. By maintainer direction (decision 8), use-case and jou
 builds registries in the engine, lifecycle and pse-rules tests, and it did not declare the
 `run` identity that `runtime.diagnostics_findings.run_id` now references (`UnknownReference
 identity:run`). `598b82ef` gives the run identity its own declaration, used by the operational
-catalog and by `declare_diagnostics`, as `declare_publications` does for its identities.
-**Not re-run** at the maintainer's request. The next session runs that nextest command and the
-pse-rules tests first.
+catalog and by `declare_diagnostics`, as `declare_publications` does for its identities. After the fix,
+`cargo nextest run -p pse-catalog -p pse-tests-engine -p pse-tests-lifecycle -p pse-rules`
+(force-validate) passed 176.
 
 **Excluded, for Q1:** native-acceptance conformance (`authored_publication_resource`
 included), parity, the invariant harness, and performance at scale (S15, the O9 scans).
