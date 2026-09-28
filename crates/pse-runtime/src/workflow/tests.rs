@@ -111,7 +111,6 @@ pub(super) fn physical() -> PhysicalContext {
         quantities,
         preconditions,
         sources: BTreeMap::new(),
-        origin: "test_fixture",
         _inventory: None,
     }
 }

@@ -90,7 +90,7 @@ impl JobPayload {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum JobTask {
     /// Solve one authored case once, possibly as one point of a study.
-    Modeling(ModelingJob),
+    Modeling(Box<ModelingJob>),
     /// Publish a concluded study: its summary and every completed point's result members,
     /// as the study's one publication (Plan 22 O7).
     StudyFinalization(StudyFinalization),
@@ -327,8 +327,9 @@ impl Operations {
             ));
         }
         let request_identity = job.request_identity()?;
-        let payload = serde_json::to_value(JobPayload::new(JobTask::Modeling(job.clone())))
-            .map_err(|e| contract(format!("job payload: {e}")))?;
+        let payload =
+            serde_json::to_value(JobPayload::new(JobTask::Modeling(Box::new(job.clone()))))
+                .map_err(|e| contract(format!("job payload: {e}")))?;
         Ok(self
             .store()
             .jobs()
@@ -405,7 +406,7 @@ impl Runtime {
             return ran(attempt.abandon(&error).await);
         }
         let modeling = match decode(&claimed) {
-            Ok(JobTask::Modeling(modeling)) => modeling,
+            Ok(JobTask::Modeling(modeling)) => *modeling,
             Ok(JobTask::StudyFinalization(task)) => {
                 // Publishing a concluded study runs no solve; it ends under this try's lease.
                 let published = tokio::select! {

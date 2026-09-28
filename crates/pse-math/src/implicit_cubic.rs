@@ -34,7 +34,7 @@ impl CubicRoots {
             .map(|i| x.clone().pow(Atom::num(i)))
             .collect::<Vec<_>>();
         let mut coefficients = vec![Atom::num(0); 4];
-        for (power, coefficient) in expression.coefficient_list::<u16>(&[x.clone()]) {
+        for (power, coefficient) in expression.coefficient_list::<u16>(std::slice::from_ref(&x)) {
             let Some(index) = powers.iter().position(|p| *p == power) else {
                 return Err(MathError::Contract(
                     "unrecognized polynomial degree for cubic accelerator".into(),
@@ -47,7 +47,7 @@ impl CubicRoots {
             .collect::<Result<Vec<_>, _>>()?;
         let layout = crate::jets::JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
         let evaluator = crate::library::bounded_evaluator(
-            pse_ids::SemanticId::NIL,
+            SemanticId::NIL,
             &coefficients,
             &formals,
             &layout,
@@ -64,8 +64,8 @@ impl CubicRoots {
     }
 }
 impl InnerSolver for CubicRoots {
-    fn identity(&self) -> pse_ids::ContentHash {
-        crate::implicit::solver_identity("symbolica.cubic-roots.v1")
+    fn identity(&self) -> ContentHash {
+        solver_identity("symbolica.cubic-roots.v1")
     }
     fn solve(
         &self,
@@ -100,7 +100,7 @@ impl InnerSolver for CubicRoots {
             .into_iter()
             .map(|v| Rational::try_from(v).map_err(|e| MathError::Library(e.to_string())))
             .collect::<Result<Vec<_>, _>>()?;
-        if coefficients.iter().skip(1).all(|v| *v == Rational::from(0)) {
+        if coefficients.iter().skip(1).all(Rational::is_zero) {
             return Err(MathError::Domain {
                 source_id: problem.id,
                 requirement: "nondegenerate polynomial root",

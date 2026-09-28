@@ -819,10 +819,13 @@ impl<S: Pushdown> ExecutionPlan for OperationalScanExec<S> {
 
 // ------------------------------------------------------------ registration --
 
+/// An operational relation's provider, by its table name.
+type NamedTable = (&'static str, Arc<dyn TableProvider>);
+
 fn table<S: Pushdown>(
     store: &Store,
     registry: &Arc<pse_schema::Registry>,
-) -> Result<(&'static str, Arc<dyn TableProvider>), WorkflowError> {
+) -> Result<NamedTable, WorkflowError> {
     let table =
         OperationalTable::<S>::new(store.clone(), Arc::clone(registry)).map_err(super::relation)?;
     Ok((S::TABLE, Arc::new(table)))
@@ -832,7 +835,7 @@ fn table<S: Pushdown>(
 fn tables(
     store: &Store,
     registry: &Arc<pse_schema::Registry>,
-) -> Result<Vec<(&'static str, Arc<dyn TableProvider>)>, WorkflowError> {
+) -> Result<Vec<NamedTable>, WorkflowError> {
     Ok(vec![
         table::<AttemptScan>(store, registry)?,
         table::<TransitionScan>(store, registry)?,
@@ -856,9 +859,7 @@ impl Runtime {
     ///
     /// # Errors
     /// The registry lacks an operational relation's generated declaration.
-    pub fn operational_tables(
-        &self,
-    ) -> Result<Vec<(&'static str, Arc<dyn TableProvider>)>, WorkflowError> {
+    pub fn operational_tables(&self) -> Result<Vec<NamedTable>, WorkflowError> {
         match &self.durability {
             Durability::Ephemeral => Ok(Vec::new()),
             Durability::Durable(operations) => tables(operations.store(), &self.registry),

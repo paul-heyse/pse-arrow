@@ -211,10 +211,8 @@ impl Cursor<'_> {
                 "(" => stack.push(")"),
                 "[" => stack.push("]"),
                 "{" => stack.push("}"),
-                ")" | "]" | "}" => {
-                    if stack.pop() != Some(t) {
-                        return Err(self.error("balanced expression"));
-                    }
+                ")" | "]" | "}" if stack.pop() != Some(t) => {
+                    return Err(self.error("balanced expression"));
                 }
                 _ => {}
             }

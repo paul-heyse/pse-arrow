@@ -10,6 +10,10 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+#[allow(
+    dead_code,
+    reason = "shared by the authoring test binaries; authoring_load_package uses only the registry"
+)]
 pub(super) fn session(
     registry: Arc<Registry>,
     budget: Arc<dyn pse_columnar::MemoryPool>,

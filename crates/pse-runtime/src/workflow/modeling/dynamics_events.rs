@@ -85,6 +85,10 @@ impl ModelingPackage {
         .await
     }
     /// Prepare an integrated simulation of one instance under explicit bindings.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     pub async fn prepare_simulation(
         &self,
         root: DeclarationId,
@@ -114,6 +118,10 @@ impl ModelingPackage {
         .await
     }
     /// Compile all modes before native admission. Layout, units and state scaling stay fixed.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     pub async fn prepare_simulation_modes(
         &self,
         root: DeclarationId,

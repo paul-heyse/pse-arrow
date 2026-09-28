@@ -13,7 +13,6 @@ pub struct PhysicalContext {
     pub(crate) preconditions: Arc<PhysicalPreconditions>,
     pub(crate) sources: BTreeMap<pse_schema::model::RelationKey, FieldCheckedBatch>,
     pub(crate) key: ContentHash,
-    pub(crate) origin: &'static str,
     pub(super) _inventory: Option<Arc<crate::physical::PhysicalInventory>>,
 }
 impl PhysicalContext {
@@ -31,7 +30,6 @@ impl PhysicalContext {
             preconditions,
             key,
             sources: inventory.source_batches().clone(),
-            origin: "admitted_source_rows",
             _inventory: Some(inventory),
         }
     }

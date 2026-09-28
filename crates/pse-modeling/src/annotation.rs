@@ -52,8 +52,11 @@ pub enum AnnotationValue {
     Report(String),
     /// Physical validity range and explicit extrapolation policy.
     Valid {
+        /// Lower endpoint of the validity range.
         lower: Expr,
+        /// Upper endpoint of the validity range.
         upper: Expr,
+        /// What evaluation outside the range does.
         policy: pse_model::generated::enums::ExtrapolationPolicy,
     },
     /// Knowledge-specific post-solve check, not a new equation.
@@ -367,7 +370,7 @@ pub(crate) fn target_type(
                 quantity,
             )));
         }
-        if row
+        if (row
             .value
             .binding
             .as_ref()
@@ -376,11 +379,10 @@ pub(crate) fn target_type(
                 .value
                 .accumulator
                 .as_ref()
-                .is_some_and(|a| !a.indices.is_empty())
+                .is_some_and(|a| !a.indices.is_empty()))
+            && let Some(ty) = p.types.get(&id)
         {
-            if let Some(ty) = p.types.get(&id) {
-                return Ok(ty.clone());
-            }
+            return Ok(ty.clone());
         }
     }
     let expression = dsl::parse_expr(source).map_err(|e| invalid(at, e.to_string()))?;

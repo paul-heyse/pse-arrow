@@ -16,13 +16,18 @@ pub enum StaticValue {
     Tuple(Vec<StaticValue>),
     /// A definition reference with named partial bindings.
     Apply {
+        /// Referenced definition name.
         name: String,
+        /// Named bindings in source order.
         arguments: Vec<(String, StaticValue)>,
     },
     /// Finite projection and optional selection over ordered, potentially ragged bindings.
     Comprehension {
+        /// Projected value for each binding combination.
         body: Box<StaticValue>,
+        /// Binder names and their domains, outermost first.
         bindings: Vec<(String, StaticValue)>,
+        /// Optional selection predicate over the binders.
         filter: Option<dsl::Predicate>,
     },
     /// An ordinary expression or reference.
@@ -38,7 +43,7 @@ fn error(reason: impl Into<String>) -> AuthoringError {
 /// # Errors
 /// Unbalanced syntax or invalid expression tokens.
 pub fn split(text: &str, separator: &str) -> Result<Vec<String>, AuthoringError> {
-    let tokens = crate::dsl::lexer::tokenize(text).map_err(|e| error(e.to_string()))?;
+    let tokens = dsl::lexer::tokenize(text).map_err(|e| error(e.to_string()))?;
     let mut stack = Vec::new();
     let mut begin = 0;
     let mut out = Vec::new();
@@ -52,10 +57,8 @@ pub fn split(text: &str, separator: &str) -> Result<Vec<String>, AuthoringError>
             "(" => stack.push(")"),
             "[" => stack.push("]"),
             "{" => stack.push("}"),
-            ")" | "]" | "}" => {
-                if stack.pop() != Some(token.text) {
-                    return Err(error("unbalanced static expression"));
-                }
+            ")" | "]" | "}" if stack.pop() != Some(token.text) => {
+                return Err(error("unbalanced static expression"));
             }
             _ => {}
         }
@@ -154,28 +157,28 @@ fn parse_at(text: &str, depth: u32) -> Result<StaticValue, AuthoringError> {
     if let Ok(expression) = dsl::parse_expr(text) {
         return Ok(StaticValue::Expression(expression));
     }
-    if let Some(open) = text.find('(') {
-        if text.ends_with(')') {
-            let items = split(&text[open + 1..text.len() - 1], ",")?;
-            if items
+    if let Some(open) = text.find('(')
+        && text.ends_with(')')
+    {
+        let items = split(&text[open + 1..text.len() - 1], ",")?;
+        if items
+            .iter()
+            .any(|s| split(s, "=").is_ok_and(|v| v.len() > 1))
+        {
+            let arguments = items
                 .iter()
-                .any(|s| split(s, "=").is_ok_and(|v| v.len() > 1))
-            {
-                let arguments = items
-                    .iter()
-                    .map(|s| {
-                        let parts = split(s, "=")?;
-                        if parts.len() != 2 {
-                            return Err(error("named binding required"));
-                        }
-                        Ok((parts[0].clone(), parse_at(&parts[1], depth + 1)?))
-                    })
-                    .collect::<Result<_, _>>()?;
-                return Ok(StaticValue::Apply {
-                    name: text[..open].trim().into(),
-                    arguments,
-                });
-            }
+                .map(|s| {
+                    let parts = split(s, "=")?;
+                    if parts.len() != 2 {
+                        return Err(error("named binding required"));
+                    }
+                    Ok((parts[0].clone(), parse_at(&parts[1], depth + 1)?))
+                })
+                .collect::<Result<_, _>>()?;
+            return Ok(StaticValue::Apply {
+                name: text[..open].trim().into(),
+                arguments,
+            });
         }
     }
     dsl::parse_expr(text)

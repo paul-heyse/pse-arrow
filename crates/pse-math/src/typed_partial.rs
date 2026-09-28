@@ -42,7 +42,8 @@ impl BodyBuilder<'_> {
                         for (expression, slot) in expressions.iter().zip(outputs) {
                             let atom = shared_derivative(expression, &bindings, &variable);
                             let derivative = self.partial_binding(atom, source, &mut work)?;
-                            let call = library::function(slot, &[argument.atom.clone()])?;
+                            let call =
+                                library::function(slot, std::slice::from_ref(&argument.atom))?;
                             let partial = call.derivative(variable.clone());
                             next.push(Binding {
                                 value: library::formal(slot)?,

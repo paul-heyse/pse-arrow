@@ -155,7 +155,7 @@ impl Pipeline {
             match &w.payload {
                 WarmPayload::Nlp{primal,bounds,rows,barrier:b,working:ws}=>{
                     if b.is_some_and(|b|!b.is_finite() || b<=0.0) {return Err(ProblemError::Contract("original warm barrier value".into()));}
-                    barrier=*b;
+                    barrier = *b;
                     working=ws.clone();
                     if primal.len()!=n || primal.iter().any(|v|!v.is_finite()) {return Err(ProblemError::Contract("original warm primal dimensions/values".into()));}
                     start.clone_from(primal);

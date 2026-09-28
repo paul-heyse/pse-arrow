@@ -11,6 +11,7 @@ pub struct Affine {
     inputs: usize,
 }
 impl Affine {
+    /// Admit `body` when it is affine in its first `unknowns` inputs, one output per unknown.
     pub fn new(body: &crate::guarded::PreparedBody, unknowns: usize) -> Result<Self, MathError> {
         if unknowns == 0 || body.output_count() != unknowns || body.input_count() < unknowns {
             return Err(MathError::Contract("affine residual extent".into()));
@@ -35,8 +36,8 @@ impl Affine {
     }
 }
 impl InnerSolver for Affine {
-    fn identity(&self) -> pse_ids::ContentHash {
-        crate::implicit::solver_identity("faer.affine.v1")
+    fn identity(&self) -> ContentHash {
+        solver_identity("faer.affine.v1")
     }
     fn solve(
         &self,

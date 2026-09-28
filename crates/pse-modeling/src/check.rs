@@ -208,10 +208,10 @@ impl CheckedPackage {
                     if name == alias {
                         return self.names.get(&row.name).copied();
                     }
-                    if let Some(tail) = name.strip_prefix(alias).and_then(|s| s.strip_prefix('.')) {
-                        if let Some(id) = self.names.get(&format!("{}.{tail}", row.name)) {
-                            return Some(*id);
-                        }
+                    if let Some(tail) = name.strip_prefix(alias).and_then(|s| s.strip_prefix('.'))
+                        && let Some(id) = self.names.get(&format!("{}.{tail}", row.name))
+                    {
+                        return Some(*id);
                     }
                 }
             }
@@ -266,12 +266,12 @@ impl CheckedPackage {
         if let Some(package) = chain.last().and_then(|id| self.declarations.get(id)) {
             let prefix = format!("{}.", package.name);
             for (name, quantity) in self.quantity_names.iter() {
-                if let Some(local) = name.strip_prefix(&prefix) {
-                    if !local.contains('.') {
-                        let ty = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(*quantity));
-                        names.insert(local.into(), ty.clone());
-                        names.insert(name.clone(), ty);
-                    }
+                if let Some(local) = name.strip_prefix(&prefix)
+                    && !local.contains('.')
+                {
+                    let ty = Type::Quantity(pse_quantity::scheme::Scheme::Concrete(*quantity));
+                    names.insert(local.into(), ty.clone());
+                    names.insert(name.clone(), ty);
                 }
             }
         }
@@ -282,22 +282,20 @@ impl CheckedPackage {
                     let alias = import.alias.as_deref().unwrap_or(&row.name);
                     let prefix = format!("{}.", row.name);
                     for (name, quantity) in self.quantity_names.iter() {
-                        if let Some(tail) = name.strip_prefix(&prefix) {
-                            if !tail.contains('.') {
-                                names.insert(
-                                    format!("{alias}.{tail}"),
-                                    Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
-                                        *quantity,
-                                    )),
-                                );
-                            }
+                        if let Some(tail) = name.strip_prefix(&prefix)
+                            && !tail.contains('.')
+                        {
+                            names.insert(
+                                format!("{alias}.{tail}"),
+                                Type::Quantity(pse_quantity::scheme::Scheme::Concrete(*quantity)),
+                            );
                         }
                     }
                     for (name, id) in &self.names {
-                        if let Some(tail) = name.strip_prefix(&prefix) {
-                            if let Some(ty) = self.types.get(id) {
-                                names.insert(format!("{alias}.{tail}"), ty.clone());
-                            }
+                        if let Some(tail) = name.strip_prefix(&prefix)
+                            && let Some(ty) = self.types.get(id)
+                        {
+                            names.insert(format!("{alias}.{tail}"), ty.clone());
                         }
                     }
                 }
@@ -464,8 +462,8 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         "fixture execution metadata disagrees with its route",
                     ));
                 }
-                if let Some(policy) = &fixture.initialization {
-                    if !policy.initial_step.is_finite()
+                if let Some(policy) = &fixture.initialization
+                    && (!policy.initial_step.is_finite()
                         || policy.initial_step <= 0.
                         || policy.initial_step > 1.
                         || !policy.minimum_step.is_finite()
@@ -476,13 +474,12 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         || policy.maximum_attempts <= 0
                         || policy.maximum_attempts > 100_000
                         || !policy.time_limit_seconds.is_finite()
-                        || policy.time_limit_seconds <= 0.
-                    {
-                        return Err(invalid(
-                            row.declaration_id,
-                            "invalid bounded initialization fixture policy",
-                        ));
-                    }
+                        || policy.time_limit_seconds <= 0.)
+                {
+                    return Err(invalid(
+                        row.declaration_id,
+                        "invalid bounded initialization fixture policy",
+                    ));
                 }
                 if let Some(integration) = &fixture.integration {
                     if integration.quadrature_relative_tolerance.is_some()
@@ -815,13 +812,12 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                 },
             );
         }
-        if let Some(values) = &row.value.enumeration {
-            if values.members.is_empty()
+        if let Some(values) = &row.value.enumeration
+            && (values.members.is_empty()
                 || values.members.iter().any(String::is_empty)
-                || values.members.iter().collect::<BTreeSet<_>>().len() != values.members.len()
-            {
-                return Err(invalid(id, "enumeration requires distinct named members"));
-            }
+                || values.members.iter().collect::<BTreeSet<_>>().len() != values.members.len())
+        {
+            return Err(invalid(id, "enumeration requires distinct named members"));
         }
         if let Some(table) = &row.value.table {
             if !matches!(
@@ -866,38 +862,35 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             contracts.insert(base);
             contracts.extend(p.interfaces.get(&base).into_iter().flatten().copied());
             for (name, member) in p.members.get(&base).into_iter().flatten() {
-                if let Some(previous) = effective.insert(name.clone(), *member) {
-                    if previous != *member
-                        && !own
-                            .get(name)
-                            .is_some_and(|id| p.declarations[id].is_override)
-                    {
-                        // A diamond may expose both an ancestor declaration and its
-                        // already checked refinement. Keep the more specific owner,
-                        // independently of the order in which bases are listed.
-                        let previous_owner = p.declarations[&previous].parent_id;
-                        let member_owner = p.declarations[member].parent_id;
-                        if let (Some(a), Some(b)) = (
-                            previous_owner.and_then(|owner| inode.get(&owner)),
-                            member_owner.and_then(|owner| inode.get(&owner)),
-                        ) {
-                            if a != b
-                                && petgraph::algo::has_path_connecting(&inheritance, *a, *b, None)
-                            {
-                                continue;
-                            }
-                            if a != b
-                                && petgraph::algo::has_path_connecting(&inheritance, *b, *a, None)
-                            {
-                                effective.insert(name.clone(), previous);
-                                continue;
-                            }
+                if let Some(previous) = effective.insert(name.clone(), *member)
+                    && previous != *member
+                    && !own
+                        .get(name)
+                        .is_some_and(|id| p.declarations[id].is_override)
+                {
+                    // A diamond may expose both an ancestor declaration and its
+                    // already checked refinement. Keep the more specific owner,
+                    // independently of the order in which bases are listed.
+                    let previous_owner = p.declarations[&previous].parent_id;
+                    let member_owner = p.declarations[member].parent_id;
+                    if let (Some(a), Some(b)) = (
+                        previous_owner.and_then(|owner| inode.get(&owner)),
+                        member_owner.and_then(|owner| inode.get(&owner)),
+                    ) {
+                        if a != b && petgraph::algo::has_path_connecting(&inheritance, *a, *b, None)
+                        {
+                            continue;
                         }
-                        return Err(invalid(
-                            id,
-                            format!("competing defaults for {name}; explicit override required"),
-                        ));
+                        if a != b && petgraph::algo::has_path_connecting(&inheritance, *b, *a, None)
+                        {
+                            effective.insert(name.clone(), previous);
+                            continue;
+                        }
                     }
+                    return Err(invalid(
+                        id,
+                        format!("competing defaults for {name}; explicit override required"),
+                    ));
                 }
             }
         }
@@ -1137,10 +1130,10 @@ impl CheckedPackage {
                 );
             }
             let mut texts = Vec::new();
-            if row.value.import.is_some() {
-                if let Some(target) = self.names.get(&row.name) {
-                    pending.push(*target);
-                }
+            if row.value.import.is_some()
+                && let Some(target) = self.names.get(&row.name)
+            {
+                pending.push(*target);
             }
             if let Some(v) = &row.value.scope {
                 texts.extend(v.bases.iter().map(String::as_str));

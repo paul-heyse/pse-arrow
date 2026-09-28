@@ -5,6 +5,7 @@
 //! earlier publication is unaffected. (The catalog commit alone makes a record visible.)
 #![allow(
     clippy::unwrap_used,
+    clippy::panic,
     reason = "test fixture construction and exact independent value assertions"
 )]
 

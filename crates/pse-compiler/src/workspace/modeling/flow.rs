@@ -51,7 +51,7 @@ impl PreparedModeling {
                     .quantity;
                 let unit = quantities
                     .quantity_type(quantity)
-                    .map_err(pse_math::MathError::from)?
+                    .map_err(MathError::from)?
                     .canonical_unit;
                 ports.push(pse_kernels::Port {
                     id: port.id,

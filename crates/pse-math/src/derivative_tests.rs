@@ -125,8 +125,8 @@ fn provider() -> (ProviderSpec, Box<dyn Provider>, Arc<AtomicUsize>) {
     let q = pse_quantity::standard::ids::quantity("neutral");
     let u = registry.quantity_type(q).unwrap().canonical_unit;
     let spec = ProviderSpec {
-        shapes: pse_kernels::ProviderShapes::default(),
-        derivative_source: pse_kernels::DerivativeSource::Analytic,
+        shapes: ProviderShapes::default(),
+        derivative_source: DerivativeSource::Analytic,
 
         id: id(10),
         revision: ContentHash::from_bytes([1; 32]),
@@ -192,13 +192,12 @@ fn domain_predicates_use_value_only_providers_and_remain_demand_scoped() {
     assert_eq!(prepared.available_order(), DerivativeOrder::Second);
     assert!(prepared.support().controls.contains(&0));
     let cancel = Arc::new(AtomicBool::new(false));
-    let mut workers = BTreeMap::from([(
-        spec.key(),
-        Box::new(Cubic {
-            spec,
-            calls: calls.clone(),
-        }) as Box<dyn Provider>,
-    )]);
+    let key = spec.key();
+    let provider: Box<dyn Provider> = Box::new(Cubic {
+        spec,
+        calls: calls.clone(),
+    });
+    let mut workers = BTreeMap::from([(key, provider)]);
     let mut guarded = prepared
         .compile(
             &[0],

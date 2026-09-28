@@ -4,19 +4,30 @@
 use super::*;
 use crate::annotation::Annotation;
 
+/// One alternative residual set over the implicit block's shared unknowns.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Regime {
+    /// Regime identity within its instance.
     pub id: SemanticId,
+    /// Declaration that authored the regime.
     pub declaration: DeclarationId,
+    /// Equality residuals, one per shared unknown.
     pub equations: Vec<Row>,
+    /// Regime-local starts, bounds, nominals and row scaling.
     pub annotations: Vec<Annotation>,
+    /// Condition under which the regime may be selected; `true` when unauthored.
     pub eligibility: dsl::Predicate,
 }
+/// Alternative regimes of one implicit block and the physical score that selects among them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RegimeSelection {
+    /// Physical score minimized over eligible regimes.
     pub criterion: Expr,
+    /// Absolute score difference within which two regimes tie.
     pub tolerance: Expr,
+    /// Physical quantity type of the score.
     pub quantity: pse_quantity::QuantityTypeId,
+    /// Regimes in authored order.
     pub alternatives: Vec<Regime>,
 }
 impl Engine<'_, '_> {
@@ -164,7 +175,7 @@ impl Engine<'_, '_> {
                         if !matches!(
                             equation.kind,
                             EquationKind::Relation {
-                                sense: dsl::EquationSense::Eq,
+                                sense: EquationSense::Eq,
                                 ..
                             }
                         ) {

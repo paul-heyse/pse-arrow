@@ -101,7 +101,7 @@ struct Transient {
 #[derive(Clone, Debug)]
 enum Experiment {
     Steady(Steady),
-    Transient(Transient),
+    Transient(Box<Transient>),
 }
 /// Immutable fitting product; mutable evaluators and native sessions are attempt-owned.
 #[derive(Debug)]

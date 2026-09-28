@@ -204,10 +204,6 @@ impl Completed {
     pub(crate) const fn permits_use(self) -> bool {
         self.decision.permits_use()
     }
-    /// See [`CandidateDecision::permits_seed`].
-    pub(crate) const fn permits_seed(self) -> bool {
-        self.decision.permits_seed()
-    }
 }
 /// The workflow completion owner (§16.6). Checks and closure can only refuse or qualify
 /// a usable native decision; they never upgrade a seed-only or diagnostic point.
@@ -556,7 +552,7 @@ mod tests {
         assert_eq!(completed.decision.usability, CandidateUse::SeedOnly);
         assert_eq!(completed.decision.reason, CandidateReason::StoppedFeasible);
         // It may seed a later step, and it is never a result, a commit or an advance.
-        assert!(native.permits_seed() && completed.permits_seed());
+        assert!(native.permits_seed() && completed.decision.permits_seed());
         assert!(!native.permits_use() && !completed.permits_use());
         assert!(!committed);
         // The same facts after a permitted stop are a result in every consumer.

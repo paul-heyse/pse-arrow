@@ -5,9 +5,13 @@ use super::*;
 /// One source-attributed physical comparison.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModelingExpectationResult {
+    /// Source test identity.
     pub id: SemanticId,
+    /// Declaration that authored the test.
     pub declaration: DeclarationId,
+    /// Observed canonical value.
     pub actual: f64,
+    /// Expected canonical value.
     pub expected: f64,
     /// Combined physical tolerance: absolute + relative * abs(expected).
     pub tolerance: f64,
@@ -15,6 +19,7 @@ pub struct ModelingExpectationResult {
     pub absolute_tolerance: f64,
     /// Authored dimensionless relative tolerance.
     pub relative_tolerance: f64,
+    /// Whether the absolute difference is within the combined tolerance.
     pub passed: bool,
 }
 impl PreparedModeling {
@@ -105,6 +110,10 @@ impl PreparedModeling {
 impl CompilerWorkspace {
     /// Execute pure expectations without creating a runtime, acquiring solver resources
     /// or constructing native providers. Models needing a solve use the workflow harness.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     pub fn check_modeling_expectations(
         &mut self,
         root: DeclarationId,

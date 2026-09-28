@@ -16,12 +16,15 @@ use pse_math::normalization::Normalization;
 /// First derivative and sparsity sample policy, in normalized coordinates.
 #[derive(Clone, Copy, Debug)]
 pub struct Policy {
+    /// Finite-difference step, in (0, 1).
     pub perturbation: f64,
+    /// Relative disagreement above which an entry is reported as suspicious.
     pub relative_tolerance: f64,
     /// Bound the dense inspection, including structurally omitted entries.
     pub maximum_cells: usize,
 }
 impl Policy {
+    /// Validate the policy and return the allocation allowance it implies.
     pub fn allowance(self) -> Result<usize, ProblemError> {
         if !self.perturbation.is_finite()
             || self.perturbation <= 0.
@@ -52,12 +55,17 @@ impl Policy {
 /// Numerical sampling evidence; never a proof of global derivative correctness.
 #[derive(Debug)]
 pub struct Report {
+    /// Library comparison report, absent when no sample completed.
     pub sample: Option<DerivativeTestReport>,
+    /// Whether every expected comparison ran without rejection or termination.
     pub complete: bool,
+    /// Callback evaluations the oracle rejected during sampling.
     pub rejected_evaluations: usize,
+    /// Termination that interrupted sampling, if any.
     pub terminal: Option<crate::solve::Termination>,
 }
 impl Report {
+    /// Whether the sample completed with at least one comparison and no suspicious entry.
     pub fn passed(&self) -> bool {
         self.complete
             && self
@@ -77,6 +85,7 @@ impl Report {
         )
     }
 }
+/// Sample first derivatives and sparsity at `initial` within the policy's bounds.
 pub fn analyze(
     oracle: Box<dyn NlpOracle>,
     initial: Vec<f64>,

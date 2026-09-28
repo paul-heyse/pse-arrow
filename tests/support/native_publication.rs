@@ -3,6 +3,7 @@
 
 #![allow(
     clippy::unwrap_used,
+    clippy::panic,
     reason = "test fixture construction and exact independent value assertions"
 )]
 //! Fresh declared native values, native writes and exact cold publication readers.

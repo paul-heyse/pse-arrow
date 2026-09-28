@@ -353,10 +353,10 @@ impl Runtime {
         let artifact =
             ArtifactPlan::new(session, outputs, cancel)?.with_operation(attempt.into())?;
         let header = publication_manifests::Row {
-            publication_id: publication_id.into(),
-            workspace_id: workspace_id.into(),
+            publication_id,
+            workspace_id,
             parent_publication_id: None,
-            attempt_id: attempt.into(),
+            attempt_id: attempt,
             kind: PublicationKind::Relations,
             inputs: vec![],
             members: vec![],
@@ -487,7 +487,7 @@ impl Runtime {
                 job: job(
                     attempt,
                     format!("study:{study_id}:point:{index}"),
-                    JobTask::Modeling(modeling_job),
+                    JobTask::Modeling(Box::new(modeling_job)),
                 )?,
             });
         }

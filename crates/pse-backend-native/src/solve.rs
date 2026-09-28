@@ -11,7 +11,7 @@ use std::{
     collections::BTreeMap,
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, Ordering},
     },
     time::{Duration, Instant},
 };
@@ -431,18 +431,20 @@ impl IncumbentEvent {
 /// When an adapter captures an incumbent's solution: the first incumbent of an attempt at
 /// once, later ones at most once per [`IncumbentEvent::CAPTURE_INTERVAL`]. A deferred
 /// capture stays pending until the interval passes or the search ends.
+#[cfg(any(feature = "highs", feature = "scip"))]
 #[derive(Debug)]
 pub(crate) struct CaptureThrottle {
     started: Instant,
     /// Nanoseconds after `started` of the last capture; `u64::MAX` before the first.
-    last: AtomicU64,
+    last: std::sync::atomic::AtomicU64,
     pending: AtomicBool,
 }
+#[cfg(any(feature = "highs", feature = "scip"))]
 impl CaptureThrottle {
     pub(crate) fn new() -> Self {
         Self {
             started: Instant::now(),
-            last: AtomicU64::new(u64::MAX),
+            last: std::sync::atomic::AtomicU64::new(u64::MAX),
             pending: AtomicBool::new(false),
         }
     }
@@ -1137,7 +1139,8 @@ pub enum Curvature {
     Sufficient,
     /// A direction satisfying every active constraint has negative curvature: the candidate
     /// is not a local minimizer.
-    NegativeCurvature,
+    #[serde(rename = "negative_curvature")]
+    Negative,
     /// A zero eigenvalue: the reduced Hessian is singular or the active gradients are
     /// dependent.
     Singular,

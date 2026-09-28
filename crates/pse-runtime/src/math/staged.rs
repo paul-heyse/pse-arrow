@@ -268,6 +268,10 @@ impl NativeSession {
     ///
     /// # Errors
     /// Admission, cancellation before admission or a lost session.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one staged step binds its solve, predecessor, attempt, progress, lease, cancellation and assessment"
+    )]
     pub(crate) async fn step<T: Send + 'static>(
         &self,
         step: super::solves::PreparedSolve,

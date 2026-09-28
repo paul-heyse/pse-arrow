@@ -318,6 +318,10 @@ impl NativeModelingPackage {
         })
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one parameter per argument of the Python method signature"
+    )]
     #[pyo3(signature=(fit_id, settings, simulations, *, modes=None, rank_tolerance=1e-8, max_cells=1000000))]
     fn prepare_fit(
         &self,
@@ -373,7 +377,7 @@ impl NativeModelingPackage {
         )?;
         Ok(NativePreparedOperation {
             owner: self.owner.clone(),
-            inner: PreparedOperation::Fit(inner),
+            inner: PreparedOperation::Fit(Box::new(inner)),
         })
     }
 
@@ -387,6 +391,10 @@ impl NativeModelingPackage {
         }
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one parameter per argument of the Python method signature"
+    )]
     #[pyo3(signature=(case_id,settings,nominals,*,penalty_tolerance,maximum_attempts,time_limit))]
     fn explain_nonlinear(
         &self,
@@ -442,6 +450,10 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one parameter per argument of the Python method signature"
+    )]
     fn diagnose_samples(
         &self,
         py: Python<'_>,
@@ -620,6 +632,10 @@ impl NativeModelingPackage {
             inner: Arc::new(inner),
         })
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one parameter per argument of the Python method signature"
+    )]
     #[pyo3(signature=(case_id,settings,*,rays=false,iis=false,ranging=false,relaxation=None,lower_penalties=None,upper_penalties=None,row_penalties=None,maximum_entries=100_000))]
     fn diagnose_linear(
         &self,
@@ -740,6 +756,10 @@ impl NativeModelingPackage {
             })
         }
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one parameter per argument of the Python method signature"
+    )]
     #[pyo3(signature=(case_id,settings,*,maximum_rows=32,maximum_entries=100_000,maximum_attempts=64,multiplier_bound=10.0,tolerance=1e-7,rank_relative=1e-8))]
     fn diagnose_jacobian(
         &self,
@@ -818,6 +838,10 @@ impl NativeModelingPackage {
             })
         }
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one parameter per argument of the Python method signature"
+    )]
     #[pyo3(signature=(case_id, settings, *, stages=Vec::new(), homotopy=false, initial_step=0.25, minimum_step=1e-6, growth=1.5, maximum_attempts=128, time_limit=60.0))]
     fn initialize(
         &self,
@@ -1214,6 +1238,10 @@ impl NativeModelingPackage {
         py.detach(|| serde_json::to_vec(self.inner.declarations()))
             .map_err(|e| invalid(py, e.to_string()))
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one parameter per argument of the Python method signature"
+    )]
     #[pyo3(signature=(settings, *, maximum_fixtures=1024, maximum_checks=16384, derivative_cells=100000, derivative_step=1e-6, derivative_tolerance=1e-4, fixture_policies=None))]
     fn conform(
         &self,

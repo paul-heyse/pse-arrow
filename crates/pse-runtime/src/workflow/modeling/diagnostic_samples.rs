@@ -13,19 +13,27 @@ pub use pse_model::generated::enums::ModelingDiagnosticSampleStop as DiagnosticS
 /// Named sample evidence. Every result uses the same original model and numerical profile.
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnosticSamples {
+    /// Run identity of the sample campaign.
     pub run_id: RunId,
     pub(in crate::workflow::modeling) runtime: Runtime,
+    /// Diagnostics or the evaluation failure of each attempted sample, by sample name.
     pub outcomes: Vec<(
         SemanticId,
         Result<Arc<ModelingDiagnostics>, BoundaryDiagnostic>,
     )>,
+    /// Samples not attempted once the campaign stopped.
     pub unattempted: usize,
+    /// Why the campaign stopped.
     pub stop: DiagnosticSampleStop,
     pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl ModelingPackage {
     /// Inspect supplied points without changing starts or generating scientific guesses.
     /// The finding limit and wall allowance apply across the complete sample set.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one campaign binds the prepared model, samples, policy, profile, sample and time budgets and cancellation"
+    )]
     pub async fn diagnose_samples(
         &self,
         prepared: ModelingDiagnosticPreparation,

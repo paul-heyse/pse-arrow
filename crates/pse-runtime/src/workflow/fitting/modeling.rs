@@ -83,7 +83,7 @@ pub(super) enum Assessment {
         program: Option<Arc<ExecutableCase>>,
         numerics: Arc<ResolvedNumericalPolicy>,
     },
-    Transient(ModelingSimulation),
+    Transient(Box<ModelingSimulation>),
 }
 fn member(model: &ModelingPreparation, path: &str) -> Result<SemanticId, WorkflowError> {
     model
@@ -533,14 +533,14 @@ impl ModelingPackage {
                             .ok_or_else(|| contract("fit check extent"))?,
                     )
                     .ok_or_else(|| contract("fit check extent"))?;
-                let result = Experiment::Transient(Transient {
+                let result = Experiment::Transient(Box::new(Transient {
                     program: simulation.program(),
                     profile: simulation.profile().clone(),
                     parameters: simulation.parameters.clone(),
                     output_ports,
                     bindings,
-                });
-                assessments.push(Assessment::Transient(simulation));
+                }));
+                assessments.push(Assessment::Transient(Box::new(simulation)));
                 result
             } else {
                 if profile.simulations.contains_key(&e.experiment_id)

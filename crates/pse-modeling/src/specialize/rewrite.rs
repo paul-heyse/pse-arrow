@@ -2,12 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use pse_authoring::dsl::{Predicate, PredicateKind, ReduceKind};
+/// The owning instance, the member declaration and the member's index coordinates.
+type ResolvedPath = (InstanceId, DeclarationId, Vec<(String, Value)>);
 impl Engine<'_, '_> {
     pub(super) fn child_instance(
         &self,
         instance: InstanceId,
         at: DeclarationId,
-        segment: &dsl::PathSegment,
+        segment: &PathSegment,
         env: &Environment,
     ) -> Result<InstanceId> {
         let state = &self.states[&instance];
@@ -73,7 +75,7 @@ impl Engine<'_, '_> {
         path: &Path,
         env: &Environment,
         ancestor: bool,
-    ) -> Result<(InstanceId, DeclarationId, Vec<(String, Value)>)> {
+    ) -> Result<ResolvedPath> {
         let (first, rest) = path
             .segments
             .split_first()
@@ -171,10 +173,8 @@ impl Engine<'_, '_> {
             let coordinates = self.member_coordinates(instance, *member, values)?;
             return Ok((instance, *member, coordinates));
         }
-        if ancestor {
-            if let Some(parent) = state.parent {
-                return self.resolve_path(parent, at, path, env, true);
-            }
+        if ancestor && let Some(parent) = state.parent {
+            return self.resolve_path(parent, at, path, env, true);
         }
         Err(invalid(
             state.definition,
@@ -248,13 +248,11 @@ impl Engine<'_, '_> {
                         .value
                         .kind
                         == Kind::Implicit
-                    {
-                        if let Ok((owner, member, coordinates)) =
+                        && let Ok((owner, member, coordinates)) =
                             self.resolve_path(instance, at, path, &env, true)
-                        {
-                            let id = self.symbol(owner, member, &coordinates, chain)?;
-                            return Ok(symbol_expr(id));
-                        }
+                    {
+                        let id = self.symbol(owner, member, &coordinates, chain)?;
+                        return Ok(symbol_expr(id));
                     }
                     let value = self.eval(at, &env, &text, None)?;
                     return self.value_expression(&value, at);
@@ -324,8 +322,8 @@ impl Engine<'_, '_> {
                 for value in values {
                     let mut local = env.clone();
                     local.insert(binder.var.clone(), value);
-                    if let Some(filter) = &binder.filter {
-                        if !(Evaluator {
+                    if let Some(filter) = &binder.filter
+                        && !(Evaluator {
                             package: self.p,
                             physical: self.c,
                             at,
@@ -334,9 +332,8 @@ impl Engine<'_, '_> {
                             stack: Vec::new(),
                         })
                         .predicate(filter)?
-                        {
-                            continue;
-                        }
+                    {
+                        continue;
                     }
                     terms.push(self.rewrite(instance, body, &local, chain)?);
                 }

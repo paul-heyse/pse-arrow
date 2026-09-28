@@ -1221,7 +1221,7 @@ impl MathService {
             Outcome::Native(mut r) => {
                 if r.failure_bytes() > 0 {
                     let failure_owner = self.reserve("math:solve-failure", r.failure_bytes())?;
-                    r = Box::new((*r).with_failure_owner(failure_owner));
+                    *r = (*r).with_failure_owner(failure_owner);
                 }
                 if let Some(seed) = &mut r.warm_start {
                     seed.origin = Some(SeedOrigin { run: None, attempt });

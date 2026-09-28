@@ -6,8 +6,11 @@ use pse_kernels::{AdmittedProvider, Port, ProviderSpec};
 /// Algorithm selected by source realization or by the compiler's affine rate proof.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImplicitAlgorithm {
+    /// Nested solve by the shared native inner solver.
     Native,
+    /// Registered accelerator named by the source realization.
     Accelerator(String),
+    /// Closed-form solve of rates proven affine by the compiler.
     AffineRates,
 }
 impl ImplicitAlgorithm {
@@ -36,9 +39,13 @@ struct AssessmentProjection {
 /// Selected scaling declaration and its original term range in the nominal program.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImplicitScale {
+    /// Equation row the scaling applies to.
     pub row: SemanticId,
+    /// Declaration that selected the scaling.
     pub source: DeclarationId,
+    /// Declared scaling scheme.
     pub scheme: pse_model::generated::enums::ConstraintScalingScheme,
+    /// The row's original terms within the residual's nominal-term body.
     pub terms: std::ops::Range<usize>,
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -152,12 +159,17 @@ pub struct AdmittedResidual {
 /// Checked implicit systems over a single ordered unknown set.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdmittedImplicit {
+    /// Algorithm that solves the system.
     pub algorithm: ImplicitAlgorithm,
+    /// Provider descriptor through which the solved unknowns are called.
     pub descriptor: AdmittedProvider,
+    /// Unknowns in the provider's output order.
     pub unknowns: Vec<SemanticId>,
+    /// Alternative root problems over the same unknowns.
     pub residuals: Vec<AdmittedResidual>,
 }
 impl AdmittedImplicit {
+    /// Every admitted body: residuals, hints, nominal terms and regime assessments.
     pub fn bodies(&self) -> impl Iterator<Item = &Arc<AdmittedBody>> {
         self.residuals.iter().flat_map(|r| {
             std::iter::once(&r.body)
@@ -170,6 +182,7 @@ impl AdmittedImplicit {
                 )
         })
     }
+    /// Approximate heap bytes retained by the system, for cache accounting.
     pub fn retained_bytes(&self) -> usize {
         size_of_val(self.unknowns.as_slice())
             + self.algorithm.retained_bytes()
@@ -199,7 +212,7 @@ impl AdmittedImplicit {
         solver: Arc<dyn pse_math::implicit::InnerSolver>,
         accelerators: &pse_math::implicit::accelerators::Accelerators,
         cancel: Arc<AtomicBool>,
-        limits: pse_math::jets::EvaluationLimits,
+        limits: EvaluationLimits,
     ) -> Result<pse_math::implicit::ImplicitFactory> {
         use pse_math::implicit::{Factory, ImplicitFactory, RegimeFactory, RegimeFactoryBranch};
         if configurations.len() != self.residuals.len() || self.residuals.is_empty() {
@@ -239,17 +252,16 @@ impl AdmittedImplicit {
                     t.min(configuration.time_limit())
                 }),
             );
-            let compile =
-                |body: &AdmittedBody, order| -> Result<Arc<pse_math::guarded::CompiledBody>> {
-                    Ok(Arc::new(body.math.compile(
-                        &(0..body.quantities.len()).collect::<Vec<_>>(),
-                        &(0..body.math.input_count()).collect::<Vec<_>>(),
-                        order,
-                        pse_math::library::Optimization::default(),
-                        limits,
-                        &cancel,
-                    )?))
-                };
+            let compile = |body: &AdmittedBody, order| -> Result<Arc<CompiledBody>> {
+                Ok(Arc::new(body.math.compile(
+                    &(0..body.quantities.len()).collect::<Vec<_>>(),
+                    &(0..body.math.input_count()).collect::<Vec<_>>(),
+                    order,
+                    Optimization::default(),
+                    limits,
+                    &cancel,
+                )?))
+            };
             let branch_solver: Arc<dyn pse_math::implicit::InnerSolver> = match &self.algorithm {
                 ImplicitAlgorithm::Accelerator(id) => accelerators.admit(
                     id,
@@ -295,12 +307,12 @@ impl AdmittedImplicit {
                 max_entries: limits.derivative_components,
                 providers: BTreeMap::new(),
             };
-            let local = |body: &Arc<AdmittedBody>| -> Result<Arc<pse_math::guarded::CompiledBody>> {
+            let local = |body: &Arc<AdmittedBody>| -> Result<Arc<CompiledBody>> {
                 Ok(Arc::new(body.math.compile_branch_local(
                     &(0..body.math.output_count()).collect::<Vec<_>>(),
                     &(0..body.math.input_count()).collect::<Vec<_>>(),
                     DerivativeOrder::First,
-                    pse_math::library::Optimization::default(),
+                    Optimization::default(),
                     limits,
                     &cancel,
                 )?))
@@ -352,7 +364,7 @@ pub(super) fn project(
                     quantity: f.quantity,
                     unit: registry
                         .quantity_type(f.quantity)
-                        .map_err(pse_math::MathError::from)?
+                        .map_err(MathError::from)?
                         .canonical_unit,
                 },
             ))
@@ -641,15 +653,20 @@ pub(super) fn project(
                 .3
                 .free_paths()
                 .into_iter()
-                .filter_map(|p| (p.segments.len() == 1).then(|| p.segments[0].name.clone()))
+                .filter(|&p| p.segments.len() == 1)
+                .map(|p| p.segments[0].name.clone())
                 .collect::<BTreeSet<_>>();
             loop {
                 let before = dependencies.len();
                 for (name, expression) in &scope_bindings {
                     if dependencies.contains(name) {
-                        dependencies.extend(expression.free_paths().into_iter().filter_map(|p| {
-                            (p.segments.len() == 1).then(|| p.segments[0].name.clone())
-                        }));
+                        dependencies.extend(
+                            expression
+                                .free_paths()
+                                .into_iter()
+                                .filter(|&p| p.segments.len() == 1)
+                                .map(|p| p.segments[0].name.clone()),
+                        );
                     }
                 }
                 for (name, guard) in &p.validity {
@@ -660,9 +677,8 @@ pub(super) fn project(
                                 .free_paths()
                                 .into_iter()
                                 .chain(guard.upper.free_paths())
-                                .filter_map(|p| {
-                                    (p.segments.len() == 1).then(|| p.segments[0].name.clone())
-                                }),
+                                .filter(|&p| p.segments.len() == 1)
+                                .map(|p| p.segments[0].name.clone()),
                         );
                     }
                 }
@@ -1009,14 +1025,16 @@ impl AdmittedModeling {
     }
 }
 
+/// Admitted implicit systems by identity, and the provider calls that expose them.
+type Admitted = (
+    BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+    BTreeMap<String, ProviderCall>,
+);
 pub(super) fn admit(
     db: &dyn CompilerDb,
     inventory: Inventory,
     p: &super::Projection,
-) -> Result<(
-    BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
-    BTreeMap<String, crate::typed_math::ProviderCall>,
-)> {
+) -> Result<Admitted> {
     let registry = inventory.quantities(db);
     let checker = inventory.preconditions(db);
     let units = registry.units().map(|u| (u.symbol.clone(), u.id)).collect();
@@ -1038,7 +1056,7 @@ pub(super) fn admit(
     }
     for implicit in &p.implicit {
         checkpoint(db);
-        let descriptor = AdmittedProvider::new(implicit.spec.clone(), &registry)
+        let descriptor = AdmittedProvider::new(implicit.spec.clone(), registry)
             .map_err(|e| CompileError::Missing(e.to_string()))?;
         let mut available = external_calls.clone();
         available.extend(calls.clone());
@@ -1056,12 +1074,12 @@ pub(super) fn admit(
                     providers: &available,
                     units: &units,
                     literals: &BTreeMap::new(),
-                    physical: physical_identity(&registry, &checker),
+                    physical: physical_identity(registry, checker),
                     structure: implicit.spec.revision,
                     limits: p.body_limits,
                 }
                 .admit_modeling_outputs(
-                    &registry,
+                    registry,
                     checker.as_ref(),
                     db.cancel(),
                     &p.functions,
@@ -1127,7 +1145,7 @@ pub(super) fn admit(
         for output in 0..implicit.unknowns.len() {
             calls.insert(
                 call_name(implicit.id, output),
-                crate::typed_math::ProviderCall {
+                ProviderCall {
                     descriptor: descriptor.clone(),
                     output,
                 },

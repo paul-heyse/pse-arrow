@@ -275,10 +275,6 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
     }
 }
 #[tokio::test]
-#[expect(
-    clippy::too_many_lines,
-    reason = "ordered native lifecycle qualification preserves the independent assertions beside each phase"
-)]
 async fn publication_composes_one_write_with_an_exact_unchanged_member() {
     use pse_catalog::delta::publication_plan::{self, Member, MemberWrite};
     let temp = tempfile::tempdir().unwrap();

@@ -122,7 +122,7 @@ impl TerminationCode {
                 Self::Runtime(row.termination_runtime.ok_or_else(|| missing(class))?)
             }
             TerminationClass::Rule => {
-                Self::Rule(row.termination_rule.clone().ok_or_else(|| missing(class))?)
+                Self::Rule(row.termination_rule.ok_or_else(|| missing(class))?)
             }
         }))
     }

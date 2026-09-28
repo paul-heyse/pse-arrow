@@ -1044,9 +1044,9 @@ impl<'a> BodyBuilder<'a> {
     ) -> Result<TypedValue, MathError> {
         let indices = IndexSet::new();
         self.tick()?;
-        let inferred = pse_quantity::infer::infer_with_evidence(
+        let inferred = infer::infer_with_evidence(
             &OpRequest::FiniteReduce { kind, domain },
-            &[pse_quantity::infer::Operand {
+            &[Operand {
                 quantity_type: prototype,
                 indices: &indices,
             }],

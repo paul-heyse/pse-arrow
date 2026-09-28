@@ -838,7 +838,7 @@ mod generic_kind_tests {
             .quantity_type(registry.neutral_dimensionless().unwrap())
             .unwrap()
             .clone();
-        quantity.id = crate::QuantityTypeId::from_id(SemanticId::from_bytes([92; 16]));
+        quantity.id = QuantityTypeId::from_id(SemanticId::from_bytes([92; 16]));
         quantity.key.shape = vec![membrane];
         quantity.key.subject_kind = Some(membrane);
         let mut missing = registry.to_builder();

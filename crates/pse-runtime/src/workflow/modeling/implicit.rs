@@ -6,7 +6,6 @@ use crate::math::{modeling::ModelingInner, solves::NumericalInputs};
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingHint, ModelingVariableState, Profile};
 use pse_math::{
     MathError,
-    binding::CaseValues,
     implicit::{Configuration, HintResolver, Options, Unknown},
 };
 use pse_model::{
@@ -69,7 +68,7 @@ impl HintResolver for TrialHints {
         let mut declarations = self.declarations.clone();
         for ((target, kind), (source, value)) in &selected {
             if *kind == ModelingHint::Nominal {
-                declarations.push(super::cases::requirement(
+                declarations.push(cases::requirement(
                     self.lineage,
                     *target,
                     if self.unknowns.contains(target) {
@@ -93,7 +92,7 @@ impl HintResolver for TrialHints {
                     .get(scale.terms.clone())
                     .ok_or_else(|| failure("implicit original-term range"))?;
                 let value = pse_math::numerics::term_scale(scale.scheme, values)?;
-                declarations.push(super::cases::requirement(
+                declarations.push(cases::requirement(
                     self.lineage,
                     scale.row,
                     NumericalTarget::Row,
@@ -231,10 +230,13 @@ fn stage_instance(inner: &pse_compiler::workspace::AdmittedImplicit) -> Option<I
         .then(|| InstanceId::from_id(inner.descriptor.spec().id))
 }
 impl ModelingPackage {
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "nested hints resolve from the model, case, numerical inputs, policy and controls under the compiler profile, cancellation and row selection"
+    )]
     pub(super) async fn inner_registrations(
         &self,
         model: ModelingPreparation,
-        _values: &CaseValues,
         case: &ModelingCaseBindings,
         numerical: &NumericalInputs,
         policy: &NumericalPolicy,
@@ -416,6 +418,7 @@ impl ModelingPackage {
 mod tests {
     use super::*;
     use pse_compiler::workspace::ModelingOutput;
+    use pse_math::binding::CaseValues;
     /// A definition root specialized as its own instance.
     fn solved(root: SemanticId) -> pse_model::lineage::Solved {
         pse_model::lineage::Solved::new(

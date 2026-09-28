@@ -5,7 +5,6 @@
 //! Source occurrences and formal bindings remain separate from Symbolica arithmetic.
 use pse_authoring::dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, PredicateKind};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
-#[cfg(test)]
 use pse_kernels::DerivativeOrder;
 use pse_math::{
     MathError,
@@ -82,8 +81,11 @@ pub struct ProviderCall {
 /// Physical validity attached to a resolved local path, before library normalization.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Validity {
+    /// Lower endpoint of the validity range.
     pub lower: Expr,
+    /// Upper endpoint of the validity range.
     pub upper: Expr,
+    /// Declaration that authored the range.
     pub source: SemanticId,
 }
 /// One authored local body and the exact physical/specialization context it consumes.
@@ -222,6 +224,10 @@ impl Request<'_> {
         )
     }
     /// Admit definition-owned range obligations with the same expression and library authority.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the physical registry, invariant checker and cancellation accompany the model's separately owned function, output, quantity and validity tables"
+    )]
     pub fn admit_modeling_outputs(
         &self,
         registry: &QuantityRegistry,
@@ -871,9 +877,9 @@ impl Lower<'_, '_> {
         let mut value = value?;
         if let Some(order) = f.continuity {
             let order = match order {
-                0 => pse_kernels::DerivativeOrder::Value,
-                1 => pse_kernels::DerivativeOrder::First,
-                2 => pse_kernels::DerivativeOrder::Second,
+                0 => DerivativeOrder::Value,
+                1 => DerivativeOrder::First,
+                2 => DerivativeOrder::Second,
                 _ => return Err(MathError::Contract("piecewise derivative order".into())),
             };
             self.hash.str("verified-piecewise").u64(order as u64);
@@ -1524,7 +1530,7 @@ mod tests {
         let mut shaped = original.quantity_type(scalar).unwrap().clone();
         shaped.id = QuantityTypeId::from_id(SemanticId::from_bytes([91; 16]));
         shaped.key.shape = vec![
-            pse_quantity::standard::standard_registry()
+            standard_registry()
                 .unwrap()
                 .entity_kind_named("species")
                 .unwrap(),
@@ -1543,7 +1549,7 @@ mod tests {
                 100,
             )
             .unwrap(),
-            kind: pse_quantity::standard::standard_registry()
+            kind: standard_registry()
                 .unwrap()
                 .entity_kind_named("species")
                 .unwrap(),
@@ -1551,7 +1557,7 @@ mod tests {
         let selected = Domain {
             members: pse_math::binding::FiniteDomain::new(member(81), vec![member(2)], 100)
                 .unwrap(),
-            kind: pse_quantity::standard::standard_registry()
+            kind: standard_registry()
                 .unwrap()
                 .entity_kind_named("species")
                 .unwrap(),

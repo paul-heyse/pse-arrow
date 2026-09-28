@@ -21,20 +21,31 @@ pub use solve::{ModelingCaseBindings, ModelingVariableState};
 /// Numerical observation purpose. These do not add equations or fix variables.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ModelingHint {
+    /// Physical start value for initialization.
     Start,
+    /// Characteristic magnitude for the numerical policy.
     Nominal,
+    /// Lower bound expression.
     Lower,
+    /// Upper bound expression.
     Upper,
+    /// Lower endpoint of the declared validity range.
     ValidLower,
+    /// Upper endpoint of the declared validity range.
     ValidUpper,
+    /// Post-solve check indicator: one when the predicate holds, zero otherwise.
     Check,
 }
 /// Source-test observation role; actual and expected retain their physical representation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ModelingTestValue {
+    /// The observed quantity under test.
     Actual,
+    /// The reference value the actual quantity is compared with.
     Expected,
+    /// Absolute tolerance in the actual quantity's representation.
     Tolerance,
+    /// Dimensionless tolerance relative to the expected value.
     RelativeTolerance,
 }
 /// Meaning of an output, independent of execution slots and source names.
@@ -42,22 +53,32 @@ pub enum ModelingTestValue {
 pub enum ModelingOutput {
     /// Rate expression derived from an original time-derivative equation.
     DynamicRate {
+        /// Differential state whose rate this output evaluates.
         state: SemanticId,
+        /// Original equations the rate expression was derived from.
         equations: Vec<SemanticId>,
     },
     /// Differential initial value derived from an explicit endpoint constraint.
     InitialState {
+        /// Differential state whose initial value this output evaluates.
         state: SemanticId,
+        /// Endpoint constraint the initial value was derived from.
         equation: SemanticId,
     },
+    /// One component of an authored source test.
     Test {
+        /// Source test identity.
         id: SemanticId,
+        /// Which side of the comparison this output evaluates.
         component: ModelingTestValue,
     },
     /// Compiled annotation expression with its source and target preserved.
     Hint {
+        /// Model member the annotation applies to.
         target: SemanticId,
+        /// Declaration that authored the annotation.
         declaration: DeclarationId,
+        /// Numerical purpose of the annotation expression.
         kind: ModelingHint,
     },
     /// Unrelaxed residual, retained independently of auxiliary variables.
@@ -67,20 +88,27 @@ pub enum ModelingOutput {
     /// Original additive term, before algebraic normalization; its sign is separate
     /// because negating an affine physical quantity is not a valid physical operation.
     Term {
+        /// Equation the term belongs to.
         equation: SemanticId,
+        /// Position of the term in the equation's original additive order.
         ordinal: usize,
+        /// Whether the term enters the residual with a negative sign.
         negative: bool,
     },
     /// One equation residual in original orientation.
     Equation {
+        /// Equation identity.
         id: SemanticId,
+        /// Authored relation between the two sides.
         sense: EquationSense,
     },
     /// One demanded expression or accounting member.
     Member(SemanticId),
     /// Original contribution magnitude for independent closure checking.
     Contribution {
+        /// Accounting member that receives the contribution.
         accumulator: SemanticId,
+        /// Contributing member.
         contribution: SemanticId,
     },
 }
@@ -94,10 +122,10 @@ pub struct AdmittedModeling {
     /// Existing typed math artifacts, shared by normalized consumer shape.
     pub bodies: BTreeMap<ContentHash, Arc<AdmittedBody>>,
     /// Semantic gathers and output contributions into the established case assembly.
-    pub case: Arc<pse_math::binding::CaseStructure>,
-    /// Auxiliary original term rows and signs, outside public observable ordering.
+    pub case: Arc<CaseStructure>,
     /// Nested residual definitions, independent of mutable native workers.
     pub implicit: BTreeMap<SemanticId, Arc<AdmittedImplicit>>,
+    /// Auxiliary original term rows and signs, outside public observable ordering.
     pub term_outputs: BTreeMap<SemanticId, Vec<(SemanticId, f64)>>,
 }
 #[derive(Clone, Debug, PartialEq)]
@@ -279,7 +307,7 @@ fn projection(
                 symbol_name(*id),
                 scheme
                     .resolve_with_evidence(
-                        &registry,
+                        registry,
                         &Substitution::new(),
                         inventory.preconditions(db).as_ref(),
                     )
@@ -300,7 +328,7 @@ fn projection(
             };
             let quantity = scheme
                 .resolve_with_evidence(
-                    &registry,
+                    registry,
                     &Substitution::new(),
                     inventory.preconditions(db).as_ref(),
                 )
@@ -380,15 +408,20 @@ fn projection(
                 .free_paths()
                 .into_iter()
                 .chain(rhs.free_paths())
-                .filter_map(|p| (p.segments.len() == 1).then(|| p.segments[0].name.clone()))
+                .filter(|&p| p.segments.len() == 1)
+                .map(|p| p.segments[0].name.clone())
                 .collect::<BTreeSet<_>>();
             loop {
                 let before = needed.len();
                 for (name, expression) in &bindings {
                     if needed.contains(name) {
-                        needed.extend(expression.free_paths().into_iter().filter_map(|p| {
-                            (p.segments.len() == 1).then(|| p.segments[0].name.clone())
-                        }));
+                        needed.extend(
+                            expression
+                                .free_paths()
+                                .into_iter()
+                                .filter(|&p| p.segments.len() == 1)
+                                .map(|p| p.segments[0].name.clone()),
+                        );
                     }
                 }
                 if needed.len() == before {
@@ -439,12 +472,12 @@ fn projection(
             } else {
                 None
             };
-            if let Some(expression) = expression {
-                if initial.replace((*id, expression.clone())).is_some() {
-                    return Err(CompileError::Missing(
-                        "multiple initial conditions for one state".into(),
-                    ));
-                }
+            if let Some(expression) = expression
+                && initial.replace((*id, expression.clone())).is_some()
+            {
+                return Err(CompileError::Missing(
+                    "multiple initial conditions for one state".into(),
+                ));
             }
         }
         if let Some((equation, expression)) = initial {
@@ -706,7 +739,7 @@ fn projection(
                 Type::Quantity(pse_quantity::scheme::Scheme::Concrete(
                     pse_quantity::scheme::Scheme::Delta(Box::new(q.clone()))
                         .resolve_with_evidence(
-                            &registry,
+                            registry,
                             &Substitution::new(),
                             inventory.preconditions(db).as_ref(),
                         )
@@ -751,14 +784,14 @@ fn projection(
         p.quantities.push(
             scheme
                 .resolve_with_evidence(
-                    &registry,
+                    registry,
                     &Substitution::new(),
                     inventory.preconditions(db).as_ref(),
                 )
                 .map_err(|e| CompileError::Missing(e.to_string()))?,
         );
     }
-    implicit::project(&model, &registry, &mut p, &mut bindings)?;
+    implicit::project(&model, registry, &mut p, &mut bindings)?;
     p.conservation.retain(|row, _| {
         p.outputs
             .iter()
@@ -846,7 +879,7 @@ fn structure(
             let mut columns = BTreeSet::new();
             for occurrence in body.case.instances() {
                 for contribution in &occurrence.contributions {
-                    if contribution.target != pse_math::binding::Target::Row(*id) {
+                    if contribution.target != Target::Row(*id) {
                         continue;
                     }
                     for slot in
@@ -978,8 +1011,8 @@ fn projection_heap(value: &Result<Arc<Projection>>) -> usize {
             + p.declarations.capacity() * size_of::<DeclarationId>()
             + p.quantities.capacity() * size_of::<QuantityTypeId>()
             + p.local_quantities
-                .iter()
-                .map(|(n, _)| n.capacity() + 128)
+                .keys()
+                .map(|n| n.capacity() + 128)
                 .sum::<usize>()
     })
 }
@@ -1010,7 +1043,7 @@ fn admitted_heap(value: &Result<Arc<AdmittedModeling>>) -> usize {
                 .map(|b| {
                     b.math.retained_bytes()
                         + b.quantities.capacity() * size_of::<QuantityTypeId>()
-                        + b.occurrences.capacity() * size_of::<crate::typed_math::Occurrence>()
+                        + b.occurrences.capacity() * size_of::<Occurrence>()
                 })
                 .sum::<usize>()
             + p.case

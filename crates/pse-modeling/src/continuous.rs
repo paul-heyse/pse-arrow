@@ -209,19 +209,29 @@ pub struct Mesh {
 /// Runtime time coordinate generated from an authored continuous domain.
 #[derive(Clone, Debug, PartialEq)]
 pub struct IntegratedAxis {
+    /// Identity of the authored continuous domain member.
     pub id: SemanticId,
+    /// The axis's single mesh coordinate.
     pub coordinate: SemanticId,
+    /// Time parameter the integrator advances.
     pub time: SemanticId,
+    /// Physical time quantity type of the axis.
     pub quantity: pse_quantity::QuantityTypeId,
+    /// Start of the integration interval, in canonical units.
     pub lower: f64,
+    /// End of the integration interval, in canonical units.
     pub upper: f64,
 }
 /// A derivative coordinate belongs to one original state and one integrated time axis.
 #[derive(Clone, Debug, PartialEq)]
 pub struct IntegratedDerivative {
+    /// Differential state.
     pub state: SemanticId,
+    /// Generated variable holding the state's time derivative.
     pub rate: SemanticId,
+    /// Integrated axis the derivative is taken along.
     pub axis: SemanticId,
+    /// Source of the derivative occurrence.
     pub lineage: crate::specialize::Lineage,
 }
 
@@ -229,7 +239,10 @@ pub struct IntegratedDerivative {
 /// not a time-varying prefix integral available to the differential equations.
 #[derive(Clone, Debug, PartialEq)]
 pub struct IntegratedIntegral {
+    /// Parameter receiving the integral's terminal value.
     pub result: SemanticId,
+    /// Generated let binding holding the integrand.
     pub integrand: SemanticId,
+    /// Integrated axis the integral runs over.
     pub axis: SemanticId,
 }

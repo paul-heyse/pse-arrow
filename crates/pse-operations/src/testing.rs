@@ -407,10 +407,7 @@ async fn relay(client: Box<dyn Relay>, server: Box<dyn Relay>, state: std::sync:
         let answered = std::sync::Arc::clone(&answered);
         tokio::spawn(async move {
             let mut chunk = vec![0; 16 * 1024];
-            loop {
-                let Ok(read) = server_read.read(&mut chunk).await else {
-                    break;
-                };
+            while let Ok(read) = server_read.read(&mut chunk).await {
                 if read == 0 {
                     break;
                 }
@@ -432,10 +429,7 @@ async fn relay(client: Box<dyn Relay>, server: Box<dyn Relay>, state: std::sync:
     };
     let mut chunk = vec![0; 16 * 1024];
     let mut marked = false;
-    'relay: loop {
-        let Ok(read) = client_read.read(&mut chunk).await else {
-            break;
-        };
+    'relay: while let Ok(read) = client_read.read(&mut chunk).await {
         if read == 0 {
             break;
         }

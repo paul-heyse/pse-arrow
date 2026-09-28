@@ -16,8 +16,11 @@ pub struct Elastic {
 /// A physical homotopy parameter; progress belongs to the attempt, never this declaration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Continuation {
+    /// Physical value at the start of the homotopy.
     pub start: Value,
+    /// Physical value at the end of the homotopy.
     pub end: Value,
+    /// Source of the continuation declaration.
     pub lineage: Lineage,
 }
 impl Continuation {

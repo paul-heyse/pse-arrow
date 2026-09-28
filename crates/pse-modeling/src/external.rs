@@ -8,12 +8,19 @@ pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSourc
 /// Immutable selected external implementation and declared derivative contract.
 #[derive(Clone, Debug, PartialEq)]
 pub struct External {
+    /// Registered implementation name.
     pub implementation: String,
+    /// Content hash of the implementation revision the model was authored against.
     pub revision: ContentHash,
+    /// Content hash of the implementation's bound data.
     pub data: ContentHash,
+    /// Output ordinal; an exact integer literal after specialization.
     pub output: Expr,
+    /// Where the implementation's derivatives come from.
     pub derivative_source: DerivativeSource,
+    /// Highest derivative order the implementation supplies, at most two.
     pub derivatives: u8,
+    /// Declared continuity order of the implementation, at most two.
     pub smoothness: u8,
     /// Instantiated input axes after finite specialization.
     pub shapes: Vec<ArgumentShape>,
@@ -21,9 +28,13 @@ pub struct External {
 /// One finite indexed argument's ordered coordinates and scalar gather range.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArgumentShape {
+    /// Identity of the indexed formal argument.
     pub argument: SemanticId,
+    /// Ordered domain identities of the argument.
     pub axes: Vec<SemanticId>,
+    /// Ordered coordinate tuples of the admitted group.
     pub coordinates: Vec<Vec<SemanticId>>,
+    /// Position of the argument's first scalar in the flattened call inputs.
     pub start: usize,
 }
 impl External {

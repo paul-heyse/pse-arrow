@@ -50,11 +50,7 @@ impl ModelingTrajectory {
             .map_err(relation)?;
         if let Some(failure) = self.diagnostic() {
             columns
-                .push(super::super::analysis_tables::finding_row(
-                    self.run_id,
-                    0,
-                    &failure,
-                ))
+                .push(analysis_tables::finding_row(self.run_id, 0, &failure))
                 .map_err(relation)?;
         }
         for check in &self.checks {
@@ -95,7 +91,7 @@ impl ModelingTrajectory {
                 .map_err(relation)?;
         }
         let r = &self.report;
-        let error = r.error.as_ref().map(super::super::engines::bounded_error);
+        let error = r.error.as_ref().map(engines::bounded_error);
         columns
             .push(computation_runs::Row {
                 run_id: self.run_id,

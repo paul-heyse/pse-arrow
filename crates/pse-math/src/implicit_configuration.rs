@@ -5,9 +5,13 @@ use super::*;
 
 /// Interpret already evaluated physical hints, without scheduling or model evaluation.
 pub trait HintResolver: std::fmt::Debug + Send + Sync {
+    /// Content identity of the resolver's fixed inputs, for configuration keys.
     fn identity(&self) -> ContentHash;
+    /// Approximate heap bytes retained by the resolver, for cache accounting.
     fn retained_bytes(&self) -> usize;
+    /// Wall-clock limit for one nested solve.
     fn time_limit(&self) -> Duration;
+    /// Turn evaluated hint values, and optional original terms, into unknowns and options.
     fn resolve(
         &self,
         values: &[f64],
@@ -18,16 +22,20 @@ pub trait HintResolver: std::fmt::Debug + Send + Sync {
 /// Fixed caller configuration or typed model hints evaluated for each enclosing trial.
 #[derive(Clone, Debug)]
 pub enum Configuration {
+    /// Unknowns and options fixed by the caller.
     Fixed(Vec<Unknown>, Options),
+    /// Unknowns and options resolved from model hints at each trial.
     Hints(Arc<dyn HintResolver>),
 }
 impl Configuration {
+    /// Wall-clock limit for one nested solve.
     pub fn time_limit(&self) -> Duration {
         match self {
             Self::Fixed(_, options) => options.time_limit,
             Self::Hints(r) => r.time_limit(),
         }
     }
+    /// Approximate heap bytes retained by the configuration, for cache accounting.
     pub fn retained_bytes(&self) -> usize {
         match self {
             Self::Hints(r) => r.retained_bytes(),
@@ -45,6 +53,7 @@ impl Configuration {
             }
         }
     }
+    /// Content identity of the configuration, for configuration keys.
     pub fn identity(&self) -> ContentHash {
         match self {
             Self::Hints(r) => r.identity(),

@@ -290,6 +290,10 @@ impl BodyBuilder<'_> {
 
 /// Expand bounded pure control paths, and ask Symbolica to differentiate each leaf.
 /// Conditions keep their original slots and domain guards execute in the original schedule.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "path expansion threads its work and slot counters beside the fixed stage schedule, arguments and limits"
+)]
 pub(super) fn partial_paths(
     stages: &[Stage],
     mut values: BTreeMap<usize, Atom>,

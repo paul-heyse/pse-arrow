@@ -195,47 +195,6 @@ async fn native_check_provider_policy_applies_to_no_scan_execution_and_refuses_a
     );
 }
 
-pub(super) fn invalid_keys(
-    registry: &Registry,
-    spec: &pse_schema::model::RelationSpec,
-    rows: &[Vec<serde_json::Value>],
-    check: &str,
-    key: &str,
-) -> Vec<Vec<u8>> {
-    let input =
-        pse_relations::testing::untrusted_batch_from_literals(registry, spec, rows).unwrap();
-    pse_engine::validation::bind_defaults(registry).unwrap();
-    let report = pse_relations::validate::ValidationContext::for_registry(registry)
-        .unwrap()
-        .relation(registry, spec)
-        .unwrap()
-        .evaluate(&input, rows.len(), &CancellationToken::new())
-        .unwrap();
-    assert!(!report.truncated);
-    let rules = report
-        .findings
-        .column_by_name("rule")
-        .unwrap()
-        .as_any()
-        .downcast_ref::<datafusion::arrow::array::StringArray>()
-        .unwrap();
-    assert!((0..rules.len()).all(|row| rules.value(row) == format!("check:{check}")));
-    let keys = input
-        .column_by_name(key)
-        .unwrap()
-        .as_any()
-        .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
-        .unwrap();
-    report
-        .valid_rows
-        .values()
-        .iter()
-        .enumerate()
-        .filter(|(_, valid)| !valid)
-        .map(|(row, _)| keys.value(row).to_vec())
-        .collect()
-}
-
 async fn assert_predicate(
     relation: &str,
     name: &str,

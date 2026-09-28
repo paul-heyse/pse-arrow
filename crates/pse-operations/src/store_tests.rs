@@ -1944,7 +1944,7 @@ async fn incumbents_and_solutions_round_trip() {
             gap: None,
             nodes: None,
             seconds: None,
-            solution_id: Some(newer.solution_id.into()),
+            solution_id: Some(newer.solution_id),
         },
     ];
     assert_eq!(
@@ -2017,7 +2017,7 @@ async fn incumbent_solutions_follow_the_attempt_chain() {
             gap: None,
             nodes: Some(seq),
             seconds: Some(1.0),
-            solution_id: solution.map(|s| s.solution_id.into()),
+            solution_id: solution.map(|s| s.solution_id),
         };
     let (early, late) = (solution(first, 5, 9.0), solution(first, 5, 7.0));
     let batch = [
@@ -2069,15 +2069,12 @@ async fn incumbent_solutions_follow_the_attempt_chain() {
         .unwrap();
 
     let solutions = store.solutions();
-    let resume = |attempt, stamp| {
-        let solutions = solutions;
-        async move {
-            solutions
-                .latest_in_attempt_chain(attempt, &hash(stamp), &hash(6), NativeBackend::Scip)
-                .await
-                .unwrap()
-                .map(|row| row.solution_id)
-        }
+    let resume = |attempt, stamp| async move {
+        solutions
+            .latest_in_attempt_chain(attempt, &hash(stamp), &hash(6), NativeBackend::Scip)
+            .await
+            .unwrap()
+            .map(|row| row.solution_id)
     };
     // From the third try: the second's is of other coordinates, so the first's latest.
     assert_eq!(resume(third, 5).await, Some(late.solution_id));
@@ -3036,7 +3033,7 @@ async fn deletion_plan_excludes_shared_tables() {
             .deletion_plan(space.id, first.publication_id)
             .await
             .unwrap(),
-        [d.table_uri.clone()]
+        std::slice::from_ref(&d.table_uri)
     );
     catalog
         .mark_deleted(space.id, first.publication_id)
@@ -3226,7 +3223,7 @@ async fn reclaimable_intents_are_fenced() {
         .filter(|range| range.reason == RetentionReason::Attempt)
         .map(|range| range.table_uri)
         .collect();
-    assert_eq!(prefixes, [live.member_prefix.clone()]);
+    assert_eq!(prefixes, std::slice::from_ref(&live.member_prefix));
 
     // Recording the removal is idempotent; a reclaimed intent is not claimed again.
     catalog

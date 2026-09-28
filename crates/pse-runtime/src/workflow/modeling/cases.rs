@@ -57,7 +57,9 @@ pub enum StartSource {
 /// One immutable case plus the numerical declarations selected for this analysis.
 #[derive(Clone, Debug)]
 pub struct ModelingSolvePreparation {
+    /// The case's model view, solver projection and input values.
     pub model: ModelingCasePreparation,
+    /// Routed solve with its numerical policy and representation.
     pub solve: PreparedSolve,
     /// Typed case/default/start provenance for every resolved input.
     pub starts: BTreeMap<SemanticId, StartSource>,
@@ -91,7 +93,6 @@ impl ModelingPackage {
         let providers = self
             .inner_registrations(
                 model.clone(),
-                &values,
                 &ModelingCaseBindings::default(),
                 &NumericalInputs::default(),
                 &pse_model::numerics::NumericalPolicy::default(),
@@ -156,6 +157,10 @@ impl ModelingPackage {
             .map(|r| (r.spec().key(), r.clone()))
             .collect()
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "starts resolve from the model, case, seed and parameters under the compiler profile and cancellation"
+    )]
     pub(in crate::workflow) async fn resolve_starts(
         &self,
         model: &ModelingPreparation,
@@ -324,6 +329,10 @@ impl ModelingPackage {
     }
     /// Resolve starts in dependency order; explicit case values override every hint.
     /// No value is fabricated for a missing coordinate, and starts never fix variables.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     pub async fn prepare_solve(
         &self,
         root: DeclarationId,
@@ -353,6 +362,10 @@ impl ModelingPackage {
         )
         .await
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     pub(in crate::workflow) async fn prepare_solve_seed(
         &self,
         root: DeclarationId,
@@ -416,6 +429,10 @@ impl ModelingPackage {
     /// responsibilities are separate steps: specification values and starts, variable
     /// states from bound hints and case overrides, the bound structure (prepared once per
     /// structure and rebound per values, A6), and the numerical policy.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     pub(in crate::workflow) async fn resolve_case(
         &self,
         root: DeclarationId,
@@ -458,7 +475,6 @@ impl ModelingPackage {
         let providers = self
             .inner_registrations(
                 model.clone(),
-                &values,
                 &case,
                 &numerical,
                 &solver.numerics,

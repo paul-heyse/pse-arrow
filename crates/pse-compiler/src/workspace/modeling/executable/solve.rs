@@ -53,6 +53,10 @@ impl CompilerWorkspace {
     /// Prepare an immutable solver view, excluding observation rows and retaining all original model products.
     /// Physical inputs are canonical values. Parameters and fixed variables are required;
     /// free starts are required separately by numerical solve admission.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     pub fn prepare_modeling_case_cancellable(
         &mut self,
         root: DeclarationId,
@@ -249,6 +253,10 @@ impl PreparedModeling {
                 map
             })
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one view binds a structure to its values, registry, order, profile, environment and cancellation"
+    )]
     fn prepare_view(
         &self,
         structure: Arc<CaseStructure>,

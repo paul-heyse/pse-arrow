@@ -574,7 +574,7 @@ fn kernel_conservation_assembles_local_derivatives() {
         .filter(|i| {
             i.contributions
                 .iter()
-                .any(|c| c.target == pse_math::binding::Target::Row(equation))
+                .any(|c| c.target == Target::Row(equation))
         })
         .collect::<Vec<_>>();
     assert_eq!(terms.len(), 2);
@@ -583,7 +583,7 @@ fn kernel_conservation_assembles_local_derivatives() {
         .plan(
             &workspace.inputs.quantities,
             DerivativeOrder::Second,
-            pse_math::assembly::AssemblyLimits::default(),
+            AssemblyLimits::default(),
             &flag,
         )
         .unwrap();
@@ -592,7 +592,7 @@ fn kernel_conservation_assembles_local_derivatives() {
             .unwrap(),
     );
     let mut worker = assembly.worker(BTreeMap::new(), flag);
-    let values = pse_math::binding::CaseValues {
+    let values = CaseValues {
         scalars: a
             .inputs
             .iter()
@@ -741,7 +741,7 @@ fn kernel_original_terms_survive_exact_cancellation_for_scaling() {
     .unwrap();
     let mut worker = f.assembly.worker(BTreeMap::new(), flag);
     let observations = worker
-        .constraints(&pse_math::binding::CaseValues {
+        .constraints(&CaseValues {
             scalars: BTreeMap::from([(admitted.inputs[0], 4.0)]),
         })
         .unwrap();
@@ -925,7 +925,7 @@ fn kernel_function_validity_guards_survive_simplification_and_partial_derivative
         )
         .unwrap();
         let mut worker = f.assembly.worker(BTreeMap::new(), cancel);
-        let values = |x| pse_math::binding::CaseValues {
+        let values = |x| CaseValues {
             scalars: BTreeMap::from([(admitted.inputs[0], x)]),
         };
         let expected = if body.starts_with("partial") { 4. } else { 0. };
@@ -965,8 +965,7 @@ fn kernel_nested_hints_reject_self_dependencies_and_select_regime_overrides() {
                 Bindings::default(),
                 Limits::default(),
             )
-            .err()
-            .expect("self-dependent start must be rejected");
+            .expect_err("self-dependent start must be rejected");
         assert!(error.to_string().contains("own unknowns"), "{error}");
     }
     let source = "package p { def Root { var target:Scalar; implicit roots select minimum((y-target)*(y-target),1e-8) {var y:Scalar; annotation start y(y); regime negative {eq root:y==-1; annotation start y(-1);} regime positive {eq root:y==1; annotation start y(1);} } realize r on roots using nested; eq selected:roots.y==target; } }";
@@ -984,7 +983,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
     #[derive(Debug)]
     struct AnalyticRoot;
     impl InnerSolver for AnalyticRoot {
-        fn identity(&self) -> pse_ids::ContentHash {
+        fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.analytic-root.v1")
         }
         fn solve(
@@ -993,7 +992,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             inputs: &[f64],
             _options: &Options,
             _cancel: &Arc<AtomicBool>,
-        ) -> std::result::Result<Vec<f64>, pse_math::MathError> {
+        ) -> std::result::Result<Vec<f64>, MathError> {
             Ok(vec![inputs[0].sqrt()])
         }
     }
@@ -1045,7 +1044,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
                 Arc::new(AnalyticRoot),
                 &accelerators,
                 cancel.clone(),
-                pse_math::jets::EvaluationLimits::default(),
+                EvaluationLimits::default(),
             )
             .unwrap();
         let f = fixture(
@@ -1059,7 +1058,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             BTreeMap::from([(inner.descriptor.spec().key(), factory.create().unwrap())]),
             cancel.clone(),
         );
-        let values = pse_math::binding::CaseValues {
+        let values = CaseValues {
             scalars: BTreeMap::from([(admitted.inputs[0], 4.0)]),
         };
         let rows = worker.constraints(&values).unwrap();
@@ -1085,7 +1084,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
             .unwrap();
         assert!(
             worker
-                .constraints(&pse_math::binding::CaseValues {
+                .constraints(&CaseValues {
                     scalars: BTreeMap::from([(admitted.inputs[0], 9.0)])
                 })
                 .is_err()
@@ -1156,11 +1155,11 @@ fn kernel_elastic_variants_preserve_originals_and_normalize_penalties() {
             "upper" => {
                 values.insert(elastic.slacks[0], 1.0);
             }
-            _ => unreachable!(),
+            other => panic!("unexpected elastic row {other}"),
         }
     }
     let mut worker = f.assembly.worker(BTreeMap::new(), cancel);
-    let values = pse_math::binding::CaseValues { scalars: values };
+    let values = CaseValues { scalars: values };
     let rows = worker.constraints(&values).unwrap();
     let public = a.ordered_values(&rows).unwrap();
     for (output, value) in a.outputs.iter().zip(public) {
@@ -1221,7 +1220,7 @@ fn kernel_stage_variants_preserve_variables_and_restore_final_structure() {
                     &cancel
                 )
                 .unwrap()
-                .equations(&a),
+                .equations(a),
             vec![expected]
         );
     }
@@ -1404,7 +1403,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     let mut input = w.inputs.clone();
     input.providers.insert(
         "vector".into(),
-        crate::typed_math::ProviderCall {
+        ProviderCall {
             descriptor: AdmittedProvider::new(spec.clone(), &input.quantities).unwrap(),
             output: 0,
         },
@@ -1419,14 +1418,11 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         &cancel,
     )
     .unwrap();
-    let mut worker = f.assembly.worker(
-        BTreeMap::from([(
-            spec.key(),
-            Box::new(Vector(spec.clone())) as Box<dyn Provider>,
-        )]),
-        cancel,
-    );
-    let point = pse_math::binding::CaseValues {
+    let provider: Box<dyn Provider> = Box::new(Vector(spec.clone()));
+    let mut worker = f
+        .assembly
+        .worker(BTreeMap::from([(spec.key(), provider)]), cancel);
+    let point = CaseValues {
         scalars: a.inputs.iter().map(|id| (*id, 2.0)).collect(),
     };
     let mut values = a
@@ -1464,14 +1460,11 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
         let a = admit(&mut w, root);
         let cancel = Arc::new(AtomicBool::new(false));
         let f = fixture(&a, w.inputs.quantities.clone(), order, &cancel).unwrap();
-        let mut worker = f.assembly.worker(
-            BTreeMap::from([(
-                spec.key(),
-                Box::new(Vector(spec.clone())) as Box<dyn Provider>,
-            )]),
-            cancel.clone(),
-        );
-        let point = pse_math::binding::CaseValues {
+        let provider: Box<dyn Provider> = Box::new(Vector(spec.clone()));
+        let mut worker = f
+            .assembly
+            .worker(BTreeMap::from([(spec.key(), provider)]), cancel.clone());
+        let point = CaseValues {
             scalars: a.inputs.iter().map(|id| (*id, 2.)).collect(),
         };
         let values = a
@@ -1523,7 +1516,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     let mut input = w.inputs.clone();
     input.providers.insert(
         "vector".into(),
-        crate::typed_math::ProviderCall {
+        ProviderCall {
             descriptor: AdmittedProvider::new(changed, &input.quantities).unwrap(),
             output: 0,
         },
@@ -1580,7 +1573,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
         solve
             .plan
             .compile(
-                pse_math::library::Optimization::default(),
+                Optimization::default(),
                 EvaluationLimits::default(),
                 &Arc::new(AtomicBool::new(false)),
             )
@@ -1749,17 +1742,9 @@ fn fixture(
     order: DerivativeOrder,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Fixture> {
-    let plan = admitted.plan(
-        &registry,
-        order,
-        pse_math::assembly::AssemblyLimits::default(),
-        cancel,
-    )?;
-    let assembly = Arc::new(plan.compile(
-        pse_math::library::Optimization::default(),
-        pse_math::jets::EvaluationLimits::default(),
-        cancel,
-    )?);
+    let plan = admitted.plan(&registry, order, AssemblyLimits::default(), cancel)?;
+    let assembly =
+        Arc::new(plan.compile(Optimization::default(), EvaluationLimits::default(), cancel)?);
     Ok(Fixture {
         admitted: admitted.clone(),
         assembly,
@@ -1782,7 +1767,7 @@ impl FixtureWorker<'_> {
         _providers: &mut BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>,
         _cancel: &Arc<AtomicBool>,
     ) -> Result<FixtureResult> {
-        let case = pse_math::binding::CaseValues {
+        let case = CaseValues {
             scalars: self
                 .fixture
                 .admitted
@@ -2025,7 +2010,7 @@ fn kernel_piecewise_chained_breakpoints_and_explicit_partials_keep_proved_order(
         };
         let mut worker = compiled.assembly.worker(BTreeMap::new(), cancel.clone());
         let jacobian = worker
-            .jacobian(&pse_math::binding::CaseValues {
+            .jacobian(&CaseValues {
                 scalars: BTreeMap::from([(admitted.inputs[0], x)]),
             })
             .unwrap();
@@ -2089,7 +2074,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
                 root_instance(root),
                 Bindings::default(),
                 Limits::default(),
-                &pse_math::binding::CaseValues {
+                &CaseValues {
                     scalars: BTreeMap::new(),
                 },
                 Profile::default(),
@@ -2105,8 +2090,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
 fn kernel_integrated_axis_retains_symbolic_time_and_original_derivative_lineage() {
     let mut input = super::super::tests::inputs();
     input.preconditions = Arc::new(
-        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
-            .unwrap(),
+        PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
     );
     let time =
         QuantityTypeId::from_id(SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap());
@@ -2225,7 +2209,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
     #[derive(Debug)]
     struct Roots;
     impl InnerSolver for Roots {
-        fn identity(&self) -> pse_ids::ContentHash {
+        fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.polynomial-roots.v1")
         }
         fn solve(
@@ -2234,7 +2218,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
             inputs: &[f64],
             options: &Options,
             _: &Arc<AtomicBool>,
-        ) -> std::result::Result<Vec<f64>, pse_math::MathError> {
+        ) -> std::result::Result<Vec<f64>, MathError> {
             Ok(vec![options.start[0].signum() * inputs[0].sqrt()])
         }
     }
@@ -2287,8 +2271,8 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
                 &[0],
                 &[0, 1],
                 DerivativeOrder::Value,
-                pse_math::library::Optimization::default(),
-                pse_math::jets::EvaluationLimits::default(),
+                Optimization::default(),
+                EvaluationLimits::default(),
                 &cancel,
             )
             .unwrap()
@@ -2313,7 +2297,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
             Arc::new(Roots),
             &pse_math::implicit::accelerators::Accelerators::standard(),
             cancel.clone(),
-            pse_math::jets::EvaluationLimits::default(),
+            EvaluationLimits::default(),
         )
         .unwrap();
     let mut provider = factory.create().unwrap();
@@ -2994,10 +2978,7 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
     ] {
         let mut inputs = super::super::tests::inputs();
         inputs.preconditions = Arc::new(
-            pse_quantity::PhysicalPreconditions::new(
-                pse_quantity::generated::standard_preconditions(),
-            )
-            .unwrap(),
+            PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
         );
         let names = BTreeMap::from([
             (
@@ -3043,8 +3024,7 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
 fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
     let mut inputs = super::super::tests::inputs();
     inputs.preconditions = Arc::new(
-        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
-            .unwrap(),
+        PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap(),
     );
     let quantity = |id| QuantityTypeId::from_id(SemanticId::parse_hex(id).unwrap());
     let names = BTreeMap::from([

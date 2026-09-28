@@ -224,12 +224,19 @@ pub struct DispatchGroup {
 /// A checked source test, evaluated by the ordinary math owner.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Expectation {
+    /// Test identity.
     pub id: SemanticId,
+    /// Observed expression.
     pub actual: Expr,
+    /// Reference expression.
     pub expected: Expr,
+    /// Absolute tolerance expression, in the actual expression's type.
     pub tolerance: Expr,
+    /// Dimensionless tolerance relative to the expected value.
     pub relative_tolerance: Expr,
+    /// Inferred physical type of the actual expression.
     pub ty: Type,
+    /// Source of the test.
     pub lineage: Lineage,
 }
 /// Finite specialization product and its independent inspection/closure views.
@@ -241,11 +248,15 @@ pub struct SpecializedModel {
     /// Data-authored case fixtures resolved to canonical physical scalar values, keyed by
     /// the fixture's instance.
     pub fixtures: BTreeMap<InstanceId, Fixture>,
+    /// Integrated time axes, keyed by their domain member; at most one per model.
     pub integrated: BTreeMap<SemanticId, crate::continuous::IntegratedAxis>,
+    /// Time derivatives of differential states, keyed by the state.
     pub derivatives: BTreeMap<SemanticId, crate::continuous::IntegratedDerivative>,
+    /// Definite integrals over an integrated axis, keyed by their result.
     pub integrals: BTreeMap<SemanticId, crate::continuous::IntegratedIntegral>,
     /// Original constraints explicitly applied at the integrated domain lower endpoint.
     pub initial_equations: BTreeSet<SemanticId>,
+    /// Checked source tests, keyed by test identity.
     pub expectations: BTreeMap<SemanticId, Expectation>,
     /// Explicit caller-requested symbol paths resolved through lexical and indexed semantics.
     pub paths: BTreeMap<String, SemanticId>,
@@ -682,28 +693,28 @@ impl Engine<'_, '_> {
             .get(&definition)
             .ok_or_else(|| invalid(definition, "missing definition"))?
             .clone();
-        if let Some(binding) = &row.value.binding {
-            if row.value.kind == Kind::Preset {
-                let expr = binding
-                    .expression
-                    .as_ref()
-                    .ok_or_else(|| invalid(definition, "preset requires application"))?;
-                let value = self.eval(definition, &arguments, expr, None)?;
-                let Value::Definition {
-                    id: target,
-                    mut bindings,
-                } = value
-                else {
-                    return Err(invalid(definition, "preset target"));
-                };
-                bindings.extend(arguments);
-                self.stack.push(definition);
-                self.preset_stack.push(definition);
-                let result = self.instantiate(target, id, parent, path, bindings, scope);
-                self.preset_stack.pop();
-                self.stack.pop();
-                return result;
-            }
+        if let Some(binding) = &row.value.binding
+            && row.value.kind == Kind::Preset
+        {
+            let expr = binding
+                .expression
+                .as_ref()
+                .ok_or_else(|| invalid(definition, "preset requires application"))?;
+            let value = self.eval(definition, &arguments, expr, None)?;
+            let Value::Definition {
+                id: target,
+                mut bindings,
+            } = value
+            else {
+                return Err(invalid(definition, "preset target"));
+            };
+            bindings.extend(arguments);
+            self.stack.push(definition);
+            self.preset_stack.push(definition);
+            let result = self.instantiate(target, id, parent, path, bindings, scope);
+            self.preset_stack.pop();
+            self.stack.pop();
+            return result;
         }
         let contract = match row
             .value

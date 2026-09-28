@@ -501,7 +501,7 @@ impl Engine<'_, '_> {
                     "external output ordinal requires an exact integer",
                 ));
             };
-            if output < 0 || output > 4095 {
+            if !(0..=4095).contains(&output) {
                 return Err(invalid(
                     function,
                     "external output ordinal outside capacity",

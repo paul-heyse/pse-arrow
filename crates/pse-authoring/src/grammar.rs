@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Shared lexical rules for authored expression and target paths.
-use winnow::{
-    Parser,
-    error::ContextError,
-    stream::{LocatingSlice, Stream},
-};
+use winnow::{Parser, error::ContextError, stream::LocatingSlice};
 pub(crate) type Input<'a> = LocatingSlice<&'a str>;
 pub(crate) fn start(ch: char) -> bool {
     ch.is_alphabetic() || ch == '_' || ch == '°'
@@ -41,16 +37,6 @@ pub(crate) fn quoted(input: &mut Input<'_>) -> Result<String, ContextError> {
         } else {
             output.push(ch);
         }
-    }
-}
-pub(crate) fn name(input: &mut Input<'_>) -> Result<String, ContextError> {
-    if input
-        .peek_token()
-        .is_some_and(|ch| matches!(ch, '\'' | '"'))
-    {
-        quoted(input)
-    } else {
-        identifier(input).map(str::to_owned)
     }
 }
 pub(crate) fn render_name(value: &str) -> String {

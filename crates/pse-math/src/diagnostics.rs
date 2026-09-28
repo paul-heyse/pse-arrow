@@ -11,9 +11,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 pub struct MatrixPolicy {
     /// Includes dense input and both complete singular-vector factors/Gram products.
     pub dense_entries: usize,
+    /// Maximum parallel row and column pairs reported before the analysis is refused.
     pub findings: usize,
+    /// Pairs with `1 - |cosine|` at or below this are reported as parallel; in [0, 1).
     pub parallel_tolerance: f64,
+    /// Absolute singular-value cutoff for numerical rank.
     pub rank_absolute: f64,
+    /// Singular-value cutoff relative to the largest singular value; in [0, 1).
     pub rank_relative: f64,
 }
 impl MatrixPolicy {
@@ -37,8 +41,11 @@ impl MatrixPolicy {
 /// an empty vector on the side for which no corresponding singular vector exists.
 #[derive(Clone, Debug)]
 pub struct SingularMode {
+    /// Singular value.
     pub value: f64,
+    /// Left singular vector over the rows.
     pub left: Vec<f64>,
+    /// Right singular vector over the columns.
     pub right: Vec<f64>,
 }
 /// Two numerically parallel rows, or two parallel columns, of one index space.
@@ -292,11 +299,17 @@ mod tests {
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TermPolicy {
+    /// Magnitude at or below which a term is treated as zero and not examined.
     pub zero: f64,
+    /// Ratio to the largest magnitude beyond which a smaller term is reported as mismatched.
     pub mismatch: f64,
+    /// Normalized subset sum at or below which the subset is reported as cancelling.
     pub cancellation: f64,
+    /// Largest subset size examined for cancellation, from 2 to 32.
     pub maximum_terms: usize,
+    /// Maximum number of subsets examined.
     pub combinations: usize,
+    /// Maximum number of cancelling subsets reported.
     pub findings: usize,
 }
 impl TermPolicy {
@@ -317,11 +330,16 @@ impl TermPolicy {
         Ok(())
     }
 }
+/// Scale mismatches and cancelling subsets among the original terms.
 #[derive(Clone, Debug)]
 pub struct TermReport {
+    /// Terms much smaller than the largest term, by index.
     pub mismatched: Vec<usize>,
+    /// Minimal subsets of term indices whose normalized sum nearly cancels.
     pub cancellations: Vec<Vec<usize>>,
+    /// Whether every subset within the policy was examined.
     pub complete: bool,
+    /// Subsets examined.
     pub examined: usize,
 }
 /// Numerica supplies combination enumeration. All reductions use a common magnitude

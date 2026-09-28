@@ -708,7 +708,7 @@ async fn catalog_protects_published_versions() {
         )
         .await
         .unwrap();
-    assert_eq!(retired.removed_tables, [entities.clone()]);
+    assert_eq!(retired.removed_tables, std::slice::from_ref(&entities));
     assert_eq!(version(&runtime, &entities).await, None);
     assert!(version(&runtime, &packages).await.is_some());
     let reader = runtime.open(second.publication_id, &cancel).await.unwrap();
@@ -895,7 +895,7 @@ async fn publication_uses_durable_attempt_identity() {
     let prepared = prepare(&runtime, attempt, &workspace, None, None, "identity");
     // The publication attempt is the durable attempt, from the ticket on.
     assert_eq!(prepared.attempt_id, attempt);
-    assert_eq!(AttemptId::from(prepared.ticket.attempt_id()), attempt);
+    assert_eq!(prepared.ticket.attempt_id(), attempt);
     let publication = prepared.publication_id;
     let prefix = workspace.member_prefix(attempt, publication).unwrap();
     assert_eq!(prepared.member_prefix, prefix);

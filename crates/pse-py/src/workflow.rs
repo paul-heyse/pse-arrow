@@ -1244,7 +1244,7 @@ impl SimulationSettings {
 enum PreparedOperation {
     Modeling(Box<native::ModelingSolvePreparation>),
     Simulation(Box<native::ModelingSimulation>),
-    Fit(native::PreparedFit),
+    Fit(Box<native::PreparedFit>),
 }
 /// Immutable simulation/fitting view of the same owned job and Arrow result lifecycle.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]

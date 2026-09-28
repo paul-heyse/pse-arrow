@@ -82,10 +82,10 @@ impl AdmittedModeling {
         &self,
         registry: &QuantityRegistry,
         order: DerivativeOrder,
-        limits: pse_math::assembly::AssemblyLimits,
+        limits: AssemblyLimits,
         cancel: &Arc<AtomicBool>,
-    ) -> Result<Arc<pse_math::assembly::CasePlan>> {
-        Ok(Arc::new(pse_math::assembly::CasePlan::prepare(
+    ) -> Result<Arc<CasePlan>> {
+        Ok(Arc::new(CasePlan::prepare(
             self.case.clone(),
             self.bodies
                 .iter()
@@ -122,6 +122,15 @@ impl AdmittedModeling {
     }
 }
 
+/// A trimmed consumer expression with its formals, gathered inputs, local quantities
+/// and validity ranges.
+type Normalized = (
+    Expr,
+    Vec<Formal>,
+    Vec<SemanticId>,
+    BTreeMap<String, QuantityTypeId>,
+    BTreeMap<String, crate::typed_math::Validity>,
+);
 /// Trim expression members to the consumer's transitive dependencies and rename local
 /// symbols by dependency order. Global IDs survive only in the instance gather.
 fn normalize(
@@ -130,13 +139,7 @@ fn normalize(
     inputs: &[SemanticId],
     quantities: &BTreeMap<String, QuantityTypeId>,
     validity: &BTreeMap<String, crate::typed_math::Validity>,
-) -> Result<(
-    Expr,
-    Vec<Formal>,
-    Vec<SemanticId>,
-    BTreeMap<String, QuantityTypeId>,
-    BTreeMap<String, crate::typed_math::Validity>,
-)> {
+) -> Result<Normalized> {
     let (bindings, body) = match &expression.kind {
         ExprKind::Let { bindings, body } => (bindings.as_slice(), body.as_ref()),
         _ => ([].as_slice(), expression),
@@ -264,7 +267,7 @@ pub(super) fn admit(
     inventory: Inventory,
     p: &Projection,
 ) -> Result<Arc<AdmittedModeling>> {
-    let (implicit, mut providers) = super::implicit::admit(db, inventory, p)?;
+    let (implicit, mut providers) = implicit::admit(db, inventory, p)?;
     for function in p.functions.values() {
         if let Some(external) = &function.external {
             let call =
@@ -289,7 +292,7 @@ pub(super) fn admit(
             quantity: formal.quantity,
             unit: registry
                 .quantity_type(formal.quantity)
-                .map_err(pse_math::MathError::from)?
+                .map_err(MathError::from)?
                 .canonical_unit,
         };
         ports.insert(*id, port.clone());
@@ -394,12 +397,12 @@ pub(super) fn admit(
                     providers: &providers,
                     units: &units,
                     literals: &BTreeMap::new(),
-                    physical: physical_identity(&registry, &checker),
+                    physical: physical_identity(registry, checker),
                     structure: identity,
                     limits: p.body_limits,
                 }
                 .admit_modeling_outputs(
-                    &registry,
+                    registry,
                     checker.as_ref(),
                     db.cancel(),
                     &p.functions,
@@ -407,7 +410,7 @@ pub(super) fn admit(
                     &hints,
                     &validity,
                 )
-                .map_err(|cause| pse_math::MathError::Instance {
+                .map_err(|cause| MathError::Instance {
                     instance: output.row_id(),
                     cause: Box::new(cause),
                 })?,
@@ -428,10 +431,10 @@ pub(super) fn admit(
                         quantity: f.quantity,
                         unit: registry.quantity_type(f.quantity)?.canonical_unit,
                     },
-                    &registry,
+                    registry,
                 )
             })
-            .collect::<std::result::Result<Vec<_>, pse_math::MathError>>()?;
+            .collect::<std::result::Result<Vec<_>, MathError>>()?;
         let (lower, upper) = match output {
             ModelingOutput::Equation {
                 sense: EquationSense::Eq,

@@ -160,6 +160,7 @@ fn export_finding_rows(
         .ok_or_else(|| contract("findings relation absent"))
 }
 impl ModelingDiagnostics {
+    /// The diagnostics and their findings as checked relations, by relation identity.
     pub fn tables(&self) -> Result<Tables, WorkflowError> {
         use pse_model::generated::runtime::{modeling_diagnostics::*, modeling_findings::*};
         for (ids, nominals) in [
@@ -348,6 +349,7 @@ impl ModelingDiagnostics {
     }
 }
 impl ModelingInitializationReport {
+    /// The findings of the initialization run as a checked `modeling_findings` relation.
     pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         let mut rows = Vec::new();
         if let Some(failure) = &self.failure {
@@ -360,6 +362,7 @@ impl ModelingInitializationReport {
         }
         export_finding_rows(&self.runtime, rows)
     }
+    /// The modeling initialization row as a checked `modeling_initializations` relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_initializations::*;
         one(&self.runtime, self._owner.size(), || {
@@ -407,6 +410,7 @@ impl ModelingInitializationReport {
     }
 }
 impl ModelingStudyReport {
+    /// The findings of the study points as a checked `modeling_findings` relation.
     pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         export_finding_rows(
             &self.runtime,
@@ -423,6 +427,7 @@ impl ModelingStudyReport {
                 .collect(),
         )
     }
+    /// The study row, one nested entry per point, as a checked `modeling_studies` relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_studies::*;
         if self.outcomes.len().checked_add(self.unattempted) != Some(self.points.len()) {
@@ -458,6 +463,7 @@ impl ModelingStudyReport {
 }
 
 impl ModelingDiagnosticSamples {
+    /// The findings of the diagnostic samples as a checked `modeling_findings` relation.
     pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         export_finding_rows(
             &self.runtime,
@@ -473,6 +479,7 @@ impl ModelingDiagnosticSamples {
                 .collect(),
         )
     }
+    /// The modeling diagnostic samples row as a checked `modeling_diagnostic_samples` relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_diagnostic_samples::*;
         one(&self.runtime, self._owner.size(), || {
@@ -499,6 +506,7 @@ impl ModelingDiagnosticSamples {
     }
 }
 impl ModelingNonlinearExplanation {
+    /// The findings of the nonlinear explanation as a checked `modeling_findings` relation.
     pub fn findings_table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         let mut rows = self
             .stop
@@ -517,6 +525,7 @@ impl ModelingNonlinearExplanation {
         );
         export_finding_rows(&self.runtime, rows)
     }
+    /// The modeling nonlinear explanation row as a checked `modeling_nonlinear_explanations` relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_nonlinear_explanations::*;
         one(&self.runtime, self._owner.size(), || {

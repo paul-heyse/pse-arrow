@@ -65,21 +65,28 @@ impl ModelingPreparation {
 /// One model view and its solver projection share the admitted product reservation.
 #[derive(Clone, Debug)]
 pub struct ModelingCasePreparation {
+    /// The specialized model view.
     pub model: ModelingPreparation,
+    /// The case's compiled solver projection.
     pub case: super::Preparation,
+    /// The case's resolved input values.
     pub values: pse_math::binding::CaseValues,
 }
 /// Bounded original-term evidence retains the scheduler's allocation allowance.
 #[derive(Clone, Debug)]
 pub struct ModelingTermEvidence {
+    /// Term reports of the rows examined, by row.
     pub results: BTreeMap<SemanticId, pse_math::diagnostics::TermReport>,
+    /// Rows left unexamined once the shared budget ran out.
     pub unattempted: usize,
     _owner: Arc<AllocationLease>,
 }
 /// Fully resolved physical input to a nested provider; iteration never acquires another worker.
 #[derive(Clone, Debug)]
 pub struct ModelingInner {
+    /// The checked implicit system.
     pub admitted: Arc<pse_compiler::workspace::AdmittedImplicit>,
+    /// Numerical configuration of each residual alternative, by residual.
     pub configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
 }
 #[cfg(not(feature = "solver-kinsol"))]
@@ -95,7 +102,7 @@ impl pse_math::implicit::InnerSolver for MissingInnerSolver {
         _: Arc<pse_math::implicit::Problem>,
         _: &[f64],
         _: &pse_math::implicit::Options,
-        _: &Arc<std::sync::atomic::AtomicBool>,
+        _: &Arc<AtomicBool>,
     ) -> Result<Vec<f64>, pse_math::MathError> {
         Err(pse_math::MathError::Contract(
             "nested realization requires the KINSOL capability".into(),
@@ -104,6 +111,10 @@ impl pse_math::implicit::InnerSolver for MissingInnerSolver {
 }
 impl MathService {
     /// Run authored pure expectations through the compiler without acquiring a solver.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one compiler job receives the workspace and revision with the specialization request, profile and cancellation driver"
+    )]
     pub async fn modeling_expectations(
         self: &Arc<Self>,
         workspace: Workspace,
@@ -329,6 +340,10 @@ impl MathService {
     }
     /// Compile function roles with ordered state/parameter derivatives using the
     /// ordinary artifact cache; source ownership remains in the modeling revision.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one compiler job receives the workspace and model with the selected rows, coordinates, order, profile and cancellation driver"
+    )]
     pub async fn prepare_modeling_functions(
         self: &Arc<Self>,
         workspace: Workspace,
@@ -414,6 +429,10 @@ impl MathService {
     }
     /// Prepare the solver view of a bound structure and bind its first values: one
     /// structural preparation (A6). Later values rebind it ([`Self::rebind`]).
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one compiler job receives the workspace and model with the structure, values, order, profile and cancellation driver"
+    )]
     pub async fn prepare_modeling_view(
         self: &Arc<Self>,
         workspace: Workspace,
@@ -516,6 +535,10 @@ impl MathService {
         Ok(Self::own_rebind(prepared, rebound, lease))
     }
     /// Prepare the model and its solver view atomically under the existing compiler writer.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one compiler job receives the workspace and revision with the specialization request, case, order, profile and cancellation driver"
+    )]
     pub async fn prepare_modeling_case_revision(
         self: &Arc<Self>,
         workspace: Workspace,
@@ -575,7 +598,7 @@ impl MathService {
     ) -> Result<ModelingRevision, MathRuntimeError> {
         let bytes = rows
             .owned_bytes()
-            .saturating_add(names.iter().map(|(n, _)| n.capacity() + 128).sum::<usize>());
+            .saturating_add(names.keys().map(|n| n.capacity() + 128).sum::<usize>());
         if bytes > self.policy.workspace_bytes / 2 {
             return Err(MathRuntimeError::Limit("modeling source bytes"));
         }
@@ -610,6 +633,10 @@ impl MathService {
         })
     }
     /// Publish the selected revision and prepare it while holding the single compiler writer.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one compiler job receives the workspace and revision with the specialization request and cancellation driver"
+    )]
     pub async fn prepare_modeling_revision(
         self: &Arc<Self>,
         workspace: Workspace,

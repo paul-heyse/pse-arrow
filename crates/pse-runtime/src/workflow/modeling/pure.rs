@@ -18,6 +18,10 @@ use std::{
 
 /// Run exclusively pure authored tests without constructing workflow or native-solver services.
 /// Physical data still passes through its authoritative relational admission boundary.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the documents, physical data, budget and planner accompany the fixture and check caps, limits and cancellation"
+)]
 pub async fn conform_pure_documents(
     documents: Vec<BTreeMap<String, String>>,
     physical_documents: BTreeMap<String, String>,
@@ -92,7 +96,7 @@ pub async fn conform_pure_documents(
     )?;
     let reserve =
         |name: &'static str, bytes: usize| -> Result<Arc<AllocationLease>, WorkflowError> {
-            let mut allocation = MemoryConsumer::new(name).register(&resources.pool);
+            let allocation = MemoryConsumer::new(name).register(&resources.pool);
             allocation
                 .try_grow(bytes)
                 .map_err(pse_columnar::CanonError::from)

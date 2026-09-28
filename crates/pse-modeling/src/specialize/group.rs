@@ -52,8 +52,8 @@ impl Engine<'_, '_> {
             self.checkpoint()?;
             let own = state
                 .symbols
-                .iter()
-                .map(|(_, id)| *id)
+                .values()
+                .copied()
                 .chain(
                     self.model
                         .symbols

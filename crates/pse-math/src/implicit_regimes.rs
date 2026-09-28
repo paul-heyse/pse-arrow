@@ -19,17 +19,25 @@ use std::{
 /// One compiled alternative and its separately demanded eligibility/criterion programs.
 #[derive(Debug)]
 pub struct RegimeFactoryBranch {
+    /// Root problem of this alternative.
     pub residual: super::Factory,
+    /// Program returning one indicator: zero when the alternative is ineligible.
     pub eligibility: Arc<CompiledBody>,
+    /// Program returning the selection score and its absolute tie tolerance.
     pub criterion: Arc<CompiledBody>,
 }
 /// Attempt-bound alternative selection using the same injected native root capability.
 #[derive(Debug)]
 pub struct RegimeFactory {
+    /// Provider contract shared by every alternative.
     pub spec: pse_kernels::ProviderSpec,
+    /// Alternatives in authored order.
     pub alternatives: Vec<RegimeFactoryBranch>,
+    /// Maximum number of alternatives the selector admits.
     pub maximum_regimes: usize,
+    /// Total wall-clock allowance shared by all alternative solves.
     pub time_limit: Duration,
+    /// Outer cancellation owner for providers created without a scope.
     pub cancel: Arc<AtomicBool>,
 }
 impl pse_kernels::ProviderFactory for RegimeFactory {
@@ -433,13 +441,17 @@ impl Regime {
 /// The selected values retain the winning semantic regime identity and evidence extent.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SelectedRegime {
+    /// Identity of the winning alternative.
     pub id: SemanticId,
+    /// Solved unknowns of the winning alternative.
     pub values: Vec<f64>,
     /// Local derivatives of the selected regular branch, in parameter order.
     pub jacobian: Vec<f64>,
     /// Local second partials, output-major full symmetric matrices.
     pub hessians: Vec<f64>,
+    /// Alternatives considered.
     pub examined: usize,
+    /// Alternatives that solved, verified and were eligible.
     pub eligible: usize,
 }
 /// Alternative solves share a total wall allowance and one outer cancellation owner.

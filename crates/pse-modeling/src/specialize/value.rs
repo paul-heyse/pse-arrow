@@ -21,35 +21,51 @@ pub enum Value {
     /// Exact integer.
     Integer(i64),
     /// Finite scalar with its complete physical type.
-    Number { bits: u64, quantity: QuantityTypeId },
+    Number {
+        /// Bit pattern of the canonical `f64` value.
+        bits: u64,
+        /// Physical quantity type.
+        quantity: QuantityTypeId,
+    },
     /// Generated continuous coordinate; identity is independent of its floating value.
     Coordinate {
+        /// Coordinate identity.
         id: SemanticId,
+        /// Bit pattern of the canonical `f64` position.
         bits: u64,
+        /// Physical quantity type of the axis.
         quantity: QuantityTypeId,
     },
     /// Textual label.
     Text(String),
     /// Entity identity and kind identity.
     Entity {
+        /// Entity declaration.
         id: DeclarationId,
+        /// Entity kind declaration.
         kind: DeclarationId,
     },
     /// Value of an authored closed enumeration.
     Enum {
+        /// Enumeration declaration.
         enumeration: DeclarationId,
+        /// Member name.
         member: String,
     },
     /// Definition identity with named partial bindings.
     Definition {
+        /// Definition declaration.
         id: DeclarationId,
+        /// Bound arguments by name.
         bindings: BTreeMap<String, Value>,
     },
     /// A pure function declaration selected as structural data.
     Function(DeclarationId),
     /// Typed heterogeneous table row.
     Row {
+        /// Table declaration.
         table: DeclarationId,
+        /// Field values by name.
         fields: BTreeMap<String, Value>,
     },
     /// Ordered finite set with no duplicates.
@@ -152,7 +168,7 @@ pub(crate) struct Evaluator<'a, 'b> {
     pub stack: Vec<DeclarationId>,
 }
 impl Evaluator<'_, '_> {
-    pub fn text(&mut self, text: &str, expected: Option<&Type>) -> Result<Value> {
+    pub(crate) fn text(&mut self, text: &str, expected: Option<&Type>) -> Result<Value> {
         let value = if matches!(expected, Some(Type::Integer)) && text.trim().parse::<i64>().is_ok()
         {
             Value::Integer(
@@ -164,13 +180,13 @@ impl Evaluator<'_, '_> {
             let syntax = parse_static(text).map_err(|e| invalid(self.at, e.to_string()))?;
             self.syntax(&syntax, expected, 0)?
         };
-        if let Some(expected) = expected {
-            if !conforms(&value, expected, self.package) {
-                return Err(invalid(
-                    self.at,
-                    format!("static value does not satisfy {expected:?}"),
-                ));
-            }
+        if let Some(expected) = expected
+            && !conforms(&value, expected, self.package)
+        {
+            return Err(invalid(
+                self.at,
+                format!("static value does not satisfy {expected:?}"),
+            ));
         }
         Ok(value)
     }
@@ -382,7 +398,12 @@ impl Evaluator<'_, '_> {
         self.stack.pop();
         value
     }
-    pub fn expr(&mut self, e: &Expr, expected: Option<&Type>, depth: usize) -> Result<Value> {
+    pub(crate) fn expr(
+        &mut self,
+        e: &Expr,
+        expected: Option<&Type>,
+        depth: usize,
+    ) -> Result<Value> {
         if depth > 64 {
             return Err(invalid(self.at, "static expression depth"));
         }
@@ -1137,7 +1158,7 @@ impl Evaluator<'_, '_> {
             }
         }
     }
-    pub fn predicate(&mut self, p: &Predicate) -> Result<bool> {
+    pub(crate) fn predicate(&mut self, p: &Predicate) -> Result<bool> {
         match &p.kind {
             PredicateKind::Bool(v) => Ok(*v),
             PredicateKind::Atom(e) => match self.expr(e, Some(&Type::Boolean), 0)? {

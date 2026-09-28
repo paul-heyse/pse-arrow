@@ -283,6 +283,10 @@ pub(in crate::workflow) fn observation_rows(
 ) -> Result<BTreeSet<SemanticId>, WorkflowError> {
     Ok(assessment_units(product).into_values().flatten().collect())
 }
+#[expect(
+    clippy::too_many_arguments,
+    reason = "assessment reads the run, product, values and observations under the numerical policy, registry, report selection and scope"
+)]
 pub(in crate::workflow) fn assess_observations(
     run_id: RunId,
     product: &pse_compiler::workspace::PreparedModeling,
@@ -302,7 +306,7 @@ pub(in crate::workflow) fn assess_observations(
         .map(|t| t.id)
         .collect();
     let mut checks = product
-        .assess_expectations_for(&observed, &expected)
+        .assess_expectations_for(observed, &expected)
         .map_err(|e| contract(e.to_string()))?
         .into_iter()
         .map(|t| ModelingCheck {

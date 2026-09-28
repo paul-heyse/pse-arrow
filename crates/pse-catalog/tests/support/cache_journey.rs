@@ -86,7 +86,7 @@ async fn open(
         PublicationSelection {
             record: record.clone(),
             scope: Some(ReadScope {
-                workspace: record.workspace_id.into(),
+                workspace: record.workspace_id,
                 epoch,
             }),
             owner: None,

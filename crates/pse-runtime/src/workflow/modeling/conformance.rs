@@ -22,7 +22,9 @@ use std::{collections::BTreeSet, sync::Arc};
 /// An explicit fixture-local execution policy; scientific data remains unchanged.
 #[derive(Clone, Debug, Default)]
 pub struct ModelingFixturePolicy {
+    /// Solver profile for this fixture instead of the run's.
     pub solver: Option<SolverProfile>,
+    /// Derivative sampling policy for this fixture instead of the run's.
     pub derivatives: Option<pse_backend_native::derivative_diagnostics::Policy>,
 }
 
@@ -31,23 +33,37 @@ pub(super) const NO_FIXTURE: DeclarationId = DeclarationId::from_id(SemanticId::
 /// Execution policy is supplied independently of scientific fixture and oracle data.
 #[derive(Clone, Debug)]
 pub struct ModelingConformancePolicy {
+    /// Compiler profile for every fixture.
     pub compiler: Profile,
+    /// Default solver profile.
     pub solver: SolverProfile,
+    /// Numerical policy inputs for every fixture.
     pub numerical: NumericalInputs,
+    /// Specialization limits for every fixture.
     pub limits: Limits,
+    /// Default derivative sampling policy.
     pub derivatives: pse_backend_native::derivative_diagnostics::Policy,
+    /// Per-fixture overrides, by fixture declaration.
     pub fixture_policies: BTreeMap<DeclarationId, ModelingFixturePolicy>,
+    /// Maximum fixtures executed, at most 4096.
     pub maximum_fixtures: usize,
+    /// Maximum checks recorded, at most 100 000; further checks make the report incomplete.
     pub maximum_checks: usize,
 }
 /// Shared check outcomes retain their pool owner and original solver results.
 #[derive(Debug)]
 pub struct ModelingConformanceReport {
+    /// Run identity of the conformance execution.
     pub run_id: RunId,
+    /// Recorded checks, in execution order.
     pub checks: Vec<ModelingConformanceCheck>,
+    /// Solve results, by fixture.
     pub results: BTreeMap<DeclarationId, ModelingResult>,
+    /// Initialization reports, by fixture.
     pub initializations: BTreeMap<DeclarationId, ModelingInitializationReport>,
+    /// Integrated trajectories, by fixture.
     pub trajectories: BTreeMap<DeclarationId, ModelingTrajectory>,
+    /// Whether every fixture ran and every check was recorded within the caps.
     pub complete: bool,
     /// Structured causes indexed by each check's failure ordinal.
     pub failures: Vec<pse_model::diagnostic::BoundaryDiagnostic>,
@@ -80,7 +96,7 @@ impl ModelingConformanceReport {
                     .and_then(|m| n.checked_add(m))
             })
             .ok_or_else(|| contract("conformance report extent"))?;
-        let mut owner =
+        let owner =
             pse_columnar::MemoryConsumer::new("modeling:conformance-report").register(&pool);
         owner
             .try_grow(bytes)
@@ -113,12 +129,13 @@ impl ModelingConformanceReport {
             Status::Inconclusive => 4,
             Status::Cancelled => 5,
         };
-        if let Some(current) = self.fixture_statuses.get_mut(&fixture) {
-            if rank(status) > rank(*current) {
-                *current = status;
-            }
+        if let Some(current) = self.fixture_statuses.get_mut(&fixture)
+            && rank(status) > rank(*current)
+        {
+            *current = status;
         }
     }
+    /// Whether the report is complete, nonempty and every check passed or did not apply.
     pub fn passed(&self) -> bool {
         self.complete
             && !self.checks.is_empty()
@@ -128,6 +145,10 @@ impl ModelingConformanceReport {
                 .all(|r| matches!(r.status, Status::Passed | Status::NotApplicable))
     }
     /// A check of `fixture` about `target`, attributed to the authored `source`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a check row's attribution (fixture, target, source), classification, message, oracle and cap are independent"
+    )]
     pub(super) fn record(
         &mut self,
         fixture: DeclarationId,
@@ -213,7 +234,7 @@ impl ModelingConformanceReport {
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         use pse_model::generated::runtime::modeling_fixture_status::Row;
-        let mut scratch =
+        let scratch =
             pse_columnar::MemoryConsumer::new("conformance:inventory-copy").register(&self.pool);
         scratch
             .try_grow(self.fixture_statuses.len() * size_of::<Row>())
@@ -231,6 +252,7 @@ impl ModelingConformanceReport {
             .collect::<Vec<_>>();
         self.export(&rows)
     }
+    /// The structured failure causes as a checked `modeling_findings` relation.
     pub fn findings_table(
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
@@ -243,7 +265,7 @@ impl ModelingConformanceReport {
                 n.checked_add(failure.owned_bytes().checked_mul(6)?.checked_add(1024)?)
             })
             .ok_or_else(|| contract("conformance finding extent"))?;
-        let mut scratch =
+        let scratch =
             pse_columnar::MemoryConsumer::new("conformance:findings-copy").register(&self.pool);
         scratch
             .try_grow(bytes)
@@ -255,7 +277,7 @@ impl ModelingConformanceReport {
             .iter()
             .enumerate()
             .map(|(index, failure)| {
-                super::analysis_tables::finding_row(self.run_id, index as i64, failure)
+                analysis_tables::finding_row(self.run_id, index as i64, failure)
             })
             .collect::<Vec<_>>();
         self.export(&rows)
@@ -475,15 +497,16 @@ impl ModelingConformanceReport {
             ),
         }
     }
+    /// The recorded checks as a checked `modeling_conformance` relation.
     pub fn table(&self) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         self.export(&self.checks)
     }
-    fn export<T: pse_relations::columnar::RelationRow + pse_model::HeapUsage + Clone>(
+    fn export<T: RelationRow + pse_model::HeapUsage + Clone>(
         &self,
         rows: &[T],
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let cancel = pse_columnar::CancellationToken::new();
-        let mut scratch =
+        let scratch =
             pse_columnar::MemoryConsumer::new("conformance:row-copy").register(&self.pool);
         scratch
             .try_grow(

@@ -595,8 +595,8 @@ async fn incumbents_stored_as_seeds(
     let mut streamed = Vec::new();
     while let Some(page) = stream.next_page().await.unwrap() {
         streamed.extend(page.into_iter().filter_map(|record| match record {
-            super::StreamRecord::Incumbent(incumbent) => Some(incumbent),
-            super::StreamRecord::Progress(_) => None,
+            StreamRecord::Incumbent(incumbent) => Some(incumbent),
+            StreamRecord::Progress(_) => None,
         }));
     }
     assert_eq!(streamed.len(), incumbents.len());

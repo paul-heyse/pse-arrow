@@ -18,7 +18,9 @@ pub struct ProviderShape {
 /// Logical shape metadata; unlisted scalar ports retain their scalar meaning.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ProviderShapes {
+    /// Logical shapes over the provider's input ports.
     pub inputs: Vec<ProviderShape>,
+    /// Logical shapes over the provider's output ports.
     pub outputs: Vec<ProviderShape>,
 }
 impl ProviderShapes {

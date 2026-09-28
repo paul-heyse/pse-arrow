@@ -5,6 +5,13 @@
 //! attempt, and another process reuses the seed the worker stored. A worker killed in a
 //! long SCIP solve is resumed from its stored incumbent, and a cancellation from another
 //! process stops SCIP. Run with `just worker-test`.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    reason = "integration assertions and the child-process protocol"
+)]
+
 use pse_backend_native::{
     presolve::PolicyKind,
     solve::{Backend, Metric, SolveIntent},
@@ -259,7 +266,7 @@ async fn stored_seed_reused_across_processes(
     let cancel = CancelSource::new();
     let analysis = package
         .declared_analysis(
-            job.case.into(),
+            job.case,
             job.route,
             Default::default(),
             job.settings.clone().profile().unwrap(),
@@ -328,7 +335,7 @@ fn physical_with_indicator() -> BTreeMap<String, String> {
     let mut physical = texts(&fixtures.join("physical-primitives"));
     let document = physical.get_mut("materials/physical.yaml").unwrap();
     let zero = r#"{"num": 0, "den": 1}"#;
-    let dimension = vec![zero; 8].join(", ");
+    let dimension = [zero; 8].join(", ");
     let kind = format!(
         r#""quantity_kinds": [
     {{"quantity_kind_id": "18181818181818181818181818181818", "name": "indicator",

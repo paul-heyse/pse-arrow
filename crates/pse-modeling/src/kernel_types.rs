@@ -164,12 +164,12 @@ fn every_dataset_row_is_checked_before_instantiation() {
     let text = r#"package p { entity kind item {} entity item a {} table coeff[j: item]: { flow: Flow, count: Integer }; dataset data: coeff source "synthetic" { [a] = [2{mol/s}, 9007199254740993]; } }"#;
     let p = check(&source(text), &c).unwrap();
     let table = &p.tables[&p.names["p.coeff"]];
-    let crate::specialize::Value::Row { fields, .. } = table.rows.values().next().unwrap() else {
+    let specialize::Value::Row { fields, .. } = table.rows.values().next().unwrap() else {
         panic!("row expected")
     };
     assert_eq!(
         fields["count"],
-        crate::specialize::Value::Integer(9007199254740993)
+        specialize::Value::Integer(9007199254740993)
     );
     for bad in [
         text.replace("2{mol/s}", "2{kg/s}"),

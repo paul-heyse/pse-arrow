@@ -325,12 +325,12 @@ impl Engine<'_, '_> {
         let mut endpoint = false;
         let mut varying = false;
         for path in lhs.paths().into_iter().chain(rhs.paths()) {
-            if let Some(Value::Coordinate { id, .. }) = env.get(&dsl::render_path(&path))
+            if let Some(Value::Coordinate { id, .. }) = env.get(&dsl::render_path(path))
                 && self.model.integrated.values().any(|a| a.coordinate == *id)
             {
                 varying = true;
             }
-            if self.resolve_path(instance, at, &path, env, false).is_err() {
+            if self.resolve_path(instance, at, path, env, false).is_err() {
                 continue;
             }
             let mut owner = instance;
@@ -382,13 +382,12 @@ impl Engine<'_, '_> {
         let mut defined = true;
         let mut check = |e: &Expr| {
             let _ = e.clone().try_walk_mut(|e| -> Result<()> {
-                if let ExprKind::Derivative { wrt, .. } = &e.kind {
-                    if let Some(value) = env.get(&dsl::render_path(wrt)) {
-                        if let Ok((mesh, index)) = self.coordinate_mesh(value) {
-                            defined &= self.model.integrated.contains_key(&mesh.id)
-                                || !mesh.derivative[index].is_empty();
-                        }
-                    }
+                if let ExprKind::Derivative { wrt, .. } = &e.kind
+                    && let Some(value) = env.get(&dsl::render_path(wrt))
+                    && let Ok((mesh, index)) = self.coordinate_mesh(value)
+                {
+                    defined &= self.model.integrated.contains_key(&mesh.id)
+                        || !mesh.derivative[index].is_empty();
                 }
                 Ok(())
             });

@@ -94,20 +94,19 @@ fn compiler_inputs(
         values: BTreeMap::new(),
     }
 }
+/// Declarations, quantity names, fit data and source batches decoded from the documents.
+type DocumentInputs = (
+    Vec<Declaration>,
+    BTreeMap<String, QuantityTypeId>,
+    super::FitData,
+    crate::authoring_driver::document::Batches,
+);
 fn document_inputs(
     documents: &crate::authoring_driver::document::OwnedDocumentSet,
     registry: &pse_schema::Registry,
     physical: &PhysicalContext,
     workspace_bytes: usize,
-) -> Result<
-    (
-        Vec<Declaration>,
-        BTreeMap<String, QuantityTypeId>,
-        super::FitData,
-        crate::authoring_driver::document::Batches,
-    ),
-    WorkflowError,
-> {
+) -> Result<DocumentInputs, WorkflowError> {
     documents.validate_registry(registry)?;
     let headers = documents
         .bundles()
@@ -129,7 +128,7 @@ fn document_inputs(
         .ok_or_else(|| contract("documents contain no modeling declarations"))?;
     let rows = wire::Row::rows(batch).map_err(relation)?;
     validate_import_versions(&rows, documents)?;
-    let names = document_quantity_aliases(&rows, documents, &physical)?;
+    let names = document_quantity_aliases(&rows, documents, physical)?;
     let context = [
         pse_relations::generated::authored::packages::RELATION_ID,
         pse_relations::generated::authored::documents::RELATION_ID,
@@ -452,6 +451,10 @@ impl ModelingPackage {
         Ok(tables)
     }
     /// Build an analysis from a data-authored case/test and its physical fixture.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a declared analysis binds its root and route with the compiler, solver and numerical profiles, limits and cancellation"
+    )]
     pub async fn declared_analysis(
         &self,
         root: DeclarationId,
@@ -576,6 +579,10 @@ impl ModelingPackage {
             .await?)
     }
     /// Resolve symbol-path specifications and prepare the existing solver pipeline's case view.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     pub async fn prepare_case(
         &self,
         root: DeclarationId,

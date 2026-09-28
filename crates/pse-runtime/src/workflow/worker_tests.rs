@@ -186,7 +186,7 @@ async fn unknown_payload_version_refused() {
     // another build would.
     let job = authored_job(&runtime, SQUARE, ipopt()).await;
     let mut restated =
-        serde_json::to_value(JobPayload::new(JobTask::Modeling(job.clone()))).unwrap();
+        serde_json::to_value(JobPayload::new(JobTask::Modeling(Box::new(job.clone())))).unwrap();
     restated["version"] = serde_json::json!(4);
     // Version 2 described one modeling job at the top level; it is not interpreted.
     let mut former = serde_json::to_value(&job).unwrap();
@@ -359,7 +359,7 @@ fn job_payload_v3_is_typed_per_task() {
         start: JobStart::Fresh,
         study: Some(binding.clone()),
     };
-    let value = serde_json::to_value(JobPayload::new(JobTask::Modeling(job))).unwrap();
+    let value = serde_json::to_value(JobPayload::new(JobTask::Modeling(Box::new(job)))).unwrap();
     assert_eq!(value["version"], 3);
     assert_eq!(value["task"]["kind"], "modeling");
     assert_eq!(value["task"]["study"]["point_index"], 2);

@@ -9,24 +9,40 @@ use pse_model::generated::{
     },
     enums::ModelingFixtureBinding as Binding,
 };
+/// Bindings of one independent symbol, in canonical units; unset parts keep the model's.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FixtureValue {
+    /// Bound variable or parameter.
     pub target: SemanticId,
+    /// Specified value.
     pub value: Option<f64>,
+    /// Whether the fixture fixes (`true`) or frees (`false`) the variable.
     pub fixed: Option<bool>,
+    /// Lower bound override.
     pub lower: Option<f64>,
+    /// Upper bound override.
     pub upper: Option<f64>,
 }
+/// One authored case or test fixture of a model instance.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Fixture {
+    /// Declaration that authored the fixture.
     pub declaration: DeclarationId,
+    /// Degrees of freedom the fixture expects after its bindings.
     pub expected_degrees_of_freedom: i64,
+    /// Bindings keyed by their model path.
     pub specifications: BTreeMap<String, FixtureValue>,
+    /// Reference oracle the fixture's results are compared with.
     pub oracle: Option<Oracle>,
+    /// Analysis route the fixture runs under; steady when unauthored.
     pub execution: pse_model::generated::enums::ModelingFixtureExecution,
+    /// Initialization stages to run, in order.
     pub stages: Vec<String>,
+    /// Authored initialization settings.
     pub initialization: Option<pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureInitialization>,
+    /// Integration samples and tolerances for the integrated route.
     pub integration: Option<IntegrationFixture>,
+    /// Failure the fixture expects instead of a result.
     pub expected_failure: Option<pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure>,
 }
 /// Authored integration samples expressed in the admitted axis's canonical unit.

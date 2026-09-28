@@ -52,7 +52,6 @@ impl FitOracle {
                     let providers = s
                         .providers
                         .values()
-                        .cloned()
                         .map(|r| {
                             r.worker_scoped(execution.cancel.clone())
                                 .map(|w| (r.spec().key(), w))

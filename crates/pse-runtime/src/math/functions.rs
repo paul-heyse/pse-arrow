@@ -81,36 +81,3 @@ impl MathService {
         }))
     }
 }
-impl MathService {
-    pub(crate) async fn validate_dynamic_partition(
-        self: &Arc<Self>,
-        workspace: Workspace,
-        inputs: Inputs,
-        id: SemanticId,
-        rows: Vec<SemanticId>,
-        columns: Vec<SemanticId>,
-        cancel: &crate::CancelSource,
-    ) -> Result<(), MathRuntimeError> {
-        let control = FlightCancellation::default();
-        let operation = self.job(
-            1,
-            pse_structural::incidence::MATCHING_STACK,
-            control.clone(),
-            move |flag| {
-                let _lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                compiler.publish(inputs)?;
-                let analysis = compiler.analyze_dynamic_partition(id, rows, columns, flag)?;
-                pse_backend_native::structural::admit(
-                    &analysis,
-                    pse_backend_native::structural::Mode::Roots,
-                )?;
-                Ok(())
-            },
-        );
-        tokio::pin!(operation);
-        tokio::select! {r=&mut operation=>r,()=cancel.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
-    }
-}

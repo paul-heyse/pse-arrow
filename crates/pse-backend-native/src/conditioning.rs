@@ -400,7 +400,7 @@ pub(crate) fn second_order(
                 Curvature::Undecided
             }
         } else if !strong_only || weakly_active == 0 {
-            Curvature::NegativeCurvature
+            Curvature::Negative
         } else {
             Curvature::Undecided
         };
@@ -420,7 +420,7 @@ pub(crate) fn second_order(
     // Weakly active constraints: negative curvature on the smaller subspace still refutes
     // a local minimizer; otherwise the verdict stays open.
     let necessary = test(false)?;
-    Ok(if necessary.curvature == Curvature::NegativeCurvature {
+    Ok(if necessary.curvature == Curvature::Negative {
         necessary
     } else {
         sufficient
@@ -672,7 +672,7 @@ mod tests {
         let free = [(-1.0, 1.0); 2];
         // A saddle: stationary, not a minimizer.
         let saddle = at_origin([2.0, -2.0], free);
-        assert_eq!(saddle.curvature, Curvature::NegativeCurvature);
+        assert_eq!(saddle.curvature, Curvature::Negative);
         assert_eq!(
             (saddle.free, saddle.active, saddle.inertia),
             (2, 0, (1, 1, 0))

@@ -336,6 +336,10 @@ impl ModelingPackage {
     }
     /// One study point. A failed point is recorded and isolated: it seeds nothing, and only
     /// points that name it as their predecessor are refused.
+    #[expect(
+        clippy::result_large_err,
+        reason = "the outcome is kept unboxed in the study's public `outcomes`; boxing here only adds an allocation"
+    )]
     async fn study_point(
         &self,
         staged: &mut Staged,

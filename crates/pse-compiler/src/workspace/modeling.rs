@@ -69,8 +69,8 @@ fn revision(
         .saturating_add(checked.retained_bytes())
         .saturating_add(
             names
-                .iter()
-                .map(|(name, _)| name.capacity() + 128)
+                .keys()
+                .map(|name| name.capacity() + 128)
                 .sum::<usize>(),
         );
     Arc::new(ModelingRevision {
@@ -162,10 +162,11 @@ impl CompilerWorkspace {
         use pse_model::HeapUsage;
         let rows = rows.into();
         let names = names.into();
-        if let Some(state) = &self.modeling {
-            if state.revision.rows == rows && state.revision.names == names {
-                return Ok(state.revision.clone());
-            }
+        if let Some(state) = &self.modeling
+            && state.revision.rows == rows
+            && state.revision.names == names
+        {
+            return Ok(state.revision.clone());
         }
         if rows
             .owned_bytes()
@@ -233,7 +234,7 @@ impl CompilerWorkspace {
     pub(super) fn recheck_modeling(
         &self,
         quantities: &QuantityRegistry,
-        preconditions: &pse_quantity::PhysicalPreconditions,
+        preconditions: &PhysicalPreconditions,
     ) -> Result<Option<(Arc<ModelingRevision>, usize)>> {
         self.modeling
             .as_ref()

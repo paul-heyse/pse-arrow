@@ -136,7 +136,7 @@ impl ModelingSimulation {
                         .map(|r| r.id)
                         .zip(
                             worker
-                                .constraints(&point)
+                                .constraints(point)
                                 .map_err(super::super::super::math)?,
                         )
                         .collect::<BTreeMap<_, _>>(),
@@ -145,7 +145,7 @@ impl ModelingSimulation {
                 let (mut sample_checks, reports) = results::assess_observations(
                     run_id,
                     product,
-                    &point,
+                    point,
                     &observed,
                     &mode.numerics,
                     &self.quantities,

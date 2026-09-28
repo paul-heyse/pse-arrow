@@ -55,15 +55,21 @@ struct SimulationMode {
 /// The native trajectory and all partial outcomes retain their resource owner.
 #[derive(Clone, Debug)]
 pub struct ModelingTrajectory {
+    /// Run identity of the integration.
     pub run_id: RunId,
+    /// Native integration report.
     pub report: Arc<native::Report>,
+    /// The simulation that produced the trajectory.
     pub prepared: ModelingSimulation,
     /// Physical obligations evaluated at the explicitly requested sample times.
     pub checks: Vec<ModelingCheck>,
     /// Whole-domain integral reports exist only after completing their full domain.
     pub reports: Vec<ModelingReport>,
+    /// Whether every requested sample check was evaluated.
     pub checks_complete: bool,
+    /// Whether the native outcome, checks and closure permit using the trajectory.
     pub accepted: bool,
+    /// Why sample checks could not be evaluated, if they could not.
     pub validation_error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
@@ -190,10 +196,18 @@ impl ModelingTrajectory {
         Some(error)
     }
 }
+/// A submitted integration: its native report and sample checks, with the admission
+/// lease that holds its memory until the result is consumed.
+type DynamicsHandle = crate::math::solves::SolveHandle<(
+    (native::Report, checks::SampleChecks),
+    Arc<pse_columnar::AllocationLease>,
+)>;
 impl ModelingSimulation {
+    /// Content identity of the simulation's contract, programs and modes.
     pub fn identity(&self) -> ContentHash {
         self.key
     }
+    /// The initial mode's model view.
     pub fn model(&self) -> &ModelingPreparation {
         &self.modes[0].model
     }
@@ -201,6 +215,7 @@ impl ModelingSimulation {
     pub fn mode_names(&self) -> impl Iterator<Item = &str> {
         self.modes.iter().map(|m| m.name.as_str())
     }
+    /// Native dynamic contract: states, parameters, outputs and events.
     pub fn contract(&self) -> &native::Contract {
         &self.contract
     }
@@ -208,9 +223,11 @@ impl ModelingSimulation {
     pub fn parameters(&self) -> &[f64] {
         &self.parameters
     }
+    /// Native integration profile.
     pub fn profile(&self) -> &native::Profile {
         &self.profile
     }
+    /// Resolved numerical policy of the initial mode.
     pub fn numerics(&self) -> &pse_model::numerics::ResolvedNumericalPolicy {
         &self.modes[0].numerics
     }
@@ -237,13 +254,7 @@ impl ModelingSimulation {
         &self,
         run_id: RunId,
         submission: crate::math::Submission,
-    ) -> Result<
-        crate::math::solves::SolveHandle<(
-            (native::Report, checks::SampleChecks),
-            Arc<pse_columnar::AllocationLease>,
-        )>,
-        WorkflowError,
-    > {
+    ) -> Result<DynamicsHandle, WorkflowError> {
         let service = self.runtime.shared.math();
         let prepared = self.clone();
         let handle = service.submit_with(1, self.bytes, submission, move |flag, progress| {
@@ -451,7 +462,7 @@ impl ModelingPackage {
             .map_err(super::super::math)?
             .scale_to_canonical;
         let case = ModelingCaseBindings::from(data);
-        let (states, parameters) = dynamics::dynamic_ports(product, &case)?;
+        let (states, parameters) = dynamic_ports(product, &case)?;
         let profile = pse_backend_native::dynamics::Profile {
             start: axis.lower * time_scale,
             end: integration
@@ -524,6 +535,10 @@ impl ModelingPackage {
     }
     /// Prepare integrated dynamics from one specialized definition. Rates are compiler
     /// projections; all original equations, hints and source identities remain inspectable.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the specialization request (root, instance, bindings, limits) travels with the case, profiles and cancellation as independent inputs"
+    )]
     async fn prepare_simulation_mode(
         &self,
         root: DeclarationId,
@@ -590,18 +605,17 @@ impl ModelingPackage {
             .keys()
             .copied()
             .collect::<BTreeSet<_>>();
-        if !integral_ids.is_empty() {
-            if profile.end != axis.upper * time_scale
-                || profile.samples.last().copied() != Some(profile.end)
-            {
-                return Err(contract(
-                    "definite integrals require the complete domain and an upper-endpoint sample",
-                ));
-            }
-            // Quadratures coexist with state/output sensitivities. Terminal
-            // expressions are excluded from native outputs below, so this does
-            // not claim derivatives of the integral itself.
+        if !integral_ids.is_empty()
+            && (profile.end != axis.upper * time_scale
+                || profile.samples.last().copied() != Some(profile.end))
+        {
+            return Err(contract(
+                "definite integrals require the complete domain and an upper-endpoint sample",
+            ));
         }
+        // Quadratures coexist with state/output sensitivities. Terminal
+        // expressions are excluded from native outputs below, so this does
+        // not claim derivatives of the integral itself.
         let terminal_rows = product
             .admitted
             .case
@@ -699,7 +713,6 @@ impl ModelingPackage {
         let providers = self
             .inner_registrations(
                 model.clone(),
-                &values,
                 &case,
                 &crate::math::solves::NumericalInputs::default(),
                 &profile.numerics,

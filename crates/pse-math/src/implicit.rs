@@ -42,8 +42,11 @@ use std::{
 /// One original implicit unknown, with an arbitrary closed physical interval.
 #[derive(Clone, Debug)]
 pub struct Unknown {
+    /// Semantic identity of the unknown.
     pub id: SemanticId,
+    /// Lower end of the closed physical interval.
     pub lower: f64,
+    /// Upper end of the closed physical interval.
     pub upper: f64,
 }
 /// Explicit bounded native solve and derivative verification controls.
@@ -67,10 +70,15 @@ pub struct Options {
 /// A library body with unknown coordinates first and independent inputs last.
 #[derive(Debug)]
 pub struct Problem {
+    /// Semantic identity of the implicit system.
     pub id: SemanticId,
+    /// Content identity of the compiled residual body.
     pub identity: ContentHash,
+    /// Unknowns in coordinate order, leading the body's inputs.
     pub unknowns: Vec<Unknown>,
+    /// Residual equation identities in output order.
     pub rows: Vec<SemanticId>,
+    /// Number of independent inputs after the unknowns.
     pub inputs: usize,
     worker: Mutex<Worker>,
     providers: Mutex<BTreeMap<pse_kernels::ProviderKey, Box<dyn pse_kernels::Provider>>>,
@@ -157,6 +165,7 @@ impl Problem {
         self.providers = Mutex::new(providers);
         self
     }
+    /// Structural Jacobian support of the residuals with respect to the unknowns.
     pub fn pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
         self.pattern.as_ref()
     }
@@ -202,6 +211,7 @@ impl Problem {
                 cancel,
             )
     }
+    /// Check that options match the system's extents and hold finite positive budgets.
     pub fn validate_options(&self, options: &Options) -> Result<(), MathError> {
         if options.start.len() != self.unknowns.len()
             || options.variable_nominals.len() != self.unknowns.len()
@@ -386,6 +396,7 @@ fn check_solve(
 pub trait InnerSolver: std::fmt::Debug + Send + Sync {
     /// Versioned algorithm identity included in attempt configuration and provider reuse.
     fn identity(&self) -> ContentHash;
+    /// Solve for the unknowns at the given parameters, within the options' budgets.
     fn solve(
         &self,
         problem: Arc<Problem>,
@@ -406,22 +417,39 @@ pub fn solver_identity(reference: &str) -> ContentHash {
 /// as outer math evaluation. The factory never acquires runtime CPU permits.
 #[derive(Debug)]
 pub struct Factory {
+    /// Provider contract: parameters in, solved unknowns out.
     pub spec: pse_kernels::ProviderSpec,
+    /// Compiled residual body, unknowns first.
     pub body: Arc<CompiledBody>,
+    /// Unknowns in provider output order.
     pub unknowns: Vec<Unknown>,
+    /// Residual equation identities in output order.
     pub rows: Vec<SemanticId>,
+    /// Fixed or hint-resolved start, scaling and tolerance configuration.
     pub configuration: Configuration,
+    /// Numerical hint program evaluated before each solve.
     pub hints: Option<Arc<CompiledBody>>,
+    /// Original additive term program used for residual scaling.
     pub terms: Option<Arc<CompiledBody>>,
+    /// Injected native solver.
     pub solver: Arc<dyn InnerSolver>,
+    /// Outer cancellation owner for providers created without a scope.
     pub cancel: Arc<AtomicBool>,
+    /// Bound on implicit derivative entries.
     pub max_entries: usize,
+    /// External provider registrations the residual body calls.
     pub providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
 }
 /// A single residual or an explicit alternative selector; both create attempt-local workers.
 #[derive(Debug)]
+#[expect(
+    clippy::large_enum_variant,
+    reason = "one factory per implicit block, built once per attempt; both variants are large, so boxing either leaves the other"
+)]
 pub enum ImplicitFactory {
+    /// A single root problem.
     Root(Factory),
+    /// Selection among alternative root problems.
     Regimes(RegimeFactory),
 }
 impl ImplicitFactory {

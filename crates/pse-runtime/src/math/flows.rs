@@ -86,7 +86,7 @@ impl MathService {
         self: &Arc<Self>,
         model: super::modeling::ModelingPreparation,
         quantities: Arc<pse_quantity::QuantityRegistry>,
-        selection: pse_compiler::workspace::ModelingFlowSelection,
+        selection: ModelingFlowSelection,
         driver: &crate::CancelSource,
     ) -> Result<PreparedFlow, MathRuntimeError> {
         let control = FlightCancellation::default();

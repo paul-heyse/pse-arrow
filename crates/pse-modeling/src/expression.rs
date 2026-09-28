@@ -519,7 +519,7 @@ pub fn infer(
                 let (kind, domain) = finite_reduction(*kind, element, at)?;
                 return Ok(physical_op(
                     OpRequest::FiniteReduce { kind, domain },
-                    &[s.clone()],
+                    std::slice::from_ref(s),
                     context,
                     at,
                 )?
@@ -839,23 +839,22 @@ fn check_forms(
         .equation
         .as_ref()
         .and_then(|e| e.condition.as_ref())
+        && typed(&condition.variable, env)? != indicator()?
     {
-        if typed(&condition.variable, env)? != indicator()? {
-            return Err(invalid(
-                id,
-                "an indicator condition names an indicator variable",
-            ));
-        }
+        return Err(invalid(
+            id,
+            "an indicator condition names an indicator variable",
+        ));
     }
-    if let Some(set) = &row.value.ordered_set {
-        if !matches!(typed(&set.member, env)?, Type::Quantity(_)) {
-            return Err(invalid(id, "ordered set members are physical variables"));
-        }
+    if let Some(set) = &row.value.ordered_set
+        && !matches!(typed(&set.member, env)?, Type::Quantity(_))
+    {
+        return Err(invalid(id, "ordered set members are physical variables"));
     }
-    if let Some(c) = &row.value.cardinality {
-        if !matches!(typed(&c.member, env)?, Type::Quantity(_)) {
-            return Err(invalid(id, "cardinality members are physical variables"));
-        }
+    if let Some(c) = &row.value.cardinality
+        && !matches!(typed(&c.member, env)?, Type::Quantity(_))
+    {
+        return Err(invalid(id, "cardinality members are physical variables"));
     }
     if let Some(f) = &row.value.piecewise {
         let [index] = f.indices.as_slice() else {
@@ -978,8 +977,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 };
                 let tolerance = dsl::parse_expr(&selection.tolerance)
                     .map_err(|e| invalid(*id, e.to_string()))?;
-                let expected =
-                    Type::Quantity(pse_quantity::scheme::Scheme::Delta(Box::new(quantity)));
+                let expected = Type::Quantity(Scheme::Delta(Box::new(quantity)));
                 if infer(&tolerance, &env, p, context, *id, Some(&expected))? != expected {
                     // Concrete types and delta schemes can name the same physical type.
                     let actual = infer(&tolerance, &env, p, context, *id, Some(&expected))?;
@@ -1223,17 +1221,15 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 }
             }
         }
-        if let Some(b) = &row.value.binding {
-            if let Some(expected) = p.types.get(id) {
-                if matches!(expected, Type::Quantity(_)) {
-                    for source in b.expression.iter() {
-                        let expr =
-                            dsl::parse_expr(source).map_err(|e| invalid(*id, e.to_string()))?;
-                        let actual = infer(&expr, &env, p, context, *id, Some(expected))?;
-                        if &actual != expected {
-                            return Err(invalid(*id, "member physical type differs"));
-                        }
-                    }
+        if let Some(b) = &row.value.binding
+            && let Some(expected) = p.types.get(id)
+            && matches!(expected, Type::Quantity(_))
+        {
+            for source in b.expression.iter() {
+                let expr = dsl::parse_expr(source).map_err(|e| invalid(*id, e.to_string()))?;
+                let actual = infer(&expr, &env, p, context, *id, Some(expected))?;
+                if &actual != expected {
+                    return Err(invalid(*id, "member physical type differs"));
                 }
             }
         }
@@ -1690,10 +1686,9 @@ fn refine(
                 if name == "present"
                     && args.len() == 1
                     && let ExprKind::Path(path) = &args[0].kind
+                    && let Type::Optional(inner) = infer(&args[0], &env, p, c, at, None)?
                 {
-                    if let Type::Optional(inner) = infer(&args[0], &env, p, c, at, None)? {
-                        env.insert(dsl::render_path(path), *inner);
-                    }
+                    env.insert(dsl::render_path(path), *inner);
                 }
                 if name == "implements"
                     && args.len() == 2

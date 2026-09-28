@@ -38,18 +38,23 @@ pub enum Type {
     Interface(DeclarationId),
     /// Explicit pure function reference with named arguments and result.
     Function {
+        /// Argument names and types in declared order.
         arguments: Vec<(String, Type)>,
+        /// Result type.
         result: Box<Type>,
     },
     /// Explicit optional value.
     Optional(Box<Type>),
     /// Indexed values retain coordinate kind identities; membership is a structural binding.
     Indexed {
+        /// Type of each indexed element.
         element: Box<Type>,
+        /// Coordinate kind of each index, in order.
         axes: Vec<DeclarationId>,
     },
 }
 /// Physical context supplied by admission; no registry is inferred from source literals.
+#[derive(Debug)]
 pub struct TypeContext<'a> {
     /// Fully admitted reference physical registry.
     pub quantities: &'a QuantityRegistry,
