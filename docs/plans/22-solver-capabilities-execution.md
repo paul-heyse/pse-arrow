@@ -50,6 +50,9 @@ dispositions stay in the plan.
     - Reproduced by the coordinator with a scratch program on both versions (2026-09-27).
     - Qualification checks feasibility, not optimality, so this class of defect is only caught by enumerated oracles. The M3/M4 merge extends `indicator_linear_lowering_matches_native` to the off-optimal charge as a regression guard on 1.15.
 
+13. **Identity-version debt.** `CaseStructure::key` now frames the native-form count, but its frame is still `pse.math.case-structure.v2`: the key changed under an unchanged version (DP-24). Bump it to v3 in the next pse-math change after A5 lands.
+14. **ℓ1 presolve resolution.** With `L1ExactPenalty`, `Auto` presolve resolves to `Off` and the receipt records it. An explicit non-Off policy is refused (N3 follow-up).
+
 ## Tracks and path ownership
 
 | Track | Packets | Owns (exclusive while active) |
