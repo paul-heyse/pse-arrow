@@ -1,3 +1,5 @@
+# External review: PostgreSQL typing and other typing enhancements
+
 Yes. The thing you were remembering is **Cornucopia**, and it is more directly code-generation-driven than most of the other PostgreSQL options we discussed.
 
 Your attached review explicitly recommended the architecture:

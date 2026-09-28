@@ -1,3 +1,5 @@
+# External review: PostgreSQL client options
+
 Given the kind of Rust systems work you’ve been doing, I would favor a SQL-first PostgreSQL stack rather than an ORM-first stack. The Rust/Postgres ecosystem is quite strong now, and there are three particularly good architectural choices.
 Best Rust PostgreSQL libraries
 Library	Best use	My view
