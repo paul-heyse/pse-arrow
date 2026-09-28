@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -65,7 +66,12 @@ class Check:
     extra: dict[str, object] = field(default_factory=dict)
 
 
-def run(*args: str, cwd: Path | None = None, timeout: int = 30) -> tuple[int, str]:
+def run(
+    *args: str,
+    cwd: Path | None = None,
+    timeout: int = 30,
+    env: dict[str, str] | None = None,
+) -> tuple[int, str]:
     """Run a command, returning (returncode, stripped stdout+stderr)."""
     try:
         proc = subprocess.run(
@@ -75,6 +81,7 @@ def run(*args: str, cwd: Path | None = None, timeout: int = 30) -> tuple[int, st
             text=True,
             timeout=timeout,
             check=False,
+            env=env,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         return 127, str(exc)
@@ -106,6 +113,32 @@ def quality_tool_names() -> list[str]:
             if name:
                 names.append(name)
     return names
+
+
+def native_library_path() -> Path | None:
+    """The solver library directory native recipes put on the library path, if prepared.
+
+    ``scripts/native-execution-env.sh`` exports ``$IPOPT_DIR/lib`` because the extracted
+    solver libraries carry the image's own runpath (``/opt/pse-solvers/lib``), which
+    hides the extension's rpath from their dependencies. The prefix is ``IPOPT_DIR`` when
+    set, else the one ``native_cache.py`` has already extracted; this never runs docker.
+    """
+    if os.environ.get("IPOPT_DIR"):
+        return Path(os.environ["IPOPT_DIR"]) / "lib"
+    if platform.system() != "Linux":  # native solver builds are Linux-only
+        return None
+    spec = importlib.util.spec_from_file_location(
+        "_doctor_native_cache", ROOT / "scripts/native_cache.py"
+    )
+    if spec is None or spec.loader is None:
+        return None
+    try:
+        cache = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cache)
+        prefix = cache.prepared_solver(cache.cache_root(dict(os.environ)))
+    except (ImportError, OSError, ValueError):
+        return None
+    return None if prefix is None else prefix / "lib"
 
 
 # --------------------------------------------------------------------- checks
@@ -146,16 +179,49 @@ def check_uv() -> Check:
 
 
 def check_env_synced() -> Check:
-    """`uv sync --check` is the authority on whether .venv matches uv.lock."""
+    """`uv sync --check` is the authority on whether .venv matches uv.lock.
+
+    Every dependency is checked exactly. A difference in the project's own package is
+    left to ``check_extension``: a native build is installed by maturin
+    (``just py-sync-native``), and uv would replace it with a build without the
+    solvers. uv's JSON plan (a preview schema) names the packages; if it cannot be read,
+    the exit status decides, which can only over-report.
+    """
     if not venv_bin("python").exists():
         return Check("env", False, "no .venv", "just bootstrap-venv")
     if not (ROOT / "uv.lock").exists():
         return Check("env", False, "no uv.lock", "uv lock")
-    code, out = run("uv", "sync", "--check", "--locked", "--offline", timeout=30)
-    if code != 0:
-        last = out.strip().splitlines()[-1] if out else "out of date"
-        return Check("env", False, last[:80], "just py-sync")
-    return Check("env", True, ".venv matches uv.lock")
+    command = (
+        "uv",
+        "sync",
+        "--check",
+        "--locked",
+        "--offline",
+        "--output-format",
+        "json",
+    )
+    try:
+        proc = subprocess.run(
+            command, cwd=ROOT, capture_output=True, text=True, timeout=30, check=False
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return Check("env", False, str(exc)[:80], "just py-sync")
+    if proc.returncode == 0:
+        return Check("env", True, ".venv matches uv.lock")
+    project = pyproject()["project"]["name"]
+    try:
+        changed = {
+            change["name"] for change in json.loads(proc.stdout)["sync"]["changes"]
+        }
+    except (ValueError, KeyError, TypeError):
+        changed = set()
+    if changed == {project}:
+        return Check(
+            "env", True, f".venv matches uv.lock ({project} is the extension check's)"
+        )
+    out = (proc.stderr or proc.stdout).strip()
+    last = out.splitlines()[-1] if out else "out of date"
+    return Check("env", False, last[:80], "just py-sync")
 
 
 def check_quality_tools() -> Check:
@@ -283,23 +349,46 @@ def check_repo_linters() -> Check:
     return Check("linters", True, ", ".join(REPO_LINTERS))
 
 
+#: Imports the extension and reports its provenance, plus whether the dynamic linker
+#: loaded the native solvers (Linux ``/proc/self/maps``; native builds are Linux-only).
+EXTENSION_PROBE = (
+    "import pathlib, pse; b = pse.build_info(); m = pathlib.Path('/proc/self/maps'); "
+    "n = m.exists() and 'libipopt' in m.read_text(); "
+    "print(b.version, b.cargo_lock_sha256, b.uv_lock_sha256, int(n))"
+)
+
+
 def check_extension() -> Check:
-    """The built extension must match the checkout's lockfiles (pse-buildinfo)."""
+    """The built extension must import and match the checkout's lockfiles (pse-buildinfo).
+
+    It is imported the way native recipes import it, with the prepared solver libraries
+    on the library path, so a native build is recognized rather than reported missing.
+    """
     python = venv_bin("python")
     if not python.exists():
         return Check(
             "extension", False, "no .venv", "just bootstrap-venv", blocking=False
         )
-    code, out = run(
-        str(python),
-        "-c",
-        "import pse; b = pse.build_info(); print(b.version, b.cargo_lock_sha256, b.uv_lock_sha256)",
-        timeout=120,
-    )
+    env = dict(os.environ)
+    library = native_library_path()
+    if library is not None:
+        env["LD_LIBRARY_PATH"] = os.pathsep.join(
+            part for part in (str(library), env.get("LD_LIBRARY_PATH", "")) if part
+        )
+    code, out = run(str(python), "-c", EXTENSION_PROBE, timeout=120, env=env)
     if code != 0:
         last = out.strip().splitlines()[-1] if out else "import failed"
-        return Check("extension", False, last[:80], "just py-sync", blocking=False)
-    version, cargo_sha, uv_sha = [*out.split(), "", "", ""][:3]
+        return Check(
+            "extension",
+            False,
+            last[:80],
+            "just py-sync, or just py-sync-native for the native solvers",
+            blocking=False,
+        )
+    version, cargo_sha, uv_sha, linked = [*out.split(), "", "", "", ""][:4]
+    native = linked == "1"
+    sync = "just py-sync-native" if native else "just py-sync"
+    kind = "native solvers, " if native else ""
     stale = []
     for name, seen in (("Cargo.lock", cargo_sha), ("uv.lock", uv_sha)):
         path = ROOT / name
@@ -314,10 +403,10 @@ def check_extension() -> Check:
             "extension",
             False,
             f"pse {version} built from stale {', '.join(stale)}",
-            "just py-sync",
+            sync,
             blocking=False,
         )
-    return Check("extension", True, f"pse {version} (lockfiles match)")
+    return Check("extension", True, f"pse {version} ({kind}lockfiles match)")
 
 
 def check_solvers() -> Check:

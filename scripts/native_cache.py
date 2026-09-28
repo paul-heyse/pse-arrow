@@ -95,6 +95,12 @@ def valid(prefix: Path, identity: dict, required: tuple[str, ...]) -> bool:
         return False
 
 
+def location(base: Path, kind: str, identity: dict) -> Path:
+    """Where the installation of ``identity`` lives, whether or not it is prepared."""
+    key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+    return base / kind / key
+
+
 def prepare(
     base: Path,
     kind: str,
@@ -103,15 +109,16 @@ def prepare(
     builder: Callable[[Path, Path], None],
 ) -> Path:
     """Serialize per identity; expose a new installation only after full verification."""
-    key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
-    parent = base / kind
+    prefix = location(base, kind, identity)
+    parent = prefix.parent
     parent.mkdir(parents=True, exist_ok=True)
-    prefix = parent / key
-    with (parent / f"{key}.lock").open("w") as lock:
+    with (parent / f"{prefix.name}.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if valid(prefix, identity, required):
             return prefix
-        with tempfile.TemporaryDirectory(prefix=f".{key}-", dir=parent) as scratch:
+        with tempfile.TemporaryDirectory(
+            prefix=f".{prefix.name}-", dir=parent
+        ) as scratch:
             stage = Path(scratch) / "install"
             stage.mkdir()
             builder(stage, Path(scratch) / "build")
@@ -268,11 +275,11 @@ def klu(base: Path, env: dict[str, str]) -> Path:
     return prepare(base, "klu", identity, KLU_FILES, build)
 
 
-def solver(base: Path) -> Path:
-    """Extract ``/opt/pse-solvers`` from the solver image into the cache.
+def solver_image() -> str:
+    """The solver image native work uses.
 
-    The image is the pinned dev image, or the one ``PSE_SOLVER_IMAGE`` names
-    (a local image ID or a digest reference).
+    It is the pinned dev image, or the one ``PSE_SOLVER_IMAGE`` names (a local image
+    ID or a digest reference).
     """
     resolved = subprocess.run(
         [sys.executable, str(ROOT / "scripts/solver-images.py"), "runtime", "dev"],
@@ -285,6 +292,31 @@ def solver(base: Path) -> Path:
     image = resolved.stdout.strip()
     if not (image.startswith("sha256:") or "@sha256:" in image):
         raise ValueError("solver extraction requires an immutable image identity")
+    return image
+
+
+def prepared_solver(base: Path) -> Path | None:
+    """The solver prefix if it is already extracted for the current image, else None.
+
+    Never runs docker or extracts anything, so it is cheap enough for the doctor. It
+    reads the receipt's identity only; ``solver`` still verifies every file digest
+    before a build uses the prefix.
+    """
+    try:
+        identity = {"image": solver_image()}
+    except ValueError:
+        return None
+    prefix = location(base, "solver", identity)
+    try:
+        receipt = json.loads((prefix / ".complete.json").read_text())
+    except (OSError, ValueError):
+        return None
+    return prefix if receipt.get("identity") == identity else None
+
+
+def solver(base: Path) -> Path:
+    """Extract ``/opt/pse-solvers`` from the solver image into the cache."""
+    image = solver_image()
 
     def extract(stage: Path, _work: Path) -> None:
         producer = subprocess.Popen(

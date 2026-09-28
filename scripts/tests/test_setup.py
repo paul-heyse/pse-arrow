@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
@@ -41,6 +42,7 @@ agents = load("agent-config")
 images = load("solver-images")
 adr = load("adr")
 doctor = load("doctor")
+cache = load("native_cache")
 register = load("check_register")
 agent_checks = load("check_agent_config")
 
@@ -292,6 +294,73 @@ class ConfigurationTests(unittest.TestCase):
         self.assertIn("pyrefly 1.3.0", check.detail)
         run.assert_called_once()
         self.assertEqual(run.call_args.args[0], str(doctor.venv_bin("python")))
+
+    def test_doctor_env_check_leaves_only_the_project_to_the_extension_check(
+        self,
+    ) -> None:
+        def plan(*names: str) -> subprocess.CompletedProcess[str]:
+            changes = [{"name": name, "action": "installed"} for name in names]
+            stdout = json.dumps({"sync": {"changes": changes}})
+            return subprocess.CompletedProcess([], 2, stdout, "error: outdated")
+
+        project = doctor.pyproject()["project"]["name"]
+        cases = [
+            (plan(project, project), True),  # a maturin-installed native build
+            (plan(project, "numpy"), False),  # a dependency differs too
+            (subprocess.CompletedProcess([], 2, "not json", "error: outdated"), False),
+            (plan(), False),  # failed without naming a package
+        ]
+        for proc, ok in cases:
+            with (
+                patch.object(Path, "exists", return_value=True),
+                patch.object(doctor.subprocess, "run", return_value=proc),
+            ):
+                check = doctor.check_env_synced()
+            self.assertEqual(check.ok, ok, proc.stdout)
+
+    def test_doctor_imports_the_extension_through_the_prepared_solver_libraries(
+        self,
+    ) -> None:
+        cargo = hashlib.sha256((ROOT / "Cargo.lock").read_bytes()).hexdigest()
+        uv = hashlib.sha256((ROOT / "uv.lock").read_bytes()).hexdigest()
+        library = Path("/cache/solver/prefix/lib")
+        for output, ok, detail, fix in (
+            (f"0.0.1 {cargo} {uv} 1", True, "native solvers", ""),
+            (f"0.0.1 {cargo} {uv} 0", True, "(lockfiles match)", ""),
+            (f"0.0.1 {'0' * 64} {uv} 1", False, "stale", "just py-sync-native"),
+            (f"0.0.1 {'0' * 64} {uv} 0", False, "stale", "just py-sync"),
+        ):
+            with (
+                patch.object(Path, "exists", return_value=True),
+                patch.object(doctor, "native_library_path", return_value=library),
+                patch.object(doctor, "run", return_value=(0, output)) as run,
+            ):
+                check = doctor.check_extension()
+            self.assertEqual(check.ok, ok, output)
+            self.assertIn(detail, check.detail)
+            self.assertEqual(check.fix, fix)
+            env = run.call_args.kwargs["env"]
+            self.assertTrue(env["LD_LIBRARY_PATH"].startswith(str(library)))
+
+    def test_prepared_solver_reads_the_receipt_and_never_extracts(self) -> None:
+        image = "sha256:" + "a" * 64
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            prefix = cache.location(base, "solver", {"image": image})
+            with (
+                patch.object(cache, "solver_image", return_value=image),
+                patch.object(cache.subprocess, "run", side_effect=AssertionError),
+                patch.object(cache.subprocess, "Popen", side_effect=AssertionError),
+            ):
+                self.assertIsNone(cache.prepared_solver(base))
+                prefix.mkdir(parents=True)
+                receipt = prefix / ".complete.json"
+                receipt.write_text(json.dumps({"identity": {"image": "other"}}))
+                self.assertIsNone(cache.prepared_solver(base))
+                receipt.write_text(json.dumps({"identity": {"image": image}}))
+                self.assertEqual(cache.prepared_solver(base), prefix)
+            with patch.object(cache, "solver_image", side_effect=ValueError):
+                self.assertIsNone(cache.prepared_solver(base))
 
     def test_materialized_skills_and_native_roles_detect_drift(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
