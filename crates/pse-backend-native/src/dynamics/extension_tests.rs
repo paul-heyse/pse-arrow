@@ -598,11 +598,11 @@ fn idas_krylov_matches_klu() {
         for preconditioner in [Preconditioner::None, Preconditioner::Jacobi] {
             for linear in [
                 IdasLinear::Spgmr {
-                    dimension: pse_model::scalars::PositiveCount::try_new(4).unwrap(),
+                    dimension: PositiveCount::try_new(4).unwrap(),
                     preconditioner,
                 },
                 IdasLinear::Spfgmr {
-                    dimension: pse_model::scalars::PositiveCount::try_new(4).unwrap(),
+                    dimension: PositiveCount::try_new(4).unwrap(),
                     preconditioner,
                 },
             ] {

@@ -39,7 +39,7 @@ impl NativePreparedFlow {
         method: &str,
         settings: &[u8],
     ) -> PyResult<NativeStrategyResult> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let method: pse_runtime::math::flows::TearMethod =
             settings::named(py, "tear method", method)?;
         let handle = py

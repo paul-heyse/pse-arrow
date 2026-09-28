@@ -107,7 +107,7 @@ impl ModelingFixturePolicy {
     #[new]
     #[pyo3(signature=(settings=None, *, derivative_step=None, derivative_tolerance=None, derivative_cells=None))]
     fn new(py: Python<'_>, settings: Option<&[u8]>, derivative_step: Option<f64>, derivative_tolerance: Option<f64>, derivative_cells: Option<usize>) -> PyResult<Self> {
-        let settings = settings.map(|s| super::settings::solve_profile(py, s)).transpose()?;
+        let settings = settings.map(|s| settings::solve_profile(py, s)).transpose()?;
         let derivatives = if derivative_step.is_some() || derivative_tolerance.is_some() || derivative_cells.is_some() {
             let policy = pse_backend_native::derivative_diagnostics::Policy {
                 perturbation: derivative_step.unwrap_or(1e-6),
@@ -236,7 +236,7 @@ impl NativeModelingPackage {
         rank_tolerance: f64,
         max_cells: usize,
     ) -> PyResult<NativePreparedOperation> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let fit = id(py, fit_id)?;
         let count = simulations.len();
         let simulations = simulations
@@ -287,7 +287,7 @@ impl NativeModelingPackage {
         maximum_attempts: usize,
         time_limit: f64,
     ) -> PyResult<NativeModelingNonlinearExplanation> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let nominals = nominals
             .into_iter()
@@ -341,7 +341,7 @@ impl NativeModelingPackage {
         maximum_samples: usize,
         time_limit: f64,
     ) -> PyResult<NativeModelingDiagnosticSamples> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "diagnostic time limit must be finite and positive"))?;
@@ -465,7 +465,7 @@ impl NativeModelingPackage {
         settings: &[u8],
         diagnostics: &ModelingDiagnosticSettings,
     ) -> PyResult<NativeModelingDiagnostics> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
         let inner = blocking(
@@ -517,7 +517,7 @@ impl NativeModelingPackage {
         row_penalties: Option<BTreeMap<String, f64>>,
         maximum_entries: usize,
     ) -> PyResult<NativeModelingNativeAnalysis> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         #[cfg(not(feature = "solver-highs"))]
         {
             let _ = (
@@ -629,7 +629,7 @@ impl NativeModelingPackage {
         tolerance: f64,
         rank_relative: f64,
     ) -> PyResult<NativeModelingNativeAnalysis> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         #[cfg(not(feature = "solver-highs"))]
         {
             let _ = (
@@ -708,7 +708,7 @@ impl NativeModelingPackage {
         maximum_attempts: usize,
         time_limit: f64,
     ) -> PyResult<NativeModelingInitialization> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "initialization time limit must be finite and positive"))?;
@@ -757,7 +757,7 @@ impl NativeModelingPackage {
         predecessors: Vec<Option<usize>>,
         maximum_points: usize,
     ) -> PyResult<NativeModelingStudy> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         if maximum_points == 0
             || maximum_points > 4096
             || case_ids.len() > maximum_points
@@ -816,7 +816,7 @@ impl NativeModelingPackage {
         })
     }
     fn inspect(&self, py: Python<'_>, case_id: &str, settings: &[u8]) -> PyResult<Vec<u8>> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let root=declaration(py,case_id)?;
         let cancel=CancelSource::new();
         let model=blocking(py,&self.owner,async {
@@ -835,7 +835,7 @@ impl NativeModelingPackage {
         }).map_err(|e|invalid(py,e.to_string()))
     }
     fn prepare_flow(&self, py: Python<'_>, case_id: &str, selection: &[u8], settings: &[u8]) -> PyResult<NativePreparedFlow> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let root=declaration(py,case_id)?;
         let selection=flow_selection(py,selection,self.owner.shared.budget().math.workspace_bytes)?;
         let cancel=CancelSource::new();
@@ -846,7 +846,7 @@ impl NativeModelingPackage {
         Ok(NativePreparedFlow{owner:self.owner.clone(),math:self.owner.shared.math().clone(),inner})
     }
     fn prepare_recycle(&self, py: Python<'_>, case_id: &str, selection: &[u8], request: &[u8], settings: &[u8]) -> PyResult<NativePreparedStrategy> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         #[cfg(feature="native-solvers")]
         {
             let root=declaration(py,case_id)?;
@@ -864,7 +864,7 @@ impl NativeModelingPackage {
         {let _=(case_id,selection,request,settings);Err(invalid(py,"KINSOL strategy workflow is not linked"))}
     }
     fn prepare_block_initialization(&self, py: Python<'_>, case_id: &str, settings: &[u8], stages: Vec<BTreeMap<String,f64>>) -> PyResult<NativePreparedStrategy> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         #[cfg(feature="native-solvers")]
         {
             // Admission of the profile and stages is native (`validate_profile`).
@@ -896,7 +896,7 @@ impl NativeModelingPackage {
         derivative_tolerance: f64,
         fixture_policies: Option<BTreeMap<String, Py<ModelingFixturePolicy>>>,
     ) -> PyResult<NativeModelingConformance> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let cancel = CancelSource::new();
         let fixture_policies = fixture_policies.unwrap_or_default().into_iter()
             .map(|(key, policy)| Ok((declaration(py, &key)?, policy.borrow(py).inner.clone())))
@@ -926,7 +926,7 @@ impl NativeModelingPackage {
     fn prepare_solve(
         &self, py: Python<'_>, case_id: &str, settings: &[u8], route: &str,
     ) -> PyResult<NativePreparedOperation> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let root=declaration(py,case_id)?;
         let route=route.parse().map_err(|_|invalid(py,"unknown modeling analysis route"))?;
         let cancel=CancelSource::new();
@@ -944,7 +944,7 @@ impl NativeModelingPackage {
         settings: &[u8],
         route: &str,
     ) -> PyResult<NativeModelingResult> {
-        let settings = super::settings::solve_profile(py, settings)?;
+        let settings = settings::solve_profile(py, settings)?;
         let root = declaration(py, case_id)?;
         let route = route
             .parse()

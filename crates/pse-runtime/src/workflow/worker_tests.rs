@@ -219,7 +219,7 @@ async fn unknown_payload_version_refused() {
         // The typed cause, in the versioned termination detail.
         let detail: TerminationDetail =
             serde_json::from_str(attempt.termination_detail.as_deref().unwrap()).unwrap();
-        let super::TerminationCause::Error { rule, message } = detail.cause else {
+        let TerminationCause::Error { rule, message } = detail.cause else {
             panic!("{detail:?}")
         };
         if index == 0 {
@@ -312,7 +312,7 @@ fn job_request_identity_independent_of_key_order() {
 fn termination_detail_versioned_and_typed() {
     let detail = TerminationDetail {
         version: pse_model::document::Version,
-        cause: super::TerminationCause::Assessment {
+        cause: TerminationCause::Assessment {
             usable: false,
             candidate_use: vec![
                 pse_model::generated::enums::CandidateUse::Usable,
