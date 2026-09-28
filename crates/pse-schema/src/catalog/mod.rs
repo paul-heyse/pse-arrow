@@ -62,10 +62,12 @@ pub fn declare(builder: &mut RegistryBuilder) {
     publication::declare_profiles(builder);
 }
 
-/// Add only the canonical diagnostic relation and its severity/failure vocabularies.
-/// Custom registries use this before native integrity execution; the complete
-/// platform catalog already includes it. Duplicate declarations remain errors.
+/// Add only the canonical diagnostic relation, its severity/failure vocabularies and the
+/// run identity its findings reference. Custom registries use this before native
+/// integrity execution; the complete platform catalog already includes it. Duplicate
+/// declarations remain errors.
 pub fn declare_diagnostics(builder: &mut RegistryBuilder) {
+    operations::declare_run_identity(builder);
     enums_platform::declare_failure_classes(builder);
     s6_13_runtime::declare_diagnostics(builder);
 }

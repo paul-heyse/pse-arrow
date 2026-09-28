@@ -190,11 +190,7 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
 
 fn declare_identities(b: &mut RegistryBuilder) {
     declare_publication_identities(b);
-    identity(
-        b,
-        "run",
-        "One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt",
-    );
+    declare_run_identity(b);
     identity(b, "job", "One durable job claimed by workers");
     identity(
         b,
@@ -211,6 +207,15 @@ fn declare_identities(b: &mut RegistryBuilder) {
         b,
         "settlement",
         "One settlement of an uncertain commit acknowledgement",
+    );
+}
+
+/// The run identity, which the diagnostic findings and every result relation reference.
+pub(super) fn declare_run_identity(b: &mut RegistryBuilder) {
+    identity(
+        b,
+        "run",
+        "One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt",
     );
 }
 
