@@ -4,6 +4,7 @@
 
 pub mod attempts;
 pub mod cancellation;
+pub mod catalog;
 pub mod jobs;
 pub mod solutions;
 pub mod sources;

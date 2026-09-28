@@ -17,7 +17,8 @@ use crate::attempts::{
 };
 use crate::cancellation::CancelOutcome;
 use crate::catalog::{
-    Committed, Member, ProtectedVersion, PublicationCommit, ReadTarget, Settlement, Workspace,
+    Committed, ProtectedVersion, PublicationCommit, PublicationId, ReadTarget,
+    RuntimeOperationalPublicationMembersRow, Settlement, Workspace, WorkspaceId,
 };
 use crate::jobs::{Enqueued, Finished, JobId, JobOutcome, JobState, NewJob, RetryPolicy};
 use crate::lifecycle::AttemptState;
@@ -105,7 +106,7 @@ async fn finished_attempt(store: &Store) -> AttemptId {
     attempt.attempt_id
 }
 
-async fn workspace(store: &Store) -> SemanticId {
+async fn workspace(store: &Store) -> WorkspaceId {
     let workspace = Workspace {
         workspace_id: mint_id(),
         name: format!("ws-{}", mint_id::<SemanticId>()),
@@ -119,15 +120,20 @@ async fn workspace(store: &Store) -> SemanticId {
     workspace.workspace_id
 }
 
-fn members(version: i64) -> Vec<Member> {
+fn members(
+    publication_id: PublicationId,
+    version: i64,
+) -> Vec<RuntimeOperationalPublicationMembersRow> {
     vec![
-        Member {
+        RuntimeOperationalPublicationMembersRow {
+            publication_id,
             member: "runtime.computation_runs".to_owned(),
             table_uri: "file:///tmp/pse-workspace/runs/".to_owned(),
             delta_version: version,
             contract_fingerprint: hash(9),
         },
-        Member {
+        RuntimeOperationalPublicationMembersRow {
+            publication_id,
             member: "runtime.solve_metrics".to_owned(),
             table_uri: "file:///tmp/pse-workspace/metrics/".to_owned(),
             delta_version: version,
@@ -136,19 +142,27 @@ fn members(version: i64) -> Vec<Member> {
     ]
 }
 
+/// Whether stored members are exactly these.
+fn same_members(
+    stored: &[RuntimeOperationalPublicationMembersRow],
+    expected: &[RuntimeOperationalPublicationMembersRow],
+) -> bool {
+    pse_model::SemanticEq::semantic_eq(&stored.to_vec(), &expected.to_vec())
+}
+
 async fn publish(
     store: &Store,
-    workspace: SemanticId,
-    parent: Option<SemanticId>,
+    workspace: WorkspaceId,
+    parent: Option<PublicationId>,
     version: i64,
-) -> SemanticId {
+) -> PublicationId {
     let publication_id = mint_id();
     let commit = PublicationCommit {
         publication_id,
         workspace_id: workspace,
-        attempt_id: finished_attempt(store).await.as_id(),
+        attempt_id: finished_attempt(store).await,
         expected_parent: parent,
-        members: members(version),
+        members: members(publication_id, version),
     };
     assert_eq!(
         store.catalog().commit(&commit).await.unwrap(),
@@ -616,7 +630,7 @@ async fn dropped_statement_does_not_block_the_pool() {
         .unwrap();
     assert!(server.is_supported());
     lock.execute("ROLLBACK").await.unwrap();
-    store.close().await;
+    store.close();
     drop(lock);
     database.remove().await.unwrap();
 }
@@ -1838,12 +1852,13 @@ async fn concurrent_head_advance_one_winner() {
     let commits: Vec<PublicationCommit> = {
         let mut commits = Vec::new();
         for version in [1, 2] {
+            let publication_id = mint_id();
             commits.push(PublicationCommit {
-                publication_id: mint_id(),
+                publication_id,
                 workspace_id: workspace,
-                attempt_id: finished_attempt(&store).await.as_id(),
+                attempt_id: finished_attempt(&store).await,
                 expected_parent: Some(base),
-                members: members(version),
+                members: members(publication_id, version),
             });
         }
         commits
@@ -1851,7 +1866,7 @@ async fn concurrent_head_advance_one_winner() {
     let catalog = store.catalog();
     let (left, right) = tokio::join!(catalog.commit(&commits[0]), catalog.commit(&commits[1]));
     let results = [left, right];
-    let winners: Vec<SemanticId> = results
+    let winners: Vec<PublicationId> = results
         .iter()
         .filter_map(|r| match r {
             Ok(Committed::Advanced { publication_id }) => Some(*publication_id),
@@ -1889,10 +1904,10 @@ async fn concurrent_head_advance_one_winner() {
         catalog.head(workspace).await.unwrap(),
         Some(retried.publication_id)
     );
-    assert_eq!(
-        catalog.members(retried.publication_id).await.unwrap(),
-        retried.members
-    );
+    assert!(same_members(
+        &catalog.members(retried.publication_id).await.unwrap(),
+        &retried.members
+    ));
     database.remove().await.unwrap();
 }
 
@@ -1903,15 +1918,16 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
     let catalog = store.catalog();
     let workspace = workspace(&store).await;
     let attempt = finished_attempt(&store).await;
+    let publication_id = mint_id();
     let commit = PublicationCommit {
-        publication_id: mint_id(),
+        publication_id,
         workspace_id: workspace,
-        attempt_id: attempt.as_id(),
+        attempt_id: attempt,
         expected_parent: None,
-        members: members(0),
+        members: members(publication_id, 0),
     };
     assert_eq!(
-        catalog.settle(attempt.as_id()).await.unwrap(),
+        catalog.settle(attempt).await.unwrap(),
         Settlement::ProvedNoncommit
     );
     catalog.commit(&commit).await.unwrap();
@@ -1923,7 +1939,7 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
         }
     );
     assert_eq!(
-        catalog.settle(attempt.as_id()).await.unwrap(),
+        catalog.settle(attempt).await.unwrap(),
         Settlement::Committed {
             publication_id: commit.publication_id
         }
@@ -1934,8 +1950,7 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
     store.attempts().create(&running, None).await.unwrap();
     let refused = catalog
         .commit(&PublicationCommit {
-            publication_id: mint_id(),
-            attempt_id: running.attempt_id.as_id(),
+            attempt_id: running.attempt_id,
             expected_parent: Some(commit.publication_id),
             ..commit.clone()
         })
@@ -1962,12 +1977,12 @@ async fn maintenance_waits_for_reader_leases() {
         .acquire_reader_lease(ReadTarget::Head(workspace), "reader-1", LEASE)
         .await
         .unwrap();
-    assert_eq!(head_lease.publication_id, head);
+    assert_eq!(head_lease.lease.publication_id, head);
     let lease = catalog
         .acquire_reader_lease(ReadTarget::Publication(old), "reader-2", LEASE)
         .await
         .unwrap();
-    assert_eq!(lease.members, members(0));
+    assert!(same_members(&lease.members, &members(old, 0)));
 
     // The head is protected from retention.
     let protected = catalog.mark_expiring(workspace, head).await.unwrap_err();
@@ -2007,12 +2022,22 @@ async fn maintenance_waits_for_reader_leases() {
     // The reader finishes; maintenance proceeds.
     let release = async {
         tokio::time::sleep(Duration::from_millis(50)).await;
-        assert!(catalog.release_reader_lease(lease.lease_id).await.unwrap());
+        assert!(
+            catalog
+                .release_reader_lease(lease.lease.lease_id)
+                .await
+                .unwrap()
+        );
     };
     let wait = catalog.wait_for_readers(old, Duration::from_millis(10), Duration::from_secs(10));
     let ((), waited) = tokio::join!(release, wait);
     waited.unwrap();
-    assert!(!catalog.release_reader_lease(lease.lease_id).await.unwrap());
+    assert!(
+        !catalog
+            .release_reader_lease(lease.lease.lease_id)
+            .await
+            .unwrap()
+    );
     catalog.mark_deleted(workspace, old).await.unwrap();
     catalog.mark_deleted(workspace, old).await.unwrap();
 
@@ -2032,7 +2057,7 @@ async fn maintenance_waits_for_reader_leases() {
     );
     assert!(
         catalog
-            .release_reader_lease(head_lease.lease_id)
+            .release_reader_lease(head_lease.lease.lease_id)
             .await
             .unwrap()
     );

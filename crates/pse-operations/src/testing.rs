@@ -176,7 +176,7 @@ impl TestDatabase {
     ///
     /// Classified driver failures.
     pub async fn remove(self) -> Result<(), OperationsError> {
-        self.store.close().await;
+        self.store.close();
         self.admin
             .execute(&format!(
                 "DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)",

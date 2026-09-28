@@ -11,9 +11,9 @@ use std::fmt;
 use std::sync::Arc;
 
 use pse_diagnostics::DiagnosticCode;
-use pse_ids::SemanticId;
 pub use pse_model::generated::enums::InvariantKind;
-use pse_model::generated::identities::AttemptId;
+use pse_model::generated::enums::RetentionPhase;
+use pse_model::generated::identities::{AttemptId, PublicationId, WorkspaceId};
 use tokio_postgres::error::SqlState;
 
 use crate::lifecycle::AttemptState;
@@ -218,31 +218,31 @@ pub enum OperationsError {
     #[error("workspace {workspace}: expected head {}, found {}", show(*.expected), show(*.current))]
     PublicationConflict {
         /// The workspace.
-        workspace: SemanticId,
+        workspace: WorkspaceId,
         /// The parent the commit named.
-        expected: Option<SemanticId>,
+        expected: Option<PublicationId>,
         /// The head actually found.
-        current: Option<SemanticId>,
+        current: Option<PublicationId>,
     },
     /// The publication is expiring or deleted; no new reader lease is granted.
-    #[error("publication {publication} is {phase}; no new reader lease")]
+    #[error("publication {publication} is {}; no new reader lease", phase.as_str())]
     PublicationRetiring {
         /// The publication.
-        publication: SemanticId,
+        publication: PublicationId,
         /// Its retention phase.
-        phase: String,
+        phase: RetentionPhase,
     },
     /// The workspace head is protected from retention.
     #[error("publication {publication} is the head of its workspace and is protected")]
     ProtectedPublication {
         /// The publication.
-        publication: SemanticId,
+        publication: PublicationId,
     },
     /// Maintenance must wait: reader leases are still live.
     #[error("publication {publication} still has {active} live reader lease(s)")]
     ReadersActive {
         /// The publication.
-        publication: SemanticId,
+        publication: PublicationId,
         /// Live lease count.
         active: i64,
     },
@@ -256,7 +256,7 @@ pub enum OperationsError {
     },
 }
 
-fn show(id: Option<SemanticId>) -> String {
+fn show(id: Option<PublicationId>) -> String {
     id.map_or_else(|| "<none>".to_owned(), |id| id.to_string())
 }
 
@@ -492,6 +492,7 @@ impl<T> Classify<T> for Result<T, sqlx::Error> {
 #[cfg(test)]
 mod error_unit {
     use super::*;
+    use pse_ids::SemanticId;
 
     fn target() -> Target {
         Target(Arc::from("postgres test"))

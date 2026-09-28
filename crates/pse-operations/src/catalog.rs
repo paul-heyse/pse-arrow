@@ -7,68 +7,55 @@
 //! expected parent, inserts the publication and its members, and advances the head. Readers
 //! take short-lived lease rows; maintenance marks a publication `expiring`, waits for its
 //! leases, and marks it `deleted` after `pse-catalog` removes the member files.
-//! Transaction-scoped advisory locks serialize maintainers of one workspace.
+//! Transaction-scoped advisory locks serialize maintainers of one workspace. Members,
+//! leases and heads are the registry rows the catalog stores.
 
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Utc};
-use pse_ids::{ContentHash, SemanticId};
-use sqlx::postgres::PgRow;
-use sqlx::{FromRow, PgConnection, Row};
+use pse_model::generated::enums::{RetentionPhase, SettlementOutcome};
+use pse_operations_queries::client::Params as _;
+use pse_operations_queries::queries::catalog as statements;
+use tokio_postgres::types::ToSql;
 
-use crate::codec;
+use crate::attempts::{AttemptId, Tx, micros};
+use crate::bulk::{Cells, copy_in};
 use crate::error::{Classify, OperationsError, Target};
+use crate::generated::copy;
 use crate::lifecycle::AttemptState;
 use crate::store::Store;
+pub use pse_model::generated::identities::{
+    PublicationId, ReaderLeaseId, SettlementId, WorkspaceId,
+};
+pub use pse_model::generated::runtime::operational_publication_members::RuntimeOperationalPublicationMembersRow;
+pub use pse_model::generated::runtime::operational_reader_leases::RuntimeOperationalReaderLeasesRow;
+/// A table version retention must keep: a projection of the members.
+pub use pse_operations_queries::queries::catalog::ProtectedVersion;
 
-/// A workspace: one publication history with one head.
+/// A workspace to register: one publication history with one head.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Workspace {
     /// The workspace identity, minted by the runtime.
-    pub workspace_id: SemanticId,
+    pub workspace_id: WorkspaceId,
     /// A unique human name.
     pub name: String,
     /// The root of its Delta member tables.
     pub root_uri: String,
 }
 
-/// One member table of a publication, at an exact Delta version.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Member {
-    /// The member (relation) name.
-    pub member: String,
-    /// The member table location.
-    pub table_uri: String,
-    /// The exact Delta version.
-    pub delta_version: i64,
-    /// The contract fingerprint the member was written under.
-    pub contract_fingerprint: ContentHash,
-}
-
-impl FromRow<'_, PgRow> for Member {
-    fn from_row(row: &PgRow) -> Result<Self, sqlx::Error> {
-        Ok(Self {
-            member: row.try_get("member")?,
-            table_uri: row.try_get("table_uri")?,
-            delta_version: row.try_get("delta_version")?,
-            contract_fingerprint: codec::hash(row, "contract_fingerprint")?,
-        })
-    }
-}
-
 /// A publication to make visible.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct PublicationCommit {
     /// The publication identity, minted by the runtime before any effect.
-    pub publication_id: SemanticId,
+    pub publication_id: PublicationId,
     /// The workspace.
-    pub workspace_id: SemanticId,
+    pub workspace_id: WorkspaceId,
     /// The finished attempt being published.
-    pub attempt_id: SemanticId,
+    pub attempt_id: AttemptId,
     /// The head this publication was prepared against; `None` for the first publication.
-    pub expected_parent: Option<SemanticId>,
-    /// The members, already written to attempt-scoped Delta locations.
-    pub members: Vec<Member>,
+    pub expected_parent: Option<PublicationId>,
+    /// The members, already written to attempt-scoped Delta locations; each names this
+    /// publication.
+    pub members: Vec<RuntimeOperationalPublicationMembersRow>,
 }
 
 /// A successful commit.
@@ -77,12 +64,12 @@ pub enum Committed {
     /// This call made the publication visible and advanced the head.
     Advanced {
         /// The publication.
-        publication_id: SemanticId,
+        publication_id: PublicationId,
     },
     /// The attempt was already published (publication is idempotent per attempt).
     AlreadyCommitted {
         /// The existing publication.
-        publication_id: SemanticId,
+        publication_id: PublicationId,
     },
 }
 
@@ -92,7 +79,7 @@ pub enum Settlement {
     /// The attempt's publication is visible.
     Committed {
         /// The publication.
-        publication_id: SemanticId,
+        publication_id: PublicationId,
     },
     /// No commit for the attempt was visible or in flight when settled.
     ProvedNoncommit,
@@ -102,80 +89,54 @@ pub enum Settlement {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ReadTarget {
     /// An exact publication.
-    Publication(SemanticId),
+    Publication(PublicationId),
     /// The current head of a workspace, resolved and recorded in the lease.
-    Head(SemanticId),
+    Head(WorkspaceId),
 }
 
-/// A granted reader lease with the member locations it protects.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// A granted reader lease with the members it protects.
+#[derive(Clone, Debug)]
 pub struct ReaderLease {
-    /// The lease identity.
-    pub lease_id: SemanticId,
-    /// The resolved publication.
-    pub publication_id: SemanticId,
-    /// When the lease lapses unless released earlier.
-    pub expires_at: DateTime<Utc>,
+    /// The lease as stored.
+    pub lease: RuntimeOperationalReaderLeasesRow,
     /// The members to read.
-    pub members: Vec<Member>,
-}
-
-/// A table version retention must keep.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ProtectedVersion {
-    /// The member table.
-    pub table_uri: String,
-    /// The Delta version.
-    pub delta_version: i64,
-}
-
-impl FromRow<'_, PgRow> for ProtectedVersion {
-    fn from_row(row: &PgRow) -> Result<Self, sqlx::Error> {
-        Ok(Self {
-            table_uri: row.try_get("table_uri")?,
-            delta_version: row.try_get("delta_version")?,
-        })
-    }
+    pub members: Vec<RuntimeOperationalPublicationMembersRow>,
 }
 
 async fn members_of(
-    conn: &mut PgConnection,
+    tx: &Tx<'_>,
     target: &Target,
-    publication: SemanticId,
-) -> Result<Vec<Member>, OperationsError> {
-    sqlx::query_as(
-        "SELECT member, table_uri, delta_version, contract_fingerprint \
-         FROM pse_ops.publication_members WHERE publication_id = $1 ORDER BY member",
-    )
-    .bind(codec::uuid(publication))
-    .fetch_all(&mut *conn)
-    .await
-    .classify(target)
+    publication: PublicationId,
+) -> Result<Vec<RuntimeOperationalPublicationMembersRow>, OperationsError> {
+    statements::members()
+        .bind(tx, &publication)
+        .all()
+        .await
+        .classify(target)
 }
 
 async fn publication_of_attempt(
-    conn: &mut PgConnection,
+    tx: &Tx<'_>,
     target: &Target,
-    attempt: SemanticId,
-) -> Result<Option<SemanticId>, OperationsError> {
-    let found: Option<uuid::Uuid> =
-        sqlx::query_scalar("SELECT publication_id FROM pse_ops.publications WHERE attempt_id = $1")
-            .bind(codec::uuid(attempt))
-            .fetch_optional(&mut *conn)
-            .await
-            .classify(target)?;
-    Ok(found.map(|id| SemanticId::from_bytes(id.into_bytes())))
+    attempt: AttemptId,
+) -> Result<Option<PublicationId>, OperationsError> {
+    Ok(statements::publication_of_attempt()
+        .bind(tx, &attempt)
+        .opt()
+        .await
+        .classify(target)?
+        .map(|publication| publication.publication_id))
 }
 
 /// Serialize maintainers of one workspace until the transaction ends.
 async fn maintenance_lock(
-    conn: &mut PgConnection,
+    tx: &Tx<'_>,
     target: &Target,
-    workspace: SemanticId,
+    workspace: WorkspaceId,
 ) -> Result<(), OperationsError> {
-    sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))")
-        .bind(format!("pse_ops.maintenance:{workspace}"))
-        .execute(&mut *conn)
+    statements::maintenance_lock()
+        .bind(tx, &format!("pse_ops.maintenance:{workspace}"))
+        .one()
         .await
         .classify(target)?;
     Ok(())
@@ -183,27 +144,33 @@ async fn maintenance_lock(
 
 /// Lock a publication against new leases and return its workspace and retention phase.
 async fn lock_publication(
-    conn: &mut PgConnection,
+    tx: &Tx<'_>,
     target: &Target,
-    publication: SemanticId,
-) -> Result<(SemanticId, Option<String>), OperationsError> {
-    let row = sqlx::query(
-        "SELECT p.workspace_id, r.phase::text AS phase FROM pse_ops.publications AS p \
-         LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id \
-         WHERE p.publication_id = $1 FOR NO KEY UPDATE OF p",
-    )
-    .bind(codec::uuid(publication))
-    .fetch_optional(&mut *conn)
-    .await
-    .classify(target)?
-    .ok_or_else(|| OperationsError::NotFound {
-        entity: "publication",
-        id: publication.to_string(),
-    })?;
-    Ok((
-        codec::id(&row, "workspace_id").classify(target)?,
-        row.try_get("phase").classify(target)?,
-    ))
+    publication: PublicationId,
+) -> Result<(WorkspaceId, Option<RetentionPhase>), OperationsError> {
+    let locked = statements::lock_publication()
+        .bind(tx, &publication)
+        .opt()
+        .await
+        .classify(target)?
+        .ok_or_else(|| OperationsError::NotFound {
+            entity: "publication",
+            id: publication.to_string(),
+        })?;
+    // A domain-typed result column arrives as its base type.
+    Ok((WorkspaceId::from_id(locked.workspace_id), locked.phase))
+}
+
+async fn active_leases(
+    tx: &Tx<'_>,
+    target: &Target,
+    publication: PublicationId,
+) -> Result<i64, OperationsError> {
+    statements::active_leases()
+        .bind(tx, &publication)
+        .one()
+        .await
+        .classify(target)
 }
 
 /// The catalog repository.
@@ -229,19 +196,21 @@ impl<'s> Catalog<'s> {
     /// failures.
     pub async fn register_workspace(&self, workspace: &Workspace) -> Result<(), OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        sqlx::query(
-            "INSERT INTO pse_ops.workspaces (workspace_id, name, root_uri) VALUES ($1, $2, $3)",
-        )
-        .bind(codec::uuid(workspace.workspace_id))
-        .bind(&workspace.name)
-        .bind(&workspace.root_uri)
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
-        sqlx::query("INSERT INTO pse_ops.publication_heads (workspace_id) VALUES ($1)")
-            .bind(codec::uuid(workspace.workspace_id))
-            .execute(&mut *tx)
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        statements::insert_workspace()
+            .params(
+                &tx,
+                &statements::InsertWorkspaceParams {
+                    workspace_id: workspace.workspace_id,
+                    name: workspace.name.as_str(),
+                    root_uri: workspace.root_uri.as_str(),
+                },
+            )
+            .await
+            .classify(target)?;
+        statements::insert_head()
+            .bind(&tx, &workspace.workspace_id)
             .await
             .classify(target)?;
         tx.commit().await.classify(target)
@@ -252,15 +221,17 @@ impl<'s> Catalog<'s> {
     /// # Errors
     ///
     /// [`OperationsError::NotFound`] for an unknown workspace; classified driver failures.
-    pub async fn head(&self, workspace: SemanticId) -> Result<Option<SemanticId>, OperationsError> {
-        let head: Option<Option<uuid::Uuid>> = sqlx::query_scalar(
-            "SELECT publication_id FROM pse_ops.publication_heads WHERE workspace_id = $1",
-        )
-        .bind(codec::uuid(workspace))
-        .fetch_optional(self.store.pool())
-        .await
-        .classify(self.target())?;
-        head.map(|head| head.map(|id| SemanticId::from_bytes(id.into_bytes())))
+    pub async fn head(
+        &self,
+        workspace: WorkspaceId,
+    ) -> Result<Option<PublicationId>, OperationsError> {
+        let client = self.store.client().await?;
+        statements::head()
+            .bind(&client, &workspace)
+            .opt()
+            .await
+            .classify(self.target())?
+            .map(|head| head.publication_id)
             .ok_or_else(|| OperationsError::NotFound {
                 entity: "workspace",
                 id: workspace.to_string(),
@@ -274,30 +245,33 @@ impl<'s> Catalog<'s> {
     ///
     /// [`OperationsError::PublicationConflict`] when the head moved (re-prepare against the
     /// new head; never rebase); [`OperationsError::InvalidRequest`] when the attempt has not
-    /// finished; [`OperationsError::NotFound`]; classified driver failures.
+    /// finished or a member names another publication; [`OperationsError::NotFound`];
+    /// classified driver failures.
     pub async fn commit(&self, commit: &PublicationCommit) -> Result<Committed, OperationsError> {
+        if let Some(member) = commit
+            .members
+            .iter()
+            .find(|member| member.publication_id != commit.publication_id)
+        {
+            return Err(OperationsError::InvalidRequest {
+                reason: format!(
+                    "member {} names publication {}, not {}",
+                    member.member, member.publication_id, commit.publication_id
+                ),
+            });
+        }
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        // FOR SHARE on the attempt: a concurrent settlement (FOR UPDATE) waits for us.
-        let state: Option<String> = sqlx::query_scalar(
-            "SELECT state::text AS state FROM pse_ops.attempts WHERE attempt_id = $1 FOR SHARE",
-        )
-        .bind(codec::uuid(commit.attempt_id))
-        .fetch_optional(&mut *tx)
-        .await
-        .classify(target)?;
-        let state: AttemptState = state
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let state = statements::share_attempt_state()
+            .bind(&tx, &commit.attempt_id)
+            .opt()
+            .await
+            .classify(target)?
             .ok_or_else(|| OperationsError::NotFound {
                 entity: "attempt",
                 id: commit.attempt_id.to_string(),
-            })?
-            .parse()
-            .map_err(
-                |error: pse_model::ModelError| OperationsError::CorruptValue {
-                    column: "attempts.state",
-                    detail: error.to_string(),
-                },
-            )?;
+            })?;
         if !matches!(
             state,
             AttemptState::Completed
@@ -314,30 +288,27 @@ impl<'s> Catalog<'s> {
             });
         }
         if let Some(publication_id) =
-            publication_of_attempt(&mut tx, target, commit.attempt_id).await?
+            publication_of_attempt(&tx, target, commit.attempt_id).await?
         {
             return Ok(Committed::AlreadyCommitted { publication_id });
         }
-        let current: Option<Option<uuid::Uuid>> = sqlx::query_scalar(
-            "SELECT publication_id FROM pse_ops.publication_heads \
-             WHERE workspace_id = $1 FOR UPDATE",
-        )
-        .bind(codec::uuid(commit.workspace_id))
-        .fetch_optional(&mut *tx)
-        .await
-        .classify(target)?;
-        let current = current
+        let current = statements::lock_head()
+            .bind(&tx, &commit.workspace_id)
+            .opt()
+            .await
+            .classify(target)?
             .ok_or_else(|| OperationsError::NotFound {
                 entity: "workspace",
                 id: commit.workspace_id.to_string(),
             })?
-            .map(|id| SemanticId::from_bytes(id.into_bytes()));
+            .publication_id;
         if current != commit.expected_parent {
             tx.rollback().await.classify(target)?;
             // The head may have moved because this very attempt won a concurrent retry.
-            let mut conn = self.store.pool().acquire().await.classify(target)?;
+            let mut client = self.store.client().await?;
+            let tx = client.transaction().await.classify(target)?;
             if let Some(publication_id) =
-                publication_of_attempt(&mut conn, target, commit.attempt_id).await?
+                publication_of_attempt(&tx, target, commit.attempt_id).await?
             {
                 return Ok(Committed::AlreadyCommitted { publication_id });
             }
@@ -347,66 +318,40 @@ impl<'s> Catalog<'s> {
                 current,
             });
         }
-        sqlx::query(
-            "INSERT INTO pse_ops.publications \
-                 (publication_id, workspace_id, parent_publication, attempt_id) \
-             VALUES ($1, $2, $3, $4)",
-        )
-        .bind(codec::uuid(commit.publication_id))
-        .bind(codec::uuid(commit.workspace_id))
-        .bind(commit.expected_parent.map(codec::uuid))
-        .bind(codec::uuid(commit.attempt_id))
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
-        sqlx::query(
-            "INSERT INTO pse_ops.publication_members \
-                 (publication_id, member, table_uri, delta_version, contract_fingerprint) \
-             SELECT $1, m.member, m.table_uri, m.delta_version, m.contract_fingerprint \
-             FROM UNNEST($2::text[], $3::text[], $4::bigint[], $5::bytea[]) \
-                 AS m (member, table_uri, delta_version, contract_fingerprint)",
-        )
-        .bind(codec::uuid(commit.publication_id))
-        .bind(
-            commit
-                .members
-                .iter()
-                .map(|m| m.member.as_str())
-                .collect::<Vec<_>>(),
-        )
-        .bind(
-            commit
-                .members
-                .iter()
-                .map(|m| m.table_uri.as_str())
-                .collect::<Vec<_>>(),
-        )
-        .bind(
-            commit
-                .members
-                .iter()
-                .map(|m| m.delta_version)
-                .collect::<Vec<_>>(),
-        )
-        .bind(
-            commit
-                .members
-                .iter()
-                .map(|m| codec::hash_bytes(&m.contract_fingerprint))
-                .collect::<Vec<_>>(),
-        )
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
-        sqlx::query(
-            "UPDATE pse_ops.publication_heads SET publication_id = $2, advanced_at = now() \
-             WHERE workspace_id = $1",
-        )
-        .bind(codec::uuid(commit.workspace_id))
-        .bind(codec::uuid(commit.publication_id))
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
+        statements::insert_publication()
+            .params(
+                &tx,
+                &statements::InsertPublicationParams {
+                    publication_id: commit.publication_id,
+                    workspace_id: commit.workspace_id,
+                    parent_publication: commit.expected_parent,
+                    attempt_id: commit.attempt_id,
+                },
+            )
+            .await
+            .classify(target)?;
+        let mut rows: Vec<Cells<'_>> = Vec::with_capacity(commit.members.len());
+        for member in &commit.members {
+            let publication: &(dyn ToSql + Sync) = &member.publication_id;
+            rows.push(vec![
+                publication,
+                &member.member,
+                &member.table_uri,
+                &member.delta_version,
+                &member.contract_fingerprint,
+            ]);
+        }
+        copy_in(&tx, target, &copy::PUBLICATION_MEMBERS, &rows).await?;
+        statements::advance_head()
+            .params(
+                &tx,
+                &statements::AdvanceHeadParams {
+                    publication_id: commit.publication_id,
+                    workspace_id: commit.workspace_id,
+                },
+            )
+            .await
+            .classify(target)?;
         tx.commit().await.classify(target)?;
         Ok(Committed::Advanced {
             publication_id: commit.publication_id,
@@ -418,9 +363,16 @@ impl<'s> Catalog<'s> {
     /// # Errors
     ///
     /// Classified driver failures.
-    pub async fn members(&self, publication: SemanticId) -> Result<Vec<Member>, OperationsError> {
-        let mut conn = self.store.pool().acquire().await.classify(self.target())?;
-        members_of(&mut conn, self.target(), publication).await
+    pub async fn members(
+        &self,
+        publication: PublicationId,
+    ) -> Result<Vec<RuntimeOperationalPublicationMembersRow>, OperationsError> {
+        let client = self.store.client().await?;
+        statements::members()
+            .bind(&client, &publication)
+            .all()
+            .await
+            .classify(self.target())
     }
 
     /// Settle an uncertain commit acknowledgement for `attempt`. Waits for any commit of
@@ -430,37 +382,39 @@ impl<'s> Catalog<'s> {
     ///
     /// [`OperationsError::NotFound`]; classified driver failures (the runtime reports an
     /// unreachable catalog as unresolved).
-    pub async fn settle(&self, attempt: SemanticId) -> Result<Settlement, OperationsError> {
+    pub async fn settle(&self, attempt: AttemptId) -> Result<Settlement, OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        let exists: Option<i32> =
-            sqlx::query_scalar("SELECT 1 FROM pse_ops.attempts WHERE attempt_id = $1 FOR UPDATE")
-                .bind(codec::uuid(attempt))
-                .fetch_optional(&mut *tx)
-                .await
-                .classify(target)?;
-        if exists.is_none() {
-            return Err(OperationsError::NotFound {
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        statements::lock_attempt_row()
+            .bind(&tx, &attempt)
+            .opt()
+            .await
+            .classify(target)?
+            .ok_or_else(|| OperationsError::NotFound {
                 entity: "attempt",
                 id: attempt.to_string(),
-            });
-        }
-        let publication = publication_of_attempt(&mut tx, target, attempt).await?;
+            })?;
+        let publication = publication_of_attempt(&tx, target, attempt).await?;
         let (settlement, outcome) = match publication {
-            Some(publication_id) => (Settlement::Committed { publication_id }, "committed"),
-            None => (Settlement::ProvedNoncommit, "proved_noncommit"),
+            Some(publication_id) => (
+                Settlement::Committed { publication_id },
+                SettlementOutcome::Committed,
+            ),
+            None => (Settlement::ProvedNoncommit, SettlementOutcome::ProvedNoncommit),
         };
-        sqlx::query(
-            "INSERT INTO pse_ops.settlements (settlement_id, attempt_id, outcome, publication_id) \
-             VALUES ($4, $1, $2::pse_ops.settlement_outcome, $3)",
-        )
-        .bind(codec::uuid(attempt))
-        .bind(outcome)
-        .bind(publication.map(codec::uuid))
-        .bind(codec::uuid(crate::mint_id()))
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
+        statements::insert_settlement()
+            .params(
+                &tx,
+                &statements::InsertSettlementParams {
+                    settlement_id: crate::mint_id(),
+                    attempt_id: attempt,
+                    outcome,
+                    publication_id: publication,
+                },
+            )
+            .await
+            .classify(target)?;
         tx.commit().await.classify(target)?;
         Ok(settlement)
     }
@@ -480,63 +434,49 @@ impl<'s> Catalog<'s> {
         ttl: Duration,
     ) -> Result<ReaderLease, OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
         let publication = match read {
             ReadTarget::Publication(publication) => publication,
-            ReadTarget::Head(workspace) => {
-                let head: Option<Option<uuid::Uuid>> = sqlx::query_scalar(
-                    "SELECT publication_id FROM pse_ops.publication_heads WHERE workspace_id = $1",
-                )
-                .bind(codec::uuid(workspace))
-                .fetch_optional(&mut *tx)
+            ReadTarget::Head(workspace) => statements::head()
+                .bind(&tx, &workspace)
+                .opt()
                 .await
-                .classify(target)?;
-                head.flatten()
-                    .map(|id| SemanticId::from_bytes(id.into_bytes()))
-                    .ok_or_else(|| OperationsError::NotFound {
-                        entity: "workspace head",
-                        id: workspace.to_string(),
-                    })?
-            }
+                .classify(target)?
+                .and_then(|head| head.publication_id)
+                .ok_or_else(|| OperationsError::NotFound {
+                    entity: "workspace head",
+                    id: workspace.to_string(),
+                })?,
         };
-        // FOR SHARE conflicts with maintenance's FOR NO KEY UPDATE: a lease is either
-        // granted before a publication is marked expiring or refused after.
-        let row = sqlx::query(
-            "SELECT r.phase::text AS phase FROM pse_ops.publications AS p \
-             LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id \
-             WHERE p.publication_id = $1 FOR SHARE OF p",
-        )
-        .bind(codec::uuid(publication))
-        .fetch_optional(&mut *tx)
-        .await
-        .classify(target)?
-        .ok_or_else(|| OperationsError::NotFound {
-            entity: "publication",
-            id: publication.to_string(),
-        })?;
-        let phase: Option<String> = row.try_get("phase").classify(target)?;
+        let phase = statements::share_publication()
+            .bind(&tx, &publication)
+            .opt()
+            .await
+            .classify(target)?
+            .ok_or_else(|| OperationsError::NotFound {
+                entity: "publication",
+                id: publication.to_string(),
+            })?;
         if let Some(phase) = phase {
             return Err(OperationsError::PublicationRetiring { publication, phase });
         }
-        let lease = sqlx::query(
-            "INSERT INTO pse_ops.reader_leases (lease_id, publication_id, holder, expires_at) \
-             VALUES ($4, $1, $2, now() + $3) RETURNING lease_id, expires_at",
-        )
-        .bind(codec::uuid(publication))
-        .bind(holder)
-        .bind(codec::interval(ttl))
-        .bind(codec::uuid(crate::mint_id()))
-        .fetch_one(&mut *tx)
-        .await
-        .classify(target)?;
-        let members = members_of(&mut tx, target, publication).await?;
+        let lease = statements::insert_reader_lease()
+            .params(
+                &tx,
+                &statements::InsertReaderLeaseParams {
+                    lease_id: crate::mint_id(),
+                    publication_id: publication,
+                    holder,
+                    ttl_us: micros(ttl),
+                },
+            )
+            .one()
+            .await
+            .classify(target)?;
+        let members = members_of(&tx, target, publication).await?;
         tx.commit().await.classify(target)?;
-        Ok(ReaderLease {
-            lease_id: codec::id(&lease, "lease_id").classify(target)?,
-            publication_id: publication,
-            expires_at: lease.try_get("expires_at").classify(target)?,
-            members,
-        })
+        Ok(ReaderLease { lease, members })
     }
 
     /// Release a reader lease. Returns whether it was still held.
@@ -544,16 +484,13 @@ impl<'s> Catalog<'s> {
     /// # Errors
     ///
     /// Classified driver failures.
-    pub async fn release_reader_lease(&self, lease: SemanticId) -> Result<bool, OperationsError> {
-        let done = sqlx::query(
-            "UPDATE pse_ops.reader_leases SET released_at = now() \
-             WHERE lease_id = $1 AND released_at IS NULL",
-        )
-        .bind(codec::uuid(lease))
-        .execute(self.store.pool())
-        .await
-        .classify(self.target())?;
-        Ok(done.rows_affected() == 1)
+    pub async fn release_reader_lease(&self, lease: ReaderLeaseId) -> Result<bool, OperationsError> {
+        let client = self.store.client().await?;
+        let released = statements::release_reader_lease()
+            .bind(&client, &lease)
+            .await
+            .classify(self.target())?;
+        Ok(released == 1)
     }
 
     /// Live (unreleased, unexpired) reader leases on a publication.
@@ -563,10 +500,14 @@ impl<'s> Catalog<'s> {
     /// Classified driver failures.
     pub async fn active_reader_leases(
         &self,
-        publication: SemanticId,
+        publication: PublicationId,
     ) -> Result<i64, OperationsError> {
-        let mut conn = self.store.pool().acquire().await.classify(self.target())?;
-        active_leases(&mut conn, self.target(), publication).await
+        let client = self.store.client().await?;
+        statements::active_leases()
+            .bind(&client, &publication)
+            .one()
+            .await
+            .classify(self.target())
     }
 
     /// Phase one of deletion: mark a publication `expiring` so no new lease is granted.
@@ -579,36 +520,37 @@ impl<'s> Catalog<'s> {
     /// [`OperationsError::NotFound`]; classified driver failures.
     pub async fn mark_expiring(
         &self,
-        workspace: SemanticId,
-        publication: SemanticId,
+        workspace: WorkspaceId,
+        publication: PublicationId,
     ) -> Result<(), OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        maintenance_lock(&mut tx, target, workspace).await?;
-        let (owner, _) = lock_publication(&mut tx, target, publication).await?;
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        maintenance_lock(&tx, target, workspace).await?;
+        let (owner, _) = lock_publication(&tx, target, publication).await?;
         if owner != workspace {
             return Err(OperationsError::InvalidRequest {
                 reason: format!("publication {publication} belongs to workspace {owner}"),
             });
         }
-        let head: Option<uuid::Uuid> = sqlx::query_scalar(
-            "SELECT publication_id FROM pse_ops.publication_heads WHERE workspace_id = $1",
-        )
-        .bind(codec::uuid(workspace))
-        .fetch_one(&mut *tx)
-        .await
-        .classify(target)?;
-        if head == Some(codec::uuid(publication)) {
+        let head = statements::head()
+            .bind(&tx, &workspace)
+            .one()
+            .await
+            .classify(target)?;
+        if head.publication_id == Some(publication) {
             return Err(OperationsError::ProtectedPublication { publication });
         }
-        sqlx::query(
-            "INSERT INTO pse_ops.retention_marks (publication_id, phase) VALUES ($1, 'expiring') \
-             ON CONFLICT (publication_id) DO NOTHING",
-        )
-        .bind(codec::uuid(publication))
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
+        statements::mark_expiring()
+            .params(
+                &tx,
+                &statements::MarkExpiringParams {
+                    publication_id: publication,
+                    phase: RetentionPhase::Expiring,
+                },
+            )
+            .await
+            .classify(target)?;
         tx.commit().await.classify(target)
     }
 
@@ -619,7 +561,7 @@ impl<'s> Catalog<'s> {
     /// [`OperationsError::ReadersActive`] at the timeout; classified driver failures.
     pub async fn wait_for_readers(
         &self,
-        publication: SemanticId,
+        publication: PublicationId,
         poll: Duration,
         timeout: Duration,
     ) -> Result<(), OperationsError> {
@@ -649,16 +591,17 @@ impl<'s> Catalog<'s> {
     /// publication not marked expiring; classified driver failures.
     pub async fn mark_deleted(
         &self,
-        workspace: SemanticId,
-        publication: SemanticId,
+        workspace: WorkspaceId,
+        publication: PublicationId,
     ) -> Result<(), OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        maintenance_lock(&mut tx, target, workspace).await?;
-        let (owner, phase) = lock_publication(&mut tx, target, publication).await?;
-        match (owner == workspace, phase.as_deref()) {
-            (true, Some("deleted")) => return Ok(()),
-            (true, Some("expiring")) => {}
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        maintenance_lock(&tx, target, workspace).await?;
+        let (owner, phase) = lock_publication(&tx, target, publication).await?;
+        match (owner == workspace, phase) {
+            (true, Some(RetentionPhase::Deleted)) => return Ok(()),
+            (true, Some(RetentionPhase::Expiring)) => {}
             _ => {
                 return Err(OperationsError::InvalidRequest {
                     reason: format!(
@@ -667,21 +610,23 @@ impl<'s> Catalog<'s> {
                 });
             }
         }
-        let active = active_leases(&mut tx, target, publication).await?;
+        let active = active_leases(&tx, target, publication).await?;
         if active > 0 {
             return Err(OperationsError::ReadersActive {
                 publication,
                 active,
             });
         }
-        sqlx::query(
-            "UPDATE pse_ops.retention_marks SET phase = 'deleted', deleted_at = now() \
-             WHERE publication_id = $1",
-        )
-        .bind(codec::uuid(publication))
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
+        statements::mark_deleted()
+            .params(
+                &tx,
+                &statements::MarkDeletedParams {
+                    phase: RetentionPhase::Deleted,
+                    publication_id: publication,
+                },
+            )
+            .await
+            .classify(target)?;
         tx.commit().await.classify(target)
     }
 
@@ -693,38 +638,13 @@ impl<'s> Catalog<'s> {
     /// Classified driver failures.
     pub async fn protected_versions(
         &self,
-        workspace: SemanticId,
+        workspace: WorkspaceId,
     ) -> Result<Vec<ProtectedVersion>, OperationsError> {
-        sqlx::query_as(
-            "SELECT DISTINCT m.table_uri, m.delta_version \
-             FROM pse_ops.publication_members AS m \
-             JOIN pse_ops.publications AS p ON p.publication_id = m.publication_id \
-             LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id \
-             WHERE p.workspace_id = $1 \
-               AND (r.publication_id IS NULL OR EXISTS ( \
-                   SELECT 1 FROM pse_ops.reader_leases AS l \
-                   WHERE l.publication_id = p.publication_id \
-                     AND l.released_at IS NULL AND l.expires_at > now())) \
-             ORDER BY m.table_uri, m.delta_version",
-        )
-        .bind(codec::uuid(workspace))
-        .fetch_all(self.store.pool())
-        .await
-        .classify(self.target())
+        let client = self.store.client().await?;
+        statements::protected_versions()
+            .bind(&client, &workspace)
+            .all()
+            .await
+            .classify(self.target())
     }
-}
-
-async fn active_leases(
-    conn: &mut PgConnection,
-    target: &Target,
-    publication: SemanticId,
-) -> Result<i64, OperationsError> {
-    sqlx::query_scalar(
-        "SELECT count(*) FROM pse_ops.reader_leases \
-         WHERE publication_id = $1 AND released_at IS NULL AND expires_at > now()",
-    )
-    .bind(codec::uuid(publication))
-    .fetch_one(&mut *conn)
-    .await
-    .classify(target)
 }

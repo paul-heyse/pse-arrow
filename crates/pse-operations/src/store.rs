@@ -104,9 +104,6 @@ struct Inner {
     connect_timeout: Duration,
     /// The one `LISTEN` connection of this store, started by the first watcher (X8).
     listener: tokio::sync::OnceCell<Listener>,
-    /// The superseded sqlx pool of the repositories not yet on tokio-postgres (Plan 22
-    /// B2.4); deleted with sqlx in B2.5.
-    sqlx: sqlx::PgPool,
 }
 
 impl fmt::Debug for Store {
@@ -207,22 +204,6 @@ impl Store {
             .map_err(|error| OperationsError::Configuration {
                 reason: format!("operational store pool: {error}"),
             })?;
-        let sqlx = {
-            use std::str::FromStr as _;
-            let connect = sqlx::postgres::PgConnectOptions::from_str(url)
-                .map_err(|error| OperationsError::Configuration {
-                    reason: format!("invalid operational store URL: {error}"),
-                })?
-                .application_name(APPLICATION)
-                .options([(
-                    "idle_in_transaction_session_timeout",
-                    format!("{}ms", options.idle_in_transaction_timeout.as_millis()),
-                )]);
-            sqlx::postgres::PgPoolOptions::new()
-                .max_connections(options.max_connections)
-                .acquire_timeout(options.acquire_timeout)
-                .connect_lazy_with(connect)
-        };
         let store = Self {
             inner: Arc::new(Inner {
                 pool,
@@ -231,7 +212,6 @@ impl Store {
                 target,
                 connect_timeout: options.acquire_timeout,
                 listener: tokio::sync::OnceCell::new(),
-                sqlx,
             }),
         };
         let server = store.server().await?;
@@ -261,11 +241,6 @@ impl Store {
     /// A pooled connection.
     pub(crate) async fn client(&self) -> Result<deadpool_postgres::Object, OperationsError> {
         self.inner.pool.get().await.classify(self.target())
-    }
-
-    /// The superseded sqlx pool (Plan 22 B2.4; deleted in B2.5).
-    pub(crate) fn pool(&self) -> &sqlx::PgPool {
-        &self.inner.sqlx
     }
 
     /// Every notification from now on, once the store's listener has `LISTEN` in effect
@@ -309,15 +284,13 @@ impl Store {
         self.inner.pool.manager().statement_caches.clear();
     }
 
-    /// Close the pool: waiting and later acquisitions fail as unavailable, and
-    /// connections are closed as they are returned.
-    pub async fn close(&self) {
+    /// Close the store: its listener stops, waiting and later acquisitions fail as
+    /// unavailable, and connections are closed as they are returned.
+    pub fn close(&self) {
         if let Some(listener) = self.inner.listener.get() {
             listener.stop();
         }
         self.inner.pool.close();
-        // The superseded pool waits for connections a listener still holds; bounded.
-        let _ = tokio::time::timeout(Duration::from_millis(200), self.inner.sqlx.close()).await;
     }
 
     /// The connection target, without credentials.

@@ -21,7 +21,6 @@ pub mod attempts;
 mod bulk;
 pub mod cancellation;
 pub mod catalog;
-mod codec;
 mod error;
 mod ids;
 /// The store's schema generated from the registry: DDL, Cornucopia mapping, fingerprint.
