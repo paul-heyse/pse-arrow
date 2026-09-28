@@ -13,16 +13,18 @@
 //! constraints and every other function a nonlinear constraint on its bounds. A nonlinear
 //! objective is exported through an epigraph variable. The native model is read back and
 //! evaluated against [`FactorableProgram::evaluate`] before any claim transfers.
+use crate::execution::factorable::Affine;
 use crate::{
     LimitKind, NativeStatus, OracleContract, ProblemError, Variable,
     execution::ScipSettings as Settings,
     solve::{
         Assurance, Backend, BoundSource, Candidate, CandidateKind, Compatibility, Controls, Event,
-        Execution, GlobalEvidence, Metric, NativeTermination, OptionValue, Options, PrimalSource,
-        Progress, ResolvedAccuracy, SolveIntent, SolveReport, Termination, WarmPayload,
-        WarmStart,
+        Execution, GlobalEvidence, GlobalRecord, Iis, IisMember, Metric, NativeTermination,
+        OptionValue, Options, PoolSolution, PrimalSource, Progress, ResolvedAccuracy, SolveIntent,
+        SolveReport, Termination, WarmPayload, WarmStart,
     },
 };
+use pse_ids::{ContentHash, FramedHasher};
 use pse_math::{
     binding::ObjectiveSense,
     factorable::{FactorableProgram, Fidelity, Node},
@@ -31,11 +33,12 @@ use pse_math::{
 use pse_model::generated::enums::ModelingVariableDomain;
 use scip_sys as ffi;
 use std::{
+    collections::{BTreeMap, BTreeSet},
     ffi::{CStr, CString, c_char},
     ptr::{self, NonNull},
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Instant,
 };
@@ -314,27 +317,44 @@ pub fn termination(status: Status) -> NativeTermination {
     }
 }
 
-/// What the event handler observes during one solve; owned by its instance.
+/// What the event handler observes during one solve; owned by its instance. The handler
+/// is copied into sub-SCIPs, concurrent solvers and the IIS sub-problem with the same
+/// data, which those poll from their own threads, so every shared field is atomic or
+/// locked. `cancel`, `progress` and `started` change only between solves.
 #[derive(Debug)]
 struct Watch {
     cancel: Arc<AtomicBool>,
     progress: Arc<Progress>,
     started: Instant,
-    events: u64,
-    interrupted: bool,
-    failed: bool,
+    events: AtomicU64,
+    interrupted: AtomicBool,
+    failed: AtomicBool,
 }
-fn watch<'a>(eventhdlr: *mut ffi::SCIP_EVENTHDLR) -> Option<&'a mut Watch> {
+fn watch<'a>(eventhdlr: *mut ffi::SCIP_EVENTHDLR) -> Option<&'a Watch> {
     // SAFETY: SCIP returns the data pointer this module registered for the handler.
     let data = unsafe { ffi::SCIPeventhdlrGetData(eventhdlr) };
     // SAFETY: the pointer is the instance's boxed `Watch`, freed only after `SCIPfree`,
-    // and SCIP calls handlers sequentially on the owning thread.
-    unsafe { data.cast::<Watch>().as_mut() }
+    // which frees every copy of the handler first; shared fields are atomic.
+    unsafe { data.cast::<Watch>().as_ref() }
 }
 /// Contain a panic in a native callback as a SCIP error.
 fn contained(work: impl FnOnce() -> ffi::SCIP_RETCODE) -> ffi::SCIP_RETCODE {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(work))
         .unwrap_or(ffi::SCIP_Retcode_SCIP_ERROR)
+}
+/// Interrupt the calling SCIP when the attempt was cancelled; each SCIP once.
+fn poll(scip: *mut ffi::SCIP, watch: &Watch) -> ffi::SCIP_RETCODE {
+    if !watch.cancel.load(Ordering::Acquire) {
+        return ffi::SCIP_Retcode_SCIP_OKAY;
+    }
+    watch.interrupted.store(true, Ordering::Release);
+    // SAFETY: interruption is admitted in every stage that issues the caught events,
+    // and repeated interruption of one SCIP is idempotent.
+    let code = unsafe { ffi::SCIPinterruptSolve(scip) };
+    if code != ffi::SCIP_Retcode_SCIP_OKAY {
+        watch.failed.store(true, Ordering::Release);
+    }
+    code
 }
 unsafe extern "C" fn watch_exec(
     scip: *mut ffi::SCIP,
@@ -346,7 +366,7 @@ unsafe extern "C" fn watch_exec(
         let Some(watch) = watch(eventhdlr) else {
             return ffi::SCIP_Retcode_SCIP_INVALIDDATA;
         };
-        watch.events = watch.events.saturating_add(1);
+        watch.events.fetch_add(1, Ordering::Relaxed);
         // SAFETY: SCIP passes the live event being processed.
         let kind = unsafe { ffi::SCIPeventGetType(event) };
         if kind & (event::BESTSOLFOUND | event::DUALBOUNDIMPROVED) != 0 {
@@ -364,14 +384,83 @@ unsafe extern "C" fn watch_exec(
                 .into(),
             });
         }
-        if watch.cancel.load(Ordering::Acquire) && !watch.interrupted {
-            watch.interrupted = true;
-            // SAFETY: interruption is admitted in every stage that issues these events.
-            let code = unsafe { ffi::SCIPinterruptSolve(scip) };
-            watch.failed |= code != ffi::SCIP_Retcode_SCIP_OKAY;
-            return code;
+        poll(scip, watch)
+    })
+}
+/// The handler of a copy (sub-SCIP, concurrent solver, IIS sub-problem): cancellation
+/// only, since a copy's bounds are not the attempt's bounds.
+unsafe extern "C" fn watch_copy_exec(
+    scip: *mut ffi::SCIP,
+    eventhdlr: *mut ffi::SCIP_EVENTHDLR,
+    _event: *mut ffi::SCIP_EVENT,
+    _data: *mut ffi::SCIP_EVENTDATA,
+) -> ffi::SCIP_RETCODE {
+    contained(|| match watch(eventhdlr) {
+        Some(watch) => poll(scip, watch),
+        None => ffi::SCIP_Retcode_SCIP_INVALIDDATA,
+    })
+}
+/// An event execution callback.
+type EventExec = Option<
+    unsafe extern "C" fn(
+        *mut ffi::SCIP,
+        *mut ffi::SCIP_EVENTHDLR,
+        *mut ffi::SCIP_EVENT,
+        *mut ffi::SCIP_EVENTDATA,
+    ) -> ffi::SCIP_RETCODE,
+>;
+/// Include the handler with `exec` and `data` in `scip`, with every lifecycle callback.
+fn include_watch(
+    scip: *mut ffi::SCIP,
+    exec: EventExec,
+    data: *mut ffi::SCIP_EVENTHDLRDATA,
+) -> Result<(), ProblemError> {
+    let name = cstring("pse_watch")?;
+    let description = cstring("attempt cancellation and bound progress")?;
+    let mut hdlr = ptr::null_mut();
+    native!(
+        "SCIPincludeEventhdlrBasic",
+        ffi::SCIPincludeEventhdlrBasic(
+            scip,
+            &mut hdlr,
+            name.as_ptr(),
+            description.as_ptr(),
+            exec,
+            data
+        )
+    )?;
+    native!(
+        "SCIPsetEventhdlrCopy",
+        ffi::SCIPsetEventhdlrCopy(scip, hdlr, Some(watch_copy))
+    )?;
+    native!(
+        "SCIPsetEventhdlrInit",
+        ffi::SCIPsetEventhdlrInit(scip, hdlr, Some(watch_init))
+    )?;
+    native!(
+        "SCIPsetEventhdlrExit",
+        ffi::SCIPsetEventhdlrExit(scip, hdlr, Some(watch_exit))
+    )?;
+    native!(
+        "SCIPsetEventhdlrInitsol",
+        ffi::SCIPsetEventhdlrInitsol(scip, hdlr, Some(watch_initsol))
+    )?;
+    native!(
+        "SCIPsetEventhdlrExitsol",
+        ffi::SCIPsetEventhdlrExitsol(scip, hdlr, Some(watch_exitsol))
+    )
+}
+unsafe extern "C" fn watch_copy(
+    scip: *mut ffi::SCIP,
+    eventhdlr: *mut ffi::SCIP_EVENTHDLR,
+) -> ffi::SCIP_RETCODE {
+    contained(|| {
+        // SAFETY: SCIP passes the source handler, whose data is the instance's `Watch`.
+        let data = unsafe { ffi::SCIPeventhdlrGetData(eventhdlr) };
+        match include_watch(scip, Some(watch_copy_exec), data) {
+            Ok(()) => ffi::SCIP_Retcode_SCIP_OKAY,
+            Err(_) => ffi::SCIP_Retcode_SCIP_ERROR,
         }
-        ffi::SCIP_Retcode_SCIP_OKAY
     })
 }
 unsafe extern "C" fn watch_init(
@@ -432,6 +521,7 @@ pub(crate) struct Instance {
     conss: Vec<*mut ffi::SCIP_CONS>,
     watch: NonNull<Watch>,
     infinity: f64,
+    modes: Modes,
 }
 impl std::fmt::Debug for Instance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -459,9 +549,18 @@ impl Drop for Instance {
         drop(unsafe { Box::from_raw(self.watch.as_ptr()) });
     }
 }
+/// Modes fixed before the problem exists (SCIP stage `INIT`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct Modes {
+    /// Exact rational solving (`SCIPenableExactSolving`).
+    pub exact: bool,
+    /// Reoptimization over a sequence (`SCIPenableReoptimization`).
+    pub reoptimize: bool,
+}
 impl Instance {
-    /// A quiet instance with default plugins, the cancellation handler and an empty problem.
-    pub(crate) fn new(execution: &Execution) -> Result<Self, ProblemError> {
+    /// A quiet instance with default plugins, the cancellation handler, the requested
+    /// modes and an empty problem.
+    pub(crate) fn new(execution: &Execution, modes: Modes) -> Result<Self, ProblemError> {
         let mut raw = ptr::null_mut();
         native!("SCIPcreate", ffi::SCIPcreate(&mut raw))?;
         let scip = NonNull::new(raw).ok_or_else(|| ProblemError::memory("SCIPcreate"))?;
@@ -469,9 +568,9 @@ impl Instance {
             cancel: execution.cancel.clone(),
             progress: execution.progress.clone(),
             started: execution.started,
-            events: 0,
-            interrupted: false,
-            failed: false,
+            events: AtomicU64::new(0),
+            interrupted: AtomicBool::new(false),
+            failed: AtomicBool::new(false),
         });
         let mut instance = Self {
             scip,
@@ -479,6 +578,7 @@ impl Instance {
             conss: vec![],
             watch: NonNull::from(Box::leak(watch)),
             infinity: 0.0,
+            modes,
         };
         let s = instance.scip.as_ptr();
         native!(
@@ -487,41 +587,22 @@ impl Instance {
         )?;
         // SAFETY: silences the instance's own message handler.
         unsafe { ffi::SCIPsetMessagehdlrQuiet(s, 1) };
-        let name = cstring("pse_watch")?;
-        let description = cstring("attempt cancellation and bound progress")?;
-        let mut hdlr = ptr::null_mut();
-        native!(
-            "SCIPincludeEventhdlrBasic",
-            ffi::SCIPincludeEventhdlrBasic(
-                s,
-                &mut hdlr,
-                name.as_ptr(),
-                description.as_ptr(),
-                Some(watch_exec),
-                instance.watch.as_ptr().cast(),
-            )
-        )?;
-        native!(
-            "SCIPsetEventhdlrInit",
-            ffi::SCIPsetEventhdlrInit(s, hdlr, Some(watch_init))
-        )?;
-        native!(
-            "SCIPsetEventhdlrExit",
-            ffi::SCIPsetEventhdlrExit(s, hdlr, Some(watch_exit))
-        )?;
-        native!(
-            "SCIPsetEventhdlrInitsol",
-            ffi::SCIPsetEventhdlrInitsol(s, hdlr, Some(watch_initsol))
-        )?;
-        native!(
-            "SCIPsetEventhdlrExitsol",
-            ffi::SCIPsetEventhdlrExitsol(s, hdlr, Some(watch_exitsol))
-        )?;
+        include_watch(s, Some(watch_exec), instance.watch.as_ptr().cast())?;
+        // Exact solving is admitted only in stage INIT, before the problem exists.
+        if modes.exact {
+            native!("SCIPenableExactSolving", ffi::SCIPenableExactSolving(s, 1))?;
+        }
         let problem = cstring("pse_factorable")?;
         native!(
             "SCIPcreateProbBasic",
             ffi::SCIPcreateProbBasic(s, problem.as_ptr())
         )?;
+        if modes.reoptimize {
+            native!(
+                "SCIPenableReoptimization",
+                ffi::SCIPenableReoptimization(s, 1)
+            )?;
+        }
         // SAFETY: a value query on the live instance.
         instance.infinity = unsafe { ffi::SCIPinfinity(s) };
         Ok(instance)
@@ -530,9 +611,22 @@ impl Instance {
         self.scip.as_ptr()
     }
     fn observed(&self) -> &Watch {
-        // SAFETY: the handler data outlives the instance's borrows and is written only
-        // inside `SCIPsolve`, which has returned whenever this is read.
+        // SAFETY: the handler data outlives the instance's borrows; outside a solve no
+        // copy of the handler runs.
         unsafe { self.watch.as_ref() }
+    }
+    /// Attach the next attempt's cancellation, progress and clock to a retained
+    /// instance, between solves.
+    fn rewatch(&mut self, execution: &Execution) {
+        // SAFETY: no solve is running, so no handler holds the data; the box is owned
+        // exclusively by this instance.
+        let watch = unsafe { self.watch.as_mut() };
+        watch.cancel = execution.cancel.clone();
+        watch.progress = execution.progress.clone();
+        watch.started = execution.started;
+        watch.events.store(0, Ordering::Relaxed);
+        watch.interrupted.store(false, Ordering::Relaxed);
+        watch.failed.store(false, Ordering::Relaxed);
     }
     fn native(&self, x: f64) -> Result<f64, ProblemError> {
         if x.is_nan() || x.is_finite() && x.abs() >= self.infinity {
@@ -648,7 +742,13 @@ const RESERVED: [&str; 12] = [
     "nlpi/ipopt/hsllib",
     "nlpi/ipopt/pardisolib",
 ];
-const RESERVED_PREFIXES: [&str; 2] = ["parallel/", "concurrent/"];
+const RESERVED_PREFIXES: [&str; 5] = [
+    "parallel/",
+    "concurrent/",
+    "iis/",
+    "reoptimization/",
+    "exact/",
+];
 /// The native feasibility tolerance derived from the resolved normalized budget, within
 /// SCIP's numerically safe range.
 fn feasibility(accuracy: &ResolvedAccuracy) -> f64 {
@@ -664,7 +764,7 @@ pub(crate) fn configure(
     execution: &Execution,
     gap_absolute: f64,
 ) -> Result<Options, ProblemError> {
-    settings.admit()?;
+    settings.admit(controls.threads)?;
     if let Some(key) = controls.options.keys().find(|k| {
         RESERVED.contains(&k.as_str()) || RESERVED_PREFIXES.iter().any(|p| k.starts_with(p))
     }) {
@@ -686,10 +786,7 @@ pub(crate) fn configure(
             "limits/memory",
             OptionValue::Real((memory / (1 << 20)).max(1) as f64),
         ),
-        (
-            "limits/gap",
-            OptionValue::Real(accuracy.mip_relative_gap),
-        ),
+        ("limits/gap", OptionValue::Real(accuracy.mip_relative_gap)),
         ("limits/absgap", OptionValue::Real(gap_absolute)),
         ("numerics/feastol", OptionValue::Real(feasibility(accuracy))),
         (
@@ -702,6 +799,31 @@ pub(crate) fn configure(
             OptionValue::Text(settings.nlp_linear_solver.as_str().into()),
         ),
     ];
+    // Concurrent solving is deterministic, with the admitted permits as its threads.
+    if controls.threads > 1 {
+        let threads = i32::try_from(controls.threads)
+            .map_err(|_| ProblemError::Unsupported("SCIP concurrent thread count".into()))?;
+        reserved.extend([
+            ("parallel/mode", OptionValue::Integer(1)),
+            ("parallel/maxnthreads", OptionValue::Integer(threads)),
+            ("parallel/minnthreads", OptionValue::Integer(threads)),
+        ]);
+    }
+    // Two SCIP 10.0.2 behaviours are avoided. With bound removal, its post-processing
+    // deletes any linear constraint whose single-use variables lost both bounds, which
+    // can leave a feasible "subsystem"; so bounds stay in the subsystem. After the
+    // greedy finder's additive phase, constraints it re-added carry an extra use, the
+    // deletion phase skips them as ineligible and still reports the result irreducible;
+    // so the finder runs the deletion filter alone.
+    if settings.iis {
+        reserved.extend([
+            ("iis/irreducible", OptionValue::Bool(true)),
+            ("iis/removebounds", OptionValue::Bool(false)),
+            ("iis/removeunusedvars", OptionValue::Bool(true)),
+            ("iis/greedy/additive", OptionValue::Bool(false)),
+            ("iis/silent", OptionValue::Bool(true)),
+        ]);
+    }
     for (key, value) in &reserved {
         set(instance, key, value)?;
     }
@@ -736,18 +858,29 @@ fn set(instance: &Instance, key: &str, value: &OptionValue) -> Result<(), Proble
     }
 }
 
-/// One exported constraint, retained for readback.
+/// How an exported constraint is represented natively, for readback.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Kind {
+    /// A linear constraint whose sides were shifted by the affine constant.
+    Linear { constant: f64 },
+    /// An exact rational linear constraint (exact mode), shifted like `Linear`.
+    ExactLinear { constant: f64 },
+    /// A nonlinear constraint on the expression, evaluated whole.
+    Nonlinear,
+    /// The epigraph `f - z` of a nonlinear objective.
+    Epigraph,
+    /// One side of a linear row under an indicator, `sign·(a·x) <= rhs`: `+1` holds the
+    /// upper side and `-1` the lower side.
+    Indicator { constant: f64, sign: f64 },
+}
+/// One exported constraint, retained for readback and IIS attribution.
 #[derive(Debug)]
 struct Exported {
     cons: *mut ffi::SCIP_CONS,
     node: pse_math::factorable::NodeId,
     lower: f64,
     upper: f64,
-    /// Linear constraints hold the constant their sides were shifted by; nonlinear
-    /// constraints hold an expression evaluated whole.
-    linear: Option<f64>,
-    /// The epigraph `f - z` of a nonlinear objective.
-    epigraph: bool,
+    kind: Kind,
 }
 /// The native model of one plan.
 #[derive(Debug)]
@@ -755,12 +888,17 @@ pub(crate) struct Export {
     /// Variables of the columns, then the auxiliaries.
     coordinates: Vec<*mut ffi::SCIP_VAR>,
     epigraph: Option<*mut ffi::SCIP_VAR>,
+    /// Exported functions; the constraint named `c{k}` belongs to plan function `k`.
     constraints: Vec<Exported>,
     /// Affine objective form, exported through variable objective coefficients.
     objective: Option<pse_math::factorable::NodeId>,
-    /// Constraint counts: linear and nonlinear.
+    /// Affine objective constant held outside SCIP (reoptimization changes coefficients
+    /// only); zero when SCIP holds it as its objective offset.
+    offset: f64,
+    /// Constraint counts: linear, nonlinear and native.
     pub linear: usize,
     pub nonlinear: usize,
+    pub native: usize,
 }
 fn vartype(domain: ModelingVariableDomain) -> ffi::SCIP_VARTYPE {
     match domain {
@@ -771,6 +909,48 @@ fn vartype(domain: ModelingVariableDomain) -> ffi::SCIP_VARTYPE {
         ModelingVariableDomain::Continuous | ModelingVariableDomain::Semicontinuous => {
             ffi::SCIP_Vartype_SCIP_VARTYPE_CONTINUOUS
         }
+    }
+}
+/// A SCIP rational, freed on drop. Every finite binary64 value is an exact dyadic
+/// rational, so conversion from `f64` is exact.
+struct Rational(*mut ffi::SCIP_RATIONAL);
+impl Rational {
+    fn new(value: f64) -> Result<Self, ProblemError> {
+        let mut raw = ptr::null_mut();
+        native!("SCIPrationalCreate", ffi::SCIPrationalCreate(&mut raw))?;
+        if raw.is_null() {
+            return Err(ProblemError::memory("SCIPrationalCreate"));
+        }
+        let r = Self(raw);
+        // SAFETY: a live rational owned by `r`; infinities map to SCIP's infinite rationals.
+        unsafe {
+            if value == f64::INFINITY {
+                ffi::SCIPrationalSetInfinity(r.0);
+            } else if value == f64::NEG_INFINITY {
+                ffi::SCIPrationalSetNegInfinity(r.0);
+            } else {
+                ffi::SCIPrationalSetReal(r.0, value);
+            }
+        }
+        Ok(r)
+    }
+    fn text(&self) -> String {
+        let mut buffer: Vec<c_char> = vec![0; 256];
+        // SAFETY: SCIP writes at most `len` bytes including the terminator into the buffer.
+        let written = unsafe { ffi::SCIPrationalToString(self.0, buffer.as_mut_ptr(), 256) };
+        if written < 0 {
+            return String::new();
+        }
+        // SAFETY: the buffer is NUL-terminated within its length.
+        unsafe { CStr::from_ptr(buffer.as_ptr()) }
+            .to_string_lossy()
+            .into_owned()
+    }
+}
+impl Drop for Rational {
+    fn drop(&mut self) {
+        // SAFETY: the rational was created by `SCIPrationalCreate` and is freed once.
+        unsafe { ffi::SCIPrationalFree(&mut self.0) };
     }
 }
 impl Instance {
@@ -797,12 +977,42 @@ impl Instance {
             )
         )?;
         self.vars.push(var);
+        if self.modes.exact {
+            let rational = |v: f64| {
+                Rational::new(if v.abs() >= self.infinity {
+                    v.signum() * f64::INFINITY
+                } else {
+                    v
+                })
+            };
+            let (l, u, c) = (rational(lower)?, rational(upper)?, rational(objective)?);
+            native!(
+                "SCIPaddVarExactData",
+                ffi::SCIPaddVarExactData(self.ptr(), var, l.0, u.0, c.0)
+            )?;
+        }
         native!("SCIPaddVar", ffi::SCIPaddVar(self.ptr(), var))?;
         Ok(var)
     }
     fn hold(&mut self, cons: *mut ffi::SCIP_CONS) -> Result<(), ProblemError> {
         self.conss.push(cons);
         native!("SCIPaddCons", ffi::SCIPaddCons(self.ptr(), cons))
+    }
+    /// The variable, or its negation, as a logic literal.
+    fn literal(
+        &self,
+        var: *mut ffi::SCIP_VAR,
+        negated: bool,
+    ) -> Result<*mut ffi::SCIP_VAR, ProblemError> {
+        if !negated {
+            return Ok(var);
+        }
+        let mut negation = ptr::null_mut();
+        native!(
+            "SCIPgetNegatedVar",
+            ffi::SCIPgetNegatedVar(self.ptr(), var, &mut negation)
+        )?;
+        Ok(negation)
     }
 }
 /// Releases created expressions; constraints hold their own references. It never
@@ -932,32 +1142,56 @@ fn expressions(
     }
     Ok(out)
 }
-/// Export a plan: variables with their boxes and domains, linear and nonlinear
-/// constraints, and the objective (coefficients when affine, an epigraph otherwise).
+fn arity(n: usize) -> Result<i32, ProblemError> {
+    i32::try_from(n).map_err(|_| ProblemError::Unsupported("SCIP constraint arity".into()))
+}
+/// The coefficients of an affine form over the combined coordinates.
+fn coefficients(form: &Affine, coordinates: usize) -> Vec<f64> {
+    let mut out = vec![0.0; coordinates];
+    for (j, c) in &form.terms {
+        out[*j] += c;
+    }
+    out
+}
+/// Export a plan: variables with their boxes and domains, linear, nonlinear, conditional
+/// and native constraints, and the objective (coefficients when affine, an epigraph
+/// otherwise). Exact mode admits only linear programs without native forms; a
+/// reoptimization session only affine objectives and constraints.
 pub(crate) fn export(
     instance: &mut Instance,
     plan: &crate::execution::factorable::Plan<'_>,
 ) -> Result<Export, ProblemError> {
     let program = plan.program;
     let columns = program.variables.len();
+    let modes = instance.modes;
+    let conditional = plan.constraints.iter().any(|c| c.condition.is_some());
+    if modes.exact
+        && (plan.nonlinear()
+            || !program.native.is_empty()
+            || conditional
+            || !program.auxiliaries.is_empty())
+    {
+        return Err(ProblemError::Unsupported(
+            "SCIP exact solving admits linear programs without native forms or auxiliaries".into(),
+        ));
+    }
+    if modes.reoptimize && plan.nonlinear() {
+        return Err(ProblemError::Unsupported(
+            "SCIP reoptimization admits linear constraints and a linear objective".into(),
+        ));
+    }
     let affine_objective = plan
         .objective
         .and_then(|(node, _)| plan.affine[node].as_ref().map(|f| (node, f)));
-    let objective_coefficient = |index: usize| {
-        affine_objective.map_or(0.0, |(_, f)| {
-            f.terms
-                .iter()
-                .filter(|(j, _)| *j == index)
-                .map(|(_, c)| *c)
-                .sum()
-        })
-    };
+    let objective = affine_objective
+        .map(|(_, f)| coefficients(f, plan.boxes.len()))
+        .unwrap_or_default();
     let mut coordinates = Vec::with_capacity(plan.boxes.len());
     for (i, v) in program.variables.iter().enumerate() {
         coordinates.push(instance.variable(
             &format!("x{i}"),
             plan.boxes[i],
-            objective_coefficient(i),
+            objective.get(i).copied().unwrap_or(0.0),
             vartype(v.domain),
         )?);
     }
@@ -965,27 +1199,28 @@ pub(crate) fn export(
         coordinates.push(instance.variable(
             &format!("a{k}"),
             plan.boxes[columns + k],
-            objective_coefficient(columns + k),
+            objective.get(columns + k).copied().unwrap_or(0.0),
             ffi::SCIP_Vartype_SCIP_VARTYPE_CONTINUOUS,
         )?);
     }
     if let Some((_, sense)) = plan.objective {
-        let sense = match sense {
-            ObjectiveSense::Minimize => ffi::SCIP_Objsense_SCIP_OBJSENSE_MINIMIZE,
-            ObjectiveSense::Maximize => ffi::SCIP_Objsense_SCIP_OBJSENSE_MAXIMIZE,
-        };
         native!(
             "SCIPsetObjsense",
-            ffi::SCIPsetObjsense(instance.ptr(), sense)
+            ffi::SCIPsetObjsense(instance.ptr(), objsense(sense))
         )?;
     }
+    let mut offset = 0.0;
     if let Some((_, f)) = affine_objective
         && f.constant != 0.0
     {
-        native!(
-            "SCIPaddOrigObjoffset",
-            ffi::SCIPaddOrigObjoffset(instance.ptr(), f.constant)
-        )?;
+        if modes.reoptimize {
+            offset = f.constant;
+        } else {
+            native!(
+                "SCIPaddOrigObjoffset",
+                ffi::SCIPaddOrigObjoffset(instance.ptr(), f.constant)
+            )?;
+        }
     }
     let epigraph = match (plan.objective, affine_objective) {
         (Some(_), None) => Some(instance.variable(
@@ -1021,55 +1256,233 @@ pub(crate) fn export(
     let (mut linear, mut nonlinear) = (0, 0);
     for (k, c) in plan.constraints.iter().enumerate() {
         let name = cstring(&format!("c{k}"))?;
-        let mut cons = ptr::null_mut();
-        let exported = if let Some(form) = &plan.affine[c.node] {
-            let mut vars: Vec<_> = form.terms.iter().map(|(j, _)| coordinates[*j]).collect();
-            let mut vals: Vec<_> = form.terms.iter().map(|(_, v)| *v).collect();
-            let n = i32::try_from(vars.len())
-                .map_err(|_| ProblemError::Unsupported("SCIP linear arity".into()))?;
-            let lhs = instance.native(c.lower - form.constant)?;
-            let rhs = instance.native(c.upper - form.constant)?;
-            native!(
-                "SCIPcreateConsBasicLinear",
-                ffi::SCIPcreateConsBasicLinear(
-                    instance.ptr(),
-                    &mut cons,
-                    name.as_ptr(),
-                    n,
-                    vars.as_mut_ptr(),
-                    vals.as_mut_ptr(),
-                    lhs,
-                    rhs
-                )
-            )?;
-            linear += 1;
-            Some(form.constant)
-        } else {
-            let lhs = instance.native(c.lower)?;
-            let rhs = instance.native(c.upper)?;
-            native!(
-                "SCIPcreateConsBasicNonlinear",
-                ffi::SCIPcreateConsBasicNonlinear(
-                    instance.ptr(),
-                    &mut cons,
-                    name.as_ptr(),
-                    exprs.nodes[c.node],
-                    lhs,
-                    rhs
-                )
-            )?;
-            nonlinear += 1;
-            None
-        };
-        instance.hold(cons)?;
-        constraints.push(Exported {
-            cons,
-            node: c.node,
-            lower: c.lower,
-            upper: c.upper,
-            linear: exported,
-            epigraph: false,
-        });
+        let condition = c
+            .condition
+            .map(|c| instance.literal(coordinates[c.column], !c.active))
+            .transpose()?;
+        match (&plan.affine[c.node], condition) {
+            (Some(form), None) => {
+                let mut vars: Vec<_> = form.terms.iter().map(|(j, _)| coordinates[*j]).collect();
+                let mut cons = ptr::null_mut();
+                let n = arity(vars.len())?;
+                let lhs = instance.native(c.lower - form.constant)?;
+                let rhs = instance.native(c.upper - form.constant)?;
+                let kind = if modes.exact {
+                    let mut owned = Vec::with_capacity(form.terms.len());
+                    for (_, v) in &form.terms {
+                        owned.push(Rational::new(*v)?);
+                    }
+                    let mut vals: Vec<_> = owned.iter().map(|r| r.0).collect();
+                    let (l, u) = (
+                        Rational::new(c.lower - form.constant)?,
+                        Rational::new(c.upper - form.constant)?,
+                    );
+                    native!(
+                        "SCIPcreateConsBasicExactLinear",
+                        ffi::SCIPcreateConsBasicExactLinear(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            n,
+                            vars.as_mut_ptr(),
+                            vals.as_mut_ptr(),
+                            l.0,
+                            u.0
+                        )
+                    )?;
+                    Kind::ExactLinear {
+                        constant: form.constant,
+                    }
+                } else {
+                    let mut vals: Vec<_> = form.terms.iter().map(|(_, v)| *v).collect();
+                    native!(
+                        "SCIPcreateConsBasicLinear",
+                        ffi::SCIPcreateConsBasicLinear(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            n,
+                            vars.as_mut_ptr(),
+                            vals.as_mut_ptr(),
+                            lhs,
+                            rhs
+                        )
+                    )?;
+                    Kind::Linear {
+                        constant: form.constant,
+                    }
+                };
+                instance.hold(cons)?;
+                linear += 1;
+                constraints.push(Exported {
+                    cons,
+                    node: c.node,
+                    lower: c.lower,
+                    upper: c.upper,
+                    kind,
+                });
+            }
+            (Some(form), Some(binvar)) => {
+                // `a·x + c <= u` and `-(a·x) <= -(l - c)`, each while the literal holds.
+                for (sign, side) in [(1.0, c.upper), (-1.0, c.lower)] {
+                    if !side.is_finite() {
+                        continue;
+                    }
+                    let mut vars: Vec<_> =
+                        form.terms.iter().map(|(j, _)| coordinates[*j]).collect();
+                    let mut vals: Vec<_> = form.terms.iter().map(|(_, v)| sign * v).collect();
+                    let rhs = instance.native(sign * (side - form.constant))?;
+                    let mut cons = ptr::null_mut();
+                    native!(
+                        "SCIPcreateConsBasicIndicator",
+                        ffi::SCIPcreateConsBasicIndicator(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            binvar,
+                            arity(vars.len())?,
+                            vars.as_mut_ptr(),
+                            vals.as_mut_ptr(),
+                            rhs
+                        )
+                    )?;
+                    instance.hold(cons)?;
+                    linear += 1;
+                    constraints.push(Exported {
+                        cons,
+                        node: c.node,
+                        lower: c.lower,
+                        upper: c.upper,
+                        kind: Kind::Indicator {
+                            constant: form.constant,
+                            sign,
+                        },
+                    });
+                }
+            }
+            (None, None) => {
+                let lhs = instance.native(c.lower)?;
+                let rhs = instance.native(c.upper)?;
+                let mut cons = ptr::null_mut();
+                native!(
+                    "SCIPcreateConsBasicNonlinear",
+                    ffi::SCIPcreateConsBasicNonlinear(
+                        instance.ptr(),
+                        &mut cons,
+                        name.as_ptr(),
+                        exprs.nodes[c.node],
+                        lhs,
+                        rhs
+                    )
+                )?;
+                instance.hold(cons)?;
+                nonlinear += 1;
+                constraints.push(Exported {
+                    cons,
+                    node: c.node,
+                    lower: c.lower,
+                    upper: c.upper,
+                    kind: Kind::Nonlinear,
+                });
+            }
+            (None, Some(binvar)) => {
+                // A nonlinear row under an indicator is lifted exactly, as SCIP lifts a
+                // linear one: f − s ≤ u and f + t ≥ l with slacks s, t ≥ 0 that the
+                // literal forces to zero. SCIP 10.0.2's superindicator over a nonlinear
+                // constraint crashes during solving, so it is not used.
+                for (upper, side) in [(true, c.upper), (false, c.lower)] {
+                    if !side.is_finite() {
+                        continue;
+                    }
+                    let suffix = if upper { "u" } else { "l" };
+                    let slack = instance.variable(
+                        &format!("s{k}{suffix}"),
+                        (0.0, f64::INFINITY),
+                        0.0,
+                        ffi::SCIP_Vartype_SCIP_VARTYPE_CONTINUOUS,
+                    )?;
+                    let mut slack_expr = ptr::null_mut();
+                    native!(
+                        "SCIPcreateExprVar",
+                        ffi::SCIPcreateExprVar(
+                            instance.ptr(),
+                            &mut slack_expr,
+                            slack,
+                            None,
+                            ptr::null_mut()
+                        )
+                    )?;
+                    let mut terms = [exprs.nodes[c.node], slack_expr];
+                    let mut weights = [1.0, if upper { -1.0 } else { 1.0 }];
+                    let mut expr = ptr::null_mut();
+                    let created = native!(
+                        "SCIPcreateExprSum",
+                        ffi::SCIPcreateExprSum(
+                            instance.ptr(),
+                            &mut expr,
+                            2,
+                            terms.as_mut_ptr(),
+                            weights.as_mut_ptr(),
+                            0.0,
+                            None,
+                            ptr::null_mut()
+                        )
+                    );
+                    // SAFETY: releases the slack expression's creation reference; the sum
+                    // holds one.
+                    let _ = unsafe { ffi::SCIPreleaseExpr(instance.ptr(), &mut slack_expr) };
+                    created?;
+                    let (lhs, rhs) = if upper {
+                        (-instance.infinity, instance.native(side)?)
+                    } else {
+                        (instance.native(side)?, instance.infinity)
+                    };
+                    let mut cons = ptr::null_mut();
+                    let created = native!(
+                        "SCIPcreateConsBasicNonlinear",
+                        ffi::SCIPcreateConsBasicNonlinear(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            expr,
+                            lhs,
+                            rhs
+                        )
+                    );
+                    // SAFETY: releases the lifted expression's creation reference.
+                    let _ = unsafe { ffi::SCIPreleaseExpr(instance.ptr(), &mut expr) };
+                    created?;
+                    instance.hold(cons)?;
+                    nonlinear += 1;
+                    // Read back at zero slack: the lifted function is the row's.
+                    constraints.push(Exported {
+                        cons,
+                        node: c.node,
+                        lower: if upper { f64::NEG_INFINITY } else { c.lower },
+                        upper: if upper { c.upper } else { f64::INFINITY },
+                        kind: Kind::Nonlinear,
+                    });
+                    let mut vars = [slack];
+                    let mut vals = [1.0];
+                    let mut switch = ptr::null_mut();
+                    native!(
+                        "SCIPcreateConsBasicIndicator",
+                        ffi::SCIPcreateConsBasicIndicator(
+                            instance.ptr(),
+                            &mut switch,
+                            name.as_ptr(),
+                            binvar,
+                            1,
+                            vars.as_mut_ptr(),
+                            vals.as_mut_ptr(),
+                            0.0
+                        )
+                    )?;
+                    instance.hold(switch)?;
+                    linear += 1;
+                }
+            }
+        }
     }
     if let (Some((node, sense)), Some(z)) = (nonlinear_objective, epigraph) {
         // min f: f - z <= 0; max f: f - z >= 0.
@@ -1124,19 +1537,172 @@ pub(crate) fn export(
             node,
             lower: f64::NEG_INFINITY,
             upper: f64::INFINITY,
-            linear: None,
-            epigraph: true,
+            kind: Kind::Epigraph,
         });
     }
     drop(exprs);
+    let native = export_native(instance, plan, &coordinates)?;
     Ok(Export {
         coordinates,
         epigraph,
         constraints,
         objective: affine_objective.map(|(node, _)| node),
+        offset,
         linear,
         nonlinear,
+        native,
     })
+}
+fn objsense(sense: ObjectiveSense) -> ffi::SCIP_OBJSENSE {
+    match sense {
+        ObjectiveSense::Minimize => ffi::SCIP_Objsense_SCIP_OBJSENSE_MINIMIZE,
+        ObjectiveSense::Maximize => ffi::SCIP_Objsense_SCIP_OBJSENSE_MAXIMIZE,
+    }
+}
+/// SOS1/SOS2, and/or/xor and cardinality constraints, named `n{k}` after the native
+/// ordinal. A fixed operand becomes a fixed variable.
+fn export_native(
+    instance: &mut Instance,
+    plan: &crate::execution::factorable::Plan<'_>,
+    coordinates: &[*mut ffi::SCIP_VAR],
+) -> Result<usize, ProblemError> {
+    use pse_math::factorable::{NativeOperand, ProjectedNative};
+    use pse_model::generated::enums::NativeConstraintForm as F;
+    let program = plan.program;
+    let mut fixed = 0_usize;
+    let mut var = |instance: &mut Instance, o: &NativeOperand, binary: bool| match o {
+        NativeOperand::Column(c) => Ok(coordinates[*c]),
+        NativeOperand::Fixed(v) => {
+            fixed += 1;
+            instance.variable(
+                &format!("f{fixed}"),
+                (*v, *v),
+                0.0,
+                if binary {
+                    ffi::SCIP_Vartype_SCIP_VARTYPE_BINARY
+                } else {
+                    ffi::SCIP_Vartype_SCIP_VARTYPE_CONTINUOUS
+                },
+            )
+        }
+    };
+    for k in &plan.native {
+        let name = cstring(&format!("n{k}"))?;
+        let mut cons = ptr::null_mut();
+        match &program.native[*k] {
+            ProjectedNative::Indicator { .. } => continue,
+            ProjectedNative::Sos { form, members } => {
+                let mut vars = members
+                    .iter()
+                    .map(|(o, _)| var(instance, o, false))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut weights: Vec<f64> = members.iter().map(|(_, w)| *w).collect();
+                let n = arity(vars.len())?;
+                if *form == F::Sos2 {
+                    native!(
+                        "SCIPcreateConsBasicSOS2",
+                        ffi::SCIPcreateConsBasicSOS2(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            n,
+                            vars.as_mut_ptr(),
+                            weights.as_mut_ptr()
+                        )
+                    )?;
+                } else {
+                    native!(
+                        "SCIPcreateConsBasicSOS1",
+                        ffi::SCIPcreateConsBasicSOS1(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            n,
+                            vars.as_mut_ptr(),
+                            weights.as_mut_ptr()
+                        )
+                    )?;
+                }
+            }
+            ProjectedNative::Cardinality { members, bound } => {
+                let mut vars = members
+                    .iter()
+                    .map(|o| var(instance, o, false))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let cardinality = i32::try_from(*bound)
+                    .map_err(|_| ProblemError::Unsupported("SCIP cardinality bound".into()))?;
+                // Explicit weights: SCIP 10.0.2 copies a cardinality constraint into
+                // sub-SCIPs by duplicating its weights, which are null when none are given.
+                let mut weights: Vec<f64> = (1..=vars.len()).map(|w| w as f64).collect();
+                native!(
+                    "SCIPcreateConsBasicCardinality",
+                    ffi::SCIPcreateConsBasicCardinality(
+                        instance.ptr(),
+                        &mut cons,
+                        name.as_ptr(),
+                        arity(vars.len())?,
+                        vars.as_mut_ptr(),
+                        cardinality,
+                        ptr::null_mut(),
+                        weights.as_mut_ptr()
+                    )
+                )?;
+            }
+            ProjectedNative::Logic {
+                form,
+                resultant,
+                operands,
+            } => {
+                let resultant = var(instance, resultant, true)?;
+                let mut vars = Vec::with_capacity(operands.len() + 1);
+                for (o, negated) in operands {
+                    let v = var(instance, o, true)?;
+                    vars.push(instance.literal(v, *negated)?);
+                }
+                match form {
+                    F::And => native!(
+                        "SCIPcreateConsBasicAnd",
+                        ffi::SCIPcreateConsBasicAnd(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            resultant,
+                            arity(vars.len())?,
+                            vars.as_mut_ptr()
+                        )
+                    )?,
+                    F::Or => native!(
+                        "SCIPcreateConsBasicOr",
+                        ffi::SCIPcreateConsBasicOr(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            resultant,
+                            arity(vars.len())?,
+                            vars.as_mut_ptr()
+                        )
+                    )?,
+                    _ => {
+                        // z = a xor b as the parity constraint z xor a xor b = 0.
+                        vars.insert(0, resultant);
+                        native!(
+                            "SCIPcreateConsBasicXor",
+                            ffi::SCIPcreateConsBasicXor(
+                                instance.ptr(),
+                                &mut cons,
+                                name.as_ptr(),
+                                0,
+                                arity(vars.len())?,
+                                vars.as_mut_ptr()
+                            )
+                        )?;
+                    }
+                }
+            }
+        }
+        instance.hold(cons)?;
+    }
+    Ok(plan.native.len())
 }
 
 /// An original-space SCIP solution owned by this module.
@@ -1175,6 +1741,38 @@ impl<'i> Solution<'i> {
         )
     }
 }
+/// Activity of `n` terms at the point, skipping `skip` (an indicator's slack variable).
+///
+/// # Safety
+/// `vars` and `vals` hold `n` initialized entries owned by a live constraint.
+unsafe fn activity(
+    point: &BTreeMap<*mut ffi::SCIP_VAR, f64>,
+    vars: *mut *mut ffi::SCIP_VAR,
+    vals: impl Fn(usize) -> f64,
+    n: i32,
+    skip: *mut ffi::SCIP_VAR,
+) -> Result<f64, ProblemError> {
+    let n = usize::try_from(n).map_err(|_| ProblemError::internal("SCIP arity"))?;
+    if n == 0 {
+        return Ok(0.0);
+    }
+    if vars.is_null() {
+        return Err(ProblemError::internal("SCIP linear readback"));
+    }
+    // SAFETY: the caller guarantees `n` initialized entries.
+    let vars = unsafe { std::slice::from_raw_parts(vars, n) };
+    let mut total = 0.0;
+    for (i, var) in vars.iter().enumerate() {
+        if *var == skip {
+            continue;
+        }
+        let value = point
+            .get(var)
+            .ok_or_else(|| ProblemError::internal("SCIP readback of an unexported variable"))?;
+        total += vals(i) * value;
+    }
+    Ok(total)
+}
 /// Largest relative deviation between the native model and the neutral program at one
 /// point: sides and function values of every exported constraint, and the objective. An
 /// undefined value on both sides agrees; on one side only it is an infinite deviation.
@@ -1187,8 +1785,10 @@ pub(crate) fn readback(
 ) -> Result<f64, ProblemError> {
     let values = program.evaluate(point, auxiliary)?;
     let solution = Solution::new(instance, false)?;
+    let mut at: BTreeMap<*mut ffi::SCIP_VAR, f64> = BTreeMap::new();
     for (var, value) in export.coordinates.iter().zip(point.iter().chain(auxiliary)) {
         solution.set(*var, *value)?;
+        at.insert(*var, *value);
     }
     if let Some(z) = export.epigraph {
         solution.set(z, 0.0)?;
@@ -1207,58 +1807,117 @@ pub(crate) fn readback(
             deviation(native, neutral)
         }
     };
+    let nonlinear = |cons: *mut ffi::SCIP_CONS| -> Result<(f64, f64, f64), ProblemError> {
+        // SAFETY: the constraint is a live nonlinear constraint held by the instance.
+        let expr = unsafe { ffi::SCIPgetExprNonlinear(cons) };
+        native!("SCIPevalExpr", ffi::SCIPevalExpr(s, expr, solution.sol, 0))?;
+        // SAFETY: reads the value SCIP just stored in the live expression; side queries
+        // of the same live constraint.
+        Ok(unsafe {
+            (
+                ffi::SCIPexprGetEvalValue(expr),
+                ffi::SCIPgetLhsNonlinear(cons),
+                ffi::SCIPgetRhsNonlinear(cons),
+            )
+        })
+    };
     let mut worst: f64 = 0.0;
     for c in &export.constraints {
         let neutral = values[c.node];
-        if let Some(constant) = c.linear {
-            // SAFETY: the constraint is a live linear constraint held by the instance.
-            let n = unsafe { ffi::SCIPgetNVarsLinear(s, c.cons) };
-            // SAFETY: as above; the arrays have `n` entries owned by the constraint.
-            let vars = unsafe { ffi::SCIPgetVarsLinear(s, c.cons) };
-            // SAFETY: as above.
-            let vals = unsafe { ffi::SCIPgetValsLinear(s, c.cons) };
-            let n = usize::try_from(n).map_err(|_| ProblemError::internal("SCIP arity"))?;
-            let mut activity = constant;
-            if n > 0 {
-                if vars.is_null() || vals.is_null() {
-                    return Err(ProblemError::internal("SCIP linear readback"));
-                }
-                // SAFETY: SCIP owns `n` initialized entries at each pointer.
-                let vars = unsafe { std::slice::from_raw_parts(vars, n) };
-                // SAFETY: as above.
-                let vals = unsafe { std::slice::from_raw_parts(vals, n) };
-                for (var, coefficient) in vars.iter().zip(vals) {
-                    // SAFETY: a value query of a held variable in a solution of this instance.
-                    activity += coefficient * unsafe { ffi::SCIPgetSolVal(s, solution.sol, *var) };
-                }
+        match c.kind {
+            Kind::Linear { constant } => {
+                // SAFETY: a live linear constraint held by the instance; its arrays have
+                // the reported length.
+                let (a, lhs, rhs) = unsafe {
+                    let n = ffi::SCIPgetNVarsLinear(s, c.cons);
+                    let vals = ffi::SCIPgetValsLinear(s, c.cons);
+                    (
+                        activity(
+                            &at,
+                            ffi::SCIPgetVarsLinear(s, c.cons),
+                            |i| *vals.add(i),
+                            n,
+                            ptr::null_mut(),
+                        )?,
+                        ffi::SCIPgetLhsLinear(s, c.cons),
+                        ffi::SCIPgetRhsLinear(s, c.cons),
+                    )
+                };
+                worst = worst
+                    .max(deviation(a + constant, neutral))
+                    .max(side(lhs + constant, c.lower))
+                    .max(side(rhs + constant, c.upper));
             }
-            // SAFETY: side queries of a live linear constraint.
-            let lhs = unsafe { ffi::SCIPgetLhsLinear(s, c.cons) };
-            // SAFETY: as above.
-            let rhs = unsafe { ffi::SCIPgetRhsLinear(s, c.cons) };
-            worst = worst
-                .max(deviation(activity, neutral))
-                .max(side(lhs + constant, c.lower))
-                .max(side(rhs + constant, c.upper));
-        } else {
-            // SAFETY: the constraint is a live nonlinear constraint held by the instance.
-            let expr = unsafe { ffi::SCIPgetExprNonlinear(c.cons) };
-            native!("SCIPevalExpr", ffi::SCIPevalExpr(s, expr, solution.sol, 0))?;
-            // SAFETY: reads the value SCIP just stored in the live expression.
-            let native = unsafe { ffi::SCIPexprGetEvalValue(expr) };
-            worst = worst.max(deviation(native, neutral));
-            if !c.epigraph {
-                // SAFETY: side queries of a live nonlinear constraint.
-                let lhs = unsafe { ffi::SCIPgetLhsNonlinear(c.cons) };
-                // SAFETY: as above.
-                let rhs = unsafe { ffi::SCIPgetRhsNonlinear(c.cons) };
-                worst = worst.max(side(lhs, c.lower)).max(side(rhs, c.upper));
+            Kind::ExactLinear { constant } => {
+                // SAFETY: a live exact linear constraint held by the instance; its arrays
+                // have the reported length and its rationals stay live.
+                let (a, lhs, rhs) = unsafe {
+                    let n = ffi::SCIPgetNVarsExactLinear(s, c.cons);
+                    let vals = ffi::SCIPgetValsExactLinear(s, c.cons);
+                    (
+                        activity(
+                            &at,
+                            ffi::SCIPgetVarsExactLinear(s, c.cons),
+                            |i| ffi::SCIPrationalGetReal(*vals.add(i)),
+                            n,
+                            ptr::null_mut(),
+                        )?,
+                        ffi::SCIPrationalGetReal(ffi::SCIPgetLhsExactLinear(s, c.cons)),
+                        ffi::SCIPrationalGetReal(ffi::SCIPgetRhsExactLinear(s, c.cons)),
+                    )
+                };
+                worst = worst
+                    .max(deviation(a + constant, neutral))
+                    .max(side(lhs + constant, c.lower))
+                    .max(side(rhs + constant, c.upper));
+            }
+            Kind::Indicator { constant, sign } => {
+                // SAFETY: a live indicator constraint; its linear constraint and slack
+                // variable are owned by it, and their arrays have the reported length.
+                let (a, rhs) = unsafe {
+                    let lin = ffi::SCIPgetLinearConsIndicator(c.cons);
+                    if lin.is_null() {
+                        return Err(ProblemError::internal("SCIP indicator readback"));
+                    }
+                    let slack = ffi::SCIPgetSlackVarIndicator(c.cons);
+                    let n = ffi::SCIPgetNVarsLinear(s, lin);
+                    let vals = ffi::SCIPgetValsLinear(s, lin);
+                    (
+                        activity(
+                            &at,
+                            ffi::SCIPgetVarsLinear(s, lin),
+                            |i| *vals.add(i),
+                            n,
+                            slack,
+                        )?,
+                        ffi::SCIPgetRhsLinear(s, lin),
+                    )
+                };
+                let (bound, expected) = if sign > 0.0 {
+                    (rhs + constant, c.upper)
+                } else {
+                    (constant - rhs, c.lower)
+                };
+                worst = worst
+                    .max(deviation(sign * a + constant, neutral))
+                    .max(side(bound, expected));
+            }
+            Kind::Nonlinear => {
+                let (native, lhs, rhs) = nonlinear(c.cons)?;
+                worst = worst
+                    .max(deviation(native, neutral))
+                    .max(side(lhs, c.lower))
+                    .max(side(rhs, c.upper));
+            }
+            Kind::Epigraph => {
+                let (native, ..) = nonlinear(c.cons)?;
+                worst = worst.max(deviation(native, neutral));
             }
         }
     }
     if let Some(node) = export.objective {
         // SAFETY: a value query of the live instance's objective offset.
-        let mut native = unsafe { ffi::SCIPgetOrigObjoffset(s) };
+        let mut native = unsafe { ffi::SCIPgetOrigObjoffset(s) } + export.offset;
         for (var, value) in export.coordinates.iter().zip(point.iter().chain(auxiliary)) {
             // SAFETY: an objective-coefficient query of a held variable.
             native += unsafe { ffi::SCIPvarGetObj(*var) } * value;
@@ -1296,6 +1955,254 @@ fn inject(
     Ok(stored != 0)
 }
 
+/// Identity of the constraint system a reoptimization session was built for: every
+/// exported function's affine form, sides and condition, the box, the domains and the
+/// native forms. Only the objective may change between the steps of one session.
+fn system(plan: &crate::execution::factorable::Plan<'_>) -> Result<ContentHash, ProblemError> {
+    let mut h = FramedHasher::new("pse.scip.reoptimization.system.v1");
+    h.hash(&plan.domain);
+    h.u64(plan.constraints.len() as u64);
+    for c in &plan.constraints {
+        let form = plan.affine[c.node].as_ref().ok_or_else(|| {
+            ProblemError::Unsupported("SCIP reoptimization admits linear constraints only".into())
+        })?;
+        h.u64(pse_ids::canonical_f64_bits(c.lower))
+            .u64(pse_ids::canonical_f64_bits(c.upper))
+            .u64(pse_ids::canonical_f64_bits(form.constant))
+            .u64(form.terms.len() as u64);
+        for (j, v) in &form.terms {
+            h.u64(*j as u64).u64(pse_ids::canonical_f64_bits(*v));
+        }
+        match c.condition {
+            Some(k) => h.bool(true).u64(k.column as u64).bool(k.active),
+            None => h.bool(false),
+        };
+    }
+    h.u64(plan.native.len() as u64);
+    for k in &plan.native {
+        h.u64(*k as u64);
+    }
+    Ok(h.finish_hash())
+}
+/// A reoptimization session retained across the steps of a finite MIP sequence.
+#[derive(Debug)]
+struct Session {
+    instance: Instance,
+    export: Export,
+    system: ContentHash,
+    options: Options,
+}
+impl Session {
+    /// Install the step's objective in the retained problem (`SCIPchgReoptObjective`).
+    fn reoptimize(
+        &mut self,
+        plan: &crate::execution::factorable::Plan<'_>,
+        execution: &Execution,
+    ) -> Result<(), ProblemError> {
+        let s = self.instance.ptr();
+        native!("SCIPfreeReoptSolve", ffi::SCIPfreeReoptSolve(s))?;
+        let (sense, form) = match plan.objective {
+            Some((node, sense)) => (
+                sense,
+                plan.affine[node].as_ref().ok_or_else(|| {
+                    ProblemError::Unsupported(
+                        "SCIP reoptimization admits a linear objective only".into(),
+                    )
+                })?,
+            ),
+            None => {
+                return Err(ProblemError::Unsupported(
+                    "SCIP reoptimization needs an objective".into(),
+                ));
+            }
+        };
+        let mut vars = self.export.coordinates.clone();
+        let mut coefs = coefficients(form, vars.len());
+        native!(
+            "SCIPchgReoptObjective",
+            ffi::SCIPchgReoptObjective(
+                s,
+                objsense(sense),
+                vars.as_mut_ptr(),
+                coefs.as_mut_ptr(),
+                arity(vars.len())?
+            )
+        )?;
+        self.export.offset = form.constant;
+        self.export.objective = plan.objective.map(|(node, _)| node);
+        self.instance.rewatch(execution);
+        let remaining = execution
+            .time_limit
+            .saturating_sub(execution.started.elapsed())
+            .as_secs_f64();
+        self.instance.set_real("limits/time", remaining)?;
+        self.options.insert(
+            "limits/time".into(),
+            self.instance
+                .option("limits/time", &OptionValue::Real(0.0))?,
+        );
+        Ok(())
+    }
+}
+/// Build an instance, configure it and export the plan.
+fn build(
+    r: &Request<'_>,
+    plan: &crate::execution::factorable::Plan<'_>,
+    gap_absolute: f64,
+) -> Result<Session, ProblemError> {
+    let mut instance = Instance::new(
+        r.execution,
+        Modes {
+            exact: r.settings.exact,
+            reoptimize: r.settings.reoptimize,
+        },
+    )?;
+    let options = configure(
+        &instance,
+        r.settings,
+        r.controls,
+        r.accuracy,
+        r.execution,
+        gap_absolute,
+    )?;
+    let export = export(&mut instance, plan)?;
+    let system = if r.settings.reoptimize {
+        system(plan)?
+    } else {
+        ContentHash::from_bytes([0; 32])
+    };
+    Ok(Session {
+        instance,
+        export,
+        system,
+        options,
+    })
+}
+/// The infeasible subsystem SCIP's IIS finders leave in their sub-problem, attributed to
+/// exported functions, native forms and declared bounds by native name. Constraints are
+/// minimized; the declared bounds of the variables the kept constraints use stay members.
+fn iis(
+    session: &Session,
+    plan: &crate::execution::factorable::Plan<'_>,
+    execution: &Execution,
+) -> Result<Option<Iis>, ProblemError> {
+    use crate::execution::factorable::Origin;
+    let program = plan.program;
+    let instance = &session.instance;
+    let remaining = execution
+        .time_limit
+        .saturating_sub(execution.started.elapsed())
+        .as_secs_f64();
+    instance.set_real("iis/time", remaining)?;
+    native!("SCIPgenerateIIS", ffi::SCIPgenerateIIS(instance.ptr()))?;
+    // SAFETY: the IIS storage of the live instance.
+    let storage = unsafe { ffi::SCIPgetIIS(instance.ptr()) };
+    if storage.is_null() {
+        return Ok(None);
+    }
+    // SAFETY: flag and sub-problem queries of the live IIS storage.
+    let (infeasible, irreducible, sub) = unsafe {
+        (
+            ffi::SCIPiisIsSubscipInfeasible(storage) != 0,
+            ffi::SCIPiisIsSubscipIrreducible(storage) != 0,
+            ffi::SCIPiisGetSubscip(storage),
+        )
+    };
+    if !infeasible || sub.is_null() {
+        return Ok(None);
+    }
+    let name = |raw: *const c_char| -> String {
+        if raw.is_null() {
+            return String::new();
+        }
+        // SAFETY: SCIP returns NUL-terminated names owned by the live sub-problem.
+        unsafe { CStr::from_ptr(raw) }
+            .to_string_lossy()
+            .into_owned()
+    };
+    let ordinal = |text: &str, prefix: char| -> Option<usize> {
+        text.strip_prefix(prefix).and_then(|n| n.parse().ok())
+    };
+    let mut members = BTreeSet::new();
+    // SAFETY: the sub-problem's original constraints, with the reported count.
+    let conss = unsafe {
+        let n = usize::try_from(ffi::SCIPgetNOrigConss(sub)).unwrap_or(0);
+        let conss = ffi::SCIPgetOrigConss(sub);
+        if n == 0 || conss.is_null() {
+            &[][..]
+        } else {
+            std::slice::from_raw_parts(conss, n)
+        }
+    };
+    for cons in conss {
+        // SAFETY: a live constraint of the sub-problem.
+        let text = name(unsafe { ffi::SCIPconsGetName(*cons) });
+        if let Some(k) = ordinal(&text, 'c') {
+            let Some(f) = plan.constraints.get(k) else {
+                continue;
+            };
+            members.insert(match f.origin {
+                Origin::Row(r) => IisMember::Row(program.rows[r].id),
+                Origin::Obligation(o, _) => IisMember::Obligation {
+                    instance: program.obligations[o].instance,
+                    source: program.obligations[o].source,
+                },
+                Origin::Residual(b, k) => IisMember::Residual {
+                    instance: program.implicit[b].instance,
+                    ordinal: k,
+                },
+                Origin::ImplicitBound(b, k) => IisMember::ImplicitBound {
+                    instance: program.implicit[b].instance,
+                    ordinal: k,
+                },
+            });
+        } else if let Some(k) = ordinal(&text, 'n') {
+            members.insert(IisMember::Native(k));
+        }
+    }
+    // SAFETY: the sub-problem's original variables, with the reported count.
+    let vars = unsafe {
+        let n = usize::try_from(ffi::SCIPgetNOrigVars(sub)).unwrap_or(0);
+        let vars = ffi::SCIPgetOrigVars(sub);
+        if n == 0 || vars.is_null() {
+            &[][..]
+        } else {
+            std::slice::from_raw_parts(vars, n)
+        }
+    };
+    // SAFETY: an infinity query of the live sub-problem.
+    let infinity = unsafe { ffi::SCIPinfinity(sub) };
+    let columns = program.variables.len();
+    for var in vars {
+        // SAFETY: name and original-bound queries of a live sub-problem variable.
+        let (text, lower, upper) = unsafe {
+            (
+                name(ffi::SCIPvarGetName(*var)),
+                ffi::SCIPvarGetLbOriginal(*var),
+                ffi::SCIPvarGetUbOriginal(*var),
+            )
+        };
+        let (low, high) = if let Some(i) = ordinal(&text, 'x').filter(|i| *i < columns) {
+            let id = program.variables[i].id;
+            (IisMember::VariableLower(id), IisMember::VariableUpper(id))
+        } else if let Some(k) = ordinal(&text, 'a') {
+            (IisMember::AuxiliaryLower(k), IisMember::AuxiliaryUpper(k))
+        } else {
+            continue;
+        };
+        if lower > -infinity {
+            members.insert(low);
+        }
+        if upper < infinity {
+            members.insert(high);
+        }
+    }
+    Ok(Some(Iis {
+        irreducible,
+        members: members.into_iter().collect(),
+    }))
+}
+
 /// One SCIP attempt over an admitted factorable program.
 #[derive(Debug)]
 pub(crate) struct Request<'a> {
@@ -1311,12 +2218,17 @@ pub(crate) struct Request<'a> {
     pub compatibility: &'a Compatibility,
 }
 /// Export, read back, inject, solve and report in original coordinates. Qualification
-/// belongs to the factorable runner.
+/// belongs to the factorable runner. A reoptimization session is retained on the owning
+/// worker across a finite sequence; every other attempt builds and frees its instance.
 ///
 /// # Errors
 /// ABI, export, option or native failures before a report exists.
-pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
+pub(crate) fn solve(
+    r: &Request<'_>,
+    retained: &mut crate::execution::Retained,
+) -> Result<SolveReport, ProblemError> {
     r.controls.validate()?;
+    r.settings.admit(r.controls.threads)?;
     let abi = abi()?;
     let plan = crate::execution::factorable::plan(r.program, r.intent).map_err(|refusals| {
         let reasons: Vec<String> = refusals.iter().map(ToString::to_string).collect();
@@ -1329,16 +2241,26 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
     }
     // Normalized absolute gap budgets convert to original objective units.
     let gap_absolute = r.accuracy.mip_absolute_gap * r.normalization.objective;
-    let mut instance = Instance::new(r.execution)?;
-    let options = configure(
-        &instance,
-        r.settings,
-        r.controls,
-        r.accuracy,
-        r.execution,
-        gap_absolute,
-    )?;
-    let export = export(&mut instance, &plan)?;
+    let mut local = None;
+    let (session, reoptimized) = if r.settings.reoptimize {
+        let system = system(&plan)?;
+        retained.session(
+            Backend::Scip,
+            r.controls.reuse,
+            |held: &mut Session| {
+                if held.system != system {
+                    return Ok(false);
+                }
+                held.reoptimize(&plan, r.execution)?;
+                Ok(true)
+            },
+            || build(r, &plan, gap_absolute),
+        )?
+    } else {
+        // Nothing native is retained across attempts.
+        retained.clear();
+        (local.insert(build(r, &plan, gap_absolute)?), false)
+    };
     // Readback at the start, clamped into the box, with auxiliaries inside theirs.
     let clamp = |x: f64, (l, u): (f64, f64)| {
         let x = if x.is_finite() { x } else { 0.0 };
@@ -1354,8 +2276,16 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
         .iter()
         .map(|b| clamp(0.5 * (b.0 + b.1), *b))
         .collect();
-    let deviation = readback(&instance, &export, program, &start, &auxiliary)?;
+    let deviation = readback(
+        &session.instance,
+        &session.export,
+        program,
+        &start,
+        &auxiliary,
+    )?;
     let submitted = match r.warm {
+        // Exact solving certifies its own solutions; a floating-point seed is not given.
+        Some(_) if r.settings.exact => None,
         Some(seed) => {
             seed.validate(r.compatibility)?;
             let WarmPayload::Nlp { primal, .. } = &seed.payload else {
@@ -1363,46 +2293,97 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
                     "SCIP consumes a primal incumbent only".into(),
                 ));
             };
-            Some(inject(&instance, &export, program, primal)?)
+            Some(inject(&session.instance, &session.export, program, primal)?)
         }
         None => None,
     };
-    native!("SCIPsolve", ffi::SCIPsolve(instance.ptr()))?;
-    let s = instance.ptr();
-    // SAFETY: a status query after `SCIPsolve` returned.
+    let s = session.instance.ptr();
+    if r.controls.threads > 1 {
+        native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s))?;
+    } else {
+        native!("SCIPsolve", ffi::SCIPsolve(s))?;
+    }
+    // SAFETY: a status query after the solve returned.
     let raw = unsafe { ffi::SCIPgetStatus(s) };
     let status = Status::from_raw(raw).ok_or_else(|| {
         ProblemError::Internal(format!("SCIP status {raw} outside the 10.0.2 ABI"))
     })?;
-    // SAFETY: bound and statistic queries after `SCIPsolve` returned.
-    let primal_bound = instance.finite(unsafe { ffi::SCIPgetPrimalbound(s) });
+    let instance = &session.instance;
+    let export = &session.export;
+    let offset = export.offset;
+    // SAFETY: bound and statistic queries after the solve returned.
+    let primal_bound = instance
+        .finite(unsafe { ffi::SCIPgetPrimalbound(s) })
+        .map(|v| v + offset);
     // SAFETY: as above.
-    let dual_bound = instance.finite(unsafe { ffi::SCIPgetDualbound(s) });
+    let dual_bound = instance
+        .finite(unsafe { ffi::SCIPgetDualbound(s) })
+        .map(|v| v + offset);
     // SAFETY: as above.
     let gap = instance.finite(unsafe { ffi::SCIPgetGap(s) });
     // SAFETY: as above.
     let nodes = unsafe { ffi::SCIPgetNTotalNodes(s) };
     // SAFETY: as above.
     let best = unsafe { ffi::SCIPgetBestSol(s) };
-    let candidate = if best.is_null() {
-        None
-    } else {
-        let primal: Vec<f64> = export.coordinates[..columns]
+    let values = |sol: *mut ffi::SCIP_SOL| -> Vec<f64> {
+        export.coordinates[..columns]
             .iter()
-            // SAFETY: value queries of held variables in SCIP's best solution.
-            .map(|var| unsafe { ffi::SCIPgetSolVal(s, best, *var) })
-            .collect();
-        // SAFETY: the original objective of SCIP's best solution.
-        let objective = unsafe { ffi::SCIPgetSolOrigObj(s, best) };
-        Some(Candidate {
-            kind: CandidateKind::FeasiblePoint,
-            primal,
-            objective: plan.objective.and(instance.finite(objective)),
-            row_dual: None,
-            bound_dual: None,
-            reduced_costs: None,
-            slacks: None,
-        })
+            // SAFETY: value queries of held variables in a stored solution of this instance.
+            .map(|var| unsafe { ffi::SCIPgetSolVal(s, sol, *var) })
+            .collect()
+    };
+    // SAFETY: the original objective of a stored solution.
+    let objective_of = |sol| instance.finite(unsafe { ffi::SCIPgetSolOrigObj(s, sol) } + offset);
+    let candidate = (!best.is_null()).then(|| Candidate {
+        kind: CandidateKind::FeasiblePoint,
+        primal: values(best),
+        objective: plan.objective.and(objective_of(best)),
+        row_dual: None,
+        bound_dual: None,
+        reduced_costs: None,
+        slacks: None,
+    });
+    // SAFETY: a mode query of the live instance.
+    let exact = r.settings.exact
+        && unsafe { ffi::SCIPisExact(s) } != 0
+        && matches!(status, Status::Optimal | Status::Infeasible);
+    let exact_objective = if exact && !best.is_null() && plan.objective.is_some() {
+        let rational = Rational::new(0.0)?;
+        // SAFETY: the exact original objective of SCIP's best solution.
+        unsafe { ffi::SCIPgetSolOrigObjExact(s, best, rational.0) };
+        Some(rational.text())
+    } else {
+        None
+    };
+    let pool = if r.settings.pool > 0 {
+        // SAFETY: the stored solutions, best first, with the reported count.
+        let stored = unsafe {
+            let n = usize::try_from(ffi::SCIPgetNSols(s)).unwrap_or(0);
+            let sols = ffi::SCIPgetSols(s);
+            if n == 0 || sols.is_null() {
+                &[][..]
+            } else {
+                std::slice::from_raw_parts(sols, n)
+            }
+        };
+        stored
+            .iter()
+            .take(usize::from(r.settings.pool))
+            .enumerate()
+            .map(|(rank, sol)| PoolSolution {
+                rank,
+                primal: values(*sol),
+                objective: plan.objective.and(objective_of(*sol)),
+                feasible: None,
+            })
+            .collect()
+    } else {
+        vec![]
+    };
+    let subsystem = if r.settings.iis && status == Status::Infeasible {
+        iis(session, &plan, r.execution)?
+    } else {
+        None
     };
     let watch = instance.observed();
     let contract = OracleContract {
@@ -1424,6 +2405,7 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
     let mut report = SolveReport::new(Backend::Scip, &contract, termination(status), r.execution);
     let readback = deviation <= READBACK_TOLERANCE;
     report.evidence.start_submitted = submitted.is_some();
+    report.evidence.reused_native_state = reoptimized;
     report.evidence.global = Some(GlobalEvidence {
         fidelity: plan.fidelity,
         domain: plan.domain,
@@ -1445,7 +2427,15 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
         },
         primal: PrimalSource::Backend,
         infeasible: status == Status::Infeasible,
+        exact,
     });
+    report.global = Some(Arc::new(GlobalRecord {
+        boxes: plan.boxes.clone(),
+        pool,
+        iis: subsystem,
+        exact_objective,
+        reoptimized,
+    }));
     let metrics = &mut report.metrics;
     metrics.insert("scip.status".into(), Metric::Integer(i64::from(raw)));
     metrics.insert("scip.nodes".into(), Metric::Integer(nodes));
@@ -1464,10 +2454,35 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
     }
     metrics.insert(
         "scip.events".into(),
-        Metric::Integer(i64::try_from(watch.events).unwrap_or(i64::MAX)),
+        Metric::Integer(i64::try_from(watch.events.load(Ordering::Acquire)).unwrap_or(i64::MAX)),
     );
-    metrics.insert("scip.interrupted".into(), Metric::Bool(watch.interrupted));
-    metrics.insert("scip.callback_failed".into(), Metric::Bool(watch.failed));
+    metrics.insert(
+        "scip.interrupted".into(),
+        Metric::Bool(watch.interrupted.load(Ordering::Acquire)),
+    );
+    metrics.insert(
+        "scip.callback_failed".into(),
+        Metric::Bool(watch.failed.load(Ordering::Acquire)),
+    );
+    metrics.insert(
+        "scip.threads".into(),
+        Metric::Integer(i64::try_from(r.controls.threads).unwrap_or(i64::MAX)),
+    );
+    metrics.insert("scip.exact".into(), Metric::Bool(exact));
+    // The conditions every global claim holds under (ADR-0106 §9-§10): tolerances, the
+    // identity of the declared box and the export fidelity below.
+    for (key, value) in [
+        ("global.feasibility", feasibility(r.accuracy)),
+        ("global.gap_relative", r.accuracy.mip_relative_gap),
+        ("global.gap_absolute", gap_absolute),
+    ] {
+        metrics.insert(key.into(), Metric::Real(value));
+    }
+    metrics.insert(
+        "global.domain".into(),
+        Metric::Text(plan.domain.to_string()),
+    );
+    metrics.insert("scip.reoptimized".into(), Metric::Bool(reoptimized));
     metrics.insert(
         "export.fidelity".into(),
         Metric::Text(
@@ -1479,19 +2494,21 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
             .into(),
         ),
     );
-    metrics.insert(
-        "export.constraints.linear".into(),
-        Metric::Integer(i64::try_from(export.linear).unwrap_or(i64::MAX)),
-    );
-    metrics.insert(
-        "export.constraints.nonlinear".into(),
-        Metric::Integer(i64::try_from(export.nonlinear).unwrap_or(i64::MAX)),
-    );
+    for (key, count) in [
+        ("export.constraints.linear", export.linear),
+        ("export.constraints.nonlinear", export.nonlinear),
+        ("export.constraints.native", export.native),
+    ] {
+        metrics.insert(
+            key.into(),
+            Metric::Integer(i64::try_from(count).unwrap_or(i64::MAX)),
+        );
+    }
     metrics.insert("export.readback.deviation".into(), Metric::Real(deviation));
     if let Some(stored) = submitted {
         metrics.insert("scip.incumbent.stored".into(), Metric::Bool(stored));
     }
-    report.options = options;
+    report.options = session.options.clone();
     report.provenance.extend([
         (
             "scip.version".into(),
@@ -1509,7 +2526,7 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
         payload: WarmPayload::primal(c.primal.clone()),
     });
     report.candidate = candidate;
-    drop(instance);
+    drop(local);
     Ok(report)
 }
 
@@ -1525,7 +2542,7 @@ pub(crate) mod testing {
     ) -> Result<(Status, u64, bool), ProblemError> {
         let plan = crate::execution::factorable::plan(program, intent)
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
-        let mut instance = Instance::new(execution)?;
+        let mut instance = Instance::new(execution, Modes::default())?;
         configure(
             &instance,
             &Settings::default(),
@@ -1540,7 +2557,11 @@ pub(crate) mod testing {
         let raw = unsafe { ffi::SCIPgetStatus(instance.ptr()) };
         let status = Status::from_raw(raw).ok_or_else(|| ProblemError::internal("status"))?;
         let watch = instance.observed();
-        Ok((status, watch.events, watch.interrupted))
+        Ok((
+            status,
+            watch.events.load(Ordering::Acquire),
+            watch.interrupted.load(Ordering::Acquire),
+        ))
     }
     /// Export and read back at each point, returning the worst deviation.
     pub(crate) fn readback_at(
@@ -1551,7 +2572,7 @@ pub(crate) mod testing {
         let plan = crate::execution::factorable::plan(program, intent)
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
         let execution = Execution::new(Arc::default(), &Controls::default());
-        let mut instance = Instance::new(&execution)?;
+        let mut instance = Instance::new(&execution, Modes::default())?;
         let export = export(&mut instance, &plan)?;
         let mut worst: f64 = 0.0;
         for (x, a) in points {
@@ -1569,7 +2590,7 @@ pub(crate) mod testing {
         let plan = crate::execution::factorable::plan(exported, SolveIntent::FeasiblePoint)
             .map_err(|r| ProblemError::Unsupported(format!("{r:?}")))?;
         let execution = Execution::new(Arc::default(), &Controls::default());
-        let mut instance = Instance::new(&execution)?;
+        let mut instance = Instance::new(&execution, Modes::default())?;
         let export = export(&mut instance, &plan)?;
         let mut worst: f64 = 0.0;
         for (x, a) in points {
@@ -1585,7 +2606,7 @@ pub(crate) mod testing {
     ) -> Result<Options, ProblemError> {
         let mut execution = Execution::new(Arc::default(), controls);
         execution.memory = Some(256 << 20);
-        let instance = Instance::new(&execution)?;
+        let instance = Instance::new(&execution, Modes::default())?;
         configure(&instance, settings, controls, accuracy, &execution, 1e-6)
     }
 }

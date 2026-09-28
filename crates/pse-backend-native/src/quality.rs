@@ -590,9 +590,10 @@ pub fn qualify(report: &mut crate::solve::SolveReport, accuracy: &crate::solve::
 /// recorded tolerances and export fidelity. A gap claim additionally needs an
 /// original-feasible candidate from a result source, whose fresh original objective lies
 /// within the recorded gap of the dual bound. A relaxed incumbent never becomes a
-/// solution claim.
+/// solution claim. A conclusion reached in rational arithmetic over an exact export is an
+/// exact certificate, the only rigorous assurance (ADR-0106 §9).
 fn qualify_global(report: &mut crate::solve::SolveReport, g: crate::solve::GlobalEvidence) {
-    use crate::solve::{Assurance, PrimalSource, Qualification, Termination};
+    use crate::solve::{Assurance, BoundSource, PrimalSource, Qualification, Termination};
     let feasible = report.validation_failure().is_none()
         && report.candidate.is_some()
         && report.quality.as_ref().is_some_and(Quality::feasible);
@@ -603,9 +604,14 @@ fn qualify_global(report: &mut crate::solve::SolveReport, g: crate::solve::Globa
     if !g.readback {
         return;
     }
+    let exact = g.exact && g.dual == BoundSource::ExactExport;
     match report.termination.category {
         Termination::Infeasible if g.infeasible => {
-            report.termination.assurance = Assurance::ProvenInfeasible;
+            report.termination.assurance = if exact {
+                Assurance::ExactCertificate
+            } else {
+                Assurance::ProvenInfeasible
+            };
             return;
         }
         Termination::Success => {}
@@ -614,7 +620,11 @@ fn qualify_global(report: &mut crate::solve::SolveReport, g: crate::solve::Globa
     let Some(bound) = g.dual_bound.filter(|v| v.is_finite()) else {
         return;
     };
-    report.termination.assurance = Assurance::GlobalBound;
+    report.termination.assurance = if exact {
+        Assurance::ExactCertificate
+    } else {
+        Assurance::GlobalBound
+    };
     if !feasible || g.primal == PrimalSource::RelaxedIncumbent {
         return;
     }
@@ -632,7 +642,13 @@ fn qualify_global(report: &mut crate::solve::SolveReport, g: crate::solve::Globa
     let relative = objective.signum() == bound.signum()
         && absolute <= g.gap_relative * objective.abs().min(bound.abs());
     if absolute <= g.gap_absolute || relative {
-        report.qualification = Qualification::GapQualified;
+        // An exact proof closes the gap in rational arithmetic; the candidate's objective
+        // is still the original-coordinate evaluation.
+        report.qualification = if exact {
+            Qualification::OptimalWithinTolerance
+        } else {
+            Qualification::GapQualified
+        };
     }
 }
 

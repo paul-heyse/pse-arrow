@@ -454,7 +454,7 @@ impl BackendSettings {
     /// # Errors
     /// A native settings serializer refused its value.
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of("pse.backend.settings.v2", self)
+        crate::identity::of("pse.backend.settings.v3", self)
     }
     /// The typed settings of `backend`, from its adapter settings type's serde fields.
     /// Absent fields take that type's defaults and unknown fields are refused, so neither

@@ -36,6 +36,12 @@ threads-required = 2
 filter = 'test(authored_vessel_fitting_preserves_shared_parameters_checks_and_identifiability) | test(authored_physical_nlp_preserves_native_routes_and_original_qualification) | test(acceptance::publication_resource::authored_publication_resource)'
 slow-timeout = { period = "300s", terminate-after = 3 }
 
+[[profile.default.overrides]]
+# Global certification admits the package closure and then runs spatial branch-and-bound
+# under its own solver deadline.
+filter = 'test(/^acceptance::global_certification::/)'
+slow-timeout = { period = "300s", terminate-after = 6 }
+
 # CI: run everything, retry nothing. A flaky test is a red test.
 [profile.ci]
 fail-fast = false

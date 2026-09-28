@@ -165,6 +165,47 @@ impl HintResolver for TrialHints {
         Ok((bounds, options))
     }
 }
+/// Original residual definitions of every implicit block a factorable export uses in
+/// place of its realization (ADR-0105 §1). A case bound on an unknown replaces that
+/// endpoint's bound hint, exactly as the trial resolver does for the evaluator, so the
+/// exported interval is the one evaluation enforces.
+pub(super) fn factorable_definitions(
+    model: &ModelingPreparation,
+    case: &ModelingCaseBindings,
+) -> BTreeMap<pse_kernels::ProviderKey, pse_math::factorable::ImplicitDefinition> {
+    let product = model.compiled();
+    let states = case
+        .variables
+        .iter()
+        .filter_map(|(path, state)| product.model.paths.get(path).map(|id| (*id, state)))
+        .collect::<BTreeMap<_, _>>();
+    product
+        .admitted
+        .implicit
+        .values()
+        .filter_map(|inner| {
+            let (key, mut definition) = inner.factorable_definition()?;
+            for (j, id) in inner.unknowns.iter().enumerate() {
+                let Some(state) = states.get(id) else {
+                    continue;
+                };
+                if let Some(lower) = state.lower {
+                    definition.unknowns[j].0 = lower.unwrap_or(f64::NEG_INFINITY);
+                    if let Some(bounds) = definition.bounds.as_mut() {
+                        bounds.lower[j] = None;
+                    }
+                }
+                if let Some(upper) = state.upper {
+                    definition.unknowns[j].1 = upper.unwrap_or(f64::INFINITY);
+                    if let Some(bounds) = definition.bounds.as_mut() {
+                        bounds.upper[j] = None;
+                    }
+                }
+            }
+            Some((key, definition))
+        })
+        .collect()
+}
 impl ModelingPackage {
     pub(super) async fn inner_registrations(
         &self,

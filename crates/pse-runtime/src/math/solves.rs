@@ -28,6 +28,10 @@ pub struct NumericalInputs {
     pub declarations: Vec<pse_math::numerics::SourcedRequirement>,
     /// Observable and physical closure targets beyond the algebraic coordinates.
     pub targets: Vec<pse_math::numerics::TargetSpec>,
+    /// Original residual definitions of the case's implicit blocks, keyed by the provider
+    /// their callers invoke, with unknown intervals under the case's bounds. A factorable
+    /// route exports them in place of the blocks' realizations (ADR-0105 §1).
+    pub implicit: BTreeMap<pse_kernels::ProviderKey, pse_math::factorable::ImplicitDefinition>,
 }
 use std::{collections::BTreeMap, future::Future, sync::Arc};
 
@@ -113,10 +117,15 @@ impl PreparedSolve {
             Representation::Algebraic(AlgebraicCase {
                 prepared,
                 providers,
+                factorable,
                 ..
             }) => {
                 for provider in providers.values() {
                     h.hash(&provider.configuration_key());
+                }
+                // The projection's key covers its implicit definitions and envelopes.
+                if let Some((program, _)) = factorable {
+                    h.hash(&program.key);
                 }
                 h.str("algebraic")
                     .hash(&prepared.compiled().plan.structure().key());
@@ -586,11 +595,24 @@ impl MathService {
             &numerical.declarations,
             &profile.numerics,
         )?);
-        self.prepare_resolved(prepared, values, providers, profile, certificate, numerics)
-            .await
+        self.prepare_resolved(
+            prepared,
+            values,
+            providers,
+            profile,
+            certificate,
+            numerics,
+            numerical.implicit,
+        )
+        .await
     }
     /// Admission of a bound case under an already resolved numerical policy. A conditional
     /// initialization block resolves its policy once for the whole case and passes it here.
+    /// `implicit` holds the residual definitions a factorable route exports.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a bound case binds its view, values, providers, profile, evidence, policy and implicit definitions"
+    )]
     pub(crate) async fn prepare_resolved(
         self: &Arc<Self>,
         prepared: Preparation,
@@ -599,6 +621,7 @@ impl MathService {
         profile: SolverProfile,
         mut certificate: Option<Arc<dyn QuadraticEvidence>>,
         numerics: Arc<ResolvedNumericalPolicy>,
+        implicit: BTreeMap<pse_kernels::ProviderKey, pse_math::factorable::ImplicitDefinition>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
         // Per-solve overlays are separate from the shared compiler product.
@@ -729,6 +752,19 @@ impl MathService {
                 let values = values.clone();
                 let limit = self.policy.worker_bytes / 256;
                 let intent = profile.intent;
+                // Implicit blocks export their residuals; providers that declare an
+                // enforced envelope export as auxiliaries inside it (ADR-0105 §1).
+                let mut envelopes = BTreeMap::new();
+                for (key, registration) in &providers {
+                    if let Some(envelope) = registration.envelope().map_err(ProblemError::from)? {
+                        envelopes.insert(*key, envelope);
+                    }
+                }
+                let request = pse_math::factorable::FactorableRequest {
+                    implicit,
+                    envelopes,
+                    ..Default::default()
+                };
                 let program = self
                     .job(
                         1,
@@ -736,12 +772,7 @@ impl MathService {
                         FlightCancellation::default(),
                         move |flag| {
                             let program = plan
-                                .factorable_program(
-                                    &values,
-                                    &pse_math::factorable::FactorableRequest::default(),
-                                    limit,
-                                    &flag,
-                                )
+                                .factorable_program(&values, &request, limit, &flag)
                                 .map_err(|e| match e {
                                     pse_math::factorable::FactorableError::Math(e) => {
                                         ProblemError::Math(e)

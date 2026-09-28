@@ -10,6 +10,7 @@ use crate::{
         WarmCapability, WarmPayload,
     },
 };
+use pse_model::generated::enums::NativeConstraintForm;
 
 /// Typed SCIP settings. Reserved native options derive from these and the shared controls;
 /// identity derives from serde.
@@ -24,19 +25,42 @@ pub struct Settings {
     /// Total branch-and-bound node budget including restarts (`limits/totalnodes`);
     /// absent leaves the deadline as the only budget.
     pub nodes: Option<u32>,
+    /// Number of ranked stored solutions reported beside the candidate (0: none).
+    pub pool: u16,
+    /// After a proof of infeasibility, compute an irreducible infeasible subsystem of the
+    /// true exported program (`SCIPgenerateIIS`).
+    pub iis: bool,
+    /// Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs
+    /// without native forms, and never with reoptimization or concurrency.
+    pub exact: bool,
+    /// Retain the native search tree across a finite MIP sequence whose constraint system
+    /// is unchanged and whose linear objective changes (`SCIPenableReoptimization`).
+    pub reoptimize: bool,
 }
 impl Settings {
-    /// Refuse a nested linear solver whose process preconditions are unmet.
+    /// Refuse a nested linear solver whose process preconditions are unmet and every
+    /// mutually exclusive mode combination.
     ///
     /// # Errors
-    /// SPRAL without `OMP_CANCELLATION=TRUE`.
-    pub fn admit(&self) -> Result<(), ProblemError> {
+    /// SPRAL without `OMP_CANCELLATION=TRUE`; exact mode with reoptimization, IIS
+    /// generation or concurrency; reoptimization with concurrency.
+    pub fn admit(&self, threads: usize) -> Result<(), ProblemError> {
         if self.nlp_linear_solver == IpoptLinearSolver::Spral
             && !std::env::var("OMP_CANCELLATION").is_ok_and(|v| v.eq_ignore_ascii_case("true"))
         {
             return Err(ProblemError::Unsupported(
                 "SPRAL in SCIP's nested Ipopt needs OMP_CANCELLATION=TRUE".into(),
             ));
+        }
+        let refuse = |why: &str| Err(ProblemError::Unsupported(why.into()));
+        if self.exact && self.reoptimize {
+            return refuse("SCIP exact solving excludes reoptimization");
+        }
+        if self.exact && self.iis {
+            return refuse("SCIP IIS generation does not support exact solving");
+        }
+        if threads > 1 && (self.exact || self.reoptimize) {
+            return refuse("SCIP concurrent solving excludes exact solving and reoptimization");
         }
         Ok(())
     }
@@ -59,13 +83,23 @@ static CAPABILITY: Capability = Capability {
     warm: WarmCapability::Primal,
     general_bounds: true,
     sign_bounds: true,
-    parallel: false,
+    // Concurrent solving in deterministic mode, with the admitted permits as threads.
+    parallel: true,
     certifies: true,
-    // The indicator, SOS, logic and cardinality handlers are consumed from Plan 22 G7.
-    native_forms: &[],
-    reuse: "none: one SCIP instance per attempt, created and freed on the owning worker",
-    cancellation: "event handler on presolve rounds, node focus and solve, and LP solves calls SCIPinterruptSolve",
-    diagnostics: "raw status, primal and dual bound, gap, node count, export fidelity and readback, effective reserved options",
+    // Indicator (nonlinear rows lifted exactly through slacks), SOS1/SOS2, and/or/xor and
+    // cardinality handlers; an asserted `or` is upgraded to logicor by SCIP presolve.
+    native_forms: &[
+        NativeConstraintForm::Indicator,
+        NativeConstraintForm::Sos1,
+        NativeConstraintForm::Sos2,
+        NativeConstraintForm::And,
+        NativeConstraintForm::Or,
+        NativeConstraintForm::Xor,
+        NativeConstraintForm::Cardinality,
+    ],
+    reuse: "one SCIP instance per attempt, created and freed on the owning worker; with reoptimization, one instance and its search tree across a finite MIP sequence whose constraint system is unchanged",
+    cancellation: "event handler on presolve rounds, node focus and solve, and LP solves calls SCIPinterruptSolve; copied into sub-SCIPs, concurrent solvers and the IIS sub-problem",
+    diagnostics: "raw status, primal and dual bound, gap, node count, export fidelity and readback, effective reserved options, ranked solution pool, IIS with its irreducibility flag, exact rational objective",
 };
 impl BackendExecution for Scip {
     fn backend(&self) -> Backend {
@@ -91,16 +125,10 @@ impl BackendExecution for Scip {
         controls: &Controls,
     ) -> Result<(), ProblemError> {
         match settings {
-            BackendSettings::Default => {}
-            BackendSettings::Scip(s) => s.admit()?,
-            _ => return Err(super::foreign(Backend::Scip)),
+            BackendSettings::Default => Settings::default().admit(controls.threads),
+            BackendSettings::Scip(s) => s.admit(controls.threads),
+            _ => Err(super::foreign(Backend::Scip)),
         }
-        if controls.threads != 1 {
-            return Err(ProblemError::Unsupported(
-                "SCIP runs serial until concurrent mode is admitted (Plan 22 G7)".into(),
-            ));
-        }
-        Ok(())
     }
     fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
         Ok(WarmPayload::primal(primal))
@@ -128,26 +156,29 @@ impl BackendExecution for Scip {
             BackendSettings::Scip(s) => s,
             _ => return Err(super::foreign(Backend::Scip)),
         };
-        // Nothing native is retained across attempts.
-        retained.clear();
         #[cfg(feature = "scip")]
         {
-            crate::scip::solve(&crate::scip::Request {
-                program,
-                initial,
-                intent,
-                normalization,
-                settings,
-                controls: input.controls,
-                accuracy: input.accuracy,
-                execution: &input.execution,
-                warm: input.warm,
-                compatibility: &input.compatibility,
-            })
+            // Only a reoptimization session retains native state across attempts.
+            crate::scip::solve(
+                &crate::scip::Request {
+                    program,
+                    initial,
+                    intent,
+                    normalization,
+                    settings,
+                    controls: input.controls,
+                    accuracy: input.accuracy,
+                    execution: &input.execution,
+                    warm: input.warm,
+                    compatibility: &input.compatibility,
+                },
+                retained,
+            )
         }
         #[cfg(not(feature = "scip"))]
         {
             let _ = (program, initial, intent, normalization, settings);
+            retained.clear();
             Err(super::unlinked(Backend::Scip))
         }
     }

@@ -4,6 +4,7 @@
 mod coefficient_conic;
 #[path = "../../../support/plan14.rs"]
 mod fixtures;
+mod global_certification;
 mod native_outcomes;
 mod physical_nlp;
 mod publication_resource;

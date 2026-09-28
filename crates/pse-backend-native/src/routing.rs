@@ -556,13 +556,22 @@ mod tests {
         let missing = Ineligible::NativeForms {
             missing: vec![NativeConstraintForm::Indicator],
         };
+        // SCIP's record consumes the indicator handler (Plan 22 G7); every other record
+        // is refused with the form it lacks, and automatic routing selects SCIP.
         for choice in requirements.eligibility() {
-            assert!(choice.reasons.contains(&missing), "{choice:?}");
+            let consumes = adapter(choice.backend)
+                .capability()
+                .native_forms
+                .contains(&NativeConstraintForm::Indicator);
+            assert_eq!(consumes, choice.backend == Backend::Scip, "{choice:?}");
+            assert_eq!(!consumes, choice.reasons.contains(&missing), "{choice:?}");
         }
-        assert!(matches!(
-            requirements.select(SolverSelection::Auto),
-            Err(ProblemError::Unsupported(_))
-        ));
+        assert_eq!(
+            requirements.select(SolverSelection::Auto).ok(),
+            adapter(Backend::Scip)
+                .linked()
+                .then_some(Route::Native(Backend::Scip))
+        );
         // The rule reads the record: one that consumes the handler admits the form.
         let highs = adapter(Backend::Highs).capability();
         let consuming = Capability {

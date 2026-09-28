@@ -109,3 +109,14 @@ The BT_PR steady fixture passes its selected oracle, derivative and envelope
 checks. This local sample does not establish all states within the declared
 temperature and pressure interval. The `ideal-K` stage is inherited; final fixture expectations are
 evaluated only after solving the restored original specification.
+
+`phase-stability.pse` authors Michelsen's tangent-plane distance of a homogeneous
+feed at fixed temperature and pressure, over any Helmholtz law (ideal, PR or PC-SAFT):
+`tpd(w) = Σ w_j (ln w_j + ln φ_j(w) − ln z_j − ln φ_j(z))`, with the trial
+composition on the simplex and its density at the feed pressure. The reference
+density bounds select the feed root. A local minimum proves nothing: global stability
+is a claim only under the explicit certify intent, whose factorable export and global
+bound decide it within the recorded box, tolerances and export fidelity. The check
+`tpd > −tolerance` then holds at the certified minimizer, and a certified minimum below
+it, or any original-qualified trial point with negative distance, shows instability.
+The check itself is a predicate over the solved point; it does not run a solve.

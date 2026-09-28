@@ -13,8 +13,8 @@ mod nonlinear;
 #[path = "diagnostic_samples.rs"]
 mod samples;
 pub use nonlinear::{
-    ElasticObservation, ModelingElasticAttempt, ModelingNonlinearExplanation,
-    ModelingNonlinearPolicy,
+    ElasticObservation, ModelingElasticAttempt, ModelingInfeasibilityCertificate,
+    ModelingNonlinearExplanation, ModelingNonlinearPolicy,
 };
 use pse_math::{
     binding::CaseValues,

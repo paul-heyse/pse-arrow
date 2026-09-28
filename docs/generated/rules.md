@@ -141,6 +141,7 @@
 | `runtime.run_lineage` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."run_lineage" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.simulation_events` | `unique:pk` | `SELECT s."run_id", s."ordinal", s."symbol_id" FROM "runtime"."simulation_events" s GROUP BY s."run_id", s."ordinal", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.simulation_samples` | `unique:pk` | `SELECT s."run_id", s."sample", s."symbol_id" FROM "runtime"."simulation_samples" s GROUP BY s."run_id", s."sample", s."symbol_id" HAVING COUNT(*) > 1` |
+| `runtime.solution_pool` | `unique:pk` | `SELECT s."run_id", s."step", s."rank", s."symbol_id" FROM "runtime"."solution_pool" s GROUP BY s."run_id", s."step", s."rank", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.solve_constraints` | `unique:pk` | `SELECT s."run_id", s."step", s."row_id" FROM "runtime"."solve_constraints" s GROUP BY s."run_id", s."step", s."row_id" HAVING COUNT(*) > 1` |
 | `runtime.solve_metrics` | `unique:pk` | `SELECT s."run_id", s."step", s."namespace", s."name" FROM "runtime"."solve_metrics" s GROUP BY s."run_id", s."step", s."namespace", s."name" HAVING COUNT(*) > 1` |
 | `runtime.solve_runs` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."solve_runs" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
