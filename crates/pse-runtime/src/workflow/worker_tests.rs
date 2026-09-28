@@ -184,9 +184,17 @@ async fn unknown_payload_version_refused() {
     };
     let attempt = record.attempt.as_ref().unwrap();
     assert_eq!(attempt.state, AttemptState::Failed);
+    // The typed diagnostic code, with the violated named contract in the detail (X4).
+    let termination = attempt.termination.as_ref().unwrap();
     assert_eq!(
-        attempt.termination.as_ref().map(|t| t.code.as_str()),
-        Some("workflow.job_payload_version")
+        termination.code,
+        pse_operations::attempts::TerminationCode::Rule(
+            pse_diagnostics::DiagnosticCode::ConfigInvalid
+        )
+    );
+    assert_eq!(
+        termination.detail.as_ref().unwrap()["rule"],
+        "workflow.job_payload_version"
     );
     // A refusal is not an infrastructure failure: it is not retried, whatever the policy.
     let job = operations

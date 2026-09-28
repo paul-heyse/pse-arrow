@@ -12,7 +12,9 @@ use chrono::{DateTime, Utc};
 use pse_ids::{ContentHash, SemanticId};
 use sqlx::PgPool;
 
-use crate::attempts::{AttemptKind, NewAttempt, RuntimeTermination, TerminationCode, TransitionNote};
+use crate::attempts::{
+    AttemptKind, DiagnosticCode, NewAttempt, RuntimeTermination, TerminationCode, TransitionNote,
+};
 use crate::cancellation::CancelOutcome;
 use crate::catalog::{
     Committed, Member, ProtectedVersion, PublicationCommit, ReadTarget, Settlement, Workspace,
@@ -670,7 +672,7 @@ async fn illegal_transition_rejected(pool: PgPool) {
             &TransitionNote::by("worker-a")
                 .because("evaluation failed")
                 .terminated(crate::attempts::Termination {
-                    code: TerminationCode::Rule("solve.evaluation_error".to_owned()),
+                    code: TerminationCode::Rule(DiagnosticCode::SolveEvaluationError),
                     detail: Some(serde_json::json!({ "row": 3 })),
                 }),
         )
@@ -681,14 +683,14 @@ async fn illegal_transition_rejected(pool: PgPool) {
     assert!(done.finished_at.is_some());
     assert_eq!(
         done.termination.as_ref().map(|t| &t.code),
-        Some(&TerminationCode::Rule("solve.evaluation_error".to_owned()))
+        Some(&TerminationCode::Rule(DiagnosticCode::SolveEvaluationError))
     );
     let row = done.row();
     assert_eq!(
         row.termination_class,
         Some(crate::attempts::TerminationClass::Rule)
     );
-    assert_eq!(row.termination_rule.as_deref(), Some("solve.evaluation_error"));
+    assert_eq!(row.termination_rule, Some(DiagnosticCode::SolveEvaluationError));
     assert_eq!(row.termination_detail.as_deref(), Some("{\"row\":3}"));
     // A later termination replaces every termination column at once.
     let cancelled = crate::attempts::Termination {

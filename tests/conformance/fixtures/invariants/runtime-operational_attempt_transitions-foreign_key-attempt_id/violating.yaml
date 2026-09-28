@@ -32,7 +32,7 @@
         "termination_class": "[\"enum\",\"native\"]",
         "termination_detail": "[\"text\",\"value-1\"]",
         "termination_native": "[\"enum\",\"success\"]",
-        "termination_rule": "[\"text\",\"value-1\"]",
+        "termination_rule": "[\"enum\",\"authoring.parse\"]",
         "termination_run_state": "[\"enum\",\"native\"]",
         "termination_runtime": "[\"enum\",\"cancelled\"]",
         "termination_trajectory": "[\"enum\",\"completed\"]",

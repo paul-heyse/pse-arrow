@@ -523,21 +523,19 @@ const fn termination(code: TerminationCode, detail: serde_json::Value) -> Termin
 fn failure(error: &WorkflowError, cancelled: bool) -> Outcome {
     use crate::math::MathRuntimeError as M;
     let is_cancel = matches!(error, WorkflowError::Math(M::Cancelled));
-    // The violated named contract when the error names one; its diagnostic code otherwise.
-    let diagnostic = error.boundary_diagnostic();
-    let code = if diagnostic.rule == "workflow.unclassified" {
-        // The registry's dotted spelling of the §23.2 code (miette renders `a::b`).
-        miette::Diagnostic::code(error)
-            .map_or_else(|| diagnostic.rule, |c| c.to_string().replace("::", "."))
-    } else {
-        diagnostic.rule
-    };
+    // The error's typed §23.2 code (X4); an error without one is an internal failure. The
+    // violated named contract, when the error names one, is kept in the detail.
+    let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(error)
+        .unwrap_or(pse_diagnostics::DiagnosticCode::InternalInvariant);
     let retryable = match error {
         WorkflowError::Operations(e) => e.is_retryable(),
         WorkflowError::Math(M::Infrastructure(_)) => true,
         _ => false,
     };
-    let detail = serde_json::json!({ "error": error.to_string() });
+    let detail = serde_json::json!({
+        "error": error.to_string(),
+        "rule": error.boundary_diagnostic().rule,
+    });
     if cancelled || is_cancel {
         Outcome {
             state: AttemptState::Cancelled,

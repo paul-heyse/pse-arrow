@@ -11,6 +11,7 @@
 "pse_ops.attempt_kind" = "pse_model::generated::enums::AttemptKind"
 "pse_ops.attempt_state" = "pse_model::generated::enums::AttemptState"
 "pse_ops.content_hash" = "pse_ids::ContentHash"
+"pse_ops.diagnostic_code" = "pse_model::generated::enums::DiagnosticCode"
 "pse_ops.evidence_unavailable_reason" = "pse_model::generated::enums::EvidenceUnavailableReason"
 "pse_ops.job_id" = "pse_model::generated::identities::JobId"
 "pse_ops.job_state" = "pse_model::generated::enums::JobState"

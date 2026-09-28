@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    221u8, 173u8, 196u8, 214u8, 115u8, 179u8, 128u8, 147u8, 119u8, 12u8, 53u8, 68u8,
-    78u8, 70u8, 36u8, 205u8, 232u8, 124u8, 151u8, 167u8, 0u8, 56u8, 20u8, 207u8, 133u8,
-    163u8, 107u8, 76u8, 216u8, 235u8, 19u8, 150u8,
+    42u8, 45u8, 13u8, 176u8, 146u8, 195u8, 42u8, 183u8, 66u8, 134u8, 32u8, 51u8, 118u8,
+    249u8, 74u8, 174u8, 2u8, 98u8, 58u8, 35u8, 6u8, 184u8, 179u8, 78u8, 23u8, 250u8,
+    151u8, 150u8, 118u8, 102u8, 154u8, 168u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
     fn append(
@@ -177,7 +177,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
             crate::generated::enums::RuntimeTermination,
         > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
         <Option<
-            String,
+            crate::generated::enums::DiagnosticCode,
         > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
         <Option<
             String,
@@ -295,7 +295,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
                 index,
             )?,
             r#termination_rule: <Option<
-                String,
+                crate::generated::enums::DiagnosticCode,
             > as crate::columnar::ArrowValue>::read(
                 input.column(18usize).as_ref(),
                 index,
@@ -653,7 +653,7 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
             if let Some(value) = (self.r#termination_rule).as_ref() {
                 crate::columnar::allocation_add(
                     1,
-                    crate::columnar::allocation_add(8, (value).len())?,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
                 )
             } else {
                 Ok::<usize, crate::RelationError>(1)

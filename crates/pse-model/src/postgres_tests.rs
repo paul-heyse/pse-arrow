@@ -8,7 +8,7 @@
 use postgres_types::{FromSql, IsNull, Kind, ToSql, Type};
 use pse_ids::postgres::BytesMut;
 
-use crate::generated::enums::{AttemptState, RuntimeTermination};
+use crate::generated::enums::{AttemptState, DiagnosticCode, RuntimeTermination};
 use crate::generated::identities::{AttemptId, SourceBundleId};
 
 fn enumeration(name: &str, labels: &[&str], schema: &str) -> Type {
@@ -62,6 +62,28 @@ fn postgres_value_mapping_round_trips() {
         RuntimeTermination::Infrastructure
     );
     assert!(AttemptState::from_sql(&state, b"runing").is_err());
+    // A source-owned vocabulary maps through its owning crate's `postgres` feature, to
+    // the ENUM of its snake-case name with exactly its members (X4's rule column).
+    let codes = DiagnosticCode::ALL
+        .iter()
+        .map(|code| code.as_str())
+        .collect::<Vec<_>>();
+    let rule = enumeration("diagnostic_code", &codes, "pse_ops");
+    for code in DiagnosticCode::ALL {
+        assert_eq!(round_trip(code, &rule), *code);
+    }
+    assert!(!<DiagnosticCode as ToSql>::accepts(&enumeration(
+        "diagnostic_code",
+        &codes[..3],
+        "pse_ops"
+    )));
+    assert!(!<DiagnosticCode as ToSql>::accepts(&enumeration(
+        "failure_class",
+        &codes,
+        "pse_ops"
+    )));
+    assert!(!<DiagnosticCode as ToSql>::accepts(&Type::TEXT));
+    assert!(DiagnosticCode::from_sql(&rule, b"solve.nonsense").is_err());
     // A typed id is its identity domain, or the base type a result column arrives as.
     let attempt = AttemptId::from_bytes([0x42; 16]);
     let attempt_domain = domain("attempt_id", Type::UUID);

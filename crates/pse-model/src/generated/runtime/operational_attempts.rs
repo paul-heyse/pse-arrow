@@ -46,7 +46,7 @@ pub struct RuntimeOperationalAttemptsRow {
     ///termination_runtime
     pub r#termination_runtime: Option<crate::generated::enums::RuntimeTermination>,
     ///termination_rule
-    pub r#termination_rule: Option<String>,
+    pub r#termination_rule: Option<crate::generated::enums::DiagnosticCode>,
     ///termination_detail
     pub r#termination_detail: Option<String>,
     ///created_at

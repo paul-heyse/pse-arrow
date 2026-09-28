@@ -1091,7 +1091,7 @@ class RuntimeOperationalAttemptsRow:
     termination_run_state: e.NativeRunState | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeRunState)))
     termination_trajectory: e.TrajectoryTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.TrajectoryTermination)))
     termination_runtime: e.RuntimeTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.RuntimeTermination)))
-    termination_rule: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    termination_rule: e.DiagnosticCode | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.DiagnosticCode)))
     termination_detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
