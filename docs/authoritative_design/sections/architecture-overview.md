@@ -107,7 +107,10 @@ identifiability and uncertainty claims are outside the profile
 
 **Workflows.** Rust and Python callers use immutable model revisions, explicit prepare and
 start operations, joined blocking or async jobs, retained Arrow results and explicit exact
-publication. Python is an authoring and result boundary; Pyomo and IDAES are reference tools
+publication. A durable runtime registers every run as an attempt in the PostgreSQL
+operational store, which also queues jobs for worker processes, coordinates studies and
+holds the publication catalog; an ephemeral runtime needs no store and cannot publish
+([§20.6](identity-and-publication.md#section-20-6)). Python is an authoring and result boundary; Pyomo and IDAES are reference tools
 confined to the parity harness ([§21](workflows-and-results.md#section-21)). Advanced cone
 and causal-map construction is typed Rust functionality exposed through owned strategies.
 The registry generates every public declaration contract.
@@ -135,9 +138,11 @@ Limits are recorded in
 | Separate lifecycles | Package revisions, specialized models, case bindings, resolved numerical policy, prepared products, starts, results and publications have distinct ownership. | modeling runtime, `pse-compiler::workspace`, `pse-math::assembly` | [§5](identity-and-publication.md#section-5) |
 | Scientific binding | Entity kinds, sets, tables, interfaces, functions and definitions carry materials, states and property choices; branch-local closures refuse unproved crossings. | authored reference packages and generic modeling mechanisms | [§9](physical-semantics.md#section-9) |
 | Conservation and reactions | Generic accumulators consume signed contributions with explicit roles, transfer identities and closure checks; science chooses subjects and energy conventions. | `pse-modeling` and authored process/reaction definitions | [§10](models-and-composition.md#section-10) |
-| Shared vocabulary | Registry-owned tags projected into `pse-model`, Arrow codecs and Python contracts. Diagnostics classify the failure kind and keep source identities, stage and observations. | `pse-schema`, `pse-model`, `pse-diagnostics` | [§23](operations-and-validation.md#section-23) |
-| Identity projections | Versioned, named projections per scope. Floating framing preserves signed zero. Semantic contract identity excludes documentation and encoding. | `pse-ids`, `pse-compiler::physical_identity` | [§5](identity-and-publication.md#section-5) |
-| Publication and retention | Immutable attempt members, an expected-parent precondition, a control manifest committed last, read-only settlement and exact reopening under an explicit compatibility and retention contract. | `pse-catalog::delta` | [§20](identity-and-publication.md#section-20) |
+| Shared vocabulary | Registry-owned tags projected into `pse-model`, Arrow codecs, Python contracts and PostgreSQL ENUM types. Every decision vocabulary that crosses a boundary is a registry enumeration with one Rust type: a hand-written source (`pse-vocabulary`, `pse-diagnostics`, `pse-quantity`) is re-exported, never copied. Diagnostics classify the failure kind and keep source identities, stage and observations. | `pse-schema`, `pse-vocabulary`, `pse-model`, `pse-diagnostics` | [§4.1](schema-and-relations.md#section-4-1), [§23](operations-and-validation.md#section-23) |
+| Identity projections | Versioned, named projections per scope under one `Frame` catalog. Entity identities are declared in the registry and generated as typed ids. Floating framing preserves signed zero. Semantic contract identity excludes documentation and encoding; a document's identity is framed from its typed value. | `pse-ids`, `pse-model`, `pse-compiler::physical_identity` | [§5](identity-and-publication.md#section-5) |
+| Boundary documents | Rust-owned documents (settings, job payload, termination detail, source manifest, study definition) are typed, versioned serde types; their JSON Schemas and Python msgspec types are generated. | owning crates; `pse-codegen` | [§21.5](workflows-and-results.md#section-21-5) |
+| Operational state | Attempts, jobs, leases, cancellation, progress and incumbent streams, reusable solutions and studies in a registry-generated PostgreSQL schema that is created or refused by fingerprint, never migrated; statements are SQL compiled into a typed crate. | `pse-operations`, `pse-operations-queries`, `pse-runtime::workflow::durable` | [§20.6](identity-and-publication.md#section-20-6) |
+| Publication and retention | Immutable attempt-scoped Delta members, an intent registered before any effect, one catalog transaction with an expected-parent compare-and-set, settlement by catalog query, reader leases, catalog-computed retention and exact reopening under an explicit compatibility contract. | `pse-operations::catalog`, `pse-catalog::delta`, `pse-runtime::workflow` | [§20](identity-and-publication.md#section-20) |
 | Ordinary evidence | Ordinary tests, benchmarks and factual execution records. Executed, reused, transferred and not-run evidence are labelled separately. A source digest identifies inputs only. | `xtask`, recipes | [§24.2](operations-and-validation.md#section-24-2) |
 
 ## 1. Architectural summary
@@ -158,17 +163,18 @@ Dependencies point from foundations towards orchestration. Crate roles are owned
 
 | Layer | Crates | Responsibility | Depends on |
 |---|---|---|---|
-| Foundations | `pse-diagnostics`, `pse-ids`, `pse-quantity`, `pse-columnar` | Diagnostic vocabulary, identity and canonical hashing, physical quantities and functions, owned Arrow buffers | Nothing above this layer |
+| Foundations | `pse-diagnostics`, `pse-ids`, `pse-vocabulary`, `pse-quantity`, `pse-columnar` | Diagnostic vocabulary, identity and canonical hashing, the registry's platform vocabularies, physical quantities and functions, owned Arrow buffers | Nothing above this layer |
 | Declaration | `pse-schema`, `pse-model`, `pse-relations` | Registry; generated library-neutral values; typed Arrow views and validators | Foundations |
-| Data | `pse-engine`, `pse-catalog`, `pse-rules` | DataFusion sessions and caches; Delta publication and retention; registry invariant checks | Declaration |
+| Data | `pse-engine`, `pse-catalog`, `pse-rules`, `pse-operations` | DataFusion sessions and caches; Delta member I/O and maintenance; registry invariant checks; the PostgreSQL operational store and publication catalog, with its generated query crate `pse-operations-queries` | Declaration; `pse-operations` only `pse-model`, `pse-ids`, `pse-diagnostics` and its query crate |
 | Mathematics | `pse-kernels`, `pse-math`, `pse-structural`, `pse-authoring`, `pse-modeling`, `pse-compiler`, `pse-backend-native`, `pse-ipopt-sys` | External functions; library mathematics; graph projections; syntax; generic checking and specialization; Salsa preparation; native solver adapters | Foundations, `pse-model`, `pse-buildinfo` |
 | Orchestration | `pse-runtime` | Selected admission, workflow jobs, resources, results and publication | All of the above |
 | Boundary | `pse-py` | Python extension over the workflow and inspection | `pse-runtime` and the crates whose types it exposes |
 | Tooling | `pse-codegen`, `pse-buildinfo`, `pse-testkit`, `xtask` | Generation, build provenance, dev fixtures | Declaration; `pse-testkit` is never a production dependency |
 
 The mathematics layer has no Arrow, DataFusion or Delta dependency. `pse-runtime` is the
-only crate that joins data and mathematics, so relational concerns cannot leak into
-evaluation and native solver state cannot leak into storage.
+only crate that joins data and mathematics, and the only one that composes the operational
+store with Delta, so relational concerns cannot leak into evaluation and native solver
+state cannot leak into storage.
 
 ### 1.2 The three representations, made concrete
 
@@ -176,7 +182,7 @@ evaluation and native solver state cannot leak into storage.
 |---|---|---|---|
 | Authored definitions and the selected revision | Modeling documents, checked package revisions, cases and analysis declarations; generic `authored` and physical `reference` relations | `pse-authoring`, `pse-modeling`, runtime modeling admission, registry | Compiler and inspection |
 | Prepared immutable products | Compiler `Inputs`, `CaseStructure`, `PreparedCase`, `BodySpec`, `CasePlan`, compiled bodies, artifact requests, eligibility | `pse-compiler`, `pse-math`, `pse-backend-native::routing` | Attempt workers and native adapters |
-| Attempts and results | Run handles, workers and native adapter state; `RunResult`, `Completion`, Arrow result tables, publication attempts and settlements | `pse-runtime`, `pse-catalog` | Rust, Arrow and Python readers; exact publication |
+| Attempts and results | Run handles, workers and native adapter state; durable attempts, jobs and studies; `RunResult`, `Completion`, Arrow result tables, publication attempts and settlements | `pse-runtime`, `pse-operations`, `pse-catalog` | Rust, Arrow and Python readers; exact publication |
 
 Nothing flows backward: a derived product or result never writes into authored
 definitions. Initialization stages are overlays on immutable case bindings
@@ -192,7 +198,8 @@ pins live in `Cargo.toml`, rationale in [§3.3](workspace-and-dependencies.md#se
 |---|---|---|
 | Arrow | Columnar boundary, extension types, result tables, Python transfer through pyo3-arrow | `pse-columnar`, `pse-relations`, `pse-py` |
 | DataFusion | Admission and set-oriented queries, invariant checks, inspection, retained artifact cache | `pse-engine`, `pse-rules` |
-| Delta (delta-rs) and object_store | Exact publication, settlement, retention | `pse-catalog` |
+| Delta (delta-rs) and object_store | Immutable member tables, export manifests and catalog-instructed maintenance | `pse-catalog` |
+| PostgreSQL 18: tokio-postgres, deadpool-postgres, postgres-types; Cornucopia at generation | Operational store and publication catalog: attempts, jobs, streams, solutions, studies, visibility and retention | `pse-operations`, `pse-operations-queries` |
 | Salsa | Pure semantic preparation and reuse | `pse-compiler` |
 | Symbolica, Numerica (GMP/MPFR) | Algebra, normalization, derivatives, evaluators, coefficient projection | `pse-math` |
 | faer | Sparse structure and products; fitting LU/SVD | `pse-math`, `pse-backend-native`, `pse-runtime` |
@@ -320,18 +327,17 @@ evidence never establishes global stability or empirical accuracy. See
 >
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —
 > PostgreSQL owns what changes (operational state and the publication catalog); Delta owns
-> what is published (immutable member data). Plan 22 O packets; not yet implemented: until
-> O8 lands, the Delta control relation remains the implemented publication record. ADR-0114
-> (superseding ADR-0112) also generates the store's schema from the registry and compiles its
-> statements into a generated crate (Plan 22 B1, B2; not yet implemented).
+> what is published (immutable member data). ADR-0114 (superseding ADR-0112) also generates
+> the store's schema from the registry and compiles its statements into a generated crate.
+> Plan 22 O1–O9, G8, B1 and B2, implemented; the Delta control relation is deleted.
 
 Typed Rust owns physical finite compilation; Salsa owns pure dependency tracking;
 mathematical and numerical libraries own their algorithms; packages own scientific equations. Arrow and
 DataFusion own admission, set-oriented model and result work, inspection and storage
-boundaries; Delta owns published data. In the target, PostgreSQL owns what changes —
-attempts, jobs, leases, progress, reusable solutions and the publication catalog — and
-Delta owns what is published ([ADR-0114](../../adr/0114-typed-operational-store.md)).
-No layer duplicates another's authority. Hashes never
+boundaries. PostgreSQL owns what changes (attempts, jobs, leases, cancellation requests,
+progress and incumbents, reusable solutions, studies and the publication catalog) and
+Delta owns what is published ([§20](identity-and-publication.md#section-20)). The registry
+owns the meaning and shape of both. No layer duplicates another's authority. Hashes never
 substitute for semantic admission. *Because* each mechanism is strongest at its own
 operation. See [§1.3](#section-1-3) and [§3.3](workspace-and-dependencies.md#section-3-3).
 

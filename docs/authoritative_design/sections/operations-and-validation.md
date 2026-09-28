@@ -47,7 +47,10 @@ text: `runtime.computation_runs` (state, native termination, qualification, cand
 facts), `runtime.solve_metrics` (effective options and native metrics, with typed
 unavailable reasons instead of invented values), `runtime.execution_statistics`
 (planning, load and acceleration counts) and `runtime.diagnostics_findings`. Native
-solver progress is exposed as events on the joined job (`RunHandle::progress`). Field
+solver progress is exposed as events on the joined job (`RunHandle::progress`); a durable
+attempt's progress events and incumbents are also stored in the operational store and read
+back by `Runtime::progress` or queried under `pse_ops`
+([§20.6](identity-and-publication.md#section-20-6)). Field
 detail is in the [generated runtime reference](../../generated/relations/runtime.md);
 result meaning is owned by [§19](workflows-and-results.md#section-19).
 
@@ -64,7 +67,7 @@ propagation beyond `tracing` task propagation inside the engine.
 > realization refusal `modeling.realization` (Plan 22 M3 and M4, implemented);
 > [ADR-0114](../../adr/0114-typed-operational-store.md) — operational-store failures are classified by SQLSTATE constants, never strings;
 > CHECK and foreign-key violations are a typed invariant violation, not `Internal` (Plan 22
-> B2; not yet implemented).
+> B2, implemented).
 
 **Ownership.** `pse-diagnostics` declares one vocabulary: `FailureClass` (coarse class)
 and `DiagnosticCode` (detailed code, each mapped to one class). The registry projects
@@ -195,6 +198,35 @@ exhaustion → `Limit` (`Memory`); invalid or panic → `Internal`; every other 
 `Numerical` with the native status. A failed injected inner solve
 (`pse-math::MathError::Native`) carries `solve.solver_error` and keeps its typed native
 cause, which the workflow classifies together with the block identity.
+
+**Operational store failures.** `pse_operations::OperationsError` classifies a driver
+failure once, by `SqlState` constant and connection state, never by a code's spelling
+(`sqlstate_classified_by_constant`), and keeps the driver's error as an opaque cause, so no
+driver type appears in the public API. Retry decisions read the variant
+(`is_retryable`), never the message:
+
+| SQLSTATE or condition | Variant | Code | Retryable |
+|---|---|---|---|
+| 40001, 40P01 | `Retryable` | `runtime.infrastructure` | yes |
+| 55P03 | `LockUnavailable` | `runtime.infrastructure` | yes |
+| 57014 | `Cancelled` | `runtime.cancelled` | no |
+| 23505 | `Duplicate` | `runtime.infrastructure` | no |
+| 23514, 23503 | `InvariantViolation`: the table and the violated named row check or reference | `validation.invariant` | no |
+| class 08, 57P01–57P03, 53300, or a closed connection | `Unavailable`, naming the connection target without credentials | `runtime.infrastructure` | yes |
+| any other SQLSTATE | `Internal` | `internal.invariant` | no |
+
+The store's own refusals are typed as well: `SchemaMismatch` (another schema fingerprint,
+remedied by `just db-reset`) and `Configuration` are `config.invalid`; an illegal lifecycle
+transition, a missing row, an invalid request, a reused publication identity, an abandoned
+intent and a retired input are `validation.invariant`; a lost lease, a publication
+conflict, a retiring or protected publication, active readers and a lapsed reader lease
+are `runtime.infrastructure`. At the workflow boundary a retryable store failure is class
+`infrastructure` and any other store refusal `conflict` (rule `workflow.operations`); an
+ephemeral run asked to publish (`workflow.ephemeral_publication`), an unknown job payload
+version (`workflow.job_payload_version`), a former Delta control root
+(`workflow.legacy_workspace`) and an expired export (`workflow.export_expired`) are
+`incompatible`; an unconfirmed catalog commit is `infrastructure`
+(`workflow.publication_unresolved`).
 
 **Native engine errors.** `pse-columnar::engine` classifies `DataFusionError` in one
 place, by the plan's origin (`PlanOrigin`), never per call site:

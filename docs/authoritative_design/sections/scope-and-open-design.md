@@ -20,8 +20,9 @@ provider contracts in `pse-kernels`. The qualification basis for these statement
 > [ADR-0107](../../adr/0107-sensitivity-covariance-uncertainty.md) — sensitivity,
 > covariance and uncertainty under PS-12 validity;
 > [ADR-0114](../../adr/0114-typed-operational-store.md) — operational
-> store, publication catalog and durable multi-process execution. The Supported column
-> changes only as the [Plan 22](../../plans/22-solver-capabilities.md) packets land.
+> store, publication catalog and durable multi-process execution (Plan 22 O1–O9, G8,
+> implemented). The Supported column changes only as the
+> [Plan 22](../../plans/22-solver-capabilities.md) packets land.
 
 The Supported column describes implemented contracts and the exercised K8 seed.
 The earlier local Linux qualification in §24.2 predates this replacement; the current
@@ -39,8 +40,9 @@ no silent fallback, approximate substitute or compatibility route.
 | Initialization and recycles | Transactional staged initialization as one staged sequence with per-step overlays and value-only rebind; finite supplied continuation and bounded adaptive homotopy; authored tears selected by HiGHS MILP with an independent acyclicity witness; causal fixed-point maps; explicit starts independent of allocation reuse | Any convergence guarantee for a strategy | [§17](numerical-execution.md#section-17) |
 | Dynamics | ODE and index-1 DAE with a fixed diag(I,0) mass matrix; Diffsol BDF, SDIRK and (mass-free) explicit schemes with faer LU or KLU; IDAS with recoverable trials, scheduled inputs crossed by forward sensitivities, directional events without sensitivities, sign constraints, Krylov with a Jacobi preconditioner and a steady start; consistent initialization; finite events/resets; physical time origins; smooth forward sensitivities; native quadratures; simultaneous authored FD/Radau schemes | Higher-index or general implicit DAE; variable-layout dynamics; IDAS sensitivities across events; adjoint and second-order sensitivities and shooting until Plan 22 Y3–Y5 land (in the target: ADR-0110); unsupported residual/index structure | [§13](workflows-and-results.md#section-13) |
 | Fitting | Steady, transient and mixed fitting over declared sparse or dense support; candidate response derivatives; a qualified estimate requires convergence, original feasibility and response rank | Covariance, confidence intervals and uncertainty propagation until Plan 22 S3–S4 land (in the target with PS-12 validity: ADR-0107); global identifiability | [§19](workflows-and-results.md#section-19) |
-| Results and publication | Typed completion through Rust, Arrow and Python; exact publication, settlement and read-only reopening; typed migration-required refusal for unsupported historical formats | Automatic migration; multi-writer or remote object-store deployment until the catalog lands (in the target: ADR-0114, Plan 22 O8) | [§20](identity-and-publication.md#section-20), [§21](workflows-and-results.md#section-21) |
-| Python | Registry-generated declarations, blocking and async jobs, Arrow result streams, publication and settlement | Mathematics in Python; production Pyomo or NL routes | [§21](workflows-and-results.md#section-21) |
+| Results and publication | Typed completion through Rust, Arrow and Python; exact publication through the PostgreSQL catalog by concurrent local publishers, settlement by catalog query, reader-leased reopening, offline export manifests and catalog-owned retention; typed migration-required refusal for unsupported historical formats | Publication from an ephemeral runtime; automatic migration of Delta publications or of the operational store (a schema change resets it: register R-35); remote object stores, which are unqualified (register R-37); automatic retention (register R-36) | [§20](identity-and-publication.md#section-20), [§21](workflows-and-results.md#section-21) |
+| Durable execution | Durable attempts with typed terminations; a job queue claimed by `pse-worker` processes under leases, with stale recovery, retries and cross-process cancellation; progress and incumbent streams; stored seeds and resumption from the latest incumbent; studies across workers published once; SQL over the operational relations | Distributing one solve across processes; a store another build created (refused by fingerprint); remote PostgreSQL deployment, which is unqualified | [§20.6](identity-and-publication.md#section-20-6), [§19.3](workflows-and-results.md#section-19-3) |
+| Python | Registry-generated declarations and typed ids, generated boundary documents (settings, payloads), blocking and async jobs, Arrow result streams, durable runtimes, publication, settlement, studies and progress streams | Mathematics in Python; production Pyomo or NL routes | [§21](workflows-and-results.md#section-21) |
 
 **Recorded limits.** The following bound every claim made from the current qualification:
 
@@ -52,8 +54,9 @@ no silent fallback, approximate substitute or compatibility route.
   ([ADR-0102](../../adr/0102-discrete-and-global-design-target.md)) is implemented for
   factorable problems over finite boxes whose nonlinear terms involve no implicit block or
   provider output; the rest is Plan 22 G4. Durable multi-process execution through the
-  operational store ([ADR-0114](../../adr/0114-typed-operational-store.md))
-  is in the target and not yet implemented.
+  operational store ([ADR-0114](../../adr/0114-typed-operational-store.md)) is
+  implemented and exercised with local worker and publisher processes against a local
+  PostgreSQL 18 server; the 10 000-point study scale (scenario S15) is unmeasured.
 - Declared operating envelopes and exercised reference comparisons do not certify
   empirical property accuracy. Passing analytic or reference cases does not establish
   untested formulations.
@@ -71,10 +74,11 @@ no silent fallback, approximate substitute or compatibility route.
 ## 26. Risks and unresolved design choices
 
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —
-> multi-writer and remote publication decided through the PostgreSQL catalog (register
-> R-10 removed); [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) —
-> solver image and Ipopt linear solvers (register R-08, R-09 and R-34). Plan 22; not yet
-> implemented.
+> multi-writer publication through the PostgreSQL catalog (Plan 22 O8, implemented and
+> exercised locally; remote object stores deferred to register R-37, automatic retention
+> to R-36, store migrations to R-35);
+> [ADR-0108](../../adr/0108-ipopt-linear-solvers-and-solver-image.md) — solver image and
+> Ipopt linear solvers (register R-08, R-09 and R-34).
 
 Deferred choices with an observable trigger and review date are owned by the
 [deferred-decision register](../../adr/register.md); rows are cited here, not copied.
@@ -88,12 +92,15 @@ Deferred choices with an observable trigger and review date are owned by the
 | Local convergence only | NLP, root and recycle strategies find local solutions; multiple roots depend on starts | Explicit start policy and seed provenance, original-space qualification, tear acyclicity witnesses; no convergence guarantee is claimed (register R-32) |
 | Coupled library pins | Reference-only FeOS fixes its num-dual family; the vendored Delta crate tracks DataFusion and Arrow | One resolved version per family, `just family-check`, provider contract review before moving pins (register R-05) |
 | Resource estimates | A bad estimate either refuses valid work or admits more than the host can hold | Finite configurable policy, ownership-specific reservations, separate RSS measurement |
+| Operational store as a dependency of durable work | Durable runs, jobs, studies and publication stop when PostgreSQL is unreachable, and a schema change resets the store, forgetting the catalog | The explicit `Ephemeral` class needs no store; failures are the infrastructure class naming the target; contents are regenerable by rerun and the reset is confirmed (register R-35) |
 | Symbolica licensing | Use beyond Symbolica's unlicensed mode relies on a locally provisioned personal licence | The optional key is read from `SYMBOLICA_LICENSE` at initialization and never enters artifacts, identities or diagnostics; distribution terms are a release question (register R-31) |
 
 **Unresolved design choices.** Each has no selected position; the current system refuses
-or does not offer the capability until an owner decides. Multi-writer and remote
-object-store publication is no longer open: [ADR-0114](../../adr/0114-typed-operational-store.md)
-decides it through the PostgreSQL publication catalog, and qualification follows Plan 22 O8.
+or does not offer the capability until an owner decides. Multi-writer publication is no
+longer open: [ADR-0114](../../adr/0114-typed-operational-store.md) decides it through the
+PostgreSQL publication catalog, implemented and exercised locally. Qualifying a remote
+object store (S3-compatible) is deferred until a real need to publish to one (register
+R-37).
 
 | Choice | Current position | What would settle it |
 |---|---|---|
@@ -136,7 +143,7 @@ implemented** means no executable path exists. Scope is defined in
 | Solver configuration | `core/solvers/*` | Implemented | Class-specific adapters; `pse-backend-native` |
 | Dynamics | `dyn_utils.py`, PETSc DAE | Partial | ODE/index-1 profile; `pse-backend-native::dynamics`, `pse-runtime::workflow::dynamics` |
 | Parameter estimation | Pyomo `parmest` usage | Implemented | `pse-runtime::workflow::fitting`; no covariance |
-| Parameter sweeps | `parameter_sweep.py` | Implemented | Finite studies as one staged sequence over prepared views; `pse-runtime::workflow::staged` |
+| Parameter sweeps | `parameter_sweep.py` | Implemented | Finite studies as one staged sequence over prepared views; durable studies across worker processes, published once; `pse-runtime::workflow::{staged, study}` |
 | Convergence evaluation | `convergence/*` | Partial | Finite authored studies and retained per-case outcomes |
 | Utility minimization | `utility_minimization.py` | Not implemented | — |
 | Serialization, tables, tags, units | `model_serializer.py`, `tables.py`, `tags.py`, `units_of_measurement.py` | Implemented | Registry relations, Arrow results, Delta publication; `pse-quantity`, `pse-catalog` |
@@ -159,7 +166,7 @@ Relation, enumeration and extension-type detail is generated from the registry; 
 | Admission | Checking a request against its contract before use; admitted input is consumed, retained as nonexecuting data, or refused with its source identity |
 | Analysis request | The requested mode, outputs, derivatives and policy for an attempt; part of its identity |
 | Artifact request | A compiler-issued request for a compiled program, keyed by demand, profile, source, build and ABI identity |
-| Attempt | One execution of a prepared case; owns mutable workers, native state and resource admission until joined |
+| Attempt | One execution of a prepared case; owns mutable workers, native state and resource admission until joined. A durable attempt is also registered in the operational store with its lifecycle state and typed termination |
 | Authored | Written by an author or package; a primitive fact |
 | `BodySpec` | Semantic key of one specialization-local mathematical body; excludes compilation settings |
 | Candidate | Primal and available dual data supplied by a native solver, independent of its qualification |
@@ -177,17 +184,20 @@ Relation, enumeration and extension-type detail is generated from the registry; 
 | Nonexecuting data | Stored declarations retained with a selected model but not executed; never execution evidence |
 | Numerical policy | Resolved tolerances, nominals and scaling with recorded precedence; a separate input, never an adapter default |
 | Operating envelope | A provider's declared valid input window; not a statement of empirical accuracy |
+| Operational store | The PostgreSQL 18 store of what changes: attempts, jobs, streams, solutions, studies and the publication catalog; its schema is generated from the registry |
 | Ordinal, coordinate | A position within one prepared layout; never identity |
 | Overlay | An immutable case binding layered on another, such as an initialization stage |
 | Physical closure | Independent conservation checks recomputed from source contributions |
 | Provider | A registered external function capability with typed coordinates, shape, validity, derivatives and failures |
-| Publication | An exact, immutable Delta commit of selected results under an expected-parent precondition |
-| Publication ticket, settlement | The serializable attempt handle issued before effects, and the read-only determination of committed, not committed or unresolved |
+| Publication | An exact, immutable set of Delta member versions made visible by one catalog commit under an expected-parent precondition |
+| Publication intent | The catalog row registered before a publication's first member write: its identity, durable attempt and member prefix |
+| Publication ticket, settlement | The serializable handle issued before effects, and the determination, by catalog query, of committed, proved not committed, conflict or unresolved |
 | Qualification | Original-space numerical assessment of a candidate: feasibility, stationarity, gap or rank as applicable |
 | Realization | The declared transformation that lowers an implicit block, constraint form or disjunction, with its stated equivalence |
+| Reader lease | A short-lived catalog row that protects a publication's members while a reader or an export uses them |
 | Quantity type | Kind, dimension, basis, reference state, scale kind, shape and subject |
 | Reference | Shipped library data, such as units, elements and methods |
-| Retention | Preservation of the closure needed to reopen retained publications; distinct from cache retention |
+| Retention | Preservation of the closure needed to reopen retained publications, computed by the catalog; distinct from cache retention |
 | Semantic ID | Stable 128-bit identity of an authored entity, unchanged by rename |
 | Specialization | Finite expansion of a definition for a selected instance and case into library mathematics |
 | Staged sequence | Finite steps on one native session, each an overlay over the original specification with a typed start; initialization, homotopy, studies and authored runs use it |

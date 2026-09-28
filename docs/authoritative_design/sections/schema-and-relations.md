@@ -26,19 +26,25 @@ either generated from the registry or checked against it.
 
 > Decision: [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — a key column may declare an entity identity, inherited by foreign keys;
 > every decision vocabulary crossing a boundary is a registry enum with one Rust type
-> (Plan 22 B1, B3, B4; not yet implemented). [ADR-0114](../../adr/0114-typed-operational-store.md) — the registry also declares the
-> operational store's catalog tables and row invariants (Plan 22 B1).
+> (Plan 22 B1, B3, B4, implemented). [ADR-0114](../../adr/0114-typed-operational-store.md) — the registry also declares every
+> operational store table, the catalog's included, with its keys and row checks (Plan 22
+> B1, implemented). As built, a store table's CHECK constraints come from named row checks
+> rather than registry invariants, because an invariant is a relational query (refining
+> ADR-0114 Outcome 22); unique keys and foreign keys still generate invariants.
 
 A relation is declared exactly once as a `RelationSpec` over native Arrow fields
 (`pse_schema::model`). A `FieldContract` is a real Arrow `Field` that carries its domain
 facets in field metadata, so nested children carry the same contract as top-level
 columns. The facets are quantity, enumeration, foreign key, reference, collection,
-tagged alternative and integer range. Each relation declares:
+tagged alternative, integer range, entity identity, document format and structure name.
+Each relation declares:
 
 - its namespace;
 - its authority: `authored`, `reference` or `derived`;
 - its snapshot class: model, case, derived or sidecar;
-- its primary key and stability.
+- its primary key and stability;
+- where it needs them, unique keys, composite foreign keys and named row checks (a SQL
+  predicate every row satisfies, rendered for DataFusion and PostgreSQL alike).
 
 Assembly rejects duplicate declarations, dangling references and key columns whose
 equality is not an admitted exact scalar contract. Floating-point and quantity payloads
@@ -50,6 +56,7 @@ from the same declarations, so the platform can query and diff its own schema:
 
 - relations, columns and logical types;
 - enumeration types and members;
+- entity identities and the columns that carry them (`reference.schema_identities`);
 - invariants and migrations;
 - documents and document sections.
 
@@ -57,7 +64,20 @@ Other declarations have the same single owner:
 
 - **Enumerations.** Closed dictionaries. The member name is stored, and a member ordinal
   is presentation only. IDAES-derived members carry their upstream name
-  ([§6.14](#section-6-14)).
+  ([§6.14](#section-6-14)). Every vocabulary that decides behaviour and crosses a crate,
+  process, store or language boundary is a registry enumeration, including the backend and
+  dynamics settings vocabularies, `ExtrapolationPolicy` and the store's lifecycle,
+  termination, retention and settlement vocabularies. A vocabulary whose source is
+  hand-written Rust is declared with that source (`EnumDecl::sourced`: `pse-vocabulary`,
+  `pse-diagnostics`, `pse-quantity`), and the generator re-exports that type instead of
+  emitting a second one, so each vocabulary has one Rust type and no decision compares its
+  spelling as a string.
+- **Entity identities.** `declare_identity` names an entity; a key column carries it
+  (`with_identity`), foreign keys inherit it, and each has at most one owning key. Typed ids
+  are generated from them ([§5.1](identity-and-publication.md#section-5-1)).
+- **Named structures.** A structure field may carry a name (`named`); every occurrence of
+  the name has one contract and the generators emit it once (`MemberDescriptor`). The name
+  is presentation only and enters no fingerprint or row identity.
 - **Invariants.** Unique, foreign-key, check, cardinality, domain, closure and acyclic
   obligations with a severity. They form the relational commit contract
   ([§4.6](#section-4-6)).
@@ -93,21 +113,30 @@ bootstrap when the package loader itself depends on regenerated contracts.
 
 | Generated tree | Content | Main consumers |
 |---|---|---|
-| `crates/pse-model/src/generated/` | Plain semantic rows, enums and extension values, without Arrow | compiler, workflow, native adapters |
+| `crates/pse-model/src/generated/` | Plain semantic rows, enums (re-exports for source-owned vocabularies), typed ids, named structures and extension values, without Arrow; the store value mapping behind the `postgres` feature | compiler, workflow, native adapters, the operational store |
 | `crates/pse-relations/src/generated/` | Relation identities, Arrow views/builders/codecs, enum and algorithm-argument adapters | engine, catalog, runtime, `pse-py` |
 | `crates/pse-authoring/src/generated/`, `crates/pse-runtime/src/generated/` | Strict document structs and document-to-row adapters | document loading ([§22](models-and-composition.md#section-22)) |
 | `crates/pse-quantity/src/generated/` | Arrow-free physical fixtures projected from admitted reference packages ([§6.15.7](#section-6-15-7)) | tests and fixture registries |
 | `python/pse/contracts/` | Contract classes, enums with IDAES bindings, `pyarrow` extension types, content digest | Python package ([§21](workflows-and-results.md#section-21)) |
-| `docs/generated/` | Relation, enumeration, extension-type, algorithm and invariant reference; authoring JSON Schema | readers and editors |
+| `docs/generated/` | Relation, enumeration, extension-type, algorithm and invariant reference; the frame catalog; the authoring JSON Schema | readers and editors |
+| `crates/pse-operations/src/generated/` | The `pse_ops` DDL (ENUM types, identity domains, tables, keys and named checks), the binary `COPY` statements, the Cornucopia type mapping and the schema fingerprint ([§20.6](identity-and-publication.md#section-20-6)) | the operational store |
+| `crates/pse-operations-queries/` | Typed tokio-postgres statements compiled by Cornucopia 1.0.1 from `crates/pse-operations/queries/*.sql` against a temporary database on the local PostgreSQL 18 server | `pse-operations` |
+| `docs/generated/schema/`, `python/pse/contracts/documents/` | JSON Schemas of the Rust-owned boundary documents, derived by schemars in their owning crates, and the frozen msgspec types generated from them ([§21.5](workflows-and-results.md#section-21-5)) | Python package, readers |
 
-> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md), [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md), [ADR-0116](../../adr/0116-typed-boundary-documents.md) — target trees, not yet generated (Plan 22 B1, B2, B5):
-> `crates/pse-operations/src/generated/` (the `pse_ops` DDL with ENUM types and identity
-> domains, the schema fingerprint, the Cornucopia type mapping); `crates/pse-operations-queries/`
-> (typed statements compiled by Cornucopia against a temporary database on the local
-> PostgreSQL 18 server; its regeneration check needs that server); typed ids in `pse-model`;
-> JSON Schemas for Rust-owned documents in `docs/generated/schema/`; and generated msgspec
-> document types in `python/pse/contracts/`. `python/pse/_native.pyi` is generated as well and
-> is protected like the other trees.
+> Decision: [ADR-0114](../../adr/0114-typed-operational-store.md), [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md), [ADR-0116](../../adr/0116-typed-boundary-documents.md),
+> [ADR-0117](../../adr/0117-platform-vocabulary-crate.md) — the store, query-crate, document
+> and typed-id trees above and the frame reference (`docs/generated/frames.md`) are
+> generated (Plan 22 B1–B5, implemented). `python/pse/_native.pyi`, generated by
+> `cargo xtask python-stubs`, is protected like the other trees. As built, the authoring
+> JSON Schema keeps its own emitter: ADR-0116 Outcome 10's fallback, taken because the
+> schemars view of the generated authoring structs describes them after parsing and
+> hydration; the shared fields agree (`authoring_schema_equivalent_under_schemars`) and the
+> reason is recorded on the emitter.
+
+`crates/pse-operations/src/generated/` renders without a database; the query crate needs
+the local server, and a schema change regenerates it before the full generator, whose
+build links `pse-runtime` and so the query crate
+([operational-store guide](../../dev/operational-store.md)).
 
 `crates/pse-ipopt-sys/src/bindings.rs` is also a generated tree, but bindgen produces
 it from the Ipopt headers, not from the registry.
@@ -127,7 +156,7 @@ never patched afterwards, and nested children carry their own metadata.
 | Schema | `pse.contract.id`, `pse.contract.version`, `pse.contract.fingerprint`, `pse.namespace` | Relation identity, version, declaration digest and namespace |
 | Schema | `pse.contract.checks`, `pse.contract.delta_properties` | Named native SQL predicates; canonical Delta table properties |
 | Schema (durable) | `pse.contract.semantic`, `pse.contract.semantic_format`, `pse.contract.execution_encoding` | Complete semantic witness, its interpretation format and the native layout identity ([§20](identity-and-publication.md#section-20)) |
-| Field | `pse.semantic.logical_type`, `.quantity_type`, `.role`, `.fk`, `.enum`, `.reference`, `.collection`, `.tagged_alternative`, `.integer_range`, `.key_encoding` | Field facets of [§4.1](#section-4-1) |
+| Field | `pse.semantic.logical_type`, `.quantity_type`, `.role`, `.fk`, `.enum`, `.identity`, `.document`, `.reference`, `.collection`, `.tagged_alternative`, `.integer_range`, `.key_encoding` | Field facets of [§4.1](#section-4-1) |
 | Field | `ARROW:extension:name`, `ARROW:extension:metadata` | Extension type and its mandatory metadata ([§4.4](#section-4-4)) |
 
 Generated constructors produce the same key set for the same contract. They reject
@@ -200,7 +229,10 @@ Fields use native Arrow types chosen for the meaning they carry:
 Canonical PSE ordinals, counts and versions are stored as checked `Int64`, which Delta
 also stores portably. `pse.semantic.integer_range` records the actual domain, for
 example nonnegative ordinals or 32-bit source offsets, so storage width and meaning stay
-distinct. Timestamps, where a relation records one, are UTC. A tagged alternative
+distinct. Timestamps, where a relation records one, are UTC; the operational store's
+relations record the logical type `ts_us`, the microseconds PostgreSQL holds, never a
+nanosecond claim. A column holding one JSON document is the logical type `json` (PostgreSQL
+`jsonb`), distinct from text. Every `Float64` is finite. A tagged alternative
 (`model::TaggedAlternative`) declares a struct whose single active arm is selected by a
 discriminator column. Inactive arms and children masked by an absent parent are not
 values. Dictionary encoding is presentation only and never carries identity. The
@@ -473,9 +505,10 @@ owning section:
 
 | Group | Relations | Owner |
 |---|---|---|
-| Runs and results | `computation_runs`, `solve_runs`, `solve_variables`, `solve_constraints`, `solve_metrics`, `candidate_assessments`, `modeling_checks`, `modeling_reports`, `modeling_conformance`, `modeling_fixture_status`, `modeling_findings`, `simulation_samples`, `simulation_events`, `fit_*`, `response_sensitivities`, `run_lineage`, `resolved_numerics` | [§19](workflows-and-results.md#section-19) |
+| Runs and results | `computation_runs`, `solve_runs`, `solve_variables`, `solve_constraints`, `solve_metrics`, `candidate_assessments`, `modeling_checks`, `modeling_reports`, `modeling_conformance`, `modeling_fixture_status`, `modeling_findings`, `simulation_samples`, `simulation_events`, `fit_*`, `response_sensitivities`, `run_lineage`, `resolved_numerics`, `study_outcomes` | [§19](workflows-and-results.md#section-19) |
 | Capability inventory | `solver_capabilities` | [§18](numerical-execution.md#section-18) |
-| Publication and retention | `publications`, `artifact_descriptors`, `release_checkpoints`, `native_dependencies`, `change_events`, `maintenance_outcomes`, `retained_versions`; `reference.artifact_profiles` | [§20](identity-and-publication.md#section-20) |
+| Publication and retention | `publication_manifests`, `artifact_descriptors`, `native_dependencies`, `change_events`, `maintenance_outcomes`, `retained_versions`; `reference.artifact_profiles` | [§20](identity-and-publication.md#section-20) |
+| Operational store | `operational_*`: one sidecar relation per `pse_ops` table (attempts, transitions, jobs, streams, solutions, sources, studies and the publication catalog) | [§20.6](identity-and-publication.md#section-20-6) |
 | Observation | `diagnostics_findings`, `validation_findings`, `cache_statistics`, `cache_entry_statistics`, `execution_statistics` | [§23](operations-and-validation.md#section-23) |
 
 Several facts that could be conflated are kept apart:

@@ -442,9 +442,11 @@ provenance. Case resolution records a `StartSource` for every resolved input
 (`workflow/modeling/cases.rs`): `ModelDefault`, `Case` (with its authored path),
 `Annotation` (with the start annotation's declaration), `Predecessor` (the solved values
 of an earlier staged step, [§17.6](#section-17-6)), `Continuation` (a continuation
-override) or `Stored`, reserved for
-starts read from the operational store (Plan 22 O6; not yet implemented). Workflows branch
-on this type, never on a label. An integrated state without an isolated initial equation
+override) or `Stored`, a seed read from the operational store's solutions by
+coordinate-compatibility stamp and preparation identity, or named explicitly
+(`with_stored_start`; a study point's predecessor, a resumed job's incumbent,
+[§20.6](identity-and-publication.md#section-20-6)). Workflows branch on this type, never on
+a label. An integrated state without an isolated initial equation
 takes its lower-endpoint start from its start annotation, evaluated through the model at the
 endpoint, when its source is `Annotation`; every other source supplies the resolved
 constant. An annotation source whose model output is missing is refused, not frozen.
@@ -977,11 +979,14 @@ enter nonlinear terms, automatic cone recognition, adjoint and second-order sens
 general or higher-index DAE, finite-difference derivatives, GPU and distributed execution.
 Of these, the SCIP extensions (implicit definitions and provider envelopes in the export,
 Plan 22 G4; IIS, G5; native handlers, solution pool, reoptimization, concurrent and exact
-modes, G7), cone recognition from exact certificates (Plan 22 C5), adjoint and second-order
-sensitivities (Plan 22 Y3, Y4) and durable multi-process execution
-([ADR-0114](../../adr/0114-typed-operational-store.md)) are in the design
-target and not yet implemented. General or higher-index DAE, finite-difference
-derivatives, GPU execution and distributing one solve remain outside the target.
+modes, G7), cone recognition from exact certificates (Plan 22 C5) and adjoint and
+second-order sensitivities (Plan 22 Y3, Y4) are in the design target and not yet
+implemented. Durable multi-process execution through the operational store
+([ADR-0114](../../adr/0114-typed-operational-store.md),
+[§20.6](identity-and-publication.md#section-20-6)) is implemented: jobs across worker
+processes, studies, durable incumbents and resumption from them. General or higher-index
+DAE, finite-difference derivatives, GPU execution and distributing one solve remain outside
+the target.
 
 ### 18.10 Root, coefficient and cone adapters
 
@@ -1057,8 +1062,8 @@ original case columns ([§18.10.1](#section-18-10-1)).
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — SCIP 10.0.2 through the
 > factorable projection and a pse-owned `scip-sys` binding (Plan 22 G1 and G3, implemented;
 > implicit definitions and provider envelopes in the export, G4; IIS, G5; native handlers,
-> solution pool, reoptimization, concurrent and exact modes, G7; durable incumbents, G8; not
-> yet implemented); [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
+> solution pool, reoptimization, concurrent and exact modes, G7; not yet implemented;
+> durable incumbents, G8, implemented); [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > `global_bound`, `proven_infeasible` and `GapQualified` with their conditions.
 
 **Binding and lifecycle.** `pse-backend-native::scip` (feature `scip`) binds the raw SCIP
@@ -1114,8 +1119,14 @@ options. SCIP runs serial until its concurrent mode is admitted (Plan 22 G7).
 **Cancellation and progress.** An event handler on the instance catches presolve rounds and
 node, LP, best-solution and dual-bound events. On each it polls the attempt's cancel flag
 and calls `SCIPinterruptSolve` once, on the owning thread; on every new best solution or
-improved dual bound it pushes a `scip.bound` progress event with both bounds. A panic in the
-handler is contained as a SCIP error.
+improved dual bound it pushes a `scip.bound` progress event with both bounds. Between the
+INITSOLVE and SOLVED stages, a new best solution also becomes a typed `IncumbentEvent`: the
+objective in post-solve convention with the export offset applied, dual bound, gap, nodes,
+native seconds and, throttled to one capture per second (the first and the last always
+kept), SCIP's best solution over the export's program columns. A durable attempt streams
+and stores it, and a resumed job injects it
+([§20.6](identity-and-publication.md#section-20-6)). An objective with an epigraph variable
+reports the epigraph value. A panic in the handler is contained as a SCIP error.
 
 **Status map.** `scip::termination` maps every raw `SCIPgetStatus` value of the 10.0.2 ABI
 without a wildcard: `OPTIMAL` and `GAPLIMIT` are success with the native assurance

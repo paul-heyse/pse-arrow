@@ -171,7 +171,9 @@ package closure and physical context. Selected definitions/cases produce immutab
 solves, simulations, fits or strategies. Starting work returns a supervised `RunHandle`;
 waiters share the joined result and cancellation joins native destruction. Preparation does
 not publish or own a mutable solver. Publication remains explicit
-([§20](identity-and-publication.md#section-20)). Owners are `workflow/modeling`,
+([§20](identity-and-publication.md#section-20)). In a durable runtime every run is also an
+attempt registered in the operational store, and jobs and studies run across worker
+processes ([§20.6](identity-and-publication.md#section-20-6)). Owners are `workflow/modeling`,
 `workflow/staged`, `workflow/run`, `workflow/completion`, `workflow/modeling_results` and
 fitting preparation.
 
@@ -262,7 +264,9 @@ model, unsupported, resource limit, trial rejected, nonfinite, infrastructure, c
 conflict, incompatible, internal) with source identities, stage and observations
 ([§23.2](operations-and-validation.md#section-23-2)). Diagnostic capture is bounded and
 optional; it reads the executed plan and cannot change a scientific or publication
-outcome. Progress is a bounded event stream with an actual dropped-event count.
+outcome. Progress is a bounded event stream with an actual dropped-event count; a
+durable attempt's progress events and incumbents are also stored without a cap and read
+back in order by `Runtime::progress` ([§20.6](identity-and-publication.md#section-20-6)).
 Authored report annotations project selected scalar/indexed observations into
 `runtime.modeling_reports`; structured findings, original checks and conformance fixture
 dispositions have their own generated relations. Reading a result never reruns a model.
@@ -273,6 +277,8 @@ Clones and exported Arrow buffers share allocation ownership through the last re
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — a
 > dependent point starts only from a predecessor whose candidate permits it. Plan 22 A6
 > (implemented) runs a study as one staged sequence over package views.
+> [ADR-0114](../../adr/0114-typed-operational-store.md) — durable studies across workers,
+> published once (Plan 22 O7, implemented).
 
 `ModelingPackage::study` executes a finite inventory of points, at most 4,096 and at most the
 caller's cap, as one staged sequence with explicit predecessor relationships; a predecessor
@@ -290,6 +296,28 @@ structure and library programs while values and requested analyses remain explic
 Dynamic rebinding retains the same ownership contract. Runtime cache clearing removes
 retained programs without invalidating active workers; historical campaign measurements do
 not qualify the new seed.
+
+**Durable studies.** `Runtime::start_study` (Python `ModelingPackage.study(..., runtime=,
+workspace=)`) runs a study's points as jobs across any number of worker processes and
+publishes it once (scenario S15). It stores the package's sources and a typed, versioned
+`StudyDefinition`, then creates in one transaction the study's own coordinating attempt
+(kind `study`, [§20.6](identity-and-publication.md#section-20-6)), the study's one
+publication intent for that attempt, one job per point carrying its `StudyPointBinding`
+(study, index, binding hash, typed overlay, predecessor), and a waiting finalization job.
+A point with a predecessor waits (its job `waiting`, its attempt `planned`) until the
+predecessor completes, then starts from the predecessor's newest compatible stored
+solution, or fresh with the reason recorded in its `job.start` event; a predecessor that
+fails or is cancelled cancels its dependents transitively as `unattempted`. A completed
+try writes its result tables under the intent's prefix and records them in
+`study_point_members` in the transaction that completes the point. When the last point is
+terminal, the study's attempt ends (completed, partial, failed or cancelled) and the
+finalization is released: it writes `runtime.study_outcomes`, one row per point, and
+commits one publication of the study's attempt with that summary and every completed
+point's members, so a failed point contributes nothing and contaminates nothing.
+Cancelling a study stops the points not yet started, asks running tries to stop and still
+publishes what completed. A durable study needs the package's authored documents, so a
+package changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) is refused.
+`Runtime.studies()` lists studies and `StudyHandle` reports, cancels and waits on one.
 
 ### 19.4 Parameter estimation
 
@@ -473,10 +501,16 @@ full numerical equivalence
 > shared vocabulary (restating ADR-0090);
 > [ADR-0116](../../adr/0116-typed-boundary-documents.md) (superseding ADR-0113) — typed backend settings, registry names and typed
 > eligibility across the boundary (Plan 22 A5, implemented), with published JSON Schemas and
-> generated Python document types (Plan 22 B5; not yet implemented).
+> generated Python document types (Plan 22 B5, implemented);
+> [ADR-0114](../../adr/0114-typed-operational-store.md) — durable runtimes, the publication
+> catalog, studies and the operational query surface (Plan 22 O3–O9, implemented).
 
-`pse.Runtime(EngineSettings)` binds the shared runtime and memory budget, also used by
-`pse.open`; conflicting settings refuse. `physical_from_documents` admits physical data;
+`pse.Runtime(EngineSettings, store=None)` binds the shared runtime and memory budget;
+conflicting settings refuse. With `store=pse.OperationalStore()` the runtime is durable
+([§20.6](identity-and-publication.md#section-20-6)): every run is an attempt in the store
+and may be published, and `runs()`, `jobs()`, `studies()`, `study()`, `work()`,
+`query(sql, result=, publication=)` and `progress(attempt_id, follow=True)` read and serve
+the store. `physical_from_documents` admits physical data;
 `modeling_from_documents` admits the explicit package closure. `ModelingPackage` exposes
 immutable declarations/limits/fit-data views, selected solve/simulation/fitting preparation,
 initialization, flow/recycle and block strategies, studies, diagnostics and conformance.
@@ -492,8 +526,15 @@ terminal result. Repeated waits never rerun a solver. A run handle supervises on
 sequence ([§19.2](#section-19-2)); a single solve is a one-step sequence on its own native
 session.
 
-`pse.open(location, version=..., settings=...)` selects one exact Delta publication;
-later writes cannot change the selection ([§20](identity-and-publication.md#section-20)).
+`Runtime.register_workspace`, `workspace` and `head`, `RunResult.prepare_publication`,
+`PublicationAttempt.commit` and `settle_publication` publish through the catalog
+([§20.2](identity-and-publication.md#section-20-2)). `Runtime.open(publication_id)` and
+`open_head(workspace_id)` select one exact publication under a reader lease that is
+renewed while the publication or a stream of it is open; `export_publication` writes an
+export manifest, and `pse.open_export(location, settings=...)` opens it without the store
+([§20.4](identity-and-publication.md#section-20-4)). Later writes cannot change a selection.
+The former `pse.open(location, version)` over a Delta control table is removed, with no
+compatibility facade.
 Result and publication tables cross as one-consumption `TableStream` objects exposing
 `__arrow_c_stream__`, never as row objects and never materialized on both sides. The
 capsule protocol, not `pyarrow`, is the contract
@@ -509,24 +550,44 @@ does not prove the consumer registered the extension types.
 
 > Decision: [ADR-0116](../../adr/0116-typed-boundary-documents.md) — every Rust-owned boundary document (settings, job payload,
 > termination detail, source manifest) is typed and versioned, with a schemars JSON Schema and
-> generated msgspec types; validated scalar settings (Plan 22 B5; not yet implemented).
+> generated msgspec types; validated scalar settings (Plan 22 B5, implemented). As built, the
+> job payload carries the typed `SolveSettings` document and a `JobStart` policy; the
+> `JobProfile` that ADR-0116 Outcome 6 names was deleted with payload version 1, and the
+> payload is at version 3 (`JobPayload`, with a `ModelingJob` or a study finalization).
 > [ADR-0115](../../adr/0115-registry-typed-identities-and-vocabularies.md) — every enumeration crossing the boundary is a registry enum with one Rust type
-> (Plan 22 B4; not yet implemented).
+> (Plan 22 B4, implemented).
 
 Python contracts are generated from the registry into `python/pse/contracts/`
 ([§4.2](schema-and-relations.md#section-4-2),
 [ADR-0051](../../adr/0051-generated-trees-and-regeneration-check.md)): frozen attrs
 classes per relation row, enums, value types and Arrow extension types. Generic modeling declarations are generated from the same owner; no hand-written
-class mirrors a relation. The native API stubs (`_native.pyi`) are generated from the compiled
-extension's metadata.
+class mirrors a relation. Entity identities are generated `NewType`s
+(`pse.contracts.identities`). The native API stubs (`_native.pyi`) are generated from the
+compiled extension's metadata.
+
+**Boundary documents.** The Rust serde type owns each Rust-owned document: the backend,
+solve, Diffsol and IDAS settings, the job payload, the termination detail, the source
+manifest and the study definition. schemars derives its JSON Schema (draft 2020-12) into
+`docs/generated/schema/`, and a closed emitter (`pse-codegen::codegen::documents`) turns
+the schemas into frozen msgspec `Struct` types in `python/pse/contracts/documents/`: every
+enumeration is the registry's generated enum, every object refuses unknown fields, and a
+schema construct outside the mapping is a generation error. ADR-0116 Outcome 7 allowed
+datamodel-code-generator or this emitter; the emitter was chosen because the external
+generator emits `Any`, duplicate enums and unfrozen structs. Python's `SolveSettings`,
+`BackendSettings`, `DiffsolSettings` and `IdasSettings` are these types, and the native
+entry points decode the encoded document, so no `**fields: object` signature remains.
+Single-value setting domains are validated types (`Tolerance`, `Fraction`,
+`PositiveCount`, `FiniteBound`, built with nutype) refused at decode with a typed cause;
+`admit_settings` keeps the cross-field and environment rules. `SimulationSettings` and
+`ModelingFixturePolicy` stay native classes that take an encoded document.
 
 - **Strict structuring.** cattrs converters forbid extra keys and keep detailed
   validation; msgspec structs forbid unknown fields for wire envelopes, settings and
   documents (`python/pse/codec`). A mismatched payload fails at the boundary.
 - **No `Any`.** Contract classes are checked for `Any`, bare `dict` and bare `list`
   (`pse.governance`). The check resolves annotations first (`attrs.resolve_types`), so
-  postponed annotations (`from __future__ import annotations`) are allowed. In the target it
-  also covers the generated msgspec document types (ADR-0116).
+  postponed annotations (`from __future__ import annotations`) are allowed. It also covers
+  the generated msgspec document types (ADR-0116).
 - **Import-time checks.** Importing `pse` registers the extension types idempotently and
   checks package/native version and generated registry fingerprint agreement.
 
