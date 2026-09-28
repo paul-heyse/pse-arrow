@@ -947,6 +947,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            182u8, 13u8, 17u8, 90u8, 7u8, 110u8, 235u8, 208u8, 40u8, 109u8, 42u8, 101u8,
+            52u8, 218u8, 45u8, 16u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeSolutionPool(
+                super::r#runtime::r#solution_pool::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             111u8, 1u8, 114u8, 49u8, 22u8, 99u8, 46u8, 7u8, 234u8, 91u8, 80u8, 8u8,
             132u8, 221u8, 64u8, 181u8,
         ])
@@ -1263,6 +1275,9 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSimulationSamples(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeSolutionPool(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeSolveConstraints(rows) => {

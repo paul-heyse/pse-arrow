@@ -957,6 +957,22 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, sample, symbol_id`.
 | `unit_id` | `semantic_id` | false | `payload` | — | — |
 | `value` | `Float64` | false | `payload` | — | — |
 
+## `solution_pool`
+
+Ranked solutions a certifying backend stored beside the candidate, best first, over the free variables in original coordinates (ADR-0105 §8). `objective` is the backend's value in the authored sense; `feasible` is the original-coordinate re-qualification, absent when the point could not be evaluated. A pooled solution is an observation: only the qualified candidate is a result or a seed.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, rank, symbol_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `rank` | `Int64` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `objective` | `Float64` | true | `payload` | — | — |
+| `feasible` | `Boolean` | true | `payload` | — | — |
+
 ## `solve_constraints`
 
 Fresh original constraint values; signed residual exists only for equality rows. Interval violations retain separate sides and physical tolerances.

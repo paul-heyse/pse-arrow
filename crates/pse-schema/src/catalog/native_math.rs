@@ -529,6 +529,24 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Typed native metrics, effective options and provenance. Exactly the selected value field is populated by result admission; absent metrics are never synthesized as zero.",
     );
+    relation_version(
+        b,
+        N::Runtime,
+        "solution_pool",
+        1,
+        S::Derived,
+        &["run_id", "step", "rank", "symbol_id"],
+        vec![
+            column("run_id", T::id()),
+            column("step", ordinal()),
+            column("rank", ordinal()),
+            column("symbol_id", T::id()),
+            column("value", real()),
+            column("objective", real()).optional(),
+            column("feasible", flag()).optional(),
+        ],
+        "Ranked solutions a certifying backend stored beside the candidate, best first, over the free variables in original coordinates (ADR-0105 §8). `objective` is the backend's value in the authored sense; `feasible` is the original-coordinate re-qualification, absent when the point could not be evaluated. A pooled solution is an observation: only the qualified candidate is a result or a seed.",
+    );
 }
 
 fn declare_dynamics_fitting(b: &mut RegistryBuilder) {

@@ -187,6 +187,8 @@ pub enum FactBatch {
     r#RuntimeSimulationEvents(Vec<super::r#runtime::r#simulation_events::Row>),
     #[doc = stringify!(r#RuntimeSimulationSamples)]
     r#RuntimeSimulationSamples(Vec<super::r#runtime::r#simulation_samples::Row>),
+    #[doc = stringify!(r#RuntimeSolutionPool)]
+    r#RuntimeSolutionPool(Vec<super::r#runtime::r#solution_pool::Row>),
     #[doc = stringify!(r#RuntimeSolveConstraints)]
     r#RuntimeSolveConstraints(Vec<super::r#runtime::r#solve_constraints::Row>),
     #[doc = stringify!(r#RuntimeSolveMetrics)]
@@ -672,6 +674,12 @@ impl FactBatch {
                     84u8, 245u8, 55u8, 216u8, 46u8, 76u8,
                 ])
             }
+            Self::r#RuntimeSolutionPool(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    182u8, 13u8, 17u8, 90u8, 7u8, 110u8, 235u8, 208u8, 40u8, 109u8, 42u8,
+                    101u8, 52u8, 218u8, 45u8, 16u8,
+                ])
+            }
             Self::r#RuntimeSolveConstraints(_) => {
                 pse_ids::SemanticId::from_bytes([
                     111u8, 1u8, 114u8, 49u8, 22u8, 99u8, 46u8, 7u8, 234u8, 91u8, 80u8,
@@ -791,6 +799,7 @@ impl FactBatch {
             Self::r#RuntimeRunLineage(rows) => rows.len(),
             Self::r#RuntimeSimulationEvents(rows) => rows.len(),
             Self::r#RuntimeSimulationSamples(rows) => rows.len(),
+            Self::r#RuntimeSolutionPool(rows) => rows.len(),
             Self::r#RuntimeSolveConstraints(rows) => rows.len(),
             Self::r#RuntimeSolveMetrics(rows) => rows.len(),
             Self::r#RuntimeSolveRuns(rows) => rows.len(),
@@ -1199,6 +1208,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeSolutionPool(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeSolveConstraints(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1542,6 +1556,9 @@ impl FactBatch {
             Self::r#RuntimeSimulationSamples(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeSimulationSamples(vec![row.clone()]))
+            }
+            Self::r#RuntimeSolutionPool(rows) => {
+                rows.get(index).map(|row| Self::r#RuntimeSolutionPool(vec![row.clone()]))
             }
             Self::r#RuntimeSolveConstraints(rows) => {
                 rows.get(index)
@@ -2365,6 +2382,14 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (Self::r#RuntimeSolutionPool(left), Self::r#RuntimeSolutionPool(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (
                 Self::r#RuntimeSolveConstraints(left),
                 Self::r#RuntimeSolveConstraints(right),
@@ -2971,6 +2996,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeSimulationSamples(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeSolutionPool(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4138,6 +4170,26 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (Self::r#RuntimeSolutionPool(left), Self::r#RuntimeSolutionPool(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#rank,
+                                &right.r#rank,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#symbol_id,
+                                &right.r#symbol_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
             (
                 Self::r#RuntimeSolveConstraints(left),
                 Self::r#RuntimeSolveConstraints(right),
@@ -4605,6 +4657,13 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#sample, &mut hash);
+                crate::SemanticFrame::frame(&row.r#symbol_id, &mut hash);
+            }
+            Self::r#RuntimeSolutionPool(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#rank, &mut hash);
                 crate::SemanticFrame::frame(&row.r#symbol_id, &mut hash);
             }
             Self::r#RuntimeSolveConstraints(rows) => {
@@ -5163,6 +5222,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeSolutionPool(left),
+                Self::r#RuntimeSolutionPool(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeSolveConstraints(left),
                 Self::r#RuntimeSolveConstraints(mut right),
             ) => {
@@ -5338,6 +5404,7 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeRunLineage(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationEvents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationSamples(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeSolutionPool(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveConstraints(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveMetrics(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolveRuns(rows) => crate::HeapUsage::heap_bytes(rows),

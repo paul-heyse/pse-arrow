@@ -73,6 +73,8 @@ pub mod r#simulation_events;
 ///Generated relation contract.
 pub mod r#simulation_samples;
 ///Generated relation contract.
+pub mod r#solution_pool;
+///Generated relation contract.
 pub mod r#solve_constraints;
 ///Generated relation contract.
 pub mod r#solve_metrics;

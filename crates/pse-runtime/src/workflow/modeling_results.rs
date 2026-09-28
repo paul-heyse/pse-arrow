@@ -4,7 +4,7 @@
 use super::{RunRequest,RunReport,RunResult,WorkflowError,contract,relation};
 use crate::math::solves::Outcome;
 use pse_ids::SemanticId;
-use pse_relations::{columnar::{FieldCheckedBatch,RelationRow},generated::{enums::DualQualification,runtime::{solve_runs as runs,solve_variables as variables,solve_constraints as constraints,solve_metrics as metrics,modeling_checks,modeling_reports,modeling_findings}}};
+use pse_relations::{columnar::{FieldCheckedBatch,RelationRow},generated::{enums::DualQualification,runtime::{solve_runs as runs,solve_variables as variables,solve_constraints as constraints,solve_metrics as metrics,solution_pool as pool,modeling_checks,modeling_reports,modeling_findings}}};
 use std::collections::BTreeMap;
 impl RunResult {
     pub(super) fn encode_modeling(&self)->Result<BTreeMap<SemanticId,FieldCheckedBatch>,WorkflowError> {
@@ -27,6 +27,7 @@ impl RunResult {
         let mut variable_rows=variables::Builder::with_registry(registry,0).map_err(relation)?;
         let mut constraint_rows=constraints::Builder::with_registry(registry,0).map_err(relation)?;
         let mut metric_rows=metrics::Builder::with_registry(registry,0).map_err(relation)?;
+        let mut pool_rows=pool::Builder::with_registry(registry,0).map_err(relation)?;
         for (ordinal,request) in requests.iter().enumerate() {
         let declaration=request.model.case.compiled().plan.structure();
         let step=ordinal as i64;
@@ -179,6 +180,13 @@ impl RunResult {
             }
 
         if let Some(native)=native {super::results::push_native_metrics(&mut metric_rows,self.run_id,step,native)?;}
+        // Ranked pooled solutions over the report's free variables (ADR-0105 §8).
+        for solution in native.and_then(|r|r.global.as_ref()).map_or(&[][..],|g|g.pool.as_slice()) {
+            let rank=i64::try_from(solution.rank).map_err(|_|contract("solution pool rank"))?;
+            for (symbol_id,value) in native.map_or(&[][..],|r|r.variables.as_slice()).iter().zip(&solution.primal) {
+                pool_rows.push(pool::Row{run_id:self.run_id,step,rank,symbol_id:*symbol_id,value:*value,objective:solution.objective,feasible:solution.feasible}).map_err(relation)?;
+            }
+        }
         if let Some(result)=result {
             for row in &result.checks {collection.push(row.clone()).map_err(relation)?;}
             for row in &result.reports {collection.push(row.clone()).map_err(relation)?;}
@@ -213,6 +221,7 @@ impl RunResult {
             (variables::RELATION_ID,variable_rows.finish().map_err(relation)?),
             (constraints::RELATION_ID,constraint_rows.finish().map_err(relation)?),
             (metrics::RELATION_ID,metric_rows.finish().map_err(relation)?),
+            (pool::RELATION_ID,pool_rows.finish().map_err(relation)?),
         ]);
         self.retain_sources(&mut batches)?;
         Ok(batches)

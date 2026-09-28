@@ -1334,6 +1334,19 @@ class RuntimeSimulationSamplesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeSolutionPoolRow:
+    """Declared relation row or nested value."""
+
+    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    rank: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float = attrs.field(validator=v.finite_float)
+    objective: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    feasible: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeSolveConstraintsRow:
     """Declared relation row or nested value."""
 
