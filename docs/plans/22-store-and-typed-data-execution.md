@@ -225,6 +225,16 @@ set), and deletes what it replaces in the same change.
 ### B3b — typed-id sweep (W4, Track T)
 Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py signatures to typed ids, plus Python `attempt_id`/`publication_id` `NewType`s. Tested with `compile_fail` doctests.
 
+### B3c — remaining typed-id sweep (W5)
+B3b stayed out of the runtime files O7 owned. B3c types what is left:
+- `run_id` on its registry columns (31) and through the runtime signatures (about 25), after checking the `run_lineage` wording that run identity "names the attempt";
+- `WorkflowError::{EphemeralPublication.run_id, ExportLeaseExpired.publication}`;
+- the O7 and O9 runtime entry points (`start_study`, `progress`, the study handles) and their Python counterparts (`AttemptId`, a `StudyId`, `case_id` as `DeclarationId` in `_modeling.py`);
+- explicit identity owners in the registry, so a keyed projection such as the export manifest can declare its identity without becoming its owner;
+- the no-op `.into()` calls B3b left in `publication.rs` and `reading.rs`, and the unused `run_id` parameter in `workflow/modeling/dynamics.rs`.
+
+The model and case semantics follow the maintainer's decision on B3b's proposal (see the B3b checkpoint).
+
 ### O9 — query surface (W5)
 - **Provider.** A read-only `TableProvider` per operational relation, in `pse-runtime` (the composition root). It runs generated statements with pushed-down typed filters (attempt, run, state, time range; `Inexact`) and builds batches with the `pse-relations` builders. It is bound through `EngineFactory` `with_provider` under `pse_ops`.
 - **ADBC is not adopted:** it adds a C driver manager for tables the generated builders already serve. A short decision note is recorded.
@@ -275,8 +285,8 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | W1 | B1 (R); B3a → B6 (T) | complete: B3a and B6 in merge `8934a521`, B1 in merge `fa5a075c` |
 | W2 | B2 (R); B4 (V); B7 (T) | complete: B4 in merge `ba5f9676`, B7 in merge `057ade3b`, B2 in merge `c664106e` |
 | W3 | O8 (R); B5 (V) | complete: B5 in merge `d26bdebe`, O8 in merge `4487adfc` |
-| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | G8 complete (merge `b80f8d4c`); O7 complete (merge `f5909d1c`); B3b running |
-| W5 | O9; docs step | O9 running (started as soon as O7 landed) |
+| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | complete: G8 in merge `b80f8d4c`, O7 in merge `f5909d1c`, B3b in merge `3c6407ad` |
+| W5 | O9; B3c; docs step | O9 complete (merge `3a097532`); B3c and the docs step next |
 | W6 | Scoped qualification | not started |
 
 ## Current checkpoint (2026-09-28)
@@ -694,3 +704,92 @@ The xtask inspection fixture is now an export manifest, so it needs PostgreSQL t
 | `just family-check` | OK |
 | Python unit and component (inspection fixture built) | 157 passed |
 | Python `test_studies.py`, native workflow, modeling run, Plan 14 acceptance | 24 passed |
+
+### W4, track T: B3b landed (in merge `3c6407ad`)
+
+The merge is part of the maintainer's commit `3c6407ad`, which also carries the environment and
+library-skill changes. B3b commits: through `9f7ef15b`.
+
+**Typed:**
+- **Registry.** Identities on the publication manifest, workspace, attempt and reader-lease columns; `declare_publications` declares the manifest's four identities.
+- **pse-catalog.** Member receipts, write evidence and the publication ticket carry typed ids; the v4 receipt JSON is unchanged. `delta::manifest::publication_of` is the one place a manifest key becomes a `PublicationId`.
+- **pse-runtime** (outside O7's files). `prepare_fit` takes a `FitId`; experiment simulations, modes and trajectories are keyed by `InstanceId`; steady coordinates are `TiVec<GlobalCol, (SemanticId, OriginalCol)>` and constraints `(GlobalRow, OriginalRow)`.
+- **pse-backend-native.** `Oracle::support` returns `SupportEntry = Entry<OriginalRow, OriginalCol>`; the integrator, IDAS and derivative-diagnostics adapters convert at their edge. This closes the B6 follow-up on the dynamics and fitting oracles.
+- **Frames.** The frame table is grouped by area and published as `docs/generated/frames.md` (ADR-0115 Outcome 4).
+- **Python.** 22 annotations use the generated `NewType` ids (`RunId`, `AttemptId`, `PublicationId`, `WorkspaceId`, `FitId`, `InstanceId`).
+- **`compile_fail` doctests:** an attempt where a publication belongs, a model where a case belongs, a coordinate where a function row belongs.
+
+**Unchanged:** identity bytes, frame spellings, receipt JSON and the store schema. The registry
+fingerprint and six contract fingerprints changed (`authored.fit_cases`,
+`runtime.publication_manifests`, `runtime.fit_variables`, `fit_constraints`, `fit_observations`,
+`response_sensitivities`); tables written before are regenerated.
+
+**Model and case, made explicit.** Every place that sets a `model_id` or `case_id` now calls a
+named derivation in `pse_model::lineage` (13 call sites). This shows that in every lineage row
+`model_id` and `case_id` hold the same bytes, and that one model is named by different ids in
+different places (a steady fit experiment's requirements use the experiment's instance, a
+transient one the case declaration). Requirement rows are hashed into the numerics identity.
+**Proposal, awaiting the maintainer:** the model is the specialized definition and the case is
+the case declaration, both typed `declaration`; the instance and the fit get their own columns;
+the unused `model` and `case` identities are dropped. It changes published column meanings and
+the numerics identity bytes, so it needs a decision record.
+
+**Merge resolution.** B3b's area-grouped frame table plus O7's two study frames; O7's study enums
+beside B3b's typed-id imports in `_runs.py` and `_workflow.py`; generated trees regenerated in the
+bootstrap order.
+
+**Tests on `main` after the merge** (zero baseline, `PSE_SOLVER_IMAGE` set):
+
+| Command | Result |
+|---|---|
+| `just check`; conformance with `native-acceptance,native-profiles,math-composition`; `just check-native-python` | compile; two unused-variable warnings, both from before this track (`pse-modeling` `expression.rs`, `pse-runtime` `workflow/modeling/dynamics.rs`), for W6 and B3c |
+| `just unit-package pse-ids` | 39 passed |
+| schema, codegen, model and vocabulary units | 80 passed |
+| `just unit-package pse-math` | 76 passed |
+| modeling and compiler units | 149 passed |
+| `just unit-package pse-catalog` | 50 passed |
+| `just db-test` | 59 passed |
+| backend native units | 180 passed |
+| runtime native units | 161 passed |
+| `just worker-test` | 4 passed |
+
+`just publication-test` ran after the O9 merge below; the governance and harness suites wait for W6.
+
+### W5, track R: O9 landed (merge `3a097532`)
+
+**Commits:** `bd780142`, `579c3d38`, `2dff880e`, `5acbe1d1`.
+
+**Built:**
+- **Providers.** `crates/pse-runtime/src/workflow/operational_tables.rs` serves 13 operational relations under `pse_ops` (attempts, attempt transitions, jobs, progress events and values, incumbents, solutions, studies, study points, workspaces, publications, publication members, settlements). Each runs a generated statement from `queries/tables.sql` (`pse_operations::tables`), pages in primary-key order after a keyset position, and builds batches with the generated builders.
+- **Pushdown** is `Inexact` for identity and state equality or IN lists and for time comparisons and BETWEEN (DataFusion's OR chains for short IN lists count as one list), and `Unsupported` otherwise. A filter that cannot match runs no statement. Pushed limits and projections are honoured; no connection is held between pages.
+- **Sessions.** `Runtime::operational_tables`, `with_operational_tables` and `query_session` (optionally with a run's results under `workspace.*` or from a publication's session). An ephemeral runtime registers none. Publication sessions do not include the providers by default, because an observed source disables the cache for the whole session.
+- **Progress.** `Runtime::progress(attempt, follow, page, cancel)` merges progress events and incumbents in time order and follows the listener until the attempt ends; recording an incumbent also notifies.
+- **Python.** `Runtime.jobs(states=, limit=)`, `Runtime.query(sql, result=, publication=)` returning a streaming `TableStream`, and `Runtime.progress(attempt_id, follow=True, page=256)` returning a closable `ProgressStream`. `ProgressEvent` gains `incumbent` (`pse.Incumbent`), `step`, `sequence` and `at`.
+- **ADBC** is not adopted; the reason is in `docs/dev/operational-store.md` under "Query surface".
+
+**Deviations:**
+- Incumbents store `step`, `elapsed_seconds`, `phase`, `nodes` and `seconds`, so a followed stream returns complete typed incumbents. This closes G8's missing `step` column.
+- `ProgressWatcher::next` takes and returns positions in both streams.
+- A followed stream waits up to 5 seconds for its attempt to appear, since a run registers its attempt just after `start()` returns.
+- The provider types are crate-private; the surface is the `Runtime` methods and `OPERATIONAL_SCHEMA`.
+
+**Open issues:**
+- Pages read at READ COMMITTED: a scan sees every row that existed throughout it, but not one snapshot.
+- Statement performance at scale is unmeasured.
+- Python checks only that Ipopt events carry no incumbent (the fixture package has no `Indicator` quantity); typed incumbents are exercised by the Rust SCIP and HiGHS tests.
+- In the worktree, `reclaimable_intents_are_fenced` once failed dropping its test database (another role held a connection) and `catalog_protects_published_versions` once timed out at 120 s; both passed on rerun without changes. The failed run left a test database on the server.
+- O9's entry points take `SemanticId` rather than typed ids (B3c).
+
+**Tests on `main` after the merge** (zero baseline, `PSE_SOLVER_IMAGE` set; store regenerated with `just --yes db-reset`):
+
+| Command | Result |
+|---|---|
+| `just check`; conformance with `native-acceptance,native-profiles,math-composition`; `just check-native-python` | compile; only the two known warnings |
+| `just db-test` | 61 passed |
+| runtime native units | 167 passed, including `operational_tables_join_results_in_datafusion` and `provider_pushes_attempt_filter` |
+| `just worker-test` | 4 passed |
+| `just publication-test` | 9 passed |
+
+The Python surface (`test_progress_stream_python` and the O9 module) passed in the worktree
+(84 passed across 11 modules); it was not rebuilt on `main`, and runs again at W6.
+
