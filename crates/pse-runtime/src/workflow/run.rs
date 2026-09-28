@@ -82,6 +82,14 @@ impl RunHandle {
         self.attempt_id
     }
 }
+/// Which stored seed a preparation starts from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StoredStart {
+    /// The newest seed stored for the preparation's coordinates and backend.
+    Latest,
+    /// This stored solution.
+    Solution(SemanticId),
+}
 /// Mathematical report variants share one joined public job lifecycle.
 #[derive(Debug)]
 pub enum RunReport {
@@ -434,6 +442,59 @@ impl super::ModelingSolvePreparation {
             .map_err(MathRuntimeError::from)?;
         self.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
         Ok(self)
+    }
+    /// Start from a seed in the operational store's solution store (ADR-0112 Outcome 17):
+    /// the newest seed stored for this preparation's coordinates and backend, or an
+    /// explicit solution. The seed must match the coordinate-compatibility (layout) stamp
+    /// and backend exactly; numeric data and native options may differ (F24). Every free
+    /// coordinate's start source records the solution, and the seed's content identity
+    /// enters the lineage of the result (F25).
+    ///
+    /// # Errors
+    /// A constant evaluation (no seed), no compatible stored seed, an unknown solution, a
+    /// store failure, or an incompatible seed, which is refused.
+    pub async fn with_stored_start(
+        self,
+        operations: &super::Operations,
+        which: StoredStart,
+    ) -> Result<Self, WorkflowError> {
+        let target = self
+            .solve
+            .compatibility()
+            .cloned()
+            .ok_or_else(|| contract("a constant evaluation consumes no stored seed"))?;
+        let solutions = operations.store().solutions();
+        let stored = match which {
+            StoredStart::Latest => {
+                let preparation = self
+                    .solve
+                    .seed_preparation_identity()
+                    .ok_or_else(|| contract("a constant evaluation consumes no stored seed"))?;
+                solutions
+                    .latest_compatible(&target.layout, &preparation, target.backend)
+                    .await?
+                    .ok_or_else(|| {
+                        contract(
+                            "no stored seed matches this preparation's coordinates and backend",
+                        )
+                    })?
+            }
+            StoredStart::Solution(id) => solutions.get(id).await?.ok_or_else(|| {
+                WorkflowError::Operations(pse_operations::OperationsError::NotFound {
+                    entity: "stored solution",
+                    id: id.to_string(),
+                })
+            })?,
+        };
+        let solution = stored.solution.solution_id;
+        let columns: Vec<SemanticId> = self.model.case.compiled().plan.columns().to_vec();
+        let mut seeded = self.with_start(super::durable::warm_start(&stored.solution))?;
+        for column in columns {
+            seeded
+                .starts
+                .insert(column, super::StartSource::Stored { solution });
+        }
+        Ok(seeded)
     }
     /// Start one authored algebraic run: a one-step authored sequence.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {

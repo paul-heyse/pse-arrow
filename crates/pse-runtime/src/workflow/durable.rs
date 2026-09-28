@@ -17,7 +17,7 @@
 //! coordinate-compatibility stamp, and the published relations derive from those records.
 use super::{RunReport, RunRequest, RunResult, WorkflowError};
 use pse_backend_native::solve::{
-    Event, Metric, ProgressTap, WarmPayload,
+    Compatibility, Event, Metric, ProgressTap, WarmPayload, WarmStart,
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_model::generated::enums::CandidateUse;
@@ -864,6 +864,47 @@ pub(super) fn seed_vectors(payload: &WarmPayload) -> Option<SeedVectors> {
         }),
         #[cfg(feature = "solver-pounce")]
         WarmPayload::PounceSqp(_) => None,
+    }
+}
+
+/// The owned warm start a stored solution describes, with its original compatibility
+/// stamps. Whether it may seed a given preparation is decided by `WarmStart::validate`.
+pub(super) fn warm_start(solution: &Solution) -> WarmStart {
+    let payload = match &solution.vectors {
+        SeedVectors::Root { primal } => WarmPayload::Root(primal.clone()),
+        SeedVectors::Nlp {
+            primal,
+            bounds,
+            rows,
+        } => WarmPayload::Nlp {
+            primal: primal.clone(),
+            bounds: bounds.clone(),
+            rows: rows.clone(),
+        },
+        SeedVectors::Highs {
+            primal,
+            dual,
+            basis,
+        } => WarmPayload::Highs {
+            primal: primal.clone(),
+            dual: dual.clone(),
+            basis: basis
+                .as_ref()
+                .map(|(columns, rows)| pse_backend_native::solve::Basis {
+                    columns: columns.clone(),
+                    rows: rows.clone(),
+                }),
+        },
+    };
+    WarmStart {
+        origin: None,
+        compatibility: Compatibility {
+            layout: solution.compatibility_stamp,
+            profile: solution.profile_stamp,
+            data: solution.data_stamp,
+            backend: solution.backend,
+        },
+        payload,
     }
 }
 

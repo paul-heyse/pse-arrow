@@ -66,7 +66,7 @@ use pse_engine::{EngineError, session::EngineFactory};
 pub use publication::{
     PublicationAttempt, PublicationRequest, PublicationSettlement, PublicationTicket,
 };
-pub use run::{RunHandle, RunReport, RunRequest, RunResult};
+pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 use std::sync::Arc;
 
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.

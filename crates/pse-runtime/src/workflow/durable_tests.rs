@@ -355,3 +355,60 @@ async fn published_metrics_equal_stream_snapshot() {
     drop(runtime);
     database.remove().await.unwrap();
 }
+
+#[tokio::test]
+async fn incompatible_seed_refused() {
+    let database = TestDatabase::create().await.unwrap();
+    let runtime = durable_runtime(&database, "runtime-a").await;
+    let Durability::Durable(operations) = runtime.durability() else {
+        panic!()
+    };
+    let cancel = crate::CancelSource::new();
+    let (package, mut analysis) = package_on(&runtime, ROSENBROCK);
+    optimize(&mut analysis, 8);
+    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    let [(0, solution)] = record(&result).solutions[..] else {
+        panic!("{:?}", record(&result).solutions)
+    };
+    // The same preparation reuses its stored seed; its start sources name the solution.
+    let reused = prepared
+        .clone()
+        .with_stored_start(operations, StoredStart::Latest)
+        .await
+        .unwrap();
+    assert!(
+        reused
+            .starts
+            .values()
+            .any(|s| *s == StartSource::Stored { solution })
+    );
+    // Different coordinates: the explicit stored seed is refused, and none is found.
+    let (other, mut different) = package_on(&runtime, LINEAR);
+    optimize(&mut different, 8);
+    different.solver.intent = pse_backend_native::solve::SolveIntent::FeasiblePoint;
+    let elsewhere = other.prepare_analysis(&different, &cancel).await.unwrap();
+    let refused = elsewhere
+        .clone()
+        .with_stored_start(operations, StoredStart::Solution(solution))
+        .await
+        .unwrap_err();
+    // The one compatibility rule, `WarmStart::validate`, refuses it with its typed contract.
+    assert!(
+        matches!(
+            &refused,
+            WorkflowError::Math(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Contract(reason)
+            )) if reason.contains("incompatible warm-start layout/backend")
+        ),
+        "{refused:?}"
+    );
+    assert!(
+        elsewhere
+            .with_stored_start(operations, StoredStart::Latest)
+            .await
+            .is_err()
+    );
+    drop(runtime);
+    database.remove().await.unwrap();
+}
