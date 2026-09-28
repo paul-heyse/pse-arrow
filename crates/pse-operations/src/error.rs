@@ -393,27 +393,6 @@ impl OperationsError {
         }
     }
 
-    /// Classify a failure of the superseded sqlx client, by the same constants (Plan 22
-    /// B2: deleted once every repository runs on tokio-postgres).
-    pub(crate) fn from_sqlx(error: sqlx::Error, target: &Target) -> Self {
-        let (code, closed, table, constraint) = match &error {
-            sqlx::Error::Database(database) => (
-                database.code().map(|code| SqlState::from_code(&code)),
-                false,
-                database.table().map(str::to_owned),
-                database.constraint().map(str::to_owned),
-            ),
-            sqlx::Error::Io(_)
-            | sqlx::Error::Tls(_)
-            | sqlx::Error::PoolTimedOut
-            | sqlx::Error::PoolClosed
-            | sqlx::Error::WorkerCrashed => (None, true, None, None),
-            _ => (None, false, None, None),
-        };
-        let class = classify(code.as_ref(), closed);
-        Self::classified(class, target, DriverError::new(error), table, constraint)
-    }
-
     /// Whether repeating the whole operation may succeed. Decided by the type alone.
     pub const fn is_retryable(&self) -> bool {
         matches!(
@@ -480,12 +459,6 @@ impl<T> Classify<T> for Result<T, tokio_postgres::Error> {
 impl<T> Classify<T> for Result<T, deadpool_postgres::PoolError> {
     fn classify(self, target: &Target) -> Result<T, OperationsError> {
         self.map_err(|source| OperationsError::from_pool(source, target))
-    }
-}
-
-impl<T> Classify<T> for Result<T, sqlx::Error> {
-    fn classify(self, target: &Target) -> Result<T, OperationsError> {
-        self.map_err(|source| OperationsError::from_sqlx(source, target))
     }
 }
 

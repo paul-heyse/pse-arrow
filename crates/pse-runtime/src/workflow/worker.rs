@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! The durable job queue from the runtime's side (ADR-0112 Outcomes 14, 15 and 18; Plan 22
+//! The durable job queue from the runtime's side (ADR-0114 Outcomes 14, 15 and 18; Plan 22
 //! O4): versioned job payloads over content-addressed source bundles, and the worker that
 //! claims jobs, runs them under its lease and ends each try through the job's retry
 //! policy.
@@ -183,7 +183,7 @@ fn operations(runtime: &Runtime) -> Result<&Operations, WorkflowError> {
     match &runtime.durability {
         Durability::Durable(operations) => Ok(operations),
         Durability::Ephemeral => Err(contract(
-            "the job queue needs a durable runtime (ADR-0112 Outcome 16)",
+            "the job queue needs a durable runtime (ADR-0114 Outcome 16)",
         )),
     }
 }

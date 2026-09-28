@@ -35,7 +35,6 @@ rustls.workspace = true
 webpki-roots.workspace = true
 futures.workspace = true
 url = { workspace = true, optional = true }
-sqlx.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 serde_json.workspace = true
@@ -43,17 +42,8 @@ thiserror.workspace = true
 miette.workspace = true
 tokio.workspace = true
 clap.workspace = true
-# Not called directly: enables whoami's `std` feature for sqlx-postgres, whose default
-# connection user is otherwise "anonymous" (see the root manifest).
-whoami.workspace = true
 
 [dev-dependencies]
 # Store tests compare the created schema with the registry's store relations.
 pse-schema.workspace = true
 url.workspace = true
-
-[package.metadata.cargo-machete]
-ignored = ["whoami"]
-
-[package.metadata.cargo-shear]
-ignored = ["whoami"]

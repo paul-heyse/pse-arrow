@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Waiter cancellation never takes native ownership away from the existing supervisor.
 //!
-//! Every run is supervised under its runtime's durability class (ADR-0112 Outcome 16). An
+//! Every run is supervised under its runtime's durability class (ADR-0114 Outcome 16). An
 //! ephemeral run is admitted at once or refused, and keeps its record in memory. A durable
 //! run registers its attempt before any effect, queues for native admission, runs under a
 //! heartbeat lease whose durable cancellation flag stops it, streams its progress, and
@@ -443,7 +443,7 @@ impl super::ModelingSolvePreparation {
         self.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
         Ok(self)
     }
-    /// Start from a seed in the operational store's solution store (ADR-0112 Outcome 17):
+    /// Start from a seed in the operational store's solution store (ADR-0114 Outcome 17):
     /// the newest seed stored for this preparation's coordinates and backend, or an
     /// explicit solution. The seed must match the coordinate-compatibility (layout) stamp
     /// and backend exactly; numeric data and native options may differ (F24). Every free

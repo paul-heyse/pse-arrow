@@ -68,7 +68,7 @@ fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + S
         }
     }
 }
-/// The PostgreSQL operational store a durable runtime registers its runs in (ADR-0112).
+/// The PostgreSQL operational store a durable runtime registers its runs in (ADR-0114).
 /// `url` defaults to `PSE_DATABASE_URL`, else the development default (the local socket
 /// with peer authentication); `worker` names the lease owner and defaults to this process.
 /// Nothing connects until a runtime is created with it.
@@ -147,7 +147,7 @@ impl NativeRuntime {
     }
     /// A runtime over the shared deployment. With `store`, every run is a durable attempt
     /// registered in that operational store and may be published; without it runs are
-    /// ephemeral and cannot publish (ADR-0112 Outcome 16).
+    /// ephemeral and cannot publish (ADR-0114 Outcome 16).
     #[new]
     #[pyo3(signature = (settings, *, store=None))]
     fn new(
