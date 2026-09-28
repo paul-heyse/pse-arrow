@@ -11,9 +11,11 @@
 //! attempt transition table ([`lifecycle`]), typed repositories and the catalog with its
 //! reader leases.
 //!
-//! [`Store`] is the handle: a pool with an explicit [`Store::connect`], which does no
-//! schema work, and [`Store::open`]. Durability classes (`Ephemeral`, `Durable`) are a
-//! runtime policy and do not appear here.
+//! [`Store`] is the handle: a deadpool pool of tokio-postgres connections with an
+//! explicit [`Store::connect`], which does no schema work, and [`Store::open`]. Statements
+//! are SQL files compiled by Cornucopia into `pse-operations-queries`; the repositories
+//! call them and return the generated registry rows. Durability classes (`Ephemeral`,
+//! `Durable`) are a runtime policy and do not appear here.
 
 pub mod attempts;
 pub mod cancellation;
@@ -37,7 +39,7 @@ pub mod testing;
 mod store_tests;
 
 pub use codec::mint_id;
-pub use error::{OperationsError, Target};
+pub use error::{DriverError, InvariantKind, OperationsError, Target};
 pub use schema::{Opened, PHYSICAL_SQL, SchemaStatus};
 pub use store::{
     DATABASE_URL_ENV, DEFAULT_DATABASE_URL, MINIMUM_SERVER_VERSION, ServerInfo, Store,

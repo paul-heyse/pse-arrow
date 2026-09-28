@@ -10,8 +10,10 @@
 //! [`OperationsError::SchemaMismatch`]; it is never migrated and never reset implicitly.
 //! Its contents are regenerable, so the remedy is `just db-reset`.
 
+use pse_operations_queries::queries::store as statements;
+
 use crate::error::{Classify, OperationsError};
-use crate::generated::{RECORD_SQL, SCHEMA, SCHEMA_FINGERPRINT_HEX, SCHEMA_SQL};
+use crate::generated::{RECORD_SQL, SCHEMA_FINGERPRINT_HEX, SCHEMA_SQL};
 use crate::store::Store;
 
 /// The hand-written access paths, defaults and grants applied after the generated DDL.
@@ -64,13 +66,12 @@ impl Store {
     ///
     /// Classified driver failures.
     pub async fn schema_status(&self) -> Result<SchemaStatus, OperationsError> {
-        let comment: Option<Option<String>> = sqlx::query_scalar(
-            "SELECT obj_description(oid, 'pg_namespace') FROM pg_namespace WHERE nspname = $1",
-        )
-        .bind(SCHEMA)
-        .fetch_optional(self.pool())
-        .await
-        .classify(self.target())?;
+        let client = self.client().await?;
+        let comment = statements::schema_comment()
+            .bind(&client)
+            .opt()
+            .await
+            .classify(self.target())?;
         Ok(match comment {
             None => SchemaStatus::Absent,
             Some(comment) => match recorded(comment.as_deref()) {
@@ -110,36 +111,32 @@ impl Store {
 
     async fn apply(&self, reset: bool) -> Result<Opened, OperationsError> {
         let target = self.target();
-        let mut tx = self.pool().begin().await.classify(target)?;
-        sqlx::query("SELECT pg_advisory_xact_lock($1)")
-            .bind(SCHEMA_LOCK)
-            .execute(&mut *tx)
+        let mut client = self.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        statements::advisory_lock()
+            .bind(&tx, &SCHEMA_LOCK)
+            .one()
             .await
             .classify(target)?;
         if reset {
-            // The migrator's bookkeeping of the superseded sqlx migrations goes too.
-            sqlx::raw_sql(
-                "DROP SCHEMA IF EXISTS pse_ops CASCADE; \
-                 DROP TABLE IF EXISTS public._sqlx_migrations;",
-            )
-            .execute(&mut *tx)
+            // Every object of the store goes with its schema; cached statements naming
+            // them go too.
+            tx.batch_execute("DROP SCHEMA IF EXISTS pse_ops CASCADE")
+                .await
+                .classify(target)?;
+            self.forget_statements();
+        }
+        let comment = statements::schema_comment()
+            .bind(&tx)
+            .opt()
             .await
             .classify(target)?;
-        }
-        let comment: Option<Option<String>> = sqlx::query_scalar(
-            "SELECT obj_description(oid, 'pg_namespace') FROM pg_namespace WHERE nspname = $1",
-        )
-        .bind(SCHEMA)
-        .fetch_optional(&mut *tx)
-        .await
-        .classify(target)?;
         match comment {
             None => {
+                // The generated DDL, the access paths and the fingerprint record: one
+                // transaction, so a failed creation leaves no schema behind.
                 for sql in [SCHEMA_SQL, PHYSICAL_SQL, RECORD_SQL] {
-                    sqlx::raw_sql(sql)
-                        .execute(&mut *tx)
-                        .await
-                        .classify(target)?;
+                    tx.batch_execute(sql).await.classify(target)?;
                 }
                 tx.commit().await.classify(target)?;
                 Ok(Opened::Created)

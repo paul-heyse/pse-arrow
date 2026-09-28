@@ -18,7 +18,7 @@ workspace = true
 
 [features]
 default = []
-# Isolated databases with the generated schema for tests in other crates; sqlx stays here.
+# Isolated databases with the generated schema for tests in other crates.
 test-support = ["dep:url"]
 
 [dependencies]
@@ -26,6 +26,14 @@ pse-diagnostics.workspace = true
 pse-ids.workspace = true
 # The registry-generated rows, enumerations and typed ids of the store (ADR-0114 Outcome 22).
 pse-model.workspace = true
+# The statements, compiled by Cornucopia from queries/*.sql (ADR-0114 Outcome 24).
+pse-operations-queries.workspace = true
+tokio-postgres.workspace = true
+deadpool-postgres.workspace = true
+tokio-postgres-rustls.workspace = true
+rustls.workspace = true
+webpki-roots.workspace = true
+futures.workspace = true
 url = { workspace = true, optional = true }
 sqlx.workspace = true
 uuid.workspace = true

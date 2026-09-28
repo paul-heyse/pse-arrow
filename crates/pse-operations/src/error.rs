@@ -2,12 +2,18 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Typed store failures. Retry decisions read the variant, never the message.
+//!
+//! Driver failures are classified by `SqlState` constant and connection state
+//! (ADR-0114 Outcome 27) and keep their cause as a [`DriverError`], so no driver type
+//! appears in this crate's public API.
 
 use std::fmt;
 use std::sync::Arc;
 
 use pse_diagnostics::DiagnosticCode;
 use pse_ids::SemanticId;
+pub use pse_model::generated::enums::InvariantKind;
+use tokio_postgres::error::SqlState;
 
 use crate::lifecycle::AttemptState;
 
@@ -16,16 +22,26 @@ use crate::lifecycle::AttemptState;
 pub struct Target(Arc<str>);
 
 impl Target {
-    /// A target described by its socket directory or host, port and database.
-    pub(crate) fn describe(options: &sqlx::postgres::PgConnectOptions) -> Self {
-        let place = options.get_socket().map_or_else(
-            || format!("{}:{}", options.get_host(), options.get_port()),
-            |socket| format!("{}:{}", socket.display(), options.get_port()),
-        );
-        let database = options.get_database().unwrap_or("<default>");
+    /// A target described by its socket directory or host, port, database and user.
+    pub(crate) fn describe(config: &tokio_postgres::Config) -> Self {
+        let place = config
+            .get_hosts()
+            .iter()
+            .map(|host| match host {
+                tokio_postgres::config::Host::Tcp(name) => name.clone(),
+                #[cfg(unix)]
+                tokio_postgres::config::Host::Unix(path) => path.display().to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let port = config
+            .get_ports()
+            .first()
+            .map_or_else(|| "5432".to_owned(), u16::to_string);
+        let database = config.get_dbname().unwrap_or("<default>");
+        let user = config.get_user().unwrap_or("<process user>");
         Self(Arc::from(format!(
-            "postgres {place}/{database} as {}",
-            options.get_username()
+            "postgres {place}:{port}/{database} as {user}"
         )))
     }
 
@@ -41,25 +57,44 @@ impl fmt::Display for Target {
     }
 }
 
+/// The cause of a classified store failure: the driver's or the pool's error, opaque.
+#[derive(Debug)]
+pub struct DriverError(Box<dyn std::error::Error + Send + Sync>);
+
+impl DriverError {
+    pub(crate) fn new(error: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self(Box::new(error))
+    }
+}
+
+/// The driver's message with its whole cause chain (the server's `ERROR: ...` included):
+/// the chain is opaque, so it is rendered here rather than exposed as sources.
+impl fmt::Display for DriverError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)?;
+        let mut cause = self.0.source();
+        while let Some(error) = cause {
+            write!(f, ": {error}")?;
+            cause = error.source();
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for DriverError {}
+
 /// A failure of the operational store or of a store-owned contract.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum OperationsError {
-    /// SQLSTATE 40001: a serialization failure. Retry the whole transaction.
-    #[error("serialization conflict at {target}: {source}")]
-    Conflict {
-        /// Where the conflict happened.
+    /// SQLSTATE 40001 or 40P01: a serialization failure, or a deadlock the server broke by
+    /// aborting this transaction. Retry the whole transaction.
+    #[error("transaction aborted for a retry at {target}: {source}")]
+    Retryable {
+        /// Where the transaction ran.
         target: Target,
         /// The driver error.
-        source: sqlx::Error,
-    },
-    /// SQLSTATE 40P01: the server broke a deadlock by aborting this transaction.
-    #[error("deadlock detected at {target}: {source}")]
-    Deadlock {
-        /// Where the deadlock happened.
-        target: Target,
-        /// The driver error.
-        source: sqlx::Error,
+        source: DriverError,
     },
     /// SQLSTATE 23505: a unique constraint refused a second row with the same key.
     #[error("duplicate key{} at {target}: {source}", constraint.as_deref().map(|c| format!(" ({c})")).unwrap_or_default())]
@@ -69,7 +104,28 @@ pub enum OperationsError {
         /// Where the refusal happened.
         target: Target,
         /// The driver error.
-        source: sqlx::Error,
+        source: DriverError,
+    },
+    /// SQLSTATE 23514 or 23503: a row violated a declared invariant of a store relation,
+    /// a row check or a reference. A platform or request defect, never retried.
+    #[error(
+        "{} violates {}{} at {target}: {source}",
+        table.as_deref().unwrap_or("a store value"),
+        match kind { InvariantKind::ForeignKey => "reference ", _ => "check " },
+        constraint.as_deref().unwrap_or("<unnamed>")
+    )]
+    InvariantViolation {
+        /// The store table, when the server named it.
+        table: Option<String>,
+        /// The registry name of the violated check or reference (`step_nonnegative`,
+        /// `attempt_id`), when the server named the constraint.
+        constraint: Option<String>,
+        /// [`InvariantKind::Check`] for 23514, [`InvariantKind::ForeignKey`] for 23503.
+        kind: InvariantKind,
+        /// Where the refusal happened.
+        target: Target,
+        /// The driver error.
+        source: DriverError,
     },
     /// SQLSTATE 55P03: a `NOWAIT` or lock-timeout acquisition failed.
     #[error("lock unavailable at {target}: {source}")]
@@ -77,7 +133,7 @@ pub enum OperationsError {
         /// Where the lock was refused.
         target: Target,
         /// The driver error.
-        source: sqlx::Error,
+        source: DriverError,
     },
     /// SQLSTATE 57014: the statement was cancelled (statement timeout or cancel request).
     #[error("statement cancelled at {target}: {source}")]
@@ -85,15 +141,16 @@ pub enum OperationsError {
         /// Where the statement ran.
         target: Target,
         /// The driver error.
-        source: sqlx::Error,
+        source: DriverError,
     },
-    /// The server could not be reached or the connection was lost.
+    /// The server could not be reached, refused new connections, or the connection was
+    /// lost (SQLSTATE class 08, 57P01–57P03, a closed connection or a pool failure).
     #[error("operational store unavailable at {target}: {source}")]
     Unavailable {
         /// The connection target.
         target: Target,
-        /// The driver error.
-        source: sqlx::Error,
+        /// The driver or pool error.
+        source: DriverError,
     },
     /// Any other driver or server failure; a platform bug or an unexpected server state.
     #[error("operational store failure at {target}: {source}")]
@@ -101,7 +158,7 @@ pub enum OperationsError {
         /// Where the failure happened.
         target: Target,
         /// The driver error.
-        source: sqlx::Error,
+        source: DriverError,
     },
     /// The store's schema is not the one this build generates: another fingerprint is
     /// recorded, or none. It is never migrated or reset implicitly (ADR-0114 Outcome 23).
@@ -202,55 +259,165 @@ fn show(id: Option<SemanticId>) -> String {
     id.map_or_else(|| "<none>".to_owned(), |id| id.to_string())
 }
 
+/// The class of a driver failure (ADR-0114 Outcome 27).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Class {
+    /// 40001, 40P01.
+    Retryable,
+    /// 55P03.
+    LockUnavailable,
+    /// 57014.
+    Cancelled,
+    /// 23505.
+    Duplicate,
+    /// 23514 (a check) and 23503 (a reference).
+    Invariant(InvariantKind),
+    /// Class 08, 57P01–57P03 and 53300, or a closed connection.
+    Unavailable,
+    /// Anything else.
+    Internal,
+}
+
+/// SQLSTATEs by class; every entry is a `SqlState` constant, never a spelling.
+fn class_of(state: &SqlState) -> Class {
+    const RETRYABLE: [SqlState; 2] = [
+        SqlState::T_R_SERIALIZATION_FAILURE,
+        SqlState::T_R_DEADLOCK_DETECTED,
+    ];
+    // SQLSTATE class 08 (connection exception) as the driver knows it, the three
+    // "operator intervention" shutdown states, and too many connections.
+    const UNAVAILABLE: [SqlState; 11] = [
+        SqlState::CONNECTION_EXCEPTION,
+        SqlState::SQLCLIENT_UNABLE_TO_ESTABLISH_SQLCONNECTION,
+        SqlState::CONNECTION_DOES_NOT_EXIST,
+        SqlState::SQLSERVER_REJECTED_ESTABLISHMENT_OF_SQLCONNECTION,
+        SqlState::CONNECTION_FAILURE,
+        SqlState::TRANSACTION_RESOLUTION_UNKNOWN,
+        SqlState::PROTOCOL_VIOLATION,
+        SqlState::ADMIN_SHUTDOWN,
+        SqlState::CRASH_SHUTDOWN,
+        SqlState::CANNOT_CONNECT_NOW,
+        SqlState::TOO_MANY_CONNECTIONS,
+    ];
+    if RETRYABLE.contains(state) {
+        Class::Retryable
+    } else if *state == SqlState::LOCK_NOT_AVAILABLE {
+        Class::LockUnavailable
+    } else if *state == SqlState::QUERY_CANCELED {
+        Class::Cancelled
+    } else if *state == SqlState::UNIQUE_VIOLATION {
+        Class::Duplicate
+    } else if *state == SqlState::CHECK_VIOLATION {
+        Class::Invariant(InvariantKind::Check)
+    } else if *state == SqlState::FOREIGN_KEY_VIOLATION {
+        Class::Invariant(InvariantKind::ForeignKey)
+    } else if UNAVAILABLE.contains(state) {
+        Class::Unavailable
+    } else {
+        Class::Internal
+    }
+}
+
+/// Classify a failure by its SQLSTATE and whether the connection is gone.
+pub(crate) fn classify(state: Option<&SqlState>, closed: bool) -> Class {
+    match (state, closed) {
+        (_, true) => Class::Unavailable,
+        (Some(state), false) => class_of(state),
+        (None, false) => Class::Internal,
+    }
+}
+
+/// The registry name of a generated constraint: `<table>_<name>_check` and
+/// `<table>_<name>_fkey` are `<name>`; other constraints keep their name without the
+/// table prefix (a field domain such as `elapsed_seconds_finite`).
+fn registry_name(table: Option<&str>, constraint: &str) -> String {
+    let local = table
+        .and_then(|table| constraint.strip_prefix(table))
+        .and_then(|rest| rest.strip_prefix('_'))
+        .unwrap_or(constraint);
+    local
+        .strip_suffix("_check")
+        .or_else(|| local.strip_suffix("_fkey"))
+        .unwrap_or(local)
+        .to_owned()
+}
+
 impl OperationsError {
-    /// Classify a driver error by SQLSTATE and connection failure (ADR-0114 Outcome 27).
-    pub(crate) fn from_sqlx(source: sqlx::Error, target: &Target) -> Self {
+    /// A classified failure of `class` with its cause and the server's constraint names.
+    fn classified(
+        class: Class,
+        target: &Target,
+        source: DriverError,
+        table: Option<String>,
+        constraint: Option<String>,
+    ) -> Self {
         let target = target.clone();
-        let code = match &source {
-            sqlx::Error::Database(database) => database.code().map(|c| c.into_owned()),
+        match class {
+            Class::Retryable => Self::Retryable { target, source },
+            Class::LockUnavailable => Self::LockUnavailable { target, source },
+            Class::Cancelled => Self::Cancelled { target, source },
+            Class::Duplicate => Self::Duplicate {
+                constraint,
+                target,
+                source,
+            },
+            Class::Invariant(kind) => Self::InvariantViolation {
+                constraint: constraint.map(|c| registry_name(table.as_deref(), &c)),
+                table,
+                kind,
+                target,
+                source,
+            },
+            Class::Unavailable => Self::Unavailable { target, source },
+            Class::Internal => Self::Internal { target, source },
+        }
+    }
+
+    /// Classify a driver error by SQLSTATE and connection state (ADR-0114 Outcome 27).
+    pub(crate) fn from_driver(error: tokio_postgres::Error, target: &Target) -> Self {
+        // An I/O cause is a lost or refused connection, whatever the driver's kind.
+        let io = std::error::Error::source(&error).is_some_and(|cause| cause.is::<std::io::Error>());
+        let class = classify(error.code(), error.is_closed() || io);
+        let db = error.as_db_error();
+        let table = db.and_then(|db| db.table()).map(str::to_owned);
+        let constraint = db.and_then(|db| db.constraint()).map(str::to_owned);
+        Self::classified(class, target, DriverError::new(error), table, constraint)
+    }
+
+    /// A pool that could not hand out a connection: the store is unavailable.
+    pub(crate) fn from_pool(error: deadpool_postgres::PoolError, target: &Target) -> Self {
+        Self::Unavailable {
+            target: target.clone(),
+            source: DriverError::new(error),
+        }
+    }
+
+    /// Classify a failure of the superseded sqlx client, by the same constants (Plan 22
+    /// B2: deleted once every repository runs on tokio-postgres).
+    pub(crate) fn from_sqlx(error: sqlx::Error, target: &Target) -> Self {
+        let (code, closed, table, constraint) = match &error {
+            sqlx::Error::Database(database) => (
+                database.code().map(|code| SqlState::from_code(&code)),
+                false,
+                database.table().map(str::to_owned),
+                database.constraint().map(str::to_owned),
+            ),
             sqlx::Error::Io(_)
             | sqlx::Error::Tls(_)
             | sqlx::Error::PoolTimedOut
             | sqlx::Error::PoolClosed
-            | sqlx::Error::WorkerCrashed => return Self::Unavailable { target, source },
-            _ => return Self::Internal { target, source },
+            | sqlx::Error::WorkerCrashed => (None, true, None, None),
+            _ => (None, false, None, None),
         };
-        match code.as_deref() {
-            Some("40001") => Self::Conflict { target, source },
-            Some("40P01") => Self::Deadlock { target, source },
-            Some("23505") => {
-                let constraint = match &source {
-                    sqlx::Error::Database(database) => database.constraint().map(str::to_owned),
-                    _ => None,
-                };
-                Self::Duplicate {
-                    constraint,
-                    target,
-                    source,
-                }
-            }
-            Some("55P03") => Self::LockUnavailable { target, source },
-            Some("57014") => Self::Cancelled { target, source },
-            // Connection exceptions, administrator/crash shutdown, cannot connect now and
-            // too many connections: the server is not usable from here.
-            Some(code)
-                if code.starts_with("08")
-                    || matches!(code, "57P01" | "57P02" | "57P03" | "53300") =>
-            {
-                Self::Unavailable { target, source }
-            }
-            _ => Self::Internal { target, source },
-        }
+        let class = classify(code.as_ref(), closed);
+        Self::classified(class, target, DriverError::new(error), table, constraint)
     }
 
     /// Whether repeating the whole operation may succeed. Decided by the type alone.
     pub const fn is_retryable(&self) -> bool {
         matches!(
             self,
-            Self::Conflict { .. }
-                | Self::Deadlock { .. }
-                | Self::LockUnavailable { .. }
-                | Self::Unavailable { .. }
+            Self::Retryable { .. } | Self::LockUnavailable { .. } | Self::Unavailable { .. }
         )
     }
 
@@ -263,9 +430,9 @@ impl OperationsError {
             }
             Self::IllegalTransition { .. }
             | Self::NotFound { .. }
-            | Self::InvalidRequest { .. } => DiagnosticCode::ValidationInvariant,
-            Self::Conflict { .. }
-            | Self::Deadlock { .. }
+            | Self::InvalidRequest { .. }
+            | Self::InvariantViolation { .. } => DiagnosticCode::ValidationInvariant,
+            Self::Retryable { .. }
             | Self::Duplicate { .. }
             | Self::LockUnavailable { .. }
             | Self::Unavailable { .. }
@@ -303,6 +470,18 @@ pub(crate) trait Classify<T> {
     fn classify(self, target: &Target) -> Result<T, OperationsError>;
 }
 
+impl<T> Classify<T> for Result<T, tokio_postgres::Error> {
+    fn classify(self, target: &Target) -> Result<T, OperationsError> {
+        self.map_err(|source| OperationsError::from_driver(source, target))
+    }
+}
+
+impl<T> Classify<T> for Result<T, deadpool_postgres::PoolError> {
+    fn classify(self, target: &Target) -> Result<T, OperationsError> {
+        self.map_err(|source| OperationsError::from_pool(source, target))
+    }
+}
+
 impl<T> Classify<T> for Result<T, sqlx::Error> {
     fn classify(self, target: &Target) -> Result<T, OperationsError> {
         self.map_err(|source| OperationsError::from_sqlx(source, target))
@@ -318,8 +497,83 @@ mod error_unit {
     }
 
     #[test]
+    fn sqlstate_classified_by_constant() {
+        for (state, class) in [
+            (SqlState::T_R_SERIALIZATION_FAILURE, Class::Retryable),
+            (SqlState::T_R_DEADLOCK_DETECTED, Class::Retryable),
+            (SqlState::LOCK_NOT_AVAILABLE, Class::LockUnavailable),
+            (SqlState::QUERY_CANCELED, Class::Cancelled),
+            (SqlState::UNIQUE_VIOLATION, Class::Duplicate),
+            (
+                SqlState::CHECK_VIOLATION,
+                Class::Invariant(InvariantKind::Check),
+            ),
+            (
+                SqlState::FOREIGN_KEY_VIOLATION,
+                Class::Invariant(InvariantKind::ForeignKey),
+            ),
+            (SqlState::CONNECTION_FAILURE, Class::Unavailable),
+            (SqlState::PROTOCOL_VIOLATION, Class::Unavailable),
+            (SqlState::ADMIN_SHUTDOWN, Class::Unavailable),
+            (SqlState::CRASH_SHUTDOWN, Class::Unavailable),
+            (SqlState::CANNOT_CONNECT_NOW, Class::Unavailable),
+            (SqlState::INSUFFICIENT_PRIVILEGE, Class::Internal),
+            (SqlState::NOT_NULL_VIOLATION, Class::Internal),
+        ] {
+            assert_eq!(classify(Some(&state), false), class, "{}", state.code());
+        }
+        // A closed connection is unavailable whatever the server said last.
+        assert_eq!(
+            classify(Some(&SqlState::UNIQUE_VIOLATION), true),
+            Class::Unavailable
+        );
+        assert_eq!(classify(None, true), Class::Unavailable);
+        assert_eq!(classify(None, false), Class::Internal);
+    }
+
+    #[test]
+    fn invariant_violations_name_the_registry_rule() {
+        assert_eq!(
+            registry_name(Some("progress_events"), "progress_events_step_nonnegative_check"),
+            "step_nonnegative"
+        );
+        assert_eq!(
+            registry_name(Some("progress_values"), "progress_values_progress_event_fkey"),
+            "progress_event"
+        );
+        assert_eq!(
+            registry_name(Some("incumbents"), "incumbents_objective_finite"),
+            "objective_finite"
+        );
+        assert_eq!(registry_name(None, "content_hash_width"), "content_hash_width");
+        let violation = OperationsError::classified(
+            Class::Invariant(InvariantKind::Check),
+            &target(),
+            DriverError::new(std::io::Error::other("refused")),
+            Some("attempts".to_owned()),
+            Some("attempts_running_holds_lease_check".to_owned()),
+        );
+        assert!(
+            matches!(
+                &violation,
+                OperationsError::InvariantViolation { table: Some(t), constraint: Some(c), kind: InvariantKind::Check, .. }
+                    if t == "attempts" && c == "running_holds_lease"
+            ),
+            "{violation:?}"
+        );
+        assert!(!violation.is_retryable());
+        assert_eq!(violation.code(), DiagnosticCode::ValidationInvariant);
+    }
+
+    #[test]
     fn connection_failures_are_unavailable_and_retryable() {
-        let error = OperationsError::from_sqlx(sqlx::Error::PoolTimedOut, &target());
+        let error = OperationsError::classified(
+            classify(None, true),
+            &target(),
+            DriverError::new(std::io::Error::other("connection reset")),
+            None,
+            None,
+        );
         assert!(matches!(error, OperationsError::Unavailable { .. }));
         assert!(error.is_retryable());
         assert_eq!(error.code(), DiagnosticCode::RuntimeInfrastructure);

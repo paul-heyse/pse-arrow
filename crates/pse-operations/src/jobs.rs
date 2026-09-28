@@ -476,7 +476,7 @@ impl<'s> Jobs<'s> {
                 .await
                 .classify(self.target())?;
         row.map(|row| {
-            Ok(Enqueued::Existing {
+            Ok::<_, sqlx::Error>(Enqueued::Existing {
                 job_id: codec::id(&row, "job_id")?,
                 attempt_id: codec::id(&row, "attempt_id")?,
             })

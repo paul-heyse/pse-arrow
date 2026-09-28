@@ -1,68 +1,107 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Isolated databases with the generated schema, for tests in crates that must not use sqlx directly
-//! (feature `test-support`). Like `#[sqlx::test]`, each database is created on the server
-//! that `DATABASE_URL` names (`just` exports it), so a test never touches the development
-//! store. A failed test leaves its database for inspection; [`TestDatabase::remove`] drops
-//! it.
+//! Isolated databases with the generated schema, for this crate's store tests and for
+//! tests in other crates (feature `test-support`).
+//!
+//! Each [`TestDatabase`] is created on the server `PSE_DATABASE_URL` names (else the
+//! development default), under a name minted here, so a test never touches the
+//! development store. A failed test leaves its database for inspection;
+//! [`TestDatabase::remove`] drops it.
 
-use crate::error::{Classify, OperationsError};
-use crate::store::Store;
+use tokio::task::JoinHandle;
+
+use crate::error::{Classify, OperationsError, Target};
+use crate::store::{Store, StoreOptions, database_url_from_env};
 
 /// One isolated database whose schema `Store::open` created from the generated DDL.
 #[derive(Debug)]
 pub struct TestDatabase {
     store: Store,
     url: String,
-    admin: Store,
+    admin: Session,
     name: String,
 }
 
 /// One test connection outside the pool. Statements are test-authored literals.
 #[derive(Debug)]
 pub struct Session {
-    connection: tokio::sync::Mutex<sqlx::PgConnection>,
-    target: crate::error::Target,
+    client: tokio_postgres::Client,
+    connection: JoinHandle<()>,
+    target: Target,
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        self.connection.abort();
+    }
 }
 
 impl Session {
-    /// Run one statement; returns the rows it affected.
+    async fn connect(
+        config: &tokio_postgres::Config,
+        tls: &tokio_postgres_rustls::MakeRustlsConnect,
+        target: &Target,
+    ) -> Result<Self, OperationsError> {
+        let (client, connection) = config.connect(tls.clone()).await.classify(target)?;
+        let connection = tokio::spawn(async move {
+            // The session ends when its client is dropped or the server closes it.
+            let _ = connection.await;
+        });
+        Ok(Self {
+            client,
+            connection,
+            target: target.clone(),
+        })
+    }
+
+    /// Run test-authored statements with the simple query protocol; returns the rows the
+    /// last one affected.
     ///
     /// # Errors
     ///
     /// Classified driver failures.
     pub async fn execute(&self, sql: &str) -> Result<u64, OperationsError> {
-        let mut connection = self.connection.lock().await;
-        Ok(sqlx::query(sqlx::AssertSqlSafe(sql))
-            .execute(&mut *connection)
-            .await
-            .classify(&self.target)?
-            .rows_affected())
+        let messages = self.client.simple_query(sql).await.classify(&self.target)?;
+        Ok(messages
+            .iter()
+            .rev()
+            .find_map(|message| match message {
+                tokio_postgres::SimpleQueryMessage::CommandComplete(rows) => Some(*rows),
+                _ => None,
+            })
+            .unwrap_or(0))
     }
 
-    /// Run a query returning one `bigint`.
+    /// Run a test-authored query returning one `bigint`.
+    ///
+    /// # Errors
+    ///
+    /// Classified driver failures, including a query that does not return one row.
+    pub async fn count(&self, sql: &str) -> Result<i64, OperationsError> {
+        let row = self.client.query_one(sql, &[]).await.classify(&self.target)?;
+        row.try_get(0).classify(&self.target)
+    }
+
+    /// Run a test-authored query returning text columns, one `Vec` per row; NULL is `None`.
     ///
     /// # Errors
     ///
     /// Classified driver failures.
-    pub async fn count(&self, sql: &str) -> Result<i64, OperationsError> {
-        let mut connection = self.connection.lock().await;
-        sqlx::query_scalar(sqlx::AssertSqlSafe(sql))
-            .fetch_one(&mut *connection)
-            .await
-            .classify(&self.target)
+    pub async fn texts(&self, sql: &str) -> Result<Vec<Vec<Option<String>>>, OperationsError> {
+        let messages = self.client.simple_query(sql).await.classify(&self.target)?;
+        Ok(messages
+            .iter()
+            .filter_map(|message| match message {
+                tokio_postgres::SimpleQueryMessage::Row(row) => Some(
+                    (0..row.len())
+                        .map(|index| row.get(index).map(str::to_owned))
+                        .collect(),
+                ),
+                _ => None,
+            })
+            .collect())
     }
-}
-
-/// The server URL tests use: `DATABASE_URL`, as `#[sqlx::test]` requires.
-fn server_url() -> Result<String, OperationsError> {
-    std::env::var("DATABASE_URL")
-        .ok()
-        .filter(|url| !url.is_empty())
-        .ok_or_else(|| OperationsError::Configuration {
-            reason: "DATABASE_URL must name the test server (`just` exports it)".to_owned(),
-        })
 }
 
 impl TestDatabase {
@@ -70,24 +109,39 @@ impl TestDatabase {
     ///
     /// # Errors
     ///
-    /// [`OperationsError::Configuration`] without `DATABASE_URL`; connection, creation and
-    /// schema-creation failures.
+    /// Connection, creation and schema-creation failures.
     pub async fn create() -> Result<Self, OperationsError> {
-        let server = server_url()?;
-        let admin = Store::connect(&server).await?;
+        Self::new(true).await
+    }
+
+    /// Create a fresh database without a schema; the store is connected, not opened.
+    ///
+    /// # Errors
+    ///
+    /// Connection and creation failures.
+    pub async fn empty() -> Result<Self, OperationsError> {
+        Self::new(false).await
+    }
+
+    async fn new(open: bool) -> Result<Self, OperationsError> {
+        let server = database_url_from_env();
+        let config = crate::store::configure(&server, &StoreOptions::for_tests())?;
+        let target = Target::describe(&config);
+        let admin = Session::connect(&config, &crate::store::tls()?, &target).await?;
         let name = format!("pse_test_{}", uuid::Uuid::now_v7().simple());
         // The name is minted here from a UUID; it carries no caller text.
-        sqlx::query(sqlx::AssertSqlSafe(format!("CREATE DATABASE \"{name}\"")))
-            .execute(admin.pool())
-            .await
-            .classify(admin.target())?;
+        admin.execute(&format!("CREATE DATABASE \"{name}\"")).await?;
         let mut url = url::Url::parse(&server).map_err(|error| OperationsError::Configuration {
-            reason: format!("DATABASE_URL is not a URL: {error}"),
+            reason: format!("{} is not a URL: {error}", crate::DATABASE_URL_ENV),
         })?;
         url.set_path(&format!("/{name}"));
         let url = url.to_string();
-        let store = Store::connect(&url).await?;
-        store.open().await?;
+        let options = StoreOptions::for_tests();
+        let store = if open {
+            Store::open_with(&url, &options).await?
+        } else {
+            Store::connect_with(&url, &options).await?
+        };
         Ok(Self {
             store,
             url,
@@ -113,33 +167,33 @@ impl TestDatabase {
     ///
     /// Classified driver failures.
     pub async fn session(&self) -> Result<Session, OperationsError> {
-        let connection = self
-            .store
-            .pool()
-            .acquire()
-            .await
-            .classify(self.store.target())?
-            .detach();
-        Ok(Session {
-            connection: tokio::sync::Mutex::new(connection),
-            target: self.store.target().clone(),
-        })
+        self.store.session().await
     }
 
-    /// Close every connection and drop the database.
+    /// Close every connection of the store and drop the database.
     ///
     /// # Errors
     ///
     /// Classified driver failures.
     pub async fn remove(self) -> Result<(), OperationsError> {
-        self.store.pool().close().await;
-        sqlx::query(sqlx::AssertSqlSafe(format!(
-            "DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)",
-            self.name
-        )))
-        .execute(self.admin.pool())
-        .await
-        .classify(self.admin.target())?;
+        self.store.close().await;
+        self.admin
+            .execute(&format!(
+                "DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)",
+                self.name
+            ))
+            .await?;
         Ok(())
+    }
+}
+
+impl Store {
+    /// A dedicated connection outside the pool, with the store's session settings.
+    ///
+    /// # Errors
+    ///
+    /// Classified driver failures.
+    pub async fn session(&self) -> Result<Session, OperationsError> {
+        Session::connect(self.config(), self.tls(), self.target()).await
     }
 }
