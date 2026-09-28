@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Reserved typed analysis facts; package guards own all scientific consequences.
-use crate::{Type,Bindings,Result,invalid,specialize::{Environment,Value}};
+use crate::{DeclarationId,Type,Bindings,Result,invalid,specialize::{Environment,Value}};
 use pse_ids::SemanticId;
 pub use pse_model::generated::enums::ModelingAnalysisRoute as Route;
-fn route_id()->SemanticId{pse_ids::named_id(SemanticId::NIL,"pse.modeling.analysis.route")}
+/// The built-in declaration of the analysis route enumeration.
+fn route_id()->DeclarationId{DeclarationId::from(pse_ids::named_id(SemanticId::NIL,"pse.modeling.analysis.route"))}
 fn value(route:Route)->Value{Value::Enum{enumeration:route_id(),member:route.as_str().into()}}
 pub(crate) fn constant(name:&str)->Option<Value>{
     name.strip_prefix("analysis.").and_then(|s|s.parse::<Route>().ok()).map(value)

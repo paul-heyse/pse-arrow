@@ -16,7 +16,7 @@ fn run(text: &str, root: &str, bindings: Bindings) -> Result<SpecializedModel> {
     specialize(
         &p,
         p.names[root],
-        SemanticId::from_bytes([7; 16]),
+        InstanceId::from_bytes([7; 16]),
         &bindings,
         Limits::default(),
     )
@@ -87,7 +87,7 @@ fn multiplicative_literals_keep_operand_units_in_typed_and_static_expressions() 
         specialize(
             &package,
             package.names["p.Root"],
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             &Bindings::default(),
             Limits::default(),
         )
@@ -379,7 +379,7 @@ fn static_guards_requirements_and_budget() {
         specialize(
             &p,
             p.names["p.D"],
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             &Bindings::default(),
             Limits {
                 items: 1,
@@ -504,7 +504,7 @@ fn bounded_expansion_observes_caller_cancellation() {
     let result = specialize::specialize_cancellable(
         &package,
         package.names["p.D"],
-        SemanticId::NIL,
+        InstanceId::from_id(SemanticId::NIL),
         &Bindings::default(),
         Limits::default(),
         &cancelled,
@@ -723,7 +723,7 @@ fn expression_expansion_spends_the_shared_item_budget() {
         specialize(
             &p,
             p.names["p.Root"],
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             &Bindings::default(),
             Limits {
                 items: 8,
@@ -736,7 +736,7 @@ fn expression_expansion_spends_the_shared_item_budget() {
         specialize(
             &p,
             p.names["p.Root"],
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             &Bindings::default(),
             Limits::default()
         )

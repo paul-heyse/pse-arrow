@@ -197,7 +197,7 @@ fn requirements_can_read_typed_rows_and_exact_integer_counts() {
     specialize(
         &p,
         p.names["p.Root"],
-        SemanticId::NIL,
+        InstanceId::from_id(SemanticId::NIL),
         &Bindings::default(),
         Limits::default(),
     )
@@ -326,7 +326,7 @@ fn package_visibility_requires_an_import_for_functions_and_types() {
     let private_id = checked.entry("library.twice").unwrap();
     let bypass = format!(
         "{library} package consumer {{ fn f(x:Scalar)->Scalar=f_{}(x); }}",
-        private_id.to_hex()
+        private_id.as_id().to_hex()
     );
     assert!(check(&source(&bypass), &context).is_err());
 }
@@ -349,7 +349,7 @@ fn admitted_physical_context_survives_caller_changes() {
     let model = specialize(
         &checked,
         checked.entry("p.Root").unwrap(),
-        SemanticId::NIL,
+        InstanceId::from_id(SemanticId::NIL),
         &Bindings::default(),
         Limits::default(),
     )

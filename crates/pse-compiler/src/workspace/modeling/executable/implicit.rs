@@ -21,7 +21,7 @@ struct AssessmentProjection {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ImplicitScale {
     pub row: SemanticId,
-    pub source: SemanticId,
+    pub source: DeclarationId,
     pub scheme: pse_model::generated::enums::ConstraintScalingScheme,
     pub terms: std::ops::Range<usize>,
 }
@@ -32,7 +32,7 @@ struct ResidualProjection {
     expressions: Vec<Expr>,
     quantities: Vec<QuantityTypeId>,
     assessment: Option<AssessmentProjection>,
-    hints: Vec<(SemanticId, SemanticId, ModelingHint, Expr, QuantityTypeId)>,
+    hints: Vec<(SemanticId, DeclarationId, ModelingHint, Expr, QuantityTypeId)>,
     terms: Vec<(Expr, QuantityTypeId)>,
     scales: Vec<ImplicitScale>,
 }
@@ -118,7 +118,7 @@ pub struct AdmittedResidual {
     pub hints: Option<Arc<AdmittedBody>>,
     pub terms: Option<Arc<AdmittedBody>>,
     pub scales: Vec<ImplicitScale>,
-    pub hint_targets: Vec<(SemanticId, SemanticId, ModelingHint)>,
+    pub hint_targets: Vec<(SemanticId, DeclarationId, ModelingHint)>,
 }
 /// Checked implicit systems over a single ordered unknown set.
 #[derive(Clone, Debug, PartialEq)]
@@ -311,7 +311,7 @@ pub(super) fn project(
         .collect::<Result<BTreeMap<_, _>>>()?;
     // Descendants are projected before their owners so a parent residual can call
     // a child stage with its current unknowns as inputs on the same worker.
-    let mut hierarchy = DiGraph::<SemanticId, ()>::new();
+    let mut hierarchy = DiGraph::<InstanceId, ()>::new();
     let nodes = model
         .instances
         .keys()
@@ -328,10 +328,12 @@ pub(super) fn project(
     let order = toposort(&hierarchy, None)
         .map_err(|_| CompileError::Missing("cyclic instance hierarchy".into()))?;
     let mut stages = order.into_iter().filter_map(|node| {
+        // A stage is identified by its implicit block's instance, or by the generated
+        // rate system's own identity below.
         let id = hierarchy[node];
         match model.implicit.get(&id) {
-            Some(Policy::Nested) => Some((id, ImplicitAlgorithm::Native)),
-            Some(Policy::Accelerated(reference)) => Some((id, ImplicitAlgorithm::Accelerator(reference.clone()))),
+            Some(Policy::Nested) => Some((id.as_id(), ImplicitAlgorithm::Native)),
+            Some(Policy::Accelerated(reference)) => Some((id.as_id(), ImplicitAlgorithm::Accelerator(reference.clone()))),
             _ => None,
         }
     }).collect::<Vec<_>>();
@@ -339,8 +341,9 @@ pub(super) fn project(
         let axis = model.integrated.keys().next().ok_or_else(||CompileError::Missing("rate system axis".into()))?;
         stages.push((pse_ids::named_id(*axis,"affine-rate-system"), ImplicitAlgorithm::AffineRates));
     }
-    for (instance, algorithm) in &stages {
+    for (stage, algorithm) in &stages {
         let generated = *algorithm == ImplicitAlgorithm::AffineRates;
+        let instance = &InstanceId::from_id(*stage);
         let unknowns = if generated {
             model.derivatives.values().map(|d|d.rate).collect::<Vec<_>>()
         } else {
@@ -350,11 +353,11 @@ pub(super) fn project(
         let branches = if generated {
             let rows = p.outputs.iter().find_map(|o| match o { ModelingOutput::DynamicRate{equations,..}=>Some(equations.clone()), _=>None }).ok_or_else(||CompileError::Missing("rate system equations".into()))?;
             if rows.iter().any(|r| hidden.contains(r)) { return Err(CompileError::Missing("time derivatives cannot be owned by a nested algebraic block".into())); }
-            vec![(*instance, rows, None)]
+            vec![(*stage, rows, None)]
         } else if let Some(selection) = selection {
             selection.alternatives.iter().map(|r| (r.id, r.equations.iter().map(|r|r.id).collect::<Vec<_>>(), Some(r))).collect::<Vec<_>>()
         } else {
-            vec![(*instance, model.equations.iter().filter(|r|r.lineage.instance==*instance).map(|r|r.id).collect(), None)]
+            vec![(*stage, model.equations.iter().filter(|r|r.lineage.instance==*instance).map(|r|r.id).collect(), None)]
         };
         let mut residuals = Vec::new();
         let branch_declarations = model
@@ -491,7 +494,7 @@ pub(super) fn project(
             .filter(|child| {
                 generated || petgraph::algo::has_path_connecting(
                     &hierarchy,
-                    nodes[&child.id],
+                    nodes[&InstanceId::from_id(child.id)],
                     nodes[instance],
                     None,
                 )
@@ -648,16 +651,16 @@ pub(super) fn project(
             })
             .collect::<Vec<_>>();
         let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV1);
-        h.id(instance).str(&algorithm.key());
+        h.id(stage).str(&algorithm.key());
         for residual in &residuals {
             h.id(&residual.id);
             for scale in &residual.scales {
-                h.id(&scale.row).id(&scale.source).str(scale.scheme.as_str()).u64(scale.terms.start as u64).u64(scale.terms.end as u64);
+                h.id(&scale.row).id(&scale.source.as_id()).str(scale.scheme.as_str()).u64(scale.terms.start as u64).u64(scale.terms.end as u64);
             }
             for (expression,quantity) in &residual.terms { h.id(&quantity.as_id()).str(&dsl::render_expr(expression)); }
             for (target, source, kind, expression, quantity) in &residual.hints {
                 h.id(target)
-                    .id(source)
+                    .id(&source.as_id())
                     .u64(*kind as u64)
                     .id(&quantity.as_id())
                     .str(&dsl::render_expr(expression));
@@ -674,7 +677,7 @@ pub(super) fn project(
         }
         // Function bodies and guards affect the executable meaning, including assessor-only calls.
         for function in p.functions.values() {
-            h.id(&function.id);
+            h.id(&function.id.as_id());
             if let Some(validity) = &function.validity {
                 h.str(&dsl::render_predicate(validity));
             }
@@ -699,7 +702,7 @@ pub(super) fn project(
         let spec = ProviderSpec {
             shapes: pse_kernels::ProviderShapes::default(),
             derivative_source: pse_kernels::DerivativeSource::Implicit,
-            id: *instance,
+            id: *stage,
             revision,
             data: revision,
 
@@ -721,7 +724,7 @@ pub(super) fn project(
                 symbol_name(*id),
                 Expr {
                     kind: ExprKind::Kernel {
-                        name: call_name(*instance, i),
+                        name: call_name(*stage, i),
                         args: input_expressions.clone(),
                     },
                     span: Span::default(),
@@ -745,7 +748,7 @@ pub(super) fn project(
         }
         p.implicit.push(Projection {
             algorithm: algorithm.clone(),
-            id: *instance,
+            id: *stage,
             unknowns: unknowns.clone(),
             formals,
             residuals,

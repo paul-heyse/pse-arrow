@@ -299,7 +299,7 @@ class RuntimeModelingChecksRow:
     sample_index: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    source_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.ModelingCheckKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingCheckKind))
     value: b.float = attrs.field(validator=v.finite_float)
     tolerance: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
@@ -313,11 +313,11 @@ class RuntimeModelingConformanceRow:
     """Declared relation row or nested value."""
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    fixture_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    fixture_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     sample_index: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     time: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    source_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.ModelingConformanceKind = attrs.field(validator=attrs.validators.instance_of(e.ModelingConformanceKind))
     status: e.ModelingConformanceStatus = attrs.field(validator=attrs.validators.instance_of(e.ModelingConformanceStatus))
     message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
@@ -514,7 +514,7 @@ class RuntimeModelingFixtureStatusRow:
     """Declared relation row or nested value."""
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    fixture_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    fixture_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     status: e.ModelingConformanceStatus = attrs.field(validator=attrs.validators.instance_of(e.ModelingConformanceStatus))
 
 
@@ -879,7 +879,7 @@ class RuntimeModelingReportsRow:
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     step: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    source_id: i.DeclarationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     label: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
@@ -891,8 +891,8 @@ class RuntimeModelingReportsRow:
 class RuntimeModelingStudiesFieldPointsItem:
     """Declared relation row or nested value."""
 
-    root_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    instance_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    root_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    instance_id: i.InstanceId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     predecessor: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     result_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     accepted: b.bool = attrs.field(validator=v.exact_type(b.bool))
@@ -1541,9 +1541,9 @@ class RuntimeRunLineageRow:
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    model_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    model_id: i.ModelId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     revision: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    case_id: i.CaseId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     request_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     preparation_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     profile_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
@@ -1633,9 +1633,9 @@ class RuntimeSolveRunsRow:
 
     run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    model_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    model_id: i.ModelId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     revision: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-    case_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    case_id: i.CaseId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     backend: e.NativeBackend | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeBackend)))
     native_code: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
     native_status: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))

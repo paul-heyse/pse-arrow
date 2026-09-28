@@ -12,20 +12,21 @@
 use std::sync::Arc;
 
 use arrow_array::Array;
-use pse_ids::{ContentHash, SemanticId};
+use pse_ids::ContentHash;
 use pse_relations::generated::authored::packages::{self, AuthoredPackagesFieldDependenciesItem};
 use pse_relations::generated::enums::{IdPolicy, PackageKind};
+use pse_relations::generated::identities::PackageId;
 use pse_relations::generated::reference::units;
 
 fn package_row() -> packages::Row {
     packages::Row {
-        package_id: SemanticId::from_bytes([3; 16]),
+        package_id: PackageId::from_bytes([3; 16]),
         name: "nested".to_owned(),
         version: "1.0.0".to_owned(),
         kind: PackageKind::Model,
         id_policy: IdPolicy::Explicit,
         dependencies: vec![AuthoredPackagesFieldDependenciesItem {
-            package_id: SemanticId::from_bytes([4; 16]),
+            package_id: PackageId::from_bytes([4; 16]),
             version_req: "=1.0.0".to_owned(),
         }],
         content_hash: ContentHash::NIL,
@@ -143,7 +144,7 @@ fn bulk_append_preserves_nested_slices_and_declared_enum_strings() {
     second.push(skipped).expect("skip row");
     let mut second_row = package_row();
     second_row.name = "second".to_owned();
-    second_row.package_id = SemanticId::from_bytes([9; 16]);
+    second_row.package_id = PackageId::from_bytes([9; 16]);
     second_row.kind = PackageKind::Library;
     second_row.dependencies[0].version_req = "^2.0".to_owned();
     second.push(second_row.clone()).expect("second row");

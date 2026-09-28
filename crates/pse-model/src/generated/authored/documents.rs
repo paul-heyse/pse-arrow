@@ -12,7 +12,7 @@ pub struct AuthoredDocumentsRow {
     ///`named_id(package_id, path)` (blueprint §11).
     pub r#document_id: pse_ids::SemanticId,
     ///The owning package.
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///The document path, relative to the package root.
     pub r#path: String,
     ///Exact original UTF-8 source, including whitespace and comments (ADR-0068).

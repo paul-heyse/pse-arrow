@@ -6,7 +6,7 @@ use super::*;
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModelingExpectationResult {
     pub id: SemanticId,
-    pub declaration: SemanticId,
+    pub declaration: DeclarationId,
     pub actual: f64,
     pub expected: f64,
     /// Combined physical tolerance: absolute + relative * abs(expected).
@@ -107,8 +107,8 @@ impl CompilerWorkspace {
     /// or constructing native providers. Models needing a solve use the workflow harness.
     pub fn check_modeling_expectations(
         &mut self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         values: &CaseValues,
@@ -154,7 +154,7 @@ impl CompilerWorkspace {
             .any(|b| !b.providers().is_empty())
         {
             return Err(pse_modeling::ModelingError::Unsupported {
-                declaration: root,
+                declaration: root.into(),
                 capability: "pure tests cannot construct external or implicit runtime capabilities"
                     .into(),
             }

@@ -6,7 +6,8 @@ use crate::math::modeling::ModelingPreparation;
 use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
 use pse_compiler::workspace::{ModelingOutput, Profile};
 use pse_model::{HeapUsage, generated::enums::ModelingAnalysisRoute as Route};
-use pse_modeling::Limits;
+use pse_model::generated::identities::ModelId;
+use pse_modeling::{DeclarationId, InstanceId, Limits};
 use pse_relations::{
     columnar::{FieldCheckedBatch, RelationRow},
     generated::authored::{datasets, fit_cases, observations},
@@ -251,7 +252,7 @@ impl ModelingPackage {
         let mut parameter_ports: Vec<Option<Port>> = vec![None; d.parameters.len()];
         for e in &d.experiments {
             let (mut bindings, mut case) = self
-                .declared_case(e.case_id, e.route, limits, cancel)
+                .declared_case(DeclarationId::from(e.case_id), e.route, limits, cancel)
                 .await?;
             bindings
                 .demand
@@ -265,7 +266,13 @@ impl ModelingPackage {
             bindings.demand.sort();
             bindings.demand.dedup();
             let model = self
-                .prepare(e.case_id, e.experiment_id, bindings.clone(), limits, cancel)
+                .prepare(
+                    DeclarationId::from(e.case_id),
+                    InstanceId::from(e.experiment_id),
+                    bindings.clone(),
+                    limits,
+                    cancel,
+                )
                 .await?;
             let mut local = BTreeMap::new();
             let mut local_ids = BTreeSet::new();
@@ -327,7 +334,7 @@ impl ModelingPackage {
                         d.fit_id,
                         &format!("nominal.{}", p.symbol_id),
                     ),
-                    model_id: d.fit_id,
+                    model_id: ModelId::from(d.fit_id),
                     case_id: None,
                     target_id: p.symbol_id,
                     target_kind: NumericalTarget::Variable,
@@ -393,7 +400,7 @@ impl ModelingPackage {
                 {
                     profile.clone()
                 } else {
-                    let data=model.compiled().model.fixtures.get(&e.experiment_id).ok_or_else(||contract("transient experiment needs explicit or authored integration controls"))?;
+                    let data=model.compiled().model.fixtures.get(&InstanceId::from(e.experiment_id)).ok_or_else(||contract("transient experiment needs explicit or authored integration controls"))?;
                     self.integration_profile(&model, data, &profile.solver.numerics)?
                 };
                 for o in &local_observations {
@@ -443,8 +450,8 @@ impl ModelingPackage {
                 integration.sensitivities = local.keys().any(|p| parameter_columns[*p].is_some());
                 let simulation = if let Some(modes) = profile.modes.get(&e.experiment_id) {
                     self.prepare_simulation_modes(
-                        e.case_id,
-                        e.experiment_id,
+                        DeclarationId::from(e.case_id),
+                        InstanceId::from(e.experiment_id),
                         bindings,
                         limits,
                         case,
@@ -456,8 +463,8 @@ impl ModelingPackage {
                     .await?
                 } else {
                     self.prepare_simulation(
-                        e.case_id,
-                        e.experiment_id,
+                        DeclarationId::from(e.case_id),
+                        InstanceId::from(e.experiment_id),
                         bindings,
                         limits,
                         case,
@@ -542,8 +549,8 @@ impl ModelingPackage {
                 }
                 let resolved = self
                     .resolve_case(
-                        e.case_id,
-                        e.experiment_id,
+                        DeclarationId::from(e.case_id),
+                        InstanceId::from(e.experiment_id),
                         bindings,
                         limits,
                         case,

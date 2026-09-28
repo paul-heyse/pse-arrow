@@ -441,7 +441,7 @@ impl Runtime {
         let package = self.package_from_sources(&modeling, physical)?;
         let analysis: ModelingAnalysis = package
             .declared_analysis(
-                job.case,
+                job.case.into(),
                 job.route,
                 Default::default(),
                 job.profile.solver()?,

@@ -6,21 +6,21 @@ use super::*;
 impl Engine<'_, '_> {
     pub(super) fn resolve_function(
         &self,
-        instance: SemanticId,
-        at: SemanticId,
+        instance: InstanceId,
+        at: DeclarationId,
         name: &str,
         env: &Environment,
-    ) -> Result<SemanticId> {
+    ) -> Result<DeclarationId> {
         self.resolve_function_binding(instance, at, name, env, &mut BTreeSet::new())
     }
     fn resolve_function_binding(
         &self,
-        instance: SemanticId,
-        at: SemanticId,
+        instance: InstanceId,
+        at: DeclarationId,
         name: &str,
         env: &Environment,
-        stack: &mut BTreeSet<(SemanticId, SemanticId, Vec<SemanticId>)>,
-    ) -> Result<SemanticId> {
+        stack: &mut BTreeSet<(InstanceId, DeclarationId, Vec<SemanticId>)>,
+    ) -> Result<DeclarationId> {
         if let Some(Value::Function(id)) = env.get(name) {
             return Ok(*id);
         }
@@ -90,7 +90,7 @@ impl Engine<'_, '_> {
     }
     pub(super) fn source_types(
         &self,
-        at: SemanticId,
+        at: DeclarationId,
         env: &Environment,
     ) -> Result<BTreeMap<String, Type>> {
         let mut types = self.p.named_types(at);
@@ -124,7 +124,7 @@ impl Engine<'_, '_> {
         Ok(types)
     }
 
-    pub(super) fn constant(&mut self, value: f64, ty: &Type, at: SemanticId) -> Result<Expr> {
+    pub(super) fn constant(&mut self, value: f64, ty: &Type, at: DeclarationId) -> Result<Expr> {
         let Type::Quantity(scheme) = ty else {
             return Err(invalid(at, "physical constant type required"));
         };
@@ -147,8 +147,9 @@ impl Engine<'_, '_> {
         };
         let mut h = FramedHasher::new(pse_ids::Frame::ModelingTypedConstantV1);
         h.id(&quantity.as_id()).u64(value.to_bits());
-        let id = h.finish_id();
-        let name = format!("f_{}", id.to_hex());
+        // A lowered function is a synthesized function declaration.
+        let id = DeclarationId::from(h.finish_id());
+        let name = format!("f_{}", id.as_id().to_hex());
         self.model
             .functions
             .entry(name.clone())
@@ -171,10 +172,10 @@ impl Engine<'_, '_> {
     /// Resolve an indexed actual without inventing coordinates from observed values.
     fn argument_group(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         path: &Path,
         env: &Environment,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<Vec<(Vec<Value>, Expr)>> {
         let (first, rest) = path
             .segments
@@ -258,12 +259,12 @@ impl Engine<'_, '_> {
 
     pub(super) fn function_call(
         &mut self,
-        instance: SemanticId,
-        function: SemanticId,
+        instance: InstanceId,
+        function: DeclarationId,
         args: &[Expr],
         wrt: &[Path],
         env: &Environment,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<ExprKind> {
         self.reserve(1)?;
         if self.function_stack.len() >= self.limits.depth {
@@ -289,7 +290,7 @@ impl Engine<'_, '_> {
             actual: &Type,
             c: &TypeContext<'_>,
             bindings: &mut pse_quantity::scheme::Substitution,
-            at: SemanticId,
+            at: DeclarationId,
         ) -> Result<()> {
             match (formal, actual) {
                 (Type::Quantity(formal), Type::Quantity(actual)) => {
@@ -322,7 +323,7 @@ impl Engine<'_, '_> {
             ty: &mut Type,
             c: &TypeContext<'_>,
             bindings: &pse_quantity::scheme::Substitution,
-            at: SemanticId,
+            at: DeclarationId,
         ) -> Result<()> {
             match ty {
                 Type::Quantity(scheme) => {
@@ -349,7 +350,7 @@ impl Engine<'_, '_> {
         let mut statics = Environment::new();
         let mut selectors = BTreeMap::new();
         let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV1);
-        identity.id(&function);
+        identity.id(&function.as_id());
         for quantity in substitution.values() {
             identity.id(&quantity.as_id());
         }
@@ -393,8 +394,8 @@ impl Engine<'_, '_> {
                     let values = self.argument_group(instance, path, env, chain)?;
                     if let Some(external) = &mut contract.external {
                         external.shapes.push(crate::external::ArgumentShape {
-                            argument: pse_ids::named_id(function, name),
-                            axes: axes.clone(),
+                            argument: pse_ids::named_id(function.as_id(), name),
+                            axes: axes.iter().map(|axis| axis.as_id()).collect(),
                             coordinates: values
                                 .iter()
                                 .map(|(v, _)| v.iter().map(Value::identity).collect())
@@ -593,6 +594,7 @@ impl SpecializedModel {
             if let Some(id) = name
                 .strip_prefix("f_")
                 .and_then(|id| SemanticId::parse_hex(id).ok())
+                .map(DeclarationId::from)
             {
                 package.functions.insert(id, function.clone());
                 package.lowered_functions.insert(id);

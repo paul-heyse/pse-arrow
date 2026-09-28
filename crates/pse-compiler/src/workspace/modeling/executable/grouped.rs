@@ -353,7 +353,7 @@ pub(super) fn admit(
         )?;
         let declaration = p.declarations[index];
         let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV1);
-        h.id(&declaration)
+        h.id(&declaration.as_id())
             .str(&dsl::render_expr(&expression))
             .id(&p.quantities[index].as_id());
         for f in &formals {
@@ -374,7 +374,7 @@ pub(super) fn admit(
         } else {
             let body = Arc::new(
                 crate::typed_math::Request {
-                    definition: declaration,
+                    definition: declaration.into(),
                     expressions: &[expression],
                     formals: &formals,
                     domains: &BTreeMap::new(),

@@ -15,11 +15,11 @@ pub struct RuntimeSolveRunsRow {
     ///step
     pub r#step: i64,
     ///model_id
-    pub r#model_id: Option<pse_ids::SemanticId>,
+    pub r#model_id: Option<crate::generated::identities::ModelId>,
     ///revision
     pub r#revision: Option<pse_ids::ContentHash>,
     ///case_id
-    pub r#case_id: Option<pse_ids::SemanticId>,
+    pub r#case_id: Option<crate::generated::identities::CaseId>,
     ///backend
     pub r#backend: Option<crate::generated::enums::NativeBackend>,
     ///native_code

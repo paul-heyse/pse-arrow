@@ -81,7 +81,7 @@ async fn nested_source_claims_use_selected_utf8_bytes_and_native_joins() {
     documents
         .push(documents::Row {
             document_id: document,
-            package_id: document,
+            package_id: document.into(),
             path: "source.yaml".into(),
             source_text: "é".into(),
         })

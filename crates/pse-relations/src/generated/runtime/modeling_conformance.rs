@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    212u8, 220u8, 85u8, 165u8, 97u8, 85u8, 68u8, 161u8, 1u8, 216u8, 72u8, 193u8, 224u8,
-    108u8, 143u8, 227u8, 91u8, 7u8, 98u8, 246u8, 236u8, 9u8, 84u8, 127u8, 212u8, 230u8,
-    143u8, 112u8, 153u8, 63u8, 47u8, 41u8,
+    216u8, 57u8, 131u8, 171u8, 217u8, 174u8, 138u8, 90u8, 135u8, 115u8, 111u8, 27u8,
+    64u8, 231u8, 15u8, 111u8, 213u8, 191u8, 113u8, 114u8, 37u8, 115u8, 249u8, 230u8,
+    131u8, 59u8, 207u8, 149u8, 71u8, 164u8, 35u8, 108u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
     fn append(
@@ -78,7 +78,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -88,7 +88,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[4usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
         )?;
         <crate::generated::enums::ModelingConformanceKind as crate::columnar::ArrowValue>::append_null(
@@ -121,7 +121,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#fixture_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#fixture_id: <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -139,7 +139,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingConformanceRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#source_id: <crate::generated::identities::DeclarationId as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,

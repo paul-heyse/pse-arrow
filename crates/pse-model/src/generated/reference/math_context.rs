@@ -11,7 +11,7 @@
 )]
 pub struct ReferenceMathContextRow {
     ///package_id
-    pub r#package_id: pse_ids::SemanticId,
+    pub r#package_id: crate::generated::identities::PackageId,
     ///neutral_quantity_type_id
     pub r#neutral_quantity_type_id: pse_ids::SemanticId,
     ///boolean_kind_id

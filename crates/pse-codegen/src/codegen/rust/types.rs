@@ -145,6 +145,11 @@ impl super::super::native::Policy for RustPolicy<'_> {
             return Ok(Some(quote!(crate::generated::enums::#name)));
         }
         if matches!(mode, super::super::native::Mode::Domain) {
+            // A nested identity value is typed by the entity it names, as a column is
+            // (ADR-0115); its value and codec are the base identity's.
+            if let Some(identity) = ty.identity() {
+                return Ok(Some(super::identities::path(identity)));
+            }
             if let Some(use_) = ty.extension() {
                 if matches!(
                     use_,

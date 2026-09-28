@@ -12,7 +12,7 @@ pub struct RuntimeModelingConformanceRow {
     ///run_id
     pub r#run_id: pse_ids::SemanticId,
     ///fixture_id
-    pub r#fixture_id: pse_ids::SemanticId,
+    pub r#fixture_id: crate::generated::identities::DeclarationId,
     ///sample_index
     pub r#sample_index: i64,
     ///time
@@ -20,7 +20,7 @@ pub struct RuntimeModelingConformanceRow {
     ///target_id
     pub r#target_id: pse_ids::SemanticId,
     ///source_id
-    pub r#source_id: pse_ids::SemanticId,
+    pub r#source_id: crate::generated::identities::DeclarationId,
     ///kind
     pub r#kind: crate::generated::enums::ModelingConformanceKind,
     ///status

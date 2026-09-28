@@ -21,7 +21,7 @@ pub struct ReferenceReferenceStatesRow {
     ///include_enthalpy_of_formation
     pub r#include_enthalpy_of_formation: bool,
     ///subject_id
-    pub r#subject_id: Option<pse_ids::SemanticId>,
+    pub r#subject_id: Option<crate::generated::identities::DeclarationId>,
     ///doc
     pub r#doc: String,
 }

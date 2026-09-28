@@ -88,7 +88,7 @@ pub(super) async fn authored_job(
     ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
-        case,
+        case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         profile,
     }

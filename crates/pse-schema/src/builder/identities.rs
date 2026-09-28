@@ -7,6 +7,11 @@
 //! of the column it references, transitively; a column that declares one identity and
 //! inherits another is refused. The owner of an identity is the one relation whose
 //! single-column primary key declares it; identities without an owner are allowed.
+//!
+//! A nested value (a struct field or list item inside a column) may also declare the
+//! identity it carries, so a row that lists entities types them. Ownership and
+//! foreign-key inheritance stay properties of top-level columns: a nested value never
+//! owns an identity and never inherits one.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -20,8 +25,8 @@ use crate::model::{
 /// the declared identities.
 ///
 /// # Errors
-/// A duplicate or unused declaration; a facet naming an undeclared identity, on a nested
-/// or non-identity field; conflicting identities; mixed bases; or two owners.
+/// A duplicate or unused declaration; a facet naming an undeclared identity or on a
+/// non-identity field; conflicting identities; mixed bases; or two owners.
 pub(super) fn resolve(
     relations: &mut [RelationSpec],
     decls: &[IdentityDecl],
@@ -49,17 +54,20 @@ pub(super) fn resolve(
     let mut owners: BTreeMap<&str, IdentityOwner> = BTreeMap::new();
     for spec in relations.iter() {
         for column in &spec.columns {
-            let context = format!("column {}.{}", spec.key, column.name());
-            refuse_nested(column, &context)?;
+            for (path, carrier) in carriers(column) {
+                let Some(name) = carrier.identity() else {
+                    continue;
+                };
+                if !declared.contains_key(name) {
+                    return Err(SchemaError::UnknownReference {
+                        context: format!("column {}.{path}", spec.key),
+                        reference: format!("identity:{name}"),
+                    });
+                }
+            }
             let Some(name) = column.identity() else {
                 continue;
             };
-            if !declared.contains_key(name) {
-                return Err(SchemaError::UnknownReference {
-                    context,
-                    reference: format!("identity:{name}"),
-                });
-            }
             if spec.primary_key.as_slice() == [column.name()] {
                 let owner = IdentityOwner {
                     relation_id: spec.id,
@@ -83,11 +91,11 @@ pub(super) fn resolve(
     inherit(relations)?;
     let mut bases: BTreeMap<&str, (IdentityBase, String)> = BTreeMap::new();
     for spec in relations.iter() {
-        for column in &spec.columns {
+        for (path, column) in spec.columns.iter().flat_map(carriers) {
             let Some(name) = column.identity() else {
                 continue;
             };
-            let context = format!("{}.{}", spec.key, column.name());
+            let context = format!("{}.{path}", spec.key);
             let base = match column.extension() {
                 Some(ExtensionUse::SemanticId) => IdentityBase::SemanticId,
                 Some(ExtensionUse::ContentHash) => IdentityBase::ContentHash,
@@ -132,19 +140,19 @@ pub(super) fn resolve(
     Ok(out)
 }
 
-/// Identity is a property of a top-level key or reference column, never of a nested value.
-fn refuse_nested(column: &FieldContract, context: &str) -> Result<(), SchemaError> {
-    let mut nested = Vec::new();
-    for child in column.children() {
-        child.walk(&mut nested);
+/// The column and every nested value inside it, each with its dotted field path.
+fn carriers(column: &FieldContract) -> Vec<(String, FieldContract)> {
+    fn visit(path: String, field: &FieldContract, out: &mut Vec<(String, FieldContract)>) {
+        out.push((path.clone(), field.clone()));
+        if field.extension().is_none() {
+            for child in field.children() {
+                visit(format!("{path}.{}", child.name()), &child, out);
+            }
+        }
     }
-    if nested.iter().any(|child| child.identity().is_some()) {
-        return Err(crate::checks::invalid(
-            context,
-            "an entity identity is declared only on a top-level identity column",
-        ));
-    }
-    Ok(())
+    let mut out = Vec::new();
+    visit(column.name().to_owned(), column, &mut out);
+    out
 }
 
 /// Propagate identities along column and table-level references to a fixed point.

@@ -25,6 +25,8 @@ pub struct ModelingFixturePolicy {
     pub derivatives: Option<pse_backend_native::derivative_diagnostics::Policy>,
 }
 
+/// The fixture of package-level checks that belong to no authored fixture (coverage).
+pub(super) const NO_FIXTURE: DeclarationId = DeclarationId::from_id(SemanticId::NIL);
 /// Execution policy is supplied independently of scientific fixture and oracle data.
 #[derive(Clone, Debug)]
 pub struct ModelingConformancePolicy {
@@ -33,7 +35,7 @@ pub struct ModelingConformancePolicy {
     pub numerical: NumericalInputs,
     pub limits: Limits,
     pub derivatives: pse_backend_native::derivative_diagnostics::Policy,
-    pub fixture_policies: BTreeMap<SemanticId, ModelingFixturePolicy>,
+    pub fixture_policies: BTreeMap<DeclarationId, ModelingFixturePolicy>,
     pub maximum_fixtures: usize,
     pub maximum_checks: usize,
 }
@@ -42,14 +44,14 @@ pub struct ModelingConformancePolicy {
 pub struct ModelingConformanceReport {
     pub run_id: SemanticId,
     pub checks: Vec<ModelingConformanceCheck>,
-    pub results: BTreeMap<SemanticId, ModelingResult>,
-    pub initializations: BTreeMap<SemanticId, ModelingInitializationReport>,
-    pub trajectories: BTreeMap<SemanticId, ModelingTrajectory>,
+    pub results: BTreeMap<DeclarationId, ModelingResult>,
+    pub initializations: BTreeMap<DeclarationId, ModelingInitializationReport>,
+    pub trajectories: BTreeMap<DeclarationId, ModelingTrajectory>,
     pub complete: bool,
     /// Structured causes indexed by each check's failure ordinal.
     pub failures: Vec<pse_model::diagnostic::BoundaryDiagnostic>,
     /// Complete discovery inventory, independent of the detailed check cap.
-    pub fixture_statuses: BTreeMap<SemanticId, Status>,
+    pub fixture_statuses: BTreeMap<DeclarationId, Status>,
     pub(super) registry: Arc<pse_schema::Registry>,
     pub(super) pool: Arc<dyn pse_columnar::MemoryPool>,
     _owner: pse_columnar::MemoryReservation,
@@ -58,7 +60,7 @@ impl ModelingConformanceReport {
     pub(super) fn new(
         registry: Arc<pse_schema::Registry>,
         pool: Arc<dyn pse_columnar::MemoryPool>,
-        fixtures: &[SemanticId],
+        fixtures: &[DeclarationId],
         cap: usize,
     ) -> Result<Self, WorkflowError> {
         let bytes = cap
@@ -101,7 +103,7 @@ impl ModelingConformanceReport {
             _owner: owner,
         })
     }
-    fn note_status(&mut self, fixture: SemanticId, status: Status) {
+    fn note_status(&mut self, fixture: DeclarationId, status: Status) {
         let rank = |s| match s {
             Status::Unattempted => 0,
             Status::NotApplicable => 1,
@@ -124,11 +126,12 @@ impl ModelingConformanceReport {
                 .iter()
                 .all(|r| matches!(r.status, Status::Passed | Status::NotApplicable))
     }
+    /// A check of `fixture` about `target`, attributed to the authored `source`.
     pub(super) fn record(
         &mut self,
-        fixture: SemanticId,
+        fixture: DeclarationId,
         target: SemanticId,
-        source: SemanticId,
+        source: DeclarationId,
         kind: Kind,
         status: Status,
         message: impl AsRef<str>,
@@ -179,8 +182,20 @@ impl ModelingConformanceReport {
             oracle_revision: oracle.map(|o| o.revision.clone()),
         });
     }
+    /// A check about the fixture as a whole: it is its own target and source.
+    pub(super) fn record_fixture(
+        &mut self,
+        fixture: DeclarationId,
+        kind: Kind,
+        status: Status,
+        message: impl AsRef<str>,
+        oracle:Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOracle>,
+        cap: usize,
+    ) {
+        self.record(fixture, fixture.as_id(), fixture, kind, status, message, oracle, cap);
+    }
     /// All discovered fixtures, including refusals and pure checks without solve results.
-    pub fn fixtures(&self) -> BTreeSet<SemanticId> {
+    pub fn fixtures(&self) -> BTreeSet<DeclarationId> {
         self.fixture_statuses.keys().copied().collect()
     }
     /// Inventory survives even if no further detailed row can be retained.
@@ -254,7 +269,7 @@ impl ModelingConformanceReport {
     }
     pub(super) fn failed(
         &mut self,
-        fixture: SemanticId,
+        fixture: DeclarationId,
         kind: Kind,
         error: &WorkflowError,
         expected: Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure>,
@@ -278,9 +293,7 @@ impl ModelingConformanceReport {
             Status::Failed
         };
         let check = self.checks.len();
-        self.record(
-            fixture,
-            fixture,
+        self.record_fixture(
             fixture,
             kind,
             status,
@@ -292,7 +305,7 @@ impl ModelingConformanceReport {
     }
     fn model_checks(
         &mut self,
-        fixture: SemanticId,
+        fixture: DeclarationId,
         checks: &[ModelingCheck],
         oracle: Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOracle>,
         cap: usize,
@@ -333,9 +346,7 @@ impl ModelingConformanceReport {
             }
         }
         if !closure {
-            self.record(
-                fixture,
-                fixture,
+            self.record_fixture(
                 fixture,
                 Kind::Closure,
                 Status::NotApplicable,
@@ -345,9 +356,7 @@ impl ModelingConformanceReport {
             );
         }
         if !expectation {
-            self.record(
-                fixture,
-                fixture,
+            self.record_fixture(
                 fixture,
                 Kind::Expectation,
                 Status::NotApplicable,
@@ -359,13 +368,16 @@ impl ModelingConformanceReport {
     }
     pub(super) fn pure_result(
         &mut self,
-        fixture: SemanticId,
+        fixture: DeclarationId,
         model: &pse_compiler::workspace::PreparedModeling,
         checked: Result<Vec<pse_compiler::workspace::ModelingExpectationResult>, WorkflowError>,
         row: &Declaration,
         cap: usize,
     ) {
-        let data = model.model.fixtures.get(&fixture);
+        let data = model
+            .model
+            .fixtures
+            .get(&pse_modeling::specialize::root_instance(fixture));
         let expected = data.map_or(0, |f| f.expected_degrees_of_freedom);
         let expected_failure = row
             .value
@@ -376,9 +388,7 @@ impl ModelingConformanceReport {
         let oracle = row.value.scope.as_ref().and_then(|s| s.oracle.as_ref());
         match checked {
             Ok(checks) => {
-                self.record(
-                    fixture,
-                    fixture,
+                self.record_fixture(
                     fixture,
                     Kind::Preparation,
                     Status::Passed,
@@ -415,7 +425,7 @@ impl ModelingConformanceReport {
                     })
                     .count();
                 let dof = free as i64 - equalities as i64;
-                self.record(fixture, fixture, fixture, Kind::DegreesOfFreedom,
+                self.record_fixture(fixture, Kind::DegreesOfFreedom,
                             if expected == dof { Status::Passed } else { Status::Failed },
                             format!("pure point evaluation; structural DoF {dof}; expected {expected}; no solve attempted"), oracle, cap);
                 for check in checks {
@@ -442,9 +452,7 @@ impl ModelingConformanceReport {
                     );
                 }
                 if expected_failure.is_some() {
-                    self.record(
-                        fixture,
-                        fixture,
+                    self.record_fixture(
                         fixture,
                         Kind::Check,
                         Status::Failed,
@@ -543,10 +551,8 @@ impl ModelingPackage {
         let mut covered = BTreeSet::new();
         let cap = policy.maximum_checks;
         if fixtures.is_empty() {
-            report.record(
-                SemanticId::NIL,
-                SemanticId::NIL,
-                SemanticId::NIL,
+            report.record_fixture(
+                NO_FIXTURE,
                 Kind::Coverage,
                 Status::Failed,
                 "package contains no authored tests",
@@ -559,9 +565,7 @@ impl ModelingPackage {
             {
                 report.complete = false;
                 for row in &fixtures[index..] {
-                    report.record(
-                        row.declaration_id,
-                        row.declaration_id,
+                    report.record_fixture(
                         row.declaration_id,
                         Kind::Preparation,
                         Status::Unattempted,
@@ -606,7 +610,7 @@ impl ModelingPackage {
                 _ => Route::Steady,
             });
             let model = match self
-                .prepare(fixture, fixture, bindings.clone(), policy.limits, cancel)
+                .prepare(fixture, pse_modeling::specialize::root_instance(fixture), bindings.clone(), policy.limits, cancel)
                 .await
             {
                 Ok(model) => model,
@@ -630,7 +634,11 @@ impl ModelingPackage {
                     .values()
                     .map(|i| i.definition),
             );
-            let data = model.compiled().model.fixtures.get(&fixture);
+            let data = model
+                .compiled()
+                .model
+                .fixtures
+                .get(&pse_modeling::specialize::root_instance(fixture));
             let expected = data.map_or(0, |f| f.expected_degrees_of_freedom);
             let case = data.map(ModelingCaseBindings::from).unwrap_or_default();
             if execution == Execution::Pure {
@@ -678,12 +686,10 @@ impl ModelingPackage {
                             report.trajectories.insert(fixture, trajectory);
                             continue;
                         }
-                        report.record(fixture, fixture, fixture, Kind::DegreesOfFreedom,
+                        report.record_fixture(fixture, Kind::DegreesOfFreedom,
                             if expected == 0 { Status::Passed } else { Status::Failed },
                             "native admission verified square dynamics with an initial condition per differential state; DoF 0", oracle, cap);
-                        report.record(
-                            fixture,
-                            fixture,
+                        report.record_fixture(
                             fixture,
                             Kind::StartToSolve,
                             if trajectory.accepted && expected_failure.is_none() {
@@ -706,9 +712,7 @@ impl ModelingPackage {
                             Ok((samples, _sample_owner)) => {
                                 for (sample_index, time, complete, passed, message) in samples {
                                     let index = report.checks.len();
-                                    report.record(
-                                        fixture,
-                                        fixture,
+                                    report.record_fixture(
                                         fixture,
                                         Kind::Derivatives,
                                         if !complete {
@@ -748,9 +752,7 @@ impl ModelingPackage {
                                 .collect::<Vec<_>>();
                             if ranges.is_empty() {
                                 if index == 0 {
-                                    report.record(
-                                        fixture,
-                                        fixture,
+                                    report.record_fixture(
                                         fixture,
                                         Kind::Envelope,
                                         Status::NotApplicable,
@@ -816,7 +818,7 @@ impl ModelingPackage {
             if execution == Execution::Initialized {
                 let analysis = ModelingAnalysis {
                     root: fixture,
-                    instance: fixture,
+                    instance: pse_modeling::specialize::root_instance(fixture),
                     bindings: bindings.clone(),
                     limits: policy.limits,
                     case: case.clone(),
@@ -860,7 +862,7 @@ impl ModelingPackage {
                                 Some(pse_model::diagnostic::BoundaryDiagnostic::new(
                                     pse_model::diagnostic::BoundaryClass::ResourceLimit,
                                     "initialization",
-                                    [fixture],
+                                    [fixture.as_id()],
                                     "modeling.initialization.incomplete",
                                 ))
                             })
@@ -894,7 +896,7 @@ impl ModelingPackage {
             let resolution = match self
                 .resolve_case(
                     fixture,
-                    fixture,
+                    pse_modeling::specialize::root_instance(fixture),
                     bindings,
                     policy.limits,
                     case,
@@ -922,9 +924,7 @@ impl ModelingPackage {
                     continue;
                 }
             };
-            report.record(
-                fixture,
-                fixture,
+            report.record_fixture(
                 fixture,
                 Kind::Preparation,
                 Status::Passed,
@@ -941,9 +941,7 @@ impl ModelingPackage {
                 .count();
             let dof = i64::try_from(free).map_err(|_| contract("DoF variable extent"))?
                 - i64::try_from(equalities).map_err(|_| contract("DoF equality extent"))?;
-            report.record(
-                fixture,
-                fixture,
+            report.record_fixture(
                 fixture,
                 Kind::DegreesOfFreedom,
                 if dof == expected {
@@ -958,9 +956,7 @@ impl ModelingPackage {
                 cap,
             );
             if free == 0 {
-                report.record(
-                    fixture,
-                    fixture,
+                report.record_fixture(
                     fixture,
                     Kind::Derivatives,
                     Status::NotApplicable,
@@ -975,9 +971,7 @@ impl ModelingPackage {
             {
                 // Sampling perturbs a continuous oracle; integrality is never relaxed
                 // implicitly (ADR-0103), so free discrete columns leave it unsampled.
-                report.record(
-                    fixture,
-                    fixture,
+                report.record_fixture(
                     fixture,
                     Kind::Derivatives,
                     Status::NotApplicable,
@@ -998,9 +992,7 @@ impl ModelingPackage {
                         } else {
                             Status::Failed
                         };
-                        report.record(
-                            fixture,
-                            fixture,
+                        report.record_fixture(
                             fixture,
                             Kind::Derivatives,
                             status,
@@ -1025,9 +1017,7 @@ impl ModelingPackage {
                 .cloned()
                 .collect::<Vec<_>>();
             if ranges.is_empty() {
-                report.record(
-                    fixture,
-                    fixture,
+                report.record_fixture(
                     fixture,
                     Kind::Envelope,
                     Status::NotApplicable,
@@ -1123,9 +1113,7 @@ impl ModelingPackage {
                         report.results.insert(fixture, result);
                         continue;
                     }
-                    report.record(
-                        fixture,
-                        fixture,
+                    report.record_fixture(
                         fixture,
                         Kind::StartToSolve,
                         if result.accepted {
@@ -1149,9 +1137,7 @@ impl ModelingPackage {
                     );
                     report.model_checks(fixture, &result.checks, oracle, cap);
                     if expected_failure.is_some() {
-                        report.record(
-                            fixture,
-                            fixture,
+                        report.record_fixture(
                             fixture,
                             Kind::Check,
                             Status::Failed,
@@ -1179,8 +1165,8 @@ impl ModelingPackage {
             .filter(|r| r.value.kind == DeclarationKind::Definition)
         {
             report.record(
-                SemanticId::NIL,
-                row.declaration_id,
+                NO_FIXTURE,
+                row.declaration_id.as_id(),
                 row.declaration_id,
                 Kind::Coverage,
                 if covered.contains(&row.declaration_id) {
@@ -1204,7 +1190,7 @@ impl ModelingPackage {
     }
     async fn conform_integrated(
         &self,
-        fixture: SemanticId,
+        fixture: DeclarationId,
         model: &ModelingPreparation,
         data: Option<&pse_modeling::specialize::Fixture>,
         policy: &ModelingConformancePolicy,
@@ -1358,7 +1344,7 @@ impl ModelingPackage {
                 .await
             {
                 Ok(_) => return Ok(Some(false)),
-                Err(error) if range_rejected(&error, source) => {}
+                Err(error) if range_rejected(&error, source.as_id()) => {}
                 Err(error) => return Err(error),
             }
         }
@@ -1402,8 +1388,8 @@ mod tests {
         };
         let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
         let ids = [
-            SemanticId::from_bytes([1; 16]),
-            SemanticId::from_bytes([2; 16]),
+            DeclarationId::from_bytes([1; 16]),
+            DeclarationId::from_bytes([2; 16]),
         ];
         let mut report = ModelingConformanceReport::new(
             pse_schema::shared_registry().unwrap(),
@@ -1417,9 +1403,7 @@ mod tests {
             reference: "source".repeat(10000), revision: "revision".into(),
         };
         let message = "derivative comparison\n".repeat(500);
-        report.record(
-            ids[0],
-            ids[0],
+        report.record_fixture(
             ids[0],
             Kind::Preparation,
             Status::Failed,
@@ -1434,7 +1418,7 @@ mod tests {
             Some(oracle.reference.as_str())
         );
         let mut failure =
-            BoundaryDiagnostic::new(BoundaryClass::InvalidModel, "test", ids, "synthetic");
+            BoundaryDiagnostic::new(BoundaryClass::InvalidModel, "test", ids.map(DeclarationId::as_id), "synthetic");
         failure
             .observations
             .insert("detail".into(), Observation::Text("x".repeat(100000)));
@@ -1442,9 +1426,7 @@ mod tests {
         let extent = failure.heap_bytes();
         report.attach_failure(0, failure);
         assert_eq!(pool.reserved(), before + extent);
-        report.record(
-            ids[0],
-            ids[0],
+        report.record_fixture(
             ids[0],
             Kind::Expectation,
             Status::Passed,
@@ -1452,9 +1434,7 @@ mod tests {
             None,
             1,
         );
-        report.record(
-            ids[1],
-            ids[1],
+        report.record_fixture(
             ids[1],
             Kind::Preparation,
             Status::Unattempted,
@@ -1478,7 +1458,7 @@ mod tests {
         use pse_columnar::MemoryPool;
         use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
         let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(32000));
-        let id = SemanticId::from_bytes([1; 16]);
+        let id = DeclarationId::from_bytes([1; 16]);
         let mut report = ModelingConformanceReport::new(
             pse_schema::shared_registry().unwrap(),
             pool.clone(),
@@ -1486,9 +1466,7 @@ mod tests {
             1,
         )
         .unwrap();
-        report.record(
-            id,
-            id,
+        report.record_fixture(
             id,
             Kind::Preparation,
             Status::Passed,
@@ -1497,7 +1475,7 @@ mod tests {
             1,
         );
         let mut failure =
-            BoundaryDiagnostic::new(BoundaryClass::InvalidModel, "test", [id], "synthetic");
+            BoundaryDiagnostic::new(BoundaryClass::InvalidModel, "test", [id.as_id()], "synthetic");
         failure
             .observations
             .insert("detail".into(), Observation::Text("x".repeat(100000)));
@@ -1677,7 +1655,7 @@ mod tests {
         let mut policy = policy();
         policy
             .fixture_policies
-            .insert(SemanticId::NIL, ModelingFixturePolicy::default());
+            .insert(NO_FIXTURE, ModelingFixturePolicy::default());
         assert!(
             p.conform(policy.clone(), &crate::CancelSource::new())
                 .await
@@ -1932,7 +1910,7 @@ mod tests {
         let prepared = package
             .prepare_solve(
                 fixture,
-                fixture,
+                pse_modeling::specialize::root_instance(fixture),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),

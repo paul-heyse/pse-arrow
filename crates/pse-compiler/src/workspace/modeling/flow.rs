@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 #[derive(Clone, Debug, PartialEq)]
 pub struct ModelingFlowSelection {
     /// Instantiated owners. There is no inference from equation dependencies.
-    pub nodes: BTreeSet<SemanticId>,
+    pub nodes: BTreeSet<InstanceId>,
     /// Connection occurrence to its tear decision. Grouping is explicit.
     pub connections: BTreeMap<SemanticId, Decision>,
 }
@@ -28,7 +28,7 @@ impl PreparedModeling {
                 let unit=quantities.quantity_type(quantity).map_err(pse_math::MathError::from)?.canonical_unit;
                 ports.push(pse_kernels::Port{id:port.id,quantity,unit});
             }
-            nodes.push(Node{id:*id,ports});
+            nodes.push(Node{id:id.as_id(),ports});
         }
         let mut connections=Vec::new();
         let mut decisions=BTreeMap::new();
@@ -45,7 +45,7 @@ impl PreparedModeling {
             if let Some(old)=decisions.insert(decision.id,decision.clone()) && old!=*decision {
                 return Err(CompileError::Missing("conflicting tear group policy".into()));
             }
-            connections.push(Connection{id:c.id,from,to,decision:decision.id,bindings:vec![(c.from,c.to)]});
+            connections.push(Connection{id:c.id,from:from.as_id(),to:to.as_id(),decision:decision.id,bindings:vec![(c.from,c.to)]});
         }
         if connections.len()!=selection.connections.len() {
             return Err(CompileError::Missing("tear policy names a connection outside the selected topology".into()));

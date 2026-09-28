@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Pure continuous-axis contracts. Numerical libraries supply collocation stencils.
-use crate::{ModelingError, Result, invalid};
+use crate::{DeclarationId, ModelingError, Result, invalid};
 use pse_ids::SemanticId;
 use pse_model::generated::authored::modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueDifferenceScheme as Difference,
@@ -19,7 +19,7 @@ pub enum Scheme<'a> {
 }
 impl Scheme<'_> {
     /// Refuse invalid mathematical domains and malformed coefficient extents.
-    pub fn validate(self, at: SemanticId) -> Result<()> {
+    pub fn validate(self, at: DeclarationId) -> Result<()> {
         match self {
             Self::Difference(v) => {
                 if !(1..=64).contains(&v.order) || v.offsets.len() < 2 || v.offsets.len() > 129
@@ -49,7 +49,7 @@ impl Scheme<'_> {
     }
 }
 /// Resolve a scheme through the same lexical/import visibility as all package declarations.
-pub(crate) fn scheme<'a>(p: &'a crate::CheckedPackage, at: SemanticId, name: &str) -> Result<Scheme<'a>> {
+pub(crate) fn scheme<'a>(p: &'a crate::CheckedPackage, at: DeclarationId, name: &str) -> Result<Scheme<'a>> {
     let id = p.resolve(at, name).ok_or_else(|| invalid(at, "discretization scheme is not visible"))?;
     let row = &p.declarations[&id];
     let scheme = if let Some(v) = &row.value.difference_scheme { Scheme::Difference(v) }
@@ -75,7 +75,7 @@ pub struct ElementStencil {
 }
 impl ElementStencil {
     /// Validate library output before allocating a realized mesh.
-    pub fn validate(&self, at: SemanticId) -> Result<()> {
+    pub fn validate(&self, at: DeclarationId) -> Result<()> {
         let n = self.nodes.len();
         if n < 2
             || self
@@ -106,17 +106,17 @@ impl ElementStencil {
 /// A bounded numerical-library boundary. It is invoked after structural binding.
 pub trait Discretizer {
     /// Build one dimensionless element without performing model evaluation or I/O.
-    fn element(&self, scheme: Scheme<'_>, order: usize, at: SemanticId) -> Result<ElementStencil>;
+    fn element(&self, scheme: Scheme<'_>, order: usize, at: DeclarationId) -> Result<ElementStencil>;
 }
 
 /// Realization of authored lattice data, requiring no numerical library startup.
 #[derive(Debug)]
 pub struct FiniteDifference;
 impl Discretizer for FiniteDifference {
-    fn element(&self, scheme: Scheme<'_>, order: usize, at: SemanticId) -> Result<ElementStencil> {
+    fn element(&self, scheme: Scheme<'_>, order: usize, at: DeclarationId) -> Result<ElementStencil> {
         scheme.validate(at)?;
         let Scheme::Difference(v) = scheme else {
-            return Err(ModelingError::Unsupported { declaration: at, capability: "Jacobi collocation".into() });
+            return Err(ModelingError::Unsupported { declaration: at.into(), capability: "Jacobi collocation".into() });
         };
         if v.order as usize != order {
             return Err(invalid(at, "selected order differs from the authored difference stencil"));

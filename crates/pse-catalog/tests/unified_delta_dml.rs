@@ -284,7 +284,7 @@ async fn seed_declared(
     builder
         .push(entities::Row {
             entity_id: pse_ids::SemanticId::from_bytes([1; 16]),
-            package_id: pse_ids::SemanticId::from_bytes([2; 16]),
+            package_id: pse_ids::SemanticId::from_bytes([2; 16]).into(),
             kind: EntityKind::Package,
             name: "sample".into(),
             qualified_name: "sample".into(),

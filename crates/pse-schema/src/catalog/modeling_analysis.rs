@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Owned analysis evidence; source identities remain distinct from algorithm coordinates.
-use super::declarations::{column, enumeration, relation, relation_version};
+use super::declarations::{column, enumeration, identity, relation, relation_version};
 use crate::{
     builder::RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
@@ -31,6 +31,11 @@ fn coordinates() -> T {
     T::list(record(vec![("source_id", T::id()), ("value", real())]))
 }
 pub(super) fn register(b: &mut RegistryBuilder) {
+    identity(
+        b,
+        "instance",
+        "One instantiated definition instance of a specialized model. A root instance takes its root declaration's identity; a nested instance is derived from its parent and member",
+    );
     enumeration(
         b,
         "ModelingRealValueKind",
@@ -228,8 +233,14 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             column(
                 "points",
                 T::list(record(vec![
-                    ("root_id", T::id().optional()),
-                    ("instance_id", T::id().optional()),
+                    (
+                        "root_id",
+                        T::id().with_identity("declaration").optional(),
+                    ),
+                    (
+                        "instance_id",
+                        T::id().with_identity("instance").optional(),
+                    ),
                     ("predecessor", count().optional()),
                     ("result_id", T::id().optional()),
                     ("accepted", flag()),

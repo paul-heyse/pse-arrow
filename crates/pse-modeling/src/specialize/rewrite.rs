@@ -5,11 +5,11 @@ use pse_authoring::dsl::{Predicate, PredicateKind, ReduceKind};
 impl Engine<'_, '_> {
     pub(super) fn child_instance(
         &self,
-        instance: SemanticId,
-        at: SemanticId,
+        instance: InstanceId,
+        at: DeclarationId,
         segment: &dsl::PathSegment,
         env: &Environment,
-    ) -> Result<SemanticId> {
+    ) -> Result<InstanceId> {
         let state = &self.states[&instance];
         let member = *state
             .members
@@ -38,8 +38,8 @@ impl Engine<'_, '_> {
     }
     pub(super) fn member_coordinates(
         &self,
-        instance: SemanticId,
-        member: SemanticId,
+        instance: InstanceId,
+        member: DeclarationId,
         values: Vec<Value>,
     ) -> Result<Vec<(String, Value)>> {
         let declaration = &self.p.declarations[&member];
@@ -68,12 +68,12 @@ impl Engine<'_, '_> {
     }
     pub(super) fn resolve_path(
         &self,
-        mut instance: SemanticId,
-        at: SemanticId,
+        mut instance: InstanceId,
+        at: DeclarationId,
         path: &Path,
         env: &Environment,
         ancestor: bool,
-    ) -> Result<(SemanticId, SemanticId, Vec<(String, Value)>)> {
+    ) -> Result<(InstanceId, DeclarationId, Vec<(String, Value)>)> {
         let (first, rest) = path
             .segments
             .split_first()
@@ -183,10 +183,10 @@ impl Engine<'_, '_> {
     }
     pub(crate) fn rewrite(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         expression: &Expr,
         local: &Environment,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<Expr> {
         self.reserve(1)?;
         let at = chain
@@ -361,8 +361,9 @@ impl Engine<'_, '_> {
                     if let Some(domain) = domain {
                         hash.id(&domain.as_id());
                     }
-                    let id = hash.finish_id();
-                    let name = format!("f_{}", id.to_hex());
+                    // A lowered reduction is a synthesized function declaration.
+                    let id = DeclarationId::from(hash.finish_id());
+                    let name = format!("f_{}", id.as_id().to_hex());
                     self.model
                         .functions
                         .entry(name.clone())
@@ -500,7 +501,7 @@ impl Engine<'_, '_> {
             }
             ExprKind::Kernel { .. } => {
                 return Err(ModelingError::Unsupported {
-                    declaration: at,
+                    declaration: at.into(),
                     capability: "K5 external functions".into(),
                 });
             }
@@ -510,7 +511,7 @@ impl Engine<'_, '_> {
             span: Span::default(),
         })
     }
-    fn value_expression(&mut self, value: &Value, at: SemanticId) -> Result<Expr> {
+    fn value_expression(&mut self, value: &Value, at: DeclarationId) -> Result<Expr> {
         if let Value::Coordinate { id, .. } = value
             && let Some(axis) = self
                 .model
@@ -547,10 +548,10 @@ impl Engine<'_, '_> {
     }
     pub(super) fn rewrite_equation(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         e: &Equation,
         env: &Environment,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<Equation> {
         let kind = match &e.kind {
             EquationKind::Relation { lhs, sense, rhs } => EquationKind::Relation {
@@ -563,7 +564,11 @@ impl Engine<'_, '_> {
                 then,
                 otherwise,
             } => {
-                let at = chain.last().copied().unwrap_or(instance);
+                // As in `rewrite`: attribution falls back to the instance's definition.
+                let at = chain
+                    .last()
+                    .copied()
+                    .unwrap_or(self.states[&instance].definition);
                 let selected = Evaluator {
                     package: self.p,
                     physical: self.c,
@@ -588,10 +593,10 @@ impl Engine<'_, '_> {
     }
     pub(crate) fn rewrite_predicate(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         p: &Predicate,
         env: &Environment,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<Predicate> {
         let kind = match &p.kind {
             PredicateKind::Compare { op, lhs, rhs } => PredicateKind::Compare {

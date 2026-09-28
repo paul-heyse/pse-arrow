@@ -146,7 +146,7 @@ fn source_member_batches(dangling: bool) -> Vec<(&'static str, pse_ids::Semantic
     let mut packages = packages::Builder::new().unwrap();
     packages
         .push(packages::Row {
-            package_id: identity(10),
+            package_id: identity(10).into(),
             name: "model".into(),
             version: "1.0.0".into(),
             kind: PackageKind::Model,
@@ -160,7 +160,7 @@ fn source_member_batches(dangling: bool) -> Vec<(&'static str, pse_ids::Semantic
     entities
         .push(entities::Row {
             entity_id: identity(11),
-            package_id: identity(if dangling { 99 } else { 10 }),
+            package_id: identity(if dangling { 99 } else { 10 }).into(),
             kind: EntityKind::Package,
             name: "model".into(),
             qualified_name: "model".into(),
@@ -833,7 +833,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
         let mut packages = packages::Builder::new().unwrap();
         packages
             .push(packages::Row {
-                package_id: identity(10),
+                package_id: identity(10).into(),
                 name: "test".into(),
                 version: "1.0.0".into(),
                 kind: PackageKind::Model,
@@ -846,7 +846,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
         let mut entities = entities::Builder::new().unwrap();
         let entity = entities::Row {
             entity_id: identity(11),
-            package_id: identity(10),
+            package_id: identity(10).into(),
             kind: EntityKind::Package,
             name: "test".into(),
             qualified_name: "test".into(),
@@ -1610,7 +1610,7 @@ async fn publication_selection_preserves_full_tables_and_exact_identity_slices()
         builder
             .push(entities::Row {
                 entity_id: identity(id),
-                package_id: identity(1),
+                package_id: identity(1).into(),
                 kind: EntityKind::Package,
                 name: format!("entity-{id}"),
                 qualified_name: format!("entity-{id}"),

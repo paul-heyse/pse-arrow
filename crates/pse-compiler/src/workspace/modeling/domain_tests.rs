@@ -15,7 +15,7 @@ pub(super) fn quantity(hex: &str) -> QuantityTypeId {
 pub(super) fn power() -> QuantityTypeId {
     quantity("e1f2106da9eb4fe0aa2749fa5469fa1a")
 }
-pub(super) fn setup(text: &str) -> (CompilerWorkspace, SemanticId) {
+pub(super) fn setup(text: &str) -> (CompilerWorkspace, DeclarationId) {
     let input = super::super::tests::inputs();
     let names = BTreeMap::from([
         (
@@ -45,10 +45,10 @@ pub(super) fn setup(text: &str) -> (CompilerWorkspace, SemanticId) {
     workspace.publish_modeling(rows, names).unwrap();
     (workspace, root)
 }
-fn admit(workspace: &mut CompilerWorkspace, root: SemanticId) -> Result<Arc<AdmittedModeling>> {
+fn admit(workspace: &mut CompilerWorkspace, root: DeclarationId) -> Result<Arc<AdmittedModeling>> {
     workspace.admit_modeling(
         root,
-        SemanticId::NIL,
+        InstanceId::from_id(SemanticId::NIL),
         Bindings::default(),
         Limits::default(),
     )
@@ -69,12 +69,12 @@ fn bounded(lower: Option<f64>, upper: Option<f64>) -> ModelingCaseBindings {
 /// The prepared bounds of `n`, or the typed refusal.
 fn prepare(
     workspace: &mut CompilerWorkspace,
-    root: SemanticId,
+    root: DeclarationId,
     case: &ModelingCaseBindings,
 ) -> Result<(Domain, Option<f64>, Option<f64>)> {
     let (_, prepared, _) = workspace.prepare_modeling_case_cancellable(
         root,
-        SemanticId::NIL,
+        InstanceId::from_id(SemanticId::NIL),
         Bindings::default(),
         Limits::default(),
         case,
@@ -210,7 +210,7 @@ fn integer_requires_finite_bounds() {
     let (_, prepared, _) = w
         .prepare_modeling_case_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             &fixed,

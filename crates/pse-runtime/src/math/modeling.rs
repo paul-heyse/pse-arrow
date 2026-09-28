@@ -7,7 +7,7 @@ use pse_columnar::{AllocationLease, flight::FlightCancellation};
 use pse_compiler::workspace::PreparedModeling;
 use pse_ids::SemanticId;
 use pse_model::HeapUsage;
-use pse_modeling::{Bindings, Limits};
+use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
 use pse_quantity::QuantityTypeId;
 use std::{
     collections::BTreeMap,
@@ -83,7 +83,7 @@ impl MathService {
         self: &Arc<Self>,
         workspace: Workspace,
         revision: ModelingRevision,
-        root: SemanticId,
+        root: DeclarationId,
         bindings: Bindings,
         limits: Limits,
         profile: pse_compiler::workspace::Profile,
@@ -102,7 +102,7 @@ impl MathService {
                 compiler.publish_modeling_revision(revision.admitted.clone())?;
                 Ok(compiler.check_modeling_expectations(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     bindings,
                     limits,
                     &pse_math::binding::CaseValues {
@@ -489,8 +489,8 @@ impl MathService {
         self: &Arc<Self>,
         workspace: Workspace,
         revision: ModelingRevision,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         case: pse_compiler::workspace::ModelingCaseBindings,
@@ -576,8 +576,8 @@ impl MathService {
         self: &Arc<Self>,
         workspace: Workspace,
         revision: ModelingRevision,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         driver: &crate::CancelSource,

@@ -42,7 +42,7 @@ pub enum StartSource {
     /// A start annotation evaluated through the model.
     Annotation {
         /// The start annotation's declaration.
-        declaration: SemanticId,
+        declaration: DeclarationId,
     },
     /// The accepted result of a predecessor point.
     Predecessor,
@@ -65,14 +65,14 @@ pub struct ModelingSolvePreparation {
         BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     pub(in crate::workflow) source: ModelingPackage,
     pub(in crate::workflow) compiler: Profile,
-    pub(in crate::workflow) instance: SemanticId,
+    pub(in crate::workflow) instance: InstanceId,
     pub(in crate::workflow) profile: SolverProfile,
 }
 /// Numerical resolution precedes native routing so diagnostics can inspect an
 /// underdetermined or otherwise ineligible problem without requesting a solver.
 pub(in crate::workflow) struct ModelingCaseResolution {
     pub compiler: Profile,
-    pub instance: SemanticId,
+    pub instance: InstanceId,
     pub model: ModelingCasePreparation,
     pub starts: BTreeMap<SemanticId, StartSource>,
     pub providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
@@ -328,8 +328,8 @@ impl ModelingPackage {
     /// No value is fabricated for a missing coordinate, and starts never fix variables.
     pub async fn prepare_solve(
         &self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         case: ModelingCaseBindings,
@@ -357,8 +357,8 @@ impl ModelingPackage {
     }
     pub(in crate::workflow) async fn prepare_solve_seed(
         &self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         case: ModelingCaseBindings,
@@ -422,8 +422,8 @@ impl ModelingPackage {
     /// structure and rebound per values, A6), and the numerical policy.
     pub(in crate::workflow) async fn resolve_case(
         &self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         mut bindings: Bindings,
         limits: Limits,
         case: ModelingCaseBindings,
@@ -551,7 +551,7 @@ impl ModelingPackage {
         inner: &Inner,
         case: &ModelingCaseBindings,
         values: &CaseValues,
-        instance: SemanticId,
+        instance: InstanceId,
         numerical: &mut NumericalInputs,
         compiler: Profile,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
@@ -614,7 +614,7 @@ impl ModelingPackage {
                         NumericalTarget::Observable
                     };
                     numerical.declarations.push(requirement(
-                        instance,
+                        ModelId::from_id(instance.as_id()),
                         *target,
                         kind,
                         *declaration,
@@ -660,7 +660,7 @@ impl ModelingPackage {
         model: &ModelingPreparation,
         inner: &Inner,
         prepared: &ModelingCasePreparation,
-        instance: SemanticId,
+        instance: InstanceId,
         numerical: &mut NumericalInputs,
         solver: &SolverProfile,
         compiler: Profile,
@@ -781,7 +781,7 @@ impl ModelingPackage {
                 let scale = pse_math::numerics::term_scale(scheme, &terms)
                     .map_err(crate::math::MathRuntimeError::from)?;
                 numerical.declarations.push(requirement(
-                    instance,
+                    ModelId::from_id(instance.as_id()),
                     id,
                     NumericalTarget::Row,
                     source,
@@ -831,7 +831,7 @@ impl Inner {
 /// Every numerical hint: target, declaration, purpose and observation row.
 fn hints(
     product: &pse_compiler::workspace::PreparedModeling,
-) -> Vec<(SemanticId, SemanticId, ModelingHint, SemanticId)> {
+) -> Vec<(SemanticId, DeclarationId, ModelingHint, SemanticId)> {
     product
         .admitted
         .outputs
@@ -895,11 +895,12 @@ fn require_inputs(model: &ModelingPreparation, values: &CaseValues) -> Result<()
     }
     Ok(())
 }
+/// A modeling-sourced numerical requirement on `target` of `model`, declared by `source_id`.
 pub(in crate::workflow) fn requirement(
-    model_id: SemanticId,
+    model_id: ModelId,
     target: SemanticId,
     kind: NumericalTarget,
-    source_id: SemanticId,
+    source_id: DeclarationId,
     source: NumericalSource,
     nominal: Option<f64>,
     scale: Option<f64>,
@@ -907,7 +908,7 @@ pub(in crate::workflow) fn requirement(
     pse_math::numerics::SourcedRequirement {
         source,
         declaration: pse_model::numerics::NumericalRequirement {
-            requirement_id: pse_ids::named_id(source_id, &target.to_string()),
+            requirement_id: pse_ids::named_id(source_id.as_id(), &target.to_string()),
             model_id,
             case_id: None,
             target_id: target,
@@ -970,7 +971,7 @@ mod tests {
         let p = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 bindings,
                 Limits::default(),
                 case.clone(),
@@ -1042,7 +1043,7 @@ mod tests {
         let p = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 override_case,
@@ -1078,7 +1079,7 @@ mod tests {
         let error = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -1109,7 +1110,7 @@ mod tests {
         let prepared = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 fixed,
@@ -1153,7 +1154,7 @@ mod native_tests {
             package
                 .prepare_solve(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -1180,7 +1181,7 @@ mod native_tests {
         let prepared = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 case,

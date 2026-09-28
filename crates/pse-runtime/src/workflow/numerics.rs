@@ -402,7 +402,7 @@ mod tests {
             sample_index: 0,
             time: None,
             target_id: SemanticId::from_bytes([4; 16]),
-            source_id: SemanticId::from_bytes([3; 16]),
+            source_id: pse_modeling::DeclarationId::from_bytes([3; 16]),
             kind,
             value: 0.0,
             tolerance: None,

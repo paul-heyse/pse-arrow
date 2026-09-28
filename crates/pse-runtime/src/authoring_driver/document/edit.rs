@@ -45,7 +45,7 @@ pub fn assign_ids(
         if declaration.kind == DocumentKind::PackageHeader {
             continue;
         }
-        let document = pse_ids::named_id(package.package_id, path);
+        let document = pse_ids::named_id(package.package_id.as_id(), path);
         if declaration.kind==DocumentKind::Modeling {
             let after=pse_authoring::language::assign_ids_with(text,document,budget,next)?;
             if after!=*text{edits.push(DocumentEdit{document_id:document,path:path.clone(),before:text.clone(),after});}

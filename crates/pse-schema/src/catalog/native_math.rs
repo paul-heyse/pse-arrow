@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Durable declarations and physical results for the native library compiler.
 //! Expressions are authored DSL; no CAS serialization or evaluator state is durable.
-use super::declarations::{column, enumeration, relation, relation_version};
+use super::declarations::{column, enumeration, identity, relation, relation_version};
 use crate::{
     RegistryBuilder,
     model::{EnumDecl, EnumMember, FieldContract as T, Namespace as N, SnapshotClass as S},
@@ -24,6 +24,16 @@ fn record(fields: Vec<(&'static str, T)>) -> T {
     T::structure(fields.into_iter().map(|(n, t)| t.with_name(n)).collect())
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
+    identity(
+        b,
+        "model",
+        "The model a numerical requirement or a run's lineage belongs to",
+    );
+    identity(
+        b,
+        "case",
+        "The analysis case a numerical requirement or a run's lineage belongs to",
+    );
     relation(
         b,
         N::Runtime,
@@ -58,9 +68,9 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         vec![
             column("run_id", T::id()),
             column("step", ordinal()),
-            column("model_id", T::id()),
+            column("model_id", T::id()).with_identity("model"),
             column("revision", T::hash()),
-            column("case_id", T::id()),
+            column("case_id", T::id()).with_identity("case"),
             column("request_identity", T::hash()),
             column("preparation_identity", T::hash()),
             column("profile_identity", T::hash()),
@@ -203,8 +213,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         &["requirement_id"],
         vec![
             column("requirement_id", T::id()),
-            column("model_id", T::id()),
-            column("case_id", T::id()).optional(),
+            column("model_id", T::id()).with_identity("model"),
+            column("case_id", T::id()).with_identity("case").optional(),
             column("target_id", T::id()),
             column("target_kind", T::enumeration("NumericalTarget")),
             column("nominal", real()).optional(),
@@ -460,9 +470,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         vec![
             column("run_id", T::id()),
             column("step", ordinal()),
-            column("model_id", T::id()).optional(),
+            column("model_id", T::id())
+                .with_identity("model")
+                .optional(),
             column("revision", T::hash()).optional(),
-            column("case_id", T::id()).optional(),
+            column("case_id", T::id()).with_identity("case").optional(),
             column("backend", T::enumeration("NativeBackend")).optional(),
             column("native_code", T::native(D::Int64)).optional(),
             column("native_status", text()).optional(),

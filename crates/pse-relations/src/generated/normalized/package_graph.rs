@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    4u8, 48u8, 43u8, 120u8, 156u8, 244u8, 225u8, 168u8, 84u8, 166u8, 189u8, 66u8, 75u8,
-    84u8, 146u8, 112u8, 44u8, 18u8, 187u8, 133u8, 175u8, 42u8, 237u8, 207u8, 76u8, 115u8,
-    134u8, 203u8, 119u8, 114u8, 141u8, 135u8,
+    245u8, 68u8, 239u8, 28u8, 48u8, 99u8, 221u8, 210u8, 40u8, 240u8, 90u8, 6u8, 124u8,
+    142u8, 141u8, 222u8, 221u8, 35u8, 46u8, 192u8, 58u8, 239u8, 123u8, 43u8, 201u8, 79u8,
+    158u8, 106u8, 206u8, 49u8, 157u8, 99u8,
 ]);
 impl crate::columnar::ArrowValue for NormalizedPackageGraphRow {
     fn append(
@@ -60,7 +60,7 @@ impl crate::columnar::ArrowValue for NormalizedPackageGraphRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::PackageId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -69,7 +69,7 @@ impl crate::columnar::ArrowValue for NormalizedPackageGraphRow {
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Vec<
-            pse_ids::SemanticId,
+            crate::generated::identities::PackageId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
@@ -84,7 +84,7 @@ impl crate::columnar::ArrowValue for NormalizedPackageGraphRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#package_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#package_id: <crate::generated::identities::PackageId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -101,7 +101,7 @@ impl crate::columnar::ArrowValue for NormalizedPackageGraphRow {
                 index,
             )?,
             r#dependency_package_ids: <Vec<
-                pse_ids::SemanticId,
+                crate::generated::identities::PackageId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,

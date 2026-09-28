@@ -190,7 +190,7 @@ impl ModelingPackage {
                 report.stop = Some(BoundaryDiagnostic::new(
                     class,
                     "nonlinear-explanation",
-                    [analysis.root, analysis.instance],
+                    [analysis.root.as_id(), analysis.instance.as_id()],
                     rule,
                 ));
                 break;
@@ -263,7 +263,7 @@ impl ModelingPackage {
                                     BoundaryDiagnostic::new(
                                         BoundaryClass::Inconclusive,
                                         "nonlinear-explanation",
-                                        [analysis.root, analysis.instance],
+                                        [analysis.root.as_id(), analysis.instance.as_id()],
                                         "modeling.nonlinear.initial_inconclusive",
                                     )
                                 }),
@@ -454,7 +454,7 @@ mod tests {
         solver.selection = SolverSelection::Explicit(Backend::Ipopt);
         let analysis = ModelingAnalysis {
             root,
-            instance: root,
+            instance: pse_modeling::specialize::root_instance(root),
             bindings: Bindings::default(),
             limits: Limits::default(),
             case: Default::default(),

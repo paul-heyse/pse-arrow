@@ -3,13 +3,12 @@
 
 //! Source expression checking; executable arithmetic remains in pse-math.
 use crate::{
-    Result,
+    DeclarationId, Result,
     check::CheckedPackage,
     invalid,
     types::{Type, TypeContext},
 };
 use pse_authoring::dsl::{self, BinaryOp, Expr, ExprKind, Path, Predicate, PredicateKind};
-use pse_ids::SemanticId;
 use pse_quantity::{
     IndexSet, Ratio,
     infer::{Exponent, OpRequest, Operand},
@@ -102,7 +101,7 @@ fn walk_predicate(p: &Predicate, visit: &mut impl FnMut(&Path)) {
         _ => {}
     }
 }
-fn scheme(ty: &Type, at: SemanticId) -> Result<Scheme> {
+fn scheme(ty: &Type, at: DeclarationId) -> Result<Scheme> {
     if let Type::Quantity(s) = ty {
         Ok(s.clone())
     } else {
@@ -159,7 +158,7 @@ fn physical_op(
     request: OpRequest<'_>,
     values: &[Scheme],
     context: &TypeContext<'_>,
-    at: SemanticId,
+    at: DeclarationId,
 ) -> Result<Option<Type>> {
     let Some(ids) = values
         .iter()
@@ -193,7 +192,7 @@ pub fn infer(
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
     context: &TypeContext<'_>,
-    at: SemanticId,
+    at: DeclarationId,
     expected: Option<&Type>,
 ) -> Result<Type> {
     let q = |s| Type::Quantity(s);
@@ -589,7 +588,7 @@ pub fn infer(
 pub(crate) fn finite_reduction(
     kind: dsl::ReduceKind,
     element: &Type,
-    at: SemanticId,
+    at: DeclarationId,
 ) -> Result<(
     pse_quantity::ReductionKind,
     Option<pse_quantity::EntityKindId>,
@@ -602,7 +601,7 @@ pub(crate) fn finite_reduction(
         }
     };
     let domain = if let Type::Entity(kind) = element {
-        Some(pse_quantity::EntityKindId::from_id(*kind))
+        Some(pse_quantity::EntityKindId::from_id(kind.as_id()))
     } else {
         None
     };
@@ -615,7 +614,7 @@ fn call(
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
     context: &TypeContext<'_>,
-    at: SemanticId,
+    at: DeclarationId,
 ) -> Result<Type> {
     let indirect;
     let f = if let Some(function) = p.resolve(at, name).and_then(|id| p.functions.get(&id)) {
@@ -662,7 +661,7 @@ fn call(
         formal: &'a Type,
         actual: &'a Type,
         out: &mut Vec<(&'a Type, &'a Type)>,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<()> {
         match (formal, actual) {
             (
@@ -760,7 +759,7 @@ pub(crate) fn predicate(
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
     context: &TypeContext<'_>,
-    at: SemanticId,
+    at: DeclarationId,
 ) -> Result<()> {
     match &v.kind {
         PredicateKind::Compare { lhs, rhs, .. } => {
@@ -798,7 +797,7 @@ pub(crate) fn predicate(
 fn declaration_environment(
     p: &CheckedPackage,
     context: &TypeContext<'_>,
-    id: SemanticId,
+    id: DeclarationId,
 ) -> Result<(BTreeMap<String, Type>, BTreeSet<String>)> {
     let mut env = p.named_types(id);
     let mut owner = Some(id);
@@ -824,7 +823,7 @@ fn declaration_environment(
 /// Physical contracts of ADR-0104 declarations; realizations are admitted at specialization.
 fn check_forms(
     row: &crate::Declaration,
-    id: SemanticId,
+    id: DeclarationId,
     outer: &BTreeMap<String, Type>,
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
@@ -1401,7 +1400,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                 env: &BTreeMap<String, Type>,
                 p: &CheckedPackage,
                 c: &TypeContext<'_>,
-                id: SemanticId,
+                id: DeclarationId,
             ) -> Result<()> {
                 match &e.kind {
                     dsl::EquationKind::Relation { lhs, rhs, .. } => {
@@ -1456,7 +1455,7 @@ fn path_type(
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
     c: &TypeContext<'_>,
-    at: SemanticId,
+    at: DeclarationId,
 ) -> Result<Type> {
     let text = dsl::render_path(path);
     if let Some(ty) = crate::analysis::type_of(&text) {
@@ -1637,8 +1636,8 @@ fn member_type(
     ty: &Type,
     name: &str,
     p: &CheckedPackage,
-    at: SemanticId,
-) -> Result<(Type, Option<SemanticId>)> {
+    at: DeclarationId,
+) -> Result<(Type, Option<DeclarationId>)> {
     match ty {
         Type::Enum(id)
             if p.declarations[id]
@@ -1678,7 +1677,7 @@ fn refine(
     env: &BTreeMap<String, Type>,
     p: &CheckedPackage,
     c: &TypeContext<'_>,
-    at: SemanticId,
+    at: DeclarationId,
 ) -> Result<BTreeMap<String, Type>> {
     let mut env = env.clone();
     match &guard.kind {

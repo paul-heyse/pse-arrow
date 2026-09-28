@@ -15,7 +15,7 @@ fn run(text: &str) -> Result<SpecializedModel> {
     specialize(
         &package,
         package.names["p.D"],
-        SemanticId::NIL,
+        InstanceId::from_id(SemanticId::NIL),
         &Bindings::default(),
         Limits::default(),
     )

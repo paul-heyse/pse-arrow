@@ -285,7 +285,7 @@ impl Staged {
             let mut refusal = BoundaryDiagnostic::new(
                 BoundaryClass::Conflict,
                 scope,
-                [original.root, original.instance],
+                [original.root.as_id(), original.instance.as_id()],
                 "modeling.staged.start",
             );
             if let Start::Accepted(index) | Start::Seed(index) = start {
@@ -523,7 +523,7 @@ mod native_tests {
         solver.controls.reuse = ReusePolicy::AllowRebuild;
         let analysis = ModelingAnalysis {
             root,
-            instance: root,
+            instance: pse_modeling::specialize::root_instance(root),
             bindings: Default::default(),
             limits: Default::default(),
             case: ModelingCaseBindings::default(),

@@ -165,7 +165,7 @@ mod tests {
             let cancel = crate::CancelSource::new();
             let analysis = ModelingAnalysis {
                 root,
-                instance: root,
+                instance: pse_modeling::specialize::root_instance(root),
                 bindings: Bindings::default(),
                 limits: Limits::default(),
                 case: Default::default(),

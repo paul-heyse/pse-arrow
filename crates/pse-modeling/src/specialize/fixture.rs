@@ -19,7 +19,7 @@ pub struct FixtureValue {
 }
 #[derive(Clone, Debug, PartialEq)]
 pub struct Fixture {
-    pub declaration: SemanticId,
+    pub declaration: DeclarationId,
     pub expected_degrees_of_freedom: i64,
     pub specifications: BTreeMap<String, FixtureValue>,
     pub oracle: Option<Oracle>,
@@ -42,7 +42,7 @@ pub struct IntegrationFixture {
 impl Engine<'_, '_> {
     pub(super) fn fixture(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
         contract: &Contract,
         oracle: Option<Oracle>,

@@ -429,6 +429,66 @@ impl<'a> FromSql<'a> for crate::generated::identities::AttemptId {
         <Self as ToSql>::accepts(ty)
     }
 }
+impl ToSql for crate::generated::identities::CaseId {
+    fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
+    }
+    fn accepts(ty: &Type) -> bool {
+        pse_ids::postgres::accepts_domain::<
+            pse_ids::SemanticId,
+        >(ty, "pse_ops", "case_id")
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::identities::CaseId {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
+            .map(Self::from_id)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
+impl ToSql for crate::generated::identities::DeclarationId {
+    fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
+    }
+    fn accepts(ty: &Type) -> bool {
+        pse_ids::postgres::accepts_domain::<
+            pse_ids::SemanticId,
+        >(ty, "pse_ops", "declaration_id")
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::identities::DeclarationId {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
+            .map(Self::from_id)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
+impl ToSql for crate::generated::identities::InstanceId {
+    fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
+    }
+    fn accepts(ty: &Type) -> bool {
+        pse_ids::postgres::accepts_domain::<
+            pse_ids::SemanticId,
+        >(ty, "pse_ops", "instance_id")
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::identities::InstanceId {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
+            .map(Self::from_id)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
 impl ToSql for crate::generated::identities::JobId {
     fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
         ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
@@ -439,6 +499,46 @@ impl ToSql for crate::generated::identities::JobId {
     postgres_types::to_sql_checked!();
 }
 impl<'a> FromSql<'a> for crate::generated::identities::JobId {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
+            .map(Self::from_id)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
+impl ToSql for crate::generated::identities::ModelId {
+    fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
+    }
+    fn accepts(ty: &Type) -> bool {
+        pse_ids::postgres::accepts_domain::<
+            pse_ids::SemanticId,
+        >(ty, "pse_ops", "model_id")
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::identities::ModelId {
+    fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
+            .map(Self::from_id)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
+impl ToSql for crate::generated::identities::PackageId {
+    fn to_sql(&self, ty: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        ToSql::to_sql(&self.as_id(), pse_ids::postgres::base(ty), out)
+    }
+    fn accepts(ty: &Type) -> bool {
+        pse_ids::postgres::accepts_domain::<
+            pse_ids::SemanticId,
+        >(ty, "pse_ops", "package_id")
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::identities::PackageId {
     fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
         <pse_ids::SemanticId as FromSql<'a>>::from_sql(pse_ids::postgres::base(ty), raw)
             .map(Self::from_id)

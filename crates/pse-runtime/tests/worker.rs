@@ -160,7 +160,7 @@ async fn worker_runs_authored_case_end_to_end() {
     let job = ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
-        case,
+        case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         profile: profile(),
     };
@@ -244,7 +244,7 @@ async fn stored_seed_reused_across_processes(
     let cancel = CancelSource::new();
     let analysis = package
         .declared_analysis(
-            job.case,
+            job.case.into(),
             job.route,
             Default::default(),
             job.profile.solver().unwrap(),

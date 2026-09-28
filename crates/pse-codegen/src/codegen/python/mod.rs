@@ -63,11 +63,14 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
                             ),
                         }
                     }
-                    None => types::logical(
-                        &column.value_type(),
-                        &format!("{stem}Field{}", pascal(column.name())),
-                        &mut declarations,
-                    )?,
+                    None => {
+                        typed_ids |= carries_identity(column);
+                        types::logical(
+                            &column.value_type(),
+                            &format!("{stem}Field{}", pascal(column.name())),
+                            &mut declarations,
+                        )?
+                    }
                 };
                 Ok((
                     column.name().to_owned(),
@@ -109,6 +112,15 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         ),
     );
     Ok(tree)
+}
+
+/// Whether a value nested in the column names an entity identity.
+fn carries_identity(column: &crate::model::FieldContract) -> bool {
+    column.extension().is_none()
+        && column
+            .children()
+            .iter()
+            .any(|child| child.identity().is_some() || carries_identity(child))
 }
 
 /// The Python class of an identity's base value.

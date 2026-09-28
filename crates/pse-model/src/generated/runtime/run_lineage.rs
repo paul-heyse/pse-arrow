@@ -15,11 +15,11 @@ pub struct RuntimeRunLineageRow {
     ///step
     pub r#step: i64,
     ///model_id
-    pub r#model_id: pse_ids::SemanticId,
+    pub r#model_id: crate::generated::identities::ModelId,
     ///revision
     pub r#revision: pse_ids::ContentHash,
     ///case_id
-    pub r#case_id: pse_ids::SemanticId,
+    pub r#case_id: crate::generated::identities::CaseId,
     ///request_identity
     pub r#request_identity: pse_ids::ContentHash,
     ///preparation_identity

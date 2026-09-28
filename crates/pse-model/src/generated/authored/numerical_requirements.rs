@@ -13,9 +13,9 @@ pub struct AuthoredNumericalRequirementsRow {
     ///requirement_id
     pub r#requirement_id: pse_ids::SemanticId,
     ///model_id
-    pub r#model_id: pse_ids::SemanticId,
+    pub r#model_id: crate::generated::identities::ModelId,
     ///case_id
-    pub r#case_id: Option<pse_ids::SemanticId>,
+    pub r#case_id: Option<crate::generated::identities::CaseId>,
     ///target_id
     pub r#target_id: pse_ids::SemanticId,
     ///target_kind

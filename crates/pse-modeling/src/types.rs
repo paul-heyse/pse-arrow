@@ -3,7 +3,7 @@
 
 //! Physical and declaration-reference types; scientific names are admitted data.
 use crate::{Result, invalid};
-use pse_ids::SemanticId;
+use pse_model::generated::identities::DeclarationId;
 use pse_quantity::{QuantityRegistry, QuantityTypeId, Ratio, scheme::Scheme};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -19,23 +19,23 @@ pub enum Type {
     /// Complete physical type scheme.
     Quantity(Scheme),
     /// Member of a declared entity kind.
-    Entity(SemanticId),
+    Entity(DeclarationId),
     /// Member of a package enumeration.
-    Enum(SemanticId),
+    Enum(DeclarationId),
     /// Finite ordered membership.
     Set(Box<Type>),
     /// A continuous coordinate axis, realized before finite expansion.
-    Continuous(SemanticId, Box<Type>),
+    Continuous(DeclarationId, Box<Type>),
     /// Ordered typed product coordinate.
     Tuple(Vec<Type>),
     /// Typed table declaration.
-    Table(SemanticId),
+    Table(DeclarationId),
     /// A row in a typed table.
-    Row(SemanticId),
+    Row(DeclarationId),
     /// Definition reference.
-    Definition(SemanticId),
+    Definition(DeclarationId),
     /// Interface-typed slot.
-    Interface(SemanticId),
+    Interface(DeclarationId),
     /// Explicit pure function reference with named arguments and result.
     Function {
         arguments: Vec<(String, Type)>,
@@ -46,7 +46,7 @@ pub enum Type {
     /// Indexed values retain coordinate kind identities; membership is a structural binding.
     Indexed {
         element: Box<Type>,
-        axes: Vec<SemanticId>,
+        axes: Vec<DeclarationId>,
     },
 }
 /// Physical context supplied by admission; no registry is inferred from source literals.
@@ -67,7 +67,7 @@ impl TypeContext<'_> {
         text: &str,
         variables: &BTreeSet<String>,
         names: &BTreeMap<String, Type>,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<Type> {
         let text = text.trim();
         if let Some(signature) = text.strip_prefix("Fn(") {
@@ -221,7 +221,7 @@ impl TypeContext<'_> {
         text: &str,
         variables: &BTreeSet<String>,
         names: &BTreeMap<String, Type>,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<Scheme> {
         let text = text.trim();
         let mut depth = 0;

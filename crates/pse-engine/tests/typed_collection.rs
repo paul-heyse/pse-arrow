@@ -15,13 +15,13 @@ use pse_relations::generated::{
 
 fn package() -> packages::Row {
     packages::Row {
-        package_id: SemanticId::from_bytes([1; 16]),
+        package_id: SemanticId::from_bytes([1; 16]).into(),
         name: "actual package".to_owned(),
         version: "1.0.0".to_owned(),
         kind: PackageKind::Model,
         id_policy: IdPolicy::Explicit,
         dependencies: vec![AuthoredPackagesFieldDependenciesItem {
-            package_id: SemanticId::from_bytes([2; 16]),
+            package_id: SemanticId::from_bytes([2; 16]).into(),
             version_req: "=2.3.4".to_owned(),
         }],
         content_hash: ContentHash::NIL,
@@ -74,7 +74,7 @@ fn typed_collection_keeps_distinct_schemas_and_explicit_empty_relations()
     collection.ensure::<units::Row>()?;
     collection.push(package())?;
     let alias = quantity_aliases::Row {
-        package_id: SemanticId::from_bytes([1; 16]),
+        package_id: SemanticId::from_bytes([1; 16]).into(),
         name: "Flow".into(),
         quantity_type_id: SemanticId::from_bytes([4; 16]),
     };

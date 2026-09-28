@@ -6,9 +6,9 @@ use crate::continuous::Mesh;
 impl Engine<'_, '_> {
     pub(super) fn realize_domains(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         path: &str,
-        members: &BTreeMap<String, SemanticId>,
+        members: &BTreeMap<String, DeclarationId>,
         env: &mut Environment,
     ) -> Result<()> {
         let mut policies = BTreeMap::new();
@@ -121,8 +121,8 @@ impl Engine<'_, '_> {
                     if mesh.points.len() == index {
                         let mut h = FramedHasher::new(pse_ids::Frame::ModelingMeshCoordinateV1);
                         h.id(&id)
-                            .id(policy_id)
-                            .id(&self.p.resolve(*policy_id, &policy.scheme).ok_or_else(|| invalid(*policy_id, "scheme absent"))?)
+                            .id(&policy_id.as_id())
+                            .id(&self.p.resolve(*policy_id, &policy.scheme).ok_or_else(|| invalid(*policy_id, "scheme absent"))?.as_id())
                             .u64(count as u64)
                             .u64(order as u64)
                             .u64(index as u64);
@@ -185,7 +185,7 @@ impl Engine<'_, '_> {
 
     /// Distinguish an explicit lower-endpoint constraint from a relation applying
     /// throughout time before coordinate references are reduced to scalar symbols.
-    pub(super) fn initial_equation(&self,instance:SemanticId,at:SemanticId,equation:&Equation,env:&Environment)->Result<bool>{
+    pub(super) fn initial_equation(&self,instance: InstanceId,at:DeclarationId,equation:&Equation,env:&Environment)->Result<bool>{
         if self.model.integrated.is_empty(){return Ok(false);}
         let (lhs,rhs)=match &equation.kind{
             EquationKind::Relation{lhs,rhs,..}=>(lhs,rhs),
@@ -252,13 +252,17 @@ impl Engine<'_, '_> {
 
     pub(super) fn derivative(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         body: &Expr,
         wrt: &Path,
         env: &Environment,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<Expr> {
-        let at = chain.last().copied().unwrap_or(instance);
+        // As in `rewrite`: attribution falls back to the instance's definition.
+        let at = chain
+            .last()
+            .copied()
+            .unwrap_or(self.states[&instance].definition);
         let name = dsl::render_path(wrt);
         let value = env
             .get(&name)
@@ -309,7 +313,7 @@ impl Engine<'_, '_> {
         ));
         let baseline = self.rewrite(instance, body, env, chain)?;
         let mut hash=FramedHasher::new(pse_ids::Frame::ModelingContinuityV1);
-        hash.id(&instance).id(&at).id(&mesh_id).str(&dsl::render_expr(body));
+        hash.id(&instance.as_id()).id(&at.as_id()).id(&mesh_id).str(&dsl::render_expr(body));
         for (n,v) in env {if n!=&name && let Value::Coordinate{id,..}=v {hash.str(n).id(id);}}
         let key=hash.finish_id();
         if self.continuity_done.insert(key) {
@@ -345,13 +349,17 @@ impl Engine<'_, '_> {
 
     pub(super) fn integral(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         binder: &dsl::Binder,
         body: &Expr,
         env: &Environment,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<Expr> {
-        let at = chain.last().copied().unwrap_or(instance);
+        // As in `rewrite`: attribution falls back to the instance's definition.
+        let at = chain
+            .last()
+            .copied()
+            .unwrap_or(self.states[&instance].definition);
         if binder.filter.is_some() {
             return Err(invalid(
                 at,
@@ -377,7 +385,7 @@ impl Engine<'_, '_> {
             let result_type=pse_quantity::scheme::Scheme::Product(Box::new(pse_quantity::scheme::Scheme::Concrete(value_type)),Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(pse_quantity::scheme::Scheme::Concrete(axis.quantity)))))
                 .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions).map_err(|e|invalid(at,e.to_string()))?;
             let mut identity=FramedHasher::new(pse_ids::Frame::ModelingDefiniteIntegralV1);
-            identity.id(&instance).id(&at).id(&axis_id).id(&result_type.as_id()).str(&dsl::render_expr(&integrand));
+            identity.id(&instance.as_id()).id(&at.as_id()).id(&axis_id).id(&result_type.as_id()).str(&dsl::render_expr(&integrand));
             let result=identity.finish_id();
             if self.model.integrals.contains_key(&result) {return Ok(symbol_expr(result));}
             self.reserve(3)?;
@@ -421,7 +429,7 @@ fn binary(op: BinaryOp, lhs: Expr, rhs: Expr) -> Expr {
         span: Span::default(),
     }
 }
-fn sum(terms: Vec<Expr>, at: SemanticId) -> Result<Expr> {
+fn sum(terms: Vec<Expr>, at: DeclarationId) -> Result<Expr> {
     terms
         .into_iter()
         .reduce(|a, b| binary(BinaryOp::Add, a, b))

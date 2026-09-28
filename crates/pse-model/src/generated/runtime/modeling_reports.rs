@@ -16,7 +16,7 @@ pub struct RuntimeModelingReportsRow {
     ///target_id
     pub r#target_id: pse_ids::SemanticId,
     ///source_id
-    pub r#source_id: pse_ids::SemanticId,
+    pub r#source_id: crate::generated::identities::DeclarationId,
     ///label
     pub r#label: String,
     ///path

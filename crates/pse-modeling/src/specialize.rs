@@ -19,6 +19,7 @@ use pse_authoring::dsl::{
     PathSegment, Span,
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
+pub use pse_model::generated::identities::{DeclarationId, InstanceId};
 use pse_model::generated::enums::{
     ModelingAccumulatorMode as Mode, ModelingContributionRole as Role,
     ModelingDeclarationKind as Kind, ModelingVariableDomain as Domain,
@@ -69,7 +70,7 @@ pub enum Realization {
 impl Realization {
     pub(crate) fn from_contract(
         v: &pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueRealization,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<Self> {
         use pse_model::generated::enums::ModelingRealizationPolicy as P;
         match (v.policy, v.accelerator.as_deref()) {
@@ -114,19 +115,19 @@ pub struct Formulation {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Lineage {
     /// Authored declaration.
-    pub declaration: SemanticId,
+    pub declaration: DeclarationId,
     /// Actual instance.
-    pub instance: SemanticId,
+    pub instance: InstanceId,
     /// Current human-readable path; never an executable identity.
     pub path: String,
     /// Source demand chain, from requesting content to this member.
-    pub demand: Vec<SemanticId>,
+    pub demand: Vec<DeclarationId>,
     /// Default's originating interface, if inherited.
-    pub default_owner: Option<SemanticId>,
+    pub default_owner: Option<DeclarationId>,
     /// An explicit default override.
     pub is_override: bool,
     /// Ordered presets applied on the path to this definition instance.
-    pub presets: Vec<SemanticId>,
+    pub presets: Vec<DeclarationId>,
 }
 /// A generated scalar at the finite mathematics boundary.
 #[derive(Clone, Debug, PartialEq)]
@@ -190,13 +191,13 @@ pub struct Closure {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Instance {
     /// Stable identity.
-    pub id: SemanticId,
+    pub id: InstanceId,
     /// Lexical model owner; hierarchy is never inferred from a display path.
-    pub parent: Option<SemanticId>,
+    pub parent: Option<InstanceId>,
     /// Definition identity.
-    pub definition: SemanticId,
+    pub definition: DeclarationId,
     /// Present names mapped to stable member declarations for inspection.
-    pub members: BTreeMap<String, SemanticId>,
+    pub members: BTreeMap<String, DeclarationId>,
     /// Initialization stages from this instance's effective inherited contract.
     pub stages: BTreeSet<String>,
     /// Body specialization identity.
@@ -214,11 +215,11 @@ pub struct DispatchGroup {
     /// Complete specialization identity.
     pub key: ContentHash,
     /// Reused definition.
-    pub definition: SemanticId,
+    pub definition: DeclarationId,
     /// Shared normalized finite body.
     pub body: std::sync::Arc<DispatchBody>,
     /// Actual instances.
-    pub instances: Vec<SemanticId>,
+    pub instances: Vec<InstanceId>,
 }
 /// A checked source test, evaluated by the ordinary math owner.
 #[derive(Clone, Debug, PartialEq)]
@@ -234,10 +235,12 @@ pub struct Expectation {
 /// Finite specialization product and its independent inspection/closure views.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SpecializedModel {
-    /// Alternative residual sets over one implicit block's shared unknowns.
-    pub regimes: BTreeMap<SemanticId, RegimeSelection>,
-    /// Data-authored case fixtures resolved to canonical physical scalar values.
-    pub fixtures: BTreeMap<SemanticId, Fixture>,
+    /// Alternative residual sets over one implicit block's shared unknowns, keyed by
+    /// the block's instance.
+    pub regimes: BTreeMap<InstanceId, RegimeSelection>,
+    /// Data-authored case fixtures resolved to canonical physical scalar values, keyed by
+    /// the fixture's instance.
+    pub fixtures: BTreeMap<InstanceId, Fixture>,
     pub integrated: BTreeMap<SemanticId, crate::continuous::IntegratedAxis>,
     pub derivatives: BTreeMap<SemanticId, crate::continuous::IntegratedDerivative>,
     pub integrals: BTreeMap<SemanticId, crate::continuous::IntegratedIntegral>,
@@ -252,8 +255,9 @@ pub struct SpecializedModel {
     pub continuation: BTreeMap<SemanticId, Continuation>,
     /// Continuous domains realized before indexed members are enumerated.
     pub meshes: BTreeMap<SemanticId, crate::continuous::Mesh>,
-    /// Selected implicit policies; original inline residuals remain available for inspection.
-    pub implicit: BTreeMap<SemanticId, Realization>,
+    /// Selected implicit policies by block instance; original inline residuals remain
+    /// available for inspection.
+    pub implicit: BTreeMap<InstanceId, Realization>,
     /// Instantiated variables, values and demanded expression members.
     pub symbols: BTreeMap<SemanticId, Symbol>,
     /// Generated equations.
@@ -261,7 +265,7 @@ pub struct SpecializedModel {
     /// Raw physical closure plans.
     pub closures: BTreeMap<SemanticId, Closure>,
     /// Definition instances.
-    pub instances: BTreeMap<SemanticId, Instance>,
+    pub instances: BTreeMap<InstanceId, Instance>,
     /// Shared implementation groups.
     pub groups: BTreeMap<ContentHash, DispatchGroup>,
     /// Port identities refer to existing variables, never copies.
@@ -307,46 +311,73 @@ pub struct Connection {
 }
 #[derive(Clone)]
 struct State {
-    presets: Vec<SemanticId>,
-    definition: SemanticId,
-    parent: Option<SemanticId>,
+    presets: Vec<DeclarationId>,
+    definition: DeclarationId,
+    parent: Option<InstanceId>,
     env: Environment,
     scope: Environment,
     path: String,
-    members: BTreeMap<String, SemanticId>,
-    children: BTreeMap<(String, Vec<SemanticId>), SemanticId>,
-    symbols: BTreeMap<(SemanticId, Vec<SemanticId>), SemanticId>,
-    stack: Vec<SemanticId>,
+    members: BTreeMap<String, DeclarationId>,
+    children: BTreeMap<(String, Vec<SemanticId>), InstanceId>,
+    symbols: BTreeMap<(DeclarationId, Vec<SemanticId>), SemanticId>,
+    stack: Vec<DeclarationId>,
 }
 pub(crate) struct Engine<'a, 'b> {
     pub(crate) p: &'a CheckedPackage,
     pub(crate) c: &'a TypeContext<'b>,
     limits: Limits,
     pub(crate) model: SpecializedModel,
-    states: BTreeMap<SemanticId, State>,
-    stack: Vec<SemanticId>,
+    states: BTreeMap<InstanceId, State>,
+    stack: Vec<DeclarationId>,
     count: usize,
     lexical: BTreeMap<String, Expr>,
     indexed_arguments: BTreeMap<String, Vec<(Vec<Value>, Expr)>>,
-    function_stack: Vec<SemanticId>,
+    function_stack: Vec<DeclarationId>,
     function_types: BTreeMap<String, Type>,
-    preset_stack: Vec<SemanticId>,
+    preset_stack: Vec<DeclarationId>,
     local_serial: usize,
     continuity_done: BTreeSet<SemanticId>,
     relaxations: BTreeMap<SemanticId, (Type, Value, Lineage)>,
-    form_realizations: BTreeMap<SemanticId, (forms::Realized, SemanticId)>,
+    form_realizations: BTreeMap<DeclarationId, (forms::Realized, DeclarationId)>,
     facts: Environment,
     cancel: &'a dyn Fn() -> bool,
     discretizer: &'a dyn crate::continuous::Discretizer,
 }
 
+/// The identity a declared analysis gives its root instance: the root declaration's own.
+///
+/// A root declaration and the instance it becomes are different entities that share one
+/// identity value by this rule; nested instances derive their identities from their
+/// parent instance and member declaration.
+pub const fn root_instance(root: DeclarationId) -> InstanceId {
+    InstanceId::from_id(root.as_id())
+}
+
 /// Instantiate a checked finite root with explicit structural inputs.
+///
+/// `root` is the declaration to instantiate and `instance` the identity of the instance
+/// it becomes; the two are different entities, so passing one for the other does not
+/// compile:
+///
+/// ```no_run
+/// # use pse_modeling::specialize::{Bindings, DeclarationId, InstanceId, Limits, specialize};
+/// # fn run(package: &pse_modeling::CheckedPackage, root: DeclarationId, instance: InstanceId) {
+/// let _ = specialize(package, root, instance, &Bindings::default(), Limits::default());
+/// # }
+/// ```
+///
+/// ```compile_fail
+/// # use pse_modeling::specialize::{Bindings, DeclarationId, InstanceId, Limits, specialize};
+/// # fn run(package: &pse_modeling::CheckedPackage, root: DeclarationId, instance: InstanceId) {
+/// let _ = specialize(package, instance, root, &Bindings::default(), Limits::default());
+/// # }
+/// ```
 /// # Errors
 /// Missing bindings, recursion, invalid physical composition, exhausted bounds or a future capability.
 pub fn specialize(
     package: &CheckedPackage,
-    root: SemanticId,
-    instance: SemanticId,
+    root: DeclarationId,
+    instance: InstanceId,
     bindings: &Bindings,
     limits: Limits,
 ) -> Result<SpecializedModel> {
@@ -357,8 +388,8 @@ pub fn specialize(
 /// The same semantic errors as `specialize`, or transient cancellation.
 pub fn specialize_cancellable(
     package: &CheckedPackage,
-    root: SemanticId,
-    instance: SemanticId,
+    root: DeclarationId,
+    instance: InstanceId,
     bindings: &Bindings,
     limits: Limits,
     cancel: &dyn Fn() -> bool,
@@ -378,8 +409,8 @@ pub fn specialize_cancellable(
 /// Admission, realization, expansion and cancellation errors are returned before publication.
 pub fn specialize_with_discretizer(
     package: &CheckedPackage,
-    root: SemanticId,
-    instance: SemanticId,
+    root: DeclarationId,
+    instance: InstanceId,
     bindings: &Bindings,
     limits: Limits,
     cancel: &dyn Fn() -> bool,
@@ -460,10 +491,10 @@ pub fn specialize_with_discretizer(
 impl Engine<'_, '_> {
     pub(crate) fn annotation_targets(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         source: &str,
         env: &Environment,
-        at: SemanticId,
+        at: DeclarationId,
         ports: bool,
     ) -> Result<Vec<(SemanticId, Type, Environment)>> {
         let expression = dsl::parse_expr(source).map_err(|e| invalid(at, e.to_string()))?;
@@ -584,7 +615,7 @@ impl Engine<'_, '_> {
     }
     fn eval(
         &self,
-        at: SemanticId,
+        at: DeclarationId,
         env: &Environment,
         text: &str,
         expected: Option<&Type>,
@@ -600,7 +631,7 @@ impl Engine<'_, '_> {
         }
         .text(text, expected)
     }
-    fn predicate(&self, at: SemanticId, env: &Environment, text: &str) -> Result<bool> {
+    fn predicate(&self, at: DeclarationId, env: &Environment, text: &str) -> Result<bool> {
         let p = dsl::parse_predicate(text).map_err(|e| invalid(at, e.to_string()))?;
         Evaluator {
             package: self.p,
@@ -614,9 +645,9 @@ impl Engine<'_, '_> {
     }
     pub(crate) fn lineage(
         &self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Lineage {
         Lineage {
             declaration: row.declaration_id,
@@ -632,9 +663,9 @@ impl Engine<'_, '_> {
     }
     fn instantiate(
         &mut self,
-        definition: SemanticId,
-        id: SemanticId,
-        parent: Option<SemanticId>,
+        definition: DeclarationId,
+        id: InstanceId,
+        parent: Option<InstanceId>,
         path: String,
         arguments: Environment,
         scope: Environment,
@@ -908,7 +939,7 @@ impl Engine<'_, '_> {
                             *member,
                         )?;
                     }
-                    let child = member_id(id, *member, &coordinates);
+                    let child = InstanceId::from(member_id(id, *member, &coordinates));
                     let ids = coordinates
                         .iter()
                         .map(|(_, v)| v.identity())
@@ -956,7 +987,7 @@ impl Engine<'_, '_> {
                     .get(member)
                     .cloned()
                     .unwrap_or(Realization::Inline);
-                let child = member_id(id, *member, &[]);
+                let child = InstanceId::from(member_id(id, *member, &[]));
                 let name = row.name.clone();
                 self.states
                     .get_mut(&id)
@@ -1218,9 +1249,9 @@ impl Engine<'_, '_> {
     }
     fn active_members(
         &self,
-        id: SemanticId,
+        id: DeclarationId,
         env: &Environment,
-        out: &mut Vec<SemanticId>,
+        out: &mut Vec<DeclarationId>,
     ) -> Result<()> {
         let row = &self.p.declarations[&id];
         if row.value.guard.is_some() || row.value.kind == Kind::Stage {
@@ -1241,7 +1272,7 @@ impl Engine<'_, '_> {
         }
         Ok(())
     }
-    fn compatible(&self, value: &Value, ty: &Type, at: SemanticId) -> Result<()> {
+    fn compatible(&self, value: &Value, ty: &Type, at: DeclarationId) -> Result<()> {
         if value::conforms(value, ty, self.p) {
             Ok(())
         } else {
@@ -1251,7 +1282,7 @@ impl Engine<'_, '_> {
 
     fn coordinates<'a>(
         &self,
-        at: SemanticId,
+        at: DeclarationId,
         env: &Environment,
         indices: impl Iterator<Item = (&'a str, &'a str)>,
     ) -> Result<Vec<Vec<(String, Value)>>> {
@@ -1283,10 +1314,10 @@ impl Engine<'_, '_> {
     }
     fn symbol(
         &mut self,
-        instance: SemanticId,
-        member: SemanticId,
+        instance: InstanceId,
+        member: DeclarationId,
         coordinates: &[(String, Value)],
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<SemanticId> {
         // A member definition owns a lexical scope. A demand cannot capture locals of its caller.
         let saved = std::mem::take(&mut self.lexical);
@@ -1300,10 +1331,10 @@ impl Engine<'_, '_> {
     }
     fn symbol_member(
         &mut self,
-        instance: SemanticId,
-        member: SemanticId,
+        instance: InstanceId,
+        member: DeclarationId,
         coordinates: &[(String, Value)],
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<SemanticId> {
         let row = self.p.declarations[&member].clone();
         let key = (
@@ -1491,7 +1522,7 @@ impl Engine<'_, '_> {
     }
     fn contribution(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
         coordinates: &[(String, Value)],
     ) -> Result<()> {
@@ -1541,10 +1572,9 @@ impl Engine<'_, '_> {
                     "out" | "negative" => false,
                     _ => return Err(invalid(id, "transfer side")),
                 };
-                Some((
-                    member_id(owner, pse_ids::named_id(owner, pair), &coords),
-                    positive,
-                ))
+                // The scoped pair is a synthesized member of the owning instance.
+                let pair = DeclarationId::from(pse_ids::named_id(owner.as_id(), pair));
+                Some((member_id(owner, pair, &coords), positive))
             }
             (None, None) if c.role != Role::Transfer => None,
             _ => return Err(invalid(id, "transfer requires identity and opposite sides")),
@@ -1651,7 +1681,7 @@ impl Engine<'_, '_> {
         self.model.equations.sort_by_key(|r| r.id);
         Ok(())
     }
-    fn typed_zero(&self, ty: &Type, at: SemanticId) -> Result<Expr> {
+    fn typed_zero(&self, ty: &Type, at: DeclarationId) -> Result<Expr> {
         let Type::Quantity(s) = ty else {
             return Err(invalid(at, "accumulator requires quantity"));
         };
@@ -1679,12 +1709,12 @@ impl Engine<'_, '_> {
     }
 }
 fn member_id(
-    instance: SemanticId,
-    declaration: SemanticId,
+    instance: InstanceId,
+    declaration: DeclarationId,
     coordinates: &[(String, Value)],
 ) -> SemanticId {
     let mut h = FramedHasher::new(pse_ids::Frame::ModelingMemberV1);
-    h.id(&instance).id(&declaration);
+    h.id(&instance.as_id()).id(&declaration.as_id());
     for (_, value) in coordinates {
         h.id(&value.identity());
     }
@@ -1755,7 +1785,7 @@ impl SpecializedModel {
         reason: crate::RealizationRefusal,
     ) -> ModelingError {
         let derived = self.derived.get(&parameter);
-        let source = derived.map_or(parameter, |d| d.source);
+        let source = derived.map_or(parameter, |d| d.source.as_id());
         let path = |id: &SemanticId| {
             self.symbols
                 .get(id)
@@ -1763,7 +1793,7 @@ impl SpecializedModel {
                 .or_else(|| {
                     self.lowerings
                         .iter()
-                        .find(|l| l.source == *id)
+                        .find(|l| l.source.as_id() == *id)
                         .and_then(|l| l.rows.first())
                         .and_then(|row| self.equations.iter().find(|r| r.id == *row))
                         .map(|r| r.lineage.path.clone())
@@ -1800,7 +1830,7 @@ impl SpecializedModel {
         let symbol = self.symbols.get(&variable);
         ModelingError::Domain {
             variable,
-            declaration: symbol.map_or(variable, |s| s.lineage.declaration),
+            declaration: symbol.map_or(variable, |s| s.lineage.declaration.as_id()),
             path: symbol.map_or_else(|| variable.to_string(), |s| s.lineage.path.clone()),
             domain: symbol.map_or(Domain::Continuous, |s| s.domain),
             analysis,

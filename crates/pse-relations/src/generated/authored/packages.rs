@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    245u8, 251u8, 126u8, 227u8, 29u8, 75u8, 231u8, 167u8, 5u8, 125u8, 66u8, 79u8, 115u8,
-    82u8, 124u8, 207u8, 236u8, 95u8, 55u8, 44u8, 15u8, 56u8, 156u8, 213u8, 37u8, 152u8,
-    243u8, 132u8, 249u8, 250u8, 214u8, 79u8,
+    187u8, 217u8, 193u8, 196u8, 162u8, 244u8, 170u8, 140u8, 105u8, 37u8, 212u8, 104u8,
+    159u8, 32u8, 33u8, 61u8, 167u8, 188u8, 74u8, 150u8, 86u8, 214u8, 123u8, 67u8, 132u8,
+    27u8, 24u8, 146u8, 223u8, 102u8, 193u8, 250u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredPackagesFieldDependenciesItem {
     fn append(
@@ -50,7 +50,7 @@ impl crate::columnar::ArrowValue for AuthoredPackagesFieldDependenciesItem {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::PackageId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -64,7 +64,7 @@ impl crate::columnar::ArrowValue for AuthoredPackagesFieldDependenciesItem {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#package_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#package_id: <crate::generated::identities::PackageId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -114,7 +114,7 @@ impl crate::columnar::ArrowValue for AuthoredPackagesRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::PackageId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -142,7 +142,7 @@ impl crate::columnar::ArrowValue for AuthoredPackagesRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#package_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#package_id: <crate::generated::identities::PackageId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,

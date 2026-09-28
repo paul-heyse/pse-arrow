@@ -5,6 +5,7 @@ use super::*;
 use crate::dsl::lexer::{Kind, Token, tokenize};
 use crate::{AuthoringError, ParseBudget, SourceSpan};
 use pse_ids::SemanticId;
+use pse_model::generated::identities::DeclarationId;
 use std::collections::{BTreeMap, BTreeSet};
 use winnow::stream::LocatingSlice;
 
@@ -101,8 +102,8 @@ pub fn assign_ids_with(
     for row in &rows {
         let start = row.source_start as usize;
         if !text[start..].starts_with("@id") {
-            let id = next();
-            if id == SemanticId::NIL || !used.insert(id) {
+            let id = DeclarationId::from(next());
+            if id.as_id() == SemanticId::NIL || !used.insert(id) {
                 return Err(AuthoringError::Contract {
                     at: Some(SourceSpan::new(
                         document,
@@ -135,7 +136,7 @@ struct Cursor<'a> {
     policy: IdentityPolicy,
     budget: ParseBudget,
     rows: Vec<Declaration>,
-    ids: BTreeSet<SemanticId>,
+    ids: BTreeSet<DeclarationId>,
 }
 impl Cursor<'_> {
     fn peek(&self) -> &str {
@@ -377,7 +378,7 @@ impl Cursor<'_> {
         }
         Ok(result)
     }
-    fn block(&mut self, parent: Option<SemanticId>, depth: u32, braced: bool) -> Result<()> {
+    fn block(&mut self, parent: Option<DeclarationId>, depth: u32, braced: bool) -> Result<()> {
         if depth > self.budget.max_depth {
             return Err(AuthoringError::Budget {
                 limit: "depth",
@@ -396,14 +397,14 @@ impl Cursor<'_> {
         }
         Ok(())
     }
-    fn item(&mut self, parent: Option<SemanticId>, depth: u32, ordinal: i64) -> Result<()> {
+    fn item(&mut self, parent: Option<DeclarationId>, depth: u32, ordinal: i64) -> Result<()> {
         let start = self.at();
         let explicit = if self.eat("@") {
             self.expect("id")?;
             self.expect("(")?;
             let id = SemanticId::parse_hex(&self.word()?).map_err(|_| self.error("semantic ID"))?;
             self.expect(")")?;
-            Some(id)
+            Some(DeclarationId::from(id))
         } else {
             None
         };
@@ -435,10 +436,10 @@ impl Cursor<'_> {
                     name,
                 });
             }
-            None => pse_ids::named_id(
-                parent.unwrap_or(self.document),
+            None => DeclarationId::from(pse_ids::named_id(
+                parent.map_or(self.document, DeclarationId::as_id),
                 &format!("{keyword}:{name}"),
-            ),
+            )),
         };
         if !self.ids.insert(id) {
             return Err(self.error("unique declaration identity"));

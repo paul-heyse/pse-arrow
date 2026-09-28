@@ -12,14 +12,14 @@ use pse_compiler::workspace::ModelingCaseBindings;
 use pse_kernels::DerivativeOrder;
 use pse_model::{forms::NativeConstraint, generated::enums::NativeConstraintForm};
 
-fn package(text: &str) -> (ModelingPackage, SemanticId) {
+fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     package_on(text, fixture::runtime())
 }
 /// A package whose native jobs admit a foreign allowance SCIP can take as its memory limit.
-fn scip_package(text: &str) -> (ModelingPackage, SemanticId) {
+fn scip_package(text: &str) -> (ModelingPackage, DeclarationId) {
     package_on(text, fixture::runtime_with(16 << 20, 16 << 20, 2 << 30))
 }
-fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, SemanticId) {
+fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let mut names = fixture::discrete_names();
     names.insert(
@@ -55,14 +55,14 @@ fn case(values: &[(&str, f64)]) -> ModelingCaseBindings {
 }
 async fn prepare(
     package: &ModelingPackage,
-    root: SemanticId,
+    root: DeclarationId,
     case: ModelingCaseBindings,
     selection: SolverSelection,
 ) -> Result<ModelingSolvePreparation, WorkflowError> {
     package
         .prepare_solve(
             root,
-            root,
+            pse_modeling::specialize::root_instance(root),
             Bindings::default(),
             Limits::default(),
             case,
@@ -77,7 +77,7 @@ async fn prepare(
 /// Solve with automatic routing, require HiGHS and an accepted candidate, and return a report.
 async fn optimum(
     package: &ModelingPackage,
-    root: SemanticId,
+    root: DeclarationId,
     case: ModelingCaseBindings,
     report: &str,
 ) -> f64 {
@@ -87,7 +87,7 @@ async fn optimum(
 /// Solve as [`optimum`] and return several reports, in the order requested.
 async fn optimal<const N: usize>(
     package: &ModelingPackage,
-    root: SemanticId,
+    root: DeclarationId,
     case: ModelingCaseBindings,
     reports: [&str; N],
 ) -> [f64; N] {
@@ -98,7 +98,7 @@ async fn optimal<const N: usize>(
 /// coefficient model; SCIP consumes native forms through the factorable export.
 async fn optimal_on<const N: usize>(
     package: &ModelingPackage,
-    root: SemanticId,
+    root: DeclarationId,
     case: ModelingCaseBindings,
     reports: [&str; N],
     backend: Backend,
@@ -202,7 +202,7 @@ async fn gdp_indicator_matches_hull() {
     let resolution = package
         .resolve_case(
             root,
-            root,
+            pse_modeling::specialize::root_instance(root),
             Bindings::default(),
             Limits::default(),
             case(&[]),
@@ -276,7 +276,7 @@ async fn derived_big_m_follows_value_only_study_points() {
     );
     let analysis = ModelingAnalysis {
         root,
-        instance: root,
+        instance: pse_modeling::specialize::root_instance(root),
         bindings: Bindings::default(),
         limits: Limits::default(),
         case: case(&[("demand", 60.0)]),
@@ -408,7 +408,7 @@ async fn indicator_linear_lowering_matches_native() {
     let resolution = native
         .resolve_case(
             root,
-            root,
+            pse_modeling::specialize::root_instance(root),
             Bindings::default(),
             Limits::default(),
             case(&[]),

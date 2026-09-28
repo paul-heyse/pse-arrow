@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Generic modeling-language declarations; the sole durable kernel IR schema.
-use super::declarations::{column, enumeration, relation, relation_version};
+use super::declarations::{column, enumeration, identity, relation, relation_version};
 use crate::builder::RegistryBuilder;
 use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S, TaggedAlternative};
 use arrow_schema::DataType as D;
@@ -421,6 +421,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         arms.into_iter()
             .map(|(name, _, fields)| T::structure(fields).with_name(name).optional()),
     );
+    identity(
+        builder,
+        "declaration",
+        "One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities",
+    );
     relation_version(
         builder,
         N::Authored,
@@ -429,9 +434,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         S::Model,
         &["declaration_id"],
         vec![
-            column("declaration_id", T::id()),
+            column("declaration_id", T::id()).with_identity("declaration"),
             column("document_id", T::id()),
-            column("parent_id", T::id()).optional(),
+            column("parent_id", T::id())
+                .with_identity("declaration")
+                .optional(),
             column("ordinal", T::nonnegative(i64::MAX)),
             column("name", T::native(D::Utf8)),
             column("is_override", flag("is_override")),
@@ -467,7 +474,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("sample_index", T::nonnegative(i64::MAX)),
             column("time", T::native(D::Float64)).optional(),
             column("target_id", T::id()),
-            column("source_id", T::id()),
+            column("source_id", T::id()).with_identity("declaration"),
             column("kind", T::enumeration("ModelingCheckKind")),
             column("value", T::native(D::Float64)),
             column("tolerance", T::native(D::Float64)).optional(),
@@ -487,7 +494,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("run_id", T::id()),
             column("step", T::nonnegative(i64::MAX)),
             column("target_id", T::id()),
-            column("source_id", T::id()),
+            column("source_id", T::id()).with_identity("declaration"),
             column("label", T::native(D::Utf8)),
             column("path", T::native(D::Utf8)),
             column("quantity_id", T::id()),
@@ -538,11 +545,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ],
         vec![
             column("run_id", T::id()),
-            column("fixture_id", T::id()),
+            column("fixture_id", T::id()).with_identity("declaration"),
             column("sample_index", T::nonnegative(i64::MAX)),
             column("time", T::native(D::Float64)).optional(),
             column("target_id", T::id()),
-            column("source_id", T::id()),
+            column("source_id", T::id()).with_identity("declaration"),
             column("kind", T::enumeration("ModelingConformanceKind")),
             column("status", T::enumeration("ModelingConformanceStatus")),
             column("message", T::native(D::Utf8)),
@@ -560,9 +567,84 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["run_id", "fixture_id"],
         vec![
             column("run_id", T::id()),
-            column("fixture_id", T::id()),
+            column("fixture_id", T::id()).with_identity("declaration"),
             column("status", T::enumeration("ModelingConformanceStatus")),
         ],
         "Every discovered fixture retains an aggregate disposition even when the detailed check limit or memory budget prevents further checks. Unattempted identities never disappear from an incomplete report.",
     );
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "assertions over the platform registry")]
+
+    use crate::model::FieldContract;
+
+    /// Modeling identities (Plan 22 B7): packages and declarations are owned by their
+    /// keys and inherited through references; models, cases and instances are carried
+    /// without an owning key, an instance only inside a study's points.
+    #[test]
+    fn modeling_identities_declared() {
+        let registry = crate::registry().unwrap();
+        let owner = |name: &str| {
+            let owner = registry.identity(name).unwrap().owner.as_ref()?;
+            Some((owner.relation.clone(), owner.column.clone()))
+        };
+        assert_eq!(
+            owner("package"),
+            Some(("authored.packages".to_owned(), "package_id".to_owned()))
+        );
+        assert_eq!(
+            owner("declaration"),
+            Some((
+                "authored.modeling_declarations".to_owned(),
+                "declaration_id".to_owned()
+            ))
+        );
+        for unowned in ["model", "case", "instance"] {
+            assert_eq!(owner(unowned), None, "{unowned}");
+        }
+        let carried = |relation: &str, column: &str| {
+            registry
+                .relation(relation)
+                .and_then(|spec| spec.column(column))
+                .and_then(FieldContract::identity)
+                .map(str::to_owned)
+        };
+        for (relation, column, identity) in [
+            ("authored.documents", "package_id", "package"),
+            ("normalized.package_graph", "package_id", "package"),
+            ("reference.math_context", "package_id", "package"),
+            ("authored.modeling_declarations", "parent_id", "declaration"),
+            ("reference.reference_states", "subject_id", "declaration"),
+            ("runtime.modeling_checks", "source_id", "declaration"),
+            ("runtime.modeling_conformance", "fixture_id", "declaration"),
+            ("authored.numerical_requirements", "model_id", "model"),
+            ("runtime.run_lineage", "case_id", "case"),
+            ("runtime.solve_runs", "model_id", "model"),
+        ] {
+            assert_eq!(
+                carried(relation, column).as_deref(),
+                Some(identity),
+                "{relation}.{column}"
+            );
+        }
+        assert_eq!(carried("runtime.modeling_checks", "target_id"), None);
+        let points = registry
+            .relation("runtime.modeling_studies")
+            .and_then(|spec| spec.column("points"))
+            .unwrap()
+            .children()
+            .remove(0)
+            .children();
+        let nested = |name: &str| {
+            points
+                .iter()
+                .find(|field| field.name() == name)
+                .and_then(FieldContract::identity)
+                .map(str::to_owned)
+        };
+        assert_eq!(nested("root_id").as_deref(), Some("declaration"));
+        assert_eq!(nested("instance_id").as_deref(), Some("instance"));
+    }
 }

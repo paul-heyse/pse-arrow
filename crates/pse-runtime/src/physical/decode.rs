@@ -58,7 +58,7 @@ pub(super) fn inventory(
                 let row=view.row(index)?;
                 if row.value.kind == ModelingDeclarationKind::Entity { entities.insert(row.declaration_id); }
                 if row.value.kind == ModelingDeclarationKind::EntityKind {
-                    builder.entity_kind(EntityKind{id:EntityKindId::from_id(row.declaration_id),name:row.name});
+                    builder.entity_kind(EntityKind{id:EntityKindId::from_id(row.declaration_id.as_id()),name:row.name});
                 }
             }
         }
@@ -101,7 +101,7 @@ pub(super) fn inventory(
             temperature: row.temperature,
             pressure: row.pressure,
             include_enthalpy_of_formation: row.include_enthalpy_of_formation,
-            subject: row.subject_id,
+            subject: row.subject_id.map(Into::into),
         });
     });
     rows!(quantity_kinds, row, {

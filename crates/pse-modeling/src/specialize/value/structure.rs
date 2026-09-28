@@ -2,18 +2,17 @@
 // Copyright (c) 2026 Paul Heyse
 //! One binding contract for instantiation and structural definition projection.
 use super::{Environment, Evaluator, Value, conforms};
-use crate::{Result, Selected, Type, invalid};
-use pse_ids::SemanticId;
+use crate::{DeclarationId, Result, Selected, Type, invalid};
 use pse_model::generated::enums::ModelingDeclarationKind as Kind;
 use std::collections::BTreeSet;
 
 impl Evaluator<'_, '_> {
     pub(crate) fn definition_environment(
         &self,
-        definition: SemanticId,
+        definition: DeclarationId,
         arguments: &Environment,
         mut env: Environment,
-    ) -> Result<(SemanticId, Environment)> {
+    ) -> Result<(DeclarationId, Environment)> {
         if self.stack.len() >= 64 || self.stack.contains(&definition) {
             return Err(invalid(
                 definition,
@@ -195,7 +194,7 @@ impl Evaluator<'_, '_> {
 
     pub(super) fn definition_member(
         &self,
-        definition: SemanticId,
+        definition: DeclarationId,
         bindings: &Environment,
         name: &str,
     ) -> Result<Value> {
