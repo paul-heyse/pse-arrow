@@ -19,7 +19,7 @@ fn package(text: &str) -> (ModelingPackage, SemanticId) {
 fn scip_package(text: &str) -> (ModelingPackage, SemanticId) {
     package_on(text, fixture::runtime_with(16 << 20, 16 << 20, 2 << 30))
 }
-fn package_on(text: &str, runtime: crate::workflow::Runtime) -> (ModelingPackage, SemanticId) {
+fn package_on(text: &str, runtime: Runtime) -> (ModelingPackage, SemanticId) {
     let physical = fixture::physical();
     let mut names = fixture::discrete_names();
     names.insert(
