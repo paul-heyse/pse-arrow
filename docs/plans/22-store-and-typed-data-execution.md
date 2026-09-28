@@ -90,7 +90,7 @@ Environment:
 | W3 | **O8** | **B5** (after B4) | — |
 | W4 | **O7** (after O8 and B5) | **G8 + O5-incumbents** (after B2 and B5; merges after O7, which shares `worker.rs`) | **B3b** typed-id sweep (after O8) |
 | W5 | **O9**, then the **docs step** | — | — |
-| W6 | Scoped qualification | complete, with one fix not re-verified (see the W6 checkpoint) |
+| W6 | **Scoped qualification** (maintainer request, 2026-09-28), then solver scope resumes | — | — |
 
 ## Packet detail
 
@@ -289,7 +289,7 @@ The model and case semantics follow the maintainer's decision on B3b's proposal 
 | W3 | O8 (R); B5 (V) | complete: B5 in merge `d26bdebe`, O8 in merge `4487adfc` |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | complete: G8 in merge `b80f8d4c`, O7 in merge `f5909d1c`, B3b in merge `3c6407ad` |
 | W5 | O9; B3c; docs step | complete: O9 in merge `3a097532`, B3c in `4b9d16f7`/`3d878717`, docs step in `12321374`/`425a7b9c` (revision 67) and `0e727af5` (revision 68) |
-| W6 | Scoped qualification | not started |
+| W6 | Scoped qualification | complete: see the W6 checkpoint; the run-identity fix `598b82ef` has not been run |
 
 ## Current checkpoint (2026-09-28)
 
