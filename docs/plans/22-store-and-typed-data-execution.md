@@ -272,7 +272,7 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | Step | Packets | State |
 |---|---|---|
 | W0 | D2: ADR-0117 accepted, with the review addendum; this packet written | complete (2026-09-28) |
-| W1 | B1 (R); B3a → B6 (T) | B3a and B6 complete (merge `8934a521`); B1 running |
+| W1 | B1 (R); B3a → B6 (T) | complete: B3a and B6 in merge `8934a521`, B1 in merge `fa5a075c` |
 | W2 | B2 (R); B4 (V); B7 (T) | not started |
 | W3 | O8 (R); B5 (V) | not started |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | not started |
@@ -320,3 +320,74 @@ The agent's worktree runs covered the rest:
 - Listing the frame catalog in the generated docs (ADR-0115 Outcome 4) touches the generator track R owns. It moves to B3b.
 - Still untyped: the dynamics oracle's `(row, coordinate)` support and the fitting oracle's coordinate and constraint tuples. They were outside B6's listed boundaries; B3b sweeps them.
 - The Python ranging test (`test_modeling_kernel`) runs after `just py-sync-native`, once B1 lands.
+
+### W1, track R: B1 landed (merge `fa5a075c`)
+
+**Commits:** `2dd572dd` (B1.1), `9e6db304` (B1.2), `81b3b7a3` (B1.3, B1.4), `a20ee399` (B1.5), `1333fa81` (B1.6), `6fdfe17a` (fixtures).
+
+**What landed:**
+- **Identity macro.** It moved to `pse-ids` with serde delegation.
+- **New registry declarations:** entity identities, inherited through foreign keys, with at most one owner; JSON documents; `ts_us` timestamps; unique keys; composite foreign keys; `reference.schema_identities`.
+- **Store tables.** All 18 are in the registry, including the seven catalog tables. It also gains the four new enums, typed terminations per X4, and every former CHECK as a named row check.
+- **`postgres` generator.** Its output is the `pse_ops` DDL, the fingerprint, the Cornucopia mapping, and the value mapping behind a `postgres` feature on `pse-ids` and `pse-model`.
+- **Store lifecycle:**
+  - the store is created from the schema or refused with `SchemaMismatch`;
+  - `physical.sql`;
+  - `pse-ops status|reset`;
+  - `just db-reset` replacing `db-migrate`;
+  - the doctor fingerprint check;
+  - interim sqlx casts, which B2 deletes.
+- **Protected paths:** TD10.
+- **Merge resolution:** the fingerprint frame is `Frame::OpsSchemaV1`, registered in the spelling oracle as a deliberate post-capture addition.
+
+**Deviations** (accepted by the coordinator):
+1. **No `finite` facet** (amends X3). Registry `Float64` is already finite everywhere: the relational value check refuses non-finite values, and the Python contracts use `finite_float`. The generator therefore gives every `double precision` column a named finiteness CHECK, and array columns a CHECK on their elements. So incumbent `objective`, `dual_bound` and `gap` must now be finite; "no bound" is NULL.
+2. **Former CHECKs are named row checks**, not invariants, because invariants are relational queries. Unique keys and foreign keys still generate invariants.
+3. **Optional text checks** read `x IS NULL OR x <> ''`.
+4. **The generated `mod.rs` exports `SCHEMA`**, so `pse-operations` keeps `pse-schema` as a dev-dependency only.
+5. **Job, settlement and reader-lease ids** are minted by the runtime.
+6. **`pse-ops status` exits 0** when no schema exists yet.
+7. **The conformance fixture generator** now covers unique keys and composite references.
+8. **Naming.** The registry follows X4 (`TerminationClass` plus typed columns); `TerminationCode` is the Rust type in `pse-operations`, although ADR-0114's text names a `TerminationCode` enum.
+
+**B1.0 probe results:**
+- **Check SQL portability.** All 39 row checks parse in the registry parser and in DataFusion 55.1, and apply in PostgreSQL 18.6.
+- **Schema creation.** Multi-statement DDL runs as one transaction, and a misspelled ENUM literal fails at `PREPARE` and in partial indexes.
+- **Cornucopia 1.0.1:**
+  - a domain-typed result column arrives as its base type;
+  - INSERT parameters into domain columns are typed as the domain, comparison parameters as the base type;
+  - whole-row `SELECT a` and `RETURNING a` map through `types.mapping` to an external Rust type, with the composite fields keeping their domains. **X7 is feasible**, and a hand-written composite `FromSql` decodes NULL correctly, which Cornucopia's own struct cannot;
+  - `params-only` makes `bind` private only where a params struct exists;
+  - `gen_fresh` works with the peer-authenticated socket URL;
+  - the generated manifest forces edition 2024 and rust-version 1.85, and defaults to sync `postgres` plus deadpool (normalized under X6);
+  - a text parameter bound into an ENUM column needs an explicit cast.
+
+**Tests on `main` after the merge** (coordinator run, zero baseline, no concurrent builds):
+
+| Command | Result |
+|---|---|
+| `cargo nextest run -p pse-ids -p pse-relations --lib --test golden_vectors --features pse-relations/force-validate -E 'package(pse-ids)'` | 46 passed |
+| `just unit-package pse-schema 'package(pse-schema) \| package(pse-codegen)' -p pse-codegen` | 60 passed |
+| `just unit-package pse-relations 'package(pse-relations)'` | 34 passed |
+| `just unit-package pse-math 'package(pse-math)'` | 75 passed |
+| `just db-test` | 39 passed |
+| `just unit-native-package pse-backend-native pse-backend-native/native-solvers 'package(pse-backend-native)'` | 176 passed |
+| `just unit-native-package pse-runtime pse-runtime/native-solvers 'test(durable_tests) \| test(worker_tests)'` | 10 passed |
+| `just worker-test` | 1 passed |
+| Governance `no_shadow_structs`, `every_crate_registered`, `codegen_regeneration`, `error_taxonomy` | 9 passed |
+| `just codegen-check` (relations, python, docs, postgres, bindgen) | exit 0 |
+| `just family-check` | OK |
+| `just db-status` | 18.6 supported; schema current |
+| `just py-sync-native`, then `just py-unit-native` over `test_generated_contracts.py`, `test_any_lint.py` and the ranging test | 26 passed |
+| `test_modeling_run.py`, `test_native_workflow.py`, `test_plan14_acceptance.py` | 20 passed |
+
+All failed counts were 0; `PSE_SOLVER_IMAGE` was set for the native runs. `just check` compiles; its only warnings in touched files predate the track.
+
+**Binding practice from W1 (shared target directory).** Cargo names a workspace crate's artifacts by its path relative to the workspace, so parallel worktrees sharing `/home/paul/pse-arrow/target` can link each other's crates. B1's first check picked up B3a's `pse-ids`.
+- From W2 on, every worktree agent sets `CARGO_TARGET_DIR=<worktree>/target`.
+- The coordinator re-runs each packet's tests on `main` with no concurrent builds, as it did for W1.
+
+**Open, owned by B2:**
+- the sqlx `migrate` feature;
+- the ADR-0112 comment in the root `Cargo.toml`;
+- the interim casts.
