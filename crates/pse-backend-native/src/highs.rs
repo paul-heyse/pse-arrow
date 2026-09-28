@@ -20,6 +20,8 @@ use std::{
     },
 };
 pub mod diagnostics;
+#[cfg(test)]
+mod mip_tests;
 static LIFECYCLE: RwLock<()> = RwLock::new(());
 thread_local! {static ACTIVE:std::cell::Cell<bool>=const {std::cell::Cell::new(false)};}
 
@@ -43,6 +45,9 @@ pub enum Method {
 pub struct Settings {
     /// Eligible LP algorithm; mixed models retain native class routing.
     pub method: Method,
+    /// MIP node budget, separate from the iteration budget (F10). `None` leaves the native
+    /// default (no node limit), so the time limit alone bounds the search.
+    pub nodes: Option<u32>,
     /// Opt-in native work, separate from the original candidate.
     pub diagnostics: diagnostics::Request,
     /// Partial source-attributed MIP start, with unspecified coordinates absent.
@@ -52,11 +57,13 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             method: Method::Choose,
+            nodes: None,
             diagnostics: Default::default(),
             sparse_start: None,
         }
     }
 }
+
 /// Native model reuse is confined to one admitted worker and finite caller sequence.
 pub struct Session {
     model: Option<highs::Model>,
@@ -64,6 +71,10 @@ pub struct Session {
     compatibility: Compatibility,
     structure: (Vec<usize>, Vec<usize>, Vec<ModelingVariableDomain>),
     pending_sparse: Option<BTreeMap<pse_ids::SemanticId, f64>>,
+    /// The root cut pool of the last solve, when requested.
+    cut_pool: Option<diagnostics::CutPool>,
+    /// Solves run on this native model; a later one reuses its allocation.
+    solves: u64,
     _local: PhantomData<Rc<()>>,
 }
 impl std::fmt::Debug for Session {
@@ -418,6 +429,8 @@ impl Session {
                 p.domains.clone(),
             ),
             pending_sparse: None,
+            cut_pool: None,
+            solves: 0,
             _local: PhantomData,
         };
         session.model = Some(upload(p)?);
@@ -505,18 +518,27 @@ impl Session {
         self.compatibility = compatibility;
         Ok(())
     }
-    /// Run the native model and recover original coefficients, sense and source maps.
+    /// Run the native model and recover original coefficients, sense and source maps. The
+    /// settings' method and node budget apply; its sparse start and diagnostics go through
+    /// [`Self::sparse_start`] and [`Self::diagnose`], except that a requested cut pool is
+    /// captured during this solve.
     pub fn solve(
         &mut self,
         p: &CoefficientProblem,
         controls: &Controls,
         accuracy: &ResolvedAccuracy,
-        method: Method,
+        settings: &Settings,
         execution: Execution,
         tolerances: &Tolerances,
         warm: Option<&WarmStart>,
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
+        let method = settings.method;
+        if settings.nodes == Some(0) || settings.nodes.is_some_and(|v| v > i32::MAX as u32) {
+            return Err(ProblemError::Contract(
+                "a HiGHS node budget must be positive and within the native range".into(),
+            ));
+        }
         let n = p.contract.variables.len();
         let m = p.contract.rows.len();
         tolerances.validate(n, m)?;
@@ -539,6 +561,7 @@ impl Session {
                 "ipm_iteration_limit",
                 "pdlp_iteration_limit",
                 "qp_iteration_limit",
+                "qp_regularization_value",
                 "primal_feasibility_tolerance",
                 "dual_feasibility_tolerance",
                 "mip_feasibility_tolerance",
@@ -618,9 +641,21 @@ impl Session {
             "ipm_iteration_limit",
             "pdlp_iteration_limit",
             "qp_iteration_limit",
-            "mip_max_nodes",
         ] {
             options.insert(key.into(), OptionValue::Integer(controls.iterations as i32));
+        }
+        // Nodes are not iterations (F10): the node budget is its own setting, and without
+        // one the native default (`kHighsIInf`, no limit) is restored explicitly because a
+        // retained model keeps the options of its previous solve.
+        options.insert(
+            "mip_max_nodes".into(),
+            OptionValue::Integer(settings.nodes.map_or(i32::MAX, |v| v as i32)),
+        );
+        if quadratic {
+            options.insert(
+                "qp_regularization_value".into(),
+                OptionValue::Real(qp_regularization(p, accuracy)),
+            );
         }
         for (key, value) in [
             ("primal_feasibility_tolerance", accuracy.feasibility),
@@ -746,14 +781,27 @@ impl Session {
             )?;
         }
         let ptr = model.as_mut_ptr();
-        let callback_binding = CallbackBinding::new(ptr, execution.clone())?;
+        let capacity = incumbent_capacity(n, controls.history);
+        let callback_binding = CallbackBinding::with_capture(
+            ptr,
+            execution.clone(),
+            Capture {
+                columns: n,
+                incumbents: capacity,
+                cut_pool: settings.diagnostics.cut_pool,
+            },
+        )?;
         let run = if execution.stopped().is_some() {
             0
         } else {
             unsafe { ffi::Highs_run(ptr) }
         };
         let panicked = callback_binding.context.panicked.load(Ordering::Acquire);
+        let (incumbents, cut_pool) = callback_binding.take();
         drop(callback_binding);
+        self.cut_pool = cut_pool;
+        let reused = self.solves > 0;
+        self.solves += 1;
         let code = unsafe { ffi::Highs_getModelStatus(ptr) };
         let mut report =
             SolveReport::new(Backend::Highs, &p.contract, termination(code), &execution);
@@ -765,6 +813,8 @@ impl Session {
             .metrics
             .insert("model.discrete".into(), Metric::Bool(discrete));
         report.evidence.start_submitted = warm.is_some() || sparse.is_some();
+        report.evidence.reused_native_state = reused;
+        report.incumbents = incumbents;
         report.metrics.insert(
             "start.submitted".into(),
             Metric::Bool(report.evidence.start_submitted),
@@ -1075,17 +1125,69 @@ fn info(ptr: *const c_void, name: &str) -> Result<Option<Metric>, ProblemError> 
     };
     Ok(Some(value))
 }
+/// The regularization HiGHS's active-set QP solver adds to the Hessian diagonal. It changes
+/// the objective by `δ/2·‖x‖²` at the solution, so it is bounded by the absolute gap budget
+/// over the variables' bounding box (unbounded coordinates at unit scale, the normalized
+/// scale) and never exceeds the native default.
+fn qp_regularization(p: &CoefficientProblem, accuracy: &ResolvedAccuracy) -> f64 {
+    let radius = p
+        .contract
+        .variables
+        .iter()
+        .map(|v| {
+            let extent = v.lower.abs().max(v.upper.abs());
+            if extent.is_finite() { extent * extent } else { 1.0 }
+        })
+        .sum::<f64>()
+        .max(1.0);
+    // `kHessianRegularizationValue` in HiGHS 1.15.
+    const NATIVE_DEFAULT: f64 = 1e-7;
+    (2.0 * accuracy.gap_absolute / radius).min(NATIVE_DEFAULT)
+}
+/// Incumbents retained per solve: at most the event history, and at most 2 MiB of
+/// solution vectors (half the report allowance's fixed part).
+fn incumbent_capacity(columns: usize, history: usize) -> usize {
+    let each = columns.saturating_mul(8).saturating_add(64);
+    history.min((2usize << 20) / each).max(1)
+}
+/// What the callback captures besides progress events.
+struct Capture {
+    /// Native column count; solutions of another length are not retained.
+    columns: usize,
+    /// Incumbent retention bound.
+    incumbents: usize,
+    /// Capture the root cut pool (callback kind 7).
+    cut_pool: bool,
+}
 struct CallbackBinding {
     ptr: *mut c_void,
     context: Box<Callback>,
 }
 impl CallbackBinding {
     fn new(ptr: *mut c_void, execution: Execution) -> Result<Self, ProblemError> {
+        Self::with_capture(
+            ptr,
+            execution,
+            Capture {
+                columns: 0,
+                incumbents: 0,
+                cut_pool: false,
+            },
+        )
+    }
+    fn with_capture(
+        ptr: *mut c_void,
+        execution: Execution,
+        capture: Capture,
+    ) -> Result<Self, ProblemError> {
+        let cut_pool = capture.cut_pool;
         let mut binding = Self {
             ptr,
             context: Box::new(Callback {
                 execution,
                 panicked: AtomicBool::new(false),
+                capture,
+                captured: std::sync::Mutex::new((Incumbents::default(), None)),
             }),
         };
         check(
@@ -1100,12 +1202,32 @@ impl CallbackBinding {
                 "callback kind",
             )?;
         }
+        if cut_pool {
+            check(
+                unsafe { ffi::Highs_startCallback(ptr, ffi::kHighsCallbackMipGetCutPool) },
+                "cut pool callback",
+            )?;
+        }
         Ok(binding)
+    }
+    /// The captured incumbents and cut pool.
+    fn take(&self) -> (Incumbents, Option<diagnostics::CutPool>) {
+        let mut captured = self
+            .context
+            .captured
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        std::mem::take(&mut *captured)
     }
 }
 impl Drop for CallbackBinding {
     fn drop(&mut self) {
         unsafe {
+            // A retained model must not keep kind 7 active for a later solve; HiGHS stops a
+            // kind only while a user callback is still set.
+            if self.context.capture.cut_pool {
+                ffi::Highs_stopCallback(self.ptr, ffi::kHighsCallbackMipGetCutPool);
+            }
             ffi::Highs_setCallback(self.ptr, None, std::ptr::null_mut());
         }
     }
@@ -1113,6 +1235,42 @@ impl Drop for CallbackBinding {
 struct Callback {
     execution: Execution,
     panicked: AtomicBool,
+    capture: Capture,
+    captured: std::sync::Mutex<(Incumbents, Option<diagnostics::CutPool>)>,
+}
+impl Callback {
+    /// Record an incumbent (kinds 3 and 4) or the root cut pool (kind 7).
+    fn capture(&self, kind: i32, out: &ffi::HighsCallbackDataOut) {
+        let mut captured = self
+            .captured
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        match kind {
+            ffi::kHighsCallbackMipSolution | ffi::kHighsCallbackMipImprovingSolution => {
+                let size = usize::try_from(out.mip_solution_size).unwrap_or(0);
+                if out.mip_solution.is_null() || size != self.capture.columns {
+                    return;
+                }
+                let primal = unsafe { std::slice::from_raw_parts(out.mip_solution, size) };
+                let incumbents = &mut captured.0;
+                if incumbents.recorded.len() >= self.capture.incumbents {
+                    incumbents.recorded.pop_front();
+                    incumbents.dropped += 1;
+                }
+                incumbents.recorded.push_back(Incumbent {
+                    improving: kind == ffi::kHighsCallbackMipImprovingSolution,
+                    seconds: out.running_time,
+                    objective: out.objective_function_value,
+                    nodes: out.mip_node_count,
+                    primal: primal.to_vec(),
+                });
+            }
+            ffi::kHighsCallbackMipGetCutPool if self.capture.cut_pool => {
+                captured.1 = diagnostics::CutPool::from_callback(out);
+            }
+            _ => {}
+        }
+    }
 }
 unsafe extern "C" fn callback(
     kind: i32,
@@ -1157,6 +1315,7 @@ unsafe extern "C" fn callback(
                 elapsed: c.execution.started.elapsed(),
                 values,
             });
+            c.capture(kind, out);
         }
     }));
     if result.is_err() {
@@ -1326,7 +1485,10 @@ mod tests {
             p,
             &controls,
             &ResolvedAccuracy::nominal(),
-            method,
+            &Settings {
+                method,
+                ..Settings::default()
+            },
             Execution::new(Default::default(), &controls),
             &Tolerances {
                 variables: vec![1e-8; 2],
@@ -1495,7 +1657,7 @@ mod tests {
                 &Execution::new(Arc::new(AtomicBool::new(false)), &controls),
             )
             .unwrap();
-        crate::transport::recover_diagnostics(&mut evidence, &n, &[0.]).unwrap();
+        crate::transport::recover_diagnostics(&mut evidence, &n, &[0.], &normalized.contract).unwrap();
         let relaxed = evidence.relaxation.unwrap();
         assert_eq!(relaxed.operation_status, 0);
         assert_eq!(relaxed.restored_status.name, "kHighsModelStatusNotset");
@@ -1513,6 +1675,12 @@ mod tests {
                 &Controls::default(),
             ),
             panicked: AtomicBool::new(false),
+            capture: Capture {
+                columns: 0,
+                incumbents: 0,
+                cut_pool: false,
+            },
+            captured: std::sync::Mutex::new((Incumbents::default(), None)),
         };
         let data = (&raw const callback_data).cast_mut().cast::<c_void>();
         for kind in ffi::kHighsCallbackLogging..=ffi::kHighsCallbackCallbackMipUserSolution {

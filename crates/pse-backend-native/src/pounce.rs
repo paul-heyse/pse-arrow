@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native POUNCE TNLP adapter sharing the exact NLP oracle and callback failure policy.
+mod equalities;
+mod records;
 use crate::tnlp::{Adapter, finite};
 use crate::{
     NlpOracle, ProblemError,
@@ -30,6 +32,8 @@ pub struct Settings {
     /// Native linear settings.
     #[serde(with = "FeralIdentity")]
     pub linear: LinearSettings,
+    /// Interior-point restart of a submitted primal-dual seed (L-N3).
+    pub restart: WarmRestart,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(
@@ -108,6 +112,13 @@ pub enum Method {
     InteriorPoint,
     /// Native active-set sequential quadratic programming.
     ActiveSetSqp,
+    /// The Thierry–Biegler ℓ1 exact penalty-barrier method (`pounce-l1penalty`, ADR-0109).
+    /// Explicit only: never selected automatically and never a retry. Every row is relaxed
+    /// (inequalities through bounded slacks), so an infeasible model returns a
+    /// least-infeasible point and a feasible one a point the penalty makes exact. Presolve
+    /// `Auto` resolves to `Off` for it, recorded in the presolve report; explicit passes
+    /// are refused, since every pass assumes the rows hold.
+    L1ExactPenalty,
 }
 /// Worker count of FERAL's own factorization pool, by the rule feral 0.18 applies when it
 /// builds that pool (`Solver::pool_num_threads`): `RAYON_NUM_THREADS` when it parses as a
@@ -132,8 +143,9 @@ fn feral_threads(admitted: usize, pool: usize) -> usize {
         1
     }
 }
-/// Hidden second solves are pinned off, and the ℓ1 methods stay reserved until a typed
-/// method selects them (packet N3): a result never comes from an undeclared attempt beyond
+/// Hidden second solves are pinned off, and the ℓ1 options are reserved: only the typed
+/// [`Method::L1ExactPenalty`] sets the exact-penalty switch, and the automatic ℓ1 retry after
+/// restoration failure stays off. A result never comes from an undeclared attempt beyond
 /// the admitted iteration budget (F03).
 const PINNED_OFF: [&str; 2] = ["mu_strategy_fallback", "dual_divergence_retry"];
 const RESERVED_METHODS: [&str; 2] = [
@@ -255,14 +267,16 @@ impl Session {
         sense: ObjectiveSense,
         controls: &Controls,
         accuracy: &ResolvedAccuracy,
-        method: Method,
-        mut feral: pounce_feral::FeralConfig,
+        settings: &Settings,
         execution: Execution,
         tolerances: &Tolerances,
         warm: Option<&WarmStart>,
         compatibility: Compatibility,
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
+        settings.restart.validate()?;
+        let method = settings.method;
+        let mut feral = settings.linear.clone();
         if oracle.normalization().is_some() {
             return Err(ProblemError::Internal("model normalization must be transported through the shared NLP pipeline before native execution".into()));
         }
@@ -316,53 +330,71 @@ impl Session {
         };
         let mut initial = initial.to_vec();
         let mut duals = None;
+        let mut barrier = None;
         let mut sqp_seed = None;
         if let Some(w) = warm {
             w.validate(&compatibility)?;
-            match &w.payload {
-                WarmPayload::Nlp {
-                    primal,
-                    bounds,
-                    rows,
-                } => {
-                    if primal.len() != n {
-                        return Err(ProblemError::Contract("POUNCE seed shape".into()));
+            let WarmPayload::Nlp {
+                primal,
+                bounds,
+                rows,
+                barrier: seed_barrier,
+                working,
+            } = &w.payload
+            else {
+                return Err(ProblemError::Contract("POUNCE seed class".into()));
+            };
+            if primal.len() != n {
+                return Err(ProblemError::Contract("POUNCE seed shape".into()));
+            }
+            finite(primal)?;
+            initial.clone_from(primal);
+            let complete = match (bounds, rows) {
+                (Some((l, u)), Some(r)) => {
+                    if l.len() != n
+                        || u.len() != n
+                        || r.len() != m
+                        || l.iter().chain(u).any(|v| *v < 0.0)
+                    {
+                        return Err(ProblemError::Contract("POUNCE dual seed shape/sign".into()));
                     }
-                    finite(primal)?;
-                    initial.clone_from(primal);
-                    if let (Some((l, u)), Some(r)) = (bounds, rows) {
-                        if l.len() != n
-                            || u.len() != n
-                            || r.len() != m
-                            || l.iter().chain(u).any(|v| *v < 0.0)
-                        {
-                            return Err(ProblemError::Contract(
-                                "POUNCE dual seed shape/sign".into(),
-                            ));
-                        }
-                        finite(l)?;
-                        finite(u)?;
-                        finite(r)?;
-                        duals = Some((l.clone(), u.clone(), r.clone()));
-                    } else if bounds.is_some() || rows.is_some() {
-                        return Err(ProblemError::Unsupported("partial POUNCE dual seed".into()));
-                    }
+                    finite(l)?;
+                    finite(u)?;
+                    finite(r)?;
+                    Some((l.clone(), u.clone(), r.clone()))
                 }
-                WarmPayload::PounceSqp(s) if method == Method::ActiveSetSqp => {
-                    if s.n() != n || s.m() != m {
-                        return Err(ProblemError::Contract("POUNCE SQP seed shape".into()));
-                    }
-                    finite(&s.x)?;
-                    finite(&s.lambda_g)?;
-                    finite(&s.lambda_x)?;
-                    initial.clone_from(&s.x);
-                    sqp_seed = Some(s.clone());
+                (None, None) => None,
+                _ => return Err(ProblemError::Unsupported("partial POUNCE dual seed".into())),
+            };
+            if method == Method::L1ExactPenalty {
+                // The exact-penalty problem has its own slack multipliers; only the primal
+                // seed is portable into it.
+            } else if method == Method::ActiveSetSqp {
+                // The active-set iterate: primal, row and packed bound multipliers, and the
+                // working set when the native transformation retained it (F07).
+                let mut s = pounce_rs::sqp::SqpIterates::cold(n, m);
+                s.x = primal.clone();
+                if let Some((l, u, r)) = &complete {
+                    s.lambda_g.clone_from(r);
+                    s.lambda_x = l.iter().zip(u).map(|(l, u)| l - u).collect();
                 }
-                _ => return Err(ProblemError::Contract("POUNCE seed class".into())),
+                if let Some(ws) = working {
+                    if ws.active.n() != n || ws.active.m() != m {
+                        return Err(ProblemError::Contract("POUNCE working set shape".into()));
+                    }
+                    s.working = Some(ws.active.clone());
+                }
+                sqp_seed = Some(s);
+            } else {
+                // Interior-point methods consume the primal-dual iterate and its barrier; a
+                // working set has no interior-point meaning and is recorded as not submitted.
+                duals = complete;
+                barrier = *seed_barrier;
             }
         }
         reject_reserved(&controls.options, &PINNED_OFF)?;
         reject_reserved(&controls.options, &RESERVED_METHODS)?;
+        reject_reserved(&controls.options, &RESTART_OPTIONS)?;
         reject_reserved(
             &controls.options,
             &[
@@ -413,7 +445,7 @@ impl Session {
                 "algorithm".into(),
                 OptionValue::Text(
                     match method {
-                        Method::InteriorPoint => "interior-point",
+                        Method::InteriorPoint | Method::L1ExactPenalty => "interior-point",
                         Method::ActiveSetSqp => "active-set-sqp",
                     }
                     .into(),
@@ -450,6 +482,27 @@ impl Session {
             ("print_level".into(), OptionValue::Integer(0)),
         ]);
         options.extend(PINNED_OFF.map(|k| (k.to_owned(), OptionValue::Bool(false))));
+        options.extend([
+            (
+                "l1_exact_penalty_barrier".to_owned(),
+                OptionValue::Bool(method == Method::L1ExactPenalty),
+            ),
+            (
+                "l1_fallback_on_restoration_failure".to_owned(),
+                OptionValue::Bool(false),
+            ),
+        ]);
+        // A primal-dual seed restarts under the typed profile (L-N3); `mu_init` is read only
+        // by the monotone barrier update.
+        let restart = duals.is_some().then(|| {
+            let monotone = !matches!(
+                controls.options.get("mu_strategy"),
+                Some(OptionValue::Text(s)) if s == "adaptive"
+            );
+            let (restart_options, applied) = settings.restart.apply(barrier, monotone);
+            options.extend(restart_options);
+            applied
+        });
         let reused = self.app.is_some()
             && self
                 .stamp
@@ -505,6 +558,7 @@ impl Session {
         let restore_sink = sink.clone();
         app.set_restoration_factory_provider(pounce_rs::pounce_restoration::resto_inner_solver::make_default_restoration_factory_provider(
         Default::default(),inner,move || {let config=config.clone();let sink=restore_sink.clone();Box::new(move ||pounce_rs::pounce_algorithm::application::default_backend_factory_with_sink(config.clone(),Default::default(),sink.clone()))}));
+        let working_set_submitted = sqp_seed.as_ref().is_some_and(|s| s.working.is_some());
         if let Some(seed) = sqp_seed {
             app.set_sqp_warm_start(seed);
         }
@@ -523,7 +577,14 @@ impl Session {
             duals,
             solution: None,
         }));
-        let native: Rc<RefCell<dyn TNLP>> = adapter.clone();
+        let native: Rc<RefCell<dyn TNLP>> = if method == Method::L1ExactPenalty {
+            let inner: Rc<RefCell<dyn TNLP>> = adapter.clone();
+            Rc::new(RefCell::new(equalities::Equalities::new(inner).ok_or_else(
+                || ProblemError::Internal("POUNCE equality form of the NLP".into()),
+            )?))
+        } else {
+            adapter.clone()
+        };
         let status = app.optimize_tnlp_without_presolve(native);
         let mut a = adapter.borrow_mut();
         let mut report = SolveReport::new(
@@ -546,6 +607,8 @@ impl Session {
             Metric::Integer(i64::try_from(linear_threads).unwrap_or(i64::MAX)),
         );
         let mut statistics = app.statistics();
+        let final_barrier = Some(statistics.final_mu)
+            .filter(|v| method == Method::InteriorPoint && v.is_finite() && *v > 0.0);
         if statistics.iterations.len() > controls.history {
             report.dropped_events += (statistics.iterations.len() - controls.history) as u64;
             statistics.iterations.truncate(controls.history);
@@ -627,14 +690,16 @@ impl Session {
         if let Some(d) = app.warm_start_diagnostics() {
             report
                 .provenance
-                .insert("warm.diagnostics".into(), format!("{d:?}"));
+                .insert("warm.diagnostics".into(), records::warm(&d));
         }
         if let Some(c) = app.crossover_report() {
             report
                 .provenance
-                .insert("crossover".into(), format!("{c:?}"));
+                .insert("crossover".into(), records::crossover(c));
         }
         report.evidence.start_submitted = warm.is_some();
+        report.evidence.restart = restart;
+        report.evidence.working_set_submitted = working_set_submitted;
         report
             .metrics
             .insert("start.submitted".into(), Metric::Bool(warm.is_some()));
@@ -642,9 +707,12 @@ impl Session {
             "native".into(),
             "POUNCE 0.12.0; FERAL; shared preprocessing is applied before this adapter".into(),
         );
+        // The effective FERAL configuration through its identity encoding (F30).
+        let effective = FeralIdentity::serialize(&feral, serde_json::value::Serializer)
+            .map_err(|e| ProblemError::Internal(format!("FERAL settings record: {e}")))?;
         report
             .provenance
-            .insert("feral.effective".into(), format!("{feral:?}"));
+            .insert("feral.effective".into(), effective.to_string());
         a.state.finish(&mut report);
         if let Some(mut candidate) = a.solution.take() {
             if candidate.primal.iter().all(|v| v.is_finite())
@@ -665,23 +733,22 @@ impl Session {
                         report.termination.assurance = Assurance::None
                     }
                 }
-                let payload = if method == Method::ActiveSetSqp {
-                    let mut s = pounce_rs::pounce_algorithm::sqp::SqpIterates::cold(n, m);
-                    s.x = candidate.primal.clone();
-                    if let Some(r) = &candidate.row_dual {
-                        s.lambda_g.clone_from(r);
-                    }
-                    if let Some((l, u)) = &candidate.bound_dual {
-                        s.lambda_x = l.iter().zip(u).map(|(l, u)| l - u).collect();
-                    }
-                    s.working = app.last_sqp_working_set().cloned();
-                    WarmPayload::PounceSqp(s)
-                } else {
-                    WarmPayload::Nlp {
-                        primal: candidate.primal.clone(),
-                        bounds: candidate.bound_dual.clone(),
-                        rows: candidate.row_dual.clone(),
-                    }
+                // The active-set working set is keyed by this attempt's native coordinates;
+                // an interior-point seed carries its final barrier value instead.
+                let working = (method == Method::ActiveSetSqp)
+                    .then(|| app.last_sqp_working_set().cloned())
+                    .flatten()
+                    .map(|active| WorkingSet {
+                        transformation: compatibility.layout,
+                        active,
+                    });
+                let complete = candidate.bound_dual.is_some() && candidate.row_dual.is_some();
+                let payload = WarmPayload::Nlp {
+                    primal: candidate.primal.clone(),
+                    bounds: candidate.bound_dual.clone(),
+                    rows: candidate.row_dual.clone(),
+                    barrier: final_barrier.filter(|_| complete),
+                    working,
                 };
                 report.warm_start = Some(WarmStart {
                     origin: None,
@@ -825,8 +892,7 @@ mod tests {
             ObjectiveSense::Minimize,
             &controls,
             &ResolvedAccuracy::nominal(),
-            Method::InteriorPoint,
-            Default::default(),
+            &Settings::default(),
             crate::solver_tests::execution(),
             &Tolerances {
                 variables: vec![1e-8],
@@ -851,12 +917,9 @@ mod tests {
         assert!(matches!(report.termination.category, Termination::Success));
         let expected = i64::try_from(feral_threads(2, pool)).unwrap();
         assert_eq!(report.metrics["linear.threads"], Metric::Integer(expected));
-        assert!(
-            report.provenance["feral.effective"]
-                .contains(&format!("parallel: Some({})", expected > 1)),
-            "{}",
-            report.provenance["feral.effective"]
-        );
+        let effective: serde_json::Value =
+            serde_json::from_str(&report.provenance["feral.effective"]).unwrap();
+        assert_eq!(effective["parallel"], serde_json::json!(expected > 1));
     }
     #[test]
     fn reused_session_does_not_inherit_options() {

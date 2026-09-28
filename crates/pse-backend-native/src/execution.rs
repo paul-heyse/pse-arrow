@@ -37,7 +37,7 @@ pub use factorable::{Factorable, FixedOracle, Refusal, Resolve, admit_program, f
 pub use runner::{
     Coefficients, Evaluation, Nlp, OriginalModel, Roots, Step, coefficients, cone, nlp, roots,
 };
-pub use scip::{IpoptLinearSolver, Settings as ScipSettings};
+pub use scip::Settings as ScipSettings;
 
 /// The native input an adapter consumes. Runners build exactly this representation, so a
 /// workflow selects a runner by representation, never by backend.
@@ -234,6 +234,13 @@ pub trait BackendExecution: Sync + std::fmt::Debug {
     /// Automatic-selection preference among eligible adapters (lower first); `None`
     /// is explicit-only. It orders a choice and never grants eligibility.
     fn automatic(&self) -> Option<u8>;
+    /// Identity of the linked native build beyond the pinned crate: library versions and
+    /// the process's numerical contract (ADR-0108 item 14). `None` when the pinned crate
+    /// fully determines the build. Every profile key includes it through
+    /// [`Table::build_identity`].
+    fn build(&self) -> Option<ContentHash> {
+        None
+    }
     /// Contextual eligibility with every typed reason; empty means eligible. It derives
     /// only from the capability record and linkage, so the published row is the routing
     /// rule; adapters do not override it.
@@ -362,6 +369,18 @@ impl Table {
     pub fn adapters(&self) -> impl Iterator<Item = &'static dyn BackendExecution> + '_ {
         self.adapters.iter().copied()
     }
+    /// Identity of every linked adapter's native build, in table order.
+    pub fn build_identity(&self) -> ContentHash {
+        let mut h = pse_ids::FramedHasher::new("pse.native.build.v1");
+        for adapter in self.adapters().filter(|a| a.linked()) {
+            h.str(adapter.backend().as_str());
+            match adapter.build() {
+                Some(build) => h.hash(&build),
+                None => h.u64(0),
+            };
+        }
+        h.finish_hash()
+    }
     /// The published inventory: one row per linked adapter.
     pub fn published(&self) -> Vec<pse_model::generated::runtime::solver_capabilities::Row> {
         self.adapters()
@@ -378,6 +397,9 @@ pub enum BackendSettings {
     /// Native defaults and the common semantic controls on the routed backend.
     #[default]
     Default,
+    /// Ipopt linear solver with its parameters, barrier strategy and initial-point push.
+    #[cfg(feature = "ipopt")]
+    Ipopt(crate::ipopt::Settings),
     /// POUNCE method and complete native FERAL configuration.
     #[cfg(feature = "pounce")]
     Pounce(crate::pounce::Settings),
@@ -397,6 +419,8 @@ impl BackendSettings {
     pub fn backend(&self) -> Option<Backend> {
         match self {
             Self::Default => None,
+            #[cfg(feature = "ipopt")]
+            Self::Ipopt(_) => Some(Backend::Ipopt),
             #[cfg(feature = "pounce")]
             Self::Pounce(_) => Some(Backend::Pounce),
             #[cfg(feature = "kinsol")]
@@ -407,6 +431,15 @@ impl BackendSettings {
             Self::Scip(_) => Some(Backend::Scip),
         }
     }
+    /// The selected method relaxes every constraint row (the ℓ1 exact penalty, ADR-0109), so
+    /// no presolve pass may assume the rows hold.
+    pub fn relaxes_rows(&self) -> bool {
+        match self {
+            #[cfg(feature = "pounce")]
+            Self::Pounce(settings) => settings.method == crate::pounce::Method::L1ExactPenalty,
+            _ => false,
+        }
+    }
     /// The partial explicit start these settings submit, in original coordinates.
     pub fn partial_start(&self) -> Option<&BTreeMap<SemanticId, f64>> {
         match self {
@@ -415,12 +448,13 @@ impl BackendSettings {
             _ => None,
         }
     }
-    /// Complete settings identity, derived from serde.
+    /// Complete settings identity, derived from serde. Version 2 frames the Ipopt
+    /// settings, the POUNCE restart and the HiGHS node budget (DP-24).
     ///
     /// # Errors
     /// A native settings serializer refused its value.
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of("pse.backend.settings.v1", self)
+        crate::identity::of("pse.backend.settings.v2", self)
     }
     /// The typed settings of `backend`, from its adapter settings type's serde fields.
     /// Absent fields take that type's defaults and unknown fields are refused, so neither
@@ -439,6 +473,8 @@ impl BackendSettings {
                 .map_err(|e| ProblemError::Contract(format!("{} settings: {e}", backend.as_str())))
         }
         match backend {
+            #[cfg(feature = "ipopt")]
+            Backend::Ipopt => typed(backend, fields).map(Self::Ipopt),
             #[cfg(feature = "pounce")]
             Backend::Pounce => typed(backend, fields).map(Self::Pounce),
             #[cfg(feature = "kinsol")]
@@ -447,10 +483,6 @@ impl BackendSettings {
             Backend::Highs => typed(backend, fields).map(Self::Highs),
             Backend::Clarabel => typed(backend, fields).map(Self::Clarabel),
             Backend::Scip => typed(backend, fields).map(Self::Scip),
-            // Typed Ipopt settings arrive with Plan 22 N1 as one arm here.
-            Backend::Ipopt => Err(ProblemError::Unsupported(
-                "ipopt has no typed settings in this build".into(),
-            )),
             Backend::Diffsol | Backend::Idas => Err(ProblemError::Contract(format!(
                 "{} settings belong to the simulation profile",
                 backend.as_str()
@@ -472,6 +504,8 @@ impl BackendSettings {
     pub fn fields(&self) -> Result<serde_json::Value, ProblemError> {
         let value = match self {
             Self::Default => return Ok(serde_json::Value::Object(serde_json::Map::new())),
+            #[cfg(feature = "ipopt")]
+            Self::Ipopt(settings) => serde_json::to_value(settings),
             #[cfg(feature = "pounce")]
             Self::Pounce(settings) => serde_json::to_value(settings),
             #[cfg(feature = "kinsol")]

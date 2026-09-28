@@ -451,7 +451,7 @@ impl CaseStructure {
     }
     /// Structural identity includes bindings, physical units, selected inventories and class declarations.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.math.case-structure.v2");
+        let mut h = FramedHasher::new("pse.math.case-structure.v3");
         h.u64(self.variables.len() as u64);
         for v in &self.variables {
             h.id(&v.port.id)

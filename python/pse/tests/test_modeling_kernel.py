@@ -694,6 +694,11 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     assert durable["attempts"][0]["failure_ordinal"] == 1
     assert findings[1]["rule"] == "modeling.qualification.rejected"
     assert findings[1]["sources"] and findings[1]["observations"]
+    # The ℓ1 route builds no elastic model (ADR-0109 item 2a): the least-infeasible point
+    # names the original rows it leaves violated, all among the candidate rows (item 3).
+    assert set(findings[1]["sources"]) <= set(durable["candidate_rows"])
+    observations = {o["name"]: o["text"] for o in findings[1]["observations"]}
+    assert observations["candidate_use"] == "diagnostic_only"
     assert len(attempts) == 4
     assert attempts[0].observation == "local_obstruction"
     assert attempts[0].failure() is not None
@@ -702,9 +707,8 @@ def test_modeling_nonlinear_explanation_retains_local_evidence(
     result = attempts[0].result()
     assert result is not None
     assert not result.accepted
-    checks = pa.table(result.table("runtime.modeling_checks"))
-    assert checks.num_rows == 3
-    assert any(not row["satisfied"] for row in checks.to_pylist())
+    attempt = result.attempt()
+    assert attempt is not None and attempt.backend == "pounce"
 
 
 @pytest.mark.unit

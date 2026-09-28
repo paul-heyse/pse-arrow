@@ -523,13 +523,179 @@ pub struct Basis {
     /// Native row basis statuses.
     pub rows: Vec<i32>,
 }
+/// A symmetric-indefinite linear solver linked into the image's one Ipopt (ADR-0108): the
+/// solver the Ipopt adapter's typed settings select, and the one SCIP's nested Ipopt uses
+/// (ADR-0105 §5). HSL solvers and the runtime-loaded Pardiso are not representable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IpoptLinearSolver {
+    /// Sequential MUMPS.
+    #[default]
+    Mumps,
+    /// SPRAL SSIDS on OpenMP threads; needs `OMP_CANCELLATION=TRUE` in the process.
+    Spral,
+    /// oneMKL Pardiso on MKL threads.
+    PardisoMkl,
+}
+impl IpoptLinearSolver {
+    /// Every linked solver.
+    pub const ALL: [Self; 3] = [Self::Mumps, Self::Spral, Self::PardisoMkl];
+    /// Ipopt's `linear_solver` spelling (also SCIP's `nlpi/ipopt/linear_solver`).
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Mumps => "mumps",
+            Self::Spral => "spral",
+            Self::PardisoMkl => "pardisomkl",
+        }
+    }
+    /// Whether the solver consumes more than one admitted thread; MUMPS is sequential.
+    pub const fn parallel(self) -> bool {
+        !matches!(self, Self::Mumps)
+    }
+}
+/// How an interior-point method re-centres a complete primal-dual seed (L-N3). With the
+/// cold-start defaults a seeded restart is pushed back towards the analytic centre and loses
+/// most of its benefit, so a restart states its barrier and its pushes. Absent fields take
+/// these defaults across the Python boundary (ADR-0113).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct WarmRestart {
+    /// Initial barrier parameter of the restart (`mu_init`).
+    pub barrier: RestartBarrier,
+    /// Absolute push of the primal seed from its bounds (`warm_start_bound_push`).
+    pub bound_push: f64,
+    /// Relative push of the primal seed from its bounds (`warm_start_bound_frac`).
+    pub bound_frac: f64,
+    /// Absolute push of the slack seed from its bounds (`warm_start_slack_bound_push`).
+    pub slack_bound_push: f64,
+    /// Relative push of the slack seed from its bounds (`warm_start_slack_bound_frac`).
+    pub slack_bound_frac: f64,
+    /// Push of the bound multipliers from zero (`warm_start_mult_bound_push`).
+    pub mult_bound_push: f64,
+}
+impl Default for WarmRestart {
+    /// The seed's own final barrier and pushes of 1e-9: the restart stays near the seed.
+    fn default() -> Self {
+        Self {
+            barrier: RestartBarrier::Seed,
+            bound_push: 1e-9,
+            bound_frac: 1e-9,
+            slack_bound_push: 1e-9,
+            slack_bound_frac: 1e-9,
+            mult_bound_push: 1e-9,
+        }
+    }
+}
+/// The initial barrier parameter of an interior-point restart.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RestartBarrier {
+    /// The final barrier value the producing interior-point solve recorded with the seed. A
+    /// seed without one (an authored seed) leaves the native default in force, and the
+    /// receipt says so.
+    Seed,
+    /// A stated positive value.
+    Value(f64),
+}
+impl WarmRestart {
+    /// Finite positive pushes and barrier inside the native option ranges.
+    ///
+    /// # Errors
+    /// A value outside its native range.
+    pub fn validate(&self) -> Result<(), ProblemError> {
+        let positive = |v: f64| v.is_finite() && v > 0.0;
+        let fraction = |v: f64| v > 0.0 && v <= 0.5;
+        if !positive(self.bound_push)
+            || !positive(self.slack_bound_push)
+            || !positive(self.mult_bound_push)
+            || !fraction(self.bound_frac)
+            || !fraction(self.slack_bound_frac)
+            || matches!(self.barrier, RestartBarrier::Value(v) if !positive(v))
+        {
+            return Err(ProblemError::Contract(
+                "warm restart pushes must be positive, fractions in (0, 0.5] and the barrier positive"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+    /// The native options of this restart for a seed carrying `barrier` (native
+    /// coordinates), and the record of what they set. `mu_init` is set only for the monotone
+    /// barrier update, the only one that reads it.
+    #[cfg(any(feature = "ipopt", feature = "pounce"))]
+    pub(crate) fn apply(&self, barrier: Option<f64>, monotone: bool) -> (Options, AppliedRestart) {
+        let mu_init = match self.barrier {
+            RestartBarrier::Seed => barrier.filter(|v| v.is_finite() && *v > 0.0),
+            RestartBarrier::Value(v) => Some(v),
+        }
+        .filter(|_| monotone);
+        let mut options = Options::from([
+            (
+                "warm_start_bound_push".into(),
+                OptionValue::Real(self.bound_push),
+            ),
+            (
+                "warm_start_bound_frac".into(),
+                OptionValue::Real(self.bound_frac),
+            ),
+            (
+                "warm_start_slack_bound_push".into(),
+                OptionValue::Real(self.slack_bound_push),
+            ),
+            (
+                "warm_start_slack_bound_frac".into(),
+                OptionValue::Real(self.slack_bound_frac),
+            ),
+            (
+                "warm_start_mult_bound_push".into(),
+                OptionValue::Real(self.mult_bound_push),
+            ),
+        ]);
+        if let Some(mu) = mu_init {
+            options.insert("mu_init".into(), OptionValue::Real(mu));
+        }
+        (
+            options,
+            AppliedRestart {
+                mu_init,
+                profile: *self,
+            },
+        )
+    }
+}
+/// Native options a [`WarmRestart`] owns; raw options may not set them.
+#[cfg(any(feature = "ipopt", feature = "pounce"))]
+pub(crate) const RESTART_OPTIONS: [&str; 6] = [
+    "mu_init",
+    "warm_start_bound_push",
+    "warm_start_bound_frac",
+    "warm_start_slack_bound_push",
+    "warm_start_slack_bound_frac",
+    "warm_start_mult_bound_push",
+];
+/// The interior-point restart an adapter applied to a submitted primal-dual seed.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct AppliedRestart {
+    /// Initial barrier parameter set, in native coordinates; `None` left the native default.
+    pub mu_init: Option<f64>,
+    /// The restart profile that produced it.
+    pub profile: WarmRestart,
+}
+/// A POUNCE active-set working set. It indexes native rows and bounds, so it is meaningful
+/// only in the native coordinates of the presolve transformation that produced it (F07).
+#[derive(Clone, Debug)]
+pub struct WorkingSet {
+    /// Native coordinate identity of that transformation (`presolve::Report::transformation`).
+    pub transformation: ContentHash,
+    /// Native bound and constraint activity.
+    #[cfg(feature = "pounce")]
+    pub active: pounce_rs::sqp::WorkingSet,
+}
 /// Starts are typed by their native mathematical meaning.
 #[derive(Clone, Debug)]
 pub enum WarmPayload {
-    /// POUNCE active-set SQP iterate and working set in its native vocabulary.
-    #[cfg(feature = "pounce")]
-    PounceSqp(pounce_rs::pounce_algorithm::sqp::SqpIterates),
-    /// Primal start, optionally with NLP lower/upper/row multipliers.
+    /// Primal start, optionally with NLP lower/upper/row multipliers, the final barrier value
+    /// of an interior-point producer and an active-set working set.
     Nlp {
         /// Primal in source order.
         primal: Vec<f64>,
@@ -537,6 +703,12 @@ pub enum WarmPayload {
         bounds: Option<(Vec<f64>, Vec<f64>)>,
         /// Constraint multipliers.
         rows: Option<Vec<f64>>,
+        /// Final barrier parameter of the producing interior-point solve, in authored
+        /// objective units (native coordinates inside an adapter).
+        barrier: Option<f64>,
+        /// Active-set working set of the producing SQP solve, keyed by its native
+        /// transformation.
+        working: Option<WorkingSet>,
     },
     /// Root-system initial values; no fictitious duals.
     Root(Vec<f64>),
@@ -569,6 +741,16 @@ pub struct SeedOrigin {
     pub attempt: usize,
 }
 impl WarmPayload {
+    /// A primal-only NLP start.
+    pub fn primal(primal: Vec<f64>) -> Self {
+        Self::Nlp {
+            primal,
+            bounds: None,
+            rows: None,
+            barrier: None,
+            working: None,
+        }
+    }
     /// Source-coordinate dimensions and finite values of this payload.
     pub fn shaped(&self, variables: usize, rows: usize) -> bool {
         let finite = |v: &[f64], n| v.len() == n && v.iter().all(|v| v.is_finite());
@@ -578,12 +760,17 @@ impl WarmPayload {
                 primal,
                 bounds,
                 rows: dual,
+                barrier,
+                working: _,
             } => {
+                // A working set indexes native coordinates; the pipeline checks it against
+                // the native transformation.
                 finite(primal, variables)
                     && bounds
                         .as_ref()
                         .is_none_or(|(l, u)| finite(l, variables) && finite(u, variables))
                     && dual.as_ref().is_none_or(|d| finite(d, rows))
+                    && barrier.is_none_or(|b| b.is_finite() && b > 0.0)
             }
             Self::Highs {
                 primal,
@@ -600,12 +787,6 @@ impl WarmPayload {
                             && b.rows.len() == rows
                             && b.columns.iter().chain(&b.rows).all(|s| (0..=4).contains(s))
                     })
-            }
-            #[cfg(feature = "pounce")]
-            Self::PounceSqp(s) => {
-                finite(&s.x, variables)
-                    && finite(&s.lambda_g, rows)
-                    && s.lambda_x.iter().all(|v| v.is_finite())
             }
         }
     }
@@ -632,8 +813,10 @@ impl WarmStart {
                 primal,
                 bounds,
                 rows,
+                barrier,
+                working,
             } => {
-                serde_json::json!({"kind":"nlp","primal":primal,"bound_duals":bounds,"row_duals":rows})
+                serde_json::json!({"kind":"nlp","primal":primal,"bound_duals":bounds,"row_duals":rows,"barrier":barrier,"working_set":working.as_ref().map(WorkingSet::snapshot)})
             }
             WarmPayload::Highs {
                 primal,
@@ -641,10 +824,6 @@ impl WarmStart {
                 basis,
             } => {
                 serde_json::json!({"kind":"highs","primal":primal,"dual":dual,"basis":basis.as_ref().map(|b|serde_json::json!({"columns":b.columns,"rows":b.rows}))})
-            }
-            #[cfg(feature = "pounce")]
-            WarmPayload::PounceSqp(s) => {
-                serde_json::json!({"kind":"pounce_sqp","primal":s.x,"row_duals":s.lambda_g,"packed_bound_duals":s.lambda_x,"working_set":s.working.as_ref().map(|w|serde_json::json!({"bounds":w.bounds.iter().map(|v|format!("{v:?}")).collect::<Vec<_>>(),"constraints":w.constraints.iter().map(|v|format!("{v:?}")).collect::<Vec<_>>()}))})
             }
         };
         serde_json::json!({"origin":self.origin,"layout":self.compatibility.layout.to_hex(),"profile":self.compatibility.profile.to_hex(),"data":self.compatibility.data.to_hex(),"backend":self.compatibility.backend.as_str(),"payload":payload})
@@ -655,7 +834,8 @@ impl WarmStart {
     pub fn content_key(&self) -> ContentHash {
         let mut detached = self.clone();
         detached.origin = None;
-        let mut h = pse_ids::FramedHasher::new("pse.native.seed.v1");
+        // Version 2 frames an NLP seed's barrier and working set (DP-24).
+        let mut h = pse_ids::FramedHasher::new("pse.native.seed.v2");
         h.str(&detached.snapshot().to_string());
         h.finish_hash()
     }
@@ -672,9 +852,47 @@ impl WarmStart {
         Ok(())
     }
 }
+impl WorkingSet {
+    /// Owned provenance of this working set: every bound and row status by its snake_case
+    /// name, never Rust `Debug` text (F30).
+    fn snapshot(&self) -> serde_json::Value {
+        #[cfg(feature = "pounce")]
+        let active = {
+            use pounce_rs::sqp::{BoundStatus, ConsStatus};
+            let bound = |status: &BoundStatus| match status {
+                BoundStatus::Inactive => "inactive",
+                BoundStatus::AtLower => "at_lower",
+                BoundStatus::AtUpper => "at_upper",
+                BoundStatus::Fixed => "fixed",
+            };
+            let row = |status: &ConsStatus| match status {
+                ConsStatus::Inactive => "inactive",
+                ConsStatus::AtLower => "at_lower",
+                ConsStatus::AtUpper => "at_upper",
+                ConsStatus::Equality => "equality",
+            };
+            serde_json::json!({
+                "bounds": self.active.bounds.iter().map(bound).collect::<Vec<_>>(),
+                "constraints": self.active.constraints.iter().map(row).collect::<Vec<_>>(),
+            })
+        };
+        #[cfg(not(feature = "pounce"))]
+        let active = serde_json::Value::Null;
+        serde_json::json!({"transformation": self.transformation.to_hex(), "active": active})
+    }
+}
+/// What became of a submitted working set at the presolve boundary: it reaches the native
+/// solver only under the transformation that produced it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub struct WorkingSetTransfer {
+    /// The transformation the working set was produced under.
+    pub transformation: ContentHash,
+    /// It equals this attempt's transformation and was passed through.
+    pub retained: bool,
+}
 /// One transformation a submitted seed passed through between its source coordinates and
 /// the native API, recorded from what actually ran (F25).
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SeedTransformation {
     /// Model coordinate normalization, by its identity.
@@ -686,6 +904,10 @@ pub enum SeedTransformation {
         /// Passes the library actually installed.
         passes: Vec<crate::presolve::Pass>,
     },
+    /// An active-set working set checked against the native transformation.
+    WorkingSet(WorkingSetTransfer),
+    /// The interior-point restart the adapter applied to a primal-dual seed.
+    InteriorRestart(AppliedRestart),
 }
 impl SeedTransformation {
     /// The path a seed takes: normalization, then presolve when the library applied a pass.
@@ -707,6 +929,9 @@ impl SeedTransformation {
                     passes,
                 });
             }
+            if let Some(transfer) = report.working_set {
+                path.push(Self::WorkingSet(transfer));
+            }
         }
         path
     }
@@ -726,6 +951,20 @@ pub struct StartReceipt {
     pub submitted: bool,
 }
 impl StartReceipt {
+    /// Complete this receipt from the attempt that consumed its seed: whether the native API
+    /// received it and every transformation it passed through, including the interior-point
+    /// restart the adapter applied (F25, L-N3).
+    pub fn record(&mut self, report: &SolveReport, normalization: ContentHash) {
+        self.submitted = report.evidence.start_submitted;
+        if self.seed.is_some() || self.sparse_seed.is_some() {
+            self.transformations =
+                SeedTransformation::path(normalization, report.preprocessing.as_ref());
+            if let Some(restart) = report.evidence.restart {
+                self.transformations
+                    .push(SeedTransformation::InteriorRestart(restart));
+            }
+        }
+    }
     /// Owned JSON provenance of this receipt, shared by publication and the Python surface.
     pub fn snapshot(&self) -> serde_json::Value {
         serde_json::json!({
@@ -767,6 +1006,43 @@ pub struct CallbackEvidence {
     pub trial_rejections: usize,
     /// A terminal failure latched and ended the attempt.
     pub terminal_failure: bool,
+}
+/// Post-solve curvature at an NLP candidate (L-N6, PS-12): the certified inertia of the
+/// normalized KKT matrix over the free variables and the active constraints of the decisive
+/// test, what it decides, and its 1-norm condition estimate.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SecondOrder {
+    /// Variables not held at a bound by the tested constraint set.
+    pub free: usize,
+    /// Active rows and bounds in the tested set.
+    pub active: usize,
+    /// Active rows or bounds whose normalized multiplier is within the dual budget of zero;
+    /// strict complementarity fails for them.
+    pub weakly_active: usize,
+    /// Certified inertia (positive, negative, zero) of the tested KKT matrix.
+    pub inertia: (usize, usize, usize),
+    /// Hager–Higham estimate of its 1-norm condition number, a lower bound.
+    pub condition_1norm: Option<f64>,
+    /// What the inertia decides.
+    pub curvature: Curvature,
+}
+/// The verdict of the post-solve second-order check, in the minimization convention.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Curvature {
+    /// The reduced Hessian is positive definite on the null space of the strongly active
+    /// constraints, which contains the critical cone: with independent active gradients the
+    /// candidate is a strict local minimizer (second-order sufficient conditions).
+    Sufficient,
+    /// A direction satisfying every active constraint has negative curvature: the candidate
+    /// is not a local minimizer.
+    NegativeCurvature,
+    /// A zero eigenvalue: the reduced Hessian is singular or the active gradients are
+    /// dependent.
+    Singular,
+    /// Weakly active constraints leave the critical cone between the two subspaces tested,
+    /// and neither test decides.
+    Undecided,
 }
 /// Original-coordinate KKT checks; `None` means the measure was unavailable.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -875,14 +1151,53 @@ pub struct Evidence {
     pub start_submitted: bool,
     /// Native state retained from an earlier step was reused by this attempt.
     pub reused_native_state: bool,
+    /// Interior-point restart applied to the submitted primal-dual seed.
+    pub restart: Option<AppliedRestart>,
+    /// An active-set working set reached the native solver.
+    pub working_set_submitted: bool,
     /// Original-coordinate KKT acceptance, recorded by `quality::record_kkt`.
     pub kkt: Option<KktEvidence>,
     /// Coefficient-model evidence.
     pub coefficient: Option<CoefficientEvidence>,
     /// Conic residual evidence.
     pub conic: Option<ConicEvidence>,
+    /// Post-solve second-order check of an optimizing NLP candidate.
+    pub second_order: Option<SecondOrder>,
     /// Global bound evidence of a certifying adapter.
     pub global: Option<GlobalEvidence>,
+}
+/// The label of a candidate that minimizes constraint violation instead of satisfying the
+/// constraints: the point a local infeasibility stop returns, including the ℓ1 exact-penalty
+/// route's (ADR-0109 item 3). It is diagnostic evidence only (ADR-0106 `diagnostic_only`),
+/// never a result, and names the rows it leaves violated.
+#[derive(Clone, Debug)]
+pub struct LeastInfeasible {
+    /// Original rows violated beyond their acceptance budget, with the physical violation.
+    pub violated: Vec<crate::quality::Violation>,
+}
+/// A feasible MIP solution reported while the search ran (callback kinds 3 and 4), in the
+/// native model's coordinates until transport recovers them.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Incumbent {
+    /// It improved the incumbent (kind 4), rather than only being feasible (kind 3).
+    pub improving: bool,
+    /// Native running time when it was reported.
+    pub seconds: f64,
+    /// Its objective value in the native model's sense.
+    pub objective: f64,
+    /// Branch-and-bound nodes explored by then.
+    pub nodes: i64,
+    /// The solution itself.
+    pub primal: Vec<f64>,
+}
+/// Incumbents in the order HiGHS reported them. Retention is bounded by the report
+/// allowance: the most recent are kept and the earlier ones only counted.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Incumbents {
+    /// Retained incumbents, oldest first.
+    pub recorded: std::collections::VecDeque<Incumbent>,
+    /// Earlier incumbents dropped to stay within the retention bound.
+    pub dropped: u64,
 }
 /// One native attempt, including unsuccessful attempts with no usable candidate.
 #[derive(Clone, Debug)]
@@ -937,6 +1252,10 @@ pub struct SolveReport {
     pub start_receipt: Option<StartReceipt>,
     /// Original-space numerical qualification, never inferred from a native stop alone.
     pub qualification: Qualification,
+    /// Set when the candidate is a least-infeasible point.
+    pub least_infeasible: Option<LeastInfeasible>,
+    /// MIP incumbents reported during the search, in order.
+    pub incumbents: Incumbents,
 }
 impl SolveReport {
     /// Original typed cause of a failed native evaluation, independent of event retention.
@@ -1012,6 +1331,8 @@ impl SolveReport {
             warm_start: None,
             start_receipt: None,
             qualification: Qualification::Unqualified,
+            least_infeasible: None,
+            incumbents: Incumbents::default(),
         }
     }
 }

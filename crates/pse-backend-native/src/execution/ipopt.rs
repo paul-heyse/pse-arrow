@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Ipopt adapter: native defaults only, a retained worker-local C problem, NLP starts.
+//! Ipopt adapter: typed linear-solver settings admitted against the linked library and the
+//! process environment, SPRAL and oneMKL threads, a retained worker-local C problem and NLP
+//! starts.
 use super::{BackendExecution, BackendSettings, Capability, Input, Representation, Retained};
 use crate::{
     ProblemError,
     solve::{
-        Backend, DerivativeCapability, ProblemClass, SolveReport, WarmCapability, WarmPayload,
+        Backend, Controls, DerivativeCapability, ProblemClass, SolveReport, WarmCapability,
+        WarmPayload,
     },
 };
+use pse_ids::ContentHash;
 
 #[derive(Debug)]
 pub(super) struct Ipopt;
@@ -18,7 +22,9 @@ static CAPABILITY: Capability = Capability {
     warm: WarmCapability::PrimalDual,
     general_bounds: true,
     sign_bounds: true,
-    parallel: false,
+    // SPRAL (OpenMP) and oneMKL Pardiso (MKL threads) consume admitted threads; MUMPS is
+    // sequential and its settings refuse more than one.
+    parallel: true,
     certifies: false,
     native_forms: &[],
     reuse: "same sparse layout and bounds: retained C problem",
@@ -41,12 +47,46 @@ impl BackendExecution for Ipopt {
     fn automatic(&self) -> Option<u8> {
         Some(2)
     }
+    fn build(&self) -> Option<ContentHash> {
+        #[cfg(feature = "ipopt")]
+        {
+            Some(crate::ipopt::build().identity)
+        }
+        #[cfg(not(feature = "ipopt"))]
+        {
+            None
+        }
+    }
+    fn admit_settings(
+        &self,
+        settings: &BackendSettings,
+        controls: &Controls,
+    ) -> Result<(), ProblemError> {
+        #[cfg(feature = "ipopt")]
+        {
+            let defaults = crate::ipopt::Settings::default();
+            let settings = match settings {
+                BackendSettings::Default => &defaults,
+                BackendSettings::Ipopt(settings) => settings,
+                _ => return Err(super::foreign(Backend::Ipopt)),
+            };
+            crate::ipopt::admit(
+                settings,
+                controls.threads,
+                &crate::ipopt::Runtime::observe(),
+            )
+        }
+        #[cfg(not(feature = "ipopt"))]
+        {
+            let _ = controls;
+            if !matches!(settings, BackendSettings::Default) {
+                return Err(super::foreign(Backend::Ipopt));
+            }
+            Err(super::unlinked(Backend::Ipopt))
+        }
+    }
     fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
-        Ok(WarmPayload::Nlp {
-            primal,
-            bounds: None,
-            rows: None,
-        })
+        Ok(WarmPayload::primal(primal))
     }
     fn accepts(&self, payload: &WarmPayload) -> bool {
         matches!(payload, WarmPayload::Nlp { .. })
@@ -64,11 +104,14 @@ impl BackendExecution for Ipopt {
         else {
             return Err(super::representation(Backend::Ipopt));
         };
-        if !matches!(input.settings, BackendSettings::Default) {
-            return Err(super::foreign(Backend::Ipopt));
-        }
         #[cfg(feature = "ipopt")]
         {
+            let defaults = crate::ipopt::Settings::default();
+            let settings = match input.settings {
+                BackendSettings::Default => &defaults,
+                BackendSettings::Ipopt(settings) => settings,
+                _ => return Err(super::foreign(Backend::Ipopt)),
+            };
             let (session, _) = retained.session(
                 Backend::Ipopt,
                 input.controls.reuse,
@@ -81,6 +124,7 @@ impl BackendExecution for Ipopt {
                 sense,
                 input.controls,
                 input.accuracy,
+                settings,
                 input.execution,
                 input.tolerances,
                 input.warm,
@@ -90,6 +134,9 @@ impl BackendExecution for Ipopt {
         #[cfg(not(feature = "ipopt"))]
         {
             let _ = (retained, &mut oracle, initial, sense);
+            if !matches!(input.settings, BackendSettings::Default) {
+                return Err(super::foreign(Backend::Ipopt));
+            }
             Err(super::unlinked(Backend::Ipopt))
         }
     }

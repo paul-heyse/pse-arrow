@@ -4,6 +4,7 @@
 //! Class-specific native problem contracts. Execution adapters are supplied by Plan 14 M11–M17.
 pub mod assembled;
 pub mod callback;
+pub mod conditioning;
 pub mod conic;
 mod convexity;
 pub mod derivative_diagnostics;
@@ -810,6 +811,12 @@ mod assembled_tests;
 
 #[cfg(test)]
 mod solver_tests;
+
+#[cfg(all(test, any(feature = "ipopt", feature = "pounce")))]
+mod restart_tests;
+
+#[cfg(all(test, feature = "pounce"))]
+mod l1_tests;
 
 #[cfg(all(test, feature = "scip"))]
 mod scip_tests;

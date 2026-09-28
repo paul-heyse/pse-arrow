@@ -484,6 +484,26 @@ pub fn record_kkt(
     report.evidence.kkt = Some(evidence);
 }
 
+/// The least-infeasible label of a report whose native stop is a local infeasibility with a
+/// candidate (ADR-0109 item 3): the original rows the candidate leaves violated beyond their
+/// budgets. `None` for every other stop.
+pub fn least_infeasible(report: &crate::solve::SolveReport) -> Option<crate::solve::LeastInfeasible> {
+    (report.termination.category == crate::solve::Termination::Infeasible
+        && report.candidate.is_some())
+    .then(|| crate::solve::LeastInfeasible {
+        violated: report
+            .quality
+            .as_ref()
+            .map(|q| {
+                q.rows
+                    .iter()
+                    .filter(|v| v.physical > v.tolerance)
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default(),
+    })
+}
 /// Grant only the numerical claim supported by completed original-space observations.
 /// Native stop categories are retained independently, including limits with feasible candidates.
 /// Only typed adapter evidence is read; metrics never grant a claim.

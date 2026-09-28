@@ -1506,11 +1506,7 @@ pub(crate) fn solve(r: &Request<'_>) -> Result<SolveReport, ProblemError> {
     report.warm_start = candidate.as_ref().map(|c| WarmStart {
         origin: None,
         compatibility: r.compatibility.clone(),
-        payload: WarmPayload::Nlp {
-            primal: c.primal.clone(),
-            bounds: None,
-            rows: None,
-        },
+        payload: WarmPayload::primal(c.primal.clone()),
     });
     report.candidate = candidate;
     drop(instance);

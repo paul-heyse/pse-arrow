@@ -224,6 +224,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                 ObjectiveSense::Minimize,
                 &controls,
                 &accuracy,
+                &Default::default(),
                 execution(),
                 &pipeline.tolerances(&tolerances()),
                 pipeline.warm(),
@@ -235,8 +236,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                 ObjectiveSense::Minimize,
                 &controls,
                 &accuracy,
-                crate::pounce::Method::InteriorPoint,
-                Default::default(),
+                &Default::default(),
                 execution(),
                 &pipeline.tolerances(&tolerances()),
                 pipeline.warm(),
@@ -245,7 +245,7 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
             _ => panic!("test helper supports only the two shared NLP adapters"),
         }
         .unwrap();
-        let mut report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize);
+        let mut report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize, None);
         crate::quality::record_kkt(
             &mut report,
             &pse_math::normalization::Normalization::identity(2, 2),
@@ -301,6 +301,39 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                         (2, 2, 2, 2)
                     }
                 );
+                // Library reports are serde JSON records, never Rust `Debug` text (F30).
+                let diagnostics = &report.preprocessing.as_ref().unwrap().diagnostics;
+                let library = [
+                    "bounds",
+                    "fbbt",
+                    "rank",
+                    "auxiliary",
+                    "affine",
+                    "warm.rows",
+                    "warm.affine",
+                ];
+                let provenance = ["warm.diagnostics", "crossover", "feral.effective"];
+                let records = library
+                    .iter()
+                    .filter_map(|key| diagnostics.get(*key).map(|text| (*key, text)))
+                    .chain(
+                        provenance
+                            .iter()
+                            .filter_map(|key| report.provenance.get(*key).map(|text| (*key, text))),
+                    )
+                    .collect::<Vec<_>>();
+                if matches!(policy, Policy::Auto) {
+                    assert!(
+                        records.iter().any(|(key, _)| library.contains(key)),
+                        "{diagnostics:?}"
+                    );
+                }
+                for (key, text) in records {
+                    assert!(
+                        serde_json::from_str::<serde_json::Value>(text).is_ok(),
+                        "{key}: {text}"
+                    );
+                }
             }
             let mut incompatible = cold.warm_start.unwrap();
             incompatible.compatibility.layout = ContentHash::from_bytes([99; 32]);
@@ -364,7 +397,7 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = p.finish(report, &tolerances(), ObjectiveSense::Minimize);
+    let report = p.finish(report, &tolerances(), ObjectiveSense::Minimize, None);
     assert_eq!(report.candidate.as_ref().unwrap().primal, vec![2.0, 2.0]);
     let observation = report.observation.unwrap();
     assert_eq!(observation.values, vec![7.0, 8.0]);
@@ -515,6 +548,8 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
             primal: vec![2.0, 2.0],
             bounds: Some((vec![0.0; 2], vec![0.0; 2])),
             rows: Some(vec![4.0, 0.0]),
+            barrier: None,
+            working: None,
         },
     };
     let mut pipeline = Pipeline::new(
@@ -551,7 +586,7 @@ fn maximization_and_original_warm_seed_preserve_conventions() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Maximize);
+    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Maximize, None);
     let observed = report.observation.unwrap();
     assert_eq!(observed.objective, Some(8.0));
     assert_eq!(observed.stationarity, Some(vec![0.0, 0.0]));
@@ -619,6 +654,8 @@ fn normalization_callbacks_and_original_duals_round_trip() {
             primal: vec![2.0, 2.0],
             bounds: Some((vec![0.0; 2], vec![0.0; 2])),
             rows: Some(vec![-4.0, 0.0]),
+            barrier: None,
+            working: None,
         },
     };
     let mut pipeline = Pipeline::new(
@@ -668,7 +705,7 @@ fn normalization_callbacks_and_original_duals_round_trip() {
         reduced_costs: None,
         slacks: None,
     });
-    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize);
+    let report = pipeline.finish(report, &tolerances(), ObjectiveSense::Minimize, None);
     let c = report.candidate.unwrap();
     assert_eq!(c.primal, vec![2.0, 2.0]);
     assert_eq!(c.objective, Some(8.0));
@@ -734,44 +771,135 @@ fn presolve_certificate_respects_each_bound_budget() {
 #[derive(Debug)]
 struct PropagationFixedRow(Mixed);
 impl NlpOracle for PropagationFixedRow {
-    fn contract(&self)->&OracleContract { &self.0.contract }
-    fn presolve_facts(&self)->Option<&Facts> {Some(&self.0.facts)}
-    fn constraint_bounds(&self)->&[(f64,f64)] { &self.0.bounds }
-    fn jacobian_pattern(&self)->faer::sparse::SymbolicSparseColMatRef<'_,usize> {self.0.j.matrix().symbolic()}
-    fn hessian_pattern(&self)->Option<faer::sparse::SymbolicSparseColMatRef<'_,usize>> {Some(self.0.h.matrix().symbolic())}
-    fn objective(&mut self,_:&[f64])->Result<f64,ProblemError> {Ok(0.0)}
-    fn gradient(&mut self,_:&[f64],out:&mut[f64])->Result<(),ProblemError> {out.fill(0.0);Ok(())}
-    fn constraints(&mut self,x:&[f64],out:&mut[f64])->Result<(),ProblemError> {out.copy_from_slice(&[x[0]*x[0],x[1]-x[2],x[1]*x[1]+x[2]*x[2]]);Ok(())}
-    fn jacobian(&mut self,x:&[f64],out:&mut[f64])->Result<(),ProblemError> {out.copy_from_slice(&[2.0*x[0],1.0,2.0*x[1],-1.0,2.0*x[2]]);Ok(())}
-    fn hessian(&mut self,_:&[f64],_:f64,l:&[f64],out:&mut[f64])->Result<(),ProblemError> {out.copy_from_slice(&[2.0*l[0],2.0*l[2],2.0*l[2]]);Ok(())}
+    fn contract(&self) -> &OracleContract {
+        &self.0.contract
+    }
+    fn presolve_facts(&self) -> Option<&Facts> {
+        Some(&self.0.facts)
+    }
+    fn constraint_bounds(&self) -> &[(f64, f64)] {
+        &self.0.bounds
+    }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.0.j.matrix().symbolic()
+    }
+    fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
+        Some(self.0.h.matrix().symbolic())
+    }
+    fn objective(&mut self, _: &[f64]) -> Result<f64, ProblemError> {
+        Ok(0.0)
+    }
+    fn gradient(&mut self, _: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        out.fill(0.0);
+        Ok(())
+    }
+    fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        out.copy_from_slice(&[x[0] * x[0], x[1] - x[2], x[1] * x[1] + x[2] * x[2]]);
+        Ok(())
+    }
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        out.copy_from_slice(&[2.0 * x[0], 1.0, 2.0 * x[1], -1.0, 2.0 * x[2]]);
+        Ok(())
+    }
+    fn hessian(
+        &mut self,
+        _: &[f64],
+        _: f64,
+        l: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        out.copy_from_slice(&[2.0 * l[0], 2.0 * l[2], 2.0 * l[2]]);
+        Ok(())
+    }
 }
-fn propagation_fixed_row()->PropagationFixedRow {
-    let mut m=Mixed::new();
-    m.contract.variables=(0..3).map(|i|Variable{id:id(i+1),lower:1.0,upper:3.0}).collect();
-    m.contract.rows=vec![id(4),id(5),id(6)];
-    m.bounds=vec![(4.0,4.0),(0.0,0.0),(8.0,8.0)];
-    m.j=AssemblyMatrix::new(3,3,&[(0,0),(1,1),(2,1),(1,2),(2,2)],100).unwrap();
-    m.h=AssemblyMatrix::new(3,3,&[(0,0),(1,1),(2,2)],100).unwrap();
-    m.facts.affine=vec![None,Some(AffineRow{entries:BTreeMap::from([(1,1.0),(2,-1.0)]),constant:0.0}),None];
-    m.facts.tapes=vec![FbbtTape{ops:vec![Op::Var(0),Op::PowInt(0,2)]},FbbtTape{ops:vec![Op::Var(1),Op::Var(2),Op::Sub(0,1)]},FbbtTape{ops:vec![Op::Opaque]}];
-    m.facts.complete=vec![true,true,false];
-    m.facts.row_sources=vec![vec![];3];
-    m.facts.objective_linear=vec![true;3];
+fn propagation_fixed_row() -> PropagationFixedRow {
+    let mut m = Mixed::new();
+    m.contract.variables = (0..3)
+        .map(|i| Variable {
+            id: id(i + 1),
+            lower: 1.0,
+            upper: 3.0,
+        })
+        .collect();
+    m.contract.rows = vec![id(4), id(5), id(6)];
+    m.bounds = vec![(4.0, 4.0), (0.0, 0.0), (8.0, 8.0)];
+    m.j = AssemblyMatrix::new(3, 3, &[(0, 0), (1, 1), (2, 1), (1, 2), (2, 2)], 100).unwrap();
+    m.h = AssemblyMatrix::new(3, 3, &[(0, 0), (1, 1), (2, 2)], 100).unwrap();
+    m.facts.affine = vec![
+        None,
+        Some(AffineRow {
+            entries: BTreeMap::from([(1, 1.0), (2, -1.0)]),
+            constant: 0.0,
+        }),
+        None,
+    ];
+    m.facts.tapes = vec![
+        FbbtTape {
+            ops: vec![Op::Var(0), Op::PowInt(0, 2)],
+        },
+        FbbtTape {
+            ops: vec![Op::Var(1), Op::Var(2), Op::Sub(0, 1)],
+        },
+        FbbtTape {
+            ops: vec![Op::Opaque],
+        },
+    ];
+    m.facts.complete = vec![true, true, false];
+    m.facts.row_sources = vec![vec![]; 3];
+    m.facts.objective_linear = vec![true; 3];
     PropagationFixedRow(m)
 }
 #[test]
 fn automatic_presolve_retains_original_when_propagation_leaves_constant_nonlinear_rows() {
-    let tolerance=Tolerances{variables:vec![1e-8;3],rows:vec![1e-8;3],integrality:1e-8};
-    let mut pipeline=Pipeline::new(Box::new(propagation_fixed_row()),&[1.5,1.5,1.5],&Policy::Auto,
-        &tolerance,execution(),None,stamp(),1000).unwrap();
-    assert_eq!(pipeline.report().dimensions,(3,3,3,3));
-    assert!(pipeline.report().diagnostics.contains_key("structure.declined"));
-    assert!(pipeline.report().passes.values().all(|p|!p.applied));
-    let mut oracle=pipeline.take_oracle().unwrap();
-    crate::validate_nlp(&oracle,pse_kernels::DerivativeOrder::Second).unwrap();
-    let mut values=vec![0.0;3];oracle.constraints(&[2.0,2.0,2.0],&mut values).unwrap();
-    assert_eq!(values,vec![4.0,0.0,8.0]);
-    let required=Policy::Explicit{options:PresolveOptions{enabled:true,linear_eq_reduction:true,fbbt:true,..PresolveOptions::defaults()},required:BTreeSet::from([Pass::AffineElimination,Pass::Fbbt])};
-    assert!(matches!(Pipeline::new(Box::new(propagation_fixed_row()),&[1.5,1.5,1.5],&required,
-        &tolerance,execution(),None,stamp(),1000),Err(ProblemError::Structural{..})));
+    let tolerance = Tolerances {
+        variables: vec![1e-8; 3],
+        rows: vec![1e-8; 3],
+        integrality: 1e-8,
+    };
+    let mut pipeline = Pipeline::new(
+        Box::new(propagation_fixed_row()),
+        &[1.5, 1.5, 1.5],
+        &Policy::Auto,
+        &tolerance,
+        execution(),
+        None,
+        stamp(),
+        1000,
+    )
+    .unwrap();
+    assert_eq!(pipeline.report().dimensions, (3, 3, 3, 3));
+    assert!(
+        pipeline
+            .report()
+            .diagnostics
+            .contains_key("structure.declined")
+    );
+    assert!(pipeline.report().passes.values().all(|p| !p.applied));
+    let mut oracle = pipeline.take_oracle().unwrap();
+    crate::validate_nlp(&oracle, pse_kernels::DerivativeOrder::Second).unwrap();
+    let mut values = vec![0.0; 3];
+    oracle.constraints(&[2.0, 2.0, 2.0], &mut values).unwrap();
+    assert_eq!(values, vec![4.0, 0.0, 8.0]);
+    let required = Policy::Explicit {
+        options: PresolveOptions {
+            enabled: true,
+            linear_eq_reduction: true,
+            fbbt: true,
+            ..PresolveOptions::defaults()
+        },
+        required: BTreeSet::from([Pass::AffineElimination, Pass::Fbbt]),
+    };
+    assert!(matches!(
+        Pipeline::new(
+            Box::new(propagation_fixed_row()),
+            &[1.5, 1.5, 1.5],
+            &required,
+            &tolerance,
+            execution(),
+            None,
+            stamp(),
+            1000
+        ),
+        Err(ProblemError::Structural { .. })
+    ));
 }

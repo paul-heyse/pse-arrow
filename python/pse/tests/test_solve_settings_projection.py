@@ -95,6 +95,7 @@ def test_solve_settings_backend_projection(
         "pounce": {"method": "active_set_sqp"},
         "kinsol": {"strategy": "newton", "linear": {"dense": {"limit": 16}}},
         "scip": {"seed": 7, "nodes": 1000},
+        "ipopt": {"linear": {"mumps": {"ordering": "amd"}}, "mu_strategy": "adaptive"},
     }
     settings: dict[str, pse.BackendSettings] = {}
     for backend, fields in variants.items():
@@ -200,6 +201,17 @@ def test_solve_settings_backend_projection(
     )
     assert scip.backend == "scip"
     assert scip.options()["randomization/randomseedshift"] == 7
+    ipopt = attempt_of(
+        package.solve_case(
+            ids["Nlp"], pse.SolveSettings(backend="ipopt", settings=settings["ipopt"])
+        )
+    )
+    assert ipopt.backend == "ipopt"
+    options = ipopt.options()
+    assert options["linear_solver"] == "mumps"
+    assert options["mumps_pivot_order"] == 0
+    assert options["mu_strategy"] == "adaptive"
+    assert json.loads(ipopt.provenance()["linear"]) == {"mumps": {"ordering": "amd"}}
     port = {
         "quantity_id": identity(31).to_hex(),
         "unit_id": identity(10).to_hex(),

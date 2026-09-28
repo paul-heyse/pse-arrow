@@ -92,13 +92,24 @@ impl ModelingResult {
                     .boundary_diagnostic(),
             );
         }
+        // A least-infeasible stop names the original rows it leaves violated (ADR-0109
+        // item 3) beside the unsatisfied knowledge checks.
+        let violated = match &self.outcome {
+            Outcome::Native(native) => native
+                .least_infeasible
+                .as_ref()
+                .map(|label| label.violated.iter().map(|v| v.id).collect::<Vec<_>>())
+                .unwrap_or_default(),
+            _ => Vec::new(),
+        };
         let mut result = D::new(
             C::TrialRejected,
             "modeling-result",
             self.checks
                 .iter()
                 .filter(|c| !c.satisfied)
-                .map(|c| c.source_id),
+                .map(|c| c.source_id)
+                .chain(violated),
             "modeling.qualification.rejected",
         );
         if let Outcome::Native(native) = &self.outcome {

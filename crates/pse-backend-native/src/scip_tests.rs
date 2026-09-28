@@ -11,13 +11,13 @@
 use crate::{
     NlpOracle, ProblemError,
     execution::{
-        self, BackendSettings, Evaluation, Factorable, IpoptLinearSolver,
+        self, BackendSettings, Evaluation, Factorable,
         OriginalModel, Refusal, Resolve, Retained, ScipSettings, Step,
     },
     quality::Tolerances,
     scip::{self, Status},
     solve::{
-        Assurance, Backend, BoundSource, Controls, Execution, OptionValue, PrimalSource,
+        Assurance, Backend, BoundSource, Controls, Execution, IpoptLinearSolver, OptionValue, PrimalSource,
         Qualification, ResolvedAccuracy, SolveIntent, SolveReport, Termination, WarmCapability,
     },
     solver_tests::stamp,
@@ -910,7 +910,7 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
         OptionValue::Text("mumps".into())
     );
     let pardiso = ScipSettings {
-        nlp_linear_solver: IpoptLinearSolver::Pardisomkl,
+        nlp_linear_solver: IpoptLinearSolver::PardisoMkl,
         seed: 3,
         nodes: Some(1000),
     };

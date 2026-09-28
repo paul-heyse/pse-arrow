@@ -519,7 +519,11 @@ impl TNLP for Adapter {
         self.state.evaluate("intermediate",||{let mut values=std::collections::BTreeMap::new();
             macro_rules! real{($($f:ident),*)=>{$(values.insert(stringify!($f).into(),Metric::Real(s.$f));)*}}
             real!(obj_value,inf_pr,inf_du,mu,d_norm,regularization_size,alpha_du,alpha_pr);
-            values.insert("iteration".into(),Metric::Integer(i64::from(s.iter)));values.insert("line_search.trials".into(),Metric::Integer(i64::from(s.ls_trials)));values.insert("mode".into(),Metric::Text(format!("{:?}",s.mode)));
+            values.insert("iteration".into(),Metric::Integer(i64::from(s.iter)));values.insert("line_search.trials".into(),Metric::Integer(i64::from(s.ls_trials)));values.insert("mode".into(),Metric::Text(match s.mode {
+                // Ipopt's `AlgorithmMode` names, stated rather than taken from `Debug` (F30).
+                pounce_nlp::return_codes::AlgorithmMode::RegularMode => "RegularMode",
+                pounce_nlp::return_codes::AlgorithmMode::RestorationPhaseMode => "RestorationPhaseMode",
+            }.into()));
             execution.progress.push(Event{phase:"pounce.iteration".into(),elapsed:execution.started.elapsed(),values});Ok(())}).is_some()
     }
 }

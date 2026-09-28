@@ -76,6 +76,24 @@ pub fn nlp(
     retained: &mut Retained,
     run: Nlp<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    // Presolve tightens bounds and removes rows on the premise that every row holds; a
+    // method that relaxes the rows would then minimize violation over a domain those rows
+    // already restricted. `Auto` lets the system choose, and it chooses no pass, recorded
+    // with its reason; an explicitly requested pass is refused.
+    let (policy, resolution) = match (step.settings.relaxes_rows(), run.presolve) {
+        (false, requested) => (requested.clone(), None),
+        (true, presolve::Policy::Off) => (presolve::Policy::Off, None),
+        (true, presolve::Policy::Auto) => (
+            presolve::Policy::Off,
+            Some(presolve::Resolution::RelaxedRows),
+        ),
+        (true, presolve::Policy::Explicit { .. }) => {
+            return Err(ProblemError::Contract(
+                "the ℓ1 exact penalty relaxes every row; explicit presolve passes assume they hold"
+                    .into(),
+            ));
+        }
+    };
     let oracle: Box<dyn NlpOracle> = if matches!(
         run.intent,
         SolveIntent::FeasiblePoint | SolveIntent::Root | SolveIntent::Initialize
@@ -87,13 +105,16 @@ pub fn nlp(
     let mut pipeline = Pipeline::new(
         oracle,
         run.initial,
-        run.presolve,
+        &policy,
         step.tolerances,
         step.execution.clone(),
         step.warm,
         step.compatibility,
         run.limit,
     )?;
+    if let Some(resolution) = resolution {
+        pipeline.resolved(run.presolve, resolution);
+    }
     let report = match pipeline.terminal_report(run.sense)? {
         Some(report) => report,
         None => {
@@ -118,9 +139,16 @@ pub fn nlp(
             )?
         }
     };
-    let mut report = pipeline.finish(report, step.tolerances, run.sense);
+    // An optimizing candidate gets the post-solve second-order check (L-N6); feasibility
+    // purposes solve a constant objective, whose curvature says nothing.
+    let second_order = (run.intent == SolveIntent::Optimize).then_some(crate::conditioning::Check {
+        dual_budget: step.accuracy.stationarity,
+        limit: run.limit,
+    });
+    let mut report = pipeline.finish(report, step.tolerances, run.sense, second_order);
     quality::record_kkt(&mut report, step.normalization, step.accuracy);
     quality::qualify(&mut report, step.accuracy);
+    report.least_infeasible = quality::least_infeasible(&report);
     Ok(report)
 }
 

@@ -12,8 +12,9 @@ use std::{
     process::{Command, Stdio},
 };
 
-const HEADERS: [&str; 5] = [
+const HEADERS: [&str; 6] = [
     "IpStdCInterface.h",
+    "IpLinearSolvers.h",
     "IpTypes.h",
     "IpoptConfig.h",
     "IpReturnCodes.h",
@@ -61,11 +62,14 @@ fn generate(headers: &Path) -> Result<String> {
         );
     }
     let bindings = bindgen::Builder::default()
-        .header_contents("pse-ipopt.h", "#include \"IpStdCInterface.h\"\n")
+        .header_contents(
+            "pse-ipopt.h",
+            "#include \"IpStdCInterface.h\"\n#include \"IpLinearSolvers.h\"\n",
+        )
         .clang_arg(format!("-I{}", headers.display()))
         .allowlist_function(".*Ipopt.*|SetIntermediateCallback")
-        .allowlist_var("IPOPT_VERSION.*")
-        .allowlist_type("ApplicationReturnStatus|AlgorithmMode")
+        .allowlist_var("IPOPT_VERSION.*|IPOPTLINEARSOLVER_.*")
+        .allowlist_type("ApplicationReturnStatus|AlgorithmMode|IpoptLinearSolver")
         .generate_comments(false)
         .layout_tests(false)
         .merge_extern_blocks(true)

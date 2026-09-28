@@ -644,7 +644,7 @@ impl Session {
                 | SolverStatus::AlmostDualInfeasible
         ) {
             report.certificate = Some(Certificate {
-                kind: format!("{:?}", solution.status),
+                kind: status_name(solution.status).into(),
                 primal: matches!(
                     solution.status,
                     SolverStatus::DualInfeasible | SolverStatus::AlmostDualInfeasible
@@ -739,6 +739,24 @@ fn metrics(info: &DefaultInfo<f64>) -> BTreeMap<String, Metric> {
     );
     values
 }
+/// Clarabel's symbolic name of `status`, stated here rather than taken from Rust `Debug`
+/// output, so a library refactor cannot silently change a published name (F30).
+pub const fn status_name(status: SolverStatus) -> &'static str {
+    match status {
+        SolverStatus::Unsolved => "Unsolved",
+        SolverStatus::Solved => "Solved",
+        SolverStatus::PrimalInfeasible => "PrimalInfeasible",
+        SolverStatus::DualInfeasible => "DualInfeasible",
+        SolverStatus::AlmostSolved => "AlmostSolved",
+        SolverStatus::AlmostPrimalInfeasible => "AlmostPrimalInfeasible",
+        SolverStatus::AlmostDualInfeasible => "AlmostDualInfeasible",
+        SolverStatus::MaxIterations => "MaxIterations",
+        SolverStatus::MaxTime => "MaxTime",
+        SolverStatus::NumericalError => "NumericalError",
+        SolverStatus::InsufficientProgress => "InsufficientProgress",
+        SolverStatus::CallbackTerminated => "CallbackTerminated",
+    }
+}
 /// Native conic statuses retain certificate versus candidate distinctions.
 pub fn termination(status: SolverStatus) -> NativeTermination {
     let (category, assurance) = match status {
@@ -760,7 +778,7 @@ pub fn termination(status: SolverStatus) -> NativeTermination {
     };
     NativeTermination {
         code: status as i64,
-        name: format!("{status:?}"),
+        name: status_name(status).into(),
         message: None,
         category,
         assurance,

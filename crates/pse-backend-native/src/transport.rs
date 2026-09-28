@@ -296,6 +296,10 @@ pub fn recover(
         recover_certificate(c, n, contract)?;
         report.provenance.insert("certificate.coordinates".into(),"original physical homogeneous ray; native accuracy qualifier retained, no unit-length claim".into());
     }
+    for incumbent in &mut report.incumbents.recorded {
+        values(&mut incumbent.primal, &n.variables, false)?;
+        incumbent.objective = mul(incumbent.objective, n.objective)?;
+    }
     if let Some(c) = &mut report.candidate {
         values(&mut c.primal, &n.variables, false)?;
         if let Some(f) = &mut c.objective {
@@ -486,6 +490,7 @@ pub fn recover_diagnostics(
     r: &mut crate::highs::diagnostics::Report,
     n: &Normalization,
     row_constants: &[f64],
+    contract: &OracleContract,
 ) -> Result<(), ProblemError> {
     if let Some(v) = &mut r.primal_ray {
         values(v, &n.variables, false)?;
@@ -498,6 +503,28 @@ pub fn recover_diagnostics(
     }
     if let Some(v) = r.relaxation.as_mut().and_then(|r| r.penalty.as_mut()) {
         *v = mul(*v, n.objective)?;
+    }
+    if let Some(fixed) = &mut r.fixed_lp {
+        for (id, value) in &mut fixed.commitment {
+            let j = contract
+                .variables
+                .iter()
+                .position(|v| v.id == *id)
+                .ok_or_else(|| ProblemError::Internal("commitment column absent".into()))?;
+            *value = mul(*value, n.variables[j])?;
+        }
+        if let Some(v) = &mut fixed.objective {
+            *v = mul(*v, n.objective)?;
+        }
+        if let Some(v) = &mut fixed.row_dual {
+            duals(v, &n.rows, n.objective, false)?;
+        }
+        if let Some(v) = &mut fixed.reduced_costs {
+            duals(v, &n.variables, n.objective, false)?;
+        }
+    }
+    if let Some(v) = r.presolved.as_mut().and_then(|p| p.postsolved.as_mut()) {
+        values(v, &n.variables, false)?;
     }
     for (name, range) in &mut r.ranging {
         let row = name.starts_with("row_");

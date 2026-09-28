@@ -43,19 +43,10 @@ impl BackendExecution for Pounce {
         Some(3)
     }
     fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
-        Ok(WarmPayload::Nlp {
-            primal,
-            bounds: None,
-            rows: None,
-        })
+        Ok(WarmPayload::primal(primal))
     }
     fn accepts(&self, payload: &WarmPayload) -> bool {
-        match payload {
-            WarmPayload::Nlp { .. } => true,
-            #[cfg(feature = "pounce")]
-            WarmPayload::PounceSqp(_) => true,
-            WarmPayload::Root(_) | WarmPayload::Highs { .. } => false,
-        }
+        matches!(payload, WarmPayload::Nlp { .. })
     }
     fn scope(
         &self,
@@ -110,8 +101,7 @@ impl BackendExecution for Pounce {
                 sense,
                 input.controls,
                 input.accuracy,
-                settings.method,
-                settings.linear.clone(),
+                settings,
                 input.execution,
                 input.tolerances,
                 input.warm,

@@ -809,11 +809,7 @@ fn adopt(
     report.candidate = resolved.candidate;
     // A later global step is seeded with the adopted candidate, not the proposal.
     if let (Some(seed), Some(candidate)) = (report.warm_start.as_mut(), &report.candidate) {
-        seed.payload = WarmPayload::Nlp {
-            primal: candidate.primal.clone(),
-            bounds: None,
-            rows: None,
-        };
+        seed.payload = WarmPayload::primal(candidate.primal.clone());
     }
     report.evidence.kkt = resolved.evidence.kkt;
     report.preprocessing = resolved.preprocessing;

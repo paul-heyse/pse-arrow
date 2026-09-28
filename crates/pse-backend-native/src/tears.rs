@@ -192,7 +192,7 @@ pub fn solve(
         &p.problem,
         controls,
         &accuracy,
-        crate::highs::Method::Choose,
+        &crate::highs::Settings::default(),
         execution,
         &t,
         None,

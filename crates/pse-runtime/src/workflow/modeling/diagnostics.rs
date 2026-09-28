@@ -31,7 +31,9 @@ use std::sync::Arc;
 /// Diagnostic preparation resolves the same case and native dependencies without solver admission.
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnosticPreparation {
+    /// The prepared case, with its structure and start values.
     pub model: ModelingCasePreparation,
+    /// Resolved physical nominals and numerical requirements of the case.
     pub numerics: Arc<ResolvedNumericalPolicy>,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
 }
@@ -68,33 +70,55 @@ impl ModelingDiagnosticPreparation {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingDiagnosticPolicy {
+    /// Name of the knowledge profile these thresholds come from.
     pub profile: String,
+    /// Finding budget; further findings leave the report incomplete.
     pub maximum_findings: usize,
+    /// Absolute part of the near-bound distance.
     pub near_bound_absolute: f64,
+    /// Relative part of the near-bound distance, times the larger of the bound and nominal.
     pub near_bound_relative: f64,
+    /// Bound violation above which a value is outside its bound.
     pub bound_violation: f64,
+    /// Row residual, relative to the row nominal, above which it is large.
     pub residual: f64,
+    /// Normalized magnitude below which a nonzero value is small.
     pub variable_small: f64,
+    /// Normalized magnitude above which a value is large.
     pub variable_large: f64,
+    /// Normalized magnitude at or below which a value counts as zero.
     pub variable_zero: f64,
+    /// Normalized Jacobian magnitude below which a nonzero entry, row or column is small.
     pub jacobian_small: f64,
+    /// Normalized Jacobian magnitude above which an entry, row or column is large.
     pub jacobian_large: f64,
+    /// Dense matrix analysis budgets and tolerances.
     pub matrix: MatrixPolicy,
+    /// Equation term analysis budgets and tolerances.
     pub terms: TermPolicy,
 }
+/// Named numerical evidence at one point of one prepared case.
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnostics {
+    /// Identity of this diagnostic run.
     pub run_id: SemanticId,
     pub(super) runtime: Runtime,
     pub(super) source_identity: pse_ids::ContentHash,
     pub(super) numerical_identity: pse_ids::ContentHash,
     pub(super) point: CaseValues,
+    /// The policy's knowledge profile.
     pub profile: String,
+    /// Findings in the order they were made.
     pub findings: Vec<BoundaryDiagnostic>,
+    /// Structure counts of the case.
     pub statistics: BTreeMap<String, usize>,
+    /// Dense analysis of the normalized Jacobian, when its budget allowed one.
     pub matrix: Option<MatrixReport>,
+    /// Every analysis ran within its budgets.
     pub complete: bool,
+    /// Jacobian rows, as equation ids.
     pub rows: Vec<SemanticId>,
+    /// Jacobian columns, as variable ids.
     pub columns: Vec<SemanticId>,
     /// Canonical physical row magnitudes used to normalize the reported Jacobian.
     pub row_nominals: Vec<(SemanticId, f64)>,
@@ -103,6 +127,10 @@ pub struct ModelingDiagnostics {
     pub(in crate::workflow::modeling) _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl ModelingDiagnosticPolicy {
+    /// Finite, ordered thresholds and valid analysis budgets.
+    ///
+    /// # Errors
+    /// A threshold or budget outside its range.
     pub fn validate(&self) -> Result<(), WorkflowError> {
         self.matrix
             .validate()
@@ -163,6 +191,7 @@ fn disposition(kind: &str) -> (BoundaryClass, Severity) {
         | "jacobian.extreme_entry"
         | "jacobian.extreme_row"
         | "jacobian.extreme_column"
+        | "jacobian.condition_estimate"
         | "equation.mismatched_term"
         | "equation.canceling_terms" => (C::Numerical, S::Info),
         "equation.term_evaluation_failed" => (C::TrialRejected, S::Warning),
@@ -632,11 +661,21 @@ impl ModelingPackage {
                     matrix_policy,
                     &flag,
                 );
-                Ok((rows, entries, matrix, retained))
+                // A square Jacobian also gets FERAL's sparse 1-norm condition estimate in the
+                // same scaling, which needs no dense budget (L-N6).
+                let condition = (jacobian.nrows() == jacobian.ncols()).then(|| {
+                    let nominals = scaled_columns.iter().map(|s| 1. / s).collect::<Vec<_>>();
+                    pse_backend_native::conditioning::jacobian_condition(
+                        jacobian.as_ref(),
+                        &scaled_rows,
+                        &nominals,
+                    )
+                });
+                Ok((rows, entries, matrix, condition, retained))
             })
             .await;
         match sampled {
-            Ok((row_values, entries, matrix, _retained)) => {
+            Ok((row_values, entries, matrix, condition, _retained)) => {
                 for (row, value) in structure.rows().iter().zip(row_values) {
                     let residual = (row.lower - value).max(value - row.upper).max(0.);
                     let scale = nominal(row.id, NumericalTarget::Row)?;
@@ -734,6 +773,43 @@ impl ModelingPackage {
                             .insert("reason".into(), Observation::Text(error.to_string()));
                         report.push(f, maximum, product);
                     }
+                }
+                let locations = || row_ids.iter().chain(&columns).copied();
+                match condition {
+                    Some(Ok(Some(estimate))) => report.push(
+                        finding(
+                            "jacobian.condition_estimate",
+                            locations(),
+                            Some(estimate),
+                            None,
+                        ),
+                        maximum,
+                        product,
+                    ),
+                    Some(Ok(None)) => {
+                        let mut f = finding("jacobian.condition_estimate", locations(), None, None);
+                        f.observations.insert(
+                            "reason".into(),
+                            Observation::Text(
+                                "singular at the sparse LU pivot tolerance".into(),
+                            ),
+                        );
+                        report.push(f, maximum, product);
+                    }
+                    Some(Err(error)) => {
+                        report.complete = false;
+                        let mut f = BoundaryDiagnostic::new(
+                            BoundaryClass::Inconclusive,
+                            "modeling.diagnostics",
+                            [],
+                            "jacobian.analysis_inconclusive",
+                        )
+                        .with_severity(Severity::Warning);
+                        f.observations
+                            .insert("reason".into(), Observation::Text(error.to_string()));
+                        report.push(f, maximum, product);
+                    }
+                    None => {}
                 }
             }
             Err(error) => {
@@ -1090,6 +1166,14 @@ mod tests {
                 .iter()
                 .any(|f| f.rule == "jacobian.parallel_rows" && f.locations.len() == 2)
         );
+        // The square Jacobian [[1, 1], [2, 2]] is singular for the sparse LU as well.
+        let condition = report
+            .findings
+            .iter()
+            .find(|f| f.rule == "jacobian.condition_estimate")
+            .unwrap();
+        assert!(!condition.observations.contains_key("value"));
+        assert!(condition.observations.contains_key("reason"));
         assert!(
             report
                 .findings
@@ -1159,6 +1243,7 @@ mod tests {
                         multiplier_bound: 10.,
                         tolerance: 1e-7,
                         rank_relative: 1e-8,
+                        maximum_nodes: None,
                     },
                     pse_backend_native::solve::Controls::default(),
                     &cancel,
@@ -1175,10 +1260,13 @@ mod tests {
     }
 }
 
+/// Bounded LP/MILP analyses of one diagnosed Jacobian.
 #[cfg(feature = "solver-highs")]
 #[derive(Debug)]
 pub struct ModelingJacobianOptimization {
+    /// Identity of this analysis run.
     pub run_id: SemanticId,
+    /// Certificates, degenerate sets and every native attempt.
     pub evidence: pse_backend_native::jacobian_diagnostics::Report,
     pub(in crate::workflow::modeling) runtime: Runtime,
     pub(in crate::workflow::modeling) source_identity: pse_ids::ContentHash,

@@ -6,40 +6,18 @@ use super::{BackendExecution, BackendSettings, Capability, Input, Representation
 use crate::{
     ProblemError,
     solve::{
-        Backend, Controls, DerivativeCapability, ProblemClass, SolveReport, WarmCapability,
-        WarmPayload,
+        Backend, Controls, DerivativeCapability, IpoptLinearSolver, ProblemClass, SolveReport,
+        WarmCapability, WarmPayload,
     },
 };
 
-/// Linear solver of SCIP's nested Ipopt, which is the image's one Ipopt (ADR-0108). HSL
-/// and the Pardiso-project loader are not offered (ADR-0105 §5, T08).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IpoptLinearSolver {
-    /// Sequential MUMPS with METIS ordering.
-    #[default]
-    Mumps,
-    /// SPRAL SSIDS; needs `OMP_CANCELLATION=TRUE` in the process environment.
-    Spral,
-    /// oneMKL Pardiso.
-    Pardisomkl,
-}
-impl IpoptLinearSolver {
-    /// Native option value of `nlpi/ipopt/linear_solver`.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Mumps => "mumps",
-            Self::Spral => "spral",
-            Self::Pardisomkl => "pardisomkl",
-        }
-    }
-}
 /// Typed SCIP settings. Reserved native options derive from these and the shared controls;
 /// identity derives from serde.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
-    /// Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`).
+    /// Linear solver of the nested Ipopt (`nlpi/ipopt/linear_solver`): the image's one
+    /// Ipopt, so the same type the Ipopt adapter's settings select.
     pub nlp_linear_solver: IpoptLinearSolver,
     /// Random seed shift (`randomization/randomseedshift`), recorded with the result.
     pub seed: u16,
@@ -125,11 +103,7 @@ impl BackendExecution for Scip {
         Ok(())
     }
     fn primal_start(&self, primal: Vec<f64>) -> Result<WarmPayload, ProblemError> {
-        Ok(WarmPayload::Nlp {
-            primal,
-            bounds: None,
-            rows: None,
-        })
+        Ok(WarmPayload::primal(primal))
     }
     fn accepts(&self, payload: &WarmPayload) -> bool {
         matches!(payload, WarmPayload::Nlp { .. })

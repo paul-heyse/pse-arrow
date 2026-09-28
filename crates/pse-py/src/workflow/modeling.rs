@@ -585,6 +585,9 @@ impl NativeModelingPackage {
                                 iis,
                                 ranging,
                                 relaxation,
+                                // The fixed-LP, basis-inverse, presolve and cut-pool views
+                                // are not projected to Python yet (A5).
+                                ..Request::default()
                             },
                             settings.profile.controls.clone(),
                             maximum_entries,
@@ -660,6 +663,9 @@ impl NativeModelingPackage {
                                 multiplier_bound,
                                 tolerance,
                                 rank_relative,
+                                // The MILPs are bounded by the deadline; the node
+                                // budget is not projected to Python yet (A5).
+                                maximum_nodes: None,
                             },
                             settings.profile.controls.clone(),
                             &cancel,

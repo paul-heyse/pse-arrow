@@ -1163,14 +1163,10 @@ impl MathService {
                 if let Some(seed) = &mut r.warm_start {
                     seed.origin = Some(SeedOrigin { run: None, attempt });
                 }
+                // The recorded path is what this step's transport, library presolve and
+                // interior-point restart actually applied, never a constant label (F25).
                 let mut receipt = receipt;
-                receipt.submitted = r.evidence.start_submitted;
-                // The recorded path is what this step's transport and library presolve
-                // actually applied, never a constant label (F25).
-                if receipt.seed.is_some() || receipt.sparse_seed.is_some() {
-                    receipt.transformations =
-                        SeedTransformation::path(normalization, r.preprocessing.as_ref());
-                }
+                receipt.record(&r, normalization);
                 r.start_receipt = Some(receipt);
                 Outcome::Native(Box::new((*r).with_owner(owner.clone())))
             }
@@ -1562,12 +1558,14 @@ impl execution::OriginalModel for OriginalCase<'_> {
 }
 
 /// Complete effective request identity, distinct from native session compatibility: the
-/// session profile, every control through serde (F09) and the selection, whose backend is
-/// named by its registry spelling.
+/// session profile, every control through serde (F09), the selection, whose backend is
+/// named by its registry spelling, and the linked native build (library versions, image
+/// manifest and numerical contract, ADR-0108 item 14).
 pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, ProblemError> {
-    let mut h = FramedHasher::new("pse.solver.profile.v2");
+    let mut h = FramedHasher::new("pse.solver.profile.v3");
     hash_session(&mut h, p)?;
-    h.hash(&p.controls.identity()?);
+    h.hash(&p.controls.identity()?)
+        .hash(&execution::LINKED.build_identity());
     match p.selection {
         SolverSelection::Auto => {
             h.str("auto");

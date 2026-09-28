@@ -445,6 +445,17 @@ fn settings_documents_round_trip_every_variant() {
             json!({"strategy": "newton", "linear": {"spgmr": {"dimension": 8}}}),
         ));
     }
+    if cfg!(feature = "ipopt") {
+        // The linear solver keeps Ipopt's native `linear_solver` spelling (ADR-0108).
+        variants.push((
+            Backend::Ipopt,
+            json!({
+                "linear": {"pardisomkl": {"ordering": "parallel_metis", "matching": "complete_plus2x2"}},
+                "mu_strategy": "adaptive",
+                "bound_push": 0.001,
+            }),
+        ));
+    }
     for (backend, fields) in variants {
         let settings = BackendSettings::from_fields(backend, fields.clone()).unwrap();
         assert_eq!(settings.backend(), Some(backend));
@@ -475,8 +486,36 @@ fn settings_documents_round_trip_every_variant() {
         assert!(BackendSettings::from_document(future).is_err());
     }
     // Backends without algebraic settings are refused, never defaulted.
-    for backend in [Backend::Diffsol, Backend::Idas, Backend::Ipopt] {
+    let mut refused = vec![Backend::Diffsol, Backend::Idas];
+    if !cfg!(feature = "ipopt") {
+        refused.push(Backend::Ipopt);
+    }
+    for backend in refused {
         assert!(BackendSettings::from_fields(backend, json!({})).is_err());
     }
     assert!(BackendSettings::Default.document().is_err());
+    if cfg!(feature = "ipopt") {
+        // A nested restart takes its own defaults for the fields it omits.
+        let partial = BackendSettings::from_fields(
+            Backend::Ipopt,
+            json!({"restart": {"barrier": {"value": 0.01}}}),
+        )
+        .unwrap()
+        .fields()
+        .unwrap();
+        assert_eq!(partial["restart"]["barrier"], json!({"value": 0.01}));
+        assert_eq!(partial["restart"]["bound_push"], json!(1e-9));
+        assert_eq!(partial["linear"], json!({"mumps": {"ordering": "metis"}}));
+        // Solver parameters are stated, never inherited, and HSL or the runtime-loaded
+        // Pardiso are not representable (ADR-0108 items 9 and 10).
+        for linear in [
+            json!({"spral": {"ordering": "metis"}}),
+            json!({"mumps": {"ordering": "metis", "pivot": "block"}}),
+            json!({"ma57": {}}),
+            json!("pardiso"),
+        ] {
+            let fields = json!({"linear": linear});
+            assert!(BackendSettings::from_fields(Backend::Ipopt, fields).is_err());
+        }
+    }
 }
