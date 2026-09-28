@@ -28,12 +28,18 @@ extend-exclude = [
   "tests/golden/",
   "LICENSES/",
   "LICENSE-*",
+  # Reference material kept until the thermodynamics work lands; not product source.
+  "thermodynamics_complete_conversation_handoff/",
 ]
 
 [default]
 # Native library C symbols (SCIPaddSol, SCIPreleaseCons, SCIPeventGetType, IDA_NO_BCK,
 # POUNCE's OT_String) split into fragments that look like misspellings.
-extend-ignore-identifiers-re = ["^SCIP[A-Za-z0-9_]*$", "^IDA_[A-Z0-9_]+$", "^OT_[A-Za-z]+$"]
+extend-ignore-identifiers-re = [
+  "^SCIP[A-Za-z0-9_]*$",
+  "^IDA_[A-Z0-9_]+$",
+  "^OT_[A-Za-z]+$",
+]
 
 [default.extend-words]
 # Domain vocabulary and identifiers that are not typos.

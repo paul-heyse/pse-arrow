@@ -14,6 +14,8 @@ exclude = [
   ".codex/skills/**",
   ".claude/skills/**",
   ".agents/skills/**",
+  # Reference material kept until the thermodynamics work lands; not product source.
+  "thermodynamics_complete_conversation_handoff/**",
   "tooling/dfarrow-apiex/target/**",
   "tooling/dfarrow-apiex/verify/target/**",
   # Generated TOML is written by its generator, never reformatted.

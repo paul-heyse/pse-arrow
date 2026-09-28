@@ -193,6 +193,8 @@ extend-exclude = [
   ".codex/skills/**",
   ".claude/skills/**",
   ".agents/skills/**",
+  # Reference material kept until the thermodynamics work lands; not product source.
+  "thermodynamics_complete_conversation_handoff/**",
 ]
 
 [tool.ruff.format]
@@ -339,7 +341,13 @@ ban-relative-imports = "parents"
 
 [tool.pyrefly]
 project-includes = ["python/pse", "scripts", "conftest.py"]
-project-excludes = ["**/.venv*/**", "**/target/**", "external/**", "build/**"]
+project-excludes = [
+  "**/.venv*/**",
+  "**/target/**",
+  "external/**",
+  "build/**",
+  "thermodynamics_complete_conversation_handoff/**",
+]
 search-path = ["python", "python/stubs"]
 # Check against the floor, not the 3.14 we develop on.
 python-version = "3.11"

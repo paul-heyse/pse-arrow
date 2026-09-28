@@ -95,3 +95,14 @@ path = [
 precedence = "override"
 SPDX-FileCopyrightText = "FeOS contributors"
 SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+# Thermodynamics reference handoff: byte-verified reference material kept until the
+# thermodynamics work lands. Its files carry no headers and are never edited.
+[[annotations]]
+path = [
+  "thermodynamics_complete_conversation_handoff/**",
+  "thermodynamics_complete_conversation_handoff.zip",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Paul Heyse"
+SPDX-License-Identifier = "MIT OR Apache-2.0"
