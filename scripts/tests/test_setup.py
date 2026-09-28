@@ -180,6 +180,29 @@ class EditPolicyTests(unittest.TestCase):
             hooks.protected(self.root, str((self.root / "a.py").resolve()))
         )
 
+    def test_generated_path_edit_refused(self) -> None:
+        # Every generator's output, the operational store's included (ADR-0115 Outcome 5).
+        for name in (
+            "crates/pse-operations/src/generated/schema.sql",
+            "crates/pse-operations/src/generated/cornucopia.toml",
+            "crates/pse-model/src/generated/identities.rs",
+            "crates/pse-operations-queries/Cargo.toml",
+            "crates/pse-operations-queries/src/queries/store.rs",
+            "python/pse/_native.pyi",
+            "python/pse/contracts/identities.py",
+        ):
+            with self.subTest(name=name):
+                self.assertIsNotNone(hooks.protected(self.root, name))
+        # The hand-written inputs beside them stay editable.
+        for name in (
+            "crates/pse-operations/physical.sql",
+            "crates/pse-operations/queries/store.sql",
+            "crates/pse-operations/src/schema.rs",
+            "python/pse/_native.py",
+        ):
+            with self.subTest(name=name):
+                self.assertIsNone(hooks.protected(self.root, name))
+
     def test_runtime_areas_are_writable_and_other_places_are_not(self) -> None:
         other = tempfile.TemporaryDirectory()
         self.addCleanup(other.cleanup)

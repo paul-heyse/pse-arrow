@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    226u8, 68u8, 98u8, 64u8, 56u8, 34u8, 5u8, 241u8, 90u8, 28u8, 143u8, 9u8, 86u8, 188u8,
-    102u8, 169u8, 176u8, 130u8, 146u8, 18u8, 105u8, 1u8, 145u8, 173u8, 214u8, 104u8,
-    58u8, 23u8, 146u8, 181u8, 241u8, 177u8,
+    244u8, 177u8, 75u8, 204u8, 135u8, 76u8, 137u8, 64u8, 80u8, 180u8, 39u8, 249u8, 116u8,
+    123u8, 17u8, 126u8, 235u8, 130u8, 180u8, 134u8, 196u8, 113u8, 182u8, 168u8, 17u8,
+    149u8, 233u8, 213u8, 220u8, 236u8, 167u8, 90u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
     fn append(
@@ -61,7 +61,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -74,7 +74,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::SolutionId,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
@@ -86,7 +86,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#attempt_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#attempt_id: <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -115,7 +115,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
                 index,
             )?,
             r#solution_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::SolutionId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
@@ -348,7 +348,7 @@ pub struct RuntimeOperationalIncumbentsView<'a> {
     batch: &'a crate::RecordBatch,
     attempt_id_column: &'a arrow_array::FixedSizeBinaryArray,
     seq_column: &'a arrow_array::Int64Array,
-    at_column: &'a arrow_array::TimestampNanosecondArray,
+    at_column: &'a arrow_array::TimestampMicrosecondArray,
     objective_column: &'a arrow_array::Float64Array,
     dual_bound_column: &'a arrow_array::Float64Array,
     gap_column: &'a arrow_array::Float64Array,
@@ -399,7 +399,7 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
                 arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
             at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(2usize).as_ref())?,
             objective_column: crate::columnar::array::<
                 arrow_array::Float64Array,
@@ -456,7 +456,7 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
         "at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "at", "`.")]

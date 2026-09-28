@@ -29,6 +29,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Relations | Target::RustContracts) => vec![Language::Rust],
         Some(Target::Python) => vec![Language::Python],
         Some(Target::Docs) => vec![Language::Markdown],
+        Some(Target::Postgres) => vec![Language::Postgres],
         Some(Target::Bindgen) => return ipopt::run(root, check),
         None => Language::ALL.to_vec(),
     };
@@ -44,6 +45,9 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         }
         if language == Language::Python {
             add_python_manifest(&mut tree)?;
+        }
+        if language == Language::Postgres {
+            add_schema_fingerprint(root, &mut tree)?;
         }
         if language == Language::Rust {
             if only == Some(Target::RustContracts) {
@@ -122,6 +126,24 @@ fn contract_roots(tree: &mut GeneratedTree) {
             Some("crates/pse-quantity/src/generated")
         )
     });
+}
+
+/// The schema fingerprint covers the generated DDL and the hand-written `physical.sql`,
+/// which the pure generator does not read (ADR-0114 Outcome 23).
+fn add_schema_fingerprint(root: &Path, tree: &mut GeneratedTree) -> Result<()> {
+    use pse_codegen::codegen::postgres;
+    let schema_path = Path::new(postgres::ROOT).join("schema.sql");
+    let schema = tree
+        .files
+        .get(&schema_path)
+        .context("the PostgreSQL generator rendered no schema.sql")?;
+    let physical = fs::read(root.join(postgres::PHYSICAL_SQL))
+        .with_context(|| format!("reading {}", postgres::PHYSICAL_SQL))?;
+    let (path, bytes) = postgres::fingerprint_file(schema, &physical)?;
+    if tree.files.insert(path, bytes).is_some() {
+        bail!("the PostgreSQL generator must leave fingerprint.rs to the xtask writer");
+    }
+    Ok(())
 }
 
 fn add_python_manifest(tree: &mut GeneratedTree) -> Result<()> {

@@ -10,7 +10,7 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeOperationalSourceDocumentsRow {
     ///bundle_hash
-    pub r#bundle_hash: pse_ids::ContentHash,
+    pub r#bundle_hash: crate::generated::identities::SourceBundleId,
     ///path
     pub r#path: String,
     ///content_hash

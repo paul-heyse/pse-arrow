@@ -10,9 +10,9 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeOperationalJobsRow {
     ///job_id
-    pub r#job_id: pse_ids::SemanticId,
+    pub r#job_id: crate::generated::identities::JobId,
     ///attempt_id
-    pub r#attempt_id: pse_ids::SemanticId,
+    pub r#attempt_id: crate::generated::identities::AttemptId,
     ///idempotency_key
     pub r#idempotency_key: String,
     ///payload_version

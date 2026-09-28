@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    242u8, 26u8, 116u8, 113u8, 218u8, 219u8, 249u8, 51u8, 71u8, 175u8, 194u8, 145u8,
-    52u8, 106u8, 165u8, 241u8, 206u8, 24u8, 142u8, 19u8, 145u8, 12u8, 28u8, 185u8, 157u8,
-    24u8, 41u8, 148u8, 214u8, 177u8, 109u8, 141u8,
+    225u8, 10u8, 108u8, 208u8, 100u8, 76u8, 201u8, 16u8, 210u8, 158u8, 155u8, 181u8,
+    159u8, 10u8, 145u8, 0u8, 100u8, 155u8, 142u8, 213u8, 228u8, 99u8, 195u8, 113u8,
+    127u8, 143u8, 145u8, 247u8, 151u8, 120u8, 43u8, 173u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
     fn append(
@@ -64,6 +64,10 @@ impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
             &self.r#native_field,
             children[10usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#identity_id,
+            children[11usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -99,6 +103,9 @@ impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
         <String as crate::columnar::ArrowValue>::append_null(
             children[10usize].as_mut(),
         )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -157,6 +164,12 @@ impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
             )?,
             r#native_field: <String as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#identity_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
                 index,
             )?,
         })
@@ -236,6 +249,10 @@ impl crate::columnar::RelationRow for ReferenceSchemaColumnsRow {
             &self.r#native_field,
             columns[10usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#identity_id,
+            columns[11usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -270,10 +287,10 @@ impl crate::columnar::RelationRow for ReferenceSchemaColumnsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        26_624_usize + size_of::<Self::Builder>()
+        29_696_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        208usize
+        232usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -342,6 +359,17 @@ impl crate::columnar::RelationRow for ReferenceSchemaColumnsRow {
             bytes,
             crate::columnar::allocation_add(8, (self.r#native_field).len())?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#identity_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -352,7 +380,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "relation_id",
@@ -408,6 +436,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
         name: "native_field",
         position: 10usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "identity_id",
+        position: 11usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -433,6 +466,8 @@ pub mod columns {
     pub const DOC: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///native_field
     pub const NATIVE_FIELD: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    ///identity_id
+    pub const IDENTITY_ID: crate::columnar::ColumnReference = super::COLUMNS[11usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -450,6 +485,7 @@ pub struct ReferenceSchemaColumnsView<'a> {
     role_column: &'a arrow_array::StringArray,
     doc_column: &'a arrow_array::StringArray,
     native_field_column: &'a arrow_array::StringArray,
+    identity_id_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> ReferenceSchemaColumnsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -522,6 +558,9 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
             native_field_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(10usize).as_ref())?,
+            identity_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(11usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -670,6 +709,18 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
     pub fn native_field_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[10usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "identity_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn identity_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.identity_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "identity_id", "`.")]
+    pub fn identity_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -709,6 +760,10 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
             r#doc: crate::columnar::ArrowValue::read(self.doc_column, index)?,
             r#native_field: crate::columnar::ArrowValue::read(
                 self.native_field_column,
+                index,
+            )?,
+            r#identity_id: crate::columnar::ArrowValue::read(
+                self.identity_id_column,
                 index,
             )?,
         })

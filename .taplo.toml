@@ -16,6 +16,9 @@ exclude = [
   ".agents/skills/**",
   "tooling/dfarrow-apiex/target/**",
   "tooling/dfarrow-apiex/verify/target/**",
+  # Generated TOML is written by its generator, never reformatted.
+  "crates/*/src/generated/**",
+  "crates/pse-operations-queries/**",
 ]
 
 [formatting]

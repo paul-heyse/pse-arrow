@@ -5,6 +5,7 @@
 //! another process reuses the seed the worker stored. Run with `just worker-test`.
 use pse_backend_native::solve::{Backend, SolveIntent};
 use pse_operations::{
+    attempts::{NativeTermination, TerminationCode},
     jobs::{JobState, RetryPolicy},
     lifecycle::AttemptState,
     testing::TestDatabase,
@@ -199,8 +200,8 @@ async fn worker_runs_authored_case_end_to_end() {
     assert_eq!(attempt.state, AttemptState::Completed);
     assert_eq!(attempt.worker.as_deref(), Some("worker-child"));
     assert_eq!(
-        attempt.termination.as_ref().map(|t| t.code.as_str()),
-        Some("success")
+        attempt.termination.as_ref().map(|t| &t.code),
+        Some(&TerminationCode::Native(NativeTermination::Success))
     );
     let history: Vec<_> = store
         .attempts()

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! The solution and warm-start store, keyed by the coordinate-compatibility stamp and the
-//! preparation identity (ADR-0112 Outcome 17). Seeds are typed vectors in original source
+//! preparation identity (ADR-0114 Outcome 17). Seeds are typed vectors in original source
 //! coordinates, stored exactly. The solution identity is a seed identity that enters
 //! lineage, so the runtime mints it.
 
@@ -143,9 +143,10 @@ impl FromRow<'_, PgRow> for StoredSolution {
 
 macro_rules! solution_columns {
     () => {
-        "solution_id, compatibility_stamp, preparation_identity, kind, backend, profile_stamp, \
-         data_stamp, primal, lower_bound_duals, upper_bound_duals, column_duals, row_duals, \
-         barrier, basis_columns, basis_rows, created_by, created_at"
+        "solution_id, compatibility_stamp, preparation_identity, kind::text AS kind, \
+         backend::text AS backend, profile_stamp, data_stamp, primal, lower_bound_duals, \
+         upper_bound_duals, column_duals, row_duals, barrier, basis_columns, basis_rows, \
+         created_by, created_at"
     };
 }
 
@@ -211,7 +212,8 @@ impl<'s> Solutions<'s> {
                  preparation_identity, kind, backend, profile_stamp, data_stamp, primal, \
                  lower_bound_duals, upper_bound_duals, column_duals, row_duals, barrier, \
                  basis_columns, basis_rows, created_by) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) \
+             VALUES ($1, $2, $3, $4::pse_ops.stored_seed_kind, $5::pse_ops.native_backend, \
+                 $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) \
              RETURNING created_at",
         )
         .bind(codec::uuid(solution.solution_id))
@@ -272,7 +274,8 @@ impl<'s> Solutions<'s> {
             "SELECT ",
             solution_columns!(),
             " FROM pse_ops.solutions \
-             WHERE compatibility_stamp = $1 AND preparation_identity = $2 AND backend = $3 \
+             WHERE compatibility_stamp = $1 AND preparation_identity = $2 \
+               AND backend = $3::pse_ops.native_backend \
              ORDER BY created_at DESC, solution_id DESC LIMIT 1"
         ))
         .bind(codec::hash_bytes(stamp))

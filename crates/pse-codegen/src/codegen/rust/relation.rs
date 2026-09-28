@@ -25,11 +25,16 @@ pub(super) fn render(reg: &Registry, spec: &RelationSpec) -> Result<TokenStream,
         .columns
         .iter()
         .map(|column| {
-            let ty = logical(
-                &column.value_type(),
-                &format!("{stem}Field{}", pascal(column.name())),
-                &mut declarations,
-            )?;
+            // An identity column is typed by the entity it names (ADR-0115); its value
+            // and codec are the base identity's.
+            let ty = match column.identity() {
+                Some(identity) => super::identities::path(identity),
+                None => logical(
+                    &column.value_type(),
+                    &format!("{stem}Field{}", pascal(column.name())),
+                    &mut declarations,
+                )?,
+            };
             Ok((
                 column.name().to_owned(),
                 optional(ty, column.nullable()),

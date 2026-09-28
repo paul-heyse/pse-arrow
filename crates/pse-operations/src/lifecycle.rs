@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! The attempt lifecycle: one pure transition table, the only authority for legality
-//! (ADR-0112 Outcome 12, finding T13). Repository functions apply it inside a transaction
+//! (ADR-0114 Outcome 12, finding T13). Repository functions apply it inside a transaction
 //! under a row lock; SQL enforces only the value domain. The state spellings are the
 //! registry enumeration `AttemptState` (DP-19).
 

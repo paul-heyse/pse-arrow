@@ -88,7 +88,7 @@ doctor-json:
 fetch-external:
     ./scripts/fetch-external.sh
 
-# ---- operational store (PostgreSQL 18; ADR-0112, docs/dev/operational-store.md) ----
+# ---- operational store (PostgreSQL 18; ADR-0114, docs/dev/operational-store.md) ----
 # The URL is PSE_DATABASE_URL, else the default declared once in pse-operations: database
 # `pse` over the local Unix socket with peer authentication, so no credential exists.
 db_default_url := replace_regex(read("crates/pse-operations/src/store.rs"), '(?s)^.*\npub const DEFAULT_DATABASE_URL: &str = "([^"]*)";.*$', '$1')
@@ -115,15 +115,16 @@ db-bootstrap:
     SELECT format('ALTER DATABASE %I OWNER TO %I', :'db', :'role') \gexec
     SQL
     psql -X -h "$socket" -d pse -Atc "SELECT 'connected to ' || current_database() || ' as ' || current_user || ', PostgreSQL ' || current_setting('server_version')"
-    echo "next: just db-migrate"
+    echo "next: just db-status"
 
 [group('env')]
-[doc('Apply the embedded pse_ops migrations to the operational store')]
-db-migrate:
-    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} migrate
+[doc('Drop the pse_ops schema with everything in it and recreate it from the generated schema; its data is regenerable (ADR-0114)')]
+[confirm('Drop and recreate pse_ops in the operational store? Every attempt, job, stream, solution and catalog row is lost.')]
+db-reset:
+    cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} reset
 
 [group('env')]
-[doc('Operational store: server version (>= 18), reachability and pending migrations; exits 1 unless current')]
+[doc('Operational store: server version (>= 18), reachability and schema fingerprint; exits 1 when another build created the schema')]
 db-status:
     cargo run --quiet --locked -p pse-operations --bin pse-ops -- --url {{ quote(db_url) }} status
 
@@ -282,6 +283,11 @@ codegen-python-check:
 [group('local')]
 codegen-docs-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only docs --check
+
+[group('local')]
+[doc('The operational store schema, Cornucopia mapping and fingerprint match a fresh regeneration')]
+codegen-postgres-check:
+    cargo run -p xtask --no-default-features --locked -- codegen --only postgres --check
 
 [group('local')]
 codegen-bindgen-check:
@@ -857,6 +863,7 @@ codegen-contracts:
     cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
     cargo run -p xtask --no-default-features --locked -- codegen --only python
     cargo run -p xtask --no-default-features --locked -- codegen --only docs
+    cargo run -p xtask --no-default-features --locked -- codegen --only postgres
 
 [group('mutating')]
 [doc('Regenerate concrete invariant fixtures from the declared typed contracts')]

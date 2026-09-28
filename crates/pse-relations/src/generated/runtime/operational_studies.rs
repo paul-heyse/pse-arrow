@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    44u8, 156u8, 50u8, 44u8, 187u8, 128u8, 250u8, 30u8, 235u8, 34u8, 131u8, 135u8, 122u8,
-    192u8, 99u8, 249u8, 96u8, 212u8, 209u8, 205u8, 2u8, 140u8, 63u8, 192u8, 150u8, 228u8,
-    180u8, 3u8, 250u8, 66u8, 9u8, 131u8,
+    158u8, 97u8, 70u8, 55u8, 30u8, 23u8, 99u8, 214u8, 243u8, 73u8, 35u8, 186u8, 186u8,
+    235u8, 255u8, 170u8, 225u8, 33u8, 100u8, 179u8, 117u8, 31u8, 253u8, 112u8, 84u8,
+    31u8, 151u8, 198u8, 42u8, 146u8, 41u8, 2u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalStudiesRow {
     fn append(
@@ -59,7 +59,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalStudiesRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::StudyId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -78,7 +78,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalStudiesRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#study_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#study_id: <crate::generated::identities::StudyId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -279,8 +279,8 @@ pub struct RuntimeOperationalStudiesView<'a> {
     study_id_column: &'a arrow_array::FixedSizeBinaryArray,
     definition_column: &'a arrow_array::StringArray,
     state_column: &'a arrow_array::StringArray,
-    created_at_column: &'a arrow_array::TimestampNanosecondArray,
-    updated_at_column: &'a arrow_array::TimestampNanosecondArray,
+    created_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    updated_at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalStudiesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -330,10 +330,10 @@ impl<'a> RuntimeOperationalStudiesView<'a> {
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
             created_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(3usize).as_ref())?,
             updated_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(4usize).as_ref())?,
         })
     }
@@ -390,7 +390,7 @@ impl<'a> RuntimeOperationalStudiesView<'a> {
         "created_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn created_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn created_at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.created_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "created_at", "`.")]
@@ -402,7 +402,7 @@ impl<'a> RuntimeOperationalStudiesView<'a> {
         "updated_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn updated_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn updated_at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.updated_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "updated_at", "`.")]

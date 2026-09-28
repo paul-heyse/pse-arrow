@@ -1,25 +1,23 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! The store handle: a connection pool plus the embedded migrator.
+//! The store handle: a connection pool. Schema creation is `Store::open` (`schema.rs`).
 
 use std::str::FromStr;
 use std::time::Duration;
 
-use sqlx::migrate::Migrate;
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
 
-use crate::MIGRATOR;
 use crate::error::{Classify, OperationsError, Target};
 
-/// The environment variable naming the operational store (ADR-0112 Outcome 20).
+/// The environment variable naming the operational store (ADR-0114 Outcome 21).
 pub const DATABASE_URL_ENV: &str = "PSE_DATABASE_URL";
 
 /// The development default: database `pse` over the local Unix socket with peer
 /// authentication, so no credential exists anywhere (`docs/dev/operational-store.md`).
 pub const DEFAULT_DATABASE_URL: &str = "postgres:///pse?host=/var/run/postgresql";
 
-/// The oldest supported server, as `server_version_num` (PostgreSQL 18: `uuidv7()`).
+/// The oldest supported server, as `server_version_num` (ADR-0114 Outcome 21).
 pub const MINIMUM_SERVER_VERSION: i32 = 180_000;
 
 /// `PSE_DATABASE_URL`, or the development default when it is unset or empty.
@@ -68,31 +66,6 @@ impl ServerInfo {
     }
 }
 
-/// Embedded migrations compared with what the database recorded.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct MigrationStatus {
-    /// Embedded migrations the database has applied with the same checksum.
-    pub applied: Vec<i64>,
-    /// Embedded migrations not yet applied, with their descriptions.
-    pub pending: Vec<(i64, String)>,
-    /// Applied migrations whose embedded checksum differs: an edited migration.
-    pub mismatched: Vec<i64>,
-    /// Applied migrations this build does not embed: a newer schema than this build.
-    pub unknown: Vec<i64>,
-    /// A migration that failed part way, if any.
-    pub dirty: Option<i64>,
-}
-
-impl MigrationStatus {
-    /// Nothing pending, edited, unknown or dirty.
-    pub const fn is_current(&self) -> bool {
-        self.pending.is_empty()
-            && self.mismatched.is_empty()
-            && self.unknown.is_empty()
-            && self.dirty.is_none()
-    }
-}
-
 /// A handle on the operational store. Cheap to clone; clones share the pool.
 #[derive(Clone, Debug)]
 pub struct Store {
@@ -101,7 +74,8 @@ pub struct Store {
 }
 
 impl Store {
-    /// Connect with default [`StoreOptions`] and verify the server version.
+    /// Connect with default [`StoreOptions`] and verify the server version. No schema
+    /// work happens here: [`Store::open`] creates or checks the schema.
     ///
     /// # Errors
     ///
@@ -184,75 +158,6 @@ impl Store {
             version_num,
             version,
         })
-    }
-
-    /// Apply every pending embedded migration. Concurrent callers serialize on the
-    /// migrator's advisory lock.
-    ///
-    /// # Errors
-    ///
-    /// [`OperationsError::Migration`] when a migration fails or an applied one was edited.
-    pub async fn migrate(&self) -> Result<(), OperationsError> {
-        MIGRATOR
-            .run(&self.pool)
-            .await
-            .map_err(|source| OperationsError::Migration {
-                target: self.target.clone(),
-                source,
-            })
-    }
-
-    /// Compare the embedded migrations with the database without changing it.
-    ///
-    /// # Errors
-    ///
-    /// Classified driver failures and [`OperationsError::Migration`].
-    pub async fn migration_status(&self) -> Result<MigrationStatus, OperationsError> {
-        let table = MIGRATOR.table_name.as_ref();
-        let mut conn = self.pool.acquire().await.classify(&self.target)?;
-        let exists: bool = sqlx::query_scalar("SELECT to_regclass($1) IS NOT NULL")
-            .bind(table)
-            .fetch_one(&mut *conn)
-            .await
-            .classify(&self.target)?;
-        let migration_error = |source| OperationsError::Migration {
-            target: self.target.clone(),
-            source,
-        };
-        let (recorded, dirty) = if exists {
-            let dirty = conn.dirty_version(table).await.map_err(migration_error)?;
-            let recorded = conn
-                .list_applied_migrations(table)
-                .await
-                .map_err(migration_error)?;
-            (recorded, dirty)
-        } else {
-            (Vec::new(), None)
-        };
-        let mut status = MigrationStatus {
-            dirty,
-            ..MigrationStatus::default()
-        };
-        for migration in MIGRATOR
-            .iter()
-            .filter(|m| !m.migration_type.is_down_migration())
-        {
-            match recorded.iter().find(|r| r.version == migration.version) {
-                Some(applied) if applied.checksum == migration.checksum => {
-                    status.applied.push(migration.version);
-                }
-                Some(_) => status.mismatched.push(migration.version),
-                None => status
-                    .pending
-                    .push((migration.version, migration.description.to_string())),
-            }
-        }
-        status.unknown = recorded
-            .iter()
-            .map(|r| r.version)
-            .filter(|version| !MIGRATOR.version_exists(*version))
-            .collect();
-        Ok(status)
     }
 
     /// Attempts and their lifecycle.

@@ -26,13 +26,15 @@ pub(crate) mod contracts;
 pub mod enums;
 /// Composite extension storage values.
 pub mod extension_values;
+/// Typed entity ids and their Arrow codecs.
+pub mod identities;
 /// Enforced algorithm argument projections.
 pub mod algorithm_arguments;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    41u8, 62u8, 252u8, 14u8, 33u8, 8u8, 55u8, 155u8, 81u8, 173u8, 138u8, 96u8, 88u8,
-    64u8, 117u8, 143u8, 86u8, 112u8, 247u8, 109u8, 167u8, 196u8, 211u8, 217u8, 30u8,
-    246u8, 103u8, 152u8, 117u8, 92u8, 241u8, 64u8,
+    37u8, 246u8, 209u8, 123u8, 96u8, 239u8, 81u8, 90u8, 13u8, 32u8, 238u8, 115u8, 97u8,
+    118u8, 12u8, 88u8, 5u8, 150u8, 119u8, 47u8, 187u8, 111u8, 106u8, 41u8, 95u8, 123u8,
+    196u8, 48u8, 15u8, 211u8, 173u8, 74u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors

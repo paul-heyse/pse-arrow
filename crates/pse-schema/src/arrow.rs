@@ -45,6 +45,11 @@ pub const KEY_ROLE: &str = "pse.semantic.role";
 pub const KEY_FK: &str = "pse.semantic.fk";
 /// `pse.semantic.enum`: the enumeration identity as 32 lowercase hexadecimal digits.
 pub const KEY_ENUM: &str = "pse.semantic.enum";
+/// `pse.semantic.identity`: the entity identity a column carries, as 32 lowercase
+/// hexadecimal digits of `named_id(REGISTRY_PACKAGE_ID, "identity:<name>")` (ADR-0115).
+pub const KEY_IDENTITY: &str = "pse.semantic.identity";
+/// `pse.semantic.document`: the document format of a document column (`json`).
+pub const KEY_DOCUMENT: &str = "pse.semantic.document";
 /// Versioned native row-key encoding, distinct from an ordinary content hash.
 pub const KEY_ROW_KEY_ENCODING: &str = "pse.semantic.key_encoding";
 /// `ARROW:extension:name`, Arrow's canonical extension key.
@@ -220,6 +225,15 @@ fn bind_field(reg: &Registry, field: &Field, path: &str) -> Result<Field, Schema
     if let Some(fk) = contract.fk() {
         semantic.insert(KEY_FK.to_owned(), fk.to_string());
     }
+    if let Some(identity) = contract.identity() {
+        semantic.insert(
+            KEY_IDENTITY.to_owned(),
+            crate::builder::registry_id(&format!("identity:{identity}")).to_hex(),
+        );
+    }
+    if let Some(format) = contract.document() {
+        semantic.insert(KEY_DOCUMENT.to_owned(), format.to_owned());
+    }
     for (key, value) in &semantic {
         if metadata.get(key).is_some_and(|existing| existing != value) {
             return Err(crate::checks::invalid(
@@ -228,7 +242,7 @@ fn bind_field(reg: &Registry, field: &Field, path: &str) -> Result<Field, Schema
             ));
         }
     }
-    for key in [KEY_ENUM, KEY_QUANTITY_TYPE, KEY_FK] {
+    for key in [KEY_ENUM, KEY_QUANTITY_TYPE, KEY_FK, KEY_IDENTITY, KEY_DOCUMENT] {
         if metadata.contains_key(key) && !semantic.contains_key(key) {
             return Err(crate::checks::invalid(
                 path,

@@ -16,6 +16,8 @@ pub mod domain;
 pub mod forms;
 /// Resolved numerical meaning, independent of native solver implementations.
 pub mod numerics;
+#[cfg(all(test, feature = "postgres"))]
+mod postgres_tests;
 /// An invalid declared semantic enum member.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ModelError {

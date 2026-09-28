@@ -33,9 +33,25 @@ pub(super) fn relation_version(
     version: u32,
     class: SnapshotClass,
     keys: &[&'static str],
-    mut columns: Vec<FieldContract>,
+    columns: Vec<FieldContract>,
     doc: &'static str,
 ) {
+    builder.declare_relation(declaration(
+        namespace, name, version, class, keys, columns, doc,
+    ));
+}
+
+/// The declaration [`relation_version`] declares, for callers that add keys, references
+/// or checks before declaring it.
+pub(super) fn declaration(
+    namespace: Namespace,
+    name: &'static str,
+    version: u32,
+    class: SnapshotClass,
+    keys: &[&'static str],
+    mut columns: Vec<FieldContract>,
+    doc: &'static str,
+) -> RelationDecl {
     let authority = match namespace {
         Namespace::Authored => Authority::Authored,
         Namespace::Reference => Authority::Reference,
@@ -53,7 +69,12 @@ pub(super) fn relation_version(
     if authority == Authority::Derived {
         declaration = declaration.granularity(DerivationGranularity::Row);
     }
-    builder.declare_relation(declaration);
+    declaration
+}
+
+/// Declare an entity identity; its columns carry it with `with_identity` (ADR-0115).
+pub(super) fn identity(builder: &mut RegistryBuilder, name: &'static str, doc: &'static str) {
+    builder.declare_identity(crate::model::IdentityDecl::new(name, doc));
 }
 
 pub(super) fn column(name: &'static str, logical_type: FieldContract) -> FieldContract {

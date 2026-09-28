@@ -1,0 +1,28 @@
+{
+  "invariant": "reference.schema_identities:unique:pk",
+  "rows": {
+    "reference.schema_identities": [
+      {
+        "base_logical_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "identity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "owner_column": "[\"text\",\"value-1\"]",
+        "owner_relation_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "base_logical_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "identity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "owner_column": "[\"text\",\"value-1\"]",
+        "owner_relation_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

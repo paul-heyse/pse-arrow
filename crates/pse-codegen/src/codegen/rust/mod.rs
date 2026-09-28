@@ -8,7 +8,9 @@ mod arguments;
 mod columnar;
 mod contracts;
 mod enums;
+pub(crate) mod identities;
 pub mod physical;
+mod postgres;
 mod relation;
 mod semantic;
 pub(crate) mod types;
@@ -93,6 +95,8 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub mod enums;
             /// Composite extension storage values.
             pub mod extension_values;
+            /// Typed entity ids and their Arrow codecs.
+            pub mod identities;
             /// Enforced algorithm argument projections.
             pub mod algorithm_arguments;
             /// Registry identity; validity is established by admission.
@@ -148,6 +152,9 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     )?;
     semantic::split(&mut tree, reg)?;
     semantic::facts(&mut tree, reg)?;
+    // After the split: typed ids are declared in pse-model and only re-exported here.
+    identities::emit(&mut tree, reg)?;
+    postgres::emit(&mut tree, reg)?;
     Ok(tree)
 }
 

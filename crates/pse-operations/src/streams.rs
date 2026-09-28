@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Live progress and incumbent streams, inserted in typed `UNNEST` batches
-//! (ADR-0112 Outcome 17). Rows are keyed by (attempt, sequence) as the producer numbers
+//! (ADR-0114 Outcome 17). Rows are keyed by (attempt, sequence) as the producer numbers
 //! them, so a re-sent batch is idempotent. Progress values are typed columns in the
 //! `runtime.solve_metrics` value vocabulary, so every number round-trips exactly. Streams
 //! are bounded by a retention policy over finished attempts, not by an event cap.
@@ -245,7 +245,8 @@ impl<'s> Streams<'s> {
             sqlx::query(
                 "INSERT INTO pse_ops.progress_values \
                      (attempt_id, seq, name, kind, \"real\", \"integer\", \"boolean\", \"text\", unavailable) \
-                 SELECT $1, v.seq, v.name, v.kind, v.r, v.i, v.b, v.t, v.u \
+                 SELECT $1, v.seq, v.name, v.kind::pse_ops.native_metric_kind, v.r, v.i, v.b, \
+                     v.t, v.u::pse_ops.evidence_unavailable_reason \
                  FROM UNNEST($2::bigint[], $3::text[], $4::text[], $5::float8[], $6::bigint[], \
                              $7::boolean[], $8::text[], $9::text[]) \
                      AS v (seq, name, kind, r, i, b, t, u)",
@@ -308,7 +309,8 @@ impl<'s> Streams<'s> {
             .classify(target)?;
         if let (Some(first), Some(last)) = (events.first(), events.last()) {
             let values = sqlx::query(
-                "SELECT seq, name, kind, \"real\", \"integer\", \"boolean\", \"text\", unavailable \
+                "SELECT seq, name, kind::text AS kind, \"real\", \"integer\", \"boolean\", \"text\", \
+                     unavailable::text AS unavailable \
                  FROM pse_ops.progress_values \
                  WHERE attempt_id = $1 AND seq BETWEEN $2 AND $3 ORDER BY seq, name",
             )
@@ -366,6 +368,16 @@ impl<'s> Streams<'s> {
         let target = self.target();
         let mut tx = self.store.pool().begin().await.classify(target)?;
         let age = codec::interval(policy.finished_for);
+        // Deletes are explicit (no cascade): an event's values go before the event.
+        sqlx::query(
+            "DELETE FROM pse_ops.progress_values AS v USING pse_ops.attempts AS a \
+             WHERE v.attempt_id = a.attempt_id AND a.finished_at IS NOT NULL \
+               AND a.finished_at < now() - $1",
+        )
+        .bind(age)
+        .execute(&mut *tx)
+        .await
+        .classify(target)?;
         let removed = sqlx::query(
             "DELETE FROM pse_ops.progress_events AS e USING pse_ops.attempts AS a \
              WHERE e.attempt_id = a.attempt_id AND a.finished_at IS NOT NULL \
@@ -475,7 +487,7 @@ impl Store {
     }
 }
 
-/// Follows one attempt's progress stream as it is written (ADR-0112 Outcome 17).
+/// Follows one attempt's progress stream as it is written (ADR-0114 Outcome 17).
 #[derive(Debug)]
 pub struct ProgressWatcher {
     listener: sqlx::postgres::PgListener,

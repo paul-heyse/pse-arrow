@@ -121,6 +121,29 @@ fn columns(reg: &Registry, name: &str) -> Result<Vec<ArrayRef>, SchemaError> {
     Ok(match name {
         "reference.schema_relations" => relations(reg)?,
         "reference.schema_columns" => fields(reg)?,
+        "reference.schema_identities" => vec![
+            ids(reg.identities.iter().map(|r| Some(r.id)))?,
+            text(reg.identities.iter().map(|r| Some(r.name))),
+            text(reg.identities.iter().map(|r| Some(r.doc))),
+            ids(reg
+                .identities
+                .iter()
+                .map(|r| {
+                    reg.logical_type(r.base.logical_type())
+                        .map(|row| Some(row.id))
+                        .ok_or_else(|| invalid("missing identity base logical type"))
+                })
+                .collect::<Result<Vec<_>, _>>()?)?,
+            ids(reg
+                .identities
+                .iter()
+                .map(|r| r.owner.as_ref().map(|owner| owner.relation_id)))?,
+            text(
+                reg.identities
+                    .iter()
+                    .map(|r| r.owner.as_ref().map(|owner| owner.column.as_str())),
+            ),
+        ],
         "reference.schema_logical_types" => vec![
             ids(reg.logical_types.iter().map(|r| Some(r.id)))?,
             text(reg.logical_types.iter().map(|r| Some(r.name.as_str()))),
@@ -299,7 +322,63 @@ fn relations(reg: &Registry) -> Result<Vec<ArrayRef>, SchemaError> {
                 ),
             ])?,
         )?,
+        unique_keys(rows)?,
+        foreign_keys(reg, rows)?,
     ])
+}
+fn unique_keys(rows: &[RelationSpec]) -> Result<ArrayRef, SchemaError> {
+    let keys = rows.iter().flat_map(|r| &r.unique_keys).collect::<Vec<_>>();
+    list(
+        rows.iter().map(|r| r.unique_keys.len()),
+        structure(vec![
+            ("name", text(keys.iter().map(|k| Some(k.name)))),
+            (
+                "columns",
+                list(
+                    keys.iter().map(|k| k.columns.len()),
+                    text(keys.iter().flat_map(|k| k.columns.iter().copied().map(Some))),
+                )?,
+            ),
+        ])?,
+    )
+}
+fn foreign_keys(reg: &Registry, rows: &[RelationSpec]) -> Result<ArrayRef, SchemaError> {
+    let references = rows.iter().flat_map(|r| &r.foreign_keys).collect::<Vec<_>>();
+    list(
+        rows.iter().map(|r| r.foreign_keys.len()),
+        structure(vec![
+            ("name", text(references.iter().map(|k| Some(k.name)))),
+            (
+                "columns",
+                list(
+                    references.iter().map(|k| k.columns.len()),
+                    text(
+                        references
+                            .iter()
+                            .flat_map(|k| k.columns.iter().copied().map(Some)),
+                    ),
+                )?,
+            ),
+            (
+                "target_relation_id",
+                ids(references
+                    .iter()
+                    .map(|k| target(reg, k.target).map(Some))
+                    .collect::<Result<Vec<_>, _>>()?)?,
+            ),
+            (
+                "target_columns",
+                list(
+                    references.iter().map(|k| k.target_columns.len()),
+                    text(
+                        references
+                            .iter()
+                            .flat_map(|k| k.target_columns.iter().copied().map(Some)),
+                    ),
+                )?,
+            ),
+        ])?,
+    )
 }
 fn fields(reg: &Registry) -> Result<Vec<ArrayRef>, SchemaError> {
     let rows = reg
@@ -335,6 +414,11 @@ fn fields(reg: &Registry) -> Result<Vec<ArrayRef>, SchemaError> {
                 .map(|(_, _, c)| c.canonical_json().map(Some))
                 .collect::<Result<Vec<_>, _>>()?,
         ),
+        ids(rows.iter().map(|(_, _, c)| {
+            c.identity()
+                .and_then(|name| reg.identity(name))
+                .map(|identity| identity.id)
+        }))?,
     ])
 }
 fn algorithms(reg: &Registry) -> Result<Vec<ArrayRef>, SchemaError> {

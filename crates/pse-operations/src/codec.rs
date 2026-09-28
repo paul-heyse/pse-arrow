@@ -15,7 +15,7 @@ use sqlx::Row;
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 
-/// Mint a new identity on the runtime's `UUIDv7` path (ADR-0112 Outcome 13).
+/// Mint a new identity on the runtime's `UUIDv7` path (ADR-0114 Outcome 13).
 pub fn mint_id() -> SemanticId {
     SemanticId::from_bytes(*Uuid::now_v7().as_bytes())
 }

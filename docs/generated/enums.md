@@ -1022,6 +1022,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `ideal_gas_at_conditions` | `` | false |
 | `custom` | `` | false |
 
+## `RetentionPhase`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `expiring` | `` | false |
+| `deleted` | `` | false |
+
 ## `RetentionReason`
 
 | Member | IDAES name | Deprecated |
@@ -1031,12 +1038,29 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `attempt` | `` | false |
 | `changes` | `` | false |
 
+## `RuntimeTermination`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `cancelled` | `` | false |
+| `infrastructure` | `` | false |
+| `unattempted` | `` | false |
+| `constant_evaluation` | `` | false |
+| `unassessed` | `` | false |
+
 ## `ScaleKind`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `point` | `` | false |
 | `difference` | `` | false |
+
+## `SettlementOutcome`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `committed` | `` | false |
+| `proved_noncommit` | `` | false |
 
 ## `Severity`
 
@@ -1095,6 +1119,16 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `preserve` | `` | false |
 | `require_equal` | `` | false |
 | `declared_result` | `` | false |
+
+## `TerminationClass`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `native` | `` | false |
+| `run_state` | `` | false |
+| `trajectory` | `` | false |
+| `runtime` | `` | false |
+| `rule` | `` | false |
 
 ## `TimeCoordinateKind`
 

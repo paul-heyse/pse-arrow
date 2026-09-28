@@ -15,7 +15,10 @@ use crate::codec;
 use crate::error::{Classify, OperationsError, Target};
 use crate::lifecycle::{self, AttemptState, Lifecycle};
 use crate::store::Store;
-pub use pse_model::generated::enums::AttemptKind;
+pub use pse_model::generated::enums::{
+    AttemptKind, NativeRunState, NativeTermination, RuntimeTermination, TerminationClass,
+    TrajectoryTermination,
+};
 pub use pse_model::generated::runtime::operational_attempts::RuntimeOperationalAttemptsRow;
 
 /// An attempt registered before any effect; the runtime mints its identity.
@@ -35,11 +38,91 @@ pub struct NewAttempt {
     pub parent_attempt: Option<SemanticId>,
 }
 
-/// A typed termination: the registry spelling of the outcome plus optional detail.
+/// Why work ended: exactly one typed termination, selected by its [`TerminationClass`]
+/// (Plan 22 X4). Each class is its own stored column; no outcome is a free string.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TerminationCode {
+    /// The last native solver termination.
+    Native(NativeTermination),
+    /// The last run state, when no native termination was reported.
+    RunState(NativeRunState),
+    /// A trajectory's termination.
+    Trajectory(TrajectoryTermination),
+    /// An outcome the durable runtime owns (cancellation, infrastructure, ...).
+    Runtime(RuntimeTermination),
+    /// A violated named rule or a diagnostic code, by its registry spelling.
+    Rule(String),
+}
+
+impl TerminationCode {
+    /// The class selecting this termination's column.
+    pub const fn class(&self) -> TerminationClass {
+        match self {
+            Self::Native(_) => TerminationClass::Native,
+            Self::RunState(_) => TerminationClass::RunState,
+            Self::Trajectory(_) => TerminationClass::Trajectory,
+            Self::Runtime(_) => TerminationClass::Runtime,
+            Self::Rule(_) => TerminationClass::Rule,
+        }
+    }
+
+    /// The registry spelling of the carried value.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Native(value) => value.as_str(),
+            Self::RunState(value) => value.as_str(),
+            Self::Trajectory(value) => value.as_str(),
+            Self::Runtime(value) => value.as_str(),
+            Self::Rule(value) => value,
+        }
+    }
+
+    const fn native(&self) -> Option<NativeTermination> {
+        if let Self::Native(value) = self {
+            Some(*value)
+        } else {
+            None
+        }
+    }
+
+    const fn run_state(&self) -> Option<NativeRunState> {
+        if let Self::RunState(value) = self {
+            Some(*value)
+        } else {
+            None
+        }
+    }
+
+    const fn trajectory(&self) -> Option<TrajectoryTermination> {
+        if let Self::Trajectory(value) = self {
+            Some(*value)
+        } else {
+            None
+        }
+    }
+
+    const fn runtime(&self) -> Option<RuntimeTermination> {
+        if let Self::Runtime(value) = self {
+            Some(*value)
+        } else {
+            None
+        }
+    }
+
+    fn rule(&self) -> Option<&str> {
+        if let Self::Rule(value) = self {
+            Some(value)
+        } else {
+            None
+        }
+    }
+}
+
+/// A typed termination with its optional structured detail.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Termination {
-    /// The termination tag or diagnostic code, as its registry spelling.
-    pub code: String,
+    /// The typed termination.
+    pub code: TerminationCode,
     /// Structured detail, versioned by its producer.
     pub detail: Option<serde_json::Value>,
 }
@@ -122,9 +205,26 @@ pub struct AttemptRecord {
 
 impl FromRow<'_, PgRow> for AttemptRecord {
     fn from_row(row: &PgRow) -> Result<Self, sqlx::Error> {
-        let termination = row
-            .try_get::<Option<String>, _>("termination")?
-            .map(|code| -> Result<Termination, sqlx::Error> {
+        let termination = codec::opt_parsed::<TerminationClass>(row, "termination_class")?
+            .map(|class| -> Result<Termination, sqlx::Error> {
+                let code = match class {
+                    TerminationClass::Native => {
+                        TerminationCode::Native(codec::parsed(row, "termination_native")?)
+                    }
+                    TerminationClass::RunState => {
+                        TerminationCode::RunState(codec::parsed(row, "termination_run_state")?)
+                    }
+                    TerminationClass::Trajectory => TerminationCode::Trajectory(codec::parsed(
+                        row,
+                        "termination_trajectory",
+                    )?),
+                    TerminationClass::Runtime => {
+                        TerminationCode::Runtime(codec::parsed(row, "termination_runtime")?)
+                    }
+                    TerminationClass::Rule => {
+                        TerminationCode::Rule(row.try_get("termination_rule")?)
+                    }
+                };
                 Ok(Termination {
                     code,
                     detail: row.try_get("termination_detail")?,
@@ -156,46 +256,42 @@ impl FromRow<'_, PgRow> for AttemptRecord {
 
 impl AttemptRecord {
     /// This attempt as a `runtime.operational_attempts` row, the registry's reading of the
-    /// stored columns: timestamps in UTC nanoseconds and the termination detail as JSON text.
-    ///
-    /// # Errors
-    ///
-    /// [`OperationsError::CorruptValue`] for a timestamp outside the nanosecond range.
-    pub fn row(&self) -> Result<RuntimeOperationalAttemptsRow, OperationsError> {
-        fn at(column: &'static str, value: DateTime<Utc>) -> Result<i64, OperationsError> {
-            value
-                .timestamp_nanos_opt()
-                .ok_or_else(|| OperationsError::CorruptValue {
-                    column,
-                    detail: format!("{value} is outside the nanosecond timestamp range"),
-                })
-        }
-        let opt = |column, value: Option<DateTime<Utc>>| value.map(|v| at(column, v)).transpose();
-        Ok(RuntimeOperationalAttemptsRow {
-            attempt_id: self.attempt_id,
-            run_id: self.run_id,
+    /// stored columns: typed ids, timestamps in UTC microseconds (the store's precision),
+    /// the typed termination columns and the termination detail as JSON text.
+    pub fn row(&self) -> RuntimeOperationalAttemptsRow {
+        let micros = |value: DateTime<Utc>| value.timestamp_micros();
+        let opt = |value: Option<DateTime<Utc>>| value.map(micros);
+        let code = self.termination.as_ref().map(|t| &t.code);
+        RuntimeOperationalAttemptsRow {
+            attempt_id: self.attempt_id.into(),
+            run_id: self.run_id.into(),
             kind: self.kind,
             request_identity: self.request_identity,
             preparation_identity: self.preparation_identity,
             state: self.state,
             state_version: self.state_version,
-            parent_attempt: self.parent_attempt,
+            parent_attempt: self.parent_attempt.map(Into::into),
             worker: self.worker.clone(),
-            lease_expires_at: opt("lease_expires_at", self.lease_expires_at)?,
-            heartbeat_at: opt("heartbeat_at", self.heartbeat_at)?,
+            lease_expires_at: opt(self.lease_expires_at),
+            heartbeat_at: opt(self.heartbeat_at),
             cancel_requested: self.cancel_requested,
-            cancel_requested_at: opt("cancel_requested_at", self.cancel_requested_at)?,
-            termination: self.termination.as_ref().map(|t| t.code.clone()),
+            cancel_requested_at: opt(self.cancel_requested_at),
+            termination_class: code.map(TerminationCode::class),
+            termination_native: code.and_then(TerminationCode::native),
+            termination_run_state: code.and_then(TerminationCode::run_state),
+            termination_trajectory: code.and_then(TerminationCode::trajectory),
+            termination_runtime: code.and_then(TerminationCode::runtime),
+            termination_rule: code.and_then(TerminationCode::rule).map(str::to_owned),
             termination_detail: self
                 .termination
                 .as_ref()
                 .and_then(|t| t.detail.as_ref())
                 .map(ToString::to_string),
-            created_at: at("created_at", self.created_at)?,
-            updated_at: at("updated_at", self.updated_at)?,
-            started_at: opt("started_at", self.started_at)?,
-            finished_at: opt("finished_at", self.finished_at)?,
-        })
+            created_at: micros(self.created_at),
+            updated_at: micros(self.updated_at),
+            started_at: opt(self.started_at),
+            finished_at: opt(self.finished_at),
+        }
     }
 }
 
@@ -264,12 +360,18 @@ pub struct HeartbeatAck {
 }
 
 /// The column list every attempt read selects, as a literal for `concat!`.
+// Enumerations are read as text until the statements take typed values (Plan 22 B2).
 macro_rules! attempt_columns {
     () => {
-        "attempt_id, run_id, kind, request_identity, preparation_identity, state, \
-         state_version, parent_attempt, worker, lease_expires_at, heartbeat_at, \
-         cancel_requested, cancel_requested_at, termination, termination_detail, created_at, \
-         updated_at, started_at, finished_at"
+        "attempt_id, run_id, kind::text AS kind, request_identity, preparation_identity, \
+         state::text AS state, state_version, parent_attempt, worker, lease_expires_at, \
+         heartbeat_at, cancel_requested, cancel_requested_at, \
+         termination_class::text AS termination_class, \
+         termination_native::text AS termination_native, \
+         termination_run_state::text AS termination_run_state, \
+         termination_trajectory::text AS termination_trajectory, \
+         termination_runtime::text AS termination_runtime, termination_rule, \
+         termination_detail, created_at, updated_at, started_at, finished_at"
     };
 }
 
@@ -290,7 +392,7 @@ pub(crate) async fn insert(
     sqlx::query(
         "INSERT INTO pse_ops.attempts \
              (attempt_id, run_id, kind, request_identity, preparation_identity, state, parent_attempt) \
-         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+         VALUES ($1, $2, $3::pse_ops.attempt_kind, $4, $5, $6::pse_ops.attempt_state, $7)",
     )
     .bind(codec::uuid(attempt.attempt_id))
     .bind(codec::uuid(attempt.run_id))
@@ -304,7 +406,7 @@ pub(crate) async fn insert(
     .classify(target)?;
     sqlx::query(
         "INSERT INTO pse_ops.attempt_transitions (attempt_id, seq, from_state, to_state, actor) \
-         VALUES ($1, 0, NULL, $2, $3)",
+         VALUES ($1, 0, NULL, $2::pse_ops.attempt_state, $3)",
     )
     .bind(codec::uuid(attempt.attempt_id))
     .bind(lifecycle::INITIAL.as_str())
@@ -322,7 +424,8 @@ pub(crate) async fn lock_state(
     attempt: SemanticId,
 ) -> Result<(AttemptState, i32), OperationsError> {
     let row = sqlx::query(
-        "SELECT state, state_version FROM pse_ops.attempts WHERE attempt_id = $1 FOR UPDATE",
+        "SELECT state::text AS state, state_version FROM pse_ops.attempts \
+         WHERE attempt_id = $1 FOR UPDATE",
     )
     .bind(codec::uuid(attempt))
     .fetch_optional(&mut *conn)
@@ -357,16 +460,28 @@ pub(crate) async fn apply(
         });
     }
     let next = version + 1;
+    // A termination replaces every termination column at once, keeping the one-of rule.
+    let code = note.termination.as_ref().map(|t| &t.code);
     sqlx::query(
         "UPDATE pse_ops.attempts SET \
-             state = $2, state_version = $3, updated_at = now(), \
+             state = $2::pse_ops.attempt_state, state_version = $3, updated_at = now(), \
              worker = coalesce($4, worker), \
              lease_expires_at = CASE WHEN $4 IS NULL THEN NULL ELSE now() + $5 END, \
              heartbeat_at = CASE WHEN $4 IS NULL THEN heartbeat_at ELSE now() END, \
              started_at = CASE WHEN $4 IS NULL THEN started_at ELSE now() END, \
              finished_at = CASE WHEN $6 THEN coalesce(finished_at, now()) ELSE finished_at END, \
-             termination = coalesce($7, termination), \
-             termination_detail = coalesce($8, termination_detail) \
+             termination_class = CASE WHEN $7 THEN $8::pse_ops.termination_class \
+                 ELSE termination_class END, \
+             termination_native = CASE WHEN $7 THEN $9::pse_ops.native_termination \
+                 ELSE termination_native END, \
+             termination_run_state = CASE WHEN $7 THEN $10::pse_ops.native_run_state \
+                 ELSE termination_run_state END, \
+             termination_trajectory = CASE WHEN $7 THEN $11::pse_ops.trajectory_termination \
+                 ELSE termination_trajectory END, \
+             termination_runtime = CASE WHEN $7 THEN $12::pse_ops.runtime_termination \
+                 ELSE termination_runtime END, \
+             termination_rule = CASE WHEN $7 THEN $13 ELSE termination_rule END, \
+             termination_detail = CASE WHEN $7 THEN $14 ELSE termination_detail END \
          WHERE attempt_id = $1",
     )
     .bind(codec::uuid(attempt))
@@ -375,7 +490,16 @@ pub(crate) async fn apply(
     .bind(lease.map(|lease| lease.worker))
     .bind(lease.map(|lease| codec::interval(lease.duration)))
     .bind(to.ends_work())
-    .bind(note.termination.as_ref().map(|t| t.code.as_str()))
+    .bind(code.is_some())
+    .bind(code.map(|code| code.class().as_str()))
+    .bind(code.and_then(TerminationCode::native).map(NativeTermination::as_str))
+    .bind(code.and_then(TerminationCode::run_state).map(NativeRunState::as_str))
+    .bind(
+        code.and_then(TerminationCode::trajectory)
+            .map(TrajectoryTermination::as_str),
+    )
+    .bind(code.and_then(TerminationCode::runtime).map(RuntimeTermination::as_str))
+    .bind(code.and_then(TerminationCode::rule))
     .bind(note.termination.as_ref().and_then(|t| t.detail.as_ref()))
     .execute(&mut *conn)
     .await
@@ -383,7 +507,7 @@ pub(crate) async fn apply(
     sqlx::query(
         "INSERT INTO pse_ops.attempt_transitions \
              (attempt_id, seq, from_state, to_state, actor, reason) \
-         VALUES ($1, $2, $3, $4, $5, $6)",
+         VALUES ($1, $2, $3::pse_ops.attempt_state, $4::pse_ops.attempt_state, $5, $6)",
     )
     .bind(codec::uuid(attempt))
     .bind(next)
@@ -567,7 +691,8 @@ impl<'s> Attempts<'s> {
         attempt: SemanticId,
     ) -> Result<Vec<TransitionRecord>, OperationsError> {
         sqlx::query_as(
-            "SELECT attempt_id, seq, from_state, to_state, actor, reason, at \
+            "SELECT attempt_id, seq, from_state::text AS from_state, to_state::text AS to_state, \
+                 actor, reason, at \
              FROM pse_ops.attempt_transitions WHERE attempt_id = $1 ORDER BY seq",
         )
         .bind(codec::uuid(attempt))
@@ -597,7 +722,8 @@ impl<'s> Attempts<'s> {
             attempt_columns!(),
             " FROM pse_ops.attempts \
              WHERE ($1::uuid IS NULL OR run_id = $1) \
-               AND (cardinality($2::text[]) = 0 OR state = ANY($2::text[])) \
+               AND (cardinality($2::text[]) = 0 \
+                    OR state = ANY($2::text[]::pse_ops.attempt_state[])) \
              ORDER BY created_at DESC, attempt_id DESC LIMIT $3"
         ))
         .bind(filter.run.map(codec::uuid))

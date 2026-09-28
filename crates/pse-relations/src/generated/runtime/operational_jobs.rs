@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    59u8, 27u8, 62u8, 112u8, 69u8, 110u8, 3u8, 77u8, 148u8, 173u8, 180u8, 88u8, 199u8,
-    236u8, 168u8, 19u8, 139u8, 49u8, 181u8, 202u8, 81u8, 178u8, 161u8, 207u8, 95u8,
-    210u8, 112u8, 205u8, 94u8, 230u8, 34u8, 231u8,
+    76u8, 243u8, 35u8, 139u8, 145u8, 192u8, 168u8, 54u8, 128u8, 75u8, 246u8, 63u8, 224u8,
+    81u8, 222u8, 95u8, 77u8, 171u8, 194u8, 174u8, 172u8, 201u8, 187u8, 96u8, 51u8, 77u8,
+    167u8, 27u8, 238u8, 208u8, 95u8, 215u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalJobsRow {
     fn append(
@@ -90,10 +90,10 @@ impl crate::columnar::ArrowValue for RuntimeOperationalJobsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::JobId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -123,11 +123,11 @@ impl crate::columnar::ArrowValue for RuntimeOperationalJobsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#job_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#job_id: <crate::generated::identities::JobId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#attempt_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#attempt_id: <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -522,9 +522,9 @@ pub struct RuntimeOperationalJobsView<'a> {
     max_tries_column: &'a arrow_array::Int32Array,
     backoff_base_us_column: &'a arrow_array::Int64Array,
     backoff_cap_us_column: &'a arrow_array::Int64Array,
-    available_at_column: &'a arrow_array::TimestampNanosecondArray,
-    enqueued_at_column: &'a arrow_array::TimestampNanosecondArray,
-    updated_at_column: &'a arrow_array::TimestampNanosecondArray,
+    available_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    enqueued_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    updated_at_column: &'a arrow_array::TimestampMicrosecondArray,
     last_error_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeOperationalJobsView<'a> {
@@ -599,13 +599,13 @@ impl<'a> RuntimeOperationalJobsView<'a> {
                 arrow_array::Int64Array,
             >(batch.column(10usize).as_ref())?,
             available_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(11usize).as_ref())?,
             enqueued_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(12usize).as_ref())?,
             updated_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(13usize).as_ref())?,
             last_error_column: crate::columnar::array::<
                 arrow_array::StringArray,
@@ -763,7 +763,7 @@ impl<'a> RuntimeOperationalJobsView<'a> {
     )]
     pub const fn available_at_column(
         &self,
-    ) -> &'a arrow_array::TimestampNanosecondArray {
+    ) -> &'a arrow_array::TimestampMicrosecondArray {
         self.available_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "available_at", "`.")]
@@ -775,7 +775,9 @@ impl<'a> RuntimeOperationalJobsView<'a> {
         "enqueued_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn enqueued_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn enqueued_at_column(
+        &self,
+    ) -> &'a arrow_array::TimestampMicrosecondArray {
         self.enqueued_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "enqueued_at", "`.")]
@@ -787,7 +789,7 @@ impl<'a> RuntimeOperationalJobsView<'a> {
         "updated_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn updated_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn updated_at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.updated_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "updated_at", "`.")]

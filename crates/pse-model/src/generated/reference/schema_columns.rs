@@ -31,6 +31,8 @@ pub struct ReferenceSchemaColumnsRow {
     pub r#doc: String,
     ///Complete canonical Arrow field declaration, including every nested domain facet and metadata entry.
     pub r#native_field: String,
+    ///The entity identity the column carries, declared or inherited through its reference.
+    pub r#identity_id: Option<pse_ids::SemanticId>,
 }
 impl crate::SemanticEq for ReferenceSchemaColumnsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -55,6 +57,7 @@ impl crate::SemanticEq for ReferenceSchemaColumnsRow {
                 &self.r#native_field,
                 &other.r#native_field,
             )
+            && crate::SemanticEq::semantic_eq(&self.r#identity_id, &other.r#identity_id)
     }
 }
 impl PartialEq for ReferenceSchemaColumnsRow {
@@ -88,6 +91,8 @@ impl crate::SemanticFrame for ReferenceSchemaColumnsRow {
         crate::SemanticFrame::frame(&self.r#doc, hash);
         hash.str(stringify!(r#native_field));
         crate::SemanticFrame::frame(&self.r#native_field, hash);
+        hash.str(stringify!(r#identity_id));
+        crate::SemanticFrame::frame(&self.r#identity_id, hash);
     }
 }
 impl crate::HeapUsage for ReferenceSchemaColumnsRow {
@@ -104,5 +109,6 @@ impl crate::HeapUsage for ReferenceSchemaColumnsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#role))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#native_field))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#identity_id))
     }
 }

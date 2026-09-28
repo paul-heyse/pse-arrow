@@ -1,0 +1,29 @@
+{
+  "invariant": "runtime.operational_reader_leases:foreign_key:publication_id",
+  "rows": {
+    "runtime.operational_publications": [
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "committed_at": "[\"i64\",1]",
+        "parent_publication": "[\"id\",\"01010101010101010101010101010101\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "workspace_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "runtime.operational_reader_leases": [
+      {
+        "acquired_at": "[\"i64\",1]",
+        "expires_at": "[\"i64\",1]",
+        "holder": "[\"text\",\"value-1\"]",
+        "lease_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "publication_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "released_at": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

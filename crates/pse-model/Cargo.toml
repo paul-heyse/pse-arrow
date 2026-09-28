@@ -23,3 +23,10 @@ pse-diagnostics.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+postgres-types = { workspace = true, optional = true }
+postgres-protocol = { workspace = true, optional = true }
+
+[features]
+# PostgreSQL values of the operational store's registry enums and typed ids
+# (ADR-0114 Outcome 25); only the store's query crate enables it.
+postgres = ["pse-ids/postgres", "dep:postgres-types", "dep:postgres-protocol"]

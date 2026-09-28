@@ -114,3 +114,7 @@ pse:row-key:native-values:v2
 pse:settings:v1
 pse:typed-facts:v1
 pse:typed-row-key:v1
+#
+# Added after the capture, each registered deliberately with its packet:
+# Plan 22 B1 (ADR-0114 Outcome 23), the operational store's schema fingerprint.
+pse.ops.schema.v1

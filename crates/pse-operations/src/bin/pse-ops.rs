@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! `pse-ops`: apply and inspect the embedded operational-store migrations.
+//! `pse-ops`: inspect the operational store, or reset its schema.
 //!
-//! The `just db-migrate` and `just db-status` recipes run it. The connection comes from
+//! The `just db-status` and `just db-reset` recipes run it. The connection comes from
 //! `--url`, else `PSE_DATABASE_URL`, else the local-socket development default.
 
 #![allow(
@@ -15,9 +15,9 @@
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use pse_operations::{OperationsError, Store, database_url_from_env};
+use pse_operations::{Opened, OperationsError, SchemaStatus, Store, database_url_from_env};
 
-/// Operational store administration (ADR-0112).
+/// Operational store administration (ADR-0114).
 #[derive(Debug, Parser)]
 #[command(name = "pse-ops", version)]
 struct Cli {
@@ -30,16 +30,17 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Apply every pending embedded migration.
-    Migrate,
-    /// Report the server version, the connection target and pending migrations; exits 1
-    /// unless the server is supported and the schema is current.
+    /// Report the server version, the connection target and the schema fingerprint; exits
+    /// 1 when the server is unsupported or the schema records another fingerprint.
     Status,
+    /// Drop the `pse_ops` schema with everything in it and create it from this build's
+    /// generated DDL. Destructive: the store holds regenerable data only.
+    Reset,
 }
 
 async fn status(store: &Store) -> Result<bool, OperationsError> {
     let server = store.server().await?;
-    let migrations = store.migration_status().await?;
+    let schema = store.schema_status().await?;
     println!("target:     {}", store.target());
     println!(
         "server:     PostgreSQL {} ({})",
@@ -50,44 +51,45 @@ async fn status(store: &Store) -> Result<bool, OperationsError> {
             "unsupported; 18 or newer is required"
         }
     );
-    println!(
-        "migrations: {} applied, {} pending",
-        migrations.applied.len(),
-        migrations.pending.len()
-    );
-    for (version, description) in &migrations.pending {
-        println!("  pending    {version} {description}");
-    }
-    for version in &migrations.mismatched {
-        println!("  EDITED     {version}: the applied checksum differs from the embedded one");
-    }
-    for version in &migrations.unknown {
-        println!("  UNKNOWN    {version}: applied, but not embedded in this build");
-    }
-    if let Some(version) = migrations.dirty {
-        println!("  DIRTY      {version}: a migration failed part way");
-    }
-    if !migrations.pending.is_empty() {
-        println!("run `just db-migrate` to apply pending migrations");
-    }
-    Ok(server.is_supported() && migrations.is_current())
+    println!("expected:   {}", Store::expected_schema());
+    let current = match &schema {
+        SchemaStatus::Current => {
+            println!("schema:     current");
+            true
+        }
+        SchemaStatus::Absent => {
+            println!("schema:     absent; the first durable open creates it (or run `just db-reset`)");
+            true
+        }
+        SchemaStatus::Mismatch { recorded } => {
+            println!(
+                "schema:     MISMATCH, recorded {}",
+                recorded.as_deref().unwrap_or("<no fingerprint>")
+            );
+            println!("run `just db-reset` to drop and recreate pse_ops (its data is regenerable)");
+            false
+        }
+    };
+    Ok(server.is_supported() && current)
 }
 
 async fn run(command: &Command, url: &str) -> Result<bool, OperationsError> {
     let store = Store::connect(url).await?;
     match command {
-        Command::Migrate => {
-            store.migrate().await?;
-            let migrations = store.migration_status().await?;
-            println!(
-                "{}: {} migration(s) applied; schema current: {}",
-                store.target(),
-                migrations.applied.len(),
-                migrations.is_current()
-            );
-            Ok(migrations.is_current())
-        }
         Command::Status => status(&store).await,
+        Command::Reset => {
+            let opened = store.reset().await?;
+            println!(
+                "{}: pse_ops {} with schema {}",
+                store.target(),
+                match opened {
+                    Opened::Created => "recreated",
+                    Opened::Current => "already current",
+                },
+                Store::expected_schema()
+            );
+            Ok(true)
+        }
     }
 }
 

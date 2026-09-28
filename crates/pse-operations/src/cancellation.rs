@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Cross-process cancellation (ADR-0112 Outcome 15, finding T03).
+//! Cross-process cancellation (ADR-0114 Outcome 15, finding T03).
 //!
 //! `pse_ops.attempts.cancel_requested` is the authority; heartbeats return it. `NOTIFY` only
 //! shortens latency: notifications are lost while a listener is disconnected, so the
@@ -80,7 +80,8 @@ impl Store {
             .await?;
             if let Some(job) = job {
                 sqlx::query(
-                    "UPDATE pse_ops.jobs SET state = $2, updated_at = now() WHERE job_id = $1",
+                    "UPDATE pse_ops.jobs SET state = $2::pse_ops.job_state, updated_at = now() \
+                     WHERE job_id = $1",
                 )
                 .bind(job)
                 .bind(JobState::Cancelled.as_str())

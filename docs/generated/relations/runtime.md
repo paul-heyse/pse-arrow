@@ -761,11 +761,23 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
 | `to_state` | `enum:AttemptState` | false | `payload` | — | — |
 | `actor` | `Utf8` | true | `payload` | — | — |
 | `reason` | `Utf8` | true | `payload` | — | — |
-| `at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+
+Native row check `creation_has_no_previous_state` (must be true):
+
+```sql
+("seq" = 0) = ("from_state" IS NULL)
+```
+
+Native row check `seq_nonnegative` (must be true):
+
+```sql
+"seq" >= 0
+```
 
 ## `operational_attempts`
 
-The durable attempt registry (DP-19). Identities are minted by the runtime. A running attempt holds exactly one lease; `cancel_requested` is the cancellation authority. `termination` is the typed termination code and `termination_detail` its versioned JSON detail. Published runtime.computation_runs and runtime.run_lineage are derived snapshots of a published attempt.
+The durable attempt registry (DP-19). Identities are minted by the runtime. A running attempt holds exactly one lease; `cancel_requested` is the cancellation authority. The termination is typed: `termination_class` selects exactly one of the typed termination columns, and `termination_detail` is its versioned JSON detail. Published runtime.computation_runs and runtime.run_lineage are derived snapshots of a published attempt.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id`.
 
@@ -780,16 +792,69 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id`.
 | `state_version` | `Int32` | false | `payload` | — | — |
 | `parent_attempt` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
 | `worker` | `Utf8` | true | `payload` | — | — |
-| `lease_expires_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
-| `heartbeat_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+| `lease_expires_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+| `heartbeat_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
 | `cancel_requested` | `Boolean` | false | `payload` | — | — |
-| `cancel_requested_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
-| `termination` | `Utf8` | true | `payload` | — | — |
+| `cancel_requested_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+| `termination_class` | `enum:TerminationClass` | true | `payload` | — | — |
+| `termination_native` | `enum:NativeTermination` | true | `payload` | — | — |
+| `termination_run_state` | `enum:NativeRunState` | true | `payload` | — | — |
+| `termination_trajectory` | `enum:TrajectoryTermination` | true | `payload` | — | — |
+| `termination_runtime` | `enum:RuntimeTermination` | true | `payload` | — | — |
+| `termination_rule` | `Utf8` | true | `payload` | — | — |
 | `termination_detail` | `Utf8` | true | `payload` | — | — |
-| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
-| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
-| `started_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
-| `finished_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `started_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+| `finished_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+
+Native row check `cancel_request_timed` (must be true):
+
+```sql
+"cancel_requested" = ("cancel_requested_at" IS NOT NULL)
+```
+
+Native row check `one_termination` (must be true):
+
+```sql
+("termination_class" IS NULL AND "termination_native" IS NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'native' AND "termination_native" IS NOT NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'run_state' AND "termination_native" IS NULL AND "termination_run_state" IS NOT NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'trajectory' AND "termination_native" IS NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NOT NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'runtime' AND "termination_native" IS NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NOT NULL AND "termination_rule" IS NULL) OR ("termination_class" = 'rule' AND "termination_native" IS NULL AND "termination_run_state" IS NULL AND "termination_trajectory" IS NULL AND "termination_runtime" IS NULL AND "termination_rule" IS NOT NULL)
+```
+
+Native row check `parent_is_another_attempt` (must be true):
+
+```sql
+"parent_attempt" IS DISTINCT FROM "attempt_id"
+```
+
+Native row check `running_has_worker` (must be true):
+
+```sql
+"state" <> 'running' OR "worker" IS NOT NULL
+```
+
+Native row check `running_holds_lease` (must be true):
+
+```sql
+("state" = 'running') = ("lease_expires_at" IS NOT NULL)
+```
+
+Native row check `state_version_nonnegative` (must be true):
+
+```sql
+"state_version" >= 0
+```
+
+Native row check `termination_rule_nonempty` (must be true):
+
+```sql
+"termination_rule" IS NULL OR "termination_rule" <> ''
+```
+
+Native row check `worker_nonempty` (must be true):
+
+```sql
+"worker" IS NULL OR "worker" <> ''
+```
 
 ## `operational_incumbents`
 
@@ -801,11 +866,23 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
 |---|---|---|---|---|---|
 | `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
 | `seq` | `Int64` | false | `key` | — | — |
-| `at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 | `objective` | `Float64` | false | `payload` | — | — |
 | `dual_bound` | `Float64` | true | `payload` | — | — |
 | `gap` | `Float64` | true | `payload` | — | — |
 | `solution_id` | `semantic_id` | true | `payload` | `runtime.operational_solutions.solution_id` | — |
+
+Native row check `gap_nonnegative` (must be true):
+
+```sql
+"gap" IS NULL OR "gap" >= 0
+```
+
+Native row check `seq_nonnegative` (must be true):
+
+```sql
+"seq" >= 0
+```
 
 ## `operational_jobs`
 
@@ -826,10 +903,52 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `job_id`.
 | `max_tries` | `Int32` | false | `payload` | — | — |
 | `backoff_base_us` | `Int64` | false | `payload` | — | — |
 | `backoff_cap_us` | `Int64` | false | `payload` | — | — |
-| `available_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
-| `enqueued_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
-| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `available_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `enqueued_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 | `last_error` | `Utf8` | true | `payload` | — | — |
+
+Native row check `backoff_base_nonnegative` (must be true):
+
+```sql
+"backoff_base_us" >= 0
+```
+
+Native row check `backoff_cap_covers_base` (must be true):
+
+```sql
+"backoff_cap_us" >= "backoff_base_us"
+```
+
+Native row check `idempotency_key_nonempty` (must be true):
+
+```sql
+"idempotency_key" <> ''
+```
+
+Native row check `max_tries_positive` (must be true):
+
+```sql
+"max_tries" > 0
+```
+
+Native row check `payload_version_positive` (must be true):
+
+```sql
+"payload_version" > 0
+```
+
+Native row check `tries_nonnegative` (must be true):
+
+```sql
+"tries" >= 0
+```
+
+Native row check `tries_within_max` (must be true):
+
+```sql
+"tries" <= "max_tries"
+```
 
 ## `operational_progress_events`
 
@@ -842,9 +961,33 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq`.
 | `attempt_id` | `semantic_id` | false | `key` | `runtime.operational_attempts.attempt_id` | — |
 | `seq` | `Int64` | false | `key` | — | — |
 | `step` | `Int32` | false | `payload` | — | — |
-| `at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 | `elapsed_seconds` | `Float64` | false | `payload` | — | — |
 | `phase` | `Utf8` | false | `payload` | — | — |
+
+Native row check `elapsed_nonnegative` (must be true):
+
+```sql
+"elapsed_seconds" >= 0
+```
+
+Native row check `phase_nonempty` (must be true):
+
+```sql
+"phase" <> ''
+```
+
+Native row check `seq_nonnegative` (must be true):
+
+```sql
+"seq" >= 0
+```
+
+Native row check `step_nonnegative` (must be true):
+
+```sql
+"step" >= 0
+```
 
 ## `operational_progress_values`
 
@@ -864,10 +1007,146 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `attempt_id, seq, name`.
 | `text` | `Utf8` | true | `payload` | — | — |
 | `unavailable` | `enum:EvidenceUnavailableReason` | true | `payload` | — | — |
 
+Native row check `name_nonempty` (must be true):
+
+```sql
+"name" <> ''
+```
+
 Native row check `one_evidence_value` (must be true):
 
 ```sql
 (kind = 'real' AND "real" IS NOT NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'integer' AND "real" IS NULL AND "integer" IS NOT NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'boolean' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NOT NULL AND "text" IS NULL AND "unavailable" IS NULL) OR (kind = 'text' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NOT NULL AND "unavailable" IS NULL) OR (kind = 'unavailable' AND "real" IS NULL AND "integer" IS NULL AND "boolean" IS NULL AND "text" IS NULL AND "unavailable" IS NOT NULL)
+```
+
+## `operational_publication_heads`
+
+One head per workspace, created with the workspace, so the compare-and-set commit always locks an existing row. An absent head means nothing has been published yet.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `workspace_id` | `semantic_id` | false | `key` | `runtime.operational_workspaces.workspace_id` | — |
+| `publication_id` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
+| `advanced_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+
+## `operational_publication_members`
+
+The members of a publication: each names an exact Delta version of a table and the contract fingerprint it was written under.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id, member`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publications.publication_id` | — |
+| `member` | `Utf8` | false | `key` | — | — |
+| `table_uri` | `Utf8` | false | `payload` | — | — |
+| `delta_version` | `Int64` | false | `payload` | — | — |
+| `contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+
+Native row check `delta_version_nonnegative` (must be true):
+
+```sql
+"delta_version" >= 0
+```
+
+Native row check `member_nonempty` (must be true):
+
+```sql
+"member" <> ''
+```
+
+Native row check `table_uri_nonempty` (must be true):
+
+```sql
+"table_uri" <> ''
+```
+
+## `operational_publications`
+
+Immutable publication records. The attempt identity is unique: publication is idempotent per attempt, and settlement queries this relation.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `publication_id` | `semantic_id` | false | `key` | — | — |
+| `workspace_id` | `semantic_id` | false | `payload` | `runtime.operational_workspaces.workspace_id` | — |
+| `parent_publication` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
+| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `committed_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+
+Native row check `parent_is_another_publication` (must be true):
+
+```sql
+"parent_publication" IS DISTINCT FROM "publication_id"
+```
+
+## `operational_reader_leases`
+
+Reader leases: taken in a short transaction and released when the read is done; no reader holds a database session while it reads Delta files (finding T02).
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `lease_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `lease_id` | `semantic_id` | false | `key` | — | — |
+| `publication_id` | `semantic_id` | false | `payload` | `runtime.operational_publications.publication_id` | — |
+| `holder` | `Utf8` | false | `payload` | — | — |
+| `acquired_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `expires_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `released_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+
+Native row check `expires_after_acquired` (must be true):
+
+```sql
+"expires_at" > "acquired_at"
+```
+
+Native row check `holder_nonempty` (must be true):
+
+```sql
+"holder" <> ''
+```
+
+## `operational_retention_marks`
+
+Two-phase deletion state. A publication without a mark is live; `expiring` refuses new leases; `deleted` records that the member files were removed.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `publication_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `publication_id` | `semantic_id` | false | `key` | `runtime.operational_publications.publication_id` | — |
+| `phase` | `enum:RetentionPhase` | false | `payload` | — | — |
+| `marked_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `deleted_at` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+
+Native row check `deleted_when_marked_deleted` (must be true):
+
+```sql
+("phase" = 'deleted') = ("deleted_at" IS NOT NULL)
+```
+
+## `operational_settlements`
+
+Settlement inquiries after an uncertain commit acknowledgement, and their outcome; a committed outcome names its publication.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `settlement_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `settlement_id` | `semantic_id` | false | `key` | — | — |
+| `attempt_id` | `semantic_id` | false | `payload` | `runtime.operational_attempts.attempt_id` | — |
+| `outcome` | `enum:SettlementOutcome` | false | `payload` | — | — |
+| `publication_id` | `semantic_id` | true | `payload` | `runtime.operational_publications.publication_id` | — |
+| `settled_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+
+Native row check `committed_names_publication` (must be true):
+
+```sql
+("outcome" = 'committed') = ("publication_id" IS NOT NULL)
 ```
 
 ## `operational_solutions`
@@ -901,7 +1180,19 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `solution_id`.
 | `basis_rows` | `List` | true | `payload` | — | — |
 | `basis_rows.item` | `Int32` | false | `payload` | — | — |
 | `created_by` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
-| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+
+Native row check `barrier_positive` (must be true):
+
+```sql
+"barrier" IS NULL OR "barrier" > 0
+```
+
+Native row check `vectors` (must be true):
+
+```sql
+("kind" = 'root' AND "primal" IS NOT NULL AND "lower_bound_duals" IS NULL AND "upper_bound_duals" IS NULL AND "column_duals" IS NULL AND "row_duals" IS NULL AND "barrier" IS NULL AND "basis_columns" IS NULL AND "basis_rows" IS NULL) OR ("kind" = 'nlp' AND "primal" IS NOT NULL AND ("lower_bound_duals" IS NULL) = ("upper_bound_duals" IS NULL) AND "column_duals" IS NULL AND "basis_columns" IS NULL AND "basis_rows" IS NULL) OR ("kind" = 'highs' AND "lower_bound_duals" IS NULL AND "upper_bound_duals" IS NULL AND "barrier" IS NULL AND ("column_duals" IS NULL) = ("row_duals" IS NULL) AND ("basis_columns" IS NULL) = ("basis_rows" IS NULL) AND ("primal" IS NOT NULL OR "column_duals" IS NOT NULL OR "basis_columns" IS NOT NULL))
+```
 
 ## `operational_source_bundles`
 
@@ -913,7 +1204,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash`.
 |---|---|---|---|---|---|
 | `bundle_hash` | `content_hash` | false | `key` | — | — |
 | `manifest` | `Utf8` | false | `payload` | — | — |
-| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 
 ## `operational_source_documents`
 
@@ -928,6 +1219,12 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_hash, path`.
 | `content_hash` | `content_hash` | false | `payload` | — | — |
 | `content` | `Utf8` | false | `payload` | — | — |
 
+Native row check `path_nonempty` (must be true):
+
+```sql
+"path" <> ''
+```
+
 ## `operational_studies`
 
 Study coordination state; `definition` is the study's versioned JSON definition.
@@ -939,8 +1236,8 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `study_id`.
 | `study_id` | `semantic_id` | false | `key` | — | — |
 | `definition` | `Utf8` | false | `payload` | — | — |
 | `state` | `enum:StudyState` | false | `payload` | — | — |
-| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
-| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+| `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 
 ## `operational_study_points`
 
@@ -956,7 +1253,38 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `study_id, point_index`.
 | `state` | `enum:StudyPointState` | false | `payload` | — | — |
 | `attempt_id` | `semantic_id` | true | `payload` | `runtime.operational_attempts.attempt_id` | — |
 | `result_ref` | `Utf8` | true | `payload` | — | — |
-| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `updated_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+
+Native row check `point_index_nonnegative` (must be true):
+
+```sql
+"point_index" >= 0
+```
+
+## `operational_workspaces`
+
+A publication workspace: a named root under which members are written. Its head row is created with it.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `workspace_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `root_uri` | `Utf8` | false | `payload` | — | — |
+| `created_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
+
+Native row check `name_nonempty` (must be true):
+
+```sql
+"name" <> ''
+```
+
+Native row check `root_uri_nonempty` (must be true):
+
+```sql
+"root_uri" <> ''
+```
 
 ## `publications`
 

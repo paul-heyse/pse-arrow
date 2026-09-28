@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Store tests against real, isolated PostgreSQL 18 databases: `#[sqlx::test]` creates one
-//! database per test from `DATABASE_URL` (`just db-test` maps `PSE_DATABASE_URL` to it).
+//! database per test from `DATABASE_URL` (`just db-test` maps `PSE_DATABASE_URL` to it), and
+//! [`opened`] creates the registry-generated schema in it with `Store::open`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
@@ -11,7 +12,7 @@ use chrono::{DateTime, Utc};
 use pse_ids::{ContentHash, SemanticId};
 use sqlx::PgPool;
 
-use crate::attempts::{AttemptKind, NewAttempt, TransitionNote};
+use crate::attempts::{AttemptKind, NewAttempt, RuntimeTermination, TerminationCode, TransitionNote};
 use crate::cancellation::CancelOutcome;
 use crate::catalog::{
     Committed, Member, ProtectedVersion, PublicationCommit, ReadTarget, Settlement, Workspace,
@@ -20,9 +21,25 @@ use crate::jobs::{Enqueued, Finished, JobOutcome, JobState, NewJob, RetryPolicy}
 use crate::lifecycle::AttemptState;
 use crate::solutions::{SeedVectors, Solution};
 use crate::streams::{Incumbent, ProgressEvent, ProgressValue};
-use crate::{OperationsError, Store, mint_id};
+use crate::{Opened, OperationsError, SchemaStatus, Store, mint_id};
 
 const LEASE: Duration = Duration::from_secs(30);
+
+/// The store of a `#[sqlx::test]` database, with its schema created by `Store::open`.
+async fn opened(pool: PgPool) -> Store {
+    let store = Store::from_pool(pool);
+    assert_eq!(store.open().await.unwrap(), Opened::Created);
+    store
+}
+
+/// The SQLSTATE and constraint of a refused statement.
+fn refusal(error: &sqlx::Error) -> (Option<String>, Option<String>) {
+    let database = error.as_database_error();
+    (
+        database.and_then(|e| e.code()).map(|c| c.into_owned()),
+        database.and_then(|e| e.constraint()).map(str::to_owned),
+    )
+}
 
 fn hash(byte: u8) -> ContentHash {
     ContentHash::from_bytes([byte; 32])
@@ -137,20 +154,20 @@ async fn publish(
 // ------------------------------------------------------------------- schema --
 
 #[sqlx::test(migrations = false)]
-async fn migrations_apply_to_empty_database(pool: PgPool) {
+async fn generated_schema_creates_empty_store(pool: PgPool) {
     let store = Store::from_pool(pool);
-    let before = store.migration_status().await.unwrap();
-    assert!(before.applied.is_empty());
-    assert_eq!(before.pending.len(), crate::MIGRATOR.iter().count());
-    assert!(!before.is_current());
+    assert_eq!(store.schema_status().await.unwrap(), SchemaStatus::Absent);
+    assert_eq!(store.open().await.unwrap(), Opened::Created);
+    assert_eq!(store.schema_status().await.unwrap(), SchemaStatus::Current);
+    // A second open, as every durable runtime does, changes nothing.
+    assert_eq!(store.open().await.unwrap(), Opened::Current);
 
-    store.migrate().await.unwrap();
-    let after = store.migration_status().await.unwrap();
-    assert!(after.is_current(), "{after:?}");
-    // A second run is a no-op.
-    store.migrate().await.unwrap();
-    assert_eq!(store.migration_status().await.unwrap(), after);
-
+    let registry = pse_schema::registry().unwrap();
+    let mut expected: Vec<&str> = pse_schema::store::relations(registry)
+        .into_iter()
+        .map(|(table, _)| table)
+        .collect();
+    expected.sort_unstable();
     let tables: Vec<String> = sqlx::query_scalar(
         "SELECT table_name::text FROM information_schema.tables \
          WHERE table_schema = 'pse_ops' ORDER BY table_name",
@@ -158,36 +175,241 @@ async fn migrations_apply_to_empty_database(pool: PgPool) {
     .fetch_all(store.pool())
     .await
     .unwrap();
-    let mut expected = vec![
-        "attempt_transitions",
-        "attempts",
-        "incumbents",
-        "jobs",
-        "progress_events",
-        "progress_values",
-        "publication_heads",
-        "publication_members",
-        "publications",
-        "reader_leases",
-        "retention_marks",
-        "settlements",
-        "solutions",
-        "source_bundles",
-        "source_documents",
-        "studies",
-        "study_points",
-        "workspaces",
-    ];
-    expected.sort_unstable();
     assert_eq!(tables, expected);
-
+    for table in &expected {
+        let rows: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT count(*) FROM pse_ops.\"{table}\""
+        )))
+        .fetch_one(store.pool())
+        .await
+        .unwrap();
+        assert_eq!(rows, 0, "{table} is not empty");
+    }
+    let recorded: Option<String> = sqlx::query_scalar(
+        "SELECT obj_description(oid, 'pg_namespace') FROM pg_namespace WHERE nspname = 'pse_ops'",
+    )
+    .fetch_one(store.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        recorded,
+        Some(format!("pse.ops.schema.v1 {}", Store::expected_schema()))
+    );
     let server = store.server().await.unwrap();
     assert!(server.is_supported(), "{server:?}");
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
+async fn store_schema_mismatch_refused(pool: PgPool) {
+    let store = opened(pool).await;
+    let other = "0".repeat(64);
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+        "COMMENT ON SCHEMA pse_ops IS 'pse.ops.schema.v1 {other}'"
+    )))
+    .execute(store.pool())
+    .await
+    .unwrap();
+    let refused = store.open().await.unwrap_err();
+    assert!(
+        matches!(&refused, OperationsError::SchemaMismatch { recorded: Some(r), .. } if *r == other),
+        "{refused:?}"
+    );
+    let help = miette::Diagnostic::help(&refused).map(|h| h.to_string());
+    assert!(help.is_some_and(|h| h.contains("just db-reset")));
+    assert_eq!(
+        store.schema_status().await.unwrap(),
+        SchemaStatus::Mismatch {
+            recorded: Some(other)
+        }
+    );
+    // A schema without a record (for example one the superseded migrations created) is
+    // refused the same way, and never reset implicitly.
+    sqlx::raw_sql("COMMENT ON SCHEMA pse_ops IS NULL")
+        .execute(store.pool())
+        .await
+        .unwrap();
+    assert!(matches!(
+        store.open().await.unwrap_err(),
+        OperationsError::SchemaMismatch { recorded: None, .. }
+    ));
+    // The explicit reset recreates it from this build.
+    assert_eq!(store.reset().await.unwrap(), Opened::Created);
+    assert_eq!(store.schema_status().await.unwrap(), SchemaStatus::Current);
+}
+
+#[sqlx::test(migrations = false)]
+async fn registry_enums_are_postgres_enums(pool: PgPool) {
+    let store = opened(pool).await;
+    let registry = pse_schema::registry().unwrap();
+    let mut checked = BTreeSet::new();
+    for (table, spec) in pse_schema::store::relations(registry) {
+        for column in &spec.columns {
+            let Some(name) = column.enum_name() else {
+                continue;
+            };
+            let (schema, udt): (String, String) = sqlx::query_as(
+                "SELECT udt_schema::text, udt_name::text FROM information_schema.columns \
+                 WHERE table_schema = 'pse_ops' AND table_name = $1 AND column_name = $2",
+            )
+            .bind(table)
+            .bind(column.name())
+            .fetch_one(store.pool())
+            .await
+            .unwrap();
+            assert_eq!(schema, "pse_ops", "{table}.{}", column.name());
+            let labels: Vec<String> = sqlx::query_scalar(
+                "SELECT e.enumlabel::text FROM pg_enum e \
+                 JOIN pg_type t ON t.oid = e.enumtypid \
+                 JOIN pg_namespace n ON n.oid = t.typnamespace \
+                 WHERE n.nspname = 'pse_ops' AND t.typname = $1 ORDER BY e.enumsortorder",
+            )
+            .bind(&udt)
+            .fetch_all(store.pool())
+            .await
+            .unwrap();
+            let members: Vec<&str> = registry
+                .enum_spec(name)
+                .unwrap()
+                .members
+                .iter()
+                .map(|member| member.name)
+                .collect();
+            assert_eq!(labels, members, "{table}.{} is {udt}", column.name());
+            checked.insert(name);
+        }
+    }
+    for name in ["AttemptState", "JobState", "TerminationClass", "RetentionPhase"] {
+        assert!(checked.contains(name), "{name} is not a store column type");
+    }
+}
+
+#[sqlx::test(migrations = false)]
+async fn misspelled_enum_literal_fails_prepare(pool: PgPool) {
+    let store = opened(pool).await;
+    // A literal compared with an ENUM column is resolved when the statement is prepared.
+    let error = sqlx::raw_sql(
+        "PREPARE misspelled AS SELECT attempt_id FROM pse_ops.attempts WHERE state = 'runing'",
+    )
+    .execute(store.pool())
+    .await
+    .unwrap_err();
+    assert_eq!(refusal(&error).0.as_deref(), Some("22P02"), "{error}");
+    sqlx::raw_sql(
+        "PREPARE spelled AS SELECT attempt_id FROM pse_ops.attempts WHERE state = 'running'",
+    )
+    .execute(store.pool())
+    .await
+    .unwrap();
+}
+
+#[sqlx::test(migrations = false)]
+async fn row_invariants_generated_and_enforced(pool: PgPool) {
+    let store = opened(pool).await;
+    let registry = pse_schema::registry().unwrap();
+    // Every declared row check is a named CHECK constraint of its table.
+    let constraints: BTreeSet<String> = sqlx::query_scalar(
+        "SELECT c.conname::text FROM pg_constraint c \
+         JOIN pg_namespace n ON n.oid = c.connamespace WHERE n.nspname = 'pse_ops'",
+    )
+    .fetch_all(store.pool())
+    .await
+    .unwrap()
+    .into_iter()
+    .collect();
+    for (table, spec) in pse_schema::store::relations(registry) {
+        for name in spec.checks.keys() {
+            let constraint = format!("{table}_{name}_check");
+            assert!(constraints.contains(&constraint), "{constraint} is not generated");
+        }
+        for key in &spec.unique_keys {
+            assert!(constraints.contains(&format!("{table}_{}_key", key.name)));
+        }
+        for reference in &spec.foreign_keys {
+            assert!(constraints.contains(&format!("{table}_{}_fkey", reference.name)));
+        }
+    }
+    let attempt = new_attempt();
+    store.attempts().create(&attempt, None).await.unwrap();
+    let id = crate::codec::uuid(attempt.attempt_id);
+    let refused = |sql: &'static str| {
+        let store = store.clone();
+        async move {
+            sqlx::query(sql)
+                .bind(id)
+                .execute(store.pool())
+                .await
+                .map(|_| ())
+                .unwrap_err()
+        }
+    };
+    // A running attempt holds a lease (the former multi-column CHECK).
+    let error = refused(
+        "UPDATE pse_ops.attempts SET state = 'running', worker = 'w' WHERE attempt_id = $1",
+    )
+    .await;
+    assert_eq!(
+        refusal(&error),
+        (
+            Some("23514".into()),
+            Some("attempts_running_holds_lease_check".into())
+        )
+    );
+    // Exactly the typed termination column the class selects is present (X4).
+    let error = refused(
+        "UPDATE pse_ops.attempts SET termination_class = 'native' WHERE attempt_id = $1",
+    )
+    .await;
+    assert_eq!(
+        refusal(&error).1.as_deref(),
+        Some("attempts_one_termination_check")
+    );
+    // A finite field domain refuses NaN and infinity in PostgreSQL too.
+    let error = refused(
+        "INSERT INTO pse_ops.progress_events (attempt_id, seq, step, at, elapsed_seconds, phase) \
+         VALUES ($1, 0, 0, now(), 'Infinity', 'phase')",
+    )
+    .await;
+    assert_eq!(
+        refusal(&error).1.as_deref(),
+        Some("progress_events_elapsed_seconds_finite")
+    );
+    // A composite reference is enforced, and nothing cascades.
+    let error = refused(
+        "INSERT INTO pse_ops.progress_values (attempt_id, seq, name, kind, \"integer\") \
+         VALUES ($1, 7, 'n', 'integer', 1)",
+    )
+    .await;
+    assert_eq!(
+        refusal(&error),
+        (
+            Some("23503".into()),
+            Some("progress_values_progress_event_fkey".into())
+        )
+    );
+    // Content hashes are exactly 32 bytes, through their domain.
+    let error = sqlx::query("INSERT INTO pse_ops.source_bundles (bundle_hash, manifest) VALUES ($1, '{}')")
+        .bind(vec![0_u8; 31])
+        .execute(store.pool())
+        .await
+        .unwrap_err();
+    assert_eq!(refusal(&error).0.as_deref(), Some("23514"), "{error}");
+    // The seed-vector rule is a registry row check.
+    let error = sqlx::query(
+        "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, preparation_identity, \
+             kind, backend, profile_stamp, data_stamp) \
+         VALUES ($1, $2, $2, 'root', 'kinsol', $2, $2)",
+    )
+    .bind(crate::codec::uuid(mint_id()))
+    .bind(hash(1).as_bytes().to_vec())
+    .execute(store.pool())
+    .await
+    .unwrap_err();
+    assert_eq!(refusal(&error).1.as_deref(), Some("solutions_vectors_check"));
+}
+
+#[sqlx::test(migrations = false)]
 async fn transition_history_is_append_only(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let attempt = new_attempt();
     store.attempts().create(&attempt, None).await.unwrap();
     let error = sqlx::query("UPDATE pse_ops.attempt_transitions SET reason = 'rewritten'")
@@ -219,9 +441,9 @@ async fn transition_history_is_append_only(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn sqlstate_errors_map_to_typed_variants(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let target = store.target().clone();
 
     // 23505: a second attempt with the same identity.
@@ -379,9 +601,9 @@ async fn unreachable_server_is_unavailable_naming_the_target() {
 
 // ---------------------------------------------------------------- attempts --
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn illegal_transition_rejected(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let attempts = store.attempts();
     let attempt = new_attempt();
     let created = attempts.create(&attempt, Some("runtime")).await.unwrap();
@@ -448,7 +670,7 @@ async fn illegal_transition_rejected(pool: PgPool) {
             &TransitionNote::by("worker-a")
                 .because("evaluation failed")
                 .terminated(crate::attempts::Termination {
-                    code: "solve.evaluation_error".to_owned(),
+                    code: TerminationCode::Rule("solve.evaluation_error".to_owned()),
                     detail: Some(serde_json::json!({ "row": 3 })),
                 }),
         )
@@ -458,9 +680,28 @@ async fn illegal_transition_rejected(pool: PgPool) {
     assert_eq!(done.lease_expires_at, None);
     assert!(done.finished_at.is_some());
     assert_eq!(
-        done.termination.as_ref().map(|t| t.code.as_str()),
-        Some("solve.evaluation_error")
+        done.termination.as_ref().map(|t| &t.code),
+        Some(&TerminationCode::Rule("solve.evaluation_error".to_owned()))
     );
+    let row = done.row();
+    assert_eq!(
+        row.termination_class,
+        Some(crate::attempts::TerminationClass::Rule)
+    );
+    assert_eq!(row.termination_rule.as_deref(), Some("solve.evaluation_error"));
+    assert_eq!(row.termination_detail.as_deref(), Some("{\"row\":3}"));
+    // A later termination replaces every termination column at once.
+    let cancelled = crate::attempts::Termination {
+        code: TerminationCode::Runtime(RuntimeTermination::Cancelled),
+        detail: None,
+    };
+    let row = crate::attempts::AttemptRecord {
+        termination: Some(cancelled),
+        ..done.clone()
+    }
+    .row();
+    assert_eq!(row.termination_rule, None);
+    assert_eq!(row.termination_runtime, Some(RuntimeTermination::Cancelled));
     let history = attempts.history(attempt.attempt_id).await.unwrap();
     let steps: Vec<(Option<AttemptState>, AttemptState)> =
         history.iter().map(|t| (t.from, t.to)).collect();
@@ -491,9 +732,9 @@ async fn illegal_transition_rejected(pool: PgPool) {
     ));
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn lease_expiry_marks_stale(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let attempts = store.attempts();
     let attempt = new_attempt();
     attempts.create(&attempt, None).await.unwrap();
@@ -532,9 +773,9 @@ async fn lease_expiry_marks_stale(pool: PgPool) {
     assert_eq!(stale.worker.as_deref(), Some("worker-a"));
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn heartbeat_extends_lease_and_returns_cancellation(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let attempts = store.attempts();
     let attempt = new_attempt();
     attempts.create(&attempt, None).await.unwrap();
@@ -579,9 +820,9 @@ async fn heartbeat_extends_lease_and_returns_cancellation(pool: PgPool) {
 
 // -------------------------------------------------------------------- jobs --
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn enqueue_is_idempotent_per_key(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let job = new_job("request-1", RetryPolicy::ONCE);
     let created = store.jobs().enqueue(&job).await.unwrap();
     assert!(matches!(created, Enqueued::Created { .. }));
@@ -616,9 +857,9 @@ async fn enqueue_is_idempotent_per_key(pool: PgPool) {
     assert!(matches!(refused, OperationsError::InvalidRequest { .. }));
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn two_workers_never_claim_same_job(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let mut enqueued = BTreeSet::new();
     for index in 0..24 {
         let job = store
@@ -674,9 +915,9 @@ async fn two_workers_never_claim_same_job(pool: PgPool) {
     }
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn expired_lease_requeues_as_new_attempt(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let retry = RetryPolicy {
         max_tries: 2,
         backoff: Duration::ZERO,
@@ -763,9 +1004,9 @@ async fn expired_lease_requeues_as_new_attempt(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn attempt_sweep_then_job_requeue_compose(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let retry = RetryPolicy {
         max_tries: 3,
         backoff: Duration::ZERO,
@@ -814,9 +1055,9 @@ async fn attempt_sweep_then_job_requeue_compose(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn failed_try_retries_under_policy_and_completion_ends_job(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let retry = RetryPolicy {
         max_tries: 2,
         backoff: Duration::from_secs(60),
@@ -914,9 +1155,9 @@ async fn failed_try_retries_under_policy_and_completion_ends_job(pool: PgPool) {
 
 // ------------------------------------------------------------ cancellation --
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn cancel_notify_stops_running_job(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let job = store
         .jobs()
         .enqueue(&new_job("cancel-me", RetryPolicy::ONCE))
@@ -974,9 +1215,9 @@ async fn cancel_notify_stops_running_job(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn cancel_observed_after_listener_reconnect(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     store
         .jobs()
         .enqueue(&new_job("reconnect", RetryPolicy::ONCE))
@@ -1021,9 +1262,9 @@ async fn cancel_observed_after_listener_reconnect(pool: PgPool) {
     tokio::join!(waiting, disrupt);
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn cancel_before_start_cancels_job(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let job = store
         .jobs()
         .enqueue(&new_job("never-run", RetryPolicy::ONCE))
@@ -1086,9 +1327,9 @@ fn progress_event(seq: i64) -> ProgressEvent {
     }
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn progress_batch_insert_roundtrip(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let attempt = new_attempt();
     store.attempts().create(&attempt, None).await.unwrap();
     let events: Vec<ProgressEvent> = (0..500).map(progress_event).collect();
@@ -1155,9 +1396,9 @@ async fn progress_batch_insert_roundtrip(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn progress_watcher_follows_the_stream_until_the_attempt_ends(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let attempt = new_attempt();
     let attempts = store.attempts();
     attempts.create(&attempt, None).await.unwrap();
@@ -1209,9 +1450,9 @@ async fn progress_watcher_follows_the_stream_until_the_attempt_ends(pool: PgPool
     assert_eq!(seen, (0..5).map(progress_event).collect::<Vec<_>>());
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn retention_removes_streams_of_finished_attempts_only(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let finished = finished_attempt(&store).await;
     let running = new_attempt();
     let attempts = store.attempts();
@@ -1259,9 +1500,9 @@ async fn retention_removes_streams_of_finished_attempts_only(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn incumbents_and_solutions_round_trip(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let attempt = finished_attempt(&store).await;
     use pse_model::generated::enums::NativeBackend;
     let solution = Solution {
@@ -1323,7 +1564,8 @@ async fn incumbents_and_solutions_round_trip(pool: PgPool) {
         let refused = sqlx::query(
             "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, \
                  preparation_identity, kind, backend, profile_stamp, data_stamp, primal, barrier) \
-             VALUES ($1, $2, $2, $3, 'ipopt', $2, $2, ARRAY[1.0]::double precision[], $4)",
+             VALUES ($1, $2, $2, $3::pse_ops.stored_seed_kind, 'ipopt', $2, $2, \
+                 ARRAY[1.0]::double precision[], $4)",
         )
         .bind(crate::codec::uuid(mint_id()))
         .bind(hash(1).as_bytes().to_vec())
@@ -1413,9 +1655,9 @@ async fn incumbents_and_solutions_round_trip(pool: PgPool) {
 
 // ----------------------------------------------------------------- catalog --
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn concurrent_head_advance_one_winner(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let workspace = workspace(&store).await;
     let base = publish(&store, workspace, None, 0).await;
 
@@ -1479,9 +1721,9 @@ async fn concurrent_head_advance_one_winner(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn commit_is_idempotent_per_attempt_and_settles(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let catalog = store.catalog();
     let workspace = workspace(&store).await;
     let attempt = finished_attempt(&store).await;
@@ -1529,9 +1771,9 @@ async fn commit_is_idempotent_per_attempt_and_settles(pool: PgPool) {
     );
 }
 
-#[sqlx::test(migrator = "crate::MIGRATOR")]
+#[sqlx::test(migrations = false)]
 async fn maintenance_waits_for_reader_leases(pool: PgPool) {
-    let store = Store::from_pool(pool);
+    let store = opened(pool).await;
     let catalog = store.catalog();
     let workspace = workspace(&store).await;
     let old = publish(&store, workspace, None, 0).await;

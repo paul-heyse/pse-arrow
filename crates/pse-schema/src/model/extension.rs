@@ -163,6 +163,13 @@ pub(crate) fn timestamp_storage() -> DataType {
     DataType::Timestamp(TimeUnit::Nanosecond, Some("UTC".into()))
 }
 
+/// The canonical Arrow storage of the `ts_us` logical type: a UTC instant at the
+/// microsecond precision PostgreSQL `timestamptz` holds, so a stored operational time
+/// never claims precision the store cannot keep.
+pub fn timestamp_micros_storage() -> DataType {
+    DataType::Timestamp(TimeUnit::Microsecond, Some("UTC".into()))
+}
+
 /// The eleven extension types of blueprint §4.4, in the order the table lists them.
 ///
 /// The order is part of the contract: `docs/generated/extension_types.md` and the

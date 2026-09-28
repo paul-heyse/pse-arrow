@@ -123,6 +123,11 @@ pub(super) fn storage(ty: &DataType) -> Result<String, SchemaError> {
         {
             "pa.timestamp(\"ns\", tz=\"UTC\")".to_owned()
         }
+        DataType::Timestamp(arrow_schema::TimeUnit::Microsecond, timezone)
+            if timezone.as_deref() == Some("UTC") =>
+        {
+            "pa.timestamp(\"us\", tz=\"UTC\")".to_owned()
+        }
         DataType::List(child) => format!("pa.list_({})", field(child)?),
         DataType::FixedSizeList(child, width) => format!("pa.list_({}, {width})", field(child)?),
         DataType::Struct(children) => format!(

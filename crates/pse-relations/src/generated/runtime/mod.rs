@@ -69,6 +69,18 @@ pub mod r#operational_progress_events;
 ///Generated relation contract.
 pub mod r#operational_progress_values;
 ///Generated relation contract.
+pub mod r#operational_publication_heads;
+///Generated relation contract.
+pub mod r#operational_publication_members;
+///Generated relation contract.
+pub mod r#operational_publications;
+///Generated relation contract.
+pub mod r#operational_reader_leases;
+///Generated relation contract.
+pub mod r#operational_retention_marks;
+///Generated relation contract.
+pub mod r#operational_settlements;
+///Generated relation contract.
 pub mod r#operational_solutions;
 ///Generated relation contract.
 pub mod r#operational_source_bundles;
@@ -78,6 +90,8 @@ pub mod r#operational_source_documents;
 pub mod r#operational_studies;
 ///Generated relation contract.
 pub mod r#operational_study_points;
+///Generated relation contract.
+pub mod r#operational_workspaces;
 ///Generated relation contract.
 pub mod r#publications;
 ///Generated relation contract.

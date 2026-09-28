@@ -48,6 +48,9 @@ pub fn support_closure(
             }
             fields.extend(FieldContract::children(&field));
         }
+        for reference in &spec.foreign_keys {
+            add(registry, reference.target, &mut pending)?;
+        }
         for invariant in registry
             .invariants()
             .iter()

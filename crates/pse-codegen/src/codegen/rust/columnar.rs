@@ -110,6 +110,9 @@ pub(super) fn array_type(ty: &FieldContract) -> Result<TokenStream, SchemaError>
         DataType::Timestamp(TimeUnit::Nanosecond, _) => {
             quote!(arrow_array::TimestampNanosecondArray)
         }
+        DataType::Timestamp(TimeUnit::Microsecond, _) => {
+            quote!(arrow_array::TimestampMicrosecondArray)
+        }
         other => {
             return Err(super::error(format!(
                 "no borrowed generated column type for {other}"

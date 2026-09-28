@@ -54,6 +54,64 @@ impl PartialEq for ReferenceSchemaRelationsFieldDeltaPropertiesItem {
     reason = "field names are the authoritative relation contract"
 )]
 #[derive(Clone, Debug)]
+pub struct ReferenceSchemaRelationsFieldUniqueKeysItem {
+    ///name
+    pub r#name: String,
+    ///columns
+    pub r#columns: Vec<String>,
+}
+impl crate::SemanticEq for ReferenceSchemaRelationsFieldUniqueKeysItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#columns, &other.r#columns)
+    }
+}
+impl PartialEq for ReferenceSchemaRelationsFieldUniqueKeysItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
+pub struct ReferenceSchemaRelationsFieldForeignKeysItem {
+    ///name
+    pub r#name: String,
+    ///columns
+    pub r#columns: Vec<String>,
+    ///target_relation_id
+    pub r#target_relation_id: pse_ids::SemanticId,
+    ///target_columns
+    pub r#target_columns: Vec<String>,
+}
+impl crate::SemanticEq for ReferenceSchemaRelationsFieldForeignKeysItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#columns, &other.r#columns)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#target_relation_id,
+                &other.r#target_relation_id,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#target_columns,
+                &other.r#target_columns,
+            )
+    }
+}
+impl PartialEq for ReferenceSchemaRelationsFieldForeignKeysItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+#[derive(Clone, Debug)]
 pub struct ReferenceSchemaRelationsRow {
     ///`named_id(REGISTRY_PACKAGE_ID, "relation:<ns>.<name>@<v>")` (ADR-0050).
     pub r#relation_id: pse_ids::SemanticId,
@@ -79,6 +137,10 @@ pub struct ReferenceSchemaRelationsRow {
     pub r#checks: Vec<ReferenceSchemaRelationsFieldChecksItem>,
     ///Declared native Delta policies in name order; part of the exact table contract.
     pub r#delta_properties: Vec<ReferenceSchemaRelationsFieldDeltaPropertiesItem>,
+    ///Unique keys besides the primary key, in declaration order.
+    pub r#unique_keys: Vec<ReferenceSchemaRelationsFieldUniqueKeysItem>,
+    ///Table-level (composite) references to a target key, in declaration order.
+    pub r#foreign_keys: Vec<ReferenceSchemaRelationsFieldForeignKeysItem>,
 }
 impl crate::SemanticEq for ReferenceSchemaRelationsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -101,6 +163,11 @@ impl crate::SemanticEq for ReferenceSchemaRelationsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#delta_properties,
                 &other.r#delta_properties,
+            )
+            && crate::SemanticEq::semantic_eq(&self.r#unique_keys, &other.r#unique_keys)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#foreign_keys,
+                &other.r#foreign_keys,
             )
     }
 }
@@ -141,6 +208,42 @@ impl crate::HeapUsage for ReferenceSchemaRelationsFieldDeltaPropertiesItem {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
     }
 }
+impl crate::SemanticFrame for ReferenceSchemaRelationsFieldUniqueKeysItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#columns));
+        crate::SemanticFrame::frame(&self.r#columns, hash);
+    }
+}
+impl crate::HeapUsage for ReferenceSchemaRelationsFieldUniqueKeysItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#columns))
+    }
+}
+impl crate::SemanticFrame for ReferenceSchemaRelationsFieldForeignKeysItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#columns));
+        crate::SemanticFrame::frame(&self.r#columns, hash);
+        hash.str(stringify!(r#target_relation_id));
+        crate::SemanticFrame::frame(&self.r#target_relation_id, hash);
+        hash.str(stringify!(r#target_columns));
+        crate::SemanticFrame::frame(&self.r#target_columns, hash);
+    }
+}
+impl crate::HeapUsage for ReferenceSchemaRelationsFieldForeignKeysItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#columns))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_relation_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_columns))
+    }
+}
 impl crate::SemanticFrame for ReferenceSchemaRelationsRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#relation_id));
@@ -167,6 +270,10 @@ impl crate::SemanticFrame for ReferenceSchemaRelationsRow {
         crate::SemanticFrame::frame(&self.r#checks, hash);
         hash.str(stringify!(r#delta_properties));
         crate::SemanticFrame::frame(&self.r#delta_properties, hash);
+        hash.str(stringify!(r#unique_keys));
+        crate::SemanticFrame::frame(&self.r#unique_keys, hash);
+        hash.str(stringify!(r#foreign_keys));
+        crate::SemanticFrame::frame(&self.r#foreign_keys, hash);
     }
 }
 impl crate::HeapUsage for ReferenceSchemaRelationsRow {
@@ -184,5 +291,7 @@ impl crate::HeapUsage for ReferenceSchemaRelationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#doc))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#checks))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#delta_properties))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unique_keys))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#foreign_keys))
     }
 }

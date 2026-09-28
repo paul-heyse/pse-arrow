@@ -10,7 +10,7 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeOperationalSolutionsRow {
     ///solution_id
-    pub r#solution_id: pse_ids::SemanticId,
+    pub r#solution_id: crate::generated::identities::SolutionId,
     ///compatibility_stamp
     pub r#compatibility_stamp: pse_ids::ContentHash,
     ///preparation_identity
@@ -40,7 +40,7 @@ pub struct RuntimeOperationalSolutionsRow {
     ///basis_rows
     pub r#basis_rows: Option<Vec<i32>>,
     ///created_by
-    pub r#created_by: Option<pse_ids::SemanticId>,
+    pub r#created_by: Option<crate::generated::identities::AttemptId>,
     ///created_at
     pub r#created_at: i64,
 }

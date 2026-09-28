@@ -103,13 +103,19 @@ pub enum OperationsError {
         /// The driver error.
         source: sqlx::Error,
     },
-    /// Applying or inspecting the embedded migrations failed.
-    #[error("migration failure at {target}: {source}")]
-    Migration {
-        /// The migrated database.
+    /// The store's schema is not the one this build generates: another fingerprint is
+    /// recorded, or none. It is never migrated or reset implicitly (ADR-0114 Outcome 23).
+    #[error(
+        "{target} holds a pse_ops schema recorded as {}, but this build expects {expected}",
+        recorded.as_deref().unwrap_or("<no fingerprint>")
+    )]
+    SchemaMismatch {
+        /// The store.
         target: Target,
-        /// The migrator error.
-        source: sqlx::migrate::MigrateError,
+        /// The recorded schema fingerprint, if any.
+        recorded: Option<String>,
+        /// This build's schema fingerprint.
+        expected: &'static str,
     },
     /// The connection URL or the server does not satisfy the deployment contract.
     #[error("invalid operational store configuration: {reason}")]
@@ -197,7 +203,7 @@ fn show(id: Option<SemanticId>) -> String {
 }
 
 impl OperationsError {
-    /// Classify a driver error by SQLSTATE and connection failure (ADR-0112 Outcome 11).
+    /// Classify a driver error by SQLSTATE and connection failure (ADR-0114 Outcome 27).
     pub(crate) fn from_sqlx(source: sqlx::Error, target: &Target) -> Self {
         let target = target.clone();
         let code = match &source {
@@ -207,7 +213,6 @@ impl OperationsError {
             | sqlx::Error::PoolTimedOut
             | sqlx::Error::PoolClosed
             | sqlx::Error::WorkerCrashed => return Self::Unavailable { target, source },
-            sqlx::Error::Migrate(_) => None,
             _ => return Self::Internal { target, source },
         };
         match code.as_deref() {
@@ -253,7 +258,9 @@ impl OperationsError {
         match self {
             Self::Cancelled { .. } => DiagnosticCode::RuntimeCancelled,
             Self::Internal { .. } | Self::CorruptValue { .. } => DiagnosticCode::InternalInvariant,
-            Self::Configuration { .. } => DiagnosticCode::ConfigInvalid,
+            Self::Configuration { .. } | Self::SchemaMismatch { .. } => {
+                DiagnosticCode::ConfigInvalid
+            }
             Self::IllegalTransition { .. }
             | Self::NotFound { .. }
             | Self::InvalidRequest { .. } => DiagnosticCode::ValidationInvariant,
@@ -262,7 +269,6 @@ impl OperationsError {
             | Self::Duplicate { .. }
             | Self::LockUnavailable { .. }
             | Self::Unavailable { .. }
-            | Self::Migration { .. }
             | Self::LeaseLost { .. }
             | Self::PublicationConflict { .. }
             | Self::PublicationRetiring { .. }
@@ -281,7 +287,9 @@ pse_diagnostics::impl_diagnostic! {
             OperationsError::Unavailable { .. } => Some(Box::new(
                 "check `just db-status`; durable work needs the operational store, ephemeral work does not",
             )),
-            OperationsError::Migration { .. } => Some(Box::new("run `just db-migrate`")),
+            OperationsError::SchemaMismatch { .. } => Some(Box::new(
+                "the store holds regenerable data only: `just db-reset` drops and recreates pse_ops",
+            )),
             _ => None,
         }
     },

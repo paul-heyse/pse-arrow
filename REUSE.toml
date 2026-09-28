@@ -52,6 +52,7 @@ path = [
   "crates/pse-codegen/src/codegen/python/*.py.template",
   "python/pse/contracts/GENERATED.sha256",
   "crates/*/src/generated/**",
+  "crates/pse-operations-queries/**",
   "crates/pse-ipopt-sys/src/bindings.rs",
 ]
 precedence = "aggregate"

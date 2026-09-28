@@ -1,0 +1,28 @@
+{
+  "invariant": "runtime.operational_reader_leases:unique:pk",
+  "rows": {
+    "runtime.operational_reader_leases": [
+      {
+        "acquired_at": "[\"i64\",1]",
+        "expires_at": "[\"i64\",1]",
+        "holder": "[\"text\",\"value-1\"]",
+        "lease_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "released_at": "[\"i64\",1]"
+      },
+      {
+        "acquired_at": "[\"i64\",1]",
+        "expires_at": "[\"i64\",1]",
+        "holder": "[\"text\",\"value-1\"]",
+        "lease_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "released_at": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

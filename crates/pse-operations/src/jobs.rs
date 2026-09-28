@@ -3,7 +3,7 @@
 
 //! The durable job queue: idempotent enqueue, `FOR UPDATE SKIP LOCKED` claims, completion,
 //! and requeue under an explicit retry policy. Each try runs as a new attempt
-//! (ADR-0112 Outcome 14).
+//! (ADR-0114 Outcome 14).
 //!
 //! Lock order is job row, then attempt row, everywhere a function takes both.
 
@@ -267,7 +267,8 @@ async fn lock_job(
     job: SemanticId,
 ) -> Result<LockedJob, OperationsError> {
     let row = sqlx::query(
-        "SELECT job_id, attempt_id, state, tries, max_tries, backoff_base_us, backoff_cap_us \
+        "SELECT job_id, attempt_id, state::text AS state, tries, max_tries, backoff_base_us, \
+             backoff_cap_us \
          FROM pse_ops.jobs WHERE job_id = $1 FOR UPDATE",
     )
     .bind(codec::uuid(job))
@@ -295,8 +296,9 @@ async fn set_job_state(
     error: Option<&str>,
 ) -> Result<(), OperationsError> {
     sqlx::query(
-        "UPDATE pse_ops.jobs SET state = $2, last_error = coalesce($3, last_error), \
-         updated_at = now() WHERE job_id = $1",
+        "UPDATE pse_ops.jobs SET state = $2::pse_ops.job_state, \
+             last_error = coalesce($3, last_error), updated_at = now() \
+         WHERE job_id = $1",
     )
     .bind(codec::uuid(job))
     .bind(state.as_str())
@@ -419,10 +421,13 @@ impl<'s> Jobs<'s> {
         )
         .await?;
         let max_tries = i32::try_from(job.retry.max_tries).unwrap_or(i32::MAX);
+        // The job identity is minted here, on the runtime's UUIDv7 path; the store mints
+        // no domain identity (ADR-0114 Outcome 13).
+        let job_id = codec::mint_id();
         let created: Option<uuid::Uuid> = sqlx::query_scalar(
-            "INSERT INTO pse_ops.jobs (attempt_id, idempotency_key, payload_version, payload, \
-                 priority, state, max_tries, backoff_base_us, backoff_cap_us) \
-             VALUES ($1, $2, $3, $4, $5, 'queued', $6, $7, $8) \
+            "INSERT INTO pse_ops.jobs (job_id, attempt_id, idempotency_key, payload_version, \
+                 payload, priority, state, max_tries, backoff_base_us, backoff_cap_us) \
+             VALUES ($9, $1, $2, $3, $4, $5, 'queued', $6, $7, $8) \
              ON CONFLICT (idempotency_key) DO NOTHING RETURNING job_id",
         )
         .bind(codec::uuid(job.attempt.attempt_id))
@@ -433,6 +438,7 @@ impl<'s> Jobs<'s> {
         .bind(max_tries)
         .bind(micros(job.retry.backoff))
         .bind(micros(job.retry.backoff_cap))
+        .bind(codec::uuid(job_id))
         .fetch_optional(&mut *tx)
         .await
         .classify(target)?;
@@ -486,8 +492,9 @@ impl<'s> Jobs<'s> {
     /// [`OperationsError::NotFound`]; classified driver failures.
     pub async fn get(&self, job: SemanticId) -> Result<JobRecord, OperationsError> {
         sqlx::query_as(
-            "SELECT job_id, attempt_id, idempotency_key, payload_version, priority, state, \
-                 tries, max_tries, backoff_base_us, backoff_cap_us, available_at, last_error \
+            "SELECT job_id, attempt_id, idempotency_key, payload_version, priority, \
+                 state::text AS state, tries, max_tries, backoff_base_us, backoff_cap_us, \
+                 available_at, last_error \
              FROM pse_ops.jobs WHERE job_id = $1",
         )
         .bind(codec::uuid(job))

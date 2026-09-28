@@ -49,6 +49,8 @@ pub mod r#schema_enum_types;
 ///Generated relation contract.
 pub mod r#schema_enums;
 ///Generated relation contract.
+pub mod r#schema_identities;
+///Generated relation contract.
 pub mod r#schema_invariants;
 ///Generated relation contract.
 pub mod r#schema_logical_types;

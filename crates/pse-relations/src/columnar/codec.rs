@@ -6,12 +6,13 @@
 use arrow_array::builder::{
     ArrayBuilder, BooleanBuilder, FixedSizeBinaryBuilder, FixedSizeListBuilder, Float64Builder,
     Int16Builder, Int32Builder, Int64Builder, ListBuilder, StringBuilder,
-    TimestampNanosecondBuilder, UInt8Builder, UInt16Builder, UInt32Builder, UInt64Builder,
+    TimestampMicrosecondBuilder, TimestampNanosecondBuilder, UInt8Builder, UInt16Builder,
+    UInt32Builder, UInt64Builder,
 };
 use arrow_array::{
     Array, BooleanArray, FixedSizeBinaryArray, FixedSizeListArray, Float64Array, Int16Array,
-    Int32Array, Int64Array, ListArray, StringArray, TimestampNanosecondArray, UInt8Array,
-    UInt16Array, UInt32Array, UInt64Array,
+    Int32Array, Int64Array, ListArray, StringArray, TimestampMicrosecondArray,
+    TimestampNanosecondArray, UInt8Array, UInt16Array, UInt32Array, UInt64Array,
 };
 use pse_ids::{ContentHash, SemanticId};
 
@@ -75,10 +76,14 @@ scalar!(u32, UInt32Builder, UInt32Array);
 scalar!(u64, UInt64Builder, UInt64Array);
 scalar!(f64, Float64Builder, Float64Array);
 
+/// Signed 64-bit storage: plain integers and both timestamp units the registry declares
+/// (`ts` nanoseconds, `ts_us` microseconds). The value is the stored tick count.
 impl ArrowValue for i64 {
     fn append(&self, output: &mut dyn ArrayBuilder) -> Result<(), RelationError> {
         if output.as_any().is::<TimestampNanosecondBuilder>() {
             builder::<TimestampNanosecondBuilder>(output)?.append_value(*self);
+        } else if output.as_any().is::<TimestampMicrosecondBuilder>() {
+            builder::<TimestampMicrosecondBuilder>(output)?.append_value(*self);
         } else {
             builder::<Int64Builder>(output)?.append_value(*self);
         }
@@ -87,6 +92,8 @@ impl ArrowValue for i64 {
     fn append_null(output: &mut dyn ArrayBuilder) -> Result<(), RelationError> {
         if output.as_any().is::<TimestampNanosecondBuilder>() {
             builder::<TimestampNanosecondBuilder>(output)?.append_null();
+        } else if output.as_any().is::<TimestampMicrosecondBuilder>() {
+            builder::<TimestampMicrosecondBuilder>(output)?.append_null();
         } else {
             builder::<Int64Builder>(output)?.append_null();
         }
@@ -96,6 +103,8 @@ impl ArrowValue for i64 {
         visible(input, index)?;
         if input.as_any().is::<TimestampNanosecondArray>() {
             Ok(array::<TimestampNanosecondArray>(input)?.value(index))
+        } else if input.as_any().is::<TimestampMicrosecondArray>() {
+            Ok(array::<TimestampMicrosecondArray>(input)?.value(index))
         } else {
             Ok(array::<Int64Array>(input)?.value(index))
         }

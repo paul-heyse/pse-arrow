@@ -77,6 +77,62 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
             ));
         }
     }
+    constraint_declarations(decl, &context)
+}
+
+/// Unique keys and table-level references name distinct, existing, exact-key columns.
+/// Their targets resolve at assembly, once every relation is declared.
+fn constraint_declarations(decl: &RelationDecl, context: &str) -> Result<(), SchemaError> {
+    let mut names = BTreeSet::new();
+    let keys = decl
+        .unique_keys
+        .iter()
+        .map(|key| (key.name, &key.columns, "unique key"));
+    let references = decl
+        .foreign_keys
+        .iter()
+        .map(|reference| (reference.name, &reference.columns, "foreign key"));
+    for (name, columns, kind) in keys.chain(references) {
+        let label = format!("{kind} {context}:{name}");
+        if !names.insert((kind, name)) {
+            return Err(SchemaError::DuplicateDeclaration {
+                kind: "key constraint",
+                name: label,
+            });
+        }
+        if name.is_empty()
+            || !name
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+        {
+            return Err(invalid(&label, "constraint names are snake-case identifiers"));
+        }
+        let mut seen = BTreeSet::new();
+        if columns.is_empty() || !columns.iter().all(|column| seen.insert(*column)) {
+            return Err(invalid(&label, "a key names one or more distinct columns"));
+        }
+        for column in columns.iter() {
+            let field = decl
+                .columns
+                .iter()
+                .find(|field| field.name() == *column)
+                .ok_or_else(|| SchemaError::UnknownReference {
+                    context: label.clone(),
+                    reference: (*column).to_owned(),
+                })?;
+            if !key_type(&field.value_type()) {
+                return Err(invalid(&label, "key columns must have exact-key types"));
+            }
+        }
+    }
+    for reference in &decl.foreign_keys {
+        if reference.columns.len() != reference.target_columns.len() {
+            return Err(invalid(
+                format!("foreign key {context}:{}", reference.name),
+                "a reference pairs each local column with one target column",
+            ));
+        }
+    }
     Ok(())
 }
 

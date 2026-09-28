@@ -22,6 +22,7 @@ extend-exclude = [
   "docs/capability-maps/evidence/**/*.lock",
   "docs/capability-maps/facts/",
   "crates/*/src/generated/",
+  "crates/pse-operations-queries/",
   "crates/pse-ipopt-sys/src/bindings.rs",
   "python/pse/contracts/",
   "tests/golden/",

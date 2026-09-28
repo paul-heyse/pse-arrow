@@ -64,6 +64,7 @@ pub mod literal;
 pub mod model;
 pub mod obligations;
 pub mod resolved_contract;
+pub mod store;
 pub mod validation;
 
 use std::sync::{Arc, OnceLock};

@@ -16,6 +16,12 @@ pub(crate) const DOC: &str = pse_columnar::native_field::DOCUMENTATION;
 const QUANTITY: &str = "pse.domain.quantity";
 const FK_RELATION: &str = "pse.domain.fk.relation";
 const FK_COLUMN: &str = "pse.domain.fk.column";
+/// The declared entity identity a top-level identity column carries (ADR-0115).
+const IDENTITY: &str = "pse.domain.identity";
+/// The document format of a text column holding one structured document.
+const DOCUMENT: &str = "pse.domain.document";
+/// The one document format: a JSON document (PostgreSQL `jsonb`).
+pub const JSON_DOCUMENT: &str = "json";
 
 /// Versioned semantic row-key framing, independent of native sorting buffers.
 pub const ROW_KEY_ENCODING: &str = pse_columnar::row_token::ENCODING;
@@ -172,6 +178,24 @@ impl FieldContract {
     #[must_use]
     pub fn with_quantity(self, quantity: &str) -> Self {
         self.facet(QUANTITY, quantity)
+    }
+    /// Declare that this identity column carries the named entity identity (ADR-0115).
+    /// A foreign-key column inherits its target's identity at registry assembly.
+    #[must_use]
+    pub fn with_identity(self, identity: &str) -> Self {
+        self.facet(IDENTITY, identity)
+    }
+    /// The entity identity this column carries, declared or inherited.
+    pub fn identity(&self) -> Option<&str> {
+        self.get(IDENTITY)
+    }
+    /// A text column holding one JSON document (logical type `json`).
+    pub fn json_document() -> Self {
+        Self::native(DataType::Utf8).facet(DOCUMENT, JSON_DOCUMENT)
+    }
+    /// The document format of a document column.
+    pub fn document(&self) -> Option<&str> {
+        self.get(DOCUMENT)
     }
     /// Assign a quantity facet obtained from another declared field.
     #[must_use]
@@ -367,6 +391,7 @@ impl FieldContract {
                         | QUANTITY
                         | FK_RELATION
                         | FK_COLUMN
+                        | IDENTITY
                         | super::reference::KEY_REFERENCE
                 )
             })
@@ -389,13 +414,19 @@ impl FieldContract {
         if value.0.metadata().keys().any(|key| {
             !matches!(
                 key.as_str(),
-                EXTENSION | PARAMETER | super::integer_range::KEY_INTEGER_RANGE
+                EXTENSION
+                    | PARAMETER
+                    | DOCUMENT
+                    | super::integer_range::KEY_INTEGER_RANGE
             )
         }) {
             return render_field(value.field());
         }
         if let Some(use_) = self.extension() {
             return Ok(use_.name());
+        }
+        if let Some(format) = self.document() {
+            return Ok(format.to_owned());
         }
         Ok(match self.0.data_type() {
             DataType::Float64 => "f64".into(),
@@ -408,6 +439,7 @@ impl FieldContract {
             DataType::Boolean => "bool".into(),
             DataType::Utf8 => "text".into(),
             other if other == &super::extension::timestamp_storage() => "ts".into(),
+            other if other == &super::extension::timestamp_micros_storage() => "ts_us".into(),
             other => render_data_type(other)?,
         })
     }
@@ -457,10 +489,36 @@ impl FieldContract {
         {
             if !matches!(
                 key.as_str(),
-                EXTENSION | PARAMETER | ROLE | DOC | QUANTITY | FK_RELATION | FK_COLUMN
+                EXTENSION
+                    | PARAMETER
+                    | ROLE
+                    | DOC
+                    | QUANTITY
+                    | FK_RELATION
+                    | FK_COLUMN
+                    | IDENTITY
+                    | DOCUMENT
             ) {
                 return Err(invalid("unknown domain facet"));
             }
+        }
+        if let Some(identity) = self.identity()
+            && (identity.is_empty()
+                || !matches!(
+                    self.extension(),
+                    Some(ExtensionUse::SemanticId | ExtensionUse::ContentHash)
+                ))
+        {
+            return Err(invalid(
+                "an entity identity requires a semantic_id or content_hash column",
+            ));
+        }
+        if let Some(format) = self.document()
+            && (format != JSON_DOCUMENT
+                || self.extension().is_some()
+                || self.0.data_type() != &DataType::Utf8)
+        {
+            return Err(invalid("a document column is JSON text over Utf8 storage"));
         }
         if self.get(EXTENSION).is_some() && self.extension().is_none() {
             return Err(invalid("unknown or incomplete domain extension"));
