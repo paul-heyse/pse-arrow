@@ -62,6 +62,15 @@ sha2.workspace = true
 # Introspect the actual compiled PyO3 boundary; no handwritten API replica.
 pyo3-introspection.workspace = true
 syn.workspace = true
+# Store statements: Cornucopia compiles crates/pse-operations/queries into the generated
+# crate against a temporary database (ADR-0114 Outcome 24). Non-optional, so the
+# `--no-default-features` recipes regenerate it too; prettyplease re-prints its sources
+# so the committed bytes never depend on a `$PATH` rustfmt.
+cornucopia.workspace = true
+tokio-postgres.workspace = true
+prettyplease.workspace = true
+quote.workspace = true
+miette.workspace = true
 
 [dev-dependencies]
 pse-quantity = { workspace = true, features = ["fixtures"] }

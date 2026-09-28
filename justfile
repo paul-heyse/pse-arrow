@@ -290,6 +290,11 @@ codegen-postgres-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only postgres --check
 
 [group('local')]
+[doc('The operational store statements prepare against the generated schema and match the committed query crate; needs PostgreSQL (`just db-status`)')]
+codegen-queries-check:
+    cargo run -p xtask --no-default-features --locked -- codegen --only queries --check
+
+[group('local')]
 codegen-bindgen-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only bindgen --check
 
@@ -840,7 +845,7 @@ fmt:
     "{{ ruff }}" format
 
 [group('mutating')]
-[doc('Regenerate relations, Python contracts, docs/generated and the Ipopt bindings')]
+[doc('Regenerate relations, Python contracts, docs/generated, the store schema and statements, and the Ipopt bindings')]
 codegen *args:
     bash scripts/native_exec.sh cargo xtask codegen {{ args }}
 
