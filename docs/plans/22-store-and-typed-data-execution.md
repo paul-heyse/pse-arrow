@@ -90,7 +90,7 @@ Environment:
 | W3 | **O8** | **B5** (after B4) | — |
 | W4 | **O7** (after O8 and B5) | **G8 + O5-incumbents** (after B2 and B5; merges after O7, which shares `worker.rs`) | **B3b** typed-id sweep (after O8) |
 | W5 | **O9**, then the **docs step** | — | — |
-| W6 | **Scoped qualification** (maintainer request, 2026-09-28), then solver scope resumes | — | — |
+| W6 | Scoped qualification | complete, with one fix not re-verified (see the W6 checkpoint) |
 
 ## Packet detail
 
@@ -833,4 +833,53 @@ The Python surface (`test_progress_stream_python` and the O9 module) passed in t
 - **Left for the solver docs pass:** stale G4–G7 claims in §3.3, §18.9 and §18.10.1.
 
 **Next:** W6 scoped qualification.
+
+### W6: scoped qualification
+
+Run on `main` on 2026-09-28 against the zero baseline, with `PSE_SOLVER_IMAGE` set to the
+local immutable image id. By maintainer direction (decision 8), use-case and journey suites
+(the native-acceptance conformance runs, parity, the invariant harness) were not run.
+
+**Fixes made to reach zero:**
+- **Formatting** (`13f4f25b`): `cargo fmt`, taplo and ruff format over the track.
+- **Rust lint** (`0acf0db7`, `b548e97d`, `50f5dc29`). 559 clippy findings resolved:
+  - mechanical fixes, and about 270 missing docs;
+  - dead code deleted, including the unwired dynamic-partition chain in `pse-compiler`;
+  - `large_enum_variant` boxing and local type aliases;
+  - reasoned `#[expect]`s, mainly `too_many_arguments` (32). About 12 of those pass the same root, instance, bindings and limits, and a request struct would remove them.
+- **Python lint and types** (`65b649c6`, `83a1a255`). 167 ruff and 49 pyrefly findings resolved. Generated-file findings were fixed in the generators, and ids are typed at their source. Reasoned suppressions remain: S608 ×4 in the query tests, which would go if `Runtime.query` gains bind parameters; one overload break in a refusal test; SLF001 ×1; N999 ×4.
+- **Repository lint** (`fc7abb12`, `1ae91c2f`, `7281ac97`, `44e3c2b0`):
+  - a typos allowlist for native C symbols and deliberate test misspellings;
+  - SPDX headers;
+  - the thermodynamics handoff excluded from every checker (maintainer direction);
+  - authored `packages/**` excluded from taplo (maintainer direction);
+  - H1 titles on the two external PostgreSQL reviews so the book builds.
+
+**Results:**
+
+| Command | Result |
+|---|---|
+| `cargo fmt --all -- --check` | clean |
+| `just clippy` (`clippy-default`, `clippy-no-default`) | both passed |
+| `just quality` | every check passed except `lint-toml`, which failed only on the two `packages/reference/*/package.toml` files, since excluded (`7281ac97`, not re-run) |
+| `just governance` (governance tests, all seven codegen checks, `family-check`) | passed |
+| `just adr-lint`; `just docs`; `just docs-test` | passed; 144 chapters built; 8 passed |
+| `just db-test` / `just worker-test` / `just publication-test` | 61 / 4 / 9 passed |
+| runtime native units; `just unit-package pse-compiler` | 167 and 96 passed |
+| Python unit and component tests; the Python modules the lint pass changed | 157 and 72 passed (lint agent's run) |
+| `cargo nextest run -p pse-catalog -p pse-tests-engine -p pse-tests-lifecycle` (force-validate) | 151 passed, **13 failed** |
+
+**The 13 failures** were a B3c regression. The public `declare_diagnostics` entry point
+builds registries in the engine, lifecycle and pse-rules tests, and it did not declare the
+`run` identity that `runtime.diagnostics_findings.run_id` now references (`UnknownReference
+identity:run`). `598b82ef` gives the run identity its own declaration, used by the operational
+catalog and by `declare_diagnostics`, as `declare_publications` does for its identities.
+**Not re-run** at the maintainer's request. The next session runs that nextest command and the
+pse-rules tests first.
+
+**Excluded, for Q1:** native-acceptance conformance (`authored_publication_resource`
+included), parity, the invariant harness, and performance at scale (S15, the O9 scans).
+
+**Track state.** The store and typed-data track's functional scope is complete. Solver scope
+resumes from the [main execution packet](22-solver-capabilities-execution.md).
 
