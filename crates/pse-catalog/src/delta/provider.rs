@@ -63,8 +63,7 @@ pub async fn open_view(
     layout: &DurableLayout,
     state: Arc<SessionState>,
 ) -> Result<ViewTable> {
-    let lease = super::lease::read(&location, &pse_columnar::CancellationToken::new()).await?;
-    let state = bind_cache_state(&location, &state, lease.as_deref())?;
+    let state = bind_cache_state(&location, &state)?;
     let version = delta_version(version)?;
     let opened = open_native(
         location,
@@ -73,7 +72,7 @@ pub async fn open_view(
         &state,
     )
     .await?;
-    view(opened, layout, state, lease).await
+    view(opened, layout, state).await
 }
 
 /// Open an exact declared Delta table, checking its persisted properties and CHECK.
@@ -85,29 +84,7 @@ pub async fn open_declared_view(
     contract: &super::contract::DeclaredCheck,
     state: Arc<SessionState>,
 ) -> Result<ViewTable> {
-    let lease = super::lease::read(&location, &pse_columnar::CancellationToken::new()).await?;
-    declared_view(location, version, contract, state, lease).await
-}
-
-pub(super) async fn open_maintained_view(
-    location: url::Url,
-    version: i64,
-    contract: &super::contract::DeclaredCheck,
-    state: Arc<SessionState>,
-    lease: &super::lease::MaintenanceLease,
-) -> Result<ViewTable> {
-    lease.covers(&location)?;
-    declared_view(location, version, contract, state, None).await
-}
-
-async fn declared_view(
-    location: url::Url,
-    version: i64,
-    contract: &super::contract::DeclaredCheck,
-    state: Arc<SessionState>,
-    lease: Option<Arc<super::lease::ReadLease>>,
-) -> Result<ViewTable> {
-    let state = bind_cache_state(&location, &state, lease.as_deref())?;
+    let state = bind_cache_state(&location, &state)?;
     let opened = open_native(
         location,
         Some(delta_version(version)?),
@@ -116,7 +93,7 @@ async fn declared_view(
     )
     .await?;
     contract.verify(&opened.table)?;
-    view(opened, contract.layout(), state, lease).await
+    view(opened, contract.layout(), state).await
 }
 
 pub(crate) struct Opened {
@@ -124,19 +101,17 @@ pub(crate) struct Opened {
     pub(crate) owner: Option<Arc<crate::cache_service::snapshot::RetainedTable>>,
 }
 
-/// File caches share the verified local retention generation. Remote and
-/// maintenance paths without that reader evidence bypass these cache families.
+/// File caches are shared under the reader's catalog read scope; a session without
+/// one bypasses these cache families.
 pub(crate) fn bind_cache_state(
     location: &url::Url,
     state: &Arc<SessionState>,
-    lease: Option<&super::lease::ReadLease>,
 ) -> Result<Arc<SessionState>> {
     if let Some(native) = state
         .config()
         .get_extension::<pse_engine::cache_service::NativeCacheService>()
     {
-        let generation = super::scope::CacheScope::of(state.config(), lease)
-            .map(|scope| scope.namespace());
+        let generation = super::scope::ReadScope::of(state).map(|scope| scope.namespace());
         native.bind_state_with_generation(location, state, generation.as_deref())
     } else {
         pse_engine::cache_service::bind_state(location, state)
@@ -173,12 +148,7 @@ pub(crate) async fn open_native(
     }
 }
 
-async fn view(
-    opened: Opened,
-    layout: &DurableLayout,
-    state: Arc<SessionState>,
-    lease: Option<Arc<super::lease::ReadLease>>,
-) -> Result<ViewTable> {
+async fn view(opened: Opened, layout: &DurableLayout, state: Arc<SessionState>) -> Result<ViewTable> {
     let provider = opened
         .table
         .table_provider()
@@ -191,7 +161,6 @@ async fn view(
         Some(owner) => super::leased::retain_snapshot(provider, owner),
         None => provider,
     };
-    let provider = super::leased::retain(provider, lease);
     let input =
         LogicalPlanBuilder::scan("delta_version", provider_as_source(provider), None)?.build()?;
     Ok(ViewTable::new(layout.decode(input)?, None))

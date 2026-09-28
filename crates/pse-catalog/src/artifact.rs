@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Named native outputs and one coherent Delta publication. There is no scheduler,
+//! Named native outputs and one coherent publication candidate. There is no scheduler,
 //! pass record, content-addressed stage restore, or execution callback here.
 mod consumption;
 pub(crate) mod dependencies;
@@ -14,7 +14,7 @@ use pse_engine::{
     session::{EngineSession, PreparedComputation},
 };
 use pse_ids::SemanticId;
-use pse_relations::generated::runtime::{publication_manifests, publications};
+use pse_relations::generated::runtime::publication_manifests;
 use pse_schema::model::provider::{OperationPurpose, ProviderScope};
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -26,15 +26,6 @@ pub struct RelationOutput {
     pub relation_id: SemanticId,
     /// Native producer with actual source providers and implementations.
     pub plan: LogicalPlan,
-}
-
-/// The logical name and Delta location of the control table being published.
-#[derive(Clone, Debug)]
-pub struct PublicationTarget {
-    /// Name whose catalog/schema/table policies govern this write.
-    pub reference: ResolvedTableReference,
-    /// Actual Delta control-table location.
-    pub location: url::Url,
 }
 
 /// Complete named outputs over one retained native provider generation.
@@ -419,44 +410,6 @@ impl ArtifactPlan {
     /// output contract, native planning, scoped policy or cancellation failure.
     pub fn prepare_publication(
         &self,
-        header: publication_manifests::Row,
-        destinations: BTreeMap<ResolvedTableReference, url::Url>,
-        retained: Vec<pse_relations::generated::structures::MemberDescriptor>,
-        cancel: &CancellationToken,
-    ) -> Result<(PreparedComputation, crate::delta::ticket::PublicationTicket), EngineError> {
-        self.prepare_sink(
-            publication_plan::Sink::Candidate,
-            None,
-            header,
-            destinations,
-            retained,
-            cancel,
-        )
-    }
-    /// Compose outputs into one conditional commit of a Delta control table.
-    /// # Errors
-    /// As for [`ArtifactPlan::prepare_publication`].
-    pub fn prepare_control_publication(
-        &self,
-        target: PublicationTarget,
-        header: publications::Row,
-        destinations: BTreeMap<ResolvedTableReference, url::Url>,
-        retained: Vec<pse_relations::generated::structures::MemberDescriptor>,
-        cancel: &CancellationToken,
-    ) -> Result<(PreparedComputation, crate::delta::ticket::PublicationTicket), EngineError> {
-        self.prepare_sink(
-            publication_plan::Sink::Control(target.location),
-            Some(target.reference),
-            crate::delta::publication::manifest_of(&header),
-            destinations,
-            retained,
-            cancel,
-        )
-    }
-    fn prepare_sink(
-        &self,
-        sink: publication_plan::Sink,
-        control: Option<ResolvedTableReference>,
         mut header: publication_manifests::Row,
         mut destinations: BTreeMap<ResolvedTableReference, url::Url>,
         retained: Vec<pse_relations::generated::structures::MemberDescriptor>,
@@ -476,9 +429,6 @@ impl ArtifactPlan {
         }
         self.check_publication_inputs(&mut header, &retained, cancel)?;
         let mut session = self.session.with_purpose(OperationPurpose::Publish);
-        if let Some(control) = &control {
-            session.bind_target(scope(control));
-        }
         let mut members = Vec::with_capacity(self.outputs.len() + retained.len());
         for (reference, output) in &self.outputs {
             session.bind_target(scope(reference));
@@ -503,7 +453,6 @@ impl ArtifactPlan {
         }
         members.extend(retained.into_iter().map(Member::Retained));
         let (plan, ticket) = publication_plan::plan_bound(
-            sink,
             header,
             members,
             Arc::clone(session.registry()),

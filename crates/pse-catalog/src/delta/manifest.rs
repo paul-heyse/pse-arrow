@@ -164,9 +164,10 @@ fn external(error: impl Into<DataFusionError>) -> DataFusionError {
 mod tests {
     #[test]
     fn legacy_control_identity_is_the_former_relation() {
+        // The identity the removed `runtime.publications@2` declaration generated.
         assert_eq!(
-            super::legacy_control(),
-            pse_relations::generated::runtime::publications::RELATION_ID
+            super::legacy_control().to_hex(),
+            "5f310f54c9b3ebfac003c02ef1044244"
         );
     }
 }

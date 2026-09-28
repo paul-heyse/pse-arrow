@@ -45,30 +45,3 @@ impl ReadScope {
         format!("pse.scope:{}:{}", self.workspace, self.epoch)
     }
 }
-
-/// The maintenance scope a cached entry was read under: a catalog read scope, or the
-/// local file-lease generation of a reader opened through the Delta control table.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum CacheScope {
-    /// A local retention-lease generation.
-    Lease(super::lease::Generation),
-    /// A catalog read scope.
-    Catalog(ReadScope),
-}
-
-impl CacheScope {
-    /// The scope of a reader: its session's catalog scope, else its file lease.
-    pub(crate) fn of(config: &SessionConfig, lease: Option<&super::lease::ReadLease>) -> Option<Self> {
-        ReadScope::of_config(config)
-            .map(Self::Catalog)
-            .or_else(|| lease.map(|lease| Self::Lease(lease.generation.clone())))
-    }
-
-    /// The cache namespace of this scope.
-    pub(crate) fn namespace(&self) -> String {
-        match self {
-            Self::Lease(generation) => format!("{generation:?}"),
-            Self::Catalog(scope) => scope.namespace(),
-        }
-    }
-}

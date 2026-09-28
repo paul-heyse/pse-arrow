@@ -11,14 +11,14 @@
 use datafusion::{common::ResolvedTableReference, logical_expr::LogicalPlanBuilder};
 use pse_authoring::ParseBudget;
 use pse_catalog::{
-    artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
-    delta::publication::{Publication, PublicationRoot},
+    artifact::{ArtifactPlan, RelationOutput},
+    delta::publication::{Publication, PublicationSelection},
 };
 use pse_columnar::CancellationToken;
 use pse_engine::session::planner::UnifiedPlanner;
 use pse_ids::SemanticId;
 use pse_relations::generated::{
-    authored::documents, enums::PublicationKind, runtime::publications,
+    authored::documents, enums::PublicationKind, runtime::publication_manifests,
 };
 use pse_runtime::authoring_driver::document::load_package_texts_owned;
 use std::{collections::BTreeMap, sync::Arc};
@@ -53,16 +53,29 @@ fn texts() -> BTreeMap<String, String> {
         ),
     ])
 }
-fn header() -> publications::Row {
+fn header() -> publication_manifests::Row {
     let id = |value| SemanticId::from_bytes([value; 16]);
-    publications::Row {
-        workspace_id: id(1),
+    publication_manifests::Row {
         publication_id: id(2),
+        workspace_id: id(1),
         parent_publication_id: None,
         attempt_id: id(3),
         kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
+        windows: vec![],
+        exported_at: None,
+        export_lease_id: None,
+        export_expires_at: None,
+        maintenance_epoch: None,
+        store_fingerprint: None,
+    }
+}
+fn selection(record: &publication_manifests::Row) -> PublicationSelection {
+    PublicationSelection {
+        record: record.clone(),
+        scope: None,
+        owner: None,
     }
 }
 
@@ -135,38 +148,27 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
             },
         );
     }
-    let selection = PublicationRoot {
-        location: format!("file://{}/control/", root.path().display())
-            .parse()
-            .unwrap(),
-        version: 1,
-    };
     let plan = ArtifactPlan::new(session, outputs, &cancel).unwrap();
-    plan.prepare_control_publication(
-        PublicationTarget {
-            reference: ResolvedTableReference {
-                catalog: "source".into(),
-                schema: "runtime".into(),
-                table: "publications".into(),
-            },
-            location: selection.location.clone(),
-        },
-        header(),
-        destinations,
-        vec![],
-        &cancel,
+    let admitted = plan
+        .prepare_publication(header(), destinations, vec![], &cancel)
+        .map(|(command, _ticket)| command)
+        .unwrap()
+        .execute(&cancel)
+        .await
+        .unwrap();
+    let record = publication_manifests::View::try_from_batch_with_registry(
+        &registry,
+        &admitted.batches()[0],
     )
-    .map(|(command, _ticket)| command)
     .unwrap()
-    .execute(&cancel)
-    .await
+    .row(0)
     .unwrap();
-    drop((plan, factory, fixture, loaded));
+    drop((admitted, plan, factory, fixture, loaded));
 
     let cold = native_fixture();
     let budget = cold.resources.pool.clone();
     let factory = cold.factory.clone();
-    let publication = Publication::open_control(selection, Arc::clone(&registry), &factory, &cancel)
+    let publication = Publication::open(selection(&record), Arc::clone(&registry), &factory, &cancel)
         .await
         .unwrap();
     let reopened = publication.session().clone();
@@ -246,8 +248,8 @@ async fn capture_source_facts(
         },
     )
     .unwrap();
-    let session = Publication::open_control(
-        publication.root().unwrap().clone(),
+    let session = Publication::open(
+        selection(publication.record()),
         Arc::clone(registry),
         &factory,
         cancel,

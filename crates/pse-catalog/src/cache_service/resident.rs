@@ -38,7 +38,7 @@ mod improvement_unit;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Key {
     store: usize,
-    maintenance: crate::delta::scope::CacheScope,
+    maintenance: crate::delta::scope::ReadScope,
     selection: Arc<MemberSelection>,
     schema: SchemaRef,
     interpretation: Arc<Interpretation>,
@@ -485,23 +485,14 @@ impl ExecutionPlan for SelectedExec {
         let limit = self.limit;
         let populate = self.populate;
         let stream = futures_util::stream::once(async move {
-            let cancel = context
-                .session_config()
-                .get_extension::<pse_engine::session::execution::NativeExecutionContext>()
-                .map_or_else(pse_columnar::CancellationToken::new, |owner| {
-                    owner.cancellation().clone()
-                });
-            let lease = crate::delta::lease::read(&location, &cancel).await?;
             let store = state
                 .runtime_env()
                 .object_store_registry
                 .get_store(&location)?;
             let generation = service.native().generation(&location, store);
             let key = generation
-                .zip(crate::delta::scope::CacheScope::of(
-                    context.session_config(),
-                    lease.as_deref(),
-                ))
+                // The read scope the selection was bound under (its reader's grant).
+                .zip(crate::delta::scope::ReadScope::of(&state))
                 .filter(|_| reuse)
                 .map(|(store, maintenance)| Key {
                     store,
@@ -538,14 +529,7 @@ impl ExecutionPlan for SelectedExec {
                 service.resident.bypasses.fetch_add(1, Ordering::Relaxed);
                 datafusion::physical_plan::execute_stream(input, context)?
             };
-            let stream: SendableRecordBatchStream = Box::pin(RecordBatchStreamAdapter::new(
-                source.schema(),
-                source.map_ok(move |batch| {
-                    let _lease = &lease;
-                    batch
-                }),
-            ));
-            Ok::<_, DataFusionError>(stream)
+            Ok::<_, DataFusionError>(source)
         })
         .try_flatten();
         Ok(Box::pin(RecordBatchStreamAdapter::new(schema, stream)))

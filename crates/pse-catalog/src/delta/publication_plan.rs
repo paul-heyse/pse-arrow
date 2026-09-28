@@ -2,9 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Native composition from relation writes to one publication candidate.
-use super::{
-    contract::DeclaredCheck, layout::DurableLayout, publish::DeltaPublish, write::DeltaWrite,
-};
+use super::{contract::DeclaredCheck, layout::DurableLayout, write::DeltaWrite};
 use datafusion::{
     arrow::array::{Array, ListArray, StructArray},
     common::{DataFusionError, ResolvedTableReference, Result, ScalarValue},
@@ -17,7 +15,7 @@ use datafusion::{
 };
 use deltalake::{DeltaTable, kernel::transaction::CommitProperties, protocol::SaveMode};
 use pse_ids::SemanticId;
-use pse_relations::generated::runtime::{publication_manifests, publications};
+use pse_relations::generated::runtime::publication_manifests;
 use pse_schema::Registry;
 use std::sync::Arc;
 
@@ -50,42 +48,11 @@ pub enum Member {
     Retained(Descriptor),
 }
 
-/// What the composed member writes feed.
-#[derive(Clone, Debug)]
-pub(crate) enum Sink {
-    /// The conditional commit of a Delta control table at this location.
-    Control(url::Url),
-    /// Admission of the candidate record; nothing becomes visible (Plan 22 X9). The
-    /// catalog commit makes the admitted record visible.
-    Candidate,
-}
-
-/// Compose all member writes, their actual committed versions and the conditional
-/// control commit into one native plan. The caller executes only this plan.
-/// An error can leave unpublished member versions, never a partial publication.
-/// `header.members` must be empty; writes and exact retained selectors supply the vector.
-/// # Errors
-/// Invalid declarations, duplicate names, empty inputs, incompatible fields or a
-/// header that already contains members.
-pub fn plan(
-    location: url::Url,
-    header: publications::Row,
-    members: Vec<Member>,
-    registry: Arc<Registry>,
-) -> Result<LogicalPlan> {
-    compose(
-        super::publication::manifest_of(&header),
-        members,
-        registry,
-        None,
-        Sink::Control(location),
-    )
-    .map(|(plan, _)| plan)
-}
-
 /// Compose the member writes and the admission of the complete candidate record: the
 /// plan's one output row is the admitted `runtime.publication_manifests` record with
-/// every member's actual version. It makes nothing visible.
+/// every member's actual version. It makes nothing visible (Plan 22 X9); the catalog
+/// commit makes the admitted record visible. An error can leave unpublished member
+/// versions under the intent's prefix, never a partial publication.
 /// `header.members` must be empty; writes and exact retained selectors supply the vector.
 /// # Errors
 /// Invalid declarations, duplicate names, empty inputs, incompatible fields or a
@@ -95,11 +62,10 @@ pub fn candidate(
     members: Vec<Member>,
     registry: Arc<Registry>,
 ) -> Result<LogicalPlan> {
-    compose(header, members, registry, None, Sink::Candidate).map(|(plan, _)| plan)
+    compose(header, members, registry, None).map(|(plan, _)| plan)
 }
 
 pub(crate) fn plan_bound(
-    sink: Sink,
     header: publication_manifests::Row,
     members: Vec<Member>,
     registry: Arc<Registry>,
@@ -111,7 +77,6 @@ pub(crate) fn plan_bound(
         members,
         registry,
         Some(&(operation_id, dependencies)),
-        sink,
     )
     .and_then(|(plan, ticket)| {
         Ok((
@@ -129,7 +94,6 @@ fn compose(
         SemanticId,
         Vec<pse_relations::generated::runtime::native_dependencies::Row>,
     )>,
-    sink: Sink,
 ) -> Result<(LogicalPlan, Option<super::ticket::PublicationTicket>)> {
     if !header.members.is_empty() || members.is_empty() {
         return Err(invalid(
@@ -190,10 +154,7 @@ fn compose(
                 .alias("members"),
         ],
     )?);
-    let literal = match &sink {
-        Sink::Control(_) => control_batch(super::publication::control_of(&header))?,
-        Sink::Candidate => manifest_batch(header, &registry)?,
-    };
+    let literal = manifest_batch(header, &registry)?;
     let layout = DurableLayout::new(literal.schema())?;
     let expressions = literal
         .schema()
@@ -221,16 +182,8 @@ fn compose(
         expressions,
         Arc::new(members),
     )?))?;
-    let location = match &sink {
-        Sink::Control(location) => Some(location.clone()),
-        Sink::Candidate => None,
-    };
-    let ticket = identity
-        .map(|_| super::ticket::PublicationTicket::new(location, candidate, attempts));
-    let plan = match sink {
-        Sink::Control(location) => DeltaPublish::plan(location, record, registry)?,
-        Sink::Candidate => super::candidate::AdmitCandidate::plan(record, registry)?,
-    };
+    let ticket = identity.map(|_| super::ticket::PublicationTicket::new(candidate, attempts));
+    let plan = super::candidate::AdmitCandidate::plan(record, registry)?;
     Ok((plan, ticket))
 }
 fn write_member(
@@ -329,11 +282,6 @@ fn describe(
         ],
         Arc::new(write),
     )?))
-}
-fn control_batch(row: publications::Row) -> Result<datafusion::arrow::array::RecordBatch> {
-    let mut builder = publications::Builder::new().map_err(external)?;
-    builder.push(row).map_err(external)?;
-    Ok(builder.finish().map_err(external)?.into_batch())
 }
 fn manifest_batch(
     row: publication_manifests::Row,

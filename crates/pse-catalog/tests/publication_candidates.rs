@@ -236,7 +236,6 @@ async fn selected_publication_reopens_exact_members() {
     .await
     .unwrap();
     assert_eq!(publication.record(), &record);
-    assert!(publication.root().is_none());
     for member in &record.members {
         assert_eq!(&publication.member(&name(&member.table_name)).unwrap(), member);
     }

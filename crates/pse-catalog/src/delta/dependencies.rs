@@ -93,7 +93,6 @@ impl PartitionStream for Dependencies {
             cancel.checkpoint().map_err(external)?;
             let location = url::Url::parse(&selected.member.table_uri)
                 .map_err(|error| DataFusionError::External(Box::new(error)))?;
-            let _lease = super::lease::read(&location, cancel).await?;
             let _owners = selected.leases;
             let opened = cancel
                 .until_cancelled(super::provider::open_native(

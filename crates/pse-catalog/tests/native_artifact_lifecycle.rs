@@ -11,18 +11,18 @@ use datafusion::{
     common::ResolvedTableReference,
 };
 use pse_catalog::{
-    artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
+    artifact::{ArtifactPlan, RelationOutput},
     delta::{
-        maintenance::{MaintenanceAction, MaintenanceTarget},
-        publication::{Publication, PublicationRoot},
+        collect::{CollectAction, CollectTarget},
+        publication::{Publication, PublicationSelection},
     },
 };
 use pse_columnar::CancellationToken;
 use pse_engine::session::EngineFactory;
 use pse_ids::SemanticId;
 use pse_relations::generated::{
-    enums::PublicationKind,
-    runtime::{publications, retained_versions},
+    enums::{PublicationKind, RetentionReason},
+    runtime::{publication_manifests, retained_versions},
 };
 use pse_schema::{
     Registry, RegistryBuilder,
@@ -39,6 +39,53 @@ fn name(schema: &str, table: &str) -> ResolvedTableReference {
 }
 fn id(byte: u8) -> SemanticId {
     SemanticId::from_bytes([byte; 16])
+}
+fn header(publication: u8, kind: PublicationKind) -> publication_manifests::Row {
+    publication_manifests::Row {
+        publication_id: id(publication),
+        workspace_id: id(1),
+        parent_publication_id: None,
+        attempt_id: id(publication + 1),
+        kind,
+        inputs: vec![],
+        members: vec![],
+        windows: vec![],
+        exported_at: None,
+        export_lease_id: None,
+        export_expires_at: None,
+        maintenance_epoch: None,
+        store_fingerprint: None,
+    }
+}
+/// The admitted record an executed candidate returns.
+fn admitted(
+    registry: &Registry,
+    completed: &pse_engine::session::CompletedComputation,
+) -> publication_manifests::Row {
+    publication_manifests::View::try_from_batch_with_registry(registry, &completed.batches()[0])
+        .unwrap()
+        .row(0)
+        .unwrap()
+}
+/// Open exactly the members a (catalog-granted) record selects.
+async fn open(
+    record: &publication_manifests::Row,
+    registry: Arc<Registry>,
+    factory: &EngineFactory,
+    cancel: &CancellationToken,
+) -> Publication {
+    Publication::open(
+        PublicationSelection {
+            record: record.clone(),
+            scope: None,
+            owner: None,
+        },
+        registry,
+        factory,
+        cancel,
+    )
+    .await
+    .unwrap()
 }
 fn registry() -> Arc<Registry> {
     let mut builder = RegistryBuilder::new();
@@ -114,7 +161,6 @@ async fn explicit_product_reopens_after_eviction_and_refuses_another_descriptor(
     assert_eq!(artifact.outputs().len(), 2);
     let directory = tempfile::tempdir().unwrap();
     let base = url::Url::from_directory_path(directory.path()).unwrap();
-    let control = base.join("control/").unwrap();
     let destinations = artifact
         .outputs()
         .keys()
@@ -126,22 +172,9 @@ async fn explicit_product_reopens_after_eviction_and_refuses_another_descriptor(
             )
         })
         .collect();
-    let header = publications::Row {
-        workspace_id: id(10),
-        publication_id: id(11),
-        attempt_id: id(12),
-        parent_publication_id: None,
-        kind: PublicationKind::Inspection,
-        inputs: vec![],
-        members: vec![],
-    };
     let command = artifact
-        .prepare_control_publication(
-            PublicationTarget {
-                reference: name("runtime", "publications"),
-                location: control.clone(),
-            },
-            header,
+        .prepare_publication(
+            header(11, PublicationKind::Inspection),
             destinations,
             vec![],
             &cancel,
@@ -149,27 +182,12 @@ async fn explicit_product_reopens_after_eviction_and_refuses_another_descriptor(
         .map(|(command, _ticket)| command)
         .unwrap();
     let result = command.execute(&cancel).await.unwrap();
-    let version = result.batches()[0]
-        .column(0)
-        .as_any()
-        .downcast_ref::<Int64Array>()
-        .unwrap()
-        .value(0);
+    let record = admitted(&registry, &result);
     drop(result);
     drop(artifact);
     // A fresh native factory cannot inherit producer cells or mutable old providers.
     let cold = self::factory();
-    let publication = Publication::open_control(
-        PublicationRoot {
-            location: control,
-            version,
-        },
-        registry,
-        &cold,
-        &cancel,
-    )
-    .await
-    .unwrap();
+    let publication = open(&record, registry, &cold, &cancel).await;
     assert_eq!(
         **publication
             .require_artifact(&descriptor, &cancel)
@@ -257,26 +275,12 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
             .unwrap(),
     );
     runtime.register_object_store(&base, faults.clone());
-    let target = PublicationTarget {
-        reference: name("runtime", "publications"),
-        location: base.join("control/").unwrap(),
-    };
-    let header = publications::Row {
-        workspace_id: id(1),
-        publication_id: id(2),
-        parent_publication_id: None,
-        attempt_id: id(3),
-        kind: PublicationKind::Relations,
-        inputs: vec![],
-        members: vec![],
-    };
     let destinations =
         BTreeMap::from([(name("authored", "values"), base.join("values/").unwrap())]);
     let publish = || {
         artifact
-            .prepare_control_publication(
-                target.clone(),
-                header.clone(),
+            .prepare_publication(
+                header(2, PublicationKind::Relations),
                 destinations.clone(),
                 vec![],
                 &cancel,
@@ -285,31 +289,13 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
             .unwrap()
     };
     let first = publish().execute(&cancel).await.unwrap();
-    let version = first.batches()[0]
-        .column(0)
-        .as_any()
-        .downcast_ref::<Int64Array>()
-        .unwrap()
-        .value(0);
+    let record = admitted(&registry, &first);
     drop(first);
+    // Re-preparing the same composition recovers its written members.
     let retry = publish().execute(&cancel).await.unwrap();
-    assert_eq!(
-        retry.batches()[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .unwrap()
-            .value(0),
-        version
-    );
+    assert_eq!(admitted(&registry, &retry), record);
     drop(retry);
-    let root = PublicationRoot {
-        location: target.location,
-        version,
-    };
-    let publication = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
-        .await
-        .unwrap();
+    let publication = open(&record, registry.clone(), &factory, &cancel).await;
     let reused = artifact
         .prepare_reuse(&publication, &name("authored", "values"), &cancel)
         .await
@@ -370,93 +356,31 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         vec!["change", "value"]
     );
     drop(changes);
+    // Collection keeps the version the publication selects (the catalog's range).
     let member = publication.member(&name("authored", "values")).unwrap();
-    let relation_id = member.relation_id;
-    let mut controls = publications::Builder::with_registry(&registry, 1).unwrap();
-    let record = publication.record();
-    controls
-        .push(publications::Row {
-            workspace_id: record.workspace_id,
-            publication_id: record.publication_id,
-            parent_publication_id: record.parent_publication_id,
-            attempt_id: record.attempt_id,
-            kind: record.kind,
-            inputs: record.inputs.clone(),
-            members: record.members.clone(),
-        })
-        .unwrap();
-    let empty = retained_versions::Builder::with_registry(&registry, 0)
-        .unwrap()
-        .finish()
-        .unwrap()
-        .into_batch();
+    let retained = vec![retained_versions::Row {
+        table_uri: member.table_uri.clone(),
+        from_version: member.delta_version,
+        through_version: member.delta_version,
+        reason: RetentionReason::Publication,
+    }];
     let administrative = factory
-        .candidate(
-            [
-                (retained_versions::spec(&registry).unwrap().key, empty),
-                (
-                    publications::spec(&registry).unwrap().key,
-                    controls.finish().unwrap().into_batch(),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-            registry.clone(),
+        .candidate(BTreeMap::new(), registry.clone(), &cancel)
+        .unwrap();
+    let collect = || {
+        pse_catalog::delta::collect::prepare_collect(
+            &administrative,
+            CollectTarget {
+                reference: name("authored", "values"),
+                location: base.join("values/").unwrap(),
+                action: CollectAction::Optimize,
+                log_cutoff_ms: 0,
+            },
+            retained.clone(),
             &cancel,
         )
-        .unwrap();
-    let source = administrative
-        .table_reference(&retained_versions::spec(&registry).unwrap().key)
-        .unwrap();
-    let retention = administrative
-        .relation_plan(&ResolvedTableReference {
-            catalog: source.catalog().unwrap().into(),
-            schema: source.schema().unwrap().into(),
-            table: source.table().into(),
-        })
-        .unwrap();
-    let selected_controls = administrative
-        .table_reference(&publications::spec(&registry).unwrap().key)
-        .unwrap();
-    let selected_controls = administrative
-        .relation_plan(&ResolvedTableReference {
-            catalog: selected_controls.catalog().unwrap().into(),
-            schema: selected_controls.schema().unwrap().into(),
-            table: selected_controls.table().into(),
-        })
-        .unwrap();
-    let retained_publications = pse_catalog::delta::retention::publication_retention(
-        &administrative,
-        &selected_controls,
-        &cancel,
-    )
-    .unwrap();
-    let retention = pse_catalog::delta::retention::combine_retention(
-        &administrative,
-        &[retention, retained_publications],
-        &cancel,
-    )
-    .unwrap();
-    let maintenance = MaintenanceTarget {
-        head: root.clone(),
-        reference: name("authored", "values"),
-        location: base.join("values/").unwrap(),
-        relation_id,
-        action: MaintenanceAction::Optimize,
-        log_cutoff_ms: 0,
-    };
-    assert!(
-        pse_catalog::delta::maintenance::prepare_maintenance(
-            &administrative,
-            maintenance.clone(),
-            &retention,
-            &cancel
-        )
         .unwrap()
-        .execute(&cancel)
-        .await
-        .is_err()
-    );
+    };
     drop(publication);
     // The fence commits before checkpointing. A later IO error must preserve that
     // durable boundary and the original cause; a generic pre-commit error is false.
@@ -471,16 +395,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         call: 1,
         fault: pse_testkit::fault_store::Fault::FailBefore,
     });
-    let interrupted = pse_catalog::delta::maintenance::prepare_maintenance(
-        &administrative,
-        maintenance.clone(),
-        &retention,
-        &cancel,
-    )
-    .unwrap()
-    .execute(&cancel)
-    .await
-    .unwrap_err();
+    let interrupted = collect().execute(&cancel).await.unwrap_err();
     assert_eq!(faults.fired(), 1);
     let mut cause: &(dyn std::error::Error + 'static) = &interrupted;
     let fence_version = loop {
@@ -495,9 +410,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         cause = cause.source().unwrap();
     };
     assert!(fence_version > 0);
-    let protected = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
-        .await
-        .unwrap();
+    let protected = open(&record, registry.clone(), &factory, &cancel).await;
     let protected_rows = protected
         .session()
         .capture_relation(&name("authored", "values"), &cancel)
@@ -518,19 +431,8 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
     drop(protected);
     // A fresh prepared command reconciles current native fences; it does not replay
     // a stale pre-maintenance snapshot or discard the selected historical member.
-    pse_catalog::delta::maintenance::prepare_maintenance(
-        &administrative,
-        maintenance,
-        &retention,
-        &cancel,
-    )
-    .unwrap()
-    .execute(&cancel)
-    .await
-    .unwrap();
-    let reopened = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
-        .await
-        .unwrap();
+    collect().execute(&cancel).await.unwrap();
+    let reopened = open(&record, registry.clone(), &factory, &cancel).await;
     let rows = reopened
         .session()
         .capture_relation(&name("authored", "values"), &cancel)
@@ -548,66 +450,4 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
     );
     drop(rows);
     drop(reopened);
-    let mut rejected = header;
-    rejected.publication_id = id(5);
-    rejected.attempt_id = id(6);
-    rejected.parent_publication_id = Some(id(99));
-    let orphan = base.join("unpublished/").unwrap();
-    let failed_publication = || {
-        artifact
-            .prepare_control_publication(
-                PublicationTarget {
-                    reference: name("runtime", "publications"),
-                    location: root.location.clone(),
-                },
-                rejected.clone(),
-                [(name("authored", "values"), orphan.clone())]
-                    .into_iter()
-                    .collect(),
-                vec![],
-                &cancel,
-            )
-            .map(|(command, _ticket)| command)
-            .unwrap()
-    };
-    assert!(failed_publication().execute(&cancel).await.is_err());
-    // The valid member committed before the stale-parent control rejection.
-    let before = deltalake::DeltaTableBuilder::from_url(orphan.clone())
-        .unwrap()
-        .load()
-        .await
-        .unwrap();
-    let version = before.version().unwrap();
-    drop(before);
-    pse_catalog::delta::maintenance::prepare_maintenance(
-        &administrative,
-        MaintenanceTarget {
-            head: root.clone(),
-            reference: name("authored", "values"),
-            location: orphan.clone(),
-            relation_id,
-            action: MaintenanceAction::ReclaimUnpublished,
-            log_cutoff_ms: 0,
-        },
-        &retention,
-        &cancel,
-    )
-    .unwrap()
-    .execute(&cancel)
-    .await
-    .unwrap();
-    let retired = deltalake::DeltaTableBuilder::from_url(orphan.clone())
-        .unwrap()
-        .load()
-        .await
-        .unwrap();
-    assert!(retired.version().unwrap() > version);
-    assert!(
-        failed_publication().execute(&cancel).await.is_err(),
-        "retirement cannot resurrect the original writer"
-    );
-    let actual = Publication::open_control(root, registry, &factory, &cancel)
-        .await
-        .unwrap();
-    assert_eq!(actual.record().publication_id, id(2));
 }

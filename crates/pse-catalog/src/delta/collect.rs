@@ -221,7 +221,6 @@ async fn collect(
         table,
         &contract,
         retained,
-        None,
     )
     .await
     .map_err(|source| super::settlement::maintenance_interrupted(fence_version, source))

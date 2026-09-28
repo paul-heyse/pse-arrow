@@ -99,10 +99,6 @@ pub mod r#operational_workspaces;
 ///Generated relation contract.
 pub mod r#publication_manifests;
 ///Generated relation contract.
-pub mod r#publications;
-///Generated relation contract.
-pub mod r#release_checkpoints;
-///Generated relation contract.
 pub mod r#resolved_numerics;
 ///Generated relation contract.
 pub mod r#response_sensitivities;

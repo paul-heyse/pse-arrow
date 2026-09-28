@@ -831,14 +831,8 @@ async fn exported_publication_opens_offline() {
         matches!(expired, WorkflowError::ExportLeaseExpired { .. }),
         "{expired:?}"
     );
-    // A former Delta control table is refused as a historical format. (It is on a memory
-    // store: a raw local table lacks the local reader-lock file until O8.6 removes it.)
-    let legacy = url::Url::parse("memory://legacy/control/").unwrap();
-    offline
-        .sessions()
-        .native_state()
-        .runtime_env()
-        .register_object_store(&legacy, Arc::new(object_store::memory::InMemory::new()));
+    // A former Delta control table is refused as a historical format.
+    let legacy = root.join("legacy/control/").unwrap();
     pse_catalog::delta::provider::table_builder(legacy.clone(), offline.sessions().native_state())
         .unwrap()
         .build()

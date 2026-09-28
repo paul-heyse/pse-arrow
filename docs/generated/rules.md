@@ -197,8 +197,6 @@
 | `runtime.operational_workspaces` | `unique:pk` | `SELECT s."workspace_id" FROM "runtime"."operational_workspaces" s GROUP BY s."workspace_id" HAVING COUNT(*) > 1` |
 | `runtime.operational_workspaces` | `unique:root_uri` | `SELECT DISTINCT s."workspace_id" FROM "runtime"."operational_workspaces" s JOIN (SELECT u."root_uri" FROM "runtime"."operational_workspaces" u WHERE u."root_uri" IS NOT NULL GROUP BY u."root_uri" HAVING COUNT(*) > 1) d ON s."root_uri" = d."root_uri"` |
 | `runtime.publication_manifests` | `unique:pk` | `SELECT s."publication_id" FROM "runtime"."publication_manifests" s GROUP BY s."publication_id" HAVING COUNT(*) > 1` |
-| `runtime.publications` | `unique:pk` | `SELECT s."workspace_id" FROM "runtime"."publications" s GROUP BY s."workspace_id" HAVING COUNT(*) > 1` |
-| `runtime.release_checkpoints` | `unique:pk` | `SELECT s."consumer_id" FROM "runtime"."release_checkpoints" s GROUP BY s."consumer_id" HAVING COUNT(*) > 1` |
 | `runtime.resolved_numerics` | `unique:pk` | `SELECT s."run_id", s."step", s."target_kind", s."target_id" FROM "runtime"."resolved_numerics" s GROUP BY s."run_id", s."step", s."target_kind", s."target_id" HAVING COUNT(*) > 1` |
 | `runtime.response_sensitivities` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id" FROM "runtime"."response_sensitivities" s GROUP BY s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.retained_versions` | `unique:pk` | `SELECT s."table_uri", s."from_version", s."through_version", s."reason" FROM "runtime"."retained_versions" s GROUP BY s."table_uri", s."from_version", s."through_version", s."reason" HAVING COUNT(*) > 1` |

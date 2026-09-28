@@ -192,21 +192,22 @@ async fn new_collection_constraint_has_one_decision_across_local_native_delta_an
             &cancel,
         )
         .unwrap();
-        let control = base.join("publication/").unwrap();
         let prepared = artifact
-            .prepare_control_publication(
-                pse_catalog::artifact::PublicationTarget {
-                    reference: name("runtime", "publications"),
-                    location: control.clone(),
-                },
-                pse_relations::generated::runtime::publications::Row {
-                    workspace_id: SemanticId::from_bytes([1; 16]),
+            .prepare_publication(
+                pse_relations::generated::runtime::publication_manifests::Row {
                     publication_id: SemanticId::from_bytes([2; 16]),
+                    workspace_id: SemanticId::from_bytes([1; 16]),
                     parent_publication_id: None,
                     attempt_id: SemanticId::from_bytes([3; 16]),
                     kind: pse_relations::generated::enums::PublicationKind::Relations,
                     inputs: vec![],
                     members: vec![],
+                    windows: vec![],
+                    exported_at: None,
+                    export_lease_id: None,
+                    export_expires_at: None,
+                    maintenance_epoch: None,
+                    store_fingerprint: None,
                 },
                 BTreeMap::from([(
                     name("authored", "bounded_values"),
@@ -218,17 +219,19 @@ async fn new_collection_constraint_has_one_decision_across_local_native_delta_an
             .map(|(command, _ticket)| command)
             .unwrap();
         let completed = prepared.execute(&cancel).await.unwrap();
-        let version = completed.batches()[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .unwrap()
-            .value(0);
+        let record = pse_relations::generated::runtime::publication_manifests::View::try_from_batch_with_registry(
+            &registry,
+            &completed.batches()[0],
+        )
+        .unwrap()
+        .row(0)
+        .unwrap();
         drop(completed);
-        let publication = pse_catalog::delta::publication::Publication::open_control(
-            pse_catalog::delta::publication::PublicationRoot {
-                location: control,
-                version,
+        let publication = pse_catalog::delta::publication::Publication::open(
+            pse_catalog::delta::publication::PublicationSelection {
+                record,
+                scope: None,
+                owner: None,
             },
             registry.clone(),
             &factory,

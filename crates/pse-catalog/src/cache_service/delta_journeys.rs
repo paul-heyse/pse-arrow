@@ -28,11 +28,6 @@ mod kernel_checksum;
 async fn exact_versions_load_classes_and_seeded_refresh_match_fresh_native_files() {
     let directory = tempfile::tempdir().unwrap();
     let root = url::Url::from_directory_path(directory.path()).unwrap();
-    drop(
-        crate::delta::lease::write(&root, &pse_columnar::CancellationToken::new())
-            .await
-            .unwrap(),
-    );
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(128 << 20));
     let runtime = RuntimeEnvBuilder::new()
         .with_memory_pool(pool.clone())
@@ -48,7 +43,12 @@ async fn exact_versions_load_classes_and_seeded_refresh_match_fresh_native_files
             .with_config(
                 SessionConfig::new()
                     .with_extension(service.native().clone())
-                    .with_extension(service.clone()),
+                    .with_extension(service.clone())
+                    // A reader under a catalog read scope shares cached snapshots.
+                    .with_extension(Arc::new(crate::delta::scope::ReadScope {
+                        workspace: pse_ids::SemanticId::from_bytes([1; 16]).into(),
+                        epoch: 0,
+                    })),
             )
             .with_query_planner(Arc::new(pse_engine::session::planner::UnifiedPlanner::new(
                 crate::assembly::planners(),
@@ -171,11 +171,6 @@ async fn exact_versions_load_classes_and_seeded_refresh_match_fresh_native_files
 async fn native_kernel_crc_seed_advances_through_delta_writes_and_corruption_falls_back() {
     let directory = tempfile::tempdir().unwrap();
     let root = url::Url::from_directory_path(directory.path()).unwrap();
-    drop(
-        crate::delta::lease::write(&root, &pse_columnar::CancellationToken::new())
-            .await
-            .unwrap(),
-    );
     let context = datafusion::prelude::SessionContext::new_with_state(
         SessionStateBuilder::new()
             .with_default_features()

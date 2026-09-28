@@ -17,18 +17,19 @@ use datafusion::{
     logical_expr::{LogicalPlanBuilder, col, lit},
 };
 use pse_catalog::{
-    artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
+    artifact::{ArtifactPlan, RelationOutput},
     cache_service::{DeltaCacheBudget, DeltaCacheService},
     delta::{
         contract::DeclaredCheck,
-        publication::{Publication, PublicationRoot},
+        publication::{Publication, PublicationSelection},
         publication_plan::{self, Member},
+        scope::ReadScope,
     },
 };
 use pse_columnar::CancellationToken;
 use pse_engine::session::{EngineFactory, planner::UnifiedPlanner};
 use pse_ids::SemanticId;
-use pse_relations::generated::{enums::PublicationKind, runtime::publications};
+use pse_relations::generated::{enums::PublicationKind, runtime::publication_manifests};
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass},
@@ -45,16 +46,57 @@ fn name(table: &str) -> ResolvedTableReference {
 fn id(value: u8) -> SemanticId {
     SemanticId::from_bytes([value; 16])
 }
-fn header(publication: u8, parent: Option<u8>) -> publications::Row {
-    publications::Row {
-        workspace_id: id(1),
+fn header(publication: u8, parent: Option<u8>) -> publication_manifests::Row {
+    publication_manifests::Row {
         publication_id: id(publication),
+        workspace_id: id(1),
         parent_publication_id: parent.map(id),
         attempt_id: id(publication + 64),
         kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
+        windows: vec![],
+        exported_at: None,
+        export_lease_id: None,
+        export_expires_at: None,
+        maintenance_epoch: None,
+        store_fingerprint: None,
     }
+}
+/// The admitted record a publication candidate returns.
+fn admitted(
+    registry: &Registry,
+    batches: &[pse_columnar::owned_buffer::OwnedRecordBatch],
+) -> publication_manifests::Row {
+    publication_manifests::View::try_from_batch_with_registry(registry, &batches[0])
+        .unwrap()
+        .row(0)
+        .unwrap()
+}
+/// Open a record as a reader granted in the workspace's maintenance `epoch`: the read
+/// scope every shared cache is keyed on.
+async fn open(
+    record: &publication_manifests::Row,
+    epoch: i64,
+    registry: Arc<Registry>,
+    factory: &EngineFactory,
+    cancel: &CancellationToken,
+) -> Publication {
+    Publication::open(
+        PublicationSelection {
+            record: record.clone(),
+            scope: Some(ReadScope {
+                workspace: record.workspace_id.into(),
+                epoch,
+            }),
+            owner: None,
+        },
+        registry,
+        factory,
+        cancel,
+    )
+    .await
+    .unwrap()
 }
 fn registry() -> Arc<Registry> {
     let mut builder = RegistryBuilder::new();
@@ -91,10 +133,9 @@ async fn publish(
     artifact: &ArtifactPlan,
     base: &url::Url,
     label: &str,
-    mut header: publications::Row,
+    mut header: publication_manifests::Row,
     cancel: &CancellationToken,
-) -> PublicationRoot {
-    let location = base.join(&format!("{label}_control/")).unwrap();
+) -> publication_manifests::Row {
     let mut inputs = BTreeMap::new();
     for output in artifact.outputs().values() {
         for selected in
@@ -123,28 +164,13 @@ async fn publish(
         })
         .collect();
     let result = artifact
-        .prepare_control_publication(
-            PublicationTarget {
-                reference: name("publications"),
-                location: location.clone(),
-            },
-            header,
-            destinations,
-            vec![],
-            cancel,
-        )
+        .prepare_publication(header, destinations, vec![], cancel)
         .map(|(command, _ticket)| command)
         .unwrap()
         .execute(cancel)
         .await
         .unwrap();
-    let version = result.batches()[0]
-        .column(0)
-        .as_any()
-        .downcast_ref::<Int64Array>()
-        .unwrap()
-        .value(0);
-    PublicationRoot { location, version }
+    admitted(artifact.session().registry(), result.batches())
 }
 #[expect(
     clippy::too_many_arguments,
@@ -186,8 +212,7 @@ async fn selected_after_update(
         .await
         .unwrap();
     member.delta_version = i64::try_from(updated.version().unwrap()).unwrap();
-    let plan = publication_plan::plan(
-        previous.root().unwrap().location.clone(),
+    let plan = publication_plan::candidate(
         header(publication_id, Some(parent)),
         vec![Member::Retained(member)],
         registry.clone(),
@@ -203,18 +228,8 @@ async fn selected_after_update(
         .execute(cancel)
         .await
         .unwrap();
-    let root = PublicationRoot {
-        location: previous.root().unwrap().location.clone(),
-        version: result.batches()[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .unwrap()
-            .value(0),
-    };
-    Publication::open_control(root, registry, factory, cancel)
-        .await
-        .unwrap()
+    let record = admitted(&registry, result.batches());
+    open(&record, 0, registry, factory, cancel).await
 }
 
 /// Execute the same target code with retention on/off. Durations exclude compilation.
@@ -315,12 +330,10 @@ pub(crate) async fn run_policy(
     let directory = tempfile::tempdir().unwrap();
     let base = url::Url::from_directory_path(directory.path()).unwrap();
     let start = Instant::now();
-    let root = publish(&artifact, &base, "source", header(2, None), &cancel).await;
+    let record = publish(&artifact, &base, "source", header(2, None), &cancel).await;
     let publish_seconds = start.elapsed().as_secs_f64();
     let start = Instant::now();
-    let first = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
-        .await
-        .unwrap();
+    let first = open(&record, 0, registry.clone(), &factory, &cancel).await;
     let open_seconds = start.elapsed().as_secs_f64();
     let mut reads = Vec::new();
     for _ in 0..3 {
@@ -348,10 +361,11 @@ pub(crate) async fn run_policy(
     }
     let first = if cross_process {
         let member = first.member(&name("cache_values")).unwrap();
-        let request = serde_json::json!({"root":root,"member":member});
+        let request = serde_json::json!({"member":member});
         drop(first);
         // The parent retains only idle caches. The child executes actual native
-        // maintenance under the same OS lease and commits fences in both logs.
+        // maintenance keeping the selected version; the catalog would advance the
+        // workspace epoch first, so the parent's next reader has a new read scope.
         let before = caches
             .native()
             .report()
@@ -368,9 +382,7 @@ pub(crate) async fn run_policy(
             .status()
             .unwrap();
         assert!(status.success());
-        let reopened = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
-            .await
-            .unwrap();
+        let reopened = open(&record, 1, registry.clone(), &factory, &cancel).await;
         assert!(
             caches
                 .native()
@@ -424,10 +436,8 @@ pub(crate) async fn run_policy(
             .plan
             .display_indent()
     );
-    let output_root = publish(&structural, &base, "derived", header(10, None), &cancel).await;
-    let output = Publication::open_control(output_root, registry.clone(), &factory, &cancel)
-        .await
-        .unwrap();
+    let output_record = publish(&structural, &base, "derived", header(10, None), &cancel).await;
+    let output = open(&output_record, 0, registry.clone(), &factory, &cancel).await;
     let next = selected_after_update(
         &first,
         registry.clone(),
@@ -517,10 +527,9 @@ pub(crate) async fn run_policy(
 
 /// Child entry for actual two-process maintenance; no simulated invalidation call.
 pub(crate) async fn maintenance_child(payload: &str) {
-    use pse_catalog::delta::maintenance::{MaintenanceAction, MaintenanceTarget};
-    use pse_relations::generated::runtime::retained_versions;
+    use pse_catalog::delta::collect::{CollectAction, CollectTarget};
+    use pse_relations::generated::{enums::RetentionReason, runtime::retained_versions};
     let request: serde_json::Value = serde_json::from_str(payload).unwrap();
-    let root: PublicationRoot = serde_json::from_value(request["root"].clone()).unwrap();
     let member: pse_relations::generated::structures::MemberDescriptor =
         serde_json::from_value(request["member"].clone()).unwrap();
     let registry = registry();
@@ -541,31 +550,23 @@ pub(crate) async fn maintenance_child(payload: &str) {
     );
     let cancel = CancellationToken::new();
     pse_engine::validation::bind_defaults(&registry).unwrap();
-    let empty = retained_versions::Builder::with_registry(&registry, 0)
-        .unwrap()
-        .finish()
-        .unwrap()
-        .into_batch();
-    let key = retained_versions::spec(&registry).unwrap().key;
     let session = factory
-        .candidate(BTreeMap::from([(key, empty)]), registry, &cancel)
+        .candidate(BTreeMap::new(), registry, &cancel)
         .unwrap();
-    let reference = session
-        .table_reference(&key)
-        .unwrap()
-        .resolve("workspace", "runtime");
-    let retention = session.relation_plan(&reference).unwrap();
-    pse_catalog::delta::maintenance::prepare_maintenance(
+    pse_catalog::delta::collect::prepare_collect(
         &session,
-        MaintenanceTarget {
-            head: root,
+        CollectTarget {
             reference: name("cache_values"),
             location: url::Url::parse(&member.table_uri).unwrap(),
-            relation_id: member.relation_id,
-            action: MaintenanceAction::Optimize,
+            action: CollectAction::Optimize,
             log_cutoff_ms: 0,
         },
-        &retention,
+        vec![retained_versions::Row {
+            table_uri: member.table_uri.clone(),
+            from_version: member.delta_version,
+            through_version: member.delta_version,
+            reason: RetentionReason::Publication,
+        }],
         &cancel,
     )
     .unwrap()

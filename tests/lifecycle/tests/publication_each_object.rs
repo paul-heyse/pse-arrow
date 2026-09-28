@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Interrupt actual Delta writes and require a coherent old or committed publication.
+//! Interrupt every actual Delta write of a publication candidate: the candidate either
+//! returns a complete admitted record whose members open, or returns nothing, and an
+//! earlier publication is unaffected. (The catalog commit alone makes a record visible.)
 #![allow(
     clippy::unwrap_used,
     reason = "test fixture construction and exact independent value assertions"
@@ -8,13 +10,13 @@
 
 use datafusion::{arrow::array::Int64Array, common::ResolvedTableReference};
 use pse_catalog::{
-    artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
-    delta::publication::{Publication, PublicationRoot},
+    artifact::{ArtifactPlan, RelationOutput},
+    delta::publication::{Publication, PublicationSelection},
 };
 use pse_columnar::CancellationToken;
 use pse_engine::{EngineError, session::EngineFactory};
 use pse_ids::SemanticId;
-use pse_relations::generated::{enums::PublicationKind, runtime::publications};
+use pse_relations::generated::{enums::PublicationKind, runtime::publication_manifests};
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass},
@@ -99,7 +101,7 @@ impl Fixture {
         attempt: u8,
         parent: Option<u8>,
         value: i64,
-    ) -> Result<PublicationRoot, EngineError> {
+    ) -> Result<publication_manifests::Row, EngineError> {
         let cancel = CancellationToken::new();
         let mut batches = BTreeMap::new();
         for table in ["first", "second", "third"] {
@@ -144,15 +146,20 @@ impl Fixture {
             })
             .collect();
         let plan = ArtifactPlan::new(session, outputs, &cancel)?;
-        let control = self.base.join("control/").unwrap();
-        let header = publications::Row {
-            workspace_id: id(1),
+        let header = publication_manifests::Row {
             publication_id: id(attempt),
+            workspace_id: id(1),
             parent_publication_id: parent.map(id),
             attempt_id: id(attempt + 100),
             kind: PublicationKind::Relations,
             inputs: vec![],
             members: vec![],
+            windows: vec![],
+            exported_at: None,
+            export_lease_id: None,
+            export_expires_at: None,
+            maintenance_epoch: None,
+            store_fingerprint: None,
         };
         let destinations = plan
             .outputs()
@@ -167,48 +174,27 @@ impl Fixture {
             })
             .collect();
         let result = plan
-            .prepare_control_publication(
-                PublicationTarget {
-                    reference: ResolvedTableReference {
-                        catalog: "artifact".into(),
-                        schema: "runtime".into(),
-                        table: "publications".into(),
-                    },
-                    location: control.clone(),
-                },
-                header,
-                destinations,
-                vec![],
-                &cancel,
-            )
+            .prepare_publication(header, destinations, vec![], &cancel)
             .map(|(command, _ticket)| command)?
             .execute(&cancel)
             .await?;
-        let version = result.batches()[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .unwrap()
-            .value(0);
-        Ok(PublicationRoot {
-            location: control,
-            version,
-        })
-    }
-    async fn latest(&self) -> Publication {
-        let control = self.base.join("control/").unwrap();
-        let table = deltalake::DeltaTableBuilder::from_url(control.clone())
-            .unwrap()
-            .with_storage_backend(self.store.clone(), control.clone())
-            .load()
-            .await
-            .unwrap();
-        let root = PublicationRoot {
-            location: control,
-            version: i64::try_from(table.version().unwrap()).unwrap(),
+        let [batch] = result.batches() else {
+            panic!("a candidate returns one record")
         };
-        Publication::open_control(
-            root,
+        Ok(
+            publication_manifests::View::try_from_batch_with_registry(&self.registry, batch)
+                .unwrap()
+                .row(0)
+                .unwrap(),
+        )
+    }
+    async fn open(&self, record: &publication_manifests::Row) -> Publication {
+        Publication::open(
+            PublicationSelection {
+                record: record.clone(),
+                scope: None,
+                owner: None,
+            },
             self.registry.clone(),
             &self.factory,
             &CancellationToken::new(),
@@ -244,11 +230,8 @@ async fn every_actual_delta_write_boundary_preserves_a_complete_publication() {
     complete.publish(3, Some(2), 99).await.unwrap();
     let trace = complete.store.put_trace();
     assert!(trace.iter().any(|path| path.starts_with("members/3/")));
-    assert!(
-        trace
-            .iter()
-            .any(|path| path.starts_with("control/_delta_log/"))
-    );
+    // A candidate writes members only: visibility is the catalog's commit.
+    assert!(trace.iter().all(|path| path.starts_with("members/3/")), "{trace:?}");
     for (index, path) in trace.iter().enumerate() {
         let fixture = Fixture::new();
         let old = fixture.publish(2, None, 1).await.unwrap();
@@ -260,24 +243,13 @@ async fn every_actual_delta_write_boundary_preserves_a_complete_publication() {
         });
         let result = fixture.publish(3, Some(2), 99).await;
         assert_eq!(fixture.store.fired(), 1, "actual write {index}: {path}");
-        let latest = fixture.latest().await;
-        // A native optional post-commit write may fail after the transaction settled.
-        // In either outcome the visible control row selects one complete vector.
-        if let Ok(root) = result {
-            assert_eq!(latest.root(), Some(&root));
-            fixture.assert_values(&latest, 99).await;
-        } else {
-            assert_eq!(latest.root(), Some(&old));
-            fixture.assert_values(&latest, 1).await;
+        // A native optional post-commit write may fail after every member committed; an
+        // admitted record is then complete. Otherwise nothing is admitted.
+        if let Ok(record) = result {
+            let admitted = fixture.open(&record).await;
+            fixture.assert_values(&admitted, 99).await;
         }
-        let original = Publication::open_control(
-            old,
-            fixture.registry.clone(),
-            &fixture.factory,
-            &CancellationToken::new(),
-        )
-        .await
-        .unwrap();
+        let original = fixture.open(&old).await;
         fixture.assert_values(&original, 1).await;
     }
 }

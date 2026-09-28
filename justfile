@@ -540,34 +540,6 @@ unit-public-contracts:
     cargo nextest run -p pse-runtime -p pse-relations --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'test(workflow::tests::)'
 
 [group('local')]
-[doc('Measure existing Delta recovery and conflict controls in explicit validation modes')]
-[positional-arguments]
-bench-recovery mode *args:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    source scripts/build-env.sh
-    mode="$1"
-    shift
-    features="pse-relations/force-validate"
-    case "$mode" in
-      force-validation) ;;
-      production)
-        features=""
-        export CARGO_TARGET_DIR=target/measure-production
-        ;;
-      *) echo "expected force-validation or production" >&2; exit 2 ;;
-    esac
-    export PSE_RECOVERY_MEASURE=1
-    mkdir -p "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}"
-    cargo tree -p pse-catalog --locked --features "$features" -e features --format '{p} features=[{f}]' > "${PSE_ACCEPTANCE_OUTPUT:-build/measurements}/recovery-$mode-features.txt"
-    action=(run --no-fail-fast --test-threads 1)
-    if [[ "${PSE_NEXTEST_ACTION:-}" == "list --message-format json" ]]; then
-      action=(list --message-format json)
-    fi
-    exec cargo nextest "${action[@]}" --locked -p pse-catalog --test unified_delta_contracts --cargo-profile release --features "$features" -E 'test(=publication_reconciles_actual_lost_commit_acknowledgments) or test(=concurrent_publication_creation_and_parent_updates_have_one_winner) or test(=conditional_control_update_conflicts_with_a_stale_writer)' "$@"
-
-
-[group('local')]
 [doc('Doctests (nextest does not run them)')]
 doctest:
     # Cargo cannot run doctests for the pse-py cdylib target.

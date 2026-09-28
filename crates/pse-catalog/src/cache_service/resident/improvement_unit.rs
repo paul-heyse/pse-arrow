@@ -103,18 +103,21 @@ impl TableProvider for Observed {
 async fn fixture() -> (tempfile::TempDir, SelectedTable, Arc<Observed>) {
     let directory = tempfile::tempdir().unwrap();
     let location = url::Url::from_directory_path(directory.path()).unwrap();
-    drop(
-        crate::delta::lease::write(&location, &pse_columnar::CancellationToken::new())
-            .await
-            .unwrap(),
-    );
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 << 20));
     let runtime = RuntimeEnvBuilder::new()
         .with_memory_pool(pool.clone())
         .build_arc()
         .unwrap();
+    // A reader under a catalog read scope shares resident selections.
+    let mut config = datafusion::execution::config::SessionConfig::new();
+    crate::delta::scope::ReadScope {
+        workspace: pse_ids::SemanticId::from_bytes([1; 16]).into(),
+        epoch: 0,
+    }
+    .install(&mut config);
     let state = Arc::new(
         SessionStateBuilder::new_with_default_features()
+            .with_config(config)
             .with_runtime_env(runtime)
             .build(),
     );

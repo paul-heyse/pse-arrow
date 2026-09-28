@@ -4,7 +4,7 @@
 
 ## `artifact_descriptors`
 
-Exact current-format artifact validity. Control members own output versions; local graph and Salsa handles are never persisted.
+Exact current-format artifact validity. Publication members own output versions; local graph and Salsa handles are never persisted.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `artifact_id`.
 
@@ -1471,99 +1471,6 @@ Native row check `parent_is_another_publication` (must be true):
 ```sql
 "parent_publication_id" IS DISTINCT FROM "publication_id"
 ```
-
-## `publications`
-
-One native Delta control row selects exact members; native transactions index publication and attempt identities.
-
-Version: 2. Snapshot class: `sidecar`. Primary key: `workspace_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `workspace_id` | `semantic_id` | false | `key` | — | — |
-| `publication_id` | `semantic_id` | false | `payload` | — | — |
-| `parent_publication_id` | `semantic_id` | true | `payload` | — | — |
-| `attempt_id` | `semantic_id` | false | `payload` | — | — |
-| `kind` | `enum:PublicationKind` | false | `payload` | — | — |
-| `inputs` | `List` | false | `payload` | — | — |
-| `inputs.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `inputs.item.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.schema_name` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.table_name` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `inputs.item.relation_version` | `Int64` | false | `payload` | — | — |
-| `inputs.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `inputs.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.delta_version` | `Int64` | false | `payload` | — | — |
-| `inputs.item.selection` | `Struct` | false | `payload` | — | — |
-| `inputs.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `inputs.item.selection.revision` | `Struct` | true | `payload` | — | — |
-| `inputs.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `members` | `List` | false | `payload` | — | — |
-| `members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `members.item.schema_name` | `Utf8` | false | `payload` | — | — |
-| `members.item.table_name` | `Utf8` | false | `payload` | — | — |
-| `members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `members.item.relation_version` | `Int64` | false | `payload` | — | — |
-| `members.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `members.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `members.item.delta_version` | `Int64` | false | `payload` | — | — |
-| `members.item.selection` | `Struct` | false | `payload` | — | — |
-| `members.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `members.item.selection.revision` | `Struct` | true | `payload` | — | — |
-| `members.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `members.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-
-## `release_checkpoints`
-
-Whole-release admission receipt and replay windows. A restarted compiler must admit its exact baseline before resuming.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `consumer_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `consumer_id` | `semantic_id` | false | `key` | — | — |
-| `interpretation_version` | `Int64` | false | `payload` | — | — |
-| `admission_id` | `semantic_id` | false | `payload` | — | — |
-| `base_release` | `content_hash` | false | `payload` | — | — |
-| `target_release` | `content_hash` | false | `payload` | — | — |
-| `base_members` | `List` | false | `payload` | — | — |
-| `base_members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `base_members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `base_members.item.schema_name` | `Utf8` | false | `payload` | — | — |
-| `base_members.item.table_name` | `Utf8` | false | `payload` | — | — |
-| `base_members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `base_members.item.relation_version` | `Int64` | false | `payload` | — | — |
-| `base_members.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `base_members.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `base_members.item.delta_version` | `Int64` | false | `payload` | — | — |
-| `base_members.item.selection` | `Struct` | false | `payload` | — | — |
-| `base_members.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `base_members.item.selection.revision` | `Struct` | true | `payload` | — | — |
-| `base_members.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `base_members.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `target_members` | `List` | false | `payload` | — | — |
-| `target_members.item` | `Struct MemberDescriptor` | false | `payload` | — | — |
-| `target_members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
-| `target_members.item.schema_name` | `Utf8` | false | `payload` | — | — |
-| `target_members.item.table_name` | `Utf8` | false | `payload` | — | — |
-| `target_members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `target_members.item.relation_version` | `Int64` | false | `payload` | — | — |
-| `target_members.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
-| `target_members.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `target_members.item.delta_version` | `Int64` | false | `payload` | — | — |
-| `target_members.item.selection` | `Struct` | false | `payload` | — | — |
-| `target_members.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
-| `target_members.item.selection.revision` | `Struct` | true | `payload` | — | — |
-| `target_members.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
-| `target_members.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
-| `intervals` | `List` | false | `payload` | — | — |
-| `intervals.item` | `Struct` | false | `payload` | — | — |
-| `intervals.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `intervals.item.from_version` | `Int64` | false | `payload` | — | — |
-| `intervals.item.through_version` | `Int64` | false | `payload` | — | — |
 
 ## `resolved_numerics`
 

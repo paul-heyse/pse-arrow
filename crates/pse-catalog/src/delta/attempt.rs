@@ -19,7 +19,7 @@ use pse_relations::generated::structures::MemberDescriptor as Member;
 use serde::{Deserialize, Serialize};
 
 /// The member receipt key (v4, Plan 22 X11): the receipt names the workspace,
-/// publication and attempt, never the control table or the expected parent, so a
+/// publication and attempt, never a publication location or the expected parent, so a
 /// conflict loser that re-prepares against a new head recovers its written members.
 const KEY: &str = "pse.member_attempt.v4";
 /// Receipts written under the Delta control table; refused, never interpreted.
@@ -72,7 +72,6 @@ pub(crate) struct MemberAttempt {
 pub(crate) enum Phase {
     Provisioned,
     Written,
-    Reclaimed,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -209,9 +208,6 @@ impl MemberAttempt {
                 }
                 self.compare(&receipt.request)?;
                 found = match receipt.phase {
-                    Phase::Reclaimed => {
-                        return Err(rejected("member attempt was explicitly reclaimed"));
-                    }
                     Phase::Provisioned if found == MemberState::Unpublished => {
                         MemberState::Provisioned(version)
                     }
@@ -253,56 +249,6 @@ pub(super) fn rejected(
     external(MemberAttemptError::Rejected {
         source: source.into(),
     })
-}
-
-/// Reclamation requires an actual native member receipt at the current head.
-/// An unrelated table, missing commit or later unaccounted mutation refuses.
-pub(super) async fn admit_reclamation(
-    table: &DeltaTable,
-    state: &SessionState,
-) -> Result<(CommitProperties, MemoryReservation)> {
-    let version = table
-        .version()
-        .ok_or_else(|| unresolved("attempt table has no version"))?;
-    let actions = super::actions::read(
-        table,
-        version,
-        state,
-        &pse_columnar::CancellationToken::new(),
-    )
-    .await?;
-    let mut receipt = None;
-    for action in actions.iter() {
-        if let Action::CommitInfo(mut info) = action?
-            && let Some(value) = info.info.remove(KEY)
-        {
-            if receipt.is_some() {
-                return Err(unresolved("duplicate member receipt"));
-            }
-            receipt = Some(
-                serde_json::from_value::<Receipt>(value)
-                    .map_err(|error| DataFusionError::External(Box::new(error)))?,
-            );
-        }
-    }
-    let receipt = receipt.ok_or_else(|| rejected("table head is not an owned member attempt"))?;
-    let canonical = |location: &url::Url| {
-        location
-            .to_file_path()
-            .map_err(|()| rejected("remote attempt reclamation is unqualified"))?
-            .canonicalize()
-            .map_err(external)
-    };
-    if canonical(
-        &url::Url::parse(&receipt.request.member.table_uri)
-            .map_err(|error| DataFusionError::External(Box::new(error)))?,
-    )? != canonical(table.table_url())?
-    {
-        return Err(rejected(
-            "member attempt belongs to a different destination",
-        ));
-    }
-    receipt.request.commit(Phase::Reclaimed, state)
 }
 
 pub(super) async fn read_dependencies(

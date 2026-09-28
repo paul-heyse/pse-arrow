@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Target Delta control facts; exact members replace custom manifest membership.
+//! Publication records, artifact products, dependencies and retention facts. The
+//! operational catalog owns visibility (Plan 22 X9); these relations describe exact
+//! members, admitted candidates, exports and the versions maintenance keeps.
 use super::declarations::{column, enumeration, relation};
 use crate::{
     RegistryBuilder,
@@ -41,19 +43,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "inspection",
         ],
     );
-    builder.declare_relation(crate::model::RelationDecl::new(
-        N::Runtime, "publications", 2, crate::model::Authority::Derived, S::Sidecar,
-        "One native Delta control row selects exact members; native transactions index publication and attempt identities.",
-    ).pk(&["workspace_id"]).granularity(crate::model::DerivationGranularity::Row)
-        .columns(vec![
-            T::key("workspace_id", T::id(), "Workspace control identity."),
-            column("publication_id", T::id()),
-            column("parent_publication_id", T::id()).optional(),
-            column("attempt_id", T::id()),
-            column("kind", T::enumeration("PublicationKind")),
-            column("inputs", T::list(member())),
-            column("members", T::list(member())),
-        ]).checks(super::row_checks::for_relation(N::Runtime, "publications")));
 }
 
 /// The publication record (Plan 22 X12). Admitted candidates carry it before a catalog
@@ -146,32 +135,7 @@ fn declare_artifacts(builder: &mut RegistryBuilder) {
             ),
             column("reconstruction", T::enumeration("ArtifactReconstruction")),
         ],
-        "Exact current-format artifact validity. Control members own output versions; local graph and Salsa handles are never persisted.",
-    );
-    relation(
-        builder,
-        N::Runtime,
-        "release_checkpoints",
-        S::Sidecar,
-        &["consumer_id"],
-        vec![
-            column("consumer_id", T::id()),
-            column("interpretation_version", T::nonnegative(i64::MAX)),
-            column("admission_id", T::id()),
-            column("base_release", T::hash()),
-            column("target_release", T::hash()),
-            column("base_members", T::list(member())),
-            column("target_members", T::list(member())),
-            column(
-                "intervals",
-                T::list(T::structure(vec![
-                    T::native(arrow_schema::DataType::Utf8).with_name("table_uri"),
-                    T::nonnegative(i64::MAX).with_name("from_version"),
-                    T::nonnegative(i64::MAX).with_name("through_version"),
-                ])),
-            ),
-        ],
-        "Whole-release admission receipt and replay windows. A restarted compiler must admit its exact baseline before resuming.",
+        "Exact current-format artifact validity. Publication members own output versions; local graph and Salsa handles are never persisted.",
     );
 }
 

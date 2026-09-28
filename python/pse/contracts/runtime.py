@@ -1249,42 +1249,6 @@ class RuntimePublicationManifestsRow:
 
 
 @attrs.frozen(kw_only=True)
-class RuntimePublicationsRow:
-    """Declared relation row or nested value."""
-
-    workspace_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    publication_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    parent_publication_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    kind: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
-    inputs: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeReleaseCheckpointsFieldIntervalsItem:
-    """Declared relation row or nested value."""
-
-    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    from_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    through_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-
-
-@attrs.frozen(kw_only=True)
-class RuntimeReleaseCheckpointsRow:
-    """Declared relation row or nested value."""
-
-    consumer_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    interpretation_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    admission_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    base_release: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    target_release: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    base_members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    target_members: b.tuple[s.MemberDescriptor, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.MemberDescriptor), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    intervals: b.tuple[RuntimeReleaseCheckpointsFieldIntervalsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeReleaseCheckpointsFieldIntervalsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
 class RuntimeResolvedNumericsFieldProvenanceItem:
     """Declared relation row or nested value."""
 

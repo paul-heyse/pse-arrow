@@ -76,23 +76,23 @@ fn declared_publication_preserves_deep_shared_inputs_without_running_them() {
             })
             .collect();
         let id = SemanticId::from_bytes([1; 16]);
-        let header = publications::Row {
-            workspace_id: id,
+        let header = publication_manifests::Row {
             publication_id: id,
+            workspace_id: id,
             parent_publication_id: None,
             attempt_id: id,
             kind: PublicationKind::Relations,
             inputs: vec![],
             members: vec![],
+            windows: vec![],
+            exported_at: None,
+            export_lease_id: None,
+            export_expires_at: None,
+            maintenance_epoch: None,
+            store_fingerprint: None,
         };
-        let publication = plan(
-            location.join("control/").unwrap(),
-            header,
-            members,
-            Arc::clone(&registry),
-        )
-        .unwrap();
-        assert_eq!(publication.schema().field(0).name(), "version");
+        let publication = candidate(header, members, Arc::clone(&registry)).unwrap();
+        assert_eq!(publication.schema().field(0).name(), "publication_id");
     }
     assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
 }

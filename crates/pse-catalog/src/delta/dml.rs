@@ -28,7 +28,6 @@ use std::sync::Arc;
 pub struct WritableTable {
     table: DeltaTable,
     scan: Arc<dyn TableProvider>,
-    lease: Option<Arc<super::lease::ReadLease>>,
     commit: CommitProperties,
     contract: Option<super::contract::DeclaredCheck>,
 }
@@ -47,16 +46,11 @@ impl WritableTable {
                 "editable Delta table must be loaded".into(),
             ));
         }
-        let lease =
-            super::lease::read(table.table_url(), &pse_columnar::CancellationToken::new()).await?;
-        let scan = super::leased::retain(
-            Arc::new(table.table_provider().with_session(state).build().await?),
-            lease.clone(),
-        );
+        let scan: Arc<dyn TableProvider> =
+            Arc::new(table.table_provider().with_session(state).build().await?);
         Ok(Self {
             table,
             scan,
-            lease,
             commit,
             contract: None,
         })
@@ -94,17 +88,14 @@ impl WritableTable {
                 DataFusionError::Plan("Delta mutation requires the actual SessionState".into())
             })?;
         let state = state.clone();
-        Ok(super::leased::retain_execution(
-            execution::plan(
-                self.table.clone(),
-                Arc::new(state),
-                self.commit.clone(),
-                self.contract.clone(),
-                command,
-                children,
-            )?,
-            self.lease.clone(),
-        ))
+        execution::plan(
+            self.table.clone(),
+            Arc::new(state),
+            self.commit.clone(),
+            self.contract.clone(),
+            command,
+            children,
+        )
     }
 }
 #[async_trait::async_trait]
