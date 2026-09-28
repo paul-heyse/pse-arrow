@@ -434,7 +434,6 @@ pub(super) fn registry_extent(registry: &Registry) -> Result<usize, DriverError>
     Ok(bytes)
 }
 
-
 /// Retained-capacity accounting can only shrink the completed preflight; it is
 /// never used to grow after construction. Opaque map allowances remain reserved.
 pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, DriverError> {

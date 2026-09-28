@@ -4,11 +4,11 @@
 use super::{MathRuntimeError, MathService, Workspace, solves::SolveHandle};
 use pse_backend_native::{ProblemError, solve::*, tears};
 use pse_columnar::flight::FlightCancellation;
-use pse_ids::SemanticId;
-use std::sync::Arc;
 /// Authored topology selection and explicit tear policies for public workflow callers.
 pub use pse_compiler::workspace::ModelingFlowSelection;
+use pse_ids::SemanticId;
 pub use pse_structural::flowsheet::{Decision, Policy};
+use std::sync::Arc;
 /// Immutable physically admitted compiler product and its allocation owner.
 #[derive(Clone, Debug)]
 pub struct PreparedFlow {
@@ -88,22 +88,45 @@ impl MathService {
         quantities: Arc<pse_quantity::QuantityRegistry>,
         selection: pse_compiler::workspace::ModelingFlowSelection,
         driver: &crate::CancelSource,
-    ) -> Result<PreparedFlow,MathRuntimeError> {
-        let control=FlightCancellation::default();
-        let foreign=self.policy.foreign_bytes;
-        let operation=self.job_retained(1,self.policy.workspace_bytes,control.clone(),move |flag| {
-            if flag.load(std::sync::atomic::Ordering::Relaxed) {return Err(MathRuntimeError::Cancelled);}
-            let graph=Arc::new(model.compiled().flow_graph(&selection,&quantities)?);
-            let d=graph.declaration();
-            let bytes=d.nodes.iter().map(|n|size_of_val(n)+size_of_val(n.ports.as_slice())).sum::<usize>()
-                +d.connections.iter().map(|c|size_of_val(c)+size_of_val(c.bindings.as_slice())).sum::<usize>()
-                +size_of_val(d.decisions.as_slice());
-            Ok((graph,bytes.checked_add(foreign).ok_or(MathRuntimeError::Limit("flow product extent"))?))
-        });
+    ) -> Result<PreparedFlow, MathRuntimeError> {
+        let control = FlightCancellation::default();
+        let foreign = self.policy.foreign_bytes;
+        let operation = self.job_retained(
+            1,
+            self.policy.workspace_bytes,
+            control.clone(),
+            move |flag| {
+                if flag.load(std::sync::atomic::Ordering::Relaxed) {
+                    return Err(MathRuntimeError::Cancelled);
+                }
+                let graph = Arc::new(model.compiled().flow_graph(&selection, &quantities)?);
+                let d = graph.declaration();
+                let bytes = d
+                    .nodes
+                    .iter()
+                    .map(|n| size_of_val(n) + size_of_val(n.ports.as_slice()))
+                    .sum::<usize>()
+                    + d.connections
+                        .iter()
+                        .map(|c| size_of_val(c) + size_of_val(c.bindings.as_slice()))
+                        .sum::<usize>()
+                    + size_of_val(d.decisions.as_slice());
+                Ok((
+                    graph,
+                    bytes
+                        .checked_add(foreign)
+                        .ok_or(MathRuntimeError::Limit("flow product extent"))?,
+                ))
+            },
+        );
         tokio::pin!(operation);
-        let (graph,lease)=tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        let owner=self.shared_product(vec![2,Arc::as_ptr(&graph) as usize],graph.clone(),lease)?;
-        Ok(PreparedFlow{graph,_owner:owner})
+        let (graph, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let owner =
+            self.shared_product(vec![2, Arc::as_ptr(&graph) as usize], graph.clone(), lease)?;
+        Ok(PreparedFlow {
+            graph,
+            _owner: owner,
+        })
     }
     /// Run the selected tear method with the complete native lifetime inside admission.
     pub fn select_tears(

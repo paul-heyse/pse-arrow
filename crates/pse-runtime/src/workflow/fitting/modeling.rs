@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Authored source interpretation feeds the common sparse fitting engine.
-use pse_model::generated::identities::RunId;
 use super::*;
 use crate::math::modeling::ModelingPreparation;
 use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
 use pse_compiler::workspace::{ModelingOutput, Profile};
+use pse_model::generated::identities::RunId;
 use pse_model::{HeapUsage, generated::enums::ModelingAnalysisRoute as Route};
 use pse_modeling::Limits;
 use pse_relations::{
@@ -266,13 +266,7 @@ impl ModelingPackage {
             bindings.demand.sort();
             bindings.demand.dedup();
             let model = self
-                .prepare(
-                    e.case_id,
-                    e.experiment_id,
-                    bindings.clone(),
-                    limits,
-                    cancel,
-                )
+                .prepare(e.case_id, e.experiment_id, bindings.clone(), limits, cancel)
                 .await?;
             let mut local = BTreeMap::new();
             let mut local_ids = BTreeSet::new();

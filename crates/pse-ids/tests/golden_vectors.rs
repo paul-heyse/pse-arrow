@@ -127,7 +127,11 @@ fn frame_spellings_unchanged() {
         Vec::<&&str>::new(),
         "spellings in use before the catalog that it does not declare"
     );
-    assert_eq!(cataloged.len(), Frame::ALL.len(), "a spelling is declared twice");
+    assert_eq!(
+        cataloged.len(),
+        Frame::ALL.len(),
+        "a spelling is declared twice"
+    );
 }
 
 #[test]

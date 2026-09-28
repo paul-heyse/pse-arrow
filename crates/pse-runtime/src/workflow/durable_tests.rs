@@ -103,7 +103,12 @@ async fn ephemeral_cannot_publish() {
         root: base,
     };
     let refused = result
-        .prepare_publication(&workspace, None, None, &pse_columnar::CancellationToken::new())
+        .prepare_publication(
+            &workspace,
+            None,
+            None,
+            &pse_columnar::CancellationToken::new(),
+        )
         .unwrap_err();
     assert!(
         matches!(refused, WorkflowError::EphemeralPublication { run_id } if run_id == result.run_id),
@@ -383,12 +388,10 @@ async fn incompatible_seed_refused() {
         .with_stored_start(operations, StoredStart::Latest)
         .await
         .unwrap();
-    assert!(
-        reused
-            .starts
-            .values()
-            .any(|s| *s == StartSource::Stored { solution: solution.as_id() })
-    );
+    assert!(reused.starts.values().any(|s| *s
+        == StartSource::Stored {
+            solution: solution.as_id()
+        }));
     // Different coordinates: the explicit stored seed is refused, and none is found.
     let (other, mut different) = package_on(&runtime, LINEAR);
     optimize(&mut different, 8);
@@ -618,7 +621,11 @@ async fn incumbent_stream_records_offset_objective() {
     )
     .await;
     // The empty knapsack is worth the constant alone; nothing streams below it.
-    assert!(incumbents.iter().all(|(objective, _)| *objective >= 7.0 - 1e-9));
+    assert!(
+        incumbents
+            .iter()
+            .all(|(objective, _)| *objective >= 7.0 - 1e-9)
+    );
 }
 
 #[tokio::test]

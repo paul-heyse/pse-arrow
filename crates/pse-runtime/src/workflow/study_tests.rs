@@ -47,7 +47,11 @@ fn operations(runtime: &Runtime) -> &Operations {
 }
 
 /// The declaration of a named case in `source`'s package.
-async fn case(runtime: &Runtime, source: &str, name: &str) -> pse_model::generated::identities::DeclarationId {
+async fn case(
+    runtime: &Runtime,
+    source: &str,
+    name: &str,
+) -> pse_model::generated::identities::DeclarationId {
     let (physical, modeling) = sources(source);
     let cancel = crate::CancelSource::new();
     let context = runtime
@@ -73,7 +77,9 @@ fn point(
     StudyPoint {
         case,
         overlay: PointOverlay {
-            values: a.map(|a| BTreeMap::from([("a".to_owned(), a)])).unwrap_or_default(),
+            values: a
+                .map(|a| BTreeMap::from([("a".to_owned(), a)]))
+                .unwrap_or_default(),
             parameters: BTreeMap::new(),
         },
         predecessor,
@@ -168,7 +174,11 @@ async fn predecessor_waits_and_seeds() {
     let status = handle.status().await.unwrap();
     assert_eq!(status.state, StudyState::Open);
     assert_eq!(
-        status.points.iter().map(|p| p.job_state).collect::<Vec<_>>(),
+        status
+            .points
+            .iter()
+            .map(|p| p.job_state)
+            .collect::<Vec<_>>(),
         [
             JobState::Queued,
             JobState::Waiting,
@@ -182,7 +192,13 @@ async fn predecessor_waits_and_seeds() {
     let status = handle.status().await.unwrap();
     assert_eq!(
         status.points.iter().map(|p| p.state).collect::<Vec<_>>(),
-        [P::Completed, P::Completed, P::Failed, P::Cancelled, P::Completed]
+        [
+            P::Completed,
+            P::Completed,
+            P::Failed,
+            P::Cancelled,
+            P::Completed
+        ]
     );
     assert_eq!(status.state, StudyState::Published);
     assert_eq!(status.attempt_state, AttemptState::Partial);
@@ -209,33 +225,35 @@ async fn predecessor_waits_and_seeds() {
         panic!("{:?}", zero.solutions)
     };
     let start = start_values(&one);
-    assert_eq!(start["requested"], ProgressValue::Text("predecessor".into()));
+    assert_eq!(
+        start["requested"],
+        ProgressValue::Text("predecessor".into())
+    );
     assert_eq!(start["solution"], ProgressValue::Text(seed.to_string()));
     let RunRequest::Modeling(steps) = one_result.unwrap().request().clone() else {
         panic!("a modeling run")
     };
-    assert!(
-        steps[0]
-            .starts
-            .values()
-            .any(|s| *s == StartSource::Stored { solution: seed.as_id() })
-    );
+    assert!(steps[0].starts.values().any(|s| *s
+        == StartSource::Stored {
+            solution: seed.as_id()
+        }));
     // Point 4's case has other coordinates: it starts fresh, saying why.
     let (four, _) = record(4);
     let start = start_values(&four);
-    assert_eq!(start["requested"], ProgressValue::Text("predecessor".into()));
+    assert_eq!(
+        start["requested"],
+        ProgressValue::Text("predecessor".into())
+    );
     let ProgressValue::Text(fresh) = &start["fresh"] else {
         panic!("{start:?}")
     };
     assert!(fresh.contains("predecessor point 0"), "{fresh}");
     // The point cancelled behind its failed predecessor never ran.
     assert_eq!(status.points[3].attempt_state, AttemptState::Cancelled);
-    assert!(
-        !ran.iter().any(|(processed, _)| matches!(
-            processed,
-            Processed::Ran { record, .. } if record.attempt_id == status.points[3].attempt_id
-        ))
-    );
+    assert!(!ran.iter().any(|(processed, _)| matches!(
+        processed,
+        Processed::Ran { record, .. } if record.attempt_id == status.points[3].attempt_id
+    )));
     drop(ran);
     drop(runtime);
     database.remove().await.unwrap();
@@ -296,14 +314,20 @@ async fn failed_point_does_not_contaminate() {
             .iter()
             .all(|m| m.table_uri.starts_with(&intent.member_prefix))
     );
-    let catalogs: std::collections::BTreeSet<_> =
-        record.members.iter().map(|m| m.catalog_name.as_str()).collect();
+    let catalogs: std::collections::BTreeSet<_> = record
+        .members
+        .iter()
+        .map(|m| m.catalog_name.as_str())
+        .collect();
     assert_eq!(
         catalogs.into_iter().collect::<Vec<_>>(),
         ["point_0", "point_2", "study"]
     );
     let cancel = CancellationToken::new();
-    let reader = runtime.open(published.publication_id, &cancel).await.unwrap();
+    let reader = runtime
+        .open(published.publication_id, &cancel)
+        .await
+        .unwrap();
     let publication = reader.publication();
     assert_eq!(
         rows(publication, "SELECT * FROM study.runtime.study_outcomes").await,

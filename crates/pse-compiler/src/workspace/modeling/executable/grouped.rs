@@ -309,21 +309,33 @@ pub(super) fn admit(
             parameters.push(port);
         }
     }
-    let penalty = p.outputs.iter().any(|o| matches!(o, ModelingOutput::Penalty(_)));
+    let penalty = p
+        .outputs
+        .iter()
+        .any(|o| matches!(o, ModelingOutput::Penalty(_)));
     let objective = if let Some((target, sense)) = p.objective {
-        let index = p.outputs.iter().position(|o| *o == ModelingOutput::Member(target))
+        let index = p
+            .outputs
+            .iter()
+            .position(|o| *o == ModelingOutput::Member(target))
             .ok_or_else(|| CompileError::Missing("objective scalar output".into()))?;
         let quantity = p.quantities[index];
         if penalty && Some(quantity) != registry.neutral_dimensionless() {
-            return Err(CompileError::Missing("elastic penalties require an explicitly normalized dimensionless objective".into()));
+            return Err(CompileError::Missing(
+                "elastic penalties require an explicitly normalized dimensionless objective".into(),
+            ));
         }
         Some(pse_math::binding::Objective { quantity, sense })
     } else if penalty {
         Some(pse_math::binding::Objective {
-            quantity: registry.neutral_dimensionless().ok_or_else(|| CompileError::Missing("dimensionless elastic penalty".into()))?,
+            quantity: registry
+                .neutral_dimensionless()
+                .ok_or_else(|| CompileError::Missing("dimensionless elastic penalty".into()))?,
             sense: pse_math::binding::ObjectiveSense::Minimize,
         })
-    } else { None };
+    } else {
+        None
+    };
     let mut bodies = BTreeMap::new();
     let mut normalized = BTreeMap::<ContentHash, Arc<AdmittedBody>>::new();
     let mut instances = vec![];
@@ -465,8 +477,14 @@ pub(super) fn admit(
                 scale: objective.as_ref().map_or(1.0, |o| o.sense.sign()),
             });
         }
-        if p.objective.is_some_and(|(target, _)| *output == ModelingOutput::Member(target)) {
-            contributions.push(Contribution {output: 0, target: Target::Objective, scale: 1.0});
+        if p.objective
+            .is_some_and(|(target, _)| *output == ModelingOutput::Member(target))
+        {
+            contributions.push(Contribution {
+                output: 0,
+                target: Target::Objective,
+                scale: 1.0,
+            });
         }
         instances.push(InstanceBinding {
             instance: id,

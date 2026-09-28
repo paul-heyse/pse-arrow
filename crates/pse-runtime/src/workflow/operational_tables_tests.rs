@@ -74,10 +74,15 @@ fn recognized_predicates_become_the_typed_filter() {
         col("state").in_list(vec![lit("running"), lit("not-a-state")], false),
         col("created_at").gt(lit(instant(10))),
         // A literal on the left, and nanoseconds rounded outward.
-        lit(ScalarValue::TimestampNanosecond(Some(20_500), Some("UTC".into())))
-            .gt_eq(col("created_at")),
+        lit(ScalarValue::TimestampNanosecond(
+            Some(20_500),
+            Some("UTC".into()),
+        ))
+        .gt_eq(col("created_at")),
         col("worker").eq(lit("w")),
-        col("attempt_id").eq(lit(binary(target))).or(col("run_id").eq(lit(binary(other)))),
+        col("attempt_id")
+            .eq(lit(binary(target)))
+            .or(col("run_id").eq(lit(binary(other)))),
     ];
     let recognized: Vec<bool> = filters
         .iter()
@@ -112,7 +117,10 @@ fn recognized_predicates_become_the_typed_filter() {
         col("created_at"),
         DataType::Timestamp(TimeUnit::Second, Some("UTC".into())),
     )
-    .lt_eq(lit(ScalarValue::TimestampSecond(Some(1), Some("UTC".into()))));
+    .lt_eq(lit(ScalarValue::TimestampSecond(
+        Some(1),
+        Some("UTC".into()),
+    )));
     assert!(recognize(&coarse, AttemptScan::COLUMNS).is_none());
     // Contradictions select nothing, so no statement runs.
     for contradiction in [
@@ -127,7 +135,11 @@ fn recognized_predicates_become_the_typed_filter() {
         ],
         vec![col("attempt_id").eq(lit(ScalarValue::Binary(Some(vec![1, 2]))))],
     ] {
-        assert_eq!(scan_of::<AttemptScan>(&contradiction), None, "{contradiction:?}");
+        assert_eq!(
+            scan_of::<AttemptScan>(&contradiction),
+            None,
+            "{contradiction:?}"
+        );
     }
     assert_eq!(scan_of::<AttemptScan>(&[]), Some(AttemptScan::default()));
 }
@@ -153,7 +165,10 @@ struct Scanned {
 }
 
 fn scanned(plan: &Arc<dyn ExecutionPlan>) -> Option<Scanned> {
-    if let Some(exec) = plan.as_ref().downcast_ref::<OperationalScanExec<AttemptScan>>() {
+    if let Some(exec) = plan
+        .as_ref()
+        .downcast_ref::<OperationalScanExec<AttemptScan>>()
+    {
         return Some(Scanned {
             filter: exec.scan.clone(),
             limit: exec.limit,
@@ -174,8 +189,13 @@ async fn run(context: &SessionContext, sql: &str) -> (Vec<RecordBatch>, Scanned)
         .create_physical_plan()
         .await
         .unwrap();
-    let batches = collect(Arc::clone(&plan), context.task_ctx()).await.unwrap();
-    (batches, scanned(&plan).expect("the plan scans pse_ops.attempts"))
+    let batches = collect(Arc::clone(&plan), context.task_ctx())
+        .await
+        .unwrap();
+    (
+        batches,
+        scanned(&plan).expect("the plan scans pse_ops.attempts"),
+    )
 }
 
 /// Attempts under two runs: three of the first, one of the second.
@@ -185,13 +205,21 @@ async fn attempts(store: &Store) -> (Vec<AttemptId>, SemanticId) {
     for index in 0..4 {
         let attempt = NewAttempt {
             attempt_id: pse_operations::mint_id(),
-            run_id: if index < 3 { run.into() } else { pse_operations::mint_id() },
+            run_id: if index < 3 {
+                run.into()
+            } else {
+                pse_operations::mint_id()
+            },
             kind: AttemptKind::Modeling,
             request_identity: pse_ids::ContentHash::from_bytes([1; 32]),
             preparation_identity: None,
             parent_attempt: None,
         };
-        store.attempts().create(&attempt, Some("test")).await.unwrap();
+        store
+            .attempts()
+            .create(&attempt, Some("test"))
+            .await
+            .unwrap();
         ids.push(attempt.attempt_id);
     }
     (ids, run)
@@ -263,7 +291,11 @@ async fn provider_pushes_attempt_filter() {
     assert_eq!(planned.iter().map(RecordBatch::num_rows).sum::<usize>(), 1);
 
     // A contradiction reads nothing.
-    let (none, scan) = run(&context, "SELECT * FROM attempts WHERE state = 'no-such-state'").await;
+    let (none, scan) = run(
+        &context,
+        "SELECT * FROM attempts WHERE state = 'no-such-state'",
+    )
+    .await;
     assert_eq!((scan.filter, scan.fetched), (None, 0));
     assert_eq!(none.iter().map(RecordBatch::num_rows).sum::<usize>(), 0);
     database.remove().await.unwrap();
@@ -293,7 +325,10 @@ async fn provider_streams_bounded_pages_and_honours_limit_and_projection() {
         .collect();
     assert_eq!(
         read,
-        ids.iter().copied().map(SemanticId::from).collect::<Vec<_>>()
+        ids.iter()
+            .copied()
+            .map(SemanticId::from)
+            .collect::<Vec<_>>()
     );
 
     // A limit without filters reaches the scan, which reads no further.
@@ -369,7 +404,10 @@ async fn operational_tables_join_results_in_datafusion() {
     let session = ephemeral.query_session(None, None, &token).unwrap();
     assert!(
         session
-            .sql(&format!("SELECT * FROM {OPERATIONAL_SCHEMA}.attempts"), &token)
+            .sql(
+                &format!("SELECT * FROM {OPERATIONAL_SCHEMA}.attempts"),
+                &token
+            )
             .await
             .is_err()
     );
@@ -393,11 +431,19 @@ async fn running(runtime: &Runtime) -> (Store, AttemptId) {
     let attempts = store.attempts();
     attempts.create(&attempt, Some("test")).await.unwrap();
     attempts
-        .transition(attempt.attempt_id, AttemptState::Queued, &TransitionNote::by("test"))
+        .transition(
+            attempt.attempt_id,
+            AttemptState::Queued,
+            &TransitionNote::by("test"),
+        )
         .await
         .unwrap();
     attempts
-        .start(attempt.attempt_id, "worker", std::time::Duration::from_secs(30))
+        .start(
+            attempt.attempt_id,
+            "worker",
+            std::time::Duration::from_secs(30),
+        )
         .await
         .unwrap();
     (store, attempt.attempt_id)
@@ -440,10 +486,11 @@ fn incumbent(
 
 async fn drain(stream: &mut ProgressStream) -> Vec<StreamRecord> {
     let mut records = Vec::new();
-    while let Some(page) = tokio::time::timeout(std::time::Duration::from_secs(10), stream.next_page())
-        .await
-        .expect("the stream wakes on new rows and on the attempt's end")
-        .unwrap()
+    while let Some(page) =
+        tokio::time::timeout(std::time::Duration::from_secs(10), stream.next_page())
+            .await
+            .expect("the stream wakes on new rows and on the attempt's end")
+            .unwrap()
     {
         assert!(!page.is_empty());
         records.extend(page);
@@ -464,7 +511,11 @@ async fn progress_stream_follows_progress_and_incumbents_until_the_attempt_ends(
             for batch in [0..3, 3..5] {
                 tokio::time::sleep(std::time::Duration::from_millis(40)).await;
                 let events: Vec<_> = batch.map(event).collect();
-                store.streams().append_progress(attempt, &events).await.unwrap();
+                store
+                    .streams()
+                    .append_progress(attempt, &events)
+                    .await
+                    .unwrap();
             }
             tokio::time::sleep(std::time::Duration::from_millis(40)).await;
             // Observed between the second and third event.
@@ -476,7 +527,11 @@ async fn progress_stream_follows_progress_and_incumbents_until_the_attempt_ends(
             tokio::time::sleep(std::time::Duration::from_millis(40)).await;
             store
                 .attempts()
-                .transition(attempt, AttemptState::Completed, &TransitionNote::by("worker"))
+                .transition(
+                    attempt,
+                    AttemptState::Completed,
+                    &TransitionNote::by("worker"),
+                )
                 .await
                 .unwrap();
         }
@@ -497,7 +552,11 @@ async fn progress_stream_follows_progress_and_incumbents_until_the_attempt_ends(
         "{kinds:?}"
     );
     // Within a page, records are in observation order.
-    assert!(records.iter().any(|r| matches!(r, StreamRecord::Incumbent(i) if i.nodes == Some(5))));
+    assert!(
+        records
+            .iter()
+            .any(|r| matches!(r, StreamRecord::Incumbent(i) if i.nodes == Some(5)))
+    );
 
     // Without following, the stream reads what is stored and ends.
     let token = pse_columnar::CancellationToken::new();
@@ -511,7 +570,10 @@ async fn progress_stream_follows_progress_and_incumbents_until_the_attempt_ends(
     // Closing a followed stream ends a waiting read.
     let (_, waiting) = running(&runtime).await;
     let token = pse_columnar::CancellationToken::new();
-    let mut followed = runtime.progress(waiting, true, 4, token.clone()).await.unwrap();
+    let mut followed = runtime
+        .progress(waiting, true, 4, token.clone())
+        .await
+        .unwrap();
     let closer = tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         token.cancel();
@@ -528,7 +590,12 @@ async fn progress_stream_follows_progress_and_incumbents_until_the_attempt_ends(
     // An unknown attempt is refused.
     assert!(
         runtime
-            .progress(pse_operations::mint_id(), false, 4, pse_columnar::CancellationToken::new())
+            .progress(
+                pse_operations::mint_id(),
+                false,
+                4,
+                pse_columnar::CancellationToken::new()
+            )
             .await
             .is_err()
     );

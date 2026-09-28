@@ -9,7 +9,13 @@ import pyarrow as pa
 import pytest
 
 import pse
-from pse.contracts.enums import NativeBackend, NativeSolveIntent, NativeStartPolicy, PresolvePolicyKind, ReusePolicy
+from pse.contracts.enums import (
+    NativeBackend,
+    NativeSolveIntent,
+    NativeStartPolicy,
+    PresolvePolicyKind,
+    ReusePolicy,
+)
 from pse.contracts.enums import AttemptState
 from pse.contracts.values import SemanticId
 
@@ -25,10 +31,16 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
-        {str(p.relative_to(primitives)): p.read_text() for p in primitives.rglob("*") if p.is_file()}
+        {
+            str(p.relative_to(primitives)): p.read_text()
+            for p in primitives.rglob("*")
+            if p.is_file()
+        }
     )
-    manifest = (root / "tests/fixtures/packages/minimal_explicit/package.toml").read_text().replace(
-        'id_policy = "explicit"', 'id_policy = "named"'
+    manifest = (
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
     manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
     source = """package algebraic { def Root {
@@ -42,8 +54,14 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/root.pse": source}], physical
     )
-    case = next(row.declaration_id for row in package.declarations() if row.name == "Root")
-    settings = pse.SolveSettings(backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT, presolve=PresolvePolicyKind.OFF)
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
+    settings = pse.SolveSettings(
+        backend=NativeBackend.IPOPT,
+        intent=NativeSolveIntent.FEASIBLE_POINT,
+        presolve=PresolvePolicyKind.OFF,
+    )
     prepared = package.prepare_solve(case, settings)
     handle = prepared.start()
 
@@ -75,14 +93,27 @@ def test_authored_solve_join_warm_start_checks_and_publication(
     (listed,) = runtime.runs(run_id=result.run_id)
     assert listed.attempt_id == result.attempt_id
     assert listed.state == AttemptState.COMPLETED
-    workspace = runtime.register_workspace(f"modeling-{result.run_id.to_hex()}", tmp_path)
+    workspace = runtime.register_workspace(
+        f"modeling-{result.run_id.to_hex()}", tmp_path
+    )
     command = result.prepare_publication(workspace)
     ticket = command.ticket
     published = command.commit()
     settled = runtime.settle_publication(ticket)
     assert isinstance(settled, pse.PublicationCommitted)
     assert settled.publication_id == published.publication_id
-    following = package.prepare_solve(case, pse.SolveSettings(backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT, presolve=PresolvePolicyKind.OFF, controls=pse.SolveControls(reuse=ReusePolicy.REQUIRE_REUSE, start=NativeStartPolicy.PREVIOUS_ACCEPTED)))
+    following = package.prepare_solve(
+        case,
+        pse.SolveSettings(
+            backend=NativeBackend.IPOPT,
+            intent=NativeSolveIntent.FEASIBLE_POINT,
+            presolve=PresolvePolicyKind.OFF,
+            controls=pse.SolveControls(
+                reuse=ReusePolicy.REQUIRE_REUSE,
+                start=NativeStartPolicy.PREVIOUS_ACCEPTED,
+            ),
+        ),
+    )
     sequence = runtime.start([prepared, following]).wait()
     assert sequence.usable
     assert len(sequence.completion.solves) == 2
@@ -109,12 +140,26 @@ def test_authored_solve_join_warm_start_checks_and_publication(
         AttemptState.PARTIAL,
         AttemptState.COMPLETED,
     }
-    rejected = runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/root.pse": source.replace("check x(x>1)", "check x(x<1)")}], physical
-    ).prepare_solve(case, settings).start().wait()
+    rejected = (
+        runtime.modeling_from_documents(
+            [
+                {
+                    "package.toml": manifest,
+                    "models/root.pse": source.replace("check x(x>1)", "check x(x<1)"),
+                }
+            ],
+            physical,
+        )
+        .prepare_solve(case, settings)
+        .start()
+        .wait()
+    )
     assert not rejected.usable
     assert rejected.completion.solves[0].feasible
-    assert any(not row["satisfied"] for row in pa.table(rejected.table("runtime.modeling_checks")).to_pylist())
+    assert any(
+        not row["satisfied"]
+        for row in pa.table(rejected.table("runtime.modeling_checks")).to_pylist()
+    )
     # Immediate cancellation must still produce a joined, repeatedly readable attempt.
     cancelled = prepared.start()
     cancelled.cancel()

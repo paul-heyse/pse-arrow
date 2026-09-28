@@ -242,7 +242,13 @@ fn bind_field(reg: &Registry, field: &Field, path: &str) -> Result<Field, Schema
             ));
         }
     }
-    for key in [KEY_ENUM, KEY_QUANTITY_TYPE, KEY_FK, KEY_IDENTITY, KEY_DOCUMENT] {
+    for key in [
+        KEY_ENUM,
+        KEY_QUANTITY_TYPE,
+        KEY_FK,
+        KEY_IDENTITY,
+        KEY_DOCUMENT,
+    ] {
         if metadata.contains_key(key) && !semantic.contains_key(key) {
             return Err(crate::checks::invalid(
                 path,

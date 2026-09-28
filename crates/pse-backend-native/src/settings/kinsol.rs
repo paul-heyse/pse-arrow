@@ -4,14 +4,14 @@
 //! and the scaled-step tolerance are never caller inputs; the adapter derives them from the
 //! resolved numerical policy (`crate::kinsol::Settings::from_policy`).
 use crate::solve::Preconditioner;
-use pse_model::scalar;
-use pse_model::scalars::{Fraction, PositiveCount};
 /// KINSOL nonlinear strategy, without a project-owned Newton method, and the Anderson
 /// acceleration QR orthogonalization (`KINSetOrthAA`, fixed at allocation): registry
 /// vocabularies (ADR-0115 Outcome 3).
 pub use pse_model::generated::enums::{
     KinsolOrthogonalization as Orthogonalization, KinsolStrategy as Strategy,
 };
+use pse_model::scalar;
+use pse_model::scalars::{Fraction, PositiveCount};
 
 /// Selected native linear algebra. Dense allocation has an explicit dimension ceiling;
 /// the matrix-free Krylov routes use the analytic Jacobian-vector product.
@@ -63,7 +63,14 @@ impl Linear {
 }
 /// Inexact-Newton forcing term of the Krylov routes (`KINSetEtaForm`).
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[schemars(rename = "KinsolEta")]

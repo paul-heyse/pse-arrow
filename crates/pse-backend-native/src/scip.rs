@@ -18,11 +18,11 @@ use crate::{
     LimitKind, NativeStatus, OracleContract, ProblemError, Variable,
     execution::ScipSettings as Settings,
     solve::{
-        Assurance, Backend, BoundSource, Candidate, CandidateKind, CaptureThrottle,
-        Compatibility, Controls, Event, Execution, GlobalEvidence, GlobalRecord, Iis, IisMember,
-        IncumbentEvent, Metric, NativeTermination, OptionValue, Options, PoolSolution,
-        PrimalSource, Progress, ResolvedAccuracy, SolveIntent, SolveReport, Termination,
-        UnavailableReason, WarmPayload, WarmStart,
+        Assurance, Backend, BoundSource, Candidate, CandidateKind, CaptureThrottle, Compatibility,
+        Controls, Event, Execution, GlobalEvidence, GlobalRecord, Iis, IisMember, IncumbentEvent,
+        Metric, NativeTermination, OptionValue, Options, PoolSolution, PrimalSource, Progress,
+        ResolvedAccuracy, SolveIntent, SolveReport, Termination, UnavailableReason, WarmPayload,
+        WarmStart,
     },
 };
 use pse_ids::{ContentHash, FramedHasher};

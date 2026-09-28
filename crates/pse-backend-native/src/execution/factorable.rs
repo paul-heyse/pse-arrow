@@ -380,7 +380,8 @@ pub(crate) fn plan(
                 operands,
                 ..
             } => {
-                if !binary(program, *resultant) || operands.iter().any(|(o, _)| !binary(program, *o))
+                if !binary(program, *resultant)
+                    || operands.iter().any(|(o, _)| !binary(program, *o))
                 {
                     refusals.push(Refusal::NativeOperand(k));
                 }
@@ -803,7 +804,11 @@ fn assess(
 /// Dimensionless discrete-structure violations of the native forms at `x`: the excess
 /// nonzero count of an SOS or cardinality set (SOS2 members must also be adjacent), and
 /// a logic resultant that differs from its operands' value.
-fn native_violations(plan: &Plan<'_>, tolerances: &quality::Tolerances, x: &[f64]) -> Vec<Violation> {
+fn native_violations(
+    plan: &Plan<'_>,
+    tolerances: &quality::Tolerances,
+    x: &[f64],
+) -> Vec<Violation> {
     use pse_model::generated::enums::NativeConstraintForm as F;
     let program = plan.program;
     let value = |o: &NativeOperand| match o {

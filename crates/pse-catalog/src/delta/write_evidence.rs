@@ -6,8 +6,8 @@
 use datafusion::{common::Result, execution::session_state::SessionState};
 use pse_engine::session::execution::NativeExecutionContext;
 use pse_model::HeapUsage;
-use pse_relations::generated::runtime::publication_manifests;
 use pse_model::generated::identities::{AttemptId, PublicationId, WorkspaceId};
+use pse_relations::generated::runtime::publication_manifests;
 use std::sync::{Arc, Mutex, Weak};
 
 /// Publication, attempt, member relation and actual Delta version.

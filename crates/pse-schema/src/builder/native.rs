@@ -336,14 +336,20 @@ fn unique_keys(rows: &[RelationSpec]) -> Result<ArrayRef, SchemaError> {
                 "columns",
                 list(
                     keys.iter().map(|k| k.columns.len()),
-                    text(keys.iter().flat_map(|k| k.columns.iter().copied().map(Some))),
+                    text(
+                        keys.iter()
+                            .flat_map(|k| k.columns.iter().copied().map(Some)),
+                    ),
                 )?,
             ),
         ])?,
     )
 }
 fn foreign_keys(reg: &Registry, rows: &[RelationSpec]) -> Result<ArrayRef, SchemaError> {
-    let references = rows.iter().flat_map(|r| &r.foreign_keys).collect::<Vec<_>>();
+    let references = rows
+        .iter()
+        .flat_map(|r| &r.foreign_keys)
+        .collect::<Vec<_>>();
     list(
         rows.iter().map(|r| r.foreign_keys.len()),
         structure(vec![

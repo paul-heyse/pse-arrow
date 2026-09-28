@@ -124,7 +124,9 @@ def _check_annotation(
         raise ContractTypeError(cls, field_name, offence)
     if annotation is None:
         raise ContractTypeError(cls, field_name, "an absent annotation")
-    if isinstance(annotation, type) and (attrs.has(annotation) or _is_struct(annotation)):
+    if isinstance(annotation, type) and (
+        attrs.has(annotation) or _is_struct(annotation)
+    ):
         _check_class(annotation, seen)
         return
     if id(annotation) in seen:

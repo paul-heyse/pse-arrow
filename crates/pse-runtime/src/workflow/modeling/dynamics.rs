@@ -7,7 +7,6 @@ pub(in crate::workflow) mod checks;
 mod events;
 #[path = "trajectory.rs"]
 mod trajectory;
-use pse_model::generated::identities::RunId;
 use super::*;
 use crate::workflow::dynamics::{
     CoordinateBinding, DynamicCoordinates, DynamicMode, DynamicWorker, FunctionProgram,
@@ -23,6 +22,7 @@ use pse_ids::{ContentHash, FramedHasher};
 use pse_kernels::DerivativeOrder;
 use pse_math::binding::CaseValues;
 use pse_model::generated::enums::{NumericalSource, NumericalTarget};
+use pse_model::generated::identities::RunId;
 use std::{collections::BTreeSet, sync::Arc};
 
 /// Immutable generated simulation. No authored state/RHS declaration is introduced.

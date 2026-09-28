@@ -29,10 +29,12 @@ pub fn element(order: usize, alpha: f64, beta: f64, right: bool) -> Result<Stenc
     if !(1..=MAX_ORDER).contains(&order) {
         return Err(MathError::Limit("collocation order 1..=16"));
     }
-    let formal=crate::library::formal(0)?;
-    let symbolica::atom::AtomView::Var(v)=formal.as_view() else{return Err(MathError::Contract("formal must be a symbol".into()));};
-    let variable=std::sync::Arc::new(symbolica::poly::PolyVariable::Symbol(v.get_symbol()));
-    let poly=|c:Vec<Rational>|UnivariatePolynomial::from_coefficients(&Q,c,variable.clone());
+    let formal = crate::library::formal(0)?;
+    let symbolica::atom::AtomView::Var(v) = formal.as_view() else {
+        return Err(MathError::Contract("formal must be a symbol".into()));
+    };
+    let variable = std::sync::Arc::new(symbolica::poly::PolyVariable::Symbol(v.get_symbol()));
+    let poly = |c: Vec<Rational>| UnivariatePolynomial::from_coefficients(&Q, c, variable.clone());
     let one = poly(vec![1.into()]);
     let mut nodes = vec![0.0];
     nodes.extend(jacobi_roots(order - usize::from(right), alpha, beta)?);
@@ -101,11 +103,17 @@ pub fn element(order: usize, alpha: f64, beta: f64, right: bool) -> Result<Stenc
 /// Orders above the resource bound, parameters outside the orthogonality domain,
 /// or roots that cannot be represented as distinct interior floating coordinates.
 pub fn jacobi_roots(order: usize, alpha: f64, beta: f64) -> Result<Vec<f64>, MathError> {
-    if order > MAX_ORDER { return Err(MathError::Limit("Jacobi order 0..=16")); }
-    if !alpha.is_finite() || !beta.is_finite() || alpha <= -1.0 || beta <= -1.0 {
-        return Err(MathError::Contract("Jacobi parameters must be finite and greater than -1".into()));
+    if order > MAX_ORDER {
+        return Err(MathError::Limit("Jacobi order 0..=16"));
     }
-    if order == 0 { return Ok(Vec::new()); }
+    if !alpha.is_finite() || !beta.is_finite() || alpha <= -1.0 || beta <= -1.0 {
+        return Err(MathError::Contract(
+            "Jacobi parameters must be finite and greater than -1".into(),
+        ));
+    }
+    if order == 0 {
+        return Ok(Vec::new());
+    }
     let alpha = Rational::try_from(alpha).map_err(|e| MathError::Library(e.to_string()))?;
     let beta = Rational::try_from(beta).map_err(|e| MathError::Library(e.to_string()))?;
     let formal = crate::library::formal(0)?;
@@ -129,16 +137,24 @@ pub fn jacobi_roots(order: usize, alpha: f64, beta: f64) -> Result<Vec<f64>, Mat
     }
     let roots = polynomial.isolate_real_roots();
     if roots.len() != order || roots.iter().any(|(_, m)| *m != 1) {
-        return Err(MathError::Library("Jacobi polynomial requires simple real roots".into()));
+        return Err(MathError::Library(
+            "Jacobi polynomial requires simple real roots".into(),
+        ));
     }
     let tolerance = Rational::from((1_i64, 1_i64 << 54));
-    let mut nodes = roots.into_iter().map(|(root, _)| {
-        root.refined(&tolerance).enclosure().center().re.to_f64()
-    }).collect::<Vec<_>>();
+    let mut nodes = roots
+        .into_iter()
+        .map(|(root, _)| root.refined(&tolerance).enclosure().center().re.to_f64())
+        .collect::<Vec<_>>();
     nodes.sort_by(f64::total_cmp);
-    if nodes.iter().any(|v| !v.is_finite() || *v <= 0.0 || *v >= 1.0)
-        || nodes.windows(2).any(|pair| pair[0] >= pair[1]) {
-        return Err(MathError::Library("Jacobi roots are not distinct interior coordinates".into()));
+    if nodes
+        .iter()
+        .any(|v| !v.is_finite() || *v <= 0.0 || *v >= 1.0)
+        || nodes.windows(2).any(|pair| pair[0] >= pair[1])
+    {
+        return Err(MathError::Library(
+            "Jacobi roots are not distinct interior coordinates".into(),
+        ));
     }
     Ok(nodes)
 }
@@ -188,11 +204,7 @@ mod tests {
                         );
                     }
                 }
-                let exact_degree = if right {
-                    2 * order - 2
-                } else {
-                    2 * order - 1
-                };
+                let exact_degree = if right { 2 * order - 2 } else { 2 * order - 1 };
                 for degree in 0..=exact_degree {
                     let value = s
                         .nodes

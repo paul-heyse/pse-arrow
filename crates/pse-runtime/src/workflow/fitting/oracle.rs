@@ -867,7 +867,8 @@ impl FitOracle {
                 let scaled_dx = solve_regular(&scaled, rhs.clone(), bytes)?;
                 check_response(&scaled, &scaled_dx, &rhs)?;
                 let dx = Mat::from_fn(nx, np, |i, j| {
-                    scaled_dx[(i, j)] * p.tolerances.variables[s.coordinates[GlobalCol::new(i)].1.get()]
+                    scaled_dx[(i, j)]
+                        * p.tolerances.variables[s.coordinates[GlobalCol::new(i)].1.get()]
                 });
                 for (i, o) in p
                     .measurements
@@ -1156,7 +1157,9 @@ mod tests {
         for value in [3.0, 0.0, -2.0, 4.0] {
             response.clear();
             hessian.clear();
-            response.add(pse_math::index::Addend::new(0), value).unwrap();
+            response
+                .add(pse_math::index::Addend::new(0), value)
+                .unwrap();
             response.add(pse_math::index::Addend::new(0), 1.0).unwrap();
             worker.refill(&response, &[2.0], 0.5, &mut hessian).unwrap();
             assert!((hessian.matrix().val()[0] - 2.0 * (value + 1.0).powi(2)).abs() < 1e-12);

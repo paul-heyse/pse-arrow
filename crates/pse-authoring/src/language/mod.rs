@@ -9,11 +9,10 @@ pub use static_value::{StaticValue, parse_static, split};
 #[cfg(test)]
 mod kernel_language;
 
-pub use parser::{parse, assign_ids, assign_ids_with, IdentityPolicy};
-pub use render::render;
+pub use parser::{IdentityPolicy, assign_ids, assign_ids_with, parse};
 pub use pse_model::generated::authored::modeling_declarations::*;
 pub use pse_model::generated::authored::modeling_declarations::{
-    Row as Declaration,
     AuthoredModelingDeclarationsFieldValue as Value,
-    AuthoredModelingDeclarationsFieldValueSelected as Selected,
+    AuthoredModelingDeclarationsFieldValueSelected as Selected, Row as Declaration,
 };
+pub use render::render;

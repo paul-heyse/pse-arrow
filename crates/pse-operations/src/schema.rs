@@ -75,9 +75,7 @@ impl Store {
         Ok(match comment {
             None => SchemaStatus::Absent,
             Some(comment) => match recorded(comment.as_deref()) {
-                Some(fingerprint) if fingerprint == SCHEMA_FINGERPRINT_HEX => {
-                    SchemaStatus::Current
-                }
+                Some(fingerprint) if fingerprint == SCHEMA_FINGERPRINT_HEX => SchemaStatus::Current,
                 Some(fingerprint) => SchemaStatus::Mismatch {
                     recorded: Some(fingerprint.to_owned()),
                 },

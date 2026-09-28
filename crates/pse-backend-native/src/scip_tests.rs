@@ -11,15 +11,15 @@
 use crate::{
     NlpOracle, ProblemError,
     execution::{
-        self, BackendSettings, Evaluation, Factorable,
-        OriginalModel, Refusal, Resolve, Retained, ScipSettings, Step,
+        self, BackendSettings, Evaluation, Factorable, OriginalModel, Refusal, Resolve, Retained,
+        ScipSettings, Step,
     },
     quality::Tolerances,
     scip::{self, Status},
     solve::{
-        Assurance, Backend, BoundSource, Controls, Execution, IisMember, IpoptLinearSolver, OptionValue,
-        PrimalSource,
-        Qualification, ResolvedAccuracy, SolveIntent, SolveReport, Termination, WarmCapability,
+        Assurance, Backend, BoundSource, Controls, Execution, IisMember, IpoptLinearSolver,
+        OptionValue, PrimalSource, Qualification, ResolvedAccuracy, SolveIntent, SolveReport,
+        Termination, WarmCapability,
     },
     solver_tests::stamp,
 };
@@ -426,7 +426,12 @@ fn quartic(registry: &QuantityRegistry, x_box: (Option<f64>, Option<f64>)) -> Ca
         body,
         &[
             (ModelingVariableDomain::Continuous, x_box.0, x_box.1, 1.0),
-            (ModelingVariableDomain::Continuous, Some(0.0), Some(4.0), 1.0),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.0),
+                Some(4.0),
+                1.0,
+            ),
         ],
         &[(0.0, 0.0)],
         Some((1, ObjectiveSense::Minimize)),
@@ -465,8 +470,18 @@ fn synthesis(registry: &QuantityRegistry) -> Case {
         registry,
         body,
         &[
-            (ModelingVariableDomain::Continuous, Some(0.0), Some(4.0), 0.0),
-            (ModelingVariableDomain::Continuous, Some(0.0), Some(3.0), 3.0),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.0),
+                Some(4.0),
+                0.0,
+            ),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.0),
+                Some(3.0),
+                3.0,
+            ),
             (ModelingVariableDomain::Binary, None, None, 0.0),
         ],
         &[(3.0, f64::INFINITY)],
@@ -769,8 +784,18 @@ fn certify_known_global_optimum() {
         &registry,
         body,
         &[
-            (ModelingVariableDomain::Continuous, Some(-1.0), Some(2.0), 0.5),
-            (ModelingVariableDomain::Continuous, Some(-1.0), Some(2.0), 0.5),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(-1.0),
+                Some(2.0),
+                0.5,
+            ),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(-1.0),
+                Some(2.0),
+                0.5,
+            ),
         ],
         &[(f64::NEG_INFINITY, 1.5)],
         Some((1, ObjectiveSense::Minimize)),
@@ -898,8 +923,18 @@ fn relaxed_export_bound_only() {
         &registry,
         body,
         &[
-            (ModelingVariableDomain::Continuous, Some(0.5), Some(3.0), 2.0),
-            (ModelingVariableDomain::Continuous, Some(-1.0), Some(1.0), 0.0),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.5),
+                Some(3.0),
+                2.0,
+            ),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(-1.0),
+                Some(1.0),
+                0.0,
+            ),
         ],
         &[],
         Some((0, ObjectiveSense::Minimize)),
@@ -963,7 +998,12 @@ fn unbounded_variable_refused_for_spatial_branching() {
         &registry,
         body,
         &[
-            (ModelingVariableDomain::Continuous, Some(-1.0), Some(1.0), 0.0),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(-1.0),
+                Some(1.0),
+                0.0,
+            ),
             (ModelingVariableDomain::Continuous, None, None, 0.0),
         ],
         &[(0.0, f64::INFINITY)],
@@ -979,7 +1019,8 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
     let controls = Controls::default();
     let accuracy = ResolvedAccuracy::nominal();
     // The nested Ipopt's linear solver comes from the typed setting, default MUMPS.
-    let defaults = scip::testing::configured(&ScipSettings::default(), &controls, &accuracy).unwrap();
+    let defaults =
+        scip::testing::configured(&ScipSettings::default(), &controls, &accuracy).unwrap();
     assert_eq!(
         defaults["nlpi/ipopt/linear_solver"],
         OptionValue::Text("mumps".into())
@@ -1120,8 +1161,17 @@ fn obstruction(registry: &QuantityRegistry) -> Case {
     case(
         registry,
         body,
-        &[(ModelingVariableDomain::Continuous, Some(-3.0), Some(3.0), 1.5)],
-        &[(4.0, f64::INFINITY), (f64::NEG_INFINITY, 1.0), (f64::NEG_INFINITY, 100.0)],
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(-3.0),
+            Some(3.0),
+            1.5,
+        )],
+        &[
+            (4.0, f64::INFINITY),
+            (f64::NEG_INFINITY, 1.0),
+            (f64::NEG_INFINITY, 100.0),
+        ],
         None,
         DerivativeOrder::Second,
     )
@@ -1152,7 +1202,12 @@ fn global_infeasibility_proof() {
     let feasible = super::scip_tests::case(
         &registry,
         body,
-        &[(ModelingVariableDomain::Continuous, Some(-3.0), Some(3.0), 1.5)],
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(-3.0),
+            Some(3.0),
+            1.5,
+        )],
         &[(4.0, f64::INFINITY)],
         None,
         DerivativeOrder::Second,
@@ -1221,7 +1276,14 @@ fn mip_iis_on_true_mip() {
         (ModelingVariableDomain::Integer, Some(0.0), Some(5.0), 0.0),
     ];
     let rows = [(3.0, 3.0), (f64::NEG_INFINITY, 10.0)];
-    let case = case(&registry, body, &columns, &rows, None, DerivativeOrder::Value);
+    let case = case(
+        &registry,
+        body,
+        &columns,
+        &rows,
+        None,
+        DerivativeOrder::Value,
+    );
     let program = case.program(&FactorableRequest::default());
     // The relaxation's feasible point exists, so an LP IIS would find nothing.
     let values = program.evaluate(&[1.5, 0.0], &[]).unwrap();
@@ -1281,8 +1343,17 @@ fn native_forms_only(registry: &QuantityRegistry, keep: &[usize]) -> Case {
     let o = b.op(Binary::Sub, &o, &tc);
     let o = b.op(Binary::Add, &o, &x[6]);
     let o = b.op(Binary::Add, &o, &x[7]);
-    let body = b.b.prepare(&[supply, x[2].clone(), x[5].clone(), o]).unwrap();
-    let continuous = |upper| (ModelingVariableDomain::Continuous, Some(0.0), Some(upper), 0.0);
+    let body =
+        b.b.prepare(&[supply, x[2].clone(), x[5].clone(), o])
+            .unwrap();
+    let continuous = |upper| {
+        (
+            ModelingVariableDomain::Continuous,
+            Some(0.0),
+            Some(upper),
+            0.0,
+        )
+    };
     let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
     case_with(
         registry,
@@ -1297,7 +1368,11 @@ fn native_forms_only(registry: &QuantityRegistry, keep: &[usize]) -> Case {
             continuous(1.0),
             continuous(1.0),
         ],
-        &[(f64::NEG_INFINITY, 10.0), (f64::NEG_INFINITY, 1.0), (1.0, 1.0)],
+        &[
+            (f64::NEG_INFINITY, 10.0),
+            (f64::NEG_INFINITY, 1.0),
+            (1.0, 1.0),
+        ],
         Some((3, ObjectiveSense::Maximize)),
         DerivativeOrder::Value,
         vec![
@@ -1370,12 +1445,10 @@ fn native_forms_consumed_by_scip() {
     assert_eq!(report.qualification, Qualification::GapQualified);
     // The indicator row is enforced while its binary column holds the inactive value.
     let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
-    let condition = execution::factorable::Enforcement::When(
-        execution::factorable::Condition {
-            column: 3,
-            active: false,
-        },
-    );
+    let condition = execution::factorable::Enforcement::When(execution::factorable::Condition {
+        column: 3,
+        active: false,
+    });
     assert_eq!(plan.rows[1], condition);
     assert!(condition.enforced(&[0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0]));
     assert!(!condition.enforced(&[0.0, 0.0, 4.0, 1.0, 0.0, 1.0, 0.0, 0.0]));
@@ -1520,7 +1593,12 @@ fn commitment(registry: &QuantityRegistry, prices: [f64; 2]) -> Case {
     let revenue = b.op(Binary::Add, &r0, &r1);
     outputs.push(b.op(Binary::Sub, &revenue, &cost));
     let body = b.b.prepare(&outputs).unwrap();
-    let flow = (ModelingVariableDomain::Continuous, Some(0.0), Some(5.0), 0.0);
+    let flow = (
+        ModelingVariableDomain::Continuous,
+        Some(0.0),
+        Some(5.0),
+        0.0,
+    );
     let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
     case(
         registry,
@@ -1670,7 +1748,12 @@ fn iis_irreducible_whatever_the_row_order() {
     let case = case(
         &registry,
         body,
-        &[(ModelingVariableDomain::Continuous, Some(-3.0), Some(3.0), 1.5)],
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(-3.0),
+            Some(3.0),
+            1.5,
+        )],
         &[
             (f64::NEG_INFINITY, 0.0),
             (f64::NEG_INFINITY, 0.0),
@@ -1727,7 +1810,12 @@ fn indicator_on_nonlinear_row_unenforced_in_fixed_assignment_resolve() {
         &registry,
         body,
         &[
-            (ModelingVariableDomain::Continuous, Some(0.0), Some(5.0), 1.0),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(0.0),
+                Some(5.0),
+                1.0,
+            ),
             (ModelingVariableDomain::Binary, None, None, 0.0),
         ],
         &[(f64::NEG_INFINITY, 4.0)],
@@ -1748,9 +1836,17 @@ fn indicator_on_nonlinear_row_unenforced_in_fixed_assignment_resolve() {
         crate::solve::Metric::Integer(n) if n >= 1
     ));
     let g = report.evidence.global.unwrap();
-    assert_eq!(g.primal, PrimalSource::FixedAssignment, "{:?}", report.metrics);
+    assert_eq!(
+        g.primal,
+        PrimalSource::FixedAssignment,
+        "{:?}",
+        report.metrics
+    );
     let x = &report.candidate.as_ref().unwrap().primal;
-    assert!((x[1] - 1.0).abs() < 1e-9 && (x[0] - 3.0).abs() < 1e-5, "{x:?}");
+    assert!(
+        (x[1] - 1.0).abs() < 1e-9 && (x[0] - 3.0).abs() < 1e-5,
+        "{x:?}"
+    );
     let objective = report.observation.as_ref().unwrap().objective.unwrap();
     assert!((objective - 0.5).abs() < 1e-6, "{objective}");
     // The unenforced row is unconstrained in original qualification.
@@ -1831,7 +1927,10 @@ fn scip_incumbent_events_apply_offset() {
         let initial = case.initial();
         let tap = Arc::new(Collected::default());
         let mut execution = execution(false);
-        execution.progress = Arc::new(crate::solve::Progress::tapped(controls.history, tap.clone()));
+        execution.progress = Arc::new(crate::solve::Progress::tapped(
+            controls.history,
+            tap.clone(),
+        ));
         let report = execution::factorable(
             Step {
                 adapter: execution::adapter(Backend::Scip),
@@ -1854,7 +1953,11 @@ fn scip_incumbent_events_apply_offset() {
             },
         )
         .unwrap();
-        assert_eq!(report.qualification, Qualification::GapQualified, "{reoptimize}");
+        assert_eq!(
+            report.qualification,
+            Qualification::GapQualified,
+            "{reoptimize}"
+        );
         let result = report.candidate.as_ref().unwrap().objective.unwrap();
         let events = tap.0.lock().unwrap().clone();
         let incumbents: Vec<&crate::solve::IncumbentEvent> =
@@ -1874,12 +1977,19 @@ fn scip_incumbent_events_apply_offset() {
                 );
             }
             // A maximization's dual bound is an upper bound on every incumbent.
-            assert!(incumbent.dual_bound.is_none_or(|d| d >= incumbent.objective - 1e-6));
+            assert!(
+                incumbent
+                    .dual_bound
+                    .is_none_or(|d| d >= incumbent.objective - 1e-6)
+            );
             // The empty knapsack is worth the constant alone.
             assert!(incumbent.objective >= 100.0 - 1e-9);
         }
         for pair in incumbents.windows(2) {
-            assert!(pair[1].objective >= pair[0].objective - 1e-9, "{incumbents:?}");
+            assert!(
+                pair[1].objective >= pair[0].objective - 1e-9,
+                "{incumbents:?}"
+            );
         }
         let last = incumbents.last().unwrap();
         assert!(
@@ -1899,6 +2009,10 @@ fn scip_incumbent_events_apply_offset() {
                 assert!(*dual >= result - 1e-6, "{reoptimize}: {dual} < {result}");
             }
         }
-        assert!(events.iter().all(|e| e.incumbent.is_none() || e.phase == "scip.incumbent"));
+        assert!(
+            events
+                .iter()
+                .all(|e| e.incumbent.is_none() || e.phase == "scip.incumbent")
+        );
     }
 }

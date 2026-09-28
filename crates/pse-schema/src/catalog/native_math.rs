@@ -44,7 +44,9 @@ fn instance_id(doc: &'static str) -> T {
 }
 /// The fit a row belongs to, typed `fit`.
 fn fit_id(doc: &'static str) -> T {
-    documented("fit_id", T::id(), doc).with_identity("fit").optional()
+    documented("fit_id", T::id(), doc)
+        .with_identity("fit")
+        .optional()
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
     relation(
@@ -628,7 +630,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
 
 fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
     enumeration(b, "ObservationTimeBasis", ["elapsed", "model_clock"]);
-    identity(b, "fit", "One authored shared-parameter fit over its experiments");
+    identity(
+        b,
+        "fit",
+        "One authored shared-parameter fit over its experiments",
+    );
     // An experiment prepares its case under its own instance identity, so two experiments
     // of one case are two instances: experiment columns carry `instance`, and an
     // experiment's case is the root declaration it prepares.

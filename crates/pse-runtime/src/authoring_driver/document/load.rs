@@ -150,7 +150,7 @@ pub(super) fn load_reusing(
     for (path, text) in texts {
         let declaration = select(registry, &path)?.clone();
         let id = pse_ids::named_id(package.package_id.as_id(), &path);
-        let mut source_batches=Batches::new();
+        let mut source_batches = Batches::new();
         let (value, spans) = if declaration.kind == DocumentKind::PackageHeader {
             header_parts
                 .take()
@@ -162,18 +162,37 @@ pub(super) fn load_reusing(
                     && document.declaration == declaration
             })
         }) {
-            if declaration.kind==DocumentKind::Modeling{source_batches=prior.batches.clone();}
+            if declaration.kind == DocumentKind::Modeling {
+                source_batches = prior.batches.clone();
+            }
             ((*prior.syntax).clone(), prior.spans.clone())
-        } else if declaration.kind==DocumentKind::Modeling {
-            if let Some(funds)=allocation.as_deref_mut(){funds.grow(memory::parser_extent(&text,&budget,false)?)?;}
-            let policy=if package.id_policy==pse_relations::generated::enums::IdPolicy::Named{pse_authoring::language::IdentityPolicy::Named}else{pse_authoring::language::IdentityPolicy::Explicit};
-            let rows=pse_authoring::language::parse(&text,id,policy,budget)?;
-            let mut spans=SpanIndex::default();
-            for (ordinal,row) in rows.iter().enumerate(){spans.insert(format!("/modeling_declarations/{ordinal}"),SourceSpan::new(id,row.source_start as u32,row.source_end as u32));}
-            let mut builder=authored::modeling_declarations::Builder::with_registry(registry,rows.len())?;
-            for row in rows{builder.push(row)?;}
-            source_batches.insert(authored::modeling_declarations::RELATION_ID,builder.finish()?);
-            (value::Value::Map(Vec::new()),spans)
+        } else if declaration.kind == DocumentKind::Modeling {
+            if let Some(funds) = allocation.as_deref_mut() {
+                funds.grow(memory::parser_extent(&text, &budget, false)?)?;
+            }
+            let policy = if package.id_policy == pse_relations::generated::enums::IdPolicy::Named {
+                pse_authoring::language::IdentityPolicy::Named
+            } else {
+                pse_authoring::language::IdentityPolicy::Explicit
+            };
+            let rows = pse_authoring::language::parse(&text, id, policy, budget)?;
+            let mut spans = SpanIndex::default();
+            for (ordinal, row) in rows.iter().enumerate() {
+                spans.insert(
+                    format!("/modeling_declarations/{ordinal}"),
+                    SourceSpan::new(id, row.source_start as u32, row.source_end as u32),
+                );
+            }
+            let mut builder =
+                authored::modeling_declarations::Builder::with_registry(registry, rows.len())?;
+            for row in rows {
+                builder.push(row)?;
+            }
+            source_batches.insert(
+                authored::modeling_declarations::RELATION_ID,
+                builder.finish()?,
+            );
+            (value::Value::Map(Vec::new()), spans)
         } else {
             let (value, spans) =
                 value::parse_yaml_accounted(&text, id, &budget, allocation.as_deref_mut())?;
@@ -322,9 +341,15 @@ pub(super) fn select<'a>(
     }
     let mut matches = registry.documents().iter().filter(|document| {
         document.path_glob == path
-            || document.path_glob.rsplit_once("*.").is_some_and(|(prefix,extension)|{
-                path.strip_prefix(prefix).is_some_and(|name|Path::new(name).extension()==Some(std::ffi::OsStr::new(extension))&&!name.contains('/'))
-            })
+            || document
+                .path_glob
+                .rsplit_once("*.")
+                .is_some_and(|(prefix, extension)| {
+                    path.strip_prefix(prefix).is_some_and(|name| {
+                        Path::new(name).extension() == Some(std::ffi::OsStr::new(extension))
+                            && !name.contains('/')
+                    })
+                })
     });
     match (matches.next(), matches.next()) {
         (Some(document), None) => Ok(document),
@@ -433,8 +458,10 @@ fn project_documents(
 ) -> Result<BTreeMap<SemanticId, Vec<FieldCheckedBatch>>, DriverError> {
     let mut parts = BTreeMap::<SemanticId, Vec<FieldCheckedBatch>>::new();
     for document in documents {
-        if document.declaration.kind==DocumentKind::Modeling {
-            for (id,batch) in &document.batches {parts.entry(*id).or_default().push(batch.clone());}
+        if document.declaration.kind == DocumentKind::Modeling {
+            for (id, batch) in &document.batches {
+                parts.entry(*id).or_default().push(batch.clone());
+            }
             continue;
         }
         if let Some(funds) = allocation.as_deref_mut() {
@@ -522,27 +549,56 @@ fn append_source_inventory(
 mod kernel_document_tests {
     use super::*;
     #[test]
-    fn pse_source_uses_generated_rows_and_original_ranges(){
-        let registry=pse_schema::shared_registry().unwrap();
-        let mut texts=BTreeMap::from([
-            ("package.toml".into(),include_str!("../../../../../tests/fixtures/packages/minimal_explicit/package.toml").into()),
-            ("models/kernel.pse".into(),"package synthetic { def Root { var x: Scalar; eq e: x == 1; } }".into()),
+    fn pse_source_uses_generated_rows_and_original_ranges() {
+        let registry = pse_schema::shared_registry().unwrap();
+        let mut texts = BTreeMap::from([
+            (
+                "package.toml".into(),
+                include_str!(
+                    "../../../../../tests/fixtures/packages/minimal_explicit/package.toml"
+                )
+                .into(),
+            ),
+            (
+                "models/kernel.pse".into(),
+                "package synthetic { def Root { var x: Scalar; eq e: x == 1; } }".into(),
+            ),
         ]);
-        let mut serial=10u8;
-        let edits=super::super::assign_ids(&texts,&registry,ParseBudget::default(),&mut ||{serial+=1;SemanticId::from_bytes([serial;16])}).unwrap();
-        super::super::apply_edits(&mut texts,&edits).unwrap();
-        let bundle=load_package_texts(texts.clone(),&registry,ParseBudget::default()).unwrap();
-        let batch=&bundle.batches[&authored::modeling_declarations::RELATION_ID];
-        let rows=authored::modeling_declarations::View::from_checked(batch).unwrap().rows().unwrap();
-        assert_eq!(rows.len(),4);
-        let document=bundle.documents.iter().find(|d|d.path=="models/kernel.pse").unwrap();
-        for (ordinal,row) in rows.iter().enumerate(){
-            let span=document.spans.span(&format!("/modeling_declarations/{ordinal}")).unwrap();
-            assert_eq!(u64::from(span.start),row.source_start as u64);
+        let mut serial = 10u8;
+        let edits =
+            super::super::assign_ids(&texts, &registry, ParseBudget::default(), &mut || {
+                serial += 1;
+                SemanticId::from_bytes([serial; 16])
+            })
+            .unwrap();
+        super::super::apply_edits(&mut texts, &edits).unwrap();
+        let bundle = load_package_texts(texts.clone(), &registry, ParseBudget::default()).unwrap();
+        let batch = &bundle.batches[&authored::modeling_declarations::RELATION_ID];
+        let rows = authored::modeling_declarations::View::from_checked(batch)
+            .unwrap()
+            .rows()
+            .unwrap();
+        assert_eq!(rows.len(), 4);
+        let document = bundle
+            .documents
+            .iter()
+            .find(|d| d.path == "models/kernel.pse")
+            .unwrap();
+        for (ordinal, row) in rows.iter().enumerate() {
+            let span = document
+                .spans
+                .span(&format!("/modeling_declarations/{ordinal}"))
+                .unwrap();
+            assert_eq!(u64::from(span.start), row.source_start as u64);
             assert!(document.text[span.start as usize..span.end as usize].starts_with("@id"));
         }
-        let reparsed=load_package_texts(texts,&registry,ParseBudget::default()).unwrap();
-        let again=authored::modeling_declarations::View::from_checked(&reparsed.batches[&authored::modeling_declarations::RELATION_ID]).unwrap().rows().unwrap();
-        assert_eq!(rows,again);
+        let reparsed = load_package_texts(texts, &registry, ParseBudget::default()).unwrap();
+        let again = authored::modeling_declarations::View::from_checked(
+            &reparsed.batches[&authored::modeling_declarations::RELATION_ID],
+        )
+        .unwrap()
+        .rows()
+        .unwrap();
+        assert_eq!(rows, again);
     }
 }

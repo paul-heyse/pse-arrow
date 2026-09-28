@@ -263,10 +263,18 @@ mod tests {
 
     #[test]
     fn union_refuses_a_binder_conflict() {
-        let left = IndexSet::try_from_iter([binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])))])
-            .expect("consistent binders");
-        let right =
-            IndexSet::try_from_iter([binder(1, 8, EntityKindId::from_id(SemanticId::from_bytes([2; 16])))]).expect("consistent binders");
+        let left = IndexSet::try_from_iter([binder(
+            1,
+            9,
+            EntityKindId::from_id(SemanticId::from_bytes([1; 16])),
+        )])
+        .expect("consistent binders");
+        let right = IndexSet::try_from_iter([binder(
+            1,
+            8,
+            EntityKindId::from_id(SemanticId::from_bytes([2; 16])),
+        )])
+        .expect("consistent binders");
         assert!(left.union(&right).is_err());
     }
 
@@ -276,8 +284,12 @@ mod tests {
         let species = binder(1, 9, EntityKindId::from_id(SemanticId::from_bytes([1; 16])));
         let phase = binder(2, 7, EntityKindId::from_id(SemanticId::from_bytes([3; 16])));
         let body = IndexSet::try_from_iter([species, phase]).expect("consistent binders");
-        let bound =
-            IndexSet::try_from_iter([binder(1, 8, EntityKindId::from_id(SemanticId::from_bytes([2; 16])))]).expect("consistent binders");
+        let bound = IndexSet::try_from_iter([binder(
+            1,
+            8,
+            EntityKindId::from_id(SemanticId::from_bytes([2; 16])),
+        )])
+        .expect("consistent binders");
         let remaining = body.difference(&bound);
         assert_eq!(remaining.len(), 1);
         assert!(remaining.contains(&phase));

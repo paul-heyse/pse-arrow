@@ -50,11 +50,16 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
 /// table, with the export fields that let an offline reader open exactly those members.
 fn declare_manifests(builder: &mut RegistryBuilder) {
     let micros = || T::native(crate::model::extension::timestamp_micros_storage());
-    let exported = ["export_lease_id", "export_expires_at", "maintenance_epoch", "store_fingerprint"]
-        .iter()
-        .map(|field| format!("(\"exported_at\" IS NULL) = (\"{field}\" IS NULL)"))
-        .collect::<Vec<_>>()
-        .join(" AND ");
+    let exported = [
+        "export_lease_id",
+        "export_expires_at",
+        "maintenance_epoch",
+        "store_fingerprint",
+    ]
+    .iter()
+    .map(|field| format!("(\"exported_at\" IS NULL) = (\"{field}\" IS NULL)"))
+    .collect::<Vec<_>>()
+    .join(" AND ");
     builder.declare_relation(
         crate::model::RelationDecl::new(
             N::Runtime,

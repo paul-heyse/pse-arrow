@@ -440,7 +440,10 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
             .all(|v| v.abs() < 1e-12)
     );
     assert!(report.quality.unwrap().feasible());
-    assert_eq!(report.preprocessing.unwrap().dimensions, dimensions(2, 2, 1, 1));
+    assert_eq!(
+        report.preprocessing.unwrap().dimensions,
+        dimensions(2, 2, 1, 1)
+    );
 }
 #[test]
 fn qualification_declines_tiny_support_and_narrow_intervals() {

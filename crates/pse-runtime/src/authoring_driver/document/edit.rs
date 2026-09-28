@@ -46,9 +46,16 @@ pub fn assign_ids(
             continue;
         }
         let document = pse_ids::named_id(package.package_id.as_id(), path);
-        if declaration.kind==DocumentKind::Modeling {
-            let after=pse_authoring::language::assign_ids_with(text,document,budget,next)?;
-            if after!=*text{edits.push(DocumentEdit{document_id:document,path:path.clone(),before:text.clone(),after});}
+        if declaration.kind == DocumentKind::Modeling {
+            let after = pse_authoring::language::assign_ids_with(text, document, budget, next)?;
+            if after != *text {
+                edits.push(DocumentEdit {
+                    document_id: document,
+                    path: path.clone(),
+                    before: text.clone(),
+                    after,
+                });
+            }
             continue;
         }
         let (parsed, spans) = value::parse_yaml(text, document, &budget)?;

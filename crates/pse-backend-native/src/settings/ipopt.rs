@@ -8,13 +8,13 @@ use crate::{
     ProblemError,
     solve::{IpoptLinearSolver, WarmRestart},
 };
-use pse_model::scalar;
-use pse_model::scalars::{Fraction, Tolerance};
 /// The registry vocabularies these settings are written in (ADR-0115 Outcome 3).
 pub use pse_model::generated::enums::{
     MuStrategy, MumpsOrdering, PardisoMatching, PardisoOrdering, SpralOrdering, SpralPivot,
     SpralScaling,
 };
+use pse_model::scalar;
+use pse_model::scalars::{Fraction, Tolerance};
 
 /// The Ipopt adapter's settings type. Its identity derives from serde, and absent fields
 /// take these defaults across the Python boundary (ADR-0113).

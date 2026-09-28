@@ -18,8 +18,7 @@ use datafusion::{
     physical_plan::collect,
 };
 use pse_relations::generated::structures::{
-    MemberDescriptor as Member,
-    MemberDescriptorSelection as Selection,
+    MemberDescriptor as Member, MemberDescriptorSelection as Selection,
 };
 
 type Scan = (Option<Vec<usize>>, usize, Option<usize>);

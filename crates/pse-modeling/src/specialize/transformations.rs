@@ -65,7 +65,9 @@ impl Engine<'_, '_> {
     ) -> Result<()> {
         let at = row.declaration_id;
         if let Some(v) = &row.value.relaxation {
-            for (target, ty, local) in self.annotation_targets(instance, &v.target, env, at, false)? {
+            for (target, ty, local) in
+                self.annotation_targets(instance, &v.target, env, at, false)?
+            {
                 let nominal = self.eval(at, &local, &v.nominal, Some(&ty))?;
                 if nominal.scalar(at)? <= 0.0 {
                     return Err(invalid(at, "elastic nominal must be positive"));
@@ -81,7 +83,9 @@ impl Engine<'_, '_> {
             }
         }
         if let Some(v) = &row.value.continuation {
-            for (target, ty, local) in self.annotation_targets(instance, &v.target, env, at, false)? {
+            for (target, ty, local) in
+                self.annotation_targets(instance, &v.target, env, at, false)?
+            {
                 let start = self.eval(at, &local, &v.start, Some(&ty))?;
                 let end = self.eval(at, &local, &v.end, Some(&ty))?;
                 let lineage = self.lineage(instance, row, &[at]);
@@ -104,28 +108,85 @@ impl Engine<'_, '_> {
         }
         Ok(())
     }
-    pub(super) fn select_formulation(&mut self,policy:&Formulation)->Result<()> {
-        if policy.omitted.len().checked_add(policy.elastic.len()).is_none_or(|n|n>self.limits.items){return Err(ModelingError::Budget("formulation extent".into()));}
+    pub(super) fn select_formulation(&mut self, policy: &Formulation) -> Result<()> {
+        if policy
+            .omitted
+            .len()
+            .checked_add(policy.elastic.len())
+            .is_none_or(|n| n > self.limits.items)
+        {
+            return Err(ModelingError::Budget("formulation extent".into()));
+        }
         for target in policy.omitted.iter().chain(policy.elastic.keys()) {
             self.checkpoint()?;
-            let row=self.model.equations.iter().find(|r|r.id==*target).ok_or_else(||invalid(*target,"formulation equation not selected"))?;
-            let mut owner=Some(row.lineage.instance);
-            while let Some(id)=owner {
-                if self.model.implicit.get(&id).is_some_and(Realization::is_nested){return Err(invalid(*target,"analysis overlay cannot change an inner solver residual"));}
-                owner=self.model.instances.get(&id).and_then(|i|i.parent);
+            let row = self
+                .model
+                .equations
+                .iter()
+                .find(|r| r.id == *target)
+                .ok_or_else(|| invalid(*target, "formulation equation not selected"))?;
+            let mut owner = Some(row.lineage.instance);
+            while let Some(id) = owner {
+                if self
+                    .model
+                    .implicit
+                    .get(&id)
+                    .is_some_and(Realization::is_nested)
+                {
+                    return Err(invalid(
+                        *target,
+                        "analysis overlay cannot change an inner solver residual",
+                    ));
+                }
+                owner = self.model.instances.get(&id).and_then(|i| i.parent);
             }
-            if policy.omitted.contains(target) && policy.elastic.contains_key(target){return Err(invalid(*target,"cannot both omit and relax one equation"));}
-            if self.relaxations.contains_key(target){return Err(invalid(*target,"analysis overlay conflicts with an authored relaxation"));}
+            if policy.omitted.contains(target) && policy.elastic.contains_key(target) {
+                return Err(invalid(*target, "cannot both omit and relax one equation"));
+            }
+            if self.relaxations.contains_key(target) {
+                return Err(invalid(
+                    *target,
+                    "analysis overlay conflicts with an authored relaxation",
+                ));
+            }
         }
-        self.model.equations.retain(|r|!policy.omitted.contains(&r.id));
-        self.model.annotations.retain(|a|!policy.omitted.contains(&a.target));
-        for instance in self.model.instances.values_mut(){instance.rows.retain(|r|!policy.omitted.contains(r));}
-        for (target,nominal) in &policy.elastic {
-            let Value::Number{quantity,bits}=nominal else{return Err(invalid(*target,"elastic nominal requires a physical scalar"));};
-            let value=f64::from_bits(*bits);
-            if !value.is_finite()||value<=0.{return Err(invalid(*target,"elastic nominal must be finite and positive"));}
-            let row=self.model.equations.iter().find(|r|r.id==*target).ok_or_else(||invalid(*target,"elastic source absent"))?;
-            self.relaxations.insert(*target,(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(*quantity)),nominal.clone(),row.lineage.clone()));
+        self.model
+            .equations
+            .retain(|r| !policy.omitted.contains(&r.id));
+        self.model
+            .annotations
+            .retain(|a| !policy.omitted.contains(&a.target));
+        for instance in self.model.instances.values_mut() {
+            instance.rows.retain(|r| !policy.omitted.contains(r));
+        }
+        for (target, nominal) in &policy.elastic {
+            let Value::Number { quantity, bits } = nominal else {
+                return Err(invalid(
+                    *target,
+                    "elastic nominal requires a physical scalar",
+                ));
+            };
+            let value = f64::from_bits(*bits);
+            if !value.is_finite() || value <= 0. {
+                return Err(invalid(
+                    *target,
+                    "elastic nominal must be finite and positive",
+                ));
+            }
+            let row = self
+                .model
+                .equations
+                .iter()
+                .find(|r| r.id == *target)
+                .ok_or_else(|| invalid(*target, "elastic source absent"))?;
+            self.relaxations.insert(
+                *target,
+                (
+                    Type::Quantity(pse_quantity::scheme::Scheme::Concrete(*quantity)),
+                    nominal.clone(),
+                    row.lineage.clone(),
+                ),
+            );
         }
         Ok(())
     }

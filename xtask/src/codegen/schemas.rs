@@ -40,7 +40,13 @@ mod tests {
     fn members(root: &Value, schema: &Value) -> Option<BTreeSet<String>> {
         let schema = resolve(root, schema);
         if let Some(values) = schema.get("enum").and_then(Value::as_array) {
-            return Some(values.iter().filter_map(Value::as_str).map(str::to_owned).collect());
+            return Some(
+                values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_owned)
+                    .collect(),
+            );
         }
         schema
             .get("anyOf")
@@ -71,7 +77,10 @@ mod tests {
             ("cases", schemars::schema_for!(CasesDocument)),
             ("materials", schemars::schema_for!(MaterialsDocument)),
             ("modeling", schemars::schema_for!(ModelingDocument)),
-            ("package_header", schemars::schema_for!(PackageHeaderDocument)),
+            (
+                "package_header",
+                schemars::schema_for!(PackageHeaderDocument),
+            ),
         ];
         let mut sections = 0;
         let mut enumerations = 0;
@@ -90,7 +99,11 @@ mod tests {
                 let hydrated = row["properties"].as_object().unwrap();
                 let written = source["properties"].as_object().unwrap();
                 for (field, value) in written.iter().filter(|(field, _)| *field != "id") {
-                    assert!(hydrated.contains_key(field), "{name}.{}.{field}", section.key);
+                    assert!(
+                        hydrated.contains_key(field),
+                        "{name}.{}.{field}",
+                        section.key
+                    );
                     if let Some(expected) = members(&emitted, value) {
                         assert_eq!(
                             members(&root, &hydrated[field]),
@@ -101,7 +114,12 @@ mod tests {
                         enumerations += 1;
                     }
                 }
-                for field in row["required"].as_array().unwrap().iter().filter_map(Value::as_str) {
+                for field in row["required"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter_map(Value::as_str)
+                {
                     if !written.contains_key(field) {
                         hydration_only.insert(format!("{name}.{}.{field}", section.key));
                     }
@@ -109,13 +127,22 @@ mod tests {
                 sections += 1;
             }
         }
-        assert_eq!(sections, registry.documents().iter().map(|d| d.sections.len()).sum::<usize>());
+        assert_eq!(
+            sections,
+            registry
+                .documents()
+                .iter()
+                .map(|d| d.sections.len())
+                .sum::<usize>()
+        );
         assert!(enumerations > 0);
         // Hydration-owned fields a source never states: the reason the emitter stays.
         assert!(
-            hydration_only.iter().any(|field| field.ends_with(".source_span")
-                || field.ends_with(".package_checksum")
-                || field.contains("span")),
+            hydration_only
+                .iter()
+                .any(|field| field.ends_with(".source_span")
+                    || field.ends_with(".package_checksum")
+                    || field.contains("span")),
             "{hydration_only:?}"
         );
     }

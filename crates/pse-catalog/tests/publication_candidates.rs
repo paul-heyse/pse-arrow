@@ -81,8 +81,14 @@ fn sources(dangling: bool) -> BTreeMap<pse_schema::model::RelationKey, RecordBat
         })
         .unwrap();
     BTreeMap::from([
-        (packages::RELATION_KEY, package.finish().unwrap().into_batch()),
-        (entities::RELATION_KEY, entity.finish().unwrap().into_batch()),
+        (
+            packages::RELATION_KEY,
+            package.finish().unwrap().into_batch(),
+        ),
+        (
+            entities::RELATION_KEY,
+            entity.finish().unwrap().into_batch(),
+        ),
     ])
 }
 
@@ -139,8 +145,11 @@ async fn candidate(
         );
         destinations.insert(
             name(spec.key.name),
-            root.join(&format!("members/attempt/publication/authored/{}/", spec.key.name))
-                .unwrap(),
+            root.join(&format!(
+                "members/attempt/publication/authored/{}/",
+                spec.key.name
+            ))
+            .unwrap(),
         );
     }
     let artifact = ArtifactPlan::new(session, outputs, &cancel).unwrap();
@@ -150,7 +159,13 @@ async fn candidate(
     // The ticket exists before any effect and plans the complete member inventory.
     assert_eq!(ticket.publication_id(), PublicationId::from(identity(2)));
     assert_eq!(ticket.candidate().members.len(), 2);
-    assert!(ticket.candidate().members.iter().all(|m| m.delta_version == 0));
+    assert!(
+        ticket
+            .candidate()
+            .members
+            .iter()
+            .all(|m| m.delta_version == 0)
+    );
     let completed = command.execute(&cancel).await?;
     let batches = completed.batches();
     assert_eq!(batches.len(), 1);
@@ -196,7 +211,10 @@ async fn candidate_returns_admitted_record_with_actual_versions() {
         .map(|meta| meta.location.to_string())
         .collect();
     assert!(!paths.is_empty());
-    assert!(paths.iter().all(|path| path.starts_with("members/")), "{paths:?}");
+    assert!(
+        paths.iter().all(|path| path.starts_with("members/")),
+        "{paths:?}"
+    );
 }
 
 #[tokio::test]
@@ -238,14 +256,14 @@ async fn selected_publication_reopens_exact_members() {
     .unwrap();
     assert_eq!(publication.record(), &record);
     for member in &record.members {
-        assert_eq!(&publication.member(&name(&member.table_name)).unwrap(), member);
+        assert_eq!(
+            &publication.member(&name(&member.table_name)).unwrap(),
+            member
+        );
     }
     let rows: usize = publication
         .session()
-        .sql(
-            "SELECT * FROM artifact.authored.entities",
-            &cancel,
-        )
+        .sql("SELECT * FROM artifact.authored.entities", &cancel)
         .await
         .unwrap()
         .iter()
@@ -321,8 +339,13 @@ async fn manifest_round_trip() {
     let mut unexported = record.clone();
     unexported.exported_at = None;
     assert!(
-        manifest::prepare_manifest(&session, root.join("exports/two/").unwrap(), unexported, &cancel)
-            .is_err()
+        manifest::prepare_manifest(
+            &session,
+            root.join("exports/two/").unwrap(),
+            unexported,
+            &cancel
+        )
+        .is_err()
     );
     // A manifest with a later version is refused.
     let table = pse_catalog::delta::provider::table_builder(destination.clone(), &state)
@@ -388,7 +411,10 @@ async fn declared_table(factory: &EngineFactory, location: &url::Url, appends: u
     for append in 0..appends {
         let session = factory
             .candidate(
-                BTreeMap::from([(packages::RELATION_KEY, sources(false)[&packages::RELATION_KEY].clone())]),
+                BTreeMap::from([(
+                    packages::RELATION_KEY,
+                    sources(false)[&packages::RELATION_KEY].clone(),
+                )]),
                 Arc::clone(&registry),
                 &cancel,
             )
@@ -425,11 +451,21 @@ async fn declared_table(factory: &EngineFactory, location: &url::Url, appends: u
             "authored".into(),
             "packages".into(),
         ));
-        session.prepare(plan, &cancel).unwrap().execute(&cancel).await.unwrap();
+        session
+            .prepare(plan, &cancel)
+            .unwrap()
+            .execute(&cancel)
+            .await
+            .unwrap();
     }
 }
 
-fn range(table: &url::Url, from: i64, through: i64, reason: RetentionReason) -> retained_versions::Row {
+fn range(
+    table: &url::Url,
+    from: i64,
+    through: i64,
+    reason: RetentionReason,
+) -> retained_versions::Row {
     retained_versions::Row {
         table_uri: table.to_string(),
         from_version: from,
@@ -504,7 +540,12 @@ async fn collect_keeps_protected_versions_on_memory_store() {
             // Another table's range is ignored; an attempt range beyond the history
             // keeps what exists.
             range(&other, 0, 9, RetentionReason::Publication),
-            range(&root.join("members/a/").unwrap(), 0, i64::MAX, RetentionReason::Attempt),
+            range(
+                &root.join("members/a/").unwrap(),
+                0,
+                i64::MAX,
+                RetentionReason::Attempt,
+            ),
         ],
         &cancel,
     )
@@ -533,7 +574,10 @@ async fn collect_keeps_protected_versions_on_memory_store() {
         .unwrap()
         .version();
     let log = object_store::path::Path::from_url_path(
-        table.join("_delta_log/00000000000000000001.json").unwrap().path(),
+        table
+            .join("_delta_log/00000000000000000001.json")
+            .unwrap()
+            .path(),
     )
     .unwrap();
     object_store::ObjectStoreExt::delete(store.as_ref(), &log)
@@ -565,9 +609,8 @@ async fn remove_tables_idempotent_on_fault_store() {
     let root = url::Url::parse("memory://remove/").unwrap();
     let fixture = pse_testkit::NativeFixture::new((256 << 20).try_into().unwrap()).unwrap();
     let runtime = fixture.resources.runtime.clone();
-    let store = pse_testkit::fault_store::FaultStore::new(Arc::new(
-        object_store::memory::InMemory::new(),
-    ));
+    let store =
+        pse_testkit::fault_store::FaultStore::new(Arc::new(object_store::memory::InMemory::new()));
     runtime.register_object_store(&root, store.clone());
     let factory = fixture
         .into_factory()
@@ -587,9 +630,10 @@ async fn remove_tables_idempotent_on_fault_store() {
         let store = store.clone();
         let prefix = object_store::path::Path::from_url_path(prefix.path()).unwrap();
         async move {
-            futures_util::TryStreamExt::try_collect::<Vec<_>>(
-                object_store::ObjectStore::list(store.as_ref(), Some(&prefix)),
-            )
+            futures_util::TryStreamExt::try_collect::<Vec<_>>(object_store::ObjectStore::list(
+                store.as_ref(),
+                Some(&prefix),
+            ))
             .await
             .unwrap()
             .len()

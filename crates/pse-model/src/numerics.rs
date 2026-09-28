@@ -14,7 +14,9 @@ use pse_ids::{ContentHash, FramedHasher, SemanticId};
 pub type NumericalRequirement = numerical_requirements::Row;
 
 /// Distinct normalized optimality requirements; no scalar means every stopping test.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct KktTolerances {
     /// Normalized stationarity budget.

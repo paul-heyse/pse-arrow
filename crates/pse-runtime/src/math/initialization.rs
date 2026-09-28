@@ -8,13 +8,7 @@ use super::{
     ExecutableCase, MathRuntimeError, MathService, Preparation, WorkerBudget, Workspace,
     solves::{Predecessor, SolveHandle, SolverProfile},
 };
-use pse_backend_native::{
-    self as native,
-    execution,
-    kinsol,
-    quality::Tolerances,
-    solve::*,
-};
+use pse_backend_native::{self as native, execution, kinsol, quality::Tolerances, solve::*};
 use pse_columnar::flight::FlightCancellation;
 use pse_compiler::workspace::Profile;
 use pse_ids::SemanticId;

@@ -58,7 +58,9 @@ async fn status(store: &Store) -> Result<bool, OperationsError> {
             true
         }
         SchemaStatus::Absent => {
-            println!("schema:     absent; the first durable open creates it (or run `just db-reset`)");
+            println!(
+                "schema:     absent; the first durable open creates it (or run `just db-reset`)"
+            );
             true
         }
         SchemaStatus::Mismatch { recorded } => {

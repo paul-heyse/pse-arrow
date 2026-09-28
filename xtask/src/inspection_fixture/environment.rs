@@ -131,8 +131,9 @@ impl Environment {
             batch.num_rows() == 1,
             "publication did not return one record"
         );
-        let record = publication_manifests::View::try_from_batch_with_registry(&self.registry, batch)
-            .and_then(|view| view.row(0))?;
+        let record =
+            publication_manifests::View::try_from_batch_with_registry(&self.registry, batch)
+                .and_then(|view| view.row(0))?;
         let now = i64::try_from(
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)?
@@ -149,9 +150,9 @@ impl Environment {
             ..record
         };
         let manifest = location.join("manifest/")?;
-        let session = self
-            .sessions
-            .candidate(BTreeMap::new(), Arc::clone(&self.registry), &self.cancel)?;
+        let session =
+            self.sessions
+                .candidate(BTreeMap::new(), Arc::clone(&self.registry), &self.cancel)?;
         pse_catalog::delta::manifest::prepare_manifest(
             &session,
             manifest.clone(),

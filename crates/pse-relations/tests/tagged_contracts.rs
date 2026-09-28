@@ -4,8 +4,8 @@
 //! Generic tagged payloads retain their selected arm across typed and raw boundaries.
 #![allow(clippy::unwrap_used, reason = "explicit boundary regression fixtures")]
 
-use arrow_array::{Array, StringArray, StructArray};
 use arrow::buffer::NullBuffer;
+use arrow_array::{Array, StringArray, StructArray};
 use pse_ids::SemanticId;
 use pse_relations::generated::enums::InputConsumptionKind;
 use pse_relations::generated::reference::algorithm_arguments::{

@@ -34,7 +34,9 @@ pub use pse_model::generated::enums::{
 /// requirement. `IpoptLinearSolver` is a symmetric-indefinite solver linked into the
 /// image's one Ipopt (ADR-0108), selected by the Ipopt settings and by SCIP's nested Ipopt
 /// (ADR-0105 §5); its spelling is Ipopt's native `linear_solver` value.
-pub use pse_model::generated::enums::{HessianMode, IpoptLinearSolver, Preconditioner, ReusePolicy};
+pub use pse_model::generated::enums::{
+    HessianMode, IpoptLinearSolver, Preconditioner, ReusePolicy,
+};
 /// No implicit fallback is performed for an unavailable selected backend.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SolverSelection {

@@ -5,7 +5,6 @@
 //! Source occurrences and formal bindings remain separate from Symbolica arithmetic.
 use pse_authoring::dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, PredicateKind};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
-use pse_modeling::DeclarationId;
 #[cfg(test)]
 use pse_kernels::DerivativeOrder;
 use pse_math::{
@@ -16,6 +15,7 @@ use pse_math::{
 };
 #[cfg(test)]
 use pse_math::{guarded::CompiledBody, library::Optimization};
+use pse_modeling::DeclarationId;
 use pse_quantity::{
     IndexSet, QuantityRegistry, QuantityTypeId, Ratio, UnitId, infer::InvariantChecker,
     literal::LiteralContext,

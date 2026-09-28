@@ -223,7 +223,11 @@ pub(crate) fn attach_second_order(
     };
     let outcome = if let Some(error) = &observation.dual_error {
         Err(ProblemError::unsupported(format!("multipliers: {error}")))
-    } else if !report.quality.as_ref().is_some_and(crate::quality::Quality::feasible) {
+    } else if !report
+        .quality
+        .as_ref()
+        .is_some_and(crate::quality::Quality::feasible)
+    {
         Err(ProblemError::unsupported("the candidate is not feasible"))
     } else {
         crate::quality::contained(|| {
@@ -308,9 +312,7 @@ pub(crate) fn second_order(
         entries
             .into_iter()
             .zip(values)
-            .map(|(e, v)| {
-                Triplet::new(e.row, e.col, sx[e.row.get()] * v * sx[e.col.get()] / so)
-            })
+            .map(|(e, v)| Triplet::new(e.row, e.col, sx[e.row.get()] * v * sx[e.col.get()] / so))
             .collect()
     };
     let jacobian: Vec<Triplet<OriginalRow, OriginalCol>> = {
@@ -671,7 +673,10 @@ mod tests {
         // A saddle: stationary, not a minimizer.
         let saddle = at_origin([2.0, -2.0], free);
         assert_eq!(saddle.curvature, Curvature::NegativeCurvature);
-        assert_eq!((saddle.free, saddle.active, saddle.inertia), (2, 0, (1, 1, 0)));
+        assert_eq!(
+            (saddle.free, saddle.active, saddle.inertia),
+            (2, 0, (1, 1, 0))
+        );
         // A flat direction: the reduced Hessian is singular.
         assert_eq!(at_origin([2.0, 0.0], free).curvature, Curvature::Singular);
         // A weakly active bound (zero multiplier) under positive curvature: the test on the
@@ -712,7 +717,10 @@ mod tests {
                 &Policy::Auto,
             );
             let evidence = report.evidence.second_order.unwrap_or_else(|| {
-                panic!("{backend:?}: {:?}", report.metrics.get("second_order.unavailable"))
+                panic!(
+                    "{backend:?}: {:?}",
+                    report.metrics.get("second_order.unavailable")
+                )
             });
             assert_eq!(evidence.curvature, Curvature::Sufficient, "{backend:?}");
             assert_eq!(

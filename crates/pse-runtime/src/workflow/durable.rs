@@ -465,7 +465,10 @@ impl DurableAttempt {
         // failure is infrastructure, so the point is retried as a new try.
         let mut members = Vec::new();
         if let Some(point) = &self.point
-            && matches!(outcome.state, AttemptState::Completed | AttemptState::Partial)
+            && matches!(
+                outcome.state,
+                AttemptState::Completed | AttemptState::Partial
+            )
         {
             match result.write_point_members(point, self.attempt).await {
                 Ok(written) => members = written,
@@ -527,7 +530,10 @@ impl DurableAttempt {
                 reason: reason.clone(),
                 retryable: false,
             },
-            Ok(_) => failure(&WorkflowError::Math(crate::math::MathRuntimeError::Cancelled), true),
+            Ok(_) => failure(
+                &WorkflowError::Math(crate::math::MathRuntimeError::Cancelled),
+                true,
+            ),
             Err(error) => failure(error, lost),
         };
         if let Err(error) = &flushed {
@@ -740,11 +746,7 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
         Ok(report) => report,
         Err(error) => return failure(error, cancelled),
     };
-    let uses: Vec<CandidateUse> = result
-        .assessments()
-        .iter()
-        .map(|a| a.usability)
-        .collect();
+    let uses: Vec<CandidateUse> = result.assessments().iter().map(|a| a.usability).collect();
     let usable = |a: &&pse_model::generated::runtime::candidate_assessments::Row| {
         matches!(
             a.usability,
@@ -765,14 +767,10 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
                 )
             }),
         (RunReport::Simulation(t), _) => TerminationCode::Trajectory(t.report.termination),
-        (RunReport::Fit(_), Ok(c)) => c
-            .computation
-            .as_ref()
-            .and_then(|r| r.termination)
-            .map_or(
-                TerminationCode::Runtime(RuntimeTermination::ConstantEvaluation),
-                TerminationCode::Native,
-            ),
+        (RunReport::Fit(_), Ok(c)) => c.computation.as_ref().and_then(|r| r.termination).map_or(
+            TerminationCode::Runtime(RuntimeTermination::ConstantEvaluation),
+            TerminationCode::Native,
+        ),
         (_, Err(_)) => TerminationCode::Runtime(RuntimeTermination::Unassessed),
     };
     let detail = TerminationCause::Assessment {

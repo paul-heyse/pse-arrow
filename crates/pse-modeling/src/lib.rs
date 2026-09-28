@@ -336,9 +336,9 @@ pub(crate) fn indicator_type(
             && t.key.reference_state.is_none()
             && t.key.shape.is_empty()
             && t.key.subject_kind.is_none()
-            && registry.kind(t.key.kind).is_ok_and(|k| {
-                k.category == Some(pse_quantity::QuantityKindCategory::Indicator)
-            })
+            && registry
+                .kind(t.key.kind)
+                .is_ok_and(|k| k.category == Some(pse_quantity::QuantityKindCategory::Indicator))
     });
     match (found.next(), found.next()) {
         (Some(ty), None) => Ok(Type::Quantity(pse_quantity::scheme::Scheme::Concrete(

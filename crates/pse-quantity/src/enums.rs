@@ -537,10 +537,9 @@ mod tests {
     use serde::de::value::{Error as ValueError, StrDeserializer};
 
     use super::{
-        BasisKind, BasisRule, CompositionBasis, ConversionKind, Opcode,
-        QuantityAdditionKind, QuantityKindCategory, QuantityScaleRule, QuantityShapeRule,
-        RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule,
-        WeightNormalization,
+        BasisKind, BasisRule, CompositionBasis, ConversionKind, Opcode, QuantityAdditionKind,
+        QuantityKindCategory, QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind,
+        ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule, WeightNormalization,
     };
 
     /// The two methods the shared round-trip body needs.
@@ -633,7 +632,6 @@ mod tests {
     /// `Display` and `Deserialize` read the same spelling `as_str` writes: one authority.
     #[test]
     fn display_and_serde_use_the_registry_spelling() {
-
         let de: StrDeserializer<'_, ValueError> = "SumOver".into_deserializer();
         assert_eq!(Opcode::deserialize(de).ok(), Some(Opcode::SumOver));
     }

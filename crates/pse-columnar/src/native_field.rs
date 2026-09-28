@@ -94,7 +94,9 @@ pub fn project(field: &Field, purpose: MetadataPurpose) -> Result<Field, ArrowEr
         let mut field = field.clone();
         field.metadata_mut().retain(|key, _| match purpose {
             MetadataPurpose::PhysicalObservation => true,
-            MetadataPurpose::ExecutionIdentity => !matches!(key.as_str(), DOCUMENTATION | STRUCTURE_NAME),
+            MetadataPurpose::ExecutionIdentity => {
+                !matches!(key.as_str(), DOCUMENTATION | STRUCTURE_NAME)
+            }
             MetadataPurpose::ValueIdentity => !matches!(
                 key.as_str(),
                 DOCUMENTATION

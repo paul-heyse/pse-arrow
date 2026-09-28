@@ -89,7 +89,10 @@ fn postgres_value_mapping_round_trips() {
     let attempt_domain = domain("attempt_id", Type::UUID);
     assert_eq!(round_trip(&attempt, &attempt_domain), attempt);
     assert_eq!(round_trip(&attempt, &Type::UUID), attempt);
-    assert!(!<AttemptId as ToSql>::accepts(&domain("run_id", Type::UUID)));
+    assert!(!<AttemptId as ToSql>::accepts(&domain(
+        "run_id",
+        Type::UUID
+    )));
     // A content-addressed identity is a domain over the checked content_hash domain.
     let bundle = SourceBundleId::from_bytes([0x17; 32]);
     let bundle_domain = domain("source_bundle_id", domain("content_hash", Type::BYTEA));
@@ -156,7 +159,11 @@ fn whole_rows_decode_from_composite_records() {
     let mut at = BytesMut::new();
     postgres_protocol::types::timestamp_to_sql(unix_micros - 946_684_800_000_000, &mut at);
     let mut record = 7_i32.to_be_bytes().to_vec();
-    field(&mut record, &attempt_domain, Some(&encoded(&attempt, &attempt_domain)));
+    field(
+        &mut record,
+        &attempt_domain,
+        Some(&encoded(&attempt, &attempt_domain)),
+    );
     field(&mut record, &Type::INT4, Some(&3_i32.to_be_bytes()));
     field(&mut record, &state, Some(b"queued"));
     field(&mut record, &state, Some(b"running"));

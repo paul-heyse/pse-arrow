@@ -109,7 +109,9 @@ impl TerminationCode {
             return Ok(None);
         };
         Ok(Some(match class {
-            TerminationClass::Native => Self::Native(row.termination_native.ok_or_else(|| missing(class))?),
+            TerminationClass::Native => {
+                Self::Native(row.termination_native.ok_or_else(|| missing(class))?)
+            }
             TerminationClass::RunState => {
                 Self::RunState(row.termination_run_state.ok_or_else(|| missing(class))?)
             }
@@ -119,11 +121,9 @@ impl TerminationCode {
             TerminationClass::Runtime => {
                 Self::Runtime(row.termination_runtime.ok_or_else(|| missing(class))?)
             }
-            TerminationClass::Rule => Self::Rule(
-                row.termination_rule
-                    .clone()
-                    .ok_or_else(|| missing(class))?,
-            ),
+            TerminationClass::Rule => {
+                Self::Rule(row.termination_rule.clone().ok_or_else(|| missing(class))?)
+            }
         }))
     }
 
@@ -346,11 +346,7 @@ pub(crate) async fn apply(
 ) -> Result<AttemptState, OperationsError> {
     let (from, version, kind) = lock(tx, target, attempt).await?;
     if !lifecycle::legal(kind, from, to) {
-        return Err(OperationsError::IllegalTransition {
-            attempt,
-            from,
-            to,
-        });
+        return Err(OperationsError::IllegalTransition { attempt, from, to });
     }
     if (to == AttemptState::Running) != lease.is_some() {
         return Err(OperationsError::InvalidRequest {
@@ -408,7 +404,13 @@ pub(crate) async fn apply(
         .classify(target)?;
     if to.ends_work() {
         // A stream watcher learns that no further progress will come.
-        notify(tx, target, crate::streams::PROGRESS_CHANNEL, &attempt.to_string()).await?;
+        notify(
+            tx,
+            target,
+            crate::streams::PROGRESS_CHANNEL,
+            &attempt.to_string(),
+        )
+        .await?;
     }
     Ok(from)
 }

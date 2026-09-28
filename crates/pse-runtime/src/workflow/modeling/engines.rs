@@ -4,7 +4,6 @@
 //! (A6): each attempt composes its overlay over the immutable original specification, is
 //! seeded only from a step whose candidate permits it, and shares prepared structure and the
 //! native session with the other steps.
-use pse_model::generated::identities::RunId;
 use super::assessment::Obligations;
 use super::*;
 use crate::math::solves::{NumericalInputs, SolverProfile};
@@ -12,6 +11,7 @@ use crate::workflow::staged::{Overlay, Staged, Start, bounded};
 use pse_compiler::workspace::{ModelingCaseBindings, Profile};
 use pse_kernels::DerivativeOrder;
 use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic};
+use pse_model::generated::identities::RunId;
 use pse_modeling::specialize::Value;
 use std::sync::Arc;
 use std::time::{Duration, Instant};

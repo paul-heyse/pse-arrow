@@ -31,9 +31,6 @@ fn parents(relation: &str, valid: &mut Rows, invalid: &mut Rows) {
     set(invalid, relation, parent, id(1));
 }
 
-
-
-
 fn entity(registry: &Registry, invariant: &InvariantSpec, valid: &mut Rows, invalid: &mut Rows) {
     let section = registry
         .documents()
@@ -106,4 +103,3 @@ fn packages(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
         ]),
     );
 }
-

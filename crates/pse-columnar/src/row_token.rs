@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Durable semantic row tokens over explicit fields and direct native values.
 use crate::{CanonError, FramedHasher, SemanticId};
-use pse_ids::Frame;
 use arrow_array::{Array, ArrayRef, FixedSizeBinaryArray, builder::FixedSizeBinaryBuilder};
 use arrow_schema::FieldRef;
+use pse_ids::Frame;
 /// Versioned value framing, independent of Arrow's private row sorting representation.
 pub const ENCODING: &str = FRAME.as_str();
 /// The frame of every row token; [`ENCODING`] is its published spelling.

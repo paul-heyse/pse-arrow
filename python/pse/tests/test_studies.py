@@ -37,16 +37,24 @@ def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, SemanticId]:
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
-        {str(p.relative_to(primitives)): p.read_text() for p in primitives.rglob("*") if p.is_file()}
+        {
+            str(p.relative_to(primitives)): p.read_text()
+            for p in primitives.rglob("*")
+            if p.is_file()
+        }
     )
-    manifest = (root / "tests/fixtures/packages/minimal_explicit/package.toml").read_text().replace(
-        'id_policy = "explicit"', 'id_policy = "named"'
+    manifest = (
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
     manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/root.pse": SOURCE}], physical
     )
-    case = next(row.declaration_id for row in package.declarations() if row.name == "Root")
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
     return package, case
 
 
@@ -68,15 +76,26 @@ def test_durable_study_publishes_once(
         (case, case, case),
         settings,
         predecessors=(None, 0, None),
-        overlays=(PointOverlay(), PointOverlay(values={"a": 9.0}), PointOverlay(values={"a": -1.0})),
+        overlays=(
+            PointOverlay(),
+            PointOverlay(values={"a": 9.0}),
+            PointOverlay(values={"a": -1.0}),
+        ),
         runtime=runtime,
         workspace=workspace,
     )
     status = handle.status()
     assert status.state == StudyState.OPEN
-    assert [point.job_state for point in status.points] == [JobState.QUEUED, JobState.WAITING, JobState.QUEUED]
+    assert [point.job_state for point in status.points] == [
+        JobState.QUEUED,
+        JobState.WAITING,
+        JobState.QUEUED,
+    ]
     assert handle.result() is None
-    assert any(row.study_id == handle.study_id for row in runtime.studies(states=(StudyState.OPEN,)))
+    assert any(
+        row.study_id == handle.study_id
+        for row in runtime.studies(states=(StudyState.OPEN,))
+    )
 
     # This process serves the queue: the points, then the study's finalization (and any
     # other job the shared store holds).
@@ -94,8 +113,13 @@ def test_durable_study_publishes_once(
     assert runtime.head(workspace.id) == published.id
 
     publication = runtime.open(published.id)
-    outcomes = pa.table(publication.table("study", "runtime", "study_outcomes")).to_pylist()
-    assert [row["member_catalog"] for row in sorted(outcomes, key=lambda row: row["point_index"])] == [
+    outcomes = pa.table(
+        publication.table("study", "runtime", "study_outcomes")
+    ).to_pylist()
+    assert [
+        row["member_catalog"]
+        for row in sorted(outcomes, key=lambda row: row["point_index"])
+    ] == [
         "point_0",
         "point_1",
         None,
@@ -112,7 +136,9 @@ def test_durable_study_cancel_and_its_refusals(
 ) -> None:
     runtime = pse.Runtime(inspection_settings, store=operational_store)
     package, case = _package(runtime)
-    settings = pse.SolveSettings(backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT)
+    settings = pse.SolveSettings(
+        backend=NativeBackend.IPOPT, intent=NativeSolveIntent.FEASIBLE_POINT
+    )
     workspace = runtime.register_workspace(f"study-cancel-{uuid.uuid4().hex}", tmp_path)
     handle = package.study(
         (case, case),
@@ -134,4 +160,6 @@ def test_durable_study_cancel_and_its_refusals(
     with pytest.raises(ValueError, match="durable study"):
         package.study((case,), settings, overlays=(PointOverlay(),))
     with pytest.raises(pse.InspectionError, match="changed in memory"):
-        package.with_limits(pse.ModelingLimits()).study((case,), settings, runtime=runtime, workspace=workspace)
+        package.with_limits(pse.ModelingLimits()).study(
+            (case,), settings, runtime=runtime, workspace=workspace
+        )

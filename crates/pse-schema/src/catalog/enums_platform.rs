@@ -374,6 +374,9 @@ mod tests {
             let declared = spec.members.iter().map(|m| m.name).collect::<Vec<_>>();
             assert_eq!(declared, expected, "{path}");
         }
-        assert_eq!(sourced, 28, "every source-owned vocabulary is declared as sourced");
+        assert_eq!(
+            sourced, 28,
+            "every source-owned vocabulary is declared as sourced"
+        );
     }
 }

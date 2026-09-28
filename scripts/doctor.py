@@ -391,7 +391,9 @@ def expected_schema_fingerprint() -> str:
 
 def check_operational_store() -> Check:
     """Never blocking: ephemeral work runs without the operational store (ADR-0114)."""
-    setup = "just db-bootstrap (once), then just db-status; docs/dev/operational-store.md"
+    setup = (
+        "just db-bootstrap (once), then just db-status; docs/dev/operational-store.md"
+    )
     url = operational_store_url()
     psql = shutil.which("psql")
     if psql is None or not url:

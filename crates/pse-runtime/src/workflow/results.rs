@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Registry-generated physical observations retain Arrow allocation ownership.
-use pse_model::generated::identities::RunId;
 use super::{RunResult, WorkflowError, contract, relation};
 use pse_backend_native::solve::{Metric, OptionValue};
 use pse_ids::SemanticId;
+use pse_model::generated::identities::RunId;
 use pse_operations::streams::{ProgressEvent, ProgressValue};
 use pse_relations::{
     columnar::FieldCheckedBatch,

@@ -43,30 +43,28 @@ impl PhysicalContext {
 impl Runtime {
     /// Admit the exact physical sources through the existing registry/session boundary.
     pub async fn physical_from_documents(
-        &self, documents: &crate::authoring_driver::document::OwnedDocumentSet,
+        &self,
+        documents: &crate::authoring_driver::document::OwnedDocumentSet,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<PhysicalContext, WorkflowError> {
-        PhysicalContext::from_documents(documents, self.registry.clone(), &self.sessions, cancel).await
+        PhysicalContext::from_documents(documents, self.registry.clone(), &self.sessions, cancel)
+            .await
     }
 }
 impl PhysicalContext {
     /// Shared physical admission for workflows and standalone pure checks.
     pub(crate) async fn from_documents(
         documents: &crate::authoring_driver::document::OwnedDocumentSet,
-        registry: Arc<pse_schema::Registry>, sessions: &pse_engine::session::EngineFactory,
+        registry: Arc<pse_schema::Registry>,
+        sessions: &pse_engine::session::EngineFactory,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, WorkflowError> {
         documents.validate_registry(&registry)?;
-        let batches =
-            crate::authoring_driver::p1::source_batches(documents.bundles(), &registry)?;
+        let batches = crate::authoring_driver::p1::source_batches(documents.bundles(), &registry)?;
         let keys = crate::physical::input_keys(&registry);
         let roots = keys
             .iter()
-            .filter_map(|key| {
-                registry
-                    .relation(&key.qualified_name())
-                    .map(|spec| spec.id)
-            })
+            .filter_map(|key| registry.relation(&key.qualified_name()).map(|spec| spec.id))
             .collect();
         let support = pse_schema::product::support_closure(&registry, &roots)
             .map_err(pse_relations::RelationError::from)
@@ -82,14 +80,11 @@ impl PhysicalContext {
             } else if support.contains(&id) {
                 retained_support.insert(
                     spec.key,
-                    batch
-                        .retained(sessions.pool(), cancel)
-                        .map_err(relation)?,
+                    batch.retained(sessions.pool(), cancel).map_err(relation)?,
                 );
             }
         }
-        let session = sessions
-            .candidate_checked(physical, registry.clone(), cancel)?;
+        let session = sessions.candidate_checked(physical, registry.clone(), cancel)?;
         let inventory = crate::physical::PhysicalInventory::load(&session, &registry, cancel)
             .await
             .map_err(|e| pse_engine::EngineError::Semantic(Arc::new(e)))?;

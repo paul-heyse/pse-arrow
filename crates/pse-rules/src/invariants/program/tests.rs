@@ -282,4 +282,3 @@ async fn native_duplicate_keys_produce_one_typed_finding() {
             .is_err()
     );
 }
-

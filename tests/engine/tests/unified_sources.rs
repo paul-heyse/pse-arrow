@@ -168,9 +168,10 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let cold = native_fixture();
     let budget = cold.resources.pool.clone();
     let factory = cold.factory.clone();
-    let publication = Publication::open(selection(&record), Arc::clone(&registry), &factory, &cancel)
-        .await
-        .unwrap();
+    let publication =
+        Publication::open(selection(&record), Arc::clone(&registry), &factory, &cancel)
+            .await
+            .unwrap();
     let reopened = publication.session().clone();
     let mut stream = publication
         .relation_stream(

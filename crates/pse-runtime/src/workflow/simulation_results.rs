@@ -3,19 +3,34 @@
 //! Physical trajectories and exact execution provenance use generated owned relations.
 use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
 use pse_ids::SemanticId;
-use pse_relations::{
-    columnar::FieldCheckedBatch,
-    generated::runtime::computation_runs,
-};
+use pse_relations::{columnar::FieldCheckedBatch, generated::runtime::computation_runs};
 use std::collections::BTreeMap;
 impl RunResult {
-    pub(super) fn encode_simulation(&self) -> Result<BTreeMap<SemanticId,FieldCheckedBatch>,WorkflowError> {
-        let RunRequest::Simulation(p)=&self.request else{return Err(contract("simulation request mismatch"));};
-        let mut batches=match &self.report {Ok(RunReport::Simulation(r))=>r.tables()?,_=>BTreeMap::new()};
-        let registry=&self.runtime.registry;
-        let mut header=computation_runs::Builder::with_registry(registry,1).map_err(relation)?;
-        header.push(self.completion().map_err(|e|contract(e.to_string()))?.computation.clone().ok_or_else(||contract("simulation completion absent"))?).map_err(relation)?;
-        batches.insert(computation_runs::RELATION_ID,header.finish().map_err(relation)?);
+    pub(super) fn encode_simulation(
+        &self,
+    ) -> Result<BTreeMap<SemanticId, FieldCheckedBatch>, WorkflowError> {
+        let RunRequest::Simulation(p) = &self.request else {
+            return Err(contract("simulation request mismatch"));
+        };
+        let mut batches = match &self.report {
+            Ok(RunReport::Simulation(r)) => r.tables()?,
+            _ => BTreeMap::new(),
+        };
+        let registry = &self.runtime.registry;
+        let mut header = computation_runs::Builder::with_registry(registry, 1).map_err(relation)?;
+        header
+            .push(
+                self.completion()
+                    .map_err(|e| contract(e.to_string()))?
+                    .computation
+                    .clone()
+                    .ok_or_else(|| contract("simulation completion absent"))?,
+            )
+            .map_err(relation)?;
+        batches.insert(
+            computation_runs::RELATION_ID,
+            header.finish().map_err(relation)?,
+        );
         batches.extend(p.source.source_tables()?);
         self.retain_sources(&mut batches)?;
         Ok(batches)

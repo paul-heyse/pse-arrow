@@ -32,7 +32,9 @@ def _selected(backend: str) -> NativeBackend | None:
     return None if backend == AUTOMATIC else NativeBackend(backend)
 
 
-def _settings(intent: str, backend: str, presolve: str, time_limit: float) -> SolveSettings:
+def _settings(
+    intent: str, backend: str, presolve: str, time_limit: float
+) -> SolveSettings:
     """The typed solve settings of the command line's words."""
     return SolveSettings(
         intent=NativeSolveIntent(intent),

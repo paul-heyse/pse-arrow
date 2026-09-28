@@ -44,9 +44,7 @@ mod sessions {
     ) -> Result<kinsol::Session, ProblemError> {
         let retained = SESSIONS.with(|s| {
             let mut s = s.borrow_mut();
-            s.iter()
-                .position(|(k, _)| *k == key)
-                .map(|i| s.remove(i).1)
+            s.iter().position(|(k, _)| *k == key).map(|i| s.remove(i).1)
         });
         if let Some(mut session) = retained
             && session.matches_layout(&compatibility)
@@ -470,14 +468,24 @@ mod tests {
             let root = Kinsol
                 .solve(problem.clone(), &[p], &options(), &cancel)
                 .unwrap();
-            assert!(root.iter().all(|x| (*x - p).abs() < 1e-8), "{root:?} for {p}");
-            assert!(Arc::get_mut(&mut problem).is_some(), "a cached session kept the problem");
+            assert!(
+                root.iter().all(|x| (*x - p).abs() < 1e-8),
+                "{root:?} for {p}"
+            );
+            assert!(
+                Arc::get_mut(&mut problem).is_some(),
+                "a cached session kept the problem"
+            );
         }
         assert_eq!(sessions::created() - before, 1);
         // A different layout identity allocates, and both are retained afterwards.
         let other = Arc::new(problem_with(97, false).unwrap());
-        Kinsol.solve(other.clone(), &[4.0], &options(), &cancel).unwrap();
-        Kinsol.solve(problem.clone(), &[4.0], &options(), &cancel).unwrap();
+        Kinsol
+            .solve(other.clone(), &[4.0], &options(), &cancel)
+            .unwrap();
+        Kinsol
+            .solve(problem.clone(), &[4.0], &options(), &cancel)
+            .unwrap();
         Kinsol.solve(other, &[1.0], &options(), &cancel).unwrap();
         assert_eq!(sessions::created() - before, 2);
         // A cancelled call still returns its session: the next call reuses it.

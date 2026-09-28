@@ -95,9 +95,10 @@ impl Body for AdmitBody {
             .map_err(|_| invalid("candidate admission requires one child"))?;
         let request = self.request.clone();
         let state = self.state.clone();
-        Ok(pse_engine::operation::batch(Arc::clone(&request.schema), async move {
-            admit(request, input, state).await
-        }))
+        Ok(pse_engine::operation::batch(
+            Arc::clone(&request.schema),
+            async move { admit(request, input, state).await },
+        ))
     }
 }
 

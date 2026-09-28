@@ -19,25 +19,51 @@ from pse._build import (
 )
 from pse._inspection import Publication, TableStream
 from pse._modeling import ModelingPackage
-from pse._strategies import PreparedFlow, PreparedStrategy, StrategyResult, _AnalysisDocument
+from pse._strategies import (
+    PreparedFlow,
+    PreparedStrategy,
+    StrategyResult,
+    _AnalysisDocument,
+)
 from pse._runs import (
-    PreparedOperation, RunHandle, RunResult, RunCompletion, PublicationTicket,
-    PublicationCommitted, PublicationNoncommit, PublicationConflict,
-    PublicationUnresolved, PublicationSettlement, PublicationAttempt, Published,
-    Workspace, ExportReceipt, StudyHandle, StudyStatus, StudyPointStatus, StudyCancel,
+    PreparedOperation,
+    RunHandle,
+    RunResult,
+    RunCompletion,
+    PublicationTicket,
+    PublicationCommitted,
+    PublicationNoncommit,
+    PublicationConflict,
+    PublicationUnresolved,
+    PublicationSettlement,
+    PublicationAttempt,
+    Published,
+    Workspace,
+    ExportReceipt,
+    StudyHandle,
+    StudyStatus,
+    StudyPointStatus,
+    StudyCancel,
     ProgressStream,
 )
 
 from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import SolveSettings
 from pse.contracts.enums import AttemptState, JobState, StudyState
-from pse.contracts.identities import AttemptId, PublicationId, RunId, StudyId, WorkspaceId
+from pse.contracts.identities import (
+    AttemptId,
+    PublicationId,
+    RunId,
+    StudyId,
+    WorkspaceId,
+)
 from pse.contracts.values import ContentHash, SemanticId
 
 SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
 OperationalAttempt = result_contracts.RuntimeOperationalAttemptsRow
 OperationalJob = result_contracts.RuntimeOperationalJobsRow
 OperationalStudy = result_contracts.RuntimeOperationalStudiesRow
+
 
 @attrs.frozen(init=False)
 class Runtime:
@@ -300,7 +326,11 @@ class Runtime:
         Returns:
             The receipt; release it with ``release_export``.
         """
-        uri = destination.resolve().as_uri() + "/" if isinstance(destination, Path) else destination
+        uri = (
+            destination.resolve().as_uri() + "/"
+            if isinstance(destination, Path)
+            else destination
+        )
         return msgspec.json.decode(
             self._handle.export_publication(
                 publication_id.to_hex(), uri, valid_for.total_seconds()

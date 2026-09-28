@@ -315,9 +315,24 @@ async fn cancel_unstarted(
             code: TerminationCode::Runtime(termination),
             detail: None,
         });
-    attempts::apply(tx, target, job.attempt_id, AttemptState::Cancelled, &note, None).await?;
+    attempts::apply(
+        tx,
+        target,
+        job.attempt_id,
+        AttemptState::Cancelled,
+        &note,
+        None,
+    )
+    .await?;
     jobs::set_job_state(tx, target, job.job_id, JobState::Cancelled, Some(reason)).await?;
-    set_point(tx, target, study, point.point_index, StudyPointState::Cancelled).await
+    set_point(
+        tx,
+        target,
+        study,
+        point.point_index,
+        StudyPointState::Cancelled,
+    )
+    .await
 }
 
 /// Cancel the pending points that wait on `point`, and theirs in turn: `point` did not
@@ -589,10 +604,14 @@ impl<'s> Studies<'s> {
             return invalid("a study's own attempt is of kind study".to_owned());
         }
         if study.finalization.attempt.kind != AttemptKind::StudyFinalization {
-            return invalid("a study's finalization attempt is of kind study_finalization".to_owned());
+            return invalid(
+                "a study's finalization attempt is of kind study_finalization".to_owned(),
+            );
         }
         if study.intent.attempt_id != study.attempt.attempt_id {
-            return invalid("a study's publication intent names the study's own attempt".to_owned());
+            return invalid(
+                "a study's publication intent names the study's own attempt".to_owned(),
+            );
         }
         for (position, point) in study.points.iter().enumerate() {
             if crate::lifecycle::coordinates(point.job.attempt.kind)
@@ -614,8 +633,15 @@ impl<'s> Studies<'s> {
         let tx = client.transaction().await.classify(target)?;
         attempts::insert(&tx, target, &study.attempt, Some(ACTOR)).await?;
         let open = TransitionNote::by(ACTOR).because("points are queued");
-        attempts::apply(&tx, target, study.attempt.attempt_id, AttemptState::Queued, &open, None)
-            .await?;
+        attempts::apply(
+            &tx,
+            target,
+            study.attempt.attempt_id,
+            AttemptState::Queued,
+            &open,
+            None,
+        )
+        .await?;
         let intent = catalog_statements::insert_intent()
             .params(
                 &tx,
@@ -636,8 +662,14 @@ impl<'s> Studies<'s> {
         }
         let finalization_job: JobId = crate::mint_id();
         attempts::insert(&tx, target, &study.finalization.attempt, Some(ACTOR)).await?;
-        if !jobs::insert_job(&tx, target, finalization_job, &study.finalization, JobState::Waiting)
-            .await?
+        if !jobs::insert_job(
+            &tx,
+            target,
+            finalization_job,
+            &study.finalization,
+            JobState::Waiting,
+        )
+        .await?
         {
             return invalid(format!(
                 "idempotency key {} already names a job",
@@ -754,7 +786,10 @@ impl<'s> Studies<'s> {
     /// # Errors
     ///
     /// [`OperationsError::NotFound`]; classified driver failures.
-    pub async fn row(&self, study: StudyId) -> Result<RuntimeOperationalStudiesRow, OperationsError> {
+    pub async fn row(
+        &self,
+        study: StudyId,
+    ) -> Result<RuntimeOperationalStudiesRow, OperationsError> {
         let client = self.store.client().await?;
         statements::study()
             .bind(&client, &study)
@@ -911,7 +946,11 @@ impl<'s> Studies<'s> {
     /// # Errors
     ///
     /// [`OperationsError::NotFound`]; classified driver failures.
-    pub async fn cancel(&self, study: StudyId, actor: &str) -> Result<StudyCancel, OperationsError> {
+    pub async fn cancel(
+        &self,
+        study: StudyId,
+        actor: &str,
+    ) -> Result<StudyCancel, OperationsError> {
         let target = self.target();
         let mut client = self.store.client().await?;
         let tx = client.transaction().await.classify(target)?;

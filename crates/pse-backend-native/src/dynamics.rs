@@ -63,7 +63,15 @@ impl Default for DiffsolSettings {
 }
 /// IDAS Newton linear solver.
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum IdasLinear {
@@ -106,7 +114,9 @@ pub(crate) const fn state_sign_code(sign: StateSign) -> f64 {
 }
 /// Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document
 /// (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct IdasSettings {
     /// Document version.

@@ -151,7 +151,9 @@ fn parse_at(text: &str, depth: u32) -> Result<StaticValue, AuthoringError> {
     }
     // The expression parser owns chained calls such as partial(f,x)(value).
     // A named constructor application is considered only after ordinary syntax refuses it.
-    if let Ok(expression)=dsl::parse_expr(text){return Ok(StaticValue::Expression(expression));}
+    if let Ok(expression) = dsl::parse_expr(text) {
+        return Ok(StaticValue::Expression(expression));
+    }
     if let Some(open) = text.find('(') {
         if text.ends_with(')') {
             let items = split(&text[open + 1..text.len() - 1], ",")?;

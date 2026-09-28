@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Standalone pure conformance shares admission and compiler semantics, without MathService.
-use super::*;
 use super::conformance::NO_FIXTURE;
+use super::*;
 use pse_columnar::{AllocationLease, MemoryConsumer};
 use pse_model::generated::enums::{
     ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,

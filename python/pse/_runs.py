@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Source-independent joined computation and publication handles."""
+
 from collections.abc import Mapping
 from datetime import timedelta
 from types import TracebackType
@@ -8,15 +9,31 @@ from typing import Self, TypeAlias
 import attrs
 import msgspec
 from pse import codec
-from pse._build import (DiagnosticReport, NativeEligibility, NativeRoute,
-    ProgressEvent, _NativePreparedOperation, _NativeProgressStream,
-    _NativePublicationAttempt, _NativeRunHandle, _NativeRunResult, _NativeStart,
-    _NativeStudyHandle)
+from pse._build import (
+    DiagnosticReport,
+    NativeEligibility,
+    NativeRoute,
+    ProgressEvent,
+    _NativePreparedOperation,
+    _NativeProgressStream,
+    _NativePublicationAttempt,
+    _NativeRunHandle,
+    _NativeRunResult,
+    _NativeStart,
+    _NativeStudyHandle,
+)
 from pse._inspection import TableStream
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import AttemptState, JobState, StudyPointState, StudyState
-from pse.contracts.identities import AttemptId, PublicationId, RunId, StudyId, WorkspaceId
+from pse.contracts.identities import (
+    AttemptId,
+    PublicationId,
+    RunId,
+    StudyId,
+    WorkspaceId,
+)
 from pse.contracts.values import ContentHash, SemanticId
+
 
 @attrs.frozen
 class PreparedOperation:
@@ -43,9 +60,15 @@ class PreparedOperation:
         """Select a compatible owned numerical seed for an algebraic solve."""
         return PreparedOperation(self._handle.with_start(seed))
 
-    def with_primal_start(self, values: Mapping[SemanticId, float]) -> "PreparedOperation":
+    def with_primal_start(
+        self, values: Mapping[SemanticId, float]
+    ) -> "PreparedOperation":
         """Select every original free coordinate without retaining native state."""
-        return PreparedOperation(self._handle.with_primal_start({key.to_hex(): value for key, value in values.items()}))
+        return PreparedOperation(
+            self._handle.with_primal_start(
+                {key.to_hex(): value for key, value in values.items()}
+            )
+        )
 
     def start(self) -> "RunHandle":
         """Start one admitted native operation."""
@@ -243,7 +266,9 @@ class RunResult:
             self._handle.prepare_publication(
                 msgspec.json.encode(workspace),
                 parent=None if parent is None else parent.to_hex(),
-                publication_id=None if publication_id is None else publication_id.to_hex(),
+                publication_id=None
+                if publication_id is None
+                else publication_id.to_hex(),
             )
         )
 
@@ -397,7 +422,11 @@ class StudyHandle:
     def result(self) -> Published | None:
         """The study's publication once committed; ``None`` before."""
         published = self._handle.result()
-        return None if published is None else msgspec.json.decode(published, type=Published)
+        return (
+            None
+            if published is None
+            else msgspec.json.decode(published, type=Published)
+        )
 
     def wait(
         self,
@@ -421,5 +450,3 @@ class StudyHandle:
             ),
             type=Published,
         )
-
-

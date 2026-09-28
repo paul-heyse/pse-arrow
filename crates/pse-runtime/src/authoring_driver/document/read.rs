@@ -22,7 +22,7 @@ pub(super) fn package_files(
         let Some((directory, pattern)) = document.path_glob.split_once('/') else {
             continue;
         };
-        if !matches!(pattern,"*.yaml"|"*.pse") || directory.contains(['.', '\\']) {
+        if !matches!(pattern, "*.yaml" | "*.pse") || directory.contains(['.', '\\']) {
             return Err(failure(
                 document.path_glob,
                 "unsupported declared document glob",
@@ -50,7 +50,7 @@ pub(super) fn package_files(
                 .file_name()
                 .into_string()
                 .map_err(|_| failure(directory, "non-UTF8 document path"))?;
-            super::load::select(registry,&format!("{directory}/{name}"))?;
+            super::load::select(registry, &format!("{directory}/{name}"))?;
             read_one(
                 root,
                 &format!("{directory}/{name}"),

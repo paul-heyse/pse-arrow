@@ -408,7 +408,8 @@ impl OperationsError {
     /// Classify a driver error by SQLSTATE and connection state (ADR-0114 Outcome 27).
     pub(crate) fn from_driver(error: tokio_postgres::Error, target: &Target) -> Self {
         // An I/O cause is a lost or refused connection, whatever the driver's kind.
-        let io = std::error::Error::source(&error).is_some_and(|cause| cause.is::<std::io::Error>());
+        let io =
+            std::error::Error::source(&error).is_some_and(|cause| cause.is::<std::io::Error>());
         let class = classify(error.code(), error.is_closed() || io);
         let db = error.as_db_error();
         let table = db.and_then(|db| db.table()).map(str::to_owned);
@@ -544,18 +545,27 @@ mod error_unit {
     #[test]
     fn invariant_violations_name_the_registry_rule() {
         assert_eq!(
-            registry_name(Some("progress_events"), "progress_events_step_nonnegative_check"),
+            registry_name(
+                Some("progress_events"),
+                "progress_events_step_nonnegative_check"
+            ),
             "step_nonnegative"
         );
         assert_eq!(
-            registry_name(Some("progress_values"), "progress_values_progress_event_fkey"),
+            registry_name(
+                Some("progress_values"),
+                "progress_values_progress_event_fkey"
+            ),
             "progress_event"
         );
         assert_eq!(
             registry_name(Some("incumbents"), "incumbents_objective_finite"),
             "objective_finite"
         );
-        assert_eq!(registry_name(None, "content_hash_width"), "content_hash_width");
+        assert_eq!(
+            registry_name(None, "content_hash_width"),
+            "content_hash_width"
+        );
         let violation = OperationsError::classified(
             Class::Invariant(InvariantKind::Check),
             &target(),

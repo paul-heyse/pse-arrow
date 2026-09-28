@@ -230,9 +230,10 @@ impl RangeFamily {
     /// The coordinates this family's entries are indexed by.
     pub const fn side(self) -> RangeSide {
         match self {
-            Self::ColumnBoundDown | Self::ColumnBoundUp | Self::ColumnCostDown | Self::ColumnCostUp => {
-                RangeSide::Column
-            }
+            Self::ColumnBoundDown
+            | Self::ColumnBoundUp
+            | Self::ColumnCostDown
+            | Self::ColumnCostUp => RangeSide::Column,
             Self::RowBoundDown | Self::RowBoundUp => RangeSide::Row,
         }
     }
@@ -706,8 +707,14 @@ impl Lp {
     fn solve(
         &self,
         execution: &Execution,
-    ) -> Result<(NativeTermination, Option<(Vec<f64>, Vec<f64>, Vec<f64>)>, Option<f64>), ProblemError>
-    {
+    ) -> Result<
+        (
+            NativeTermination,
+            Option<(Vec<f64>, Vec<f64>, Vec<f64>)>,
+            Option<f64>,
+        ),
+        ProblemError,
+    > {
         let (n, m) = (self.cost.len(), self.row_lower.len());
         let mut model = scratch(execution)?;
         let ptr = model.as_mut_ptr();
@@ -852,7 +859,11 @@ fn basis_inverse(
 ) -> Result<BasisInverse, String> {
     let m = p.contract.rows.len();
     if positions.iter().any(|r| *r >= m)
-        || positions.iter().collect::<std::collections::BTreeSet<_>>().len() != positions.len()
+        || positions
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            != positions.len()
     {
         return Err(format!("basis positions must be distinct and below {m}"));
     }
@@ -864,9 +875,15 @@ fn basis_inverse(
         .into_iter()
         .map(|v| {
             if v >= 0 {
-                p.contract.variables.get(v as usize).map(|c| Basic::Column(c.id))
+                p.contract
+                    .variables
+                    .get(v as usize)
+                    .map(|c| Basic::Column(c.id))
             } else {
-                p.contract.rows.get((-v - 1) as usize).map(|r| Basic::Row(*r))
+                p.contract
+                    .rows
+                    .get((-v - 1) as usize)
+                    .map(|r| Basic::Row(*r))
             }
         })
         .collect::<Option<Vec<_>>>()
@@ -922,7 +939,8 @@ fn presolve(
     if status != ffi::STATUS_OK {
         return Ok(Err(format!("native presolve status={status}")));
     }
-    let count = |v: i32| usize::try_from(v).map_err(|_| ProblemError::Internal("presolved size".into()));
+    let count =
+        |v: i32| usize::try_from(v).map_err(|_| ProblemError::Internal("presolved size".into()));
     let (pc, pr, pz) = unsafe {
         (
             count(ffi::Highs_getPresolvedNumCol(ptr))?,
@@ -993,7 +1011,9 @@ fn presolve(
     };
     let usize_of = |v: &[i32]| -> Result<Vec<usize>, ProblemError> {
         v.iter()
-            .map(|v| usize::try_from(*v).map_err(|_| ProblemError::Internal("presolved index".into())))
+            .map(|v| {
+                usize::try_from(*v).map_err(|_| ProblemError::Internal("presolved index".into()))
+            })
             .collect()
     };
     Ok(Ok(Presolved {
@@ -1001,7 +1021,12 @@ fn presolve(
         rows: pr,
         nonzeros: pz,
         offset: lp.offset,
-        column_bounds: lp.lower.iter().copied().zip(lp.upper.iter().copied()).collect(),
+        column_bounds: lp
+            .lower
+            .iter()
+            .copied()
+            .zip(lp.upper.iter().copied())
+            .collect(),
         row_bounds: lp
             .row_lower
             .iter()

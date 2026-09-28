@@ -54,7 +54,10 @@ fn ty(n: u8) -> QuantityType {
 }
 fn builder() -> QuantityRegistryBuilder {
     let mut b = QuantityRegistryBuilder::new();
-    b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(91)),name:"synthetic.item".into()});
+    b.entity_kind(EntityKind {
+        id: EntityKindId::from_id(raw(91)),
+        name: "synthetic.item".into(),
+    });
     b.unit(unit(1, DimensionVector::DIMENSIONLESS))
         .kind(kind(1))
         .quantity_type(ty(1))
@@ -117,7 +120,10 @@ fn complete_key_lookup_and_neutral_designation_use_actual_components() {
 #[test]
 fn duplicate_identity_symbol_and_semantic_key_are_rejected() {
     let mut b = builder();
-    b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(91)),name:"synthetic.item".into()});
+    b.entity_kind(EntityKind {
+        id: EntityKindId::from_id(raw(91)),
+        name: "synthetic.item".into(),
+    });
     b.unit(unit(1, DimensionVector::DIMENSIONLESS));
     assert!(b.build().is_err());
     let mut b = builder();
@@ -159,8 +165,11 @@ fn quantity_unit_nominal_and_reference_contracts_are_checked() {
     for change in 0..6 {
         let mut b = QuantityRegistryBuilder::new();
         let mut value = ty(1);
-        b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(91)),name:"synthetic.item".into()});
-    b.unit(unit(1, DimensionVector::DIMENSIONLESS))
+        b.entity_kind(EntityKind {
+            id: EntityKindId::from_id(raw(91)),
+            name: "synthetic.item".into(),
+        });
+        b.unit(unit(1, DimensionVector::DIMENSIONLESS))
             .kind(kind(1));
         match change {
             0 => value.canonical_unit = UnitId::from_id(raw(99)),
@@ -184,7 +193,10 @@ fn neutral_binding_rejects_composition_obligations() {
     let mut b = QuantityRegistryBuilder::new();
     let mut value = ty(1);
     value.key.subject_kind = Some(EntityKindId::from_id(raw(91)));
-    b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(91)),name:"synthetic.item".into()});
+    b.entity_kind(EntityKind {
+        id: EntityKindId::from_id(raw(91)),
+        name: "synthetic.item".into(),
+    });
     b.unit(unit(1, DimensionVector::DIMENSIONLESS))
         .kind(kind(1))
         .quantity_type(value)

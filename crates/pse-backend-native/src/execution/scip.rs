@@ -14,7 +14,9 @@ use pse_model::generated::enums::NativeConstraintForm;
 
 /// Typed SCIP settings. Reserved native options derive from these and the shared controls;
 /// identity derives from serde.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(default, deny_unknown_fields)]
 #[schemars(rename = "ScipSettings")]
 pub struct Settings {

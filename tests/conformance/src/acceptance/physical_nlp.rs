@@ -13,41 +13,128 @@ async fn authored_physical_nlp_preserves_native_routes_and_original_qualificatio
     let optimization = id("079a378ba3ce46728b32c87f4fe6a3df");
     let flash = id("040af20814bc57abb565c3c7f680be05");
     for backend in [Backend::Ipopt, Backend::Pounce, Backend::Kinsol] {
-        let prepared = seed_prepare(&package, heater, profile(backend, false), &CancelSource::new()).await.unwrap();
+        let prepared = seed_prepare(
+            &package,
+            heater,
+            profile(backend, false),
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap();
         let result = prepared.start().unwrap().wait().await.unwrap();
         let report = authored_success(&result);
-        assert!(report.checks.iter().filter(|r|r.kind==pse_relations::generated::enums::ModelingCheckKind::Closure).count()>=2);
-        assert!(result.table("authored.modeling_declarations").unwrap().batch().num_rows()>0);
+        assert!(
+            report
+                .checks
+                .iter()
+                .filter(|r| r.kind == pse_relations::generated::enums::ModelingCheckKind::Closure)
+                .count()
+                >= 2
+        );
+        assert!(
+            result
+                .table("authored.modeling_declarations")
+                .unwrap()
+                .batch()
+                .num_rows()
+                > 0
+        );
         assert!(result.table("authored.computation_models").is_err());
     }
     for (backend, presolve, assurance) in [
-        (Backend::Ipopt, pse_backend_native::presolve::Policy::Off, Assurance::LocalStationary),
-        (Backend::Pounce, pse_backend_native::presolve::Policy::Off, Assurance::LocalStationary),
-        (Backend::Ipopt, pse_backend_native::presolve::Policy::Auto, Assurance::Feasible),
-        (Backend::Pounce, pse_backend_native::presolve::Policy::Auto, Assurance::Feasible),
+        (
+            Backend::Ipopt,
+            pse_backend_native::presolve::Policy::Off,
+            Assurance::LocalStationary,
+        ),
+        (
+            Backend::Pounce,
+            pse_backend_native::presolve::Policy::Off,
+            Assurance::LocalStationary,
+        ),
+        (
+            Backend::Ipopt,
+            pse_backend_native::presolve::Policy::Auto,
+            Assurance::Feasible,
+        ),
+        (
+            Backend::Pounce,
+            pse_backend_native::presolve::Policy::Auto,
+            Assurance::Feasible,
+        ),
     ] {
-        let mut settings=profile(backend,true);
-        settings.presolve=presolve;
-        let result=seed_prepare(&package,optimization,settings,&CancelSource::new()).await.unwrap()
-            .start().unwrap().wait().await.unwrap();
-        let report=authored_success(&result);
-        let Outcome::Native(native)=&report.outcome else {panic!("expected native optimization")};
-        assert!(matches!(native.termination.category,Termination::Success|Termination::Acceptable));
-        assert_eq!(native.termination.assurance,assurance,"{native:?}");
-        if assurance==Assurance::Feasible {
-            assert_eq!(native.qualification,pse_backend_native::solve::Qualification::Feasible);
+        let mut settings = profile(backend, true);
+        settings.presolve = presolve;
+        let result = seed_prepare(&package, optimization, settings, &CancelSource::new())
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        let report = authored_success(&result);
+        let Outcome::Native(native) = &report.outcome else {
+            panic!("expected native optimization")
+        };
+        assert!(matches!(
+            native.termination.category,
+            Termination::Success | Termination::Acceptable
+        ));
+        assert_eq!(native.termination.assurance, assurance, "{native:?}");
+        if assurance == Assurance::Feasible {
+            assert_eq!(
+                native.qualification,
+                pse_backend_native::solve::Qualification::Feasible
+            );
         }
     }
-    for backend in [Backend::Ipopt,Backend::Pounce] {
-        let result=seed_prepare(&package,flash,profile(backend,false),&CancelSource::new()).await.unwrap()
-            .start().unwrap().wait().await.unwrap();
+    for backend in [Backend::Ipopt, Backend::Pounce] {
+        let result = seed_prepare(
+            &package,
+            flash,
+            profile(backend, false),
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
         authored_success(&result);
     }
-    for case in ["fc52409793e44e61adb3eff88946fdb6","efcd1d0ad288438daf6764b4ab25a2a6","8c22c4a4f87141b083bfc0d9442d382c","d84e844726e64a2c9b23d96a4039b4f9"] {
-        let result=seed_prepare(&package,id(case),profile(Backend::Ipopt,false),&CancelSource::new()).await.unwrap()
-            .start().unwrap().wait().await.unwrap();
+    for case in [
+        "fc52409793e44e61adb3eff88946fdb6",
+        "efcd1d0ad288438daf6764b4ab25a2a6",
+        "8c22c4a4f87141b083bfc0d9442d382c",
+        "d84e844726e64a2c9b23d96a4039b4f9",
+    ] {
+        let result = seed_prepare(
+            &package,
+            id(case),
+            profile(Backend::Ipopt, false),
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
         authored_success(&result);
     }
     // Root-only strategies must retain objective and inequality admission refusals.
-    assert!(seed_prepare(&package,optimization,profile(Backend::Kinsol,false),&CancelSource::new()).await.is_err());
+    assert!(
+        seed_prepare(
+            &package,
+            optimization,
+            profile(Backend::Kinsol, false),
+            &CancelSource::new()
+        )
+        .await
+        .is_err()
+    );
 }

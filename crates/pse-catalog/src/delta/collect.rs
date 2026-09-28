@@ -173,10 +173,9 @@ async fn collect(
             return Err(invalid("retention interval is reversed"));
         }
         let covers = match row.reason {
-            RetentionReason::Attempt => target
-                .location
-                .as_str()
-                .starts_with(row.table_uri.as_str()),
+            RetentionReason::Attempt => {
+                target.location.as_str().starts_with(row.table_uri.as_str())
+            }
             RetentionReason::Publication | RetentionReason::Changes => {
                 same_table(&row.table_uri, &target.location)
             }
@@ -263,12 +262,12 @@ pub async fn remove_tables(tables: &[url::Url], state: &SessionState) -> Result<
 /// # Errors
 /// An unregistered store or a failed listing or deletion (a rerun resumes).
 pub async fn remove_prefix(prefix: &url::Url, state: &SessionState) -> Result<u64> {
-    let store = state.runtime_env().object_store_registry.get_store(prefix)?;
+    let store = state
+        .runtime_env()
+        .object_store_registry
+        .get_store(prefix)?;
     let path = object_store::path::Path::from_url_path(prefix.path()).map_err(external)?;
-    let locations = store
-        .list(Some(&path))
-        .map_ok(|meta| meta.location)
-        .boxed();
+    let locations = store.list(Some(&path)).map_ok(|meta| meta.location).boxed();
     let mut removed = 0;
     let mut deleted = store.delete_stream(locations);
     let result = async {

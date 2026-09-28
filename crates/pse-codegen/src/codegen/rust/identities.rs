@@ -30,7 +30,10 @@ pub(super) fn path(identity: &str) -> TokenStream {
     quote!(crate::generated::identities::#name)
 }
 
-pub(super) fn emit(tree: &mut crate::codegen::GeneratedTree, reg: &Registry) -> Result<(), crate::SchemaError> {
+pub(super) fn emit(
+    tree: &mut crate::codegen::GeneratedTree,
+    reg: &Registry,
+) -> Result<(), crate::SchemaError> {
     let mut declarations = Vec::new();
     let mut model_traits = Vec::new();
     let mut codecs = Vec::new();
@@ -99,14 +102,17 @@ pub(super) fn emit(tree: &mut crate::codegen::GeneratedTree, reg: &Registry) -> 
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, reason = "pure generation over a fixture registry")]
+    #![allow(
+        clippy::unwrap_used,
+        reason = "pure generation over a fixture registry"
+    )]
 
     use std::path::PathBuf;
 
     use crate::codegen::{Language, generate};
     use crate::model::{
-        Authority, EnumDecl, EnumMember, FieldContract as F, IdentityDecl, Namespace,
-        RelationDecl, SnapshotClass,
+        Authority, EnumDecl, EnumMember, FieldContract as F, IdentityDecl, Namespace, RelationDecl,
+        SnapshotClass,
     };
     use crate::{Registry, RegistryBuilder};
 
@@ -187,7 +193,10 @@ mod tests {
             parts.contains("Option<crate::generated::identities::WidgetId>"),
             "{parts}"
         );
-        assert!(parts.contains("pub r#part_id: pse_ids::SemanticId"), "{parts}");
+        assert!(
+            parts.contains("pub r#part_id: pse_ids::SemanticId"),
+            "{parts}"
+        );
         let widgets = text(&rust, "crates/pse-model/src/generated/authored/widgets.rs");
         assert!(widgets.contains("pub r#widget_id: crate::generated::identities::WidgetId"));
         assert!(widgets.contains("pub r#bundle: crate::generated::identities::BundleId"));
@@ -249,7 +258,10 @@ mod tests {
         );
         let python = generate(&registry, Language::Python).unwrap();
         let rows = text(&python, "python/pse/contracts/authored.py");
-        assert!(rows.contains("from pse.contracts import identities as i"), "{rows}");
+        assert!(
+            rows.contains("from pse.contracts import identities as i"),
+            "{rows}"
+        );
         assert!(rows.contains("widget_id: i.WidgetId"), "{rows}");
     }
 
@@ -257,7 +269,10 @@ mod tests {
     fn microsecond_timestamps_render_codecs() {
         let registry = fixture();
         let rust = generate(&registry, Language::Rust).unwrap();
-        let native = text(&rust, "crates/pse-relations/src/generated/authored/widgets.rs");
+        let native = text(
+            &rust,
+            "crates/pse-relations/src/generated/authored/widgets.rs",
+        );
         assert!(
             native.contains("arrow_array::TimestampMicrosecondArray"),
             "{native}"

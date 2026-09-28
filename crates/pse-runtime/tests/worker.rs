@@ -309,10 +309,7 @@ async fn stored_seed_reused_across_processes(
     let receipt = native.start_receipt.as_ref().unwrap();
     assert!(receipt.submitted);
     let seed = receipt.seed.as_ref().unwrap();
-    assert_eq!(
-        seed.compatibility.layout,
-        stored.compatibility_stamp
-    );
+    assert_eq!(seed.compatibility.layout, stored.compatibility_stamp);
     // Its identity is in the result's lineage: the stored seed changes the request identity.
     let unseeded = package.prepare_analysis(&analysis, &cancel).await.unwrap();
     let plain = unseeded.start().unwrap().wait().await.unwrap();
@@ -374,7 +371,11 @@ fn market_split() -> String {
     for i in 0..ROWS {
         let a: Vec<u64> = (0..COLUMNS).map(|_| next()).collect();
         let b = a.iter().sum::<u64>() / 2;
-        let terms: Vec<String> = a.iter().enumerate().map(|(j, a)| format!("{a}*x{j}")).collect();
+        let terms: Vec<String> = a
+            .iter()
+            .enumerate()
+            .map(|(j, a)| format!("{a}*x{j}"))
+            .collect();
         body.push_str(&format!(
             "var s{i}: Scalar; annotation bounds s{i}(-5000, 5000); annotation start s{i}(0); \
              eq split{i}: {} - s{i} == {b}; ",
@@ -486,10 +487,7 @@ async fn searching(operations: &Operations, attempt: AttemptId) {
 }
 
 /// The stored incumbents of an attempt, in order: objective and captured solution.
-async fn incumbents(
-    database: &TestDatabase,
-    attempt: AttemptId,
-) -> Vec<(f64, Option<String>)> {
+async fn incumbents(database: &TestDatabase, attempt: AttemptId) -> Vec<(f64, Option<String>)> {
     let session = database.session().await.unwrap();
     session
         .texts(&format!(
@@ -546,10 +544,17 @@ async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
     // solution is stored, the process is killed.
     let started = tokio::time::Instant::now();
     let mut worker = spawn_worker(database.url(), "worker-killed", 2);
-    until(std::time::Duration::from_secs(40), "a captured incumbent", || async {
-        searching(&operations, first).await;
-        incumbents(&database, first).await.iter().any(|(_, s)| s.is_some())
-    })
+    until(
+        std::time::Duration::from_secs(40),
+        "a captured incumbent",
+        || async {
+            searching(&operations, first).await;
+            incumbents(&database, first)
+                .await
+                .iter()
+                .any(|(_, s)| s.is_some())
+        },
+    )
     .await;
     worker.kill().unwrap();
     let status = worker.wait().unwrap();
@@ -574,10 +579,16 @@ async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
         if let Some(requeue) = recovery.requeued.iter().find(|r| r.stale_attempt == first) {
             break requeue.outcome;
         }
-        assert!(tokio::time::Instant::now() < deadline, "timed out: the stale sweep");
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out: the stale sweep"
+        );
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     };
-    let Finished::Requeued { attempt_id: second, .. } = requeued else {
+    let Finished::Requeued {
+        attempt_id: second, ..
+    } = requeued
+    else {
         panic!("{requeued:?}")
     };
     assert_eq!(
@@ -590,11 +601,13 @@ async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
     );
 
     // The next worker claims the new attempt and resumes from the stored incumbent.
-    let resumer = local.clone().with_durability(Durability::Durable(Operations::from_store(
-        store.clone(),
-        "worker-resume",
-        policy,
-    )));
+    let resumer = local
+        .clone()
+        .with_durability(Durability::Durable(Operations::from_store(
+            store.clone(),
+            "worker-resume",
+            policy,
+        )));
     let (processed, result) = resumer.work_once_with_result().await.unwrap();
     let Processed::Ran { record, .. } = &processed else {
         panic!("{processed:?}")
@@ -608,7 +621,10 @@ async fn killed_worker_attempt_goes_stale_and_resumes_from_incumbent() {
         start.values["requested"],
         ProgressValue::Text("resume_from_parent".into())
     );
-    assert_eq!(start.values["solution"], ProgressValue::Text(solution.replace('-', "")));
+    assert_eq!(
+        start.values["solution"],
+        ProgressValue::Text(solution.replace('-', ""))
+    );
     let RunRequest::Modeling(requests) = result.request() else {
         panic!()
     };
@@ -675,10 +691,14 @@ async fn cross_process_cancel_stops_scip() {
     let attempt = enqueued.attempt_id();
     let mut worker = spawn_worker(database.url(), "worker-cancelled", 30);
     // SCIP is searching once its first incumbent is stored.
-    until(std::time::Duration::from_secs(40), "a stored incumbent", || async {
-        searching(&operations, attempt).await;
-        !incumbents(&database, attempt).await.is_empty()
-    })
+    until(
+        std::time::Duration::from_secs(40),
+        "a stored incumbent",
+        || async {
+            searching(&operations, attempt).await;
+            !incumbents(&database, attempt).await.is_empty()
+        },
+    )
     .await;
     let requested = tokio::time::Instant::now();
     let store = database.store();
@@ -821,9 +841,10 @@ async fn study_parallel_workers_publish_once() {
     // Two worker processes serve the queue at once and stop when it is empty.
     let url = database.url().to_owned();
     let mut workers = ["worker-left", "worker-right"].map(|name| spawn_worker(&url, name, 30));
-    let statuses = tokio::task::spawn_blocking(move || workers.each_mut().map(|w| w.wait().unwrap()))
-        .await
-        .unwrap();
+    let statuses =
+        tokio::task::spawn_blocking(move || workers.each_mut().map(|w| w.wait().unwrap()))
+            .await
+            .unwrap();
     for status in statuses {
         assert!(status.success(), "{status}");
     }

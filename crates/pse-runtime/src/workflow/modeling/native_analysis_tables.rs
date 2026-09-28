@@ -146,57 +146,60 @@ impl ModelingLinearDiagnostics {
                     .iter()
                     .flat_map(|m| m.iter())
                     .flat_map(|(family, r)| {
-                        r.ids.iter().enumerate().zip(std::iter::repeat(family)).map(|((i, id), family)| {
-                            // All augmented coordinates were checked above; this projection is total.
-                            let project = |index: i32| {
-                                let sentinel = (index < 0).then_some(i64::from(index));
-                                let ix = usize::try_from(index).ok();
-                                let row_slack = ix.is_some_and(|i| i >= self.columns.len());
-                                let source_id = ix
-                                    .and_then(|i| {
-                                        if row_slack {
-                                            self.rows.get(i - self.columns.len())
-                                        } else {
-                                            self.columns.get(i)
-                                        }
-                                    })
-                                    .copied();
-                                (source_id, row_slack, sentinel)
-                            };
-                            let (source_id, row_slack, sentinel) = project(r.entering[i]);
-                            let entering =
-                                RuntimeModelingLinearDiagnosticsFieldRangingItemEntering {
-                                    source_id,
-                                    row_slack,
-                                    sentinel,
+                        r.ids.iter().enumerate().zip(std::iter::repeat(family)).map(
+                            |((i, id), family)| {
+                                // All augmented coordinates were checked above; this projection is total.
+                                let project = |index: i32| {
+                                    let sentinel = (index < 0).then_some(i64::from(index));
+                                    let ix = usize::try_from(index).ok();
+                                    let row_slack = ix.is_some_and(|i| i >= self.columns.len());
+                                    let source_id = ix
+                                        .and_then(|i| {
+                                            if row_slack {
+                                                self.rows.get(i - self.columns.len())
+                                            } else {
+                                                self.columns.get(i)
+                                            }
+                                        })
+                                        .copied();
+                                    (source_id, row_slack, sentinel)
                                 };
-                            let (source_id, row_slack, sentinel) = project(r.leaving[i]);
-                            let leaving = RuntimeModelingLinearDiagnosticsFieldRangingItemLeaving {
-                                source_id,
-                                row_slack,
-                                sentinel,
-                            };
-                            RuntimeModelingLinearDiagnosticsFieldRangingItem {
-                                family: family.as_str().to_owned(),
-                                source_id: *id,
-                                value: {
-                                    let (kind, value) = real_evidence(r.value[i]);
-                                    RuntimeModelingLinearDiagnosticsFieldRangingItemValue {
-                                        kind,
-                                        value,
-                                    }
-                                },
-                                objective: {
-                                    let (kind, value) = real_evidence(r.objective[i]);
-                                    RuntimeModelingLinearDiagnosticsFieldRangingItemObjective {
-                                        kind,
-                                        value,
-                                    }
-                                },
-                                entering,
-                                leaving,
-                            }
-                        })
+                                let (source_id, row_slack, sentinel) = project(r.entering[i]);
+                                let entering =
+                                    RuntimeModelingLinearDiagnosticsFieldRangingItemEntering {
+                                        source_id,
+                                        row_slack,
+                                        sentinel,
+                                    };
+                                let (source_id, row_slack, sentinel) = project(r.leaving[i]);
+                                let leaving =
+                                    RuntimeModelingLinearDiagnosticsFieldRangingItemLeaving {
+                                        source_id,
+                                        row_slack,
+                                        sentinel,
+                                    };
+                                RuntimeModelingLinearDiagnosticsFieldRangingItem {
+                                    family: family.as_str().to_owned(),
+                                    source_id: *id,
+                                    value: {
+                                        let (kind, value) = real_evidence(r.value[i]);
+                                        RuntimeModelingLinearDiagnosticsFieldRangingItemValue {
+                                            kind,
+                                            value,
+                                        }
+                                    },
+                                    objective: {
+                                        let (kind, value) = real_evidence(r.objective[i]);
+                                        RuntimeModelingLinearDiagnosticsFieldRangingItemObjective {
+                                            kind,
+                                            value,
+                                        }
+                                    },
+                                    entering,
+                                    leaving,
+                                }
+                            },
+                        )
                     })
                     .collect(),
                 relaxation: d.relaxation.as_ref().map(|r| {

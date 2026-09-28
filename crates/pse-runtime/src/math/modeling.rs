@@ -22,14 +22,24 @@ pub struct ModelingRevision {
     _lease: Arc<AllocationLease>,
 }
 impl ModelingRevision {
-    pub(crate) fn quantity_names(&self) -> &BTreeMap<String,QuantityTypeId> { self.admitted.quantity_names() }
+    pub(crate) fn quantity_names(&self) -> &BTreeMap<String, QuantityTypeId> {
+        self.admitted.quantity_names()
+    }
     /// What specializing `root` as `instance` solves (`pse_model::lineage`).
-    fn solved(&self, root: DeclarationId, instance: InstanceId) -> Result<Solved, MathRuntimeError> {
+    fn solved(
+        &self,
+        root: DeclarationId,
+        instance: InstanceId,
+    ) -> Result<Solved, MathRuntimeError> {
         self.admitted.solved(root, instance).ok_or_else(|| {
-            MathRuntimeError::Infrastructure(format!("prepared root {root} is not an admitted declaration"))
+            MathRuntimeError::Infrastructure(format!(
+                "prepared root {root} is not an admitted declaration"
+            ))
         })
     }
-    pub(crate) fn identity(&self) -> pse_ids::ContentHash { self.identity }
+    pub(crate) fn identity(&self) -> pse_ids::ContentHash {
+        self.identity
+    }
     pub(crate) fn declarations(&self) -> &[Declaration] {
         self.admitted.declarations()
     }
@@ -77,7 +87,9 @@ pub struct ModelingInner {
 struct MissingInnerSolver;
 #[cfg(not(feature = "solver-kinsol"))]
 impl pse_math::implicit::InnerSolver for MissingInnerSolver {
-    fn identity(&self) -> pse_ids::ContentHash { pse_math::implicit::solver_identity("missing.inner-solver.v1") }
+    fn identity(&self) -> pse_ids::ContentHash {
+        pse_math::implicit::solver_identity("missing.inner-solver.v1")
+    }
     fn solve(
         &self,
         _: Arc<pse_math::implicit::Problem>,
@@ -379,8 +391,12 @@ impl MathService {
                 let compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                 })?;
-                let product =
-                    compiler.prepare_modeling_observations(model.compiled(), &rows, profile, &flag)?;
+                let product = compiler.prepare_modeling_observations(
+                    model.compiled(),
+                    &rows,
+                    profile,
+                    &flag,
+                )?;
                 let bytes = product
                     .plan
                     .retained_bytes()
@@ -467,7 +483,10 @@ impl MathService {
                 .iter()
                 .all(|(id, bits)| completed.scalars.get(id).map(|v| v.to_bits()) == Some(*bits))
             {
-                compiled.plan.structure().validate_frozen_values(&completed)?;
+                compiled
+                    .plan
+                    .structure()
+                    .validate_frozen_values(&completed)?;
                 return Ok(prepared.clone());
             }
             // Every product is shared; only the recorded fixed and parameter values follow
@@ -480,18 +499,17 @@ impl MathService {
             ));
         }
         let control = FlightCancellation::default();
-        let operation = self.job_retained(
-            1,
-            self.policy.worker_bytes,
-            control.clone(),
-            move |flag| {
+        let operation =
+            self.job_retained(1, self.policy.worker_bytes, control.clone(), move |flag| {
                 let rebound = compiled.rebind(&values, &flag)?;
                 let bytes = rebound.presolve.bytes()
-                    + rebound.coefficients.as_ref().map_or(0, |c| c.retained_bytes())
+                    + rebound
+                        .coefficients
+                        .as_ref()
+                        .map_or(0, |c| c.retained_bytes())
                     + rebound.derived.retained_bytes();
                 Ok((rebound, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (rebound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.preparations.rebuilt.fetch_add(1, Relaxed);
@@ -569,9 +587,13 @@ impl MathService {
         use pse_model::SemanticFrame;
         let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV1);
         source.u64(rows.len() as u64);
-        for row in &rows { row.frame(&mut source); }
+        for row in &rows {
+            row.frame(&mut source);
+        }
         source.u64(names.len() as u64);
-        for (name, quantity) in &names { source.str(name).id(&quantity.as_id()); }
+        for (name, quantity) in &names {
+            source.str(name).id(&quantity.as_id());
+        }
         let admitted = workspace
             .compiler
             .lock()

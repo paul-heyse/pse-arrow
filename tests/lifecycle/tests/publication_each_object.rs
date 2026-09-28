@@ -231,7 +231,10 @@ async fn every_actual_delta_write_boundary_preserves_a_complete_publication() {
     let trace = complete.store.put_trace();
     assert!(trace.iter().any(|path| path.starts_with("members/3/")));
     // A candidate writes members only: visibility is the catalog's commit.
-    assert!(trace.iter().all(|path| path.starts_with("members/3/")), "{trace:?}");
+    assert!(
+        trace.iter().all(|path| path.starts_with("members/3/")),
+        "{trace:?}"
+    );
     for (index, path) in trace.iter().enumerate() {
         let fixture = Fixture::new();
         let old = fixture.publish(2, None, 1).await.unwrap();

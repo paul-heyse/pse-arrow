@@ -27,7 +27,6 @@ mod normalization;
 mod operations;
 mod publication;
 mod row_checks;
-pub mod solve_settings;
 pub mod s14_passes;
 pub mod s4_schema;
 pub mod s6_10_cases;
@@ -38,6 +37,7 @@ pub mod s6_15_semantic;
 pub mod s6_1_identity;
 pub mod s6_2_physical;
 pub mod s7_operators;
+pub mod solve_settings;
 
 use crate::builder::{Registry, RegistryBuilder};
 use crate::error::SchemaError;

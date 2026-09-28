@@ -88,4 +88,3 @@ fn entity_registration(builder: &mut RegistryBuilder) {
         );
     }
 }
-

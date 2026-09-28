@@ -315,11 +315,10 @@ impl ModelingPackage {
                 let bound = symbols
                     .get(symbol)
                     .ok_or_else(|| contract("unknown causal input symbol"))?;
-                if source
-                    .variables()
-                    .iter()
-                    .any(|v| v.port.id == *symbol && (v.lower.is_some() || v.upper.is_some() || v.domain.is_integer()))
-                {
+                if source.variables().iter().any(|v| {
+                    v.port.id == *symbol
+                        && (v.lower.is_some() || v.upper.is_some() || v.domain.is_integer())
+                }) {
                     return Err(contract(
                         "KINSOL fixed point cannot enforce causal input bounds or integrality; request a constrained simultaneous strategy",
                     ));

@@ -7,9 +7,7 @@
 use super::runtime::{self, Runtime};
 use crate::{
     ProblemError,
-    settings::ipopt::{
-        Linear, MumpsOrdering, PardisoMatching, PardisoOrdering, Settings,
-    },
+    settings::ipopt::{Linear, MumpsOrdering, PardisoMatching, PardisoOrdering, Settings},
     solve::{IpoptLinearSolver, OptionValue, Options},
 };
 

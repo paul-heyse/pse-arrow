@@ -20,11 +20,11 @@ use pse_catalog::delta::{
     scope::ReadScope,
 };
 use pse_columnar::CancellationToken;
+use pse_operations::catalog::RuntimeOperationalReaderLeasesRow;
 use pse_operations::{
     OperationsError, Store,
     catalog::{PublicationId, PublicationRecord, ReadTarget, ReaderLeaseId, WorkspaceId},
 };
-use pse_operations::catalog::RuntimeOperationalReaderLeasesRow;
 use pse_relations::generated::runtime::publication_manifests;
 use std::{
     sync::{
@@ -58,8 +58,12 @@ impl ReaderLeaseGuard {
         let lapse = cancel.child_token();
         let lapsed = Arc::new(AtomicBool::new(false));
         let renewal = tokio::runtime::Handle::try_current().ok().map(|handle| {
-            let (store, lapse, lapsed, id) =
-                (store.clone(), lapse.clone(), Arc::clone(&lapsed), lease.lease_id);
+            let (store, lapse, lapsed, id) = (
+                store.clone(),
+                lapse.clone(),
+                Arc::clone(&lapsed),
+                lease.lease_id,
+            );
             let deadline = std::time::Instant::now() + ttl;
             handle.spawn(async move { renew(store, id, ttl, deadline, lapse, lapsed).await })
         });

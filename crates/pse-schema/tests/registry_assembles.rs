@@ -57,9 +57,7 @@ fn enumeration_types_supply_unique_targets_for_member_references() {
     for enumeration in registry.enums() {
         assert!(identities.contains(&enumeration.id));
     }
-    for (relation, field) in [
-        ("reference.schema_enums", "enum_id"),
-    ] {
+    for (relation, field) in [("reference.schema_enums", "enum_id")] {
         let relation = registry.relation(relation).expect("declared enum consumer");
         assert_eq!(
             relation

@@ -36,9 +36,13 @@ class PreparedFlow:
             self._handle.graph_json().encode(), _AnalysisDocument
         ).payload
 
-    def select_tears(self, method: TearMethod, settings: SolveSettings) -> "StrategyResult":
+    def select_tears(
+        self, method: TearMethod, settings: SolveSettings
+    ) -> "StrategyResult":
         """Run the explicitly selected native MILP or policy-respecting heuristic."""
-        return StrategyResult(self._handle.select_tears(method, codec.encode_json(settings)))
+        return StrategyResult(
+            self._handle.select_tears(method, codec.encode_json(settings))
+        )
 
 
 @attrs.frozen
@@ -93,5 +97,3 @@ class StrategyResult:
             if data is None
             else codec.decode_json(data.encode(), _AnalysisDocument).payload
         )
-
-

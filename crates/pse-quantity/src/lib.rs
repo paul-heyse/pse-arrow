@@ -54,11 +54,11 @@ pub mod error;
 #[cfg(feature = "fixtures")]
 #[rustfmt::skip]
 pub mod generated;
+pub mod entity_kind;
 pub mod ids;
 pub mod index;
 pub mod infer;
 pub mod kind;
-pub mod entity_kind;
 pub use entity_kind::EntityKind;
 pub mod literal;
 pub mod numeric;
@@ -67,8 +67,8 @@ pub mod precondition;
 pub mod quantity_type;
 pub mod reference_state;
 pub mod registry;
-pub mod smoothing;
 pub mod scheme;
+pub mod smoothing;
 #[cfg(feature = "fixtures")]
 pub mod standard;
 pub mod unit;
@@ -78,14 +78,14 @@ pub use crate::basis::Basis;
 pub use crate::conversion::ConversionRule;
 pub use crate::dimension::{BaseDimension, DimensionVector, Ratio};
 pub use crate::enums::{
-    BasisKind, BasisRule, CompositionBasis, ConversionKind, Opcode,
-    QuantityAdditionKind, QuantityKindCategory, QuantityScaleRule, QuantityShapeRule, RateBasis,
-    ReductionKind, ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule, WeightNormalization,
+    BasisKind, BasisRule, CompositionBasis, ConversionKind, Opcode, QuantityAdditionKind,
+    QuantityKindCategory, QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind,
+    ReferenceRule, ReferenceStateKind, ScaleKind, SubjectRule, WeightNormalization,
 };
 pub use crate::error::{ContractComponent, DimensionError, IncompatibilityReason, QuantityError};
 pub use crate::ids::{
-    BasisId, BoundIndexId, ConstantId, ConversionId, DomainId, EntityKindId, InvariantId, OperationId,
-    QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
+    BasisId, BoundIndexId, ConstantId, ConversionId, DomainId, EntityKindId, InvariantId,
+    OperationId, QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
 };
 pub use crate::index::{BinderConflict, BoundIndexRef, IndexSet};
 pub use crate::kind::QuantityKind;

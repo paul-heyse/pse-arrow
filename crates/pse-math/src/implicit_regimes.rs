@@ -133,14 +133,32 @@ impl pse_kernels::Provider for SelectedProvider {
                 .iter()
                 .map(|i| selected.values[*i])
                 .collect(),
-            jacobian: request.outputs.iter().flat_map(|i| {
-                let n = inputs.len();
-                selected.jacobian.get(i * n..(i + 1) * n).unwrap_or_default().iter().copied()
-            }).collect(),
-            hessians: request.outputs.iter().flat_map(|i| {
-                let n = inputs.len() * inputs.len();
-                selected.hessians.get(i * n..(i + 1) * n).unwrap_or_default().iter().copied()
-            }).collect(),
+            jacobian: request
+                .outputs
+                .iter()
+                .flat_map(|i| {
+                    let n = inputs.len();
+                    selected
+                        .jacobian
+                        .get(i * n..(i + 1) * n)
+                        .unwrap_or_default()
+                        .iter()
+                        .copied()
+                })
+                .collect(),
+            hessians: request
+                .outputs
+                .iter()
+                .flat_map(|i| {
+                    let n = inputs.len() * inputs.len();
+                    selected
+                        .hessians
+                        .get(i * n..(i + 1) * n)
+                        .unwrap_or_default()
+                        .iter()
+                        .copied()
+                })
+                .collect(),
         };
         values.validate(&self.spec, request)?;
         Ok(values)
@@ -170,7 +188,9 @@ mod tests {
         wrong: bool,
     }
     impl InnerSolver for Roots {
-    fn identity(&self) -> pse_ids::ContentHash { crate::implicit::solver_identity("test.regime-roots.v1") }
+        fn identity(&self) -> pse_ids::ContentHash {
+            crate::implicit::solver_identity("test.regime-roots.v1")
+        }
         fn solve(
             &self,
             problem: Arc<Problem>,
@@ -272,7 +292,17 @@ mod tests {
                     time_limit: Duration::from_secs(1),
                     derivative_tolerance: 1e-10,
                 };
-                Regime::new(problem, options, body(1), body(2), Arc::new(Roots {fail:None, wrong:false})).unwrap()
+                Regime::new(
+                    problem,
+                    options,
+                    body(1),
+                    body(2),
+                    Arc::new(Roots {
+                        fail: None,
+                        wrong: false,
+                    }),
+                )
+                .unwrap()
             })
             .collect();
         RegimeSelection::new(SemanticId::NIL, alternatives, 2, Duration::from_secs(1)).unwrap()
@@ -299,13 +329,25 @@ mod tests {
                 ..
             })
         ));
-        let jet = selected.evaluate(&[2.], DerivativeOrder::Second, &cancel).unwrap();
+        let jet = selected
+            .evaluate(&[2.], DerivativeOrder::Second, &cancel)
+            .unwrap();
         assert_eq!(jet.jacobian, vec![0.0]);
         assert_eq!(jet.hessians, vec![0.0]);
-        assert!(matches!(selected.evaluate(&[-2.], DerivativeOrder::First, &cancel),
-            Err(MathError::Domain { requirement: "implicit derivative trial crosses the bound regime", .. })));
-        assert!(matches!(selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
-            Err(MathError::Domain { requirement: "implicit derivative trial crosses the bound regime", .. })));
+        assert!(matches!(
+            selected.evaluate(&[-2.], DerivativeOrder::First, &cancel),
+            Err(MathError::Domain {
+                requirement: "implicit derivative trial crosses the bound regime",
+                ..
+            })
+        ));
+        assert!(matches!(
+            selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
+            Err(MathError::Domain {
+                requirement: "implicit derivative trial crosses the bound regime",
+                ..
+            })
+        ));
         let mut filtered = selection([true, false]);
         assert_eq!(
             filtered
@@ -320,12 +362,28 @@ mod tests {
         let cancel = Arc::new(AtomicBool::new(false));
         let mut selected = selection([true, true]);
         let failed = selected.alternatives[1].problem.id;
-        selected.alternatives[1].solver = Arc::new(Roots { fail: Some(failed), wrong: false });
-        assert!(matches!(selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
-            Err(MathError::Domain { requirement: "controlled nonconvergence", .. })));
-        selected.alternatives[1].solver = Arc::new(Roots { fail: None, wrong: true });
-        assert!(matches!(selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
-            Err(MathError::Domain { requirement: "inner root did not satisfy original residual budgets", .. })));
+        selected.alternatives[1].solver = Arc::new(Roots {
+            fail: Some(failed),
+            wrong: false,
+        });
+        assert!(matches!(
+            selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
+            Err(MathError::Domain {
+                requirement: "controlled nonconvergence",
+                ..
+            })
+        ));
+        selected.alternatives[1].solver = Arc::new(Roots {
+            fail: None,
+            wrong: true,
+        });
+        assert!(matches!(
+            selected.evaluate(&[-2.], DerivativeOrder::Value, &cancel),
+            Err(MathError::Domain {
+                requirement: "inner root did not satisfy original residual budgets",
+                ..
+            })
+        ));
         let mut empty = selection([false, false]);
         assert!(matches!(
             empty.evaluate(&[2.], DerivativeOrder::Value, &cancel),
@@ -455,7 +513,11 @@ impl RegimeSelection {
             }
         };
         let local = order > DerivativeOrder::Value || self.derivative_branch.is_some();
-        let assessment_order = if local { DerivativeOrder::First } else { DerivativeOrder::Value };
+        let assessment_order = if local {
+            DerivativeOrder::First
+        } else {
+            DerivativeOrder::Value
+        };
         let mut candidates = Vec::with_capacity(self.alternatives.len());
         for regime in &mut self.alternatives {
             checkpoint()?;
@@ -469,31 +531,51 @@ impl RegimeSelection {
             if options.time_limit.is_zero() {
                 return Err(MathError::Limit("implicit regime time"));
             }
-            let point = regime.solver.solve(regime.problem.clone(), parameters, &options, cancel)?;
+            let point =
+                regime
+                    .solver
+                    .solve(regime.problem.clone(), parameters, &options, cancel)?;
             // The capability may return an iterate; generic original-space validation remains mandatory.
             regime
                 .problem
                 .verify(parameters, &point, &options, cancel)?;
             checkpoint()?;
-            if local && regime.problem.unknowns.iter().zip(&point).any(|(u, y)| *y <= u.lower || *y >= u.upper) {
-                return Err(MathError::Domain { source_id: regime.problem.id, requirement: "branch-local implicit root is on its admissibility boundary" });
+            if local
+                && regime
+                    .problem
+                    .unknowns
+                    .iter()
+                    .zip(&point)
+                    .any(|(u, y)| *y <= u.lower || *y >= u.upper)
+            {
+                return Err(MathError::Domain {
+                    source_id: regime.problem.id,
+                    requirement: "branch-local implicit root is on its admissibility boundary",
+                });
             }
             // Regularity of every alternative is needed: a failed or singular rival
             // cannot be treated as evidence that the winning branch persists nearby.
-            let derivatives = regime.problem.derivatives(parameters, &point,
-                if local { order.max(DerivativeOrder::First) } else { DerivativeOrder::Value }, &options, cancel)?;
+            let derivatives = regime.problem.derivatives(
+                parameters,
+                &point,
+                if local {
+                    order.max(DerivativeOrder::First)
+                } else {
+                    DerivativeOrder::Value
+                },
+                &options,
+                cancel,
+            )?;
             let inputs = point.iter().chain(parameters).copied().collect::<Vec<_>>();
             let mut providers = regime
                 .problem
                 .providers
                 .lock()
                 .map_err(|_| MathError::Library("regime provider lock poisoned".into()))?;
-            let eligible = regime.eligibility.evaluate(
-                &inputs,
-                assessment_order,
-                &mut providers,
-                cancel,
-            )?;
+            let eligible =
+                regime
+                    .eligibility
+                    .evaluate(&inputs, assessment_order, &mut providers, cancel)?;
             match eligible.values.as_slice() {
                 [value] if *value == 0. => continue,
                 [value] if *value == 1. => {}
@@ -503,12 +585,10 @@ impl RegimeSelection {
                     ));
                 }
             }
-            let criterion = regime.criterion.evaluate(
-                &inputs,
-                assessment_order,
-                &mut providers,
-                cancel,
-            )?;
+            let criterion =
+                regime
+                    .criterion
+                    .evaluate(&inputs, assessment_order, &mut providers, cancel)?;
             let [score, tolerance] = criterion.values.as_slice() else {
                 return Err(MathError::Contract(
                     "regime criterion requires score and tolerance".into(),
@@ -548,15 +628,28 @@ impl RegimeSelection {
         let eligible = candidates.len();
         let (id, values, _, _, derivatives) = candidates.swap_remove(best);
         if self.derivative_branch.is_some_and(|branch| branch != id) {
-            return Err(MathError::Domain { source_id: self.id, requirement: "implicit derivative trial crosses the bound regime" });
+            return Err(MathError::Domain {
+                source_id: self.id,
+                requirement: "implicit derivative trial crosses the bound regime",
+            });
         }
-        if order > DerivativeOrder::Value { self.derivative_branch = Some(id); }
+        if order > DerivativeOrder::Value {
+            self.derivative_branch = Some(id);
+        }
         checkpoint()?;
         Ok(SelectedRegime {
             id,
             values,
-            jacobian: if order >= DerivativeOrder::First { derivatives.jacobian } else { vec![] },
-            hessians: if order >= DerivativeOrder::Second { derivatives.hessians } else { vec![] },
+            jacobian: if order >= DerivativeOrder::First {
+                derivatives.jacobian
+            } else {
+                vec![]
+            },
+            hessians: if order >= DerivativeOrder::Second {
+                derivatives.hessians
+            } else {
+                vec![]
+            },
             examined: self.alternatives.len(),
             eligible,
         })

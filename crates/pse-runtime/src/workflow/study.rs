@@ -156,7 +156,10 @@ fn point_catalog(point: u32) -> String {
     format!("point_{point}")
 }
 
-fn identity(frame: pse_ids::Frame, value: &impl serde::Serialize) -> Result<ContentHash, WorkflowError> {
+fn identity(
+    frame: pse_ids::Frame,
+    value: &impl serde::Serialize,
+) -> Result<ContentHash, WorkflowError> {
     pse_backend_native::identity::of(frame, value)
         .map_err(|e| WorkflowError::Math(crate::math::MathRuntimeError::from(e)))
 }
@@ -240,13 +243,21 @@ pub(super) async fn predecessor_start(
     ) else {
         return Ok((
             prepared,
-            applied(None, Some("a constant evaluation consumes no seed".to_owned())),
+            applied(
+                None,
+                Some("a constant evaluation consumes no seed".to_owned()),
+            ),
         ));
     };
     let found = operations
         .store()
         .solutions()
-        .latest_of_attempt(point.attempt_id, &target.layout, &preparation, target.backend)
+        .latest_of_attempt(
+            point.attempt_id,
+            &target.layout,
+            &preparation,
+            target.backend,
+        )
         .await?;
     let Some(found) = found else {
         return Ok((
@@ -563,13 +574,14 @@ impl Runtime {
         let record = store.studies().get(study).await?;
         let catalog = store.catalog();
         let publication_id = record.study.publication_id;
-        let intent = catalog
-            .intent(publication_id)
-            .await?
-            .ok_or_else(|| OperationsError::NotFound {
-                entity: "publication intent",
-                id: publication_id.to_string(),
-            })?;
+        let intent =
+            catalog
+                .intent(publication_id)
+                .await?
+                .ok_or_else(|| OperationsError::NotFound {
+                    entity: "publication intent",
+                    id: publication_id.to_string(),
+                })?;
         let published = |parent| Published {
             publication_id,
             workspace_id: intent.workspace_id,
@@ -672,12 +684,11 @@ impl Runtime {
                 member_catalog: (point.state == StudyPointState::Completed)
                     .then(|| point_catalog(point.point_index)),
                 error: match point.state {
-                    StudyPointState::Failed | StudyPointState::Cancelled => Some(
-                        point
-                            .last_error
-                            .clone()
-                            .unwrap_or_else(|| format!("the point's try ended {}", point.attempt_state.as_str())),
-                    ),
+                    StudyPointState::Failed | StudyPointState::Cancelled => {
+                        Some(point.last_error.clone().unwrap_or_else(|| {
+                            format!("the point's try ended {}", point.attempt_state.as_str())
+                        }))
+                    }
                     _ => None,
                 },
             })

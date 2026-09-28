@@ -142,7 +142,12 @@ fn projection(relation: &str) -> Projection {
     match relation {
         "reference.units" => (Some("unit_id"), Some("unit"), Some("symbol"), None),
         "reference.unit_sets" => (Some("unit_set_id"), Some("unit_set"), Some("name"), None),
-        "reference.quantity_kinds" => (Some("quantity_kind_id"), Some("quantity_kind"), Some("name"), None),
+        "reference.quantity_kinds" => (
+            Some("quantity_kind_id"),
+            Some("quantity_kind"),
+            Some("name"),
+            None,
+        ),
         "reference.constants" => (Some("constant_id"), Some("constant"), Some("name"), None),
         "authored.datasets" => (Some("dataset_id"), Some("dataset"), Some("name"), None),
         "reference.bases" => (Some("basis_id"), None, None, None),

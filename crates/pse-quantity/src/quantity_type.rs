@@ -4,8 +4,7 @@
 //! Complete physical type keys (blueprint §6.2, §8.1).
 use crate::registry::QuantityRegistry;
 use crate::{
-    BasisId, EntityKindId, QuantityKindId, QuantityTypeId, ReferenceStateId, ScaleKind,
-    UnitId,
+    BasisId, EntityKindId, QuantityKindId, QuantityTypeId, ReferenceStateId, ScaleKind, UnitId,
 };
 /// Components that determine one registered physical type.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]

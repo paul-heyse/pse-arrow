@@ -7,7 +7,6 @@
 //! run registers its attempt before any effect, queues for native admission, runs under a
 //! heartbeat lease whose durable cancellation flag stops it, streams its progress, and
 //! records its typed termination before its result is published to waiters.
-use pse_model::generated::identities::RunId;
 use super::{
     Runtime, WorkflowError, contract,
     durable::{Canceller, Durability, DurableAttempt, RunDurability, SeedContext},
@@ -16,6 +15,7 @@ use crate::math::{MathRuntimeError, Submission};
 use pse_backend_native::solve::{Event, Progress};
 use pse_columnar::flight::FlightCancellation;
 use pse_ids::SemanticId;
+use pse_model::generated::identities::RunId;
 use std::{
     collections::BTreeMap,
     sync::{Arc, OnceLock},

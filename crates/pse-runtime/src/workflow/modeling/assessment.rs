@@ -3,11 +3,11 @@
 //! Original-model assessment of a step's candidate: prepared once per structure, then
 //! evaluated on the step's own worker, so every step of a staged sequence is qualified the
 //! same way without a nested job (A6).
-use pse_model::generated::identities::RunId;
 use super::results::{AssessmentScope, assess_observations, assessment_units};
 use super::*;
 use crate::math::{ExecutableCase, WorkerBudget, solves::Outcome};
 use pse_math::binding::CaseValues;
+use pse_model::generated::identities::RunId;
 use std::sync::{Arc, atomic::AtomicBool};
 
 /// One assessed candidate: the complete values it implies, its original-model checks and

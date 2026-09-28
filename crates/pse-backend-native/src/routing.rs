@@ -12,7 +12,9 @@ use crate::{
 };
 use pse_kernels::DerivativeOrder;
 use pse_math::facts::{BoundShape, ProblemFacts};
-use pse_model::generated::enums::{ModelingVariableDomain, NativeConstraintForm, NativeIneligibility};
+use pse_model::generated::enums::{
+    ModelingVariableDomain, NativeConstraintForm, NativeIneligibility,
+};
 /// Selected execution class, including the zero-variable path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {

@@ -116,19 +116,9 @@ fn generated_nested_rows_round_trip_through_serde_and_direct_arrow_views() {
 #[test]
 fn generated_enum_round_trip_preserves_names_and_rejects_unknown_members() {
     for value in IdPolicy::ALL {
-        assert_eq!(
-            value
-                .as_str()
-                .parse::<IdPolicy>()
-                .expect("member"),
-            value
-        );
+        assert_eq!(value.as_str().parse::<IdPolicy>().expect("member"), value);
     }
-    assert!(
-        "MISCLASSIFIED"
-            .parse::<IdPolicy>()
-            .is_err()
-    );
+    assert!("MISCLASSIFIED".parse::<IdPolicy>().is_err());
 }
 
 #[test]

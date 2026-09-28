@@ -30,7 +30,8 @@ impl Arbitrary for Expr {
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         let leaf = prop_oneof![
-            (0_u32..100_000).prop_map(|value| expression(ExprKind::Number(Number { exact_integer:None,
+            (0_u32..100_000).prop_map(|value| expression(ExprKind::Number(Number {
+                exact_integer: None,
                 value: f64::from(value),
                 unit: None
             }))),

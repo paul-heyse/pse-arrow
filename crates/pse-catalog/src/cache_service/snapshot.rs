@@ -441,7 +441,12 @@ mod tests {
         };
         // The same scope hits without any I/O.
         let hit = service
-            .open_snapshot(root.clone(), Some(7), LoadRequirement::Query, state(Some(scope)))
+            .open_snapshot(
+                root.clone(),
+                Some(7),
+                LoadRequirement::Query,
+                state(Some(scope)),
+            )
             .await
             .unwrap();
         #[expect(
@@ -456,7 +461,12 @@ mod tests {
         let later = ReadScope { epoch: 4, ..scope };
         assert!(
             service
-                .open_snapshot(root.clone(), Some(7), LoadRequirement::Query, state(Some(later)))
+                .open_snapshot(
+                    root.clone(),
+                    Some(7),
+                    LoadRequirement::Query,
+                    state(Some(later))
+                )
                 .await
                 .is_err()
         );

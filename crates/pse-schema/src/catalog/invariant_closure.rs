@@ -20,9 +20,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["authored.packages"],
         "Every package dependency resolves its actual identity and exact version; ranges are not phase-0 bindings.",
     );
-    for (relation, identity, parent) in [
-        ("authored.entities", "entity_id", "parent_entity_id"),
-    ] {
+    for (relation, identity, parent) in [("authored.entities", "entity_id", "parent_entity_id")] {
         let source = table(relation);
         let key = identifier(identity);
         let parent = identifier(parent);

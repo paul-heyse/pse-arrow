@@ -4,8 +4,8 @@
 //! One invocation-owned projection of actual physical source bindings.
 
 mod decode;
-mod preconditions;
 mod plans;
+mod preconditions;
 
 use datafusion::logical_expr::{Expr, LogicalPlanBuilder, col, lit};
 use pse_engine::session::{EngineSession, output::declare_relation_output};

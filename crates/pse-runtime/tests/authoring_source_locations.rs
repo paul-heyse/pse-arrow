@@ -112,7 +112,10 @@ async fn target_spans_follow_values_after_sort_filter_union_and_source_release()
             let span = SourceSpan::try_from(row.source_span).unwrap();
             let original = &originals[&span.document_id];
             let excerpt = &original[span.start as usize..span.end as usize];
-            assert!(excerpt.contains(&row.observation_id.to_string()), "{excerpt}");
+            assert!(
+                excerpt.contains(&row.observation_id.to_string()),
+                "{excerpt}"
+            );
             assert!(excerpt.contains(&row.target), "{excerpt}");
             identities.push(row.observation_id);
         }

@@ -870,7 +870,10 @@ fn check_constraints(registry: &Registry, spec: &RelationSpec) -> Result<(), Sch
             if column.value_type() != target_column.value_type() {
                 return Err(crate::checks::invalid(
                     &context,
-                    format!("{local} and {}.{remote} have different value types", reference.target),
+                    format!(
+                        "{local} and {}.{remote} have different value types",
+                        reference.target
+                    ),
                 ));
             }
         }
@@ -1536,7 +1539,11 @@ mod tests {
         builder
             .declare_identity(IdentityDecl::new("widget", "a widget"))
             .declare_identity(IdentityDecl::new("gadget", "a gadget"))
-            .declare_relation(simple("widgets").pk(&["widget_id"]).columns(vec![widget_key]))
+            .declare_relation(
+                simple("widgets")
+                    .pk(&["widget_id"])
+                    .columns(vec![widget_key]),
+            )
             .declare_relation(simple("gadgets").pk(&["gadget_id"]).columns(vec![
                 FieldContract::key("gadget_id", FieldContract::id(), "the key")
                     .with_owned_identity("gadget"),
@@ -1598,7 +1605,10 @@ mod tests {
         let widget = registry.identity("widget").expect("declared");
         assert_eq!(widget.base, crate::model::IdentityBase::SemanticId);
         assert_eq!(widget.id, registry_id("identity:widget"));
-        let owner = widget.owner.as_ref().expect("the widget key was declared its owner");
+        let owner = widget
+            .owner
+            .as_ref()
+            .expect("the widget key was declared its owner");
         assert_eq!(
             (owner.relation.as_str(), owner.column.as_str()),
             ("authored.widgets", "widget_id")
@@ -1646,7 +1656,10 @@ mod tests {
                 .with_identity("gadget"),
         )
         .expect_err("a reference cannot carry another entity's identity");
-        assert!(error.to_string().contains("conflicting identity"), "{error}");
+        assert!(
+            error.to_string().contains("conflicting identity"),
+            "{error}"
+        );
         let error = identity_registry(
             FieldContract::key("widget_id", FieldContract::id(), "the key")
                 .with_identity("unheard_of"),
@@ -1706,7 +1719,10 @@ mod tests {
                 ],
             ));
         let error = builder.build().expect_err("a non-key column owns nothing");
-        assert!(error.to_string().contains("single-column primary key"), "{error}");
+        assert!(
+            error.to_string().contains("single-column primary key"),
+            "{error}"
+        );
         // A nested value never owns an identity.
         let mut builder = RegistryBuilder::new();
         builder
@@ -1717,7 +1733,9 @@ mod tests {
                 vec![FieldContract::payload(
                     "contents",
                     FieldContract::structure(vec![
-                        FieldContract::id().with_name("widget_id").with_owned_identity("widget"),
+                        FieldContract::id()
+                            .with_name("widget_id")
+                            .with_owned_identity("widget"),
                     ]),
                     "a nested value",
                 )],
@@ -1737,7 +1755,10 @@ mod tests {
                 ],
             ));
         let registry = builder.build().expect("unowned identities are allowed");
-        assert_eq!(registry.identity("run").and_then(|r| r.owner.as_ref()), None);
+        assert_eq!(
+            registry.identity("run").and_then(|r| r.owner.as_ref()),
+            None
+        );
         // A declaration no column carries is refused.
         let mut builder = RegistryBuilder::new();
         builder.declare_identity(IdentityDecl::new("orphan", "nothing carries it"));
@@ -1796,7 +1817,9 @@ mod tests {
             ],
         ));
         let registry = builder.build()?;
-        let json = registry.logical_type("json").expect("the json logical type");
+        let json = registry
+            .logical_type("json")
+            .expect("the json logical type");
         assert_eq!(json.arrow_storage, r#""Utf8""#);
         assert!(registry.logical_type("ts_us").is_some());
         let spec = registry.relation("authored.documents").expect("declared");
@@ -1807,7 +1830,10 @@ mod tests {
             .field_with_name("body")
             .map_err(|e| crate::checks::invalid("test", e.to_string()))?;
         assert_eq!(
-            field.metadata().get(crate::arrow::KEY_DOCUMENT).map(String::as_str),
+            field
+                .metadata()
+                .get(crate::arrow::KEY_DOCUMENT)
+                .map(String::as_str),
             Some("json")
         );
         assert_eq!(
@@ -1818,7 +1844,10 @@ mod tests {
             Some("json")
         );
         assert_eq!(
-            spec.column("at").expect("declared").value_type().type_name()?,
+            spec.column("at")
+                .expect("declared")
+                .value_type()
+                .type_name()?,
             "ts_us"
         );
         // A document is JSON text, nothing else.
@@ -1845,8 +1874,7 @@ mod tests {
     #[test]
     fn unique_and_composite_keys_described() -> Result<(), SchemaError> {
         let registry = identity_registry(
-            FieldContract::key("widget_id", FieldContract::id(), "the key")
-                .with_identity("widget"),
+            FieldContract::key("widget_id", FieldContract::id(), "the key").with_identity("widget"),
             FieldContract::reference("widget_id", FieldContract::id(), "the widget")
                 .with_fk("authored.widgets", "widget_id"),
         )?;
@@ -1894,8 +1922,15 @@ mod tests {
         let registry = builder.build()?;
         let named = registry.relation("authored.named").expect("declared");
         let description = crate::fingerprint::semantic_description(&registry, named)?;
-        assert_eq!(description["unique_keys"]["name"], serde_json::json!(["name"]));
-        assert!(registry.invariant_id("authored.named:unique:name").is_some());
+        assert_eq!(
+            description["unique_keys"]["name"],
+            serde_json::json!(["name"])
+        );
+        assert!(
+            registry
+                .invariant_id("authored.named:unique:name")
+                .is_some()
+        );
         let relations = &registry
             .schema_batches()
             .iter()

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Native package admission around the pure package graph resolver.
 use crate::authoring_driver::{DriverError, contract};
-use pse_authoring::p0::resolve_rows;
 use pse_authoring::p0::GraphLimits;
+use pse_authoring::p0::resolve_rows;
 /// Native boundary: decode once, resolve typed values, and encode once.
 /// # Errors
 /// Generated field validation, package resolution or resource admission fails.

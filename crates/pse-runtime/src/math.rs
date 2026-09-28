@@ -18,8 +18,8 @@ use datafusion::execution::{
     cache::default_cache::DefaultCache,
     memory_pool::{MemoryConsumer, MemoryPool},
 };
-pub use jobs::{WorkerBudget, WorkerCharge};
 pub(crate) use jobs::Submission;
+pub use jobs::{WorkerBudget, WorkerCharge};
 use pse_columnar::flight::{FlightCancellation, Flights};
 use pse_compiler::workspace::{
     CompileError, CompilerWorkspace, Inputs, PreparedCase, Profile, WorkspaceLimits,

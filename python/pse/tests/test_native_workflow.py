@@ -108,7 +108,11 @@ def test_explicit_primal_seed_and_transactional_initialization(
     case = next(
         row.declaration_id for row in package.declarations() if row.name == "Root"
     )
-    settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT, backend=NativeBackend.KINSOL, presolve=PresolvePolicyKind.OFF)
+    settings = pse.SolveSettings(
+        intent=NativeSolveIntent.ROOT,
+        backend=NativeBackend.KINSOL,
+        presolve=PresolvePolicyKind.OFF,
+    )
     member = cast(
         "list[dict[str, object]]", package.inspect(case, settings)["members"]
     )[0]
@@ -122,7 +126,11 @@ def test_explicit_primal_seed_and_transactional_initialization(
     assert snapshot["payload"]["primal"][0] == pytest.approx(2.0, abs=1e-6)
     assert snapshot["origin"]["run"] == explicit.run_id.to_hex()
     result = package.prepare_block_initialization(
-        case, pse.SolveSettings(intent=NativeSolveIntent.INITIALIZE, backend=NativeBackend.KINSOL), [{}]
+        case,
+        pse.SolveSettings(
+            intent=NativeSolveIntent.INITIALIZE, backend=NativeBackend.KINSOL
+        ),
+        [{}],
     ).run()
     stage = result.initialization()
     assert stage is not None
@@ -188,7 +196,9 @@ def test_empty_library_is_admitted_but_missing_case_is_refused(
     package = runtime.modeling_from_documents([{"package.toml": manifest}], physical)
     assert not package.declarations()
     with pytest.raises(pse.InspectionError):
-        package.prepare_solve(identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT))
+        package.prepare_solve(
+            identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+        )
 
 
 @pytest.mark.unit
@@ -228,7 +238,9 @@ def test_revision_edit_is_atomic_and_has_no_python_math(
         == "Renamed"
     )
     result = (
-        model.prepare_solve(identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT))
+        model.prepare_solve(
+            identity(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+        )
         .start()
         .wait()
     )
@@ -524,7 +536,9 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert durable_runtime.workspace(workspace.name) == workspace
     assert durable_runtime.head(workspace.id) is None
     # The publication attempt is the durable attempt; the ticket exists before any effect.
-    attempt = result.prepare_publication(workspace, publication_id=PublicationId(identity(241)))
+    attempt = result.prepare_publication(
+        workspace, publication_id=PublicationId(identity(241))
+    )
     ticket = attempt.ticket
     assert attempt.publication_id == identity(241)
     assert attempt.attempt_id == result.attempt_id

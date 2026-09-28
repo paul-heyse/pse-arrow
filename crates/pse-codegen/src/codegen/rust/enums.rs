@@ -56,10 +56,32 @@ fn sourced(name: &str, source: &str) -> Result<TokenStream, SchemaError> {
 /// A registry-owned enumeration, emitted from its declaration.
 fn declared(spec: &crate::model::EnumSpec) -> TokenStream {
     let name = format_ident!("{}", super::types::pascal(spec.name));
-    let variants = spec.members.iter().map(|member| format_ident!("{}", super::types::pascal(member.name))).collect::<Vec<_>>();
-    let members = spec.members.iter().map(|member| member.name).collect::<Vec<_>>();
-    let docs = spec.members.iter().map(|member| member.doc).collect::<Vec<_>>();
-    let idaes = spec.members.iter().map(|member| if let Some(name) = member.idaes_name { quote!(Some(#name)) } else { quote!(None) }).collect::<Vec<_>>();
+    let variants = spec
+        .members
+        .iter()
+        .map(|member| format_ident!("{}", super::types::pascal(member.name)))
+        .collect::<Vec<_>>();
+    let members = spec
+        .members
+        .iter()
+        .map(|member| member.name)
+        .collect::<Vec<_>>();
+    let docs = spec
+        .members
+        .iter()
+        .map(|member| member.doc)
+        .collect::<Vec<_>>();
+    let idaes = spec
+        .members
+        .iter()
+        .map(|member| {
+            if let Some(name) = member.idaes_name {
+                quote!(Some(#name))
+            } else {
+                quote!(None)
+            }
+        })
+        .collect::<Vec<_>>();
     let ordinals = (0..variants.len()).collect::<Vec<_>>();
     let length = variants.len();
     quote! {

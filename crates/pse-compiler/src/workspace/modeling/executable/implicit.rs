@@ -5,10 +5,26 @@ use pse_kernels::{AdmittedProvider, Port, ProviderSpec};
 
 /// Algorithm selected by source realization or by the compiler's affine rate proof.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ImplicitAlgorithm { Native, Accelerator(String), AffineRates }
+pub enum ImplicitAlgorithm {
+    Native,
+    Accelerator(String),
+    AffineRates,
+}
 impl ImplicitAlgorithm {
-    fn retained_bytes(&self) -> usize { if let Self::Accelerator(id) = self { id.capacity() } else { 0 } }
-    fn key(&self) -> String { match self { Self::Native=>"nested".into(), Self::Accelerator(id)=>format!("accelerator:{id}"), Self::AffineRates=>"affine-rates".into() } }
+    fn retained_bytes(&self) -> usize {
+        if let Self::Accelerator(id) = self {
+            id.capacity()
+        } else {
+            0
+        }
+    }
+    fn key(&self) -> String {
+        match self {
+            Self::Native => "nested".into(),
+            Self::Accelerator(id) => format!("accelerator:{id}"),
+            Self::AffineRates => "affine-rates".into(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -32,7 +48,13 @@ struct ResidualProjection {
     expressions: Vec<Expr>,
     quantities: Vec<QuantityTypeId>,
     assessment: Option<AssessmentProjection>,
-    hints: Vec<(SemanticId, DeclarationId, ModelingHint, Expr, QuantityTypeId)>,
+    hints: Vec<(
+        SemanticId,
+        DeclarationId,
+        ModelingHint,
+        Expr,
+        QuantityTypeId,
+    )>,
     terms: Vec<(Expr, QuantityTypeId)>,
     scales: Vec<ImplicitScale>,
 }
@@ -49,7 +71,8 @@ pub(super) struct Projection {
 }
 impl Projection {
     pub(super) fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.algorithm.retained_bytes()
+        size_of::<Self>()
+            + self.algorithm.retained_bytes()
             + self
                 .validity
                 .iter()
@@ -79,7 +102,13 @@ impl Projection {
                                     .sum::<usize>()
                         })
                         + size_of_val(r.scales.as_slice())
-                        + r.terms.iter().map(|(e,_)| size_of::<(Expr,QuantityTypeId)>()+pse_modeling::expression::retained_bytes(e)).sum::<usize>()
+                        + r.terms
+                            .iter()
+                            .map(|(e, _)| {
+                                size_of::<(Expr, QuantityTypeId)>()
+                                    + pse_modeling::expression::retained_bytes(e)
+                            })
+                            .sum::<usize>()
                         + r.hints
                             .iter()
                             .map(|h| {
@@ -131,15 +160,19 @@ pub struct AdmittedImplicit {
 impl AdmittedImplicit {
     pub fn bodies(&self) -> impl Iterator<Item = &Arc<AdmittedBody>> {
         self.residuals.iter().flat_map(|r| {
-            std::iter::once(&r.body).chain(r.hints.iter()).chain(r.terms.iter()).chain(
-                r.assessment
-                    .iter()
-                    .flat_map(|a| [&a.eligibility, &a.criterion]),
-            )
+            std::iter::once(&r.body)
+                .chain(r.hints.iter())
+                .chain(r.terms.iter())
+                .chain(
+                    r.assessment
+                        .iter()
+                        .flat_map(|a| [&a.eligibility, &a.criterion]),
+                )
         })
     }
     pub fn retained_bytes(&self) -> usize {
-        size_of_val(self.unknowns.as_slice()) + self.algorithm.retained_bytes()
+        size_of_val(self.unknowns.as_slice())
+            + self.algorithm.retained_bytes()
             + self
                 .residuals
                 .iter()
@@ -218,8 +251,17 @@ impl AdmittedImplicit {
                     )?))
                 };
             let branch_solver: Arc<dyn pse_math::implicit::InnerSolver> = match &self.algorithm {
-                ImplicitAlgorithm::Accelerator(id) => accelerators.admit(id, &residual.body.math, self.unknowns.len(), limits, &cancel)?,
-                ImplicitAlgorithm::AffineRates => Arc::new(pse_math::implicit::Affine::new(&residual.body.math, self.unknowns.len())?),
+                ImplicitAlgorithm::Accelerator(id) => accelerators.admit(
+                    id,
+                    &residual.body.math,
+                    self.unknowns.len(),
+                    limits,
+                    &cancel,
+                )?,
+                ImplicitAlgorithm::AffineRates => Arc::new(pse_math::implicit::Affine::new(
+                    &residual.body.math,
+                    self.unknowns.len(),
+                )?),
                 ImplicitAlgorithm::Native => solver.clone(),
             };
             let mut spec = self.descriptor.spec().clone();
@@ -239,8 +281,14 @@ impl AdmittedImplicit {
                     None
                 },
                 terms: if matches!(configuration, pse_math::implicit::Configuration::Hints(_)) {
-                    residual.terms.as_ref().map(|body|compile(body,DerivativeOrder::Value)).transpose()?
-                } else { None },
+                    residual
+                        .terms
+                        .as_ref()
+                        .map(|body| compile(body, DerivativeOrder::Value))
+                        .transpose()?
+                } else {
+                    None
+                },
                 configuration,
                 solver: branch_solver,
                 cancel: cancel.clone(),
@@ -251,7 +299,10 @@ impl AdmittedImplicit {
                 Ok(Arc::new(body.math.compile_branch_local(
                     &(0..body.math.output_count()).collect::<Vec<_>>(),
                     &(0..body.math.input_count()).collect::<Vec<_>>(),
-                    DerivativeOrder::First, pse_math::library::Optimization::default(), limits, &cancel,
+                    DerivativeOrder::First,
+                    pse_math::library::Optimization::default(),
+                    limits,
+                    &cancel,
                 )?))
             };
             match &residual.assessment {
@@ -284,9 +335,7 @@ pub(super) fn project(
     p: &mut super::Projection,
     bindings: &mut Vec<(String, Expr)>,
 ) -> Result<()> {
-    use pse_model::generated::enums::{
-        ModelingDeclarationKind as Kind,
-    };
+    use pse_model::generated::enums::ModelingDeclarationKind as Kind;
     use pse_modeling::specialize::Realization as Policy;
     let mut hidden = BTreeSet::new();
     let mut unknown_ids = BTreeSet::new();
@@ -327,37 +376,93 @@ pub(super) fn project(
     }
     let order = toposort(&hierarchy, None)
         .map_err(|_| CompileError::Missing("cyclic instance hierarchy".into()))?;
-    let mut stages = order.into_iter().filter_map(|node| {
-        // A stage is identified by its implicit block's instance, or by the generated
-        // rate system's own identity below.
-        let id = hierarchy[node];
-        match model.implicit.get(&id) {
-            Some(Policy::Nested) => Some((id.as_id(), ImplicitAlgorithm::Native)),
-            Some(Policy::Accelerated(reference)) => Some((id.as_id(), ImplicitAlgorithm::Accelerator(reference.clone()))),
-            _ => None,
-        }
-    }).collect::<Vec<_>>();
+    let mut stages = order
+        .into_iter()
+        .filter_map(|node| {
+            // A stage is identified by its implicit block's instance, or by the generated
+            // rate system's own identity below.
+            let id = hierarchy[node];
+            match model.implicit.get(&id) {
+                Some(Policy::Nested) => Some((id.as_id(), ImplicitAlgorithm::Native)),
+                Some(Policy::Accelerated(reference)) => Some((
+                    id.as_id(),
+                    ImplicitAlgorithm::Accelerator(reference.clone()),
+                )),
+                _ => None,
+            }
+        })
+        .collect::<Vec<_>>();
     if !model.derivatives.is_empty() {
-        let axis = model.integrated.keys().next().ok_or_else(||CompileError::Missing("rate system axis".into()))?;
-        stages.push((pse_ids::named_id(*axis,"affine-rate-system"), ImplicitAlgorithm::AffineRates));
+        let axis = model
+            .integrated
+            .keys()
+            .next()
+            .ok_or_else(|| CompileError::Missing("rate system axis".into()))?;
+        stages.push((
+            pse_ids::named_id(*axis, "affine-rate-system"),
+            ImplicitAlgorithm::AffineRates,
+        ));
     }
     for (stage, algorithm) in &stages {
         let generated = *algorithm == ImplicitAlgorithm::AffineRates;
         let instance = &InstanceId::from_id(*stage);
         let unknowns = if generated {
-            model.derivatives.values().map(|d|d.rate).collect::<Vec<_>>()
+            model
+                .derivatives
+                .values()
+                .map(|d| d.rate)
+                .collect::<Vec<_>>()
         } else {
-            model.symbols.values().filter(|s| s.lineage.instance == *instance && s.role==Kind::Variable && s.expression.is_none()).map(|s|s.id).collect::<Vec<_>>()
+            model
+                .symbols
+                .values()
+                .filter(|s| {
+                    s.lineage.instance == *instance
+                        && s.role == Kind::Variable
+                        && s.expression.is_none()
+                })
+                .map(|s| s.id)
+                .collect::<Vec<_>>()
         };
         let selection = model.regimes.get(instance);
         let branches = if generated {
-            let rows = p.outputs.iter().find_map(|o| match o { ModelingOutput::DynamicRate{equations,..}=>Some(equations.clone()), _=>None }).ok_or_else(||CompileError::Missing("rate system equations".into()))?;
-            if rows.iter().any(|r| hidden.contains(r)) { return Err(CompileError::Missing("time derivatives cannot be owned by a nested algebraic block".into())); }
+            let rows = p
+                .outputs
+                .iter()
+                .find_map(|o| match o {
+                    ModelingOutput::DynamicRate { equations, .. } => Some(equations.clone()),
+                    _ => None,
+                })
+                .ok_or_else(|| CompileError::Missing("rate system equations".into()))?;
+            if rows.iter().any(|r| hidden.contains(r)) {
+                return Err(CompileError::Missing(
+                    "time derivatives cannot be owned by a nested algebraic block".into(),
+                ));
+            }
             vec![(*stage, rows, None)]
         } else if let Some(selection) = selection {
-            selection.alternatives.iter().map(|r| (r.id, r.equations.iter().map(|r|r.id).collect::<Vec<_>>(), Some(r))).collect::<Vec<_>>()
+            selection
+                .alternatives
+                .iter()
+                .map(|r| {
+                    (
+                        r.id,
+                        r.equations.iter().map(|r| r.id).collect::<Vec<_>>(),
+                        Some(r),
+                    )
+                })
+                .collect::<Vec<_>>()
         } else {
-            vec![(*stage, model.equations.iter().filter(|r|r.lineage.instance==*instance).map(|r|r.id).collect(), None)]
+            vec![(
+                *stage,
+                model
+                    .equations
+                    .iter()
+                    .filter(|r| r.lineage.instance == *instance)
+                    .map(|r| r.id)
+                    .collect(),
+                None,
+            )]
         };
         let mut residuals = Vec::new();
         let branch_declarations = model
@@ -454,27 +559,46 @@ pub(super) fn project(
                 }
             }
             let mut selected_scales = BTreeMap::new();
-            for annotations in [model.annotations.as_slice(), alternative.map_or(&[][..], |a|a.annotations.as_slice())] {
+            for annotations in [
+                model.annotations.as_slice(),
+                alternative.map_or(&[][..], |a| a.annotations.as_slice()),
+            ] {
                 let mut seen = BTreeSet::new();
                 for annotation in annotations {
                     if rows.contains(&annotation.target)
-                        && let pse_modeling::annotation::AnnotationValue::Scale(scheme) = annotation.value {
-                        if !seen.insert(annotation.target) { return Err(CompileError::Missing("competing implicit scaling schemes in one regime".into())); }
-                        selected_scales.insert(annotation.target,(scheme,annotation.lineage.declaration));
+                        && let pse_modeling::annotation::AnnotationValue::Scale(scheme) =
+                            annotation.value
+                    {
+                        if !seen.insert(annotation.target) {
+                            return Err(CompileError::Missing(
+                                "competing implicit scaling schemes in one regime".into(),
+                            ));
+                        }
+                        selected_scales
+                            .insert(annotation.target, (scheme, annotation.lineage.declaration));
                     }
                 }
             }
             let mut terms = Vec::new();
             let mut scales = Vec::new();
-            for (row,(scheme,source)) in selected_scales {
+            for (row, (scheme, source)) in selected_scales {
                 let begin = terms.len();
-                for (i,output) in p.outputs.iter().enumerate() {
+                for (i, output) in p.outputs.iter().enumerate() {
                     if matches!(output,ModelingOutput::Term{equation,..} if *equation==row) {
-                        terms.push((p.expressions[i].clone(),p.quantities[i]));
+                        terms.push((p.expressions[i].clone(), p.quantities[i]));
                     }
                 }
-                if begin==terms.len() { return Err(CompileError::Missing("implicit original scaling terms are absent".into())); }
-                scales.push(ImplicitScale{row,source,scheme,terms:begin..terms.len()});
+                if begin == terms.len() {
+                    return Err(CompileError::Missing(
+                        "implicit original scaling terms are absent".into(),
+                    ));
+                }
+                scales.push(ImplicitScale {
+                    row,
+                    source,
+                    scheme,
+                    terms: begin..terms.len(),
+                });
             }
             residuals.push(ResidualProjection {
                 id,
@@ -492,12 +616,13 @@ pub(super) fn project(
             .implicit
             .iter()
             .filter(|child| {
-                generated || petgraph::algo::has_path_connecting(
-                    &hierarchy,
-                    nodes[&InstanceId::from_id(child.id)],
-                    nodes[instance],
-                    None,
-                )
+                generated
+                    || petgraph::algo::has_path_connecting(
+                        &hierarchy,
+                        nodes[&InstanceId::from_id(child.id)],
+                        nodes[instance],
+                        None,
+                    )
             })
             .flat_map(|child| child.unknowns.iter().map(|id| symbol_name(*id)))
             .collect::<BTreeSet<_>>();
@@ -563,7 +688,7 @@ pub(super) fn project(
             r.expressions
                 .iter()
                 .chain(r.hints.iter().map(|h| &h.3))
-                .chain(r.terms.iter().map(|(e,_)|e))
+                .chain(r.terms.iter().map(|(e, _)| e))
                 .chain(
                     r.assessment
                         .iter()
@@ -631,7 +756,9 @@ pub(super) fn project(
             for hint in &mut residual.hints {
                 wrap(&mut hint.3);
             }
-            for (e,_) in &mut residual.terms { wrap(e); }
+            for (e, _) in &mut residual.terms {
+                wrap(e);
+            }
             for e in &mut residual.expressions {
                 wrap(e);
             }
@@ -655,9 +782,15 @@ pub(super) fn project(
         for residual in &residuals {
             h.id(&residual.id);
             for scale in &residual.scales {
-                h.id(&scale.row).id(&scale.source.as_id()).str(scale.scheme.as_str()).u64(scale.terms.start as u64).u64(scale.terms.end as u64);
+                h.id(&scale.row)
+                    .id(&scale.source.as_id())
+                    .str(scale.scheme.as_str())
+                    .u64(scale.terms.start as u64)
+                    .u64(scale.terms.end as u64);
             }
-            for (expression,quantity) in &residual.terms { h.id(&quantity.as_id()).str(&dsl::render_expr(expression)); }
+            for (expression, quantity) in &residual.terms {
+                h.id(&quantity.as_id()).str(&dsl::render_expr(expression));
+            }
             for (target, source, kind, expression, quantity) in &residual.hints {
                 h.id(target)
                     .id(&source.as_id())
@@ -978,10 +1111,14 @@ pub(super) fn admit(
                         &r.hints.iter().map(|h| h.4).collect::<Vec<_>>(),
                     )?)
                 },
-                terms: if r.terms.is_empty() { None } else {
-                    Some(admit_body(pse_ids::named_id(r.id,"nominal-terms"),
-                        &r.terms.iter().map(|(e,_)|e.clone()).collect::<Vec<_>>(),
-                        &r.terms.iter().map(|(_,q)|*q).collect::<Vec<_>>())?)
+                terms: if r.terms.is_empty() {
+                    None
+                } else {
+                    Some(admit_body(
+                        pse_ids::named_id(r.id, "nominal-terms"),
+                        &r.terms.iter().map(|(e, _)| e.clone()).collect::<Vec<_>>(),
+                        &r.terms.iter().map(|(_, q)| *q).collect::<Vec<_>>(),
+                    )?)
                 },
                 scales: r.scales.clone(),
                 hint_targets: r.hints.iter().map(|h| (h.0, h.1, h.2)).collect(),

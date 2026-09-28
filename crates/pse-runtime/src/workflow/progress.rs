@@ -9,8 +9,8 @@ use pse_operations::{
     Store,
     attempts::AttemptId,
     streams::{
-        ProgressEvent, ProgressValue, ProgressWatcher, RuntimeOperationalIncumbentsRow,
-        StreamPage, StreamPosition,
+        ProgressEvent, ProgressValue, ProgressWatcher, RuntimeOperationalIncumbentsRow, StreamPage,
+        StreamPosition,
     },
 };
 use std::collections::BTreeMap;

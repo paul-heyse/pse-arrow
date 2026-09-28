@@ -95,12 +95,17 @@ def test_member_descriptor_is_one_named_structure() -> None:
     from pse.contracts import runtime
 
     manifest = attrs.fields_dict(runtime.RuntimePublicationManifestsRow)
-    release = attrs.fields_dict(runtime.RuntimeArtifactDescriptorsRow)["release_members"].type
+    release = attrs.fields_dict(runtime.RuntimeArtifactDescriptorsRow)[
+        "release_members"
+    ].type
     for annotation in (manifest["members"].type, manifest["inputs"].type, release):
         assert "MemberDescriptor" in str(annotation)
     assert "VersionWindow" in str(manifest["windows"].type)
     assert not hasattr(runtime, "RuntimePublicationManifestsFieldMembersItem")
-    assert attrs.fields_dict(MemberDescriptor)["selection"].type is MemberDescriptorSelection
+    assert (
+        attrs.fields_dict(MemberDescriptor)["selection"].type
+        is MemberDescriptorSelection
+    )
 
 
 @pytest.mark.unit

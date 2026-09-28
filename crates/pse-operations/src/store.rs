@@ -133,12 +133,15 @@ pub(crate) fn tls() -> Result<MakeRustlsConnect, OperationsError> {
 }
 
 /// The connection configuration of `url` with the store's session settings.
-pub(crate) fn configure(url: &str, options: &StoreOptions) -> Result<tokio_postgres::Config, OperationsError> {
-    let mut config: tokio_postgres::Config =
-        url.parse()
-            .map_err(|error: tokio_postgres::Error| OperationsError::Configuration {
-                reason: format!("invalid operational store URL: {error}"),
-            })?;
+pub(crate) fn configure(
+    url: &str,
+    options: &StoreOptions,
+) -> Result<tokio_postgres::Config, OperationsError> {
+    let mut config: tokio_postgres::Config = url.parse().map_err(
+        |error: tokio_postgres::Error| OperationsError::Configuration {
+            reason: format!("invalid operational store URL: {error}"),
+        },
+    )?;
     let timeout = format!(
         "-c idle_in_transaction_session_timeout={}",
         options.idle_in_transaction_timeout.as_millis()

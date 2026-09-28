@@ -11,7 +11,6 @@
 use super::*;
 use pse_quantity::{BaseDimension, QuantityOperation, QuantityRegistry};
 
-
 fn root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -27,7 +26,6 @@ fn standard_fixture_matches_yaml() {
         source.preconditions(),
         pse_quantity::generated::standard_preconditions()
     );
-
 }
 
 fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
@@ -215,7 +213,6 @@ fn reference_package_admission_scientific_units() {
         .find(|s| s.base[7].is_none())
         .expect("physical SI");
     unit_set.validate(units).expect("all seven bases valid");
-
 }
 
 fn mutated_package(
@@ -283,5 +280,4 @@ fn altered_physical_facts_are_admitted_from_values_or_refused() {
         load(dimensions.path(), registry).is_err(),
         "kind dimension disagrees with actual quantity canonical unit"
     );
-
 }

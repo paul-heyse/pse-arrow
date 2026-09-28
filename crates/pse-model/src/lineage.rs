@@ -78,7 +78,11 @@ pub struct Solved {
 impl Solved {
     /// The specialization of `root`, a declaration of `kind`, as `instance`.
     #[must_use]
-    pub const fn new(root: DeclarationId, kind: ModelingDeclarationKind, instance: InstanceId) -> Self {
+    pub const fn new(
+        root: DeclarationId,
+        kind: ModelingDeclarationKind,
+        instance: InstanceId,
+    ) -> Self {
         let case = match kind {
             ModelingDeclarationKind::Case | ModelingDeclarationKind::Test => Some(root),
             _ => None,
@@ -213,7 +217,10 @@ mod tests {
                 "{kind:?}"
             );
             assert_eq!(solved.stage(None).instance_id, None);
-            assert_eq!(solved.stage(Some(instance(3))).model_id, Some(declaration(1)));
+            assert_eq!(
+                solved.stage(Some(instance(3))).model_id,
+                Some(declaration(1))
+            );
         }
     }
 

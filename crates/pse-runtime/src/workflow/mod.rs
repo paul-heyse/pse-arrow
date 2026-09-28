@@ -24,12 +24,12 @@ pub use worker::{
     SourceManifest, StudyFinalization, StudyPointBinding, WorkerSettings,
 };
 mod study;
+pub use pse_operations::jobs::RetryPolicy;
+pub use pse_operations::studies::{StudyCancel, StudyFilter, StudyId, StudyPointState, StudyState};
 pub use study::{
     MAXIMUM_STUDY_POINTS, PackageSources, PointStatus, StudyDefinition, StudyHandle, StudyPlan,
     StudyPoint, StudyPointDefinition, StudyStatus,
 };
-pub use pse_operations::jobs::RetryPolicy;
-pub use pse_operations::studies::{StudyCancel, StudyFilter, StudyId, StudyPointState, StudyState};
 pub(crate) mod numerics;
 mod staged;
 mod strategies;
@@ -80,21 +80,19 @@ mod retention;
 mod run;
 mod simulation_results;
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod study_tests;
 #[cfg(test)]
+mod tests;
+#[cfg(test)]
 mod worker_tests;
-use pse_model::generated::identities::RunId;
 use crate::{SharedRuntime, math::MathRuntimeError};
 use pse_engine::{EngineError, session::EngineFactory};
+use pse_model::generated::identities::RunId;
 pub use publication::{
     PublicationAttempt, PublicationSettlement, PublicationTicket, Published, Workspace,
     prepare_artifact_publication,
 };
-pub use reading::{
-    ExportReceipt, LeasedPublication, READER_LEASE, ReaderLeaseGuard, open_export,
-};
+pub use reading::{ExportReceipt, LeasedPublication, READER_LEASE, ReaderLeaseGuard, open_export};
 pub use retention::{CollectReport, ReclaimReport, RetireReport};
 pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 use std::sync::Arc;

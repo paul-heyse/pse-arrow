@@ -3,9 +3,9 @@
 
 //! Exact package resolution over a complete typed dependency inventory.
 use crate::AuthoringError;
+use petgraph::{algo::toposort, graph::DiGraph};
 use pse_model::generated::identities::PackageId;
 use pse_model::generated::{authored, normalized};
-use petgraph::{graph::DiGraph, algo::toposort};
 
 /// Explicit bounds on the finite package inventory.
 #[derive(Clone, Copy, Debug)]
@@ -60,10 +60,20 @@ pub fn resolve_rows(
         }
     }
     let mut graph = DiGraph::<PackageId, ()>::new();
-    let nodes = packages.keys().map(|id| (*id, graph.add_node(*id))).collect::<BTreeMap<_, _>>();
+    let nodes = packages
+        .keys()
+        .map(|id| (*id, graph.add_node(*id)))
+        .collect::<BTreeMap<_, _>>();
     edges.sort_unstable();
-    for (from, to) in edges { graph.add_edge(nodes[&from], nodes[&to], ()); }
-    let order = toposort(&graph, None).map_err(|cycle| contract(&format!("package dependency cycle at {}", graph[cycle.node_id()])))?;
+    for (from, to) in edges {
+        graph.add_edge(nodes[&from], nodes[&to], ());
+    }
+    let order = toposort(&graph, None).map_err(|cycle| {
+        contract(&format!(
+            "package dependency cycle at {}",
+            graph[cycle.node_id()]
+        ))
+    })?;
     let mut depths = BTreeMap::<PackageId, u16>::new();
     for node in order {
         let id = graph[node];
@@ -96,7 +106,10 @@ pub fn resolve_rows(
                 content_hash: package.content_hash,
                 depth: i64::from(depths[&package.package_id]),
                 dependency_package_ids: dependencies,
-                derivation_id: pse_ids::named_id(package.package_id.as_id(), "pass:P0@1:package_graph"),
+                derivation_id: pse_ids::named_id(
+                    package.package_id.as_id(),
+                    "pass:P0@1:package_graph",
+                ),
             }
         })
         .collect())

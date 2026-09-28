@@ -13,9 +13,7 @@ use crate::jobs::{JobFilter, JobState, RetryPolicy};
 use crate::lifecycle::AttemptState;
 use crate::store_tests::{new_attempt, new_job};
 use crate::streams::{ProgressEvent, ProgressValue};
-use crate::tables::{
-    AttemptScan, JobScan, ProgressValueScan, Scan, TimeRange, TransitionScan,
-};
+use crate::tables::{AttemptScan, JobScan, ProgressValueScan, Scan, TimeRange, TransitionScan};
 use crate::testing::TestDatabase;
 use crate::{Store, mint_id};
 
@@ -45,7 +43,11 @@ async fn table_scans_page_in_key_order_with_typed_filters() {
             run_id: if index < 3 { run } else { mint_id() },
             ..new_attempt()
         };
-        store.attempts().create(&attempt, Some("test")).await.unwrap();
+        store
+            .attempts()
+            .create(&attempt, Some("test"))
+            .await
+            .unwrap();
         created.push(attempt.attempt_id);
     }
     let queued_id = created[4];
@@ -184,7 +186,11 @@ async fn table_scans_page_in_key_order_with_typed_filters() {
     assert!(
         drain(
             &ProgressValueScan {
-                attempts: created.iter().copied().filter(|id| *id != queued_id).collect(),
+                attempts: created
+                    .iter()
+                    .copied()
+                    .filter(|id| *id != queued_id)
+                    .collect(),
             },
             &store,
             4

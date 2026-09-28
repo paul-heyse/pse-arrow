@@ -2,11 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Generic physical operation prerequisites and explicit mathematical context.
-use super::declarations::{column,enumeration,relation};
-use crate::{RegistryBuilder,model::{FieldContract as T,Namespace as N,SnapshotClass as S}};
+use super::declarations::{column, enumeration, relation};
+use crate::{
+    RegistryBuilder,
+    model::{FieldContract as T, Namespace as N, SnapshotClass as S},
+};
 
 /// Declare physical prerequisites consumed by quantity checking.
-pub fn declare(builder:&mut RegistryBuilder){
+pub fn declare(builder: &mut RegistryBuilder) {
     relation(
         builder,
         N::Reference,

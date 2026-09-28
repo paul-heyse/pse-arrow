@@ -16,8 +16,7 @@ use datafusion::{
     execution::{runtime_env::RuntimeEnv, session_state::SessionStateBuilder},
 };
 use pse_relations::generated::structures::{
-    MemberDescriptor as Member,
-    MemberDescriptorSelection as Selection,
+    MemberDescriptor as Member, MemberDescriptorSelection as Selection,
 };
 use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
 

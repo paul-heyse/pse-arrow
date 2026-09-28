@@ -230,21 +230,17 @@ impl Settings {
                     "KINSOL dense dimension limit".into(),
                 ));
             }
-            linear if linear
-                .krylov()
-                .is_some_and(|d| i32::try_from(d).is_err()) =>
-            {
+            linear if linear.krylov().is_some_and(|d| i32::try_from(d).is_err()) => {
                 return Err(ProblemError::Contract("KINSOL Krylov dimension".into()));
             }
             _ => {}
         }
         let krylov = m.linear.krylov().is_some();
-        if m.max_newton_step.is_some_and(|v| !(v.is_finite() && v >= 1.0))
+        if m.max_newton_step
+            .is_some_and(|v| !(v.is_finite() && v >= 1.0))
             || match m.eta {
                 Eta::Choice1 => false,
-                Eta::Choice2 { alpha, .. } => {
-                    !(alpha > 1.0 && alpha <= 2.0)
-                }
+                Eta::Choice2 { alpha, .. } => !(alpha > 1.0 && alpha <= 2.0),
                 Eta::Constant { .. } => false,
             }
             || (m.eta != Eta::default() && !krylov)
@@ -795,8 +791,9 @@ impl Session {
                     | Linear::Spfgmr { dimension }
                     | Linear::Spbcgs { dimension }
                     | Linear::Sptfqmr { dimension } => {
-                        let maxl = i32::try_from(dimension.into_inner())
-                            .map_err(|_| ProblemError::Contract("KINSOL Krylov dimension".into()))?;
+                        let maxl = i32::try_from(dimension.into_inner()).map_err(|_| {
+                            ProblemError::Contract("KINSOL Krylov dimension".into())
+                        })?;
                         let side = match method.preconditioner {
                             Preconditioner::None => ffi::SUN_PREC_NONE,
                             Preconditioner::Jacobi => ffi::SUN_PREC_RIGHT,
@@ -806,7 +803,8 @@ impl Session {
                             i32,
                             i32,
                             ffi::SUNContext,
-                        ) -> ffi::SUNLinearSolver = match method.linear {
+                        )
+                            -> ffi::SUNLinearSolver = match method.linear {
                             Linear::Spgmr { .. } => ffi::SUNLinSol_SPGMR,
                             Linear::Spfgmr { .. } => ffi::SUNLinSol_SPFGMR,
                             Linear::Spbcgs { .. } => ffi::SUNLinSol_SPBCGS,
@@ -906,7 +904,10 @@ impl Session {
                 ffi::KINSetScaledStepTol(self.mem, self.settings.step_tolerance),
                 "step tolerance",
             )?;
-            check(ffi::KINSetDamping(self.mem, method.damping.into_inner()), "damping")?;
+            check(
+                ffi::KINSetDamping(self.mem, method.damping.into_inner()),
+                "damping",
+            )?;
             check(
                 ffi::KINSetDampingAA(self.mem, method.damping.into_inner()),
                 "Anderson damping",
@@ -1154,7 +1155,10 @@ mod tests {
                 strict: true,
             },
         )]);
-        assert_eq!(guarded_sign_constraints(&c, &guard).unwrap().signs, vec![2.0]);
+        assert_eq!(
+            guarded_sign_constraints(&c, &guard).unwrap().signs,
+            vec![2.0]
+        );
         c.variables[0].upper = 0.0;
         assert!(guarded_sign_constraints(&c, &guard).is_err());
     }
@@ -1340,7 +1344,9 @@ mod tests {
                 Settings {
                     method: Method {
                         strategy,
-                        linear: Linear::Spgmr { dimension: positive(4) },
+                        linear: Linear::Spgmr {
+                            dimension: positive(4),
+                        },
                         ..Method::default()
                     },
                     ..settings()
@@ -1459,10 +1465,18 @@ mod tests {
     #[test]
     fn kinsol_krylov_variants_solve() {
         for linear in [
-            Linear::Spgmr { dimension: positive(3) },
-            Linear::Spfgmr { dimension: positive(3) },
-            Linear::Spbcgs { dimension: positive(3) },
-            Linear::Sptfqmr { dimension: positive(3) },
+            Linear::Spgmr {
+                dimension: positive(3),
+            },
+            Linear::Spfgmr {
+                dimension: positive(3),
+            },
+            Linear::Spbcgs {
+                dimension: positive(3),
+            },
+            Linear::Sptfqmr {
+                dimension: positive(3),
+            },
         ] {
             for preconditioner in [Preconditioner::None, Preconditioner::Jacobi] {
                 for eta in [
@@ -1471,7 +1485,9 @@ mod tests {
                         gamma: fraction(0.9),
                         alpha: 1.5,
                     },
-                    Eta::Constant { value: fraction(0.05) },
+                    Eta::Constant {
+                        value: fraction(0.05),
+                    },
                 ] {
                     let method = Method {
                         linear,
@@ -1590,7 +1606,9 @@ mod tests {
         let c = crate::solver_tests::Polynomial::new().c;
         for method in [
             Method {
-                eta: Eta::Constant { value: fraction(0.1) },
+                eta: Eta::Constant {
+                    value: fraction(0.1),
+                },
                 ..Method::default()
             },
             Method {
@@ -1611,7 +1629,9 @@ mod tests {
                 ..Method::default()
             },
             Method {
-                linear: Linear::Sptfqmr { dimension: positive(3) },
+                linear: Linear::Sptfqmr {
+                    dimension: positive(3),
+                },
                 eta: Eta::Choice2 {
                     gamma: fraction(0.9),
                     alpha: 2.5,

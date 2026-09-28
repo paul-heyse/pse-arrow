@@ -134,8 +134,7 @@ fn structures(reg: &Registry) -> Result<String, SchemaError> {
         typed_ids |= carries_identity(contract);
         types::logical(&contract.clone().unnamed(), name, &mut declarations)?;
     }
-    let mut source =
-        String::from("\"\"\"Registry named structures, each declared once.\"\"\"\n");
+    let mut source = String::from("\"\"\"Registry named structures, each declared once.\"\"\"\n");
     if declarations.is_empty() {
         return Ok(source);
     }

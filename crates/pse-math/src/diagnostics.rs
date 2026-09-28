@@ -84,9 +84,16 @@ pub fn analyze_matrix<R: From<usize>, C: From<usize>>(
     }
     let (m, n) = (matrix.nrows(), matrix.ncols());
     policy.validate()?;
-    if row_scales.len() != m || column_scales.len() != n
-        || row_scales.iter().chain(column_scales).any(|s| !s.is_finite() || *s <= 0.0) {
-        return Err(MathError::Contract("diagnostic matrix shape or scales".into()));
+    if row_scales.len() != m
+        || column_scales.len() != n
+        || row_scales
+            .iter()
+            .chain(column_scales)
+            .any(|s| !s.is_finite() || *s <= 0.0)
+    {
+        return Err(MathError::Contract(
+            "diagnostic matrix shape or scales".into(),
+        ));
     }
     let extent = m
         .checked_mul(m)
@@ -326,7 +333,9 @@ pub fn analyze_terms(
 ) -> Result<TermReport, MathError> {
     policy.validate()?;
     if terms.iter().any(|v| !v.is_finite()) {
-        return Err(MathError::Contract("nonfinite term diagnostic input".into()));
+        return Err(MathError::Contract(
+            "nonfinite term diagnostic input".into(),
+        ));
     }
     if cancel.load(Ordering::Acquire) {
         return Err(MathError::Cancelled);

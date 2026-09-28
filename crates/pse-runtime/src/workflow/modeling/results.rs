@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Knowledge checks supplement original-space solver qualification without rewriting termination.
-use pse_model::generated::identities::RunId;
 use super::cases::ModelingSolvePreparation;
 use super::*;
 use crate::math::solves::Outcome;
 use pse_compiler::workspace::{ModelingHint, ModelingOutput, Profile};
 use pse_math::binding::CaseValues;
+use pse_model::generated::identities::RunId;
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 

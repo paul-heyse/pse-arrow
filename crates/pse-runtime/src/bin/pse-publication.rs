@@ -194,7 +194,11 @@ async fn run(cli: Cli, runtime: Runtime) -> Result<(), WorkflowError> {
             println!(
                 "export lease {} {}",
                 receipt.lease_id,
-                if held { "released" } else { "was no longer held" }
+                if held {
+                    "released"
+                } else {
+                    "was no longer held"
+                }
             );
         }
         Command::Retire {

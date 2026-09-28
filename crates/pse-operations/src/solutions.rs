@@ -68,10 +68,12 @@ impl SeedVectors {
     /// store's row check refuses one).
     pub fn of(row: &RuntimeOperationalSolutionsRow) -> Result<Self, OperationsError> {
         let primal = || {
-            row.primal.clone().ok_or_else(|| OperationsError::CorruptValue {
-                column: "solutions.primal",
-                detail: format!("a {} seed requires a primal", row.kind.as_str()),
-            })
+            row.primal
+                .clone()
+                .ok_or_else(|| OperationsError::CorruptValue {
+                    column: "solutions.primal",
+                    detail: format!("a {} seed requires a primal", row.kind.as_str()),
+                })
         };
         Ok(match row.kind {
             StoredSeedKind::Root => Self::Root { primal: primal()? },

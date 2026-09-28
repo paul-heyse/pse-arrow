@@ -70,9 +70,8 @@ impl Publication {
                 .check()
                 .map_err(|error| errors::invalid(&error.to_string()))?;
         }
-        let cancel = lease.map_or_else(CancellationToken::new, |lease| {
-            lease.cancellation().clone()
-        });
+        let cancel =
+            lease.map_or_else(CancellationToken::new, |lease| lease.cancellation().clone());
         Ok((publication.session().clone(), cancel))
     }
     fn record<T>(
@@ -144,9 +143,8 @@ impl Publication {
             let batch_size = NonZeroUsize::new(self.runtime.shared.budget().execution.batch_size)
                 .ok_or_else(|| errors::invalid("batch size must be positive"))?;
             // A lapsed catalog lease cancels the reads it protected.
-            let cancel = lease.map_or_else(CancellationToken::new, |lease| {
-                lease.cancellation().clone()
-            });
+            let cancel =
+                lease.map_or_else(CancellationToken::new, |lease| lease.cancellation().clone());
             let reader =
                 self.runtime
                     .executor
@@ -207,12 +205,14 @@ pub(crate) fn open_export(
         let location = url::Url::parse(location)
             .map_err(|_| errors::invalid("an export manifest location is an absolute URI"))?;
         let runtime = runtime::acquire(settings)?;
-        let publication = runtime.executor.block_on(pse_runtime::workflow::open_export(
-            location,
-            Arc::clone(&runtime.registry),
-            &runtime.sessions,
-            &CancellationToken::new(),
-        ));
+        let publication = runtime
+            .executor
+            .block_on(pse_runtime::workflow::open_export(
+                location,
+                Arc::clone(&runtime.registry),
+                &runtime.sessions,
+                &CancellationToken::new(),
+            ));
         Ok::<_, EngineError>((publication, runtime))
     });
     let (publication, runtime) = opened.map_err(|error| errors::diagnostic(py, &error))?;

@@ -11,7 +11,16 @@ use nutype::nutype;
 #[nutype(
     const_fn,
     validate(finite, greater = 0.0),
-    derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, Display),
+    derive(
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        PartialOrd,
+        Serialize,
+        Deserialize,
+        Display
+    ),
     derive_unchecked(schemars::JsonSchema)
 )]
 pub struct Tolerance(#[schemars(extend("exclusiveMinimum" = 0.0))] f64);
@@ -20,7 +29,16 @@ pub struct Tolerance(#[schemars(extend("exclusiveMinimum" = 0.0))] f64);
 #[nutype(
     const_fn,
     validate(finite, greater = 0.0, less_or_equal = 1.0),
-    derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, Display),
+    derive(
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        PartialOrd,
+        Serialize,
+        Deserialize,
+        Display
+    ),
     derive_unchecked(schemars::JsonSchema)
 )]
 pub struct Fraction(#[schemars(extend("exclusiveMinimum" = 0.0, "maximum" = 1.0))] f64);
@@ -30,7 +48,17 @@ pub struct Fraction(#[schemars(extend("exclusiveMinimum" = 0.0, "maximum" = 1.0)
     const_fn,
     validate(greater = 0),
     derive(
-        Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Display
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash,
+        Serialize,
+        Deserialize,
+        Display
     ),
     derive_unchecked(schemars::JsonSchema)
 )]
@@ -40,7 +68,16 @@ pub struct PositiveCount(#[schemars(extend("minimum" = 1))] usize);
 #[nutype(
     const_fn,
     validate(finite),
-    derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize, Display),
+    derive(
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        PartialOrd,
+        Serialize,
+        Deserialize,
+        Display
+    ),
     derive_unchecked(schemars::JsonSchema)
 )]
 pub struct FiniteBound(f64);
@@ -78,10 +115,22 @@ mod tests {
 
     #[test]
     fn scalar_domains_refuse_values_outside_them() {
-        assert_eq!(Tolerance::try_new(0.0), Err(ToleranceError::GreaterViolated));
-        assert_eq!(Tolerance::try_new(f64::NAN), Err(ToleranceError::FiniteViolated));
-        assert_eq!(Fraction::try_new(1.5), Err(FractionError::LessOrEqualViolated));
-        assert_eq!(PositiveCount::try_new(0), Err(PositiveCountError::GreaterViolated));
+        assert_eq!(
+            Tolerance::try_new(0.0),
+            Err(ToleranceError::GreaterViolated)
+        );
+        assert_eq!(
+            Tolerance::try_new(f64::NAN),
+            Err(ToleranceError::FiniteViolated)
+        );
+        assert_eq!(
+            Fraction::try_new(1.5),
+            Err(FractionError::LessOrEqualViolated)
+        );
+        assert_eq!(
+            PositiveCount::try_new(0),
+            Err(PositiveCountError::GreaterViolated)
+        );
         assert_eq!(
             FiniteBound::try_new(f64::INFINITY),
             Err(FiniteBoundError::FiniteViolated)

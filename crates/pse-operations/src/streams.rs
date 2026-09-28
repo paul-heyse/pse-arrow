@@ -320,7 +320,10 @@ impl<'s> Streams<'s> {
     /// # Errors
     ///
     /// As for [`Streams::progress`].
-    pub async fn snapshot(&self, attempt: AttemptId) -> Result<Vec<ProgressEvent>, OperationsError> {
+    pub async fn snapshot(
+        &self,
+        attempt: AttemptId,
+    ) -> Result<Vec<ProgressEvent>, OperationsError> {
         const PAGE: i64 = 4096;
         let mut all = Vec::new();
         let mut after = None;
@@ -388,7 +391,10 @@ impl<'s> Streams<'s> {
                 })
             };
         };
-        if incumbents.iter().any(|incumbent| incumbent.attempt_id != attempt) {
+        if incumbents
+            .iter()
+            .any(|incumbent| incumbent.attempt_id != attempt)
+        {
             return Err(OperationsError::InvalidRequest {
                 reason: "an incumbent batch belongs to one attempt".to_owned(),
             });
@@ -537,11 +543,7 @@ impl StreamPage {
     pub fn advance(&self, after: StreamPosition) -> StreamPosition {
         StreamPosition {
             progress: self.progress.last().map(|e| e.seq).or(after.progress),
-            incumbents: self
-                .incumbents
-                .last()
-                .map(|i| i.seq)
-                .or(after.incumbents),
+            incumbents: self.incumbents.last().map(|i| i.seq).or(after.incumbents),
         }
     }
 }
@@ -612,7 +614,11 @@ impl ProgressWatcher {
     ) -> Result<StreamPage, OperationsError> {
         use crate::lifecycle::Lifecycle;
         loop {
-            let page = self.store.streams().page(self.attempt, after, limit).await?;
+            let page = self
+                .store
+                .streams()
+                .page(self.attempt, after, limit)
+                .await?;
             if !page.is_empty() {
                 return Ok(page);
             }

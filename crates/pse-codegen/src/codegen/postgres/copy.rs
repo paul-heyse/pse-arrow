@@ -27,7 +27,11 @@ pub(super) fn render(reg: &Registry) -> TokenStream {
             let relation = qualified(&quoted(table));
             let statement = format!("COPY {relation} ({list}) FROM STDIN (FORMAT binary)");
             let probe = format!("SELECT {list} FROM {relation} WHERE false");
-            let doc = format!(" The binary copy into `{}` ({}).", table, spec.qualified_name());
+            let doc = format!(
+                " The binary copy into `{}` ({}).",
+                table,
+                spec.qualified_name()
+            );
             quote! {
                 #[doc = #doc]
                 pub const #name: CopyIn = CopyIn {

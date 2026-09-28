@@ -12,11 +12,11 @@ use crate::{
     typed::{Binary, BodyBuilder, BodyLimits, TypedValue},
 };
 use pse_ids::{ContentHash, SemanticId};
-use pse_model::generated::enums::ModelingVariableDomain;
 use pse_kernels::{
     AdmittedProvider, DerivativeOrder, EvaluationContext, Port, Provider, ProviderError,
     ProviderKey, ProviderRequest, ProviderSpec, ProviderValues,
 };
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_quantity::{
     IndexSet, QuantityRegistry, QuantityTypeId,
     standard::{StandardInvariantChecker, ids, standard_registry},

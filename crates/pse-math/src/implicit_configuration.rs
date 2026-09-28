@@ -8,7 +8,11 @@ pub trait HintResolver: std::fmt::Debug + Send + Sync {
     fn identity(&self) -> ContentHash;
     fn retained_bytes(&self) -> usize;
     fn time_limit(&self) -> Duration;
-    fn resolve(&self, values: &[f64], original_terms: Option<&[f64]>) -> Result<(Vec<Unknown>, Options), MathError>;
+    fn resolve(
+        &self,
+        values: &[f64],
+        original_terms: Option<&[f64]>,
+    ) -> Result<(Vec<Unknown>, Options), MathError>;
 }
 
 /// Fixed caller configuration or typed model hints evaluated for each enclosing trial.
@@ -45,7 +49,8 @@ impl Configuration {
         match self {
             Self::Hints(r) => r.identity(),
             Self::Fixed(unknowns, options) => {
-                let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitFixedConfigurationV1);
+                let mut h =
+                    pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitFixedConfigurationV1);
                 for u in unknowns {
                     h.id(&u.id).u64(u.lower.to_bits()).u64(u.upper.to_bits());
                 }
@@ -76,7 +81,11 @@ pub(super) struct ConfigurationWorker {
     terms: Option<Worker>,
 }
 impl ConfigurationWorker {
-    pub(super) fn new(source: Configuration, hints: Option<&Arc<CompiledBody>>, terms: Option<&Arc<CompiledBody>>) -> Self {
+    pub(super) fn new(
+        source: Configuration,
+        hints: Option<&Arc<CompiledBody>>,
+        terms: Option<&Arc<CompiledBody>>,
+    ) -> Self {
         Self {
             source,
             hints: hints.map(|b| b.worker()),
@@ -119,10 +128,20 @@ impl ConfigurationWorker {
                 if let Some(worker) = &mut self.terms {
                     let mut nominal = initial.1.variable_nominals.clone();
                     nominal.extend_from_slice(inputs);
-                    let terms = worker.evaluate(&nominal, DerivativeOrder::Value,
-                        &mut *problem.providers.lock().map_err(|_|MathError::Library("implicit nominal provider lock poisoned".into()))?, cancel)?.values;
+                    let terms = worker
+                        .evaluate(
+                            &nominal,
+                            DerivativeOrder::Value,
+                            &mut *problem.providers.lock().map_err(|_| {
+                                MathError::Library("implicit nominal provider lock poisoned".into())
+                            })?,
+                            cancel,
+                        )?
+                        .values;
                     resolver.resolve(&values, Some(&terms))?
-                } else { initial }
+                } else {
+                    initial
+                }
             }
         };
         if unknowns.len() != problem.unknowns.len()

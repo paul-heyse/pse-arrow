@@ -113,7 +113,14 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
     enumeration(
         b,
         "JobState",
-        ["waiting", "queued", "running", "completed", "failed", "cancelled"],
+        [
+            "waiting",
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+        ],
     );
     // What an attempt computes: an authored algebraic sequence, a simulation or a fit; a
     // study, which coordinates its points' attempts and is the attempt its publication
@@ -121,7 +128,13 @@ fn declare_enumerations(b: &mut RegistryBuilder) {
     enumeration(
         b,
         "AttemptKind",
-        ["modeling", "simulation", "fit", "study", "study_finalization"],
+        [
+            "modeling",
+            "simulation",
+            "fit",
+            "study",
+            "study_finalization",
+        ],
     );
     // A study is open while its points run, concluded once every point is terminal (its
     // attempt has ended and its finalization is queued), published once its one
@@ -183,14 +196,22 @@ fn declare_identities(b: &mut RegistryBuilder) {
         "One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt",
     );
     identity(b, "job", "One durable job claimed by workers");
-    identity(b, "solution", "One stored reusable solution (a warm-start seed)");
+    identity(
+        b,
+        "solution",
+        "One stored reusable solution (a warm-start seed)",
+    );
     identity(b, "study", "One study coordinated across its points");
     identity(
         b,
         "source_bundle",
         "An authored source bundle, content-addressed by its package content hash",
     );
-    identity(b, "settlement", "One settlement of an uncertain commit acknowledgement");
+    identity(
+        b,
+        "settlement",
+        "One settlement of an uncertain commit acknowledgement",
+    );
 }
 
 /// The identities a publication record references (`runtime.publication_manifests`).
@@ -204,7 +225,11 @@ pub(super) fn declare_publication_identities(b: &mut RegistryBuilder) {
         "publication",
         "One publication: registered as an intent before its first member write and committed at most once",
     );
-    identity(b, "reader_lease", "One reader lease protecting a publication");
+    identity(
+        b,
+        "reader_lease",
+        "One reader lease protecting a publication",
+    );
 }
 
 fn declare_sources(b: &mut RegistryBuilder) {
@@ -259,15 +284,18 @@ fn one_termination() -> String {
             .collect::<Vec<_>>()
             .join(" AND ")
     };
-    std::iter::once(format!("(\"termination_class\" IS NULL AND {})", absent(None)))
-        .chain(TERMINATIONS.iter().map(|(class, column)| {
-            format!(
-                "(\"termination_class\" = '{class}' AND {})",
-                absent(Some(column))
-            )
-        }))
-        .collect::<Vec<_>>()
-        .join(" OR ")
+    std::iter::once(format!(
+        "(\"termination_class\" IS NULL AND {})",
+        absent(None)
+    ))
+    .chain(TERMINATIONS.iter().map(|(class, column)| {
+        format!(
+            "(\"termination_class\" = '{class}' AND {})",
+            absent(Some(column))
+        )
+    }))
+    .collect::<Vec<_>>()
+    .join(" OR ")
 }
 
 fn declare_attempts(b: &mut RegistryBuilder) {
@@ -897,7 +925,9 @@ mod tests {
             Some("publication")
         );
         assert_eq!(
-            registry.identity("source_bundle").map(|identity| identity.base),
+            registry
+                .identity("source_bundle")
+                .map(|identity| identity.base),
             Some(IdentityBase::ContentHash)
         );
         let carried = |relation: &str, column: &str| {
@@ -932,7 +962,10 @@ mod tests {
             .relation("runtime.operational_progress_values")
             .unwrap();
         assert!(values.checks.contains_key("one_evidence_value"));
-        assert_eq!(values.foreign_keys[0].target, "runtime.operational_progress_events");
+        assert_eq!(
+            values.foreign_keys[0].target,
+            "runtime.operational_progress_events"
+        );
         // The catalog's O8 declarations: the flattened member descriptor with its role and
         // selection rule, the settlement conflict, the windows and the intent reference.
         let members = registry
@@ -979,17 +1012,28 @@ mod tests {
         let studies = registry.relation("runtime.operational_studies").unwrap();
         for key in ["attempt_id", "publication_id", "finalization_job"] {
             assert!(
-                studies.unique_keys.iter().any(|unique| unique.columns == [key]),
+                studies
+                    .unique_keys
+                    .iter()
+                    .any(|unique| unique.columns == [key]),
                 "{key}"
             );
         }
-        assert_eq!(carried("runtime.operational_studies", "attempt_id"), Some("attempt"));
+        assert_eq!(
+            carried("runtime.operational_studies", "attempt_id"),
+            Some("attempt")
+        );
         assert_eq!(
             carried("runtime.operational_studies", "publication_id"),
             Some("publication")
         );
-        assert_eq!(carried("runtime.operational_study_points", "job_id"), Some("job"));
-        let points = registry.relation("runtime.operational_study_points").unwrap();
+        assert_eq!(
+            carried("runtime.operational_study_points", "job_id"),
+            Some("job")
+        );
+        let points = registry
+            .relation("runtime.operational_study_points")
+            .unwrap();
         assert!(points.checks.contains_key("predecessor_is_earlier"));
         assert!(points.foreign_keys.iter().any(|reference| {
             reference.target == "runtime.operational_study_points"

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Data-authored fixtures acquire the same bounded checks without model-specific test code.
-use pse_model::generated::identities::RunId;
 use super::cases::ModelingCaseResolution;
 use super::*;
 use crate::math::{
@@ -15,6 +14,7 @@ use pse_model::generated::enums::{
     ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
     ModelingDeclarationKind as DeclarationKind, ModelingFixtureExecution as Execution,
 };
+use pse_model::generated::identities::RunId;
 pub use pse_model::generated::runtime::modeling_conformance::Row as ModelingConformanceCheck;
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
@@ -193,7 +193,16 @@ impl ModelingConformanceReport {
         oracle:Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeOracle>,
         cap: usize,
     ) {
-        self.record(fixture, fixture.as_id(), fixture, kind, status, message, oracle, cap);
+        self.record(
+            fixture,
+            fixture.as_id(),
+            fixture,
+            kind,
+            status,
+            message,
+            oracle,
+            cap,
+        );
     }
     /// All discovered fixtures, including refusals and pure checks without solve results.
     pub fn fixtures(&self) -> BTreeSet<DeclarationId> {
@@ -294,14 +303,7 @@ impl ModelingConformanceReport {
             Status::Failed
         };
         let check = self.checks.len();
-        self.record_fixture(
-            fixture,
-            kind,
-            status,
-            error.to_string(),
-            oracle,
-            cap,
-        );
+        self.record_fixture(fixture, kind, status, error.to_string(), oracle, cap);
         self.attach_failure(check, diagnostic);
     }
     fn model_checks(
@@ -611,7 +613,13 @@ impl ModelingPackage {
                 _ => Route::Steady,
             });
             let model = match self
-                .prepare(fixture, pse_modeling::specialize::root_instance(fixture), bindings.clone(), policy.limits, cancel)
+                .prepare(
+                    fixture,
+                    pse_modeling::specialize::root_instance(fixture),
+                    bindings.clone(),
+                    policy.limits,
+                    cancel,
+                )
                 .await
             {
                 Ok(model) => model,
@@ -766,8 +774,13 @@ impl ModelingPackage {
                             }
                             for range in ranges {
                                 let check_index = report.checks.len();
-                                let (status, message, failure) = if matches!(&range.value, AnnotationValue::Valid { policy: ExtrapolationPolicy::Extrapolate, .. })
-                                {
+                                let (status, message, failure) = if matches!(
+                                    &range.value,
+                                    AnnotationValue::Valid {
+                                        policy: ExtrapolationPolicy::Extrapolate,
+                                        ..
+                                    }
+                                ) {
                                     (
                                         Status::NotApplicable,
                                         "extrapolation explicitly selected".into(),
@@ -1032,8 +1045,13 @@ impl ModelingPackage {
                     report.complete = false;
                     break;
                 }
-                if matches!(&range.value, AnnotationValue::Valid { policy: ExtrapolationPolicy::Extrapolate, .. })
-                {
+                if matches!(
+                    &range.value,
+                    AnnotationValue::Valid {
+                        policy: ExtrapolationPolicy::Extrapolate,
+                        ..
+                    }
+                ) {
                     report.record(fixture,range.target,range.lineage.declaration,Kind::Envelope,Status::NotApplicable,"extrapolation explicitly selected; validity membership is reported separately",oracle,cap);
                     continue;
                 }
@@ -1418,8 +1436,12 @@ mod tests {
             report.checks[0].oracle_reference.as_deref(),
             Some(oracle.reference.as_str())
         );
-        let mut failure =
-            BoundaryDiagnostic::new(BoundaryClass::InvalidModel, "test", ids.map(DeclarationId::as_id), "synthetic");
+        let mut failure = BoundaryDiagnostic::new(
+            BoundaryClass::InvalidModel,
+            "test",
+            ids.map(DeclarationId::as_id),
+            "synthetic",
+        );
         failure
             .observations
             .insert("detail".into(), Observation::Text("x".repeat(100000)));
@@ -1475,8 +1497,12 @@ mod tests {
             None,
             1,
         );
-        let mut failure =
-            BoundaryDiagnostic::new(BoundaryClass::InvalidModel, "test", [id.as_id()], "synthetic");
+        let mut failure = BoundaryDiagnostic::new(
+            BoundaryClass::InvalidModel,
+            "test",
+            [id.as_id()],
+            "synthetic",
+        );
         failure
             .observations
             .insert("detail".into(), Observation::Text("x".repeat(100000)));

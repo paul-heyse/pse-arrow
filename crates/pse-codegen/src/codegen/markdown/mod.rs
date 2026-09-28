@@ -275,7 +275,10 @@ fn rules(reg: &Registry) -> String {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::unwrap_used, reason = "assertions over the generated reference")]
+    #![allow(
+        clippy::unwrap_used,
+        reason = "assertions over the generated reference"
+    )]
 
     use super::*;
 
@@ -285,8 +288,10 @@ mod tests {
     fn frame_catalog_listed_in_generated_docs() {
         let tree = generate(crate::registry().unwrap()).unwrap();
         let page = |name: &str| {
-            String::from_utf8(tree.files[&std::path::PathBuf::from(format!("docs/generated/{name}.md"))].clone())
-                .unwrap()
+            String::from_utf8(
+                tree.files[&std::path::PathBuf::from(format!("docs/generated/{name}.md"))].clone(),
+            )
+            .unwrap()
         };
         let frames = page("frames");
         assert!(frames.starts_with(HEADER));

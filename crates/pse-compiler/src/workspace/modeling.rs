@@ -45,7 +45,11 @@ impl ModelingRevision {
     }
     /// What specializing `root` as `instance` solves: its model, case and instance
     /// (`pse_model::lineage`), or `None` when the revision admits no such root.
-    pub fn solved(&self, root: DeclarationId, instance: InstanceId) -> Option<pse_model::lineage::Solved> {
+    pub fn solved(
+        &self,
+        root: DeclarationId,
+        instance: InstanceId,
+    ) -> Option<pse_model::lineage::Solved> {
         let kind = self.checked.declaration(root)?.value.kind;
         Some(pse_model::lineage::Solved::new(root, kind, instance))
     }

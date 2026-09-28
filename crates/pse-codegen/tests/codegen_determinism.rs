@@ -78,4 +78,3 @@ fn all_targets_regenerate_identical_bytes_and_complete_inventory() {
         }
     }
 }
-

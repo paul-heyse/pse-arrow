@@ -7,6 +7,10 @@
 //! Direct Ipopt 3.14 C adapter; native NLP state stays on its owning worker.
 mod runtime;
 mod settings;
+pub use crate::settings::ipopt::{
+    Linear, MuStrategy, MumpsOrdering, PardisoMatching, PardisoOrdering, Settings, SpralOrdering,
+    SpralPivot, SpralScaling,
+};
 use crate::{
     NlpOracle, ProblemError,
     callback::CallbackState,
@@ -16,10 +20,6 @@ use crate::{
 use pse_ipopt_sys as ffi;
 use pse_math::binding::ObjectiveSense;
 pub use runtime::{Build, Runtime, build};
-pub use crate::settings::ipopt::{
-    Linear, MuStrategy, MumpsOrdering, PardisoMatching, PardisoOrdering, Settings, SpralOrdering,
-    SpralPivot, SpralScaling,
-};
 pub use settings::admit;
 use std::{
     ffi::{CString, c_void},

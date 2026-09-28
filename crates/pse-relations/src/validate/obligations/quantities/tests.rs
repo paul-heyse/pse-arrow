@@ -51,11 +51,7 @@ fn quantity(
         basis_id: None,
         reference_state_id: reference.map(id),
         scale_kind: ScaleKind::Point,
-        shape: if indexed {
-            vec![id(51)]
-        } else {
-            vec![]
-        },
+        shape: if indexed { vec![id(51)] } else { vec![] },
         subject_kind: None,
         canonical_unit_id: id(canonical),
         nominal_magnitude: None,

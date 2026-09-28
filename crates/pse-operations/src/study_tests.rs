@@ -7,7 +7,9 @@
 
 use std::time::Duration;
 
-use crate::attempts::{AttemptKind, NewAttempt, RuntimeTermination, TerminationCode, TransitionNote};
+use crate::attempts::{
+    AttemptKind, NewAttempt, RuntimeTermination, TerminationCode, TransitionNote,
+};
 use crate::cancellation::CancelOutcome;
 use crate::catalog::{
     Committed, MemberDescriptor, NewIntent, PublicationCommit, PublicationId, PublicationKind,
@@ -96,7 +98,10 @@ fn point_members(study: &NewStudy, index: u32) -> Vec<MemberDescriptor> {
         .map(|name| MemberDescriptor {
             catalog_name: format!("point_{index}"),
             ..member(
-                &format!("{}points/{index}/runtime/{name}/", study.intent.member_prefix),
+                &format!(
+                    "{}points/{index}/runtime/{name}/",
+                    study.intent.member_prefix
+                ),
                 name,
                 0,
             )
@@ -126,7 +131,11 @@ async fn study_points_follow_their_jobs_and_conclude() {
     assert_eq!(record.attempt.kind, AttemptKind::Study);
     assert_eq!(record.finalization.state, JobState::Waiting);
     assert_eq!(
-        record.points.iter().map(|p| p.job_state).collect::<Vec<_>>(),
+        record
+            .points
+            .iter()
+            .map(|p| p.job_state)
+            .collect::<Vec<_>>(),
         [JobState::Queued, JobState::Waiting, JobState::Queued]
     );
     assert_eq!(record.points[1].attempt_state, AttemptState::Planned);
@@ -191,13 +200,23 @@ async fn study_points_follow_their_jobs_and_conclude() {
         .await
         .unwrap();
     assert_eq!(
-        store.studies().get(study.study_id).await.unwrap().study.state,
+        store
+            .studies()
+            .get(study.study_id)
+            .await
+            .unwrap()
+            .study
+            .state,
         StudyState::Open
     );
     // The last point fails: the study concludes as partial and releases its finalization.
     store
         .jobs()
-        .finish(two.job_id, "worker-a", &ended(AttemptState::Failed, Vec::new()))
+        .finish(
+            two.job_id,
+            "worker-a",
+            &ended(AttemptState::Failed, Vec::new()),
+        )
         .await
         .unwrap();
     let record = store.studies().get(study.study_id).await.unwrap();
@@ -239,8 +258,16 @@ async fn study_points_follow_their_jobs_and_conclude() {
         store.catalog().commit(&commit).await.unwrap(),
         Committed::Advanced { .. }
     ));
-    store.studies().mark_published(study.study_id).await.unwrap();
-    store.studies().mark_published(study.study_id).await.unwrap();
+    store
+        .studies()
+        .mark_published(study.study_id)
+        .await
+        .unwrap();
+    store
+        .studies()
+        .mark_published(study.study_id)
+        .await
+        .unwrap();
     let done = ended(AttemptState::Completed, Vec::new());
     store
         .jobs()
@@ -270,7 +297,11 @@ async fn failed_predecessor_cancels_its_dependents() {
     assert_eq!(zero, 0);
     store
         .jobs()
-        .finish(claim.job_id, "worker-a", &ended(AttemptState::Failed, Vec::new()))
+        .finish(
+            claim.job_id,
+            "worker-a",
+            &ended(AttemptState::Failed, Vec::new()),
+        )
         .await
         .unwrap();
     let record = store.studies().get(study.study_id).await.unwrap();
@@ -317,7 +348,11 @@ async fn study_cancel_cancels_pending_and_stops_running_points() {
     let study = new_study(&space, &[None, Some(0), None], 1);
     store.studies().create(&study).await.unwrap();
     let (running, claim) = claimed_point(&store, "worker-a").await.unwrap();
-    let cancelled = store.studies().cancel(study.study_id, "user").await.unwrap();
+    let cancelled = store
+        .studies()
+        .cancel(study.study_id, "user")
+        .await
+        .unwrap();
     assert_eq!(cancelled.stopping, [running]);
     assert!(!cancelled.concluded);
     let record = store.studies().get(study.study_id).await.unwrap();
@@ -338,7 +373,11 @@ async fn study_cancel_cancels_pending_and_stops_running_points() {
     assert!(claimed_point(&store, "worker-b").await.is_none());
     store
         .jobs()
-        .finish(claim.job_id, "worker-a", &ended(AttemptState::Cancelled, Vec::new()))
+        .finish(
+            claim.job_id,
+            "worker-a",
+            &ended(AttemptState::Cancelled, Vec::new()),
+        )
         .await
         .unwrap();
     let record = store.studies().get(study.study_id).await.unwrap();
@@ -421,7 +460,12 @@ async fn study_point_requeue_and_direct_cancel() {
         .await
         .unwrap();
     loop {
-        let claimed = store.jobs().claim("worker-c", LEASE).await.unwrap().unwrap();
+        let claimed = store
+            .jobs()
+            .claim("worker-c", LEASE)
+            .await
+            .unwrap()
+            .unwrap();
         if claimed.job_id == plain.job_id() {
             let refused = store
                 .jobs()

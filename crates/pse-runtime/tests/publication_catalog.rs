@@ -166,8 +166,14 @@ fn artifact(runtime: &Runtime, package: &str) -> ArtifactPlan {
         .sessions()
         .candidate(
             BTreeMap::from([
-                (packages::RELATION_KEY, packages.finish().unwrap().into_batch()),
-                (entities::RELATION_KEY, entities.finish().unwrap().into_batch()),
+                (
+                    packages::RELATION_KEY,
+                    packages.finish().unwrap().into_batch(),
+                ),
+                (
+                    entities::RELATION_KEY,
+                    entities.finish().unwrap().into_batch(),
+                ),
             ]),
             Arc::clone(&registry),
             &cancel,
@@ -256,7 +262,9 @@ async fn version(runtime: &Runtime, table: &str) -> Option<i64> {
     .load()
     .await
     .ok()?;
-    table.version().map(|version| i64::try_from(version).unwrap())
+    table
+        .version()
+        .map(|version| i64::try_from(version).unwrap())
 }
 
 fn member_uri(record: &pse_operations::catalog::PublicationRecord, table: &str) -> String {
@@ -291,11 +299,20 @@ async fn publisher_child(request: &serde_json::Value) {
     let cancel = CancellationToken::new();
     let (first, head_at_conflict) = match prepared.commit(&cancel).await {
         Ok(_) => ("committed".to_owned(), None),
-        Err(WorkflowError::Operations(OperationsError::PublicationConflict { current, .. })) => {
-            prepare(&runtime, attempt, &workspace, current, Some(publication), package)
-                .commit(&cancel)
-                .await
-                .unwrap();
+        Err(WorkflowError::Operations(OperationsError::PublicationConflict {
+            current, ..
+        })) => {
+            prepare(
+                &runtime,
+                attempt,
+                &workspace,
+                current,
+                Some(publication),
+                package,
+            )
+            .commit(&cancel)
+            .await
+            .unwrap();
             ("conflict".to_owned(), current)
         }
         Err(error) => panic!("{error:?}"),
@@ -453,7 +470,14 @@ async fn lost_ack_settles_via_catalog() {
         runtime.settle_publication(&ticket).await,
         PublicationSettlement::ProvedNoncommit
     );
-    let retried = prepare(&runtime, attempt, &workspace, Some(first), Some(second), "second");
+    let retried = prepare(
+        &runtime,
+        attempt,
+        &workspace,
+        Some(first),
+        Some(second),
+        "second",
+    );
     assert_eq!(retried.ticket, ticket);
     retried.commit(&cancel).await.unwrap();
     assert_eq!(
@@ -602,10 +626,7 @@ async fn catalog_protects_published_versions() {
     let database = TestDatabase::create().await.unwrap();
     let runtime = durable(database.url(), "protector").await;
     let (_directory, root) = directory();
-    let workspace = runtime
-        .register_workspace("protected", root)
-        .await
-        .unwrap();
+    let workspace = runtime.register_workspace("protected", root).await.unwrap();
     let cancel = CancellationToken::new();
     let first = publish(&runtime, &workspace, None, "first").await;
 
@@ -818,9 +839,14 @@ async fn exported_publication_opens_offline() {
     assert_eq!(rows(&publication, "authored", "entities").await, 1);
     // An expired export is refused.
     tokio::time::sleep(Duration::from_millis(20)).await;
-    let expired = open_export(brief, offline.registry().clone(), offline.sessions(), &cancel)
-        .await
-        .unwrap_err();
+    let expired = open_export(
+        brief,
+        offline.registry().clone(),
+        offline.sessions(),
+        &cancel,
+    )
+    .await
+    .unwrap_err();
     assert!(
         matches!(expired, WorkflowError::ExportLeaseExpired { .. }),
         "{expired:?}"
@@ -845,9 +871,14 @@ async fn exported_publication_opens_offline() {
         .with_raise_if_key_not_exists(false)
         .await
         .unwrap();
-    let refused = open_export(legacy, offline.registry().clone(), offline.sessions(), &cancel)
-        .await
-        .unwrap_err();
+    let refused = open_export(
+        legacy,
+        offline.registry().clone(),
+        offline.sessions(),
+        &cancel,
+    )
+    .await
+    .unwrap_err();
     assert!(migration_required(&refused), "{refused:?}");
 }
 
@@ -891,10 +922,17 @@ async fn publication_uses_durable_attempt_identity() {
     assert_eq!(intent.attempt_id, attempt);
     assert_eq!(intent.member_prefix, prefix.as_str());
     // Preparing the same publication again recovers it: nothing is rewritten.
-    let again = prepare(&runtime, attempt, &workspace, None, Some(publication), "identity")
-        .commit(&CancellationToken::new())
-        .await
-        .unwrap();
+    let again = prepare(
+        &runtime,
+        attempt,
+        &workspace,
+        None,
+        Some(publication),
+        "identity",
+    )
+    .commit(&CancellationToken::new())
+    .await
+    .unwrap();
     assert_eq!(again, published);
     for member in &record.members {
         assert_eq!(version(&runtime, &member.table_uri).await, Some(1));
@@ -982,9 +1020,13 @@ async fn maintainer_binary_retires_and_collects() {
         })
     };
     let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
-    let collected = maintain(vec!["collect".into(), "--workspace".into(), "binary".into()])
-        .await
-        .unwrap();
+    let collected = maintain(vec![
+        "collect".into(),
+        "--workspace".into(),
+        "binary".into(),
+    ])
+    .await
+    .unwrap();
     let (stdout, stderr) = (text(&collected.stdout), text(&collected.stderr));
     assert!(collected.status.success(), "{stdout}{stderr}");
     assert!(stdout.contains("maintenance epoch"), "{stdout}");
@@ -1052,7 +1094,10 @@ async fn interrupted_deletion_resumes() {
         .native_state()
         .runtime_env()
         .register_object_store(&root, store.clone());
-    let workspace = runtime.register_workspace("interrupted", root).await.unwrap();
+    let workspace = runtime
+        .register_workspace("interrupted", root)
+        .await
+        .unwrap();
     let old = publish(&runtime, &workspace, None, "old").await;
     let middle = publish(&runtime, &workspace, Some(old.publication_id), "middle").await;
     let head = publish(&runtime, &workspace, Some(middle.publication_id), "head").await;
@@ -1082,7 +1127,10 @@ async fn interrupted_deletion_resumes() {
     );
     assert_eq!(store.fired(), 1);
     let remaining = objects_with(&store, &old_id).await;
-    assert!(remaining > 0 && remaining < before, "{remaining} of {before}");
+    assert!(
+        remaining > 0 && remaining < before,
+        "{remaining} of {before}"
+    );
     let refused = runtime.open(old.publication_id, &cancel).await.unwrap_err();
     assert!(
         matches!(

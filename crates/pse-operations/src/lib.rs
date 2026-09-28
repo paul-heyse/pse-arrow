@@ -46,8 +46,8 @@ mod study_tests;
 #[cfg(test)]
 mod tables_tests;
 
-pub use ids::mint_id;
 pub use error::{DriverError, InvariantKind, OperationsError, Target};
+pub use ids::mint_id;
 pub use listener::LISTENER_APPLICATION;
 pub use schema::{Opened, PHYSICAL_SQL, SchemaStatus};
 pub use store::{

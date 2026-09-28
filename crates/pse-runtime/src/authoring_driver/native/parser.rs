@@ -125,8 +125,10 @@ impl Parser {
             )));
         }
         for index in 0..sources.len() {
-            let expected =
-                pse_ids::named_id(bundle.bundle().package.package_id.as_id(), paths.value(index));
+            let expected = pse_ids::named_id(
+                bundle.bundle().package.package_id.as_id(),
+                paths.value(index),
+            );
             if expected.as_bytes().as_slice() != ids.value(index) {
                 return Err(external(DriverError::Authoring(
                     pse_authoring::AuthoringError::Contract {

@@ -43,7 +43,7 @@ module = "idaes.core.scaling.custom_scaler_base"
 
 [enums.DiscretizationScheme]
 module = "pyomo.dae"
-aliases = {LAGRANGE_RADAU = "LAGRANGE-RADAU", LAGRANGE_LEGENDRE = "LAGRANGE-LEGENDRE"}
+aliases = { LAGRANGE_RADAU = "LAGRANGE-RADAU", LAGRANGE_LEGENDRE = "LAGRANGE-LEGENDRE" }
 
 [enums.DistributedVars]
 module = "idaes.core.base.control_volume1d"

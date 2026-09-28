@@ -35,16 +35,24 @@ def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, SemanticId]:
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
     physical = runtime.physical_from_documents(
-        {str(p.relative_to(primitives)): p.read_text() for p in primitives.rglob("*") if p.is_file()}
+        {
+            str(p.relative_to(primitives)): p.read_text()
+            for p in primitives.rglob("*")
+            if p.is_file()
+        }
     )
-    manifest = (root / "tests/fixtures/packages/minimal_explicit/package.toml").read_text().replace(
-        'id_policy = "explicit"', 'id_policy = "named"'
+    manifest = (
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
     )
     manifest += f'\n[[quantity_aliases]]\nname = "Scalar"\nquantity_type_id = "{SemanticId(bytes([31]) * 16).to_hex()}"\n'
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/root.pse": SOURCE}], physical
     )
-    case = next(row.declaration_id for row in package.declarations() if row.name == "Root")
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
     return package, case
 
 
@@ -89,7 +97,9 @@ def test_progress_stream_python(
         assert event.incumbent is None
     # Without following, the stream reads what is stored and ends.
     stored = list(runtime.progress(attempt, follow=False))
-    assert [(e.sequence, e.phase) for e in stored] == [(e.sequence, e.phase) for e in followed]
+    assert [(e.sequence, e.phase) for e in stored] == [
+        (e.sequence, e.phase) for e in followed
+    ]
     # The in-memory events of the handle carry no stored position.
     events, _ = handle.progress()
     assert all(event.step is None and event.sequence is None for event in events)

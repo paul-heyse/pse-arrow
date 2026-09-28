@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded LP/MILP analyses of a supplied Jacobian. These say nothing about nonlinear feasibility.
-use crate::{CoefficientProblem,OracleContract,ProblemError,Variable,highs,quality::Tolerances,solve::*};
-use faer::sparse::{SparseColMat,SparseColMatRef,Triplet};
-use pse_ids::{FramedHasher,SemanticId};
+use crate::{
+    CoefficientProblem, OracleContract, ProblemError, Variable, highs, quality::Tolerances,
+    solve::*,
+};
+use faer::sparse::{SparseColMat, SparseColMatRef, Triplet};
+use pse_ids::{FramedHasher, SemanticId};
 use pse_kernels::DerivativeOrder;
 use pse_math::binding::ObjectiveSense;
 use pse_model::generated::enums::ModelingVariableDomain;
@@ -167,10 +170,7 @@ fn problem(
 ) -> Result<CoefficientProblem, ProblemError> {
     // One identity per problem family: the anchor changes only multiplier bounds, so every
     // anchor of a family has the same layout and reuses one native session (L-C4).
-    let id = pse_ids::named_id(
-        rows[0],
-        if milp { "degeneracy" } else { "conditioning" },
-    );
+    let id = pse_ids::named_id(rows[0], if milp { "degeneracy" } else { "conditioning" });
     let mut b = Builder {
         id,
         variables: vec![],
@@ -329,99 +329,275 @@ fn layout(p: &CoefficientProblem) -> pse_ids::ContentHash {
 /// Run native LP conditioning certificates and anchored minimum-support MILPs under
 /// one outer execution deadline. Each problem family owns one native session, updated from
 /// anchor to anchor (L-C4). Native limits and rank-budget refusals remain inconclusive.
-pub fn analyze(matrix:SparseColMatRef<'_,usize,f64>,rows:&[SemanticId],policy:Policy,controls:&Controls,execution:Execution)->Result<Report,ProblemError>{
-    if rows.len()!=matrix.nrows()||rows.is_empty()||rows.iter().collect::<BTreeSet<_>>().len()!=rows.len()
-        ||rows.len()>policy.maximum_rows||matrix.val().len().checked_mul(2).and_then(|n|rows.len().checked_mul(4).and_then(|m|n.checked_add(m))).is_none_or(|n|n>policy.maximum_entries)||policy.maximum_attempts==0
-        ||!policy.multiplier_bound.is_finite()||policy.multiplier_bound<1.||!policy.tolerance.is_finite()||policy.tolerance<=0.
-        ||!policy.rank_relative.is_finite()||policy.rank_relative<0.||policy.rank_relative>=1.||matrix.val().iter().any(|v|!v.is_finite())
-        ||policy.maximum_nodes==Some(0){
-        return Err(ProblemError::Contract("invalid bounded Jacobian diagnostic request".into()));
+pub fn analyze(
+    matrix: SparseColMatRef<'_, usize, f64>,
+    rows: &[SemanticId],
+    policy: Policy,
+    controls: &Controls,
+    execution: Execution,
+) -> Result<Report, ProblemError> {
+    if rows.len() != matrix.nrows()
+        || rows.is_empty()
+        || rows.iter().collect::<BTreeSet<_>>().len() != rows.len()
+        || rows.len() > policy.maximum_rows
+        || matrix
+            .val()
+            .len()
+            .checked_mul(2)
+            .and_then(|n| rows.len().checked_mul(4).and_then(|m| n.checked_add(m)))
+            .is_none_or(|n| n > policy.maximum_entries)
+        || policy.maximum_attempts == 0
+        || !policy.multiplier_bound.is_finite()
+        || policy.multiplier_bound < 1.
+        || !policy.tolerance.is_finite()
+        || policy.tolerance <= 0.
+        || !policy.rank_relative.is_finite()
+        || policy.rank_relative < 0.
+        || policy.rank_relative >= 1.
+        || matrix.val().iter().any(|v| !v.is_finite())
+        || policy.maximum_nodes == Some(0)
+    {
+        return Err(ProblemError::Contract(
+            "invalid bounded Jacobian diagnostic request".into(),
+        ));
     }
-    let mut report=Report{conditioning:vec![],degenerate:vec![],attempts:vec![],sessions:0,complete:true,unavailable:vec![]};
+    let mut report = Report {
+        conditioning: vec![],
+        degenerate: vec![],
+        attempts: vec![],
+        sessions: 0,
+        complete: true,
+        unavailable: vec![],
+    };
     // The diagnostic LP/MILPs are this analysis's own problems: their budgets derive from
     // its tolerance, not from any model's numerical policy.
-    let accuracy=ResolvedAccuracy::from_policy(&Default::default(),policy.tolerance)?;
-    let settings=highs::Settings{nodes:policy.maximum_nodes,..highs::Settings::default()};
-    for milp in [false,true]{
+    let accuracy = ResolvedAccuracy::from_policy(&Default::default(), policy.tolerance)?;
+    let settings = highs::Settings {
+        nodes: policy.maximum_nodes,
+        ..highs::Settings::default()
+    };
+    for milp in [false, true] {
         // One live HiGHS session per thread: the family's session ends before the next.
-        let mut current:Option<highs::Session>=None;
-        for pivot in 0..rows.len(){
-            if report.attempts.len()>=policy.maximum_attempts||execution.stopped().is_some(){report.complete=false;report.unavailable.push("diagnostic attempt budget or deadline exhausted".into());return Ok(report);}
-            let p=problem(matrix,rows,pivot,milp,policy)?;
-            let identity=layout(&p);
-            let stamp=Compatibility{layout:identity,profile:identity,data:p.assumptions,backend:Backend::Highs};
-            let mut session=match current.take(){
-                Some(mut s)=>{s.update(&p,None,stamp)?;s}
-                None=>{report.sessions+=1;highs::Session::new(&p,None,stamp)?}
+        let mut current: Option<highs::Session> = None;
+        for pivot in 0..rows.len() {
+            if report.attempts.len() >= policy.maximum_attempts || execution.stopped().is_some() {
+                report.complete = false;
+                report
+                    .unavailable
+                    .push("diagnostic attempt budget or deadline exhausted".into());
+                return Ok(report);
+            }
+            let p = problem(matrix, rows, pivot, milp, policy)?;
+            let identity = layout(&p);
+            let stamp = Compatibility {
+                layout: identity,
+                profile: identity,
+                data: p.assumptions,
+                backend: Backend::Highs,
             };
-            let t=Tolerances{variables:vec![policy.tolerance;p.contract.variables.len()],rows:vec![policy.tolerance;p.contract.rows.len()],integrality:policy.tolerance};
-            let outcome=session.solve(&p,&pse_math::normalization::Normalization::identity(p.contract.variables.len(),p.contract.rows.len()),controls,&accuracy,&settings,execution.clone(),&t,None)?;
-            current=Some(session);
-            let optimal=outcome.termination.category==Termination::Success && outcome.quality.as_ref().is_some_and(crate::quality::Quality::feasible);
-            if optimal && let Some(point)=outcome.candidate.as_ref().map(|c|&c.primal) {
-                if let Some(certificate)=verify(matrix,rows,pivot,point,policy){
-                    if !milp{report.conditioning.push(certificate);}
-                    else if certificate.residual_maximum<=policy.tolerance {
-                        let selected=point[..rows.len()].iter().enumerate().filter_map(|(i,v)|(v.abs()>policy.tolerance).then_some(i)).collect::<Vec<_>>();
-                        let sources=selected.iter().map(|i|rows[*i]).collect::<Vec<_>>();
-                        if !report.degenerate.iter().any(|s|s.rows==sources){
-                            let irreducible=(||->Result<bool,ProblemError>{
-                                if rank(matrix,&selected,policy,&execution)?+1!=selected.len(){return Ok(false);}
-                                for omit in &selected{
-                                    let subset=selected.iter().copied().filter(|i|i!=omit).collect::<Vec<_>>();
-                                    if rank(matrix,&subset,policy,&execution)?!=subset.len(){return Ok(false);}
+            let mut session = match current.take() {
+                Some(mut s) => {
+                    s.update(&p, None, stamp)?;
+                    s
+                }
+                None => {
+                    report.sessions += 1;
+                    highs::Session::new(&p, None, stamp)?
+                }
+            };
+            let t = Tolerances {
+                variables: vec![policy.tolerance; p.contract.variables.len()],
+                rows: vec![policy.tolerance; p.contract.rows.len()],
+                integrality: policy.tolerance,
+            };
+            let outcome = session.solve(
+                &p,
+                &pse_math::normalization::Normalization::identity(
+                    p.contract.variables.len(),
+                    p.contract.rows.len(),
+                ),
+                controls,
+                &accuracy,
+                &settings,
+                execution.clone(),
+                &t,
+                None,
+            )?;
+            current = Some(session);
+            let optimal = outcome.termination.category == Termination::Success
+                && outcome
+                    .quality
+                    .as_ref()
+                    .is_some_and(crate::quality::Quality::feasible);
+            if optimal && let Some(point) = outcome.candidate.as_ref().map(|c| &c.primal) {
+                if let Some(certificate) = verify(matrix, rows, pivot, point, policy) {
+                    if !milp {
+                        report.conditioning.push(certificate);
+                    } else if certificate.residual_maximum <= policy.tolerance {
+                        let selected = point[..rows.len()]
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(i, v)| (v.abs() > policy.tolerance).then_some(i))
+                            .collect::<Vec<_>>();
+                        let sources = selected.iter().map(|i| rows[*i]).collect::<Vec<_>>();
+                        if !report.degenerate.iter().any(|s| s.rows == sources) {
+                            let irreducible = (|| -> Result<bool, ProblemError> {
+                                if rank(matrix, &selected, policy, &execution)? + 1
+                                    != selected.len()
+                                {
+                                    return Ok(false);
+                                }
+                                for omit in &selected {
+                                    let subset = selected
+                                        .iter()
+                                        .copied()
+                                        .filter(|i| i != omit)
+                                        .collect::<Vec<_>>();
+                                    if rank(matrix, &subset, policy, &execution)? != subset.len() {
+                                        return Ok(false);
+                                    }
                                 }
                                 Ok(true)
                             })();
-                            let irreducible_at_tolerance=match irreducible{Ok(v)=>v,Err(error)=>{report.complete=false;report.unavailable.push(error.to_string());false}};
-                            report.degenerate.push(DegenerateSet{rows:sources,certificate,irreducible_at_tolerance});
+                            let irreducible_at_tolerance = match irreducible {
+                                Ok(v) => v,
+                                Err(error) => {
+                                    report.complete = false;
+                                    report.unavailable.push(error.to_string());
+                                    false
+                                }
+                            };
+                            report.degenerate.push(DegenerateSet {
+                                rows: sources,
+                                certificate,
+                                irreducible_at_tolerance,
+                            });
                         }
                     }
-                }else{report.complete=false;}
-            }else if outcome.termination.category!=Termination::Infeasible {report.complete=false;}
+                } else {
+                    report.complete = false;
+                }
+            } else if outcome.termination.category != Termination::Infeasible {
+                report.complete = false;
+            }
             report.attempts.push(outcome);
         }
     }
     Ok(report)
 }
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
-    use std::sync::{Arc,atomic::AtomicBool};
+    use std::sync::{Arc, atomic::AtomicBool};
     #[test]
-    fn diagnostic_highs_lp_milp_find_and_verify_a_small_degenerate_set(){
-        let matrix=SparseColMat::try_new_from_triplets(2,2,&[Triplet::new(0,0,1.),Triplet::new(0,1,1.),Triplet::new(1,0,2.),Triplet::new(1,1,2.)]).unwrap();
-        let rows=[SemanticId::from_bytes([1;16]),SemanticId::from_bytes([2;16])];
-        let controls=Controls::default();
-        let policy=Policy{maximum_rows:10,maximum_entries:1000,maximum_attempts:4,multiplier_bound:10.,tolerance:1e-7,rank_relative:1e-8,maximum_nodes:None};
-        let r=analyze(matrix.as_ref(),&rows,policy,&controls,Execution::new(Arc::new(AtomicBool::new(false)),&controls)).unwrap();
+    fn diagnostic_highs_lp_milp_find_and_verify_a_small_degenerate_set() {
+        let matrix = SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                Triplet::new(0, 0, 1.),
+                Triplet::new(0, 1, 1.),
+                Triplet::new(1, 0, 2.),
+                Triplet::new(1, 1, 2.),
+            ],
+        )
+        .unwrap();
+        let rows = [
+            SemanticId::from_bytes([1; 16]),
+            SemanticId::from_bytes([2; 16]),
+        ];
+        let controls = Controls::default();
+        let policy = Policy {
+            maximum_rows: 10,
+            maximum_entries: 1000,
+            maximum_attempts: 4,
+            multiplier_bound: 10.,
+            tolerance: 1e-7,
+            rank_relative: 1e-8,
+            maximum_nodes: None,
+        };
+        let r = analyze(
+            matrix.as_ref(),
+            &rows,
+            policy,
+            &controls,
+            Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+        )
+        .unwrap();
         assert!(r.complete);
-        assert_eq!(r.attempts.len(),4);
-        assert_eq!(r.degenerate.len(),1);
-        assert_eq!(r.degenerate[0].rows,rows);
+        assert_eq!(r.attempts.len(), 4);
+        assert_eq!(r.degenerate.len(), 1);
+        assert_eq!(r.degenerate[0].rows, rows);
         assert!(r.degenerate[0].irreducible_at_tolerance);
-        assert_eq!(r.conditioning.len(),2);
-        assert!(r.conditioning.iter().any(|c|c.residual_maximum<=policy.tolerance));
-        assert!(r.conditioning.iter().any(|c|c.residual_maximum>policy.tolerance));
+        assert_eq!(r.conditioning.len(), 2);
+        assert!(
+            r.conditioning
+                .iter()
+                .any(|c| c.residual_maximum <= policy.tolerance)
+        );
+        assert!(
+            r.conditioning
+                .iter()
+                .any(|c| c.residual_maximum > policy.tolerance)
+        );
     }
     #[test]
-    fn degeneracy_hunter_reuses_session(){
+    fn degeneracy_hunter_reuses_session() {
         // Rows a and b are parallel; c is independent.
-        let matrix=SparseColMat::try_new_from_triplets(3,3,&[Triplet::new(0,0,1.),Triplet::new(0,1,1.),Triplet::new(1,0,2.),Triplet::new(1,1,2.),Triplet::new(2,2,1.)]).unwrap();
-        let rows=[SemanticId::from_bytes([1;16]),SemanticId::from_bytes([2;16]),SemanticId::from_bytes([3;16])];
-        let controls=Controls::default();
-        let policy=Policy{maximum_rows:10,maximum_entries:1000,maximum_attempts:6,multiplier_bound:10.,tolerance:1e-7,rank_relative:1e-8,maximum_nodes:Some(1000)};
-        let r=analyze(matrix.as_ref(),&rows,policy,&controls,Execution::new(Arc::new(AtomicBool::new(false)),&controls)).unwrap();
-        assert!(r.complete,"{:?}",r.unavailable);
+        let matrix = SparseColMat::try_new_from_triplets(
+            3,
+            3,
+            &[
+                Triplet::new(0, 0, 1.),
+                Triplet::new(0, 1, 1.),
+                Triplet::new(1, 0, 2.),
+                Triplet::new(1, 1, 2.),
+                Triplet::new(2, 2, 1.),
+            ],
+        )
+        .unwrap();
+        let rows = [
+            SemanticId::from_bytes([1; 16]),
+            SemanticId::from_bytes([2; 16]),
+            SemanticId::from_bytes([3; 16]),
+        ];
+        let controls = Controls::default();
+        let policy = Policy {
+            maximum_rows: 10,
+            maximum_entries: 1000,
+            maximum_attempts: 6,
+            multiplier_bound: 10.,
+            tolerance: 1e-7,
+            rank_relative: 1e-8,
+            maximum_nodes: Some(1000),
+        };
+        let r = analyze(
+            matrix.as_ref(),
+            &rows,
+            policy,
+            &controls,
+            Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+        )
+        .unwrap();
+        assert!(r.complete, "{:?}", r.unavailable);
         // One native session per problem family, updated from anchor to anchor.
-        assert_eq!(r.sessions,2);
-        assert_eq!(r.attempts.len(),6);
-        let reused=r.attempts.iter().map(|a|a.evidence.reused_native_state).collect::<Vec<_>>();
-        assert_eq!(reused,[false,true,true,false,true,true]);
+        assert_eq!(r.sessions, 2);
+        assert_eq!(r.attempts.len(), 6);
+        let reused = r
+            .attempts
+            .iter()
+            .map(|a| a.evidence.reused_native_state)
+            .collect::<Vec<_>>();
+        assert_eq!(reused, [false, true, true, false, true, true]);
         // The node budget reaches the MILPs and the iteration budget stays separate.
-        assert!(r.attempts.iter().all(|a|a.options["mip_max_nodes"]==OptionValue::Integer(1000)&&a.options["simplex_iteration_limit"]==OptionValue::Integer(3000)));
-        assert_eq!(r.degenerate.len(),1);
-        assert_eq!(r.degenerate[0].rows,rows[..2]);
+        assert!(
+            r.attempts
+                .iter()
+                .all(|a| a.options["mip_max_nodes"] == OptionValue::Integer(1000)
+                    && a.options["simplex_iteration_limit"] == OptionValue::Integer(3000))
+        );
+        assert_eq!(r.degenerate.len(), 1);
+        assert_eq!(r.degenerate[0].rows, rows[..2]);
         assert!(r.degenerate[0].irreducible_at_tolerance);
     }
 }

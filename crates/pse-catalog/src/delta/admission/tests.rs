@@ -120,7 +120,8 @@ fn complete_artifact_profiles_refuse_missing_members_but_allow_explicit_partial_
                 contract_fingerprint: spec.fingerprint,
                 table_uri: format!("memory:///source/{id}"),
                 delta_version: 1,
-                selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
+                selection:
+                    pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
             }
         })
         .collect();

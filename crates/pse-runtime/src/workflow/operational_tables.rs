@@ -31,8 +31,7 @@ use datafusion::{
     common::{DataFusionError, Result, ScalarValue, TableReference, tree_node::TreeNodeRecursion},
     execution::TaskContext,
     logical_expr::{
-        Between, BinaryExpr, Expr, Operator, TableProviderFilterPushDown, TableType,
-        expr::InList,
+        Between, BinaryExpr, Expr, Operator, TableProviderFilterPushDown, TableType, expr::InList,
     },
     physical_expr::{EquivalenceProperties, PhysicalExpr},
     physical_plan::{
@@ -49,8 +48,8 @@ use pse_operations::{
     Store,
     tables::{
         AttemptScan, IncumbentScan, JobScan, ProgressEventScan, ProgressValueScan,
-        PublicationMemberScan, PublicationScan, Scan, SettlementScan, SolutionScan,
-        StudyPointScan, StudyScan, TimeRange, TransitionScan, WorkspaceScan,
+        PublicationMemberScan, PublicationScan, Scan, SettlementScan, SolutionScan, StudyPointScan,
+        StudyScan, TimeRange, TransitionScan, WorkspaceScan,
     },
 };
 use pse_relations::columnar::RelationRow;
@@ -83,10 +82,7 @@ enum Predicate {
     /// The column is one of these spellings.
     Members(BTreeSet<String>),
     /// The column lies in this inclusive interval of microseconds since the Unix epoch.
-    Range {
-        from: Option<i64>,
-        to: Option<i64>,
-    },
+    Range { from: Option<i64>, to: Option<i64> },
 }
 
 /// The recognized predicates of one scan, by column: each column's are intersected.
@@ -139,7 +135,8 @@ impl Constraints {
         match self.members.get(column) {
             None => Some(Vec::new()),
             Some(spellings) => {
-                let members: BTreeSet<T> = spellings.iter().filter_map(|s| s.parse().ok()).collect();
+                let members: BTreeSet<T> =
+                    spellings.iter().filter_map(|s| s.parse().ok()).collect();
                 (!members.is_empty()).then(|| members.into_iter().collect())
             }
         }
@@ -370,7 +367,10 @@ fn column(expr: &Expr, columns: &[(&'static str, Kind)]) -> Option<(&'static str
                 | DataType::FixedSizeBinary(16)
         ),
         (Kind::Member, Some(ty)) => {
-            matches!(ty, DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View)
+            matches!(
+                ty,
+                DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View
+            )
         }
         // A finer or equal unit keeps every instant distinct and in order.
         (Kind::Time, Some(DataType::Timestamp(unit, zone))) => {
@@ -447,10 +447,7 @@ fn swap(op: Operator) -> Option<Operator> {
 }
 
 /// The typed predicate a filter states on one pushable column, if it states exactly one.
-fn recognize(
-    expr: &Expr,
-    columns: &[(&'static str, Kind)],
-) -> Option<(&'static str, Predicate)> {
+fn recognize(expr: &Expr, columns: &[(&'static str, Kind)]) -> Option<(&'static str, Predicate)> {
     match expr {
         // DataFusion rewrites a short `IN` list as a disjunction of equalities: a union of
         // memberships on one column is recognized as one.
@@ -483,9 +480,7 @@ fn recognize(
                 _ => return None,
             };
             let predicate = match (kind, op) {
-                (Kind::Id, Operator::Eq) => {
-                    Predicate::Ids(identity(value)?.into_iter().collect())
-                }
+                (Kind::Id, Operator::Eq) => Predicate::Ids(identity(value)?.into_iter().collect()),
                 (Kind::Member, Operator::Eq) => {
                     Predicate::Members(BTreeSet::from([spelling(value)?]))
                 }
@@ -828,8 +823,8 @@ fn table<S: Pushdown>(
     store: &Store,
     registry: &Arc<pse_schema::Registry>,
 ) -> Result<(&'static str, Arc<dyn TableProvider>), WorkflowError> {
-    let table = OperationalTable::<S>::new(store.clone(), Arc::clone(registry))
-        .map_err(super::relation)?;
+    let table =
+        OperationalTable::<S>::new(store.clone(), Arc::clone(registry)).map_err(super::relation)?;
     Ok((S::TABLE, Arc::new(table)))
 }
 

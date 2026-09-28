@@ -16,8 +16,7 @@ use pse_engine::{
 };
 use pse_ids::SemanticId;
 use pse_relations::generated::{
-    enums::NativeDependencyKind as Kind,
-    runtime::native_dependencies as deps,
+    enums::NativeDependencyKind as Kind, runtime::native_dependencies as deps,
 };
 use pse_schema::model::provider::ProviderScope;
 use std::collections::BTreeMap;

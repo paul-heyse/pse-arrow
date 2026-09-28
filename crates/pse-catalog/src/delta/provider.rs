@@ -148,7 +148,11 @@ pub(crate) async fn open_native(
     }
 }
 
-async fn view(opened: Opened, layout: &DurableLayout, state: Arc<SessionState>) -> Result<ViewTable> {
+async fn view(
+    opened: Opened,
+    layout: &DurableLayout,
+    state: Arc<SessionState>,
+) -> Result<ViewTable> {
     let provider = opened
         .table
         .table_provider()

@@ -419,10 +419,10 @@ mod tests {
                 Arc::ptr_eq(&prior.syntax, &next.syntax),
                 prior.path != "materials/constants.yaml"
             );
-
         }
         let rows = pse_relations::generated::reference::constants::View::from_checked(
-            &edited.bundles()[0].batches[&pse_relations::generated::reference::constants::RELATION_ID],
+            &edited.bundles()[0].batches
+                [&pse_relations::generated::reference::constants::RELATION_ID],
         )?
         .rows()?;
         assert_eq!(rows[0].name, "changed");

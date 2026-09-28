@@ -6,8 +6,8 @@
 //! under a row lock; SQL enforces only the value domain. The state spellings are the
 //! registry enumeration `AttemptState` (DP-19).
 
-pub use pse_model::generated::enums::AttemptState;
 use pse_model::generated::enums::AttemptKind;
+pub use pse_model::generated::enums::AttemptState;
 
 use AttemptState::{
     Cancelled, Completed, Failed, Partial, Planned, Queued, Running, Stale, Superseded,
@@ -172,7 +172,12 @@ mod transition_unit {
     fn coordinating_attempts_end_from_queued_and_never_run() {
         for kind in AttemptKind::ALL {
             let coordinating = coordinates(kind);
-            assert_eq!(coordinating, kind == AttemptKind::Study, "{}", kind.as_str());
+            assert_eq!(
+                coordinating,
+                kind == AttemptKind::Study,
+                "{}",
+                kind.as_str()
+            );
             for (from, to) in [(Queued, Completed), (Queued, Partial), (Queued, Failed)] {
                 assert_eq!(legal(kind, from, to), coordinating);
             }

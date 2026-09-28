@@ -12,21 +12,21 @@ pub mod artifact;
 pub mod diagnostic;
 /// Versioned boundary documents (ADR-0116 Outcome 6).
 pub mod document;
-/// Validated single-value setting domains (ADR-0116 Outcome 8).
-pub mod scalars;
 /// Declared variable-domain semantics over the generated registry enum (ADR-0103).
 pub mod domain;
 /// Constraint forms left to native constraint handlers (ADR-0104).
 pub mod forms;
-/// Resolved numerical meaning, independent of native solver implementations.
-pub mod numerics;
 /// The model and case a run's lineage and its numerical requirements name.
 pub mod lineage;
+/// Resolved numerical meaning, independent of native solver implementations.
+pub mod numerics;
 /// Reading store rows from their PostgreSQL composite values (ADR-0114 Outcome 25).
 #[cfg(feature = "postgres")]
 pub mod postgres;
 #[cfg(all(test, feature = "postgres"))]
 mod postgres_tests;
+/// Validated single-value setting domains (ADR-0116 Outcome 8).
+pub mod scalars;
 #[cfg(test)]
 mod vocabulary_tests;
 /// An invalid declared semantic enum member.

@@ -18,7 +18,6 @@
 //! - records each step's typed outcome and candidate-use decision. A later step starts
 //!   only from a step whose decision permits it (ADR-0106, [`Start`]); a failed step seeds
 //!   nothing and does not stop independent steps.
-use pse_model::generated::identities::RunId;
 use super::{
     ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation, Runtime,
     WorkflowError,
@@ -33,6 +32,7 @@ use pse_backend_native::solve::{Progress, WarmStart};
 use pse_compiler::workspace::ModelingVariableState;
 use pse_ids::SemanticId;
 use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic};
+use pse_model::generated::identities::RunId;
 use pse_modeling::specialize::Value;
 use std::{collections::BTreeMap, future::Future, sync::Arc, time::Instant};
 

@@ -5,14 +5,12 @@
 use crate::authoring_driver::{DriverError, document::DocumentBundle};
 
 pub(crate) fn add(a: usize, b: usize) -> Result<usize, DriverError> {
-    a.checked_add(b).ok_or_else(|| {
-        crate::authoring_driver::contract("workspace extent overflow")
-    })
+    a.checked_add(b)
+        .ok_or_else(|| crate::authoring_driver::contract("workspace extent overflow"))
 }
 pub(crate) fn mul(a: usize, b: usize) -> Result<usize, DriverError> {
-    a.checked_mul(b).ok_or_else(|| {
-        crate::authoring_driver::contract("workspace extent overflow")
-    })
+    a.checked_mul(b)
+        .ok_or_else(|| crate::authoring_driver::contract("workspace extent overflow"))
 }
 pub(crate) fn sources(bundles: &[DocumentBundle]) -> Result<usize, DriverError> {
     bundles.iter().try_fold(4096, |n, bundle| {

@@ -8,10 +8,10 @@ use crate::physical::PhysicalError;
 use pse_columnar::CancellationToken;
 use pse_ids::SemanticId;
 use pse_quantity::{
-    EntityKind, EntityKindId, Basis, BasisId, ConversionId, ConversionRule, DimensionVector, InputConversion, InvariantId,
-    OperationId, QuantityKind, QuantityKindId, QuantityOperation, QuantityRegistry,
-    QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey, Ratio, ReferenceState,
-    ReferenceStateId, Unit, UnitId, UnitSet, UnitSetId,
+    Basis, BasisId, ConversionId, ConversionRule, DimensionVector, EntityKind, EntityKindId,
+    InputConversion, InvariantId, OperationId, QuantityKind, QuantityKindId, QuantityOperation,
+    QuantityRegistry, QuantityRegistryBuilder, QuantityType, QuantityTypeId, QuantityTypeKey,
+    Ratio, ReferenceState, ReferenceStateId, Unit, UnitId, UnitSet, UnitSetId,
 };
 use pse_relations::{
     columnar::FieldCheckedBatch,
@@ -47,18 +47,23 @@ pub(super) fn inventory(
         };
     }
     {
-        use pse_relations::generated::authored::modeling_declarations as declarations;
         use pse_model::generated::enums::ModelingDeclarationKind;
+        use pse_relations::generated::authored::modeling_declarations as declarations;
         if let Some(spec) = registry.relation_by_id(declarations::RELATION_ID)
             && let Some(batch) = batches.get(&spec.key)
         {
-            let view=declarations::View::from_checked(batch)?;
+            let view = declarations::View::from_checked(batch)?;
             for index in 0..view.len() {
                 cancel.checkpoint()?;
-                let row=view.row(index)?;
-                if row.value.kind == ModelingDeclarationKind::Entity { entities.insert(row.declaration_id); }
+                let row = view.row(index)?;
+                if row.value.kind == ModelingDeclarationKind::Entity {
+                    entities.insert(row.declaration_id);
+                }
                 if row.value.kind == ModelingDeclarationKind::EntityKind {
-                    builder.entity_kind(EntityKind{id:EntityKindId::from_id(row.declaration_id.as_id()),name:row.name});
+                    builder.entity_kind(EntityKind {
+                        id: EntityKindId::from_id(row.declaration_id.as_id()),
+                        name: row.name,
+                    });
                 }
             }
         }
@@ -92,8 +97,12 @@ pub(super) fn inventory(
     });
     rows!(reference_states, row, {
         if let Some(subject) = row.subject_id
-            && !entities.contains(&subject) {
-            return Err(invalid(format!("reference state {} subject {subject} is not an authored entity", row.reference_state_id)));
+            && !entities.contains(&subject)
+        {
+            return Err(invalid(format!(
+                "reference state {} subject {subject} is not an authored entity",
+                row.reference_state_id
+            )));
         }
         builder.reference_state(ReferenceState {
             id: ReferenceStateId::from_id(row.reference_state_id),
@@ -211,7 +220,10 @@ pub(super) fn inventory(
         });
     });
     rows!(quantity_operation_reductions, row, {
-        builder.reduction_domain(OperationId::from_id(row.operation_id), EntityKindId::from_id(row.domain_kind));
+        builder.reduction_domain(
+            OperationId::from_id(row.operation_id),
+            EntityKindId::from_id(row.domain_kind),
+        );
     });
     let boolean = if let Some((neutral, boolean)) = context {
         builder.neutral_dimensionless(QuantityTypeId::from_id(neutral));

@@ -39,7 +39,10 @@ fn declare_feral(builder: &mut RegistryBuilder) {
             ("scotch_nd", "SCOTCH nested dissection."),
             ("kahip_nd", "KaHIP nested dissection."),
             ("auto", "FERAL's size- and shape-based choice."),
-            ("auto_race", "Race the candidate orderings and keep the least fill."),
+            (
+                "auto_race",
+                "Race the candidate orderings and keep the least fill.",
+            ),
         ],
     );
     vocabulary(
@@ -49,7 +52,10 @@ fn declare_feral(builder: &mut RegistryBuilder) {
             ("inf_norm", "Knight–Ruiz infinity-norm equilibration."),
             ("mc64_symmetric", "MC64-style symmetric matching scaling."),
             ("identity", "No scaling."),
-            ("auto", "MC64 for arrow-KKT shapes, infinity-norm otherwise."),
+            (
+                "auto",
+                "MC64 for arrow-KKT shapes, infinity-norm otherwise.",
+            ),
         ],
     );
 }
@@ -63,9 +69,15 @@ fn declare_presolve(builder: &mut RegistryBuilder) {
         &[
             ("linear_bounds", "Propagation using proved affine rows."),
             ("redundant_rows", "Library redundancy analysis."),
-            ("affine_elimination", "Library affine column elimination and recovery."),
+            (
+                "affine_elimination",
+                "Library affine column elimination and recovery.",
+            ),
             ("fbbt", "Native expression-tape interval propagation."),
-            ("rank_diagnostics", "Equality-rank diagnostics, without objective-changing remedies."),
+            (
+                "rank_diagnostics",
+                "Equality-rank diagnostics, without objective-changing remedies.",
+            ),
             ("auxiliary", "Explicit safe auxiliary nonlinear reduction."),
         ],
     );
@@ -73,23 +85,39 @@ fn declare_presolve(builder: &mut RegistryBuilder) {
         builder,
         "PresolvePolicyKind",
         &[
-            ("off", "Identity transport: source coordinates are preserved."),
+            (
+                "off",
+                "Identity transport: source coordinates are preserved.",
+            ),
             ("auto", "Only qualified source-backed passes."),
-            ("explicit", "Complete library controls; required ineligible passes fail admission."),
+            (
+                "explicit",
+                "Complete library controls; required ineligible passes fail admission.",
+            ),
         ],
     );
     vocabulary(
         builder,
         "TearMethod",
         &[
-            ("highs", "Exact weighted feedback-edge MILP with native incumbent, bound and gap reporting."),
-            ("unweighted_heuristic", "Explicit unweighted greedy feedback arc set."),
+            (
+                "highs",
+                "Exact weighted feedback-edge MILP with native incumbent, bound and gap reporting.",
+            ),
+            (
+                "unweighted_heuristic",
+                "Explicit unweighted greedy feedback arc set.",
+            ),
         ],
     );
 }
 
 /// One vocabulary from its spellings and member documentation, in declaration order.
-fn vocabulary(builder: &mut RegistryBuilder, name: &'static str, members: &[(&'static str, &'static str)]) {
+fn vocabulary(
+    builder: &mut RegistryBuilder,
+    name: &'static str,
+    members: &[(&'static str, &'static str)],
+) {
     builder.declare_enum(EnumDecl::platform(
         name,
         members
@@ -107,7 +135,10 @@ fn declare_ipopt(builder: &mut RegistryBuilder) {
         "IpoptLinearSolver",
         &[
             ("mumps", "Sequential MUMPS."),
-            ("spral", "SPRAL SSIDS on OpenMP threads; needs OMP_CANCELLATION=TRUE in the process."),
+            (
+                "spral",
+                "SPRAL SSIDS on OpenMP threads; needs OMP_CANCELLATION=TRUE in the process.",
+            ),
             ("pardisomkl", "oneMKL Pardiso on MKL threads."),
         ],
     );
@@ -118,8 +149,14 @@ fn declare_ipopt(builder: &mut RegistryBuilder) {
             ("amd", "Approximate minimum degree."),
             ("amf", "Approximate minimum fill."),
             ("pord", "PORD."),
-            ("metis", "METIS nested dissection (the image's shared METIS)."),
-            ("qamd", "Approximate minimum degree with quasi-dense row detection."),
+            (
+                "metis",
+                "METIS nested dissection (the image's shared METIS).",
+            ),
+            (
+                "qamd",
+                "Approximate minimum degree with quasi-dense row detection.",
+            ),
         ],
     );
     vocabulary(
@@ -147,7 +184,10 @@ fn declare_ipopt(builder: &mut RegistryBuilder) {
         &[
             ("aggressive", "Aggressive a posteriori pivoting."),
             ("block", "Block a posteriori pivoting."),
-            ("threshold", "Threshold partial pivoting; SPRAL runs it serially."),
+            (
+                "threshold",
+                "Threshold partial pivoting; SPRAL runs it serially.",
+            ),
         ],
     );
     vocabulary(
@@ -185,7 +225,10 @@ fn declare_controls(builder: &mut RegistryBuilder) {
         "HessianMode",
         &[
             ("exact", "Exact weighted Lagrangian Hessian."),
-            ("limited_memory", "Library-owned quasi-Newton approximation."),
+            (
+                "limited_memory",
+                "Library-owned quasi-Newton approximation.",
+            ),
         ],
     );
     vocabulary(
@@ -193,8 +236,14 @@ fn declare_controls(builder: &mut RegistryBuilder) {
         "ReusePolicy",
         &[
             ("fresh", "Always construct a fresh native model."),
-            ("allow_rebuild", "Rebuild explicitly when data updates are ineligible."),
-            ("require_reuse", "Fail rather than rebuilding incompatible native state."),
+            (
+                "allow_rebuild",
+                "Rebuild explicitly when data updates are ineligible.",
+            ),
+            (
+                "require_reuse",
+                "Fail rather than rebuilding incompatible native state.",
+            ),
         ],
     );
     vocabulary(
@@ -217,7 +266,10 @@ fn declare_backend_methods(builder: &mut RegistryBuilder) {
         "PounceMethod",
         &[
             ("interior_point", "Native barrier/filter NLP method."),
-            ("active_set_sqp", "Native active-set sequential quadratic programming."),
+            (
+                "active_set_sqp",
+                "Native active-set sequential quadratic programming.",
+            ),
             (
                 "l1_exact_penalty",
                 "The Thierry–Biegler ℓ1 exact penalty-barrier method (ADR-0109); explicit only, never selected automatically and never a retry.",
@@ -238,19 +290,34 @@ fn declare_backend_methods(builder: &mut RegistryBuilder) {
         builder,
         "KinsolStrategy",
         &[
-            ("picard", "Declared constant linear splitting with native Anderson acceleration."),
+            (
+                "picard",
+                "Declared constant linear splitting with native Anderson acceleration.",
+            ),
             ("newton", "Full Newton step."),
             ("line_search", "Globalized Newton line search."),
-            ("fixed_point", "Declared fixed-point map with native Anderson acceleration."),
+            (
+                "fixed_point",
+                "Declared fixed-point map with native Anderson acceleration.",
+            ),
         ],
     );
     vocabulary(
         builder,
         "KinsolOrthogonalization",
         &[
-            ("modified_gram_schmidt", "Modified Gram-Schmidt, KINSOL's default."),
-            ("inverse_compact_wy", "Inverse compact WY modified Gram-Schmidt."),
-            ("classical_gram_schmidt2", "Classical Gram-Schmidt with reorthogonalization."),
+            (
+                "modified_gram_schmidt",
+                "Modified Gram-Schmidt, KINSOL's default.",
+            ),
+            (
+                "inverse_compact_wy",
+                "Inverse compact WY modified Gram-Schmidt.",
+            ),
+            (
+                "classical_gram_schmidt2",
+                "Classical Gram-Schmidt with reorthogonalization.",
+            ),
             (
                 "delayed_classical_gram_schmidt2",
                 "Classical Gram-Schmidt with delayed reorthogonalization.",
@@ -261,7 +328,10 @@ fn declare_backend_methods(builder: &mut RegistryBuilder) {
         builder,
         "ClarabelMode",
         &[
-            ("single_solve", "Native presolve/chordal preprocessing may change the native layout."),
+            (
+                "single_solve",
+                "Native presolve/chordal preprocessing may change the native layout.",
+            ),
             (
                 "reusable_data",
                 "Preserve structure for Clarabel's data update API: native presolve, input zero-dropping and chordal decomposition are disabled.",
@@ -285,8 +355,14 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
         builder,
         "DynamicsMethod",
         &[
-            ("auto", "Diffsol normally; IDAS when native trial recovery is required."),
-            ("diffsol", "Rust BDF with library-owned hybrid reset sensitivities."),
+            (
+                "auto",
+                "Diffsol normally; IDAS when native trial recovery is required.",
+            ),
+            (
+                "diffsol",
+                "Rust BDF with library-owned hybrid reset sensitivities.",
+            ),
             ("idas", "Residual BDF with recoverable trial callbacks."),
         ],
     );
@@ -295,7 +371,10 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
         "TrialPolicy",
         &[
             ("terminal", "A trial failure terminates this attempt."),
-            ("recoverable", "The native method must support rejecting and retrying a trial."),
+            (
+                "recoverable",
+                "The native method must support rejecting and retrying a trial.",
+            ),
         ],
     );
     vocabulary(
@@ -305,7 +384,10 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
             ("bdf", "Variable-order variable-step BDF."),
             ("tr_bdf2", "Two-stage SDIRK TR-BDF2."),
             ("esdirk34", "Four-stage ESDIRK 3(4)."),
-            ("tsit45", "Explicit Tsitouras 4(5); only a mass-free ODE is admitted."),
+            (
+                "tsit45",
+                "Explicit Tsitouras 4(5); only a mass-free ODE is admitted.",
+            ),
         ],
     );
     vocabulary(
@@ -320,8 +402,14 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
         builder,
         "SensitivityCorrector",
         &[
-            ("simultaneous", "State and sensitivity corrections in one Newton iteration."),
-            ("staggered", "Sensitivities corrected after each converged state step."),
+            (
+                "simultaneous",
+                "State and sensitivity corrections in one Newton iteration.",
+            ),
+            (
+                "staggered",
+                "Sensitivities corrected after each converged state step.",
+            ),
         ],
     );
     vocabulary(

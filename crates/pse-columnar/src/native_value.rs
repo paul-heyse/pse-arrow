@@ -34,7 +34,8 @@ pub fn semantic_payload(
     if array.data_type() != field.data_type() {
         return Err(invalid("value field and storage differ"));
     }
-    let mut hash = pse_ids::preimage::PreimageHasher::new_derive_key(pse_ids::Frame::NativeValuePayloadV1);
+    let mut hash =
+        pse_ids::preimage::PreimageHasher::new_derive_key(pse_ids::Frame::NativeValuePayloadV1);
     value(
         array,
         field,

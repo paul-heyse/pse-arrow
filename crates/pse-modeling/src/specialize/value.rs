@@ -31,7 +31,10 @@ pub enum Value {
     /// Textual label.
     Text(String),
     /// Entity identity and kind identity.
-    Entity { id: DeclarationId, kind: DeclarationId },
+    Entity {
+        id: DeclarationId,
+        kind: DeclarationId,
+    },
     /// Value of an authored closed enumeration.
     Enum {
         enumeration: DeclarationId,

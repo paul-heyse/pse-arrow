@@ -42,11 +42,14 @@ impl RunResult {
             .identity();
         match &self.request {
             RunRequest::Modeling(requests) => {
-                for (ordinal,request) in requests.iter().enumerate() {
-                    let step=ordinal as i64;
-                let solved = request.model.model.solved();
-                let declaration = request.model.case.compiled().plan.structure();
-                let outcome = match &self.report {Ok(RunReport::Modeling(r))=>r.get(ordinal).map(|r|&r.outcome),_=>None};
+                for (ordinal, request) in requests.iter().enumerate() {
+                    let step = ordinal as i64;
+                    let solved = request.model.model.solved();
+                    let declaration = request.model.case.compiled().plan.structure();
+                    let outcome = match &self.report {
+                        Ok(RunReport::Modeling(r)) => r.get(ordinal).map(|r| &r.outcome),
+                        _ => None,
+                    };
                     let native = match outcome {
                         Some(Outcome::Native(r)) => Some(r.as_ref()),
                         _ => None,
@@ -122,28 +125,56 @@ impl RunResult {
                             .and_then(|r| r.preprocessing.as_ref().map(|p| p.transformation)),
                     });
 
-                let preparation = request.solve.preparation_identity().map_err(crate::math::MathRuntimeError::from)?;
-                let selected = request.solve.request_identity().map_err(crate::math::MathRuntimeError::from)?;
-                let profile = crate::math::solves::profile_key(&request.profile).map_err(crate::math::MathRuntimeError::from)?;
-                let mut identity = FramedHasher::new(pse_ids::Frame::CompletedRequestV2);
-                identity.hash(&request.source.revision.identity()).id(&solved.instance().as_id()).hash(&preparation).hash(&selected).hash(&profile).hash(&request.solve.numerics().key);
-                // A result is traceable to what seeded it and to native state it reused:
-                // the previous step's seed and the reuse of retained native state enter
-                // its lineage identity (F25).
-                frame_start(&mut identity, native);
-                let mut actual_environment = FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
-                actual_environment.hash(&environment).hash(&pse_buildinfo::BUILD_IDENTITY);
-                if let Some(native) = native {
-                    actual_environment.str(native.backend.as_str());
-                    for (name,value) in &native.provenance {actual_environment.str(name).str(value);}
+                    let preparation = request
+                        .solve
+                        .preparation_identity()
+                        .map_err(crate::math::MathRuntimeError::from)?;
+                    let selected = request
+                        .solve
+                        .request_identity()
+                        .map_err(crate::math::MathRuntimeError::from)?;
+                    let profile = crate::math::solves::profile_key(&request.profile)
+                        .map_err(crate::math::MathRuntimeError::from)?;
+                    let mut identity = FramedHasher::new(pse_ids::Frame::CompletedRequestV2);
+                    identity
+                        .hash(&request.source.revision.identity())
+                        .id(&solved.instance().as_id())
+                        .hash(&preparation)
+                        .hash(&selected)
+                        .hash(&profile)
+                        .hash(&request.solve.numerics().key);
+                    // A result is traceable to what seeded it and to native state it reused:
+                    // the previous step's seed and the reuse of retained native state enter
+                    // its lineage identity (F25).
+                    frame_start(&mut identity, native);
+                    let mut actual_environment =
+                        FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
+                    actual_environment
+                        .hash(&environment)
+                        .hash(&pse_buildinfo::BUILD_IDENTITY);
+                    if let Some(native) = native {
+                        actual_environment.str(native.backend.as_str());
+                        for (name, value) in &native.provenance {
+                            actual_environment.str(name).str(value);
+                        }
+                    }
+                    let lineage = solved.lineage();
+                    product.lineage.push(run_lineage::Row {
+                        run_id: self.run_id,
+                        step,
+                        model_id: lineage.model_id,
+                        revision: request.source.revision.identity(),
+                        case_id: lineage.case_id,
+                        instance_id: lineage.instance_id,
+                        fit_id: lineage.fit_id,
+                        request_identity: identity.finish_hash(),
+                        preparation_identity: preparation,
+                        profile_identity: profile,
+                        numerical_identity: request.solve.numerics().key,
+                        physical_identity: request.source.physical.key,
+                        environment_identity: actual_environment.finish_hash(),
+                    });
                 }
-                let lineage = solved.lineage();
-                product.lineage.push(run_lineage::Row {
-                    run_id:self.run_id,step,model_id:lineage.model_id,revision:request.source.revision.identity(),case_id:lineage.case_id,instance_id:lineage.instance_id,fit_id:lineage.fit_id,
-                    request_identity:identity.finish_hash(),preparation_identity:preparation,profile_identity:profile,
-                    numerical_identity:request.solve.numerics().key,physical_identity:request.source.physical.key,environment_identity:actual_environment.finish_hash(),
-                });
-            }
             }
             RunRequest::Simulation(p) => {
                 let trajectory = match &self.report {
@@ -185,7 +216,8 @@ impl RunResult {
                     .error
                     .or_else(|| r.and_then(|r| r.error.as_ref().map(ToString::to_string)));
                 product.computation = Some(row);
-                let mut actual_environment = FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
+                let mut actual_environment =
+                    FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
                     .hash(&pse_buildinfo::BUILD_IDENTITY);
@@ -251,7 +283,8 @@ impl RunResult {
                     .error
                     .or_else(|| r.and_then(|r| r.diagnostic.as_ref().map(ToString::to_string)));
                 product.computation = Some(row);
-                let mut actual_environment = FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
+                let mut actual_environment =
+                    FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
                     .hash(&pse_buildinfo::BUILD_IDENTITY);

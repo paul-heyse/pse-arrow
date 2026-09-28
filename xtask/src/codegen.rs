@@ -165,12 +165,8 @@ fn append_physical(_: &Path, _: &pse_schema::Registry, _: &mut GeneratedTree) ->
 // The pure registry emitter has no physical package data. Its bootstrap phase
 // must not claim those empty roots and prune the previously compiled fixtures.
 fn contract_roots(tree: &mut GeneratedTree) {
-    tree.roots.retain(|root| {
-        !matches!(
-            root.to_str(),
-            Some("crates/pse-quantity/src/generated")
-        )
-    });
+    tree.roots
+        .retain(|root| !matches!(root.to_str(), Some("crates/pse-quantity/src/generated")));
 }
 
 /// The schema fingerprint covers the generated DDL and the hand-written `physical.sql`,
@@ -657,16 +653,32 @@ mod tests {
         docs.files
             .insert(PathBuf::from("docs/generated/enums.md"), b"# e\n".to_vec());
         let mut contracts = GeneratedTree::empty(Language::Python.roots());
-        contracts
-            .files
-            .insert(PathBuf::from("python/pse/contracts/enums.py"), b"x = 1\n".to_vec());
+        contracts.files.insert(
+            PathBuf::from("python/pse/contracts/enums.py"),
+            b"x = 1\n".to_vec(),
+        );
         for tree in [&docs, &contracts] {
             write_tree(checkout.path(), tree).unwrap();
-            assert!(inventory(checkout.path(), tree).unwrap().iter().all(|path| tree.files.contains_key(path)));
+            assert!(
+                inventory(checkout.path(), tree)
+                    .unwrap()
+                    .iter()
+                    .all(|path| tree.files.contains_key(path))
+            );
         }
         // Writing the enclosing targets pruned nothing of the nested ones.
-        assert!(checkout.path().join("docs/generated/schema/solve-settings.schema.json").exists());
-        assert!(checkout.path().join("python/pse/contracts/documents/__init__.py").exists());
+        assert!(
+            checkout
+                .path()
+                .join("docs/generated/schema/solve-settings.schema.json")
+                .exists()
+        );
+        assert!(
+            checkout
+                .path()
+                .join("python/pse/contracts/documents/__init__.py")
+                .exists()
+        );
         let documents = GeneratedTree::empty(documents::roots());
         assert_eq!(
             inventory(checkout.path(), &documents).unwrap().len(),

@@ -3,6 +3,7 @@
 //! Native POUNCE TNLP adapter sharing the exact NLP oracle and callback failure policy.
 mod equalities;
 mod records;
+pub use crate::settings::pounce::{LinearSettings, Method, Settings};
 use crate::tnlp::{Adapter, finite};
 use crate::{
     NlpOracle, ProblemError,
@@ -18,7 +19,6 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
-pub use crate::settings::pounce::{LinearSettings, Method, Settings};
 /// Worker count of FERAL's own factorization pool, by the rule feral 0.18 applies when it
 /// builds that pool (`Solver::pool_num_threads`): `RAYON_NUM_THREADS` when it parses as a
 /// positive count, else the available parallelism, else one. The pool cannot be injected,
@@ -478,9 +478,11 @@ impl Session {
         }));
         let native: Rc<RefCell<dyn TNLP>> = if method == Method::L1ExactPenalty {
             let inner: Rc<RefCell<dyn TNLP>> = adapter.clone();
-            Rc::new(RefCell::new(equalities::Equalities::new(inner).ok_or_else(
-                || ProblemError::Internal("POUNCE equality form of the NLP".into()),
-            )?))
+            Rc::new(RefCell::new(
+                equalities::Equalities::new(inner).ok_or_else(|| {
+                    ProblemError::Internal("POUNCE equality form of the NLP".into())
+                })?,
+            ))
         } else {
             adapter.clone()
         };

@@ -111,12 +111,24 @@ mod tests {
         assert!(SemanticId::from_sql(&Type::UUID, &[0; 17]).is_err());
         // Identity domains resolve to their base; other types are refused.
         let attempt = domain("attempt_id", Type::UUID);
-        assert!(accepts_domain::<SemanticId>(&attempt, "pse_ops", "attempt_id"));
-        assert!(accepts_domain::<SemanticId>(&Type::UUID, "pse_ops", "attempt_id"));
+        assert!(accepts_domain::<SemanticId>(
+            &attempt,
+            "pse_ops",
+            "attempt_id"
+        ));
+        assert!(accepts_domain::<SemanticId>(
+            &Type::UUID,
+            "pse_ops",
+            "attempt_id"
+        ));
         assert!(!accepts_domain::<SemanticId>(&attempt, "pse_ops", "run_id"));
         assert!(!<SemanticId as ToSql>::accepts(&Type::TEXT));
         let bundle = domain("source_bundle_id", content);
         assert_eq!(base(&bundle), &Type::BYTEA);
-        assert!(accepts_domain::<ContentHash>(&bundle, "pse_ops", "source_bundle_id"));
+        assert!(accepts_domain::<ContentHash>(
+            &bundle,
+            "pse_ops",
+            "source_bundle_id"
+        ));
     }
 }

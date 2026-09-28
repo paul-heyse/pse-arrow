@@ -145,14 +145,23 @@ impl CheckedPackage {
         }
     }
     /// A unique source member, including guarded contracts without activating them.
-    pub(crate) fn declared_member(&self, owner: DeclarationId, name: &str) -> Option<DeclarationId> {
+    pub(crate) fn declared_member(
+        &self,
+        owner: DeclarationId,
+        name: &str,
+    ) -> Option<DeclarationId> {
         if let Some(member) = self.members.get(&owner).and_then(|m| m.get(name)) {
             return Some(*member);
         }
         // Guarded declarations have a source contract even before their guard is
         // selected. Keep them out of the effective map: specialization alone owns
         // activation. Multiple possible declarations require an unambiguous contract.
-        fn visit(p: &CheckedPackage, id: DeclarationId, name: &str, found: &mut BTreeSet<DeclarationId>) {
+        fn visit(
+            p: &CheckedPackage,
+            id: DeclarationId,
+            name: &str,
+            found: &mut BTreeSet<DeclarationId>,
+        ) {
             if p.declarations[&id].value.kind
                 != pse_model::generated::enums::ModelingDeclarationKind::When
             {
@@ -1319,7 +1328,11 @@ impl CheckedPackage {
     }
 }
 
-fn dependency_paths(p: &CheckedPackage, owner: DeclarationId, text: &str) -> BTreeSet<DeclarationId> {
+fn dependency_paths(
+    p: &CheckedPackage,
+    owner: DeclarationId,
+    text: &str,
+) -> BTreeSet<DeclarationId> {
     use pse_authoring::{
         dsl::{Equation, EquationKind, Expr, ExprKind},
         language::{StaticValue, parse_static},
@@ -1341,13 +1354,23 @@ fn dependency_paths(p: &CheckedPackage, owner: DeclarationId, text: &str) -> BTr
             out.insert(id);
         }
     }
-    fn expression(p: &CheckedPackage, owner: DeclarationId, e: &Expr, out: &mut BTreeSet<DeclarationId>) {
+    fn expression(
+        p: &CheckedPackage,
+        owner: DeclarationId,
+        e: &Expr,
+        out: &mut BTreeSet<DeclarationId>,
+    ) {
         for value in e.free_paths() {
             path(p, owner, value, out);
         }
         e.walk(|node| call(p, owner, node, out));
     }
-    fn call(p: &CheckedPackage, owner: DeclarationId, node: &Expr, out: &mut BTreeSet<DeclarationId>) {
+    fn call(
+        p: &CheckedPackage,
+        owner: DeclarationId,
+        node: &Expr,
+        out: &mut BTreeSet<DeclarationId>,
+    ) {
         let name = match &node.kind {
             ExprKind::NamedCall { name, .. } => Some(name),
             ExprKind::Partial { function, .. } => Some(function),

@@ -316,9 +316,8 @@ async fn publication_composes_one_write_with_an_exact_unchanged_member() {
             input: context.read_batch(batch).unwrap().into_unoptimized_plan(),
         }),
     ];
-    let plan =
-        publication_plan::candidate(publication_row(3, Some(2)), members, registry.clone())
-            .unwrap();
+    let plan = publication_plan::candidate(publication_row(3, Some(2)), members, registry.clone())
+        .unwrap();
     assert_eq!(
         plan.display_indent()
             .to_string()
@@ -380,9 +379,8 @@ async fn qualify_retained_only_composition(
     let registry = pse_schema::shared_registry().unwrap();
     // A publication can select only existing exact members without rewriting data.
     let retained = selected.iter().cloned().map(Member::Retained).collect();
-    let plan =
-        publication_plan::candidate(publication_row(4, Some(3)), retained, registry.clone())
-            .unwrap();
+    let plan = publication_plan::candidate(publication_row(4, Some(3)), retained, registry.clone())
+        .unwrap();
     assert!(!plan.display_indent().to_string().contains("DeltaWrite:"));
     let record = admitted(&run_native(state, &plan).await.unwrap());
     let reopened = open_publication(record, &registry, Arc::new(state.clone()))
@@ -412,8 +410,7 @@ async fn publish(
         .into_iter()
         .map(Member::Retained)
         .collect();
-    let plan =
-        publication_plan::candidate(row, members, pse_schema::shared_registry().unwrap())?;
+    let plan = publication_plan::candidate(row, members, pse_schema::shared_registry().unwrap())?;
     Ok(admitted(&run_native(state, &plan).await?))
 }
 
@@ -424,7 +421,13 @@ async fn unavailable_declared_input_prevents_publication() {
     let mut record = publication_row(2, None);
     let (_, _, packages) = source_member_batches(false).remove(0);
     record.members.push(
-        write_member(&context, &temp.path().join("written"), "authored.packages", packages).await,
+        write_member(
+            &context,
+            &temp.path().join("written"),
+            "authored.packages",
+            packages,
+        )
+        .await,
     );
     let relation = pse_engine::validation::registry()
         .unwrap()
@@ -663,10 +666,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
             } else if case == "wrong-contract" {
                 assert!(error.to_string().contains("fingerprint"), "{error}");
             } else {
-                assert!(
-                    format!("{error:?}").contains("violat"),
-                    "{case}: {error:?}"
-                );
+                assert!(format!("{error:?}").contains("violat"), "{case}: {error:?}");
             }
         }
     }
@@ -1264,11 +1264,10 @@ async fn application_transaction_records_do_not_implement_replay_deduplication()
 
 #[tokio::test]
 async fn publication_selection_preserves_full_tables_and_exact_identity_slices() {
-    use pse_relations::generated::{authored::entities, enums::EntityKind};
     use pse_relations::generated::structures::{
-        MemberDescriptorSelection as Selection,
-        MemberDescriptorSelectionRevision as Revision,
+        MemberDescriptorSelection as Selection, MemberDescriptorSelectionRevision as Revision,
     };
+    use pse_relations::generated::{authored::entities, enums::EntityKind};
     let root = tempfile::tempdir().unwrap();
     let (writer, _, _, _) = context();
     let identity = |value| pse_ids::SemanticId::from_bytes([value; 16]);

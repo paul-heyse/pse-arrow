@@ -35,7 +35,9 @@ impl Affine {
     }
 }
 impl InnerSolver for Affine {
-    fn identity(&self) -> pse_ids::ContentHash { crate::implicit::solver_identity("faer.affine.v1") }
+    fn identity(&self) -> pse_ids::ContentHash {
+        crate::implicit::solver_identity("faer.affine.v1")
+    }
     fn solve(
         &self,
         problem: Arc<Problem>,
@@ -102,28 +104,92 @@ mod tests {
     use super::*;
     #[test]
     fn affine_rate_elimination_preserves_second_implicit_jets_and_guards() {
-        use crate::typed::{BodyBuilder,BodyLimits,Binary};
-        let registry=pse_quantity::standard::standard_registry().unwrap();
-        let q=registry.neutral_dimensionless().unwrap();
-        let id=SemanticId::from_bytes([147;16]);
-        let mut b=BodyBuilder::new(crate::initialize().unwrap(),&registry,&pse_quantity::standard::StandardInvariantChecker,2,BodyLimits::default()).unwrap();
-        let x=b.input(0,q,pse_quantity::IndexSet::new(),id).unwrap();
-        let p=b.input(1,q,pse_quantity::IndexSet::new(),id).unwrap();
-        let one=b.literal(1.,registry.quantity_type(q).unwrap().canonical_unit,pse_quantity::literal::LiteralContext::Explicit{quantity_type:q},id).unwrap();
-        let px=b.binary(Binary::Mul,p,x,None,id).unwrap();
-        let r=b.binary(Binary::Sub,px,one,None,id).unwrap();
-        let body=b.prepare(&[r]).unwrap();
-        let solver=Affine::new(&body,1).unwrap();
-        let cancel=Arc::new(AtomicBool::new(false));
-        let compiled=Arc::new(body.compile(&[0],&[0,1],DerivativeOrder::Second,crate::library::Optimization::default(),crate::jets::EvaluationLimits::default(),&cancel).unwrap());
-        let problem=Arc::new(Problem::new(id,ContentHash::from_bytes([0;32]),vec![Unknown{id,lower:0.,upper:2.}],vec![pse_ids::named_id(id,"row")],1,compiled,100).unwrap());
-        let options=Options{start:vec![0.],variable_nominals:vec![1.],variable_tolerance:vec![1e-10],residual_tolerance:vec![1e-10],iterations:1,time_limit:Duration::from_secs(1),derivative_tolerance:1e-12};
-        let root=solver.solve(problem.clone(),&[2.],&options,&cancel).unwrap();
-        let jet=problem.derivatives(&[2.],&root,DerivativeOrder::Second,&options,&cancel).unwrap();
-        assert_eq!(jet.values,vec![0.5]);assert_eq!(jet.jacobian,vec![-0.25]);assert_eq!(jet.hessians,vec![0.25]);
-        assert!(solver.solve(problem.clone(),&[0.],&options,&cancel).is_err());
-        assert!(solver.solve(problem.clone(),&[-1.],&options,&cancel).is_err());
-        cancel.store(true,Ordering::Release);
-        assert!(matches!(solver.solve(problem,&[2.],&options,&cancel),Err(MathError::Cancelled)));
+        use crate::typed::{Binary, BodyBuilder, BodyLimits};
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let q = registry.neutral_dimensionless().unwrap();
+        let id = SemanticId::from_bytes([147; 16]);
+        let mut b = BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            2,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let x = b.input(0, q, pse_quantity::IndexSet::new(), id).unwrap();
+        let p = b.input(1, q, pse_quantity::IndexSet::new(), id).unwrap();
+        let one = b
+            .literal(
+                1.,
+                registry.quantity_type(q).unwrap().canonical_unit,
+                pse_quantity::literal::LiteralContext::Explicit { quantity_type: q },
+                id,
+            )
+            .unwrap();
+        let px = b.binary(Binary::Mul, p, x, None, id).unwrap();
+        let r = b.binary(Binary::Sub, px, one, None, id).unwrap();
+        let body = b.prepare(&[r]).unwrap();
+        let solver = Affine::new(&body, 1).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let compiled = Arc::new(
+            body.compile(
+                &[0],
+                &[0, 1],
+                DerivativeOrder::Second,
+                crate::library::Optimization::default(),
+                crate::jets::EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap(),
+        );
+        let problem = Arc::new(
+            Problem::new(
+                id,
+                ContentHash::from_bytes([0; 32]),
+                vec![Unknown {
+                    id,
+                    lower: 0.,
+                    upper: 2.,
+                }],
+                vec![pse_ids::named_id(id, "row")],
+                1,
+                compiled,
+                100,
+            )
+            .unwrap(),
+        );
+        let options = Options {
+            start: vec![0.],
+            variable_nominals: vec![1.],
+            variable_tolerance: vec![1e-10],
+            residual_tolerance: vec![1e-10],
+            iterations: 1,
+            time_limit: Duration::from_secs(1),
+            derivative_tolerance: 1e-12,
+        };
+        let root = solver
+            .solve(problem.clone(), &[2.], &options, &cancel)
+            .unwrap();
+        let jet = problem
+            .derivatives(&[2.], &root, DerivativeOrder::Second, &options, &cancel)
+            .unwrap();
+        assert_eq!(jet.values, vec![0.5]);
+        assert_eq!(jet.jacobian, vec![-0.25]);
+        assert_eq!(jet.hessians, vec![0.25]);
+        assert!(
+            solver
+                .solve(problem.clone(), &[0.], &options, &cancel)
+                .is_err()
+        );
+        assert!(
+            solver
+                .solve(problem.clone(), &[-1.], &options, &cancel)
+                .is_err()
+        );
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            solver.solve(problem, &[2.], &options, &cancel),
+            Err(MathError::Cancelled)
+        ));
     }
 }

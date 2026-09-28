@@ -103,7 +103,10 @@ pub fn fingerprint(schema_sql: &[u8], physical_sql: &[u8]) -> pse_ids::ContentHa
 ///
 /// # Errors
 /// [`SchemaError::Codegen`] if the rendered source does not parse.
-pub fn fingerprint_file(schema_sql: &[u8], physical_sql: &[u8]) -> Result<(PathBuf, Vec<u8>), SchemaError> {
+pub fn fingerprint_file(
+    schema_sql: &[u8],
+    physical_sql: &[u8],
+) -> Result<(PathBuf, Vec<u8>), SchemaError> {
     let hash = fingerprint(schema_sql, physical_sql);
     let bytes = hash.as_bytes();
     let hex = hash.to_hex();

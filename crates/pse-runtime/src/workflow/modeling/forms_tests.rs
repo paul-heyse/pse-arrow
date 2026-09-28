@@ -228,10 +228,15 @@ async fn gdp_indicator_matches_hull() {
     assert_eq!(compiled.facts.native, vec![NativeConstraintForm::Indicator]);
     // Adapters without the handler refuse the native realization, with no conversion.
     for backend in [Backend::Highs, Backend::Ipopt] {
-        let error = prepare(&package, root, case(&[]), SolverSelection::Explicit(backend))
-            .await
-            .err()
-            .unwrap();
+        let error = prepare(
+            &package,
+            root,
+            case(&[]),
+            SolverSelection::Explicit(backend),
+        )
+        .await
+        .err()
+        .unwrap();
         assert!(
             native_refusal(&error).contains("native indicator realization"),
             "{error}"

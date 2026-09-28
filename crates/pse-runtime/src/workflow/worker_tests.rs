@@ -419,7 +419,10 @@ fn termination_detail_versioned_and_typed() {
             "cause": {"kind": "assessment", "usable": false, "candidate_use": ["usable", "diagnostic_only"]},
         })
     );
-    assert_eq!(serde_json::from_value::<TerminationDetail>(value.clone()).unwrap(), detail);
+    assert_eq!(
+        serde_json::from_value::<TerminationDetail>(value.clone()).unwrap(),
+        detail
+    );
     let mut future = value.clone();
     future["version"] = serde_json::json!(2);
     assert!(serde_json::from_value::<TerminationDetail>(future).is_err());
@@ -539,7 +542,10 @@ mod store_lock {
         }
 
         /// Record a cancellation request without its notification.
-        pub(super) async fn set_cancel_silently(&self, attempt: pse_operations::attempts::AttemptId) {
+        pub(super) async fn set_cancel_silently(
+            &self,
+            attempt: pse_operations::attempts::AttemptId,
+        ) {
             let changed = self
                 .probe
                 .execute(&format!(
@@ -646,13 +652,20 @@ async fn job_start_policies_applied_and_recorded() {
         .await
         .unwrap();
     let (processed, _) = runtime.work_once_with_result().await.unwrap();
-    assert_eq!(processed.state(), Some(AttemptState::Completed), "{processed:?}");
+    assert_eq!(
+        processed.state(),
+        Some(AttemptState::Completed),
+        "{processed:?}"
+    );
     let Processed::Ran { record, .. } = processed else {
         panic!()
     };
     let start = start_event(&record);
     assert_eq!(start["requested"], V::Text("resume_from_parent".into()));
-    assert_eq!(start["fresh"], V::Text("first try: no parent attempt".into()));
+    assert_eq!(
+        start["fresh"],
+        V::Text("first try: no parent attempt".into())
+    );
     assert!(matches!(start["solution"], V::Unavailable(_)));
     let [(0, solution)] = record.solutions[..] else {
         panic!("{:?}", record.solutions)
@@ -664,7 +677,11 @@ async fn job_start_policies_applied_and_recorded() {
         .await
         .unwrap();
     let (processed, result) = runtime.work_once_with_result().await.unwrap();
-    assert_eq!(processed.state(), Some(AttemptState::Completed), "{processed:?}");
+    assert_eq!(
+        processed.state(),
+        Some(AttemptState::Completed),
+        "{processed:?}"
+    );
     let Processed::Ran { record, .. } = processed else {
         panic!()
     };
@@ -675,12 +692,10 @@ async fn job_start_policies_applied_and_recorded() {
     let RunRequest::Modeling(requests) = result.request() else {
         panic!()
     };
-    assert!(
-        requests[0]
-            .starts
-            .values()
-            .all(|s| *s == StartSource::Stored { solution: solution.as_id() })
-    );
+    assert!(requests[0].starts.values().all(|s| *s
+        == StartSource::Stored {
+            solution: solution.as_id()
+        }));
     let Ok(RunReport::Modeling(steps)) = result.report() else {
         panic!()
     };
@@ -697,7 +712,11 @@ async fn job_start_policies_applied_and_recorded() {
         .await
         .unwrap();
     let processed = runtime.work_once().await.unwrap();
-    assert_eq!(processed.state(), Some(AttemptState::Failed), "{processed:?}");
+    assert_eq!(
+        processed.state(),
+        Some(AttemptState::Failed),
+        "{processed:?}"
+    );
     drop((runtime, result));
     database.remove().await.unwrap();
 }

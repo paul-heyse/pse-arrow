@@ -3,8 +3,8 @@
 
 //! Parse complete document inventories into authoritative typed source relations.
 
-use crate::authoring_driver::document::DocumentBundle;
 use crate::authoring_driver::DriverError;
+use crate::authoring_driver::document::DocumentBundle;
 use pse_ids::SemanticId;
 use pse_relations::generated::authored;
 use pse_schema::Registry;

@@ -28,7 +28,12 @@ fn fixture(extra_rules: usize) -> QuantityRegistry {
         .pow(Ratio::new(2, 1).expect("two"))
         .expect("squared");
     let mut b = QuantityRegistryBuilder::new();
-    for (id,name) in [(21,"custom"),(22,"species"),(23,"phase")] { b.entity_kind(EntityKind{id:EntityKindId::from_id(raw(id)),name:name.into()}); }
+    for (id, name) in [(21, "custom"), (22, "species"), (23, "phase")] {
+        b.entity_kind(EntityKind {
+            id: EntityKindId::from_id(raw(id)),
+            name: name.into(),
+        });
+    }
     b.unit(Unit {
         id: UnitId::from_id(raw(1)),
         symbol: "K".into(),

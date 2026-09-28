@@ -122,31 +122,43 @@ def test_backend_settings_typed() -> None:
         # field is present with the default the Rust type states.
         encoded = msgspec.to_builtins(settings)
         assert encoded["backend"] == backend.value
-        decoded = msgspec.json.decode(msgspec.json.encode(settings), type=pse.BackendSettings)
+        decoded = msgspec.json.decode(
+            msgspec.json.encode(settings), type=pse.BackendSettings
+        )
         assert decoded == settings
         # Each field of each document type is typed: no field is `Any` or untyped.
         for field in msgspec.structs.fields(type(settings)):
             assert field.type is not object, (backend, field.name)
     # The generated types refuse what their schema refuses, before anything is native.
     with pytest.raises(msgspec.ValidationError, match="unknown field"):
-        msgspec.json.decode(b'{"backend": "highs", "methd": "simplex"}', type=pse.BackendSettings)
+        msgspec.json.decode(
+            b'{"backend": "highs", "methd": "simplex"}', type=pse.BackendSettings
+        )
     with pytest.raises(msgspec.ValidationError):
         msgspec.json.decode(b'{"backend": "gurobi"}', type=pse.BackendSettings)
     with pytest.raises(msgspec.ValidationError, match="Expected `float` >= 0.0|> 0.0"):
-        msgspec.json.decode(b'{"backend": "ipopt", "bound_push": -1.0}', type=pse.BackendSettings)
+        msgspec.json.decode(
+            b'{"backend": "ipopt", "bound_push": -1.0}', type=pse.BackendSettings
+        )
 
 
 @pytest.mark.unit
 def test_solve_settings_enum_types() -> None:
     """Every enumeration of the settings documents is the registry's generated type."""
-    hints = {field.name: field.type for field in msgspec.structs.fields(pse.SolveSettings)}
+    hints = {
+        field.name: field.type for field in msgspec.structs.fields(pse.SolveSettings)
+    }
     assert hints["intent"] is NativeSolveIntent
     assert hints["presolve"] is PresolvePolicyKind
-    controls = {field.name: field.type for field in msgspec.structs.fields(pse.SolveControls)}
+    controls = {
+        field.name: field.type for field in msgspec.structs.fields(pse.SolveControls)
+    }
     assert controls["hessian"] is HessianMode
     assert controls["reuse"] is ReusePolicy
     assert controls["start"] is NativeStartPolicy
-    ipopt = {field.name: field.type for field in msgspec.structs.fields(pse.IpoptSettings)}
+    ipopt = {
+        field.name: field.type for field in msgspec.structs.fields(pse.IpoptSettings)
+    }
     assert ipopt["mu_strategy"] is MuStrategy
     # Defaults are the Rust document's, stated once by the generator.
     default = pse.SolveSettings()
@@ -156,7 +168,11 @@ def test_solve_settings_enum_types() -> None:
         None,
     )
     assert default.presolve is PresolvePolicyKind.AUTO
-    assert (default.controls.hessian, default.controls.reuse, default.controls.start) == (
+    assert (
+        default.controls.hessian,
+        default.controls.reuse,
+        default.controls.start,
+    ) == (
         HessianMode.EXACT,
         ReusePolicy.FRESH,
         NativeStartPolicy.NO_PRIOR_START,
@@ -166,7 +182,9 @@ def test_solve_settings_enum_types() -> None:
     assert default.controls.threads == 1
     # A misspelled member is refused where the document is decoded.
     with pytest.raises(msgspec.ValidationError):
-        msgspec.json.decode(b'{"version": 1, "intent": "rooot"}', type=pse.SolveSettings)
+        msgspec.json.decode(
+            b'{"version": 1, "intent": "rooot"}', type=pse.SolveSettings
+        )
     with pytest.raises(msgspec.ValidationError):
         msgspec.json.decode(b'{"version": 2}', type=pse.SolveSettings)
 
@@ -225,7 +243,8 @@ def test_solve_settings_backend_projection(
         package.solve_case(
             ids["Lp"],
             pse.SolveSettings(
-                backend=NativeBackend.HIGHS, settings=pse.HighsSettings(method=HighsMethod.SIMPLEX)
+                backend=NativeBackend.HIGHS,
+                settings=pse.HighsSettings(method=HighsMethod.SIMPLEX),
             ),
         )
     )
@@ -263,7 +282,10 @@ def test_solve_settings_backend_projection(
     scip = attempt_of(
         package.solve_case(
             ids["Nlp"],
-            pse.SolveSettings(backend=NativeBackend.SCIP, settings=pse.ScipSettings(seed=7, nodes=1000)),
+            pse.SolveSettings(
+                backend=NativeBackend.SCIP,
+                settings=pse.ScipSettings(seed=7, nodes=1000),
+            ),
         )
     )
     assert scip.backend == "scip"
@@ -285,7 +307,10 @@ def test_solve_settings_backend_projection(
     assert options["linear_solver"] == "mumps"
     assert options["mumps_pivot_order"] == 0
     assert options["mu_strategy"] == "adaptive"
-    assert json.loads(ipopt.provenance()["linear"]) == {"kind": "mumps", "ordering": "amd"}
+    assert json.loads(ipopt.provenance()["linear"]) == {
+        "kind": "mumps",
+        "ordering": "amd",
+    }
     # A document the native decoder refuses is refused at the entry point.
     with pytest.raises(pse.InspectionError, match="bound_push|Tolerance"):
         package.solve_case(

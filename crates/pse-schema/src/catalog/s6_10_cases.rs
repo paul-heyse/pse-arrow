@@ -2,13 +2,16 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Measurement datasets and observations consumed by authored fitting.
-use super::declarations::{column,relation};
-use crate::{RegistryBuilder,model::{FieldContract as T,Namespace as N,SnapshotClass as S}};
+use super::declarations::{column, relation};
+use crate::{
+    RegistryBuilder,
+    model::{FieldContract as T, Namespace as N, SnapshotClass as S},
+};
 
 /// Declare measurement inputs; model cases live in the modeling IR.
-pub fn declare(builder:&mut RegistryBuilder){
- declare_authored_datasets(builder);
- declare_authored_observations(builder);
+pub fn declare(builder: &mut RegistryBuilder) {
+    declare_authored_datasets(builder);
+    declare_authored_observations(builder);
 }
 
 fn declare_authored_datasets(builder: &mut RegistryBuilder) {

@@ -16,8 +16,6 @@ use pse_relations::{
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::BTreeMap;
 
-
-
 pub(super) fn preconditions(
     batches: &BTreeMap<RelationKey, FieldCheckedBatch>,
     registry: &Registry,

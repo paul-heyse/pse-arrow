@@ -5,11 +5,9 @@ use super::*;
 use crate::workflow::{RunReport, RunRequest, RunResult, relation};
 use pse_relations::{
     columnar::FieldCheckedBatch,
-    generated::{
-        runtime::{
-            computation_runs, fit_constraints, fit_observations, fit_parameters, fit_variables,
-            response_sensitivities, solve_metrics,
-        },
+    generated::runtime::{
+        computation_runs, fit_constraints, fit_observations, fit_parameters, fit_variables,
+        response_sensitivities, solve_metrics,
     },
 };
 impl RunResult {
@@ -129,10 +127,12 @@ impl RunResult {
                     at_bound: value.map(|v| {
                         param.lower.is_some_and(|b| {
                             (v - b).abs()
-                                <= p.parameter_columns[i].map_or(0.0, |c| p.tolerances.variables[c.get()])
+                                <= p.parameter_columns[i]
+                                    .map_or(0.0, |c| p.tolerances.variables[c.get()])
                         }) || param.upper.is_some_and(|b| {
                             (v - b).abs()
-                                <= p.parameter_columns[i].map_or(0.0, |c| p.tolerances.variables[c.get()])
+                                <= p.parameter_columns[i]
+                                    .map_or(0.0, |c| p.tolerances.variables[c.get()])
                         })
                     }),
                 })
@@ -312,15 +312,26 @@ impl RunResult {
             ),
         ]);
         batches.extend(source.fit_data.tables(registry)?);
-        use pse_relations::generated::runtime::{modeling_checks,modeling_reports};
+        use pse_relations::generated::runtime::{modeling_checks, modeling_reports};
         let mut checks = modeling_checks::Builder::with_registry(registry, 0).map_err(relation)?;
-        let mut reports = modeling_reports::Builder::with_registry(registry, 0).map_err(relation)?;
+        let mut reports =
+            modeling_reports::Builder::with_registry(registry, 0).map_err(relation)?;
         if let Some(report) = report {
-            for row in &report.checks { checks.push(row.clone()).map_err(relation)?; }
-            for row in &report.reports { reports.push(row.clone()).map_err(relation)?; }
+            for row in &report.checks {
+                checks.push(row.clone()).map_err(relation)?;
+            }
+            for row in &report.reports {
+                reports.push(row.clone()).map_err(relation)?;
+            }
         }
-        batches.insert(modeling_checks::RELATION_ID, checks.finish().map_err(relation)?);
-        batches.insert(modeling_reports::RELATION_ID, reports.finish().map_err(relation)?);
+        batches.insert(
+            modeling_checks::RELATION_ID,
+            checks.finish().map_err(relation)?,
+        );
+        batches.insert(
+            modeling_reports::RELATION_ID,
+            reports.finish().map_err(relation)?,
+        );
         self.retain_sources(&mut batches)?;
         batches.extend(source.source_tables()?);
         Ok(batches)

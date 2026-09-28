@@ -62,11 +62,7 @@ pub(super) fn idas(py: Python<'_>, bytes: &[u8]) -> PyResult<dynamics::IdasSetti
 
 /// A boundary name, parsed by the owning type's serde spelling (a registry enum's is its
 /// `as_str`); a refusal lists every accepted name.
-pub(super) fn named<T: DeserializeOwned>(
-    py: Python<'_>,
-    what: &str,
-    name: &str,
-) -> PyResult<T> {
+pub(super) fn named<T: DeserializeOwned>(py: Python<'_>, what: &str, name: &str) -> PyResult<T> {
     serde_json::from_value(serde_json::Value::String(name.into()))
         .map_err(|e| invalid(py, format!("{what}: {e}")))
 }

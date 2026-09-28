@@ -79,7 +79,10 @@ mod tests {
     fn registry_names_become_snake_case_types() {
         assert_eq!(snake("AttemptState"), "attempt_state");
         assert_eq!(snake("NativeRunState"), "native_run_state");
-        assert_eq!(snake("EvidenceUnavailableReason"), "evidence_unavailable_reason");
+        assert_eq!(
+            snake("EvidenceUnavailableReason"),
+            "evidence_unavailable_reason"
+        );
         assert_eq!(snake("HTTPStatus"), "http_status");
         assert_eq!(snake("Stage2Kind"), "stage2_kind");
         assert_eq!(identity_domain("reader_lease"), "reader_lease_id");

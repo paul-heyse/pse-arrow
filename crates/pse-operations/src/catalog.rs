@@ -218,23 +218,32 @@ pub struct CollectPlan {
 /// the column and revision it selects.
 pub(crate) fn flattened_selection(
     member: &MemberDescriptor,
-) -> Result<(MemberSelectionKind, Option<String>, Option<pse_ids::SemanticId>), OperationsError> {
-    Ok(match member
-        .selection
-        .selected()
-        .map_err(|error| OperationsError::InvalidRequest {
-            reason: format!(
-                "member {}.{}.{}: {error}",
-                member.catalog_name, member.schema_name, member.table_name
+) -> Result<
+    (
+        MemberSelectionKind,
+        Option<String>,
+        Option<pse_ids::SemanticId>,
+    ),
+    OperationsError,
+> {
+    Ok(
+        match member
+            .selection
+            .selected()
+            .map_err(|error| OperationsError::InvalidRequest {
+                reason: format!(
+                    "member {}.{}.{}: {error}",
+                    member.catalog_name, member.schema_name, member.table_name
+                ),
+            })? {
+            MemberDescriptorSelectionSelected::Full => (MemberSelectionKind::Full, None, None),
+            MemberDescriptorSelectionSelected::Revision(revision) => (
+                MemberSelectionKind::Revision,
+                Some(revision.column.clone()),
+                Some(revision.revision_id),
             ),
-        })? {
-        MemberDescriptorSelectionSelected::Full => (MemberSelectionKind::Full, None, None),
-        MemberDescriptorSelectionSelected::Revision(revision) => (
-            MemberSelectionKind::Revision,
-            Some(revision.column.clone()),
-            Some(revision.revision_id),
-        ),
-    })
+        },
+    )
 }
 
 /// The registry selection a stored member's flattened columns describe, or `None` when
@@ -639,9 +648,7 @@ impl ProtectedRange {
     pub fn covers(&self, table_uri: &str) -> bool {
         match self.reason {
             RetentionReason::Attempt => table_uri.starts_with(&self.table_uri),
-            RetentionReason::Publication | RetentionReason::Changes => {
-                self.table_uri == table_uri
-            }
+            RetentionReason::Publication | RetentionReason::Changes => self.table_uri == table_uri,
         }
     }
 }
@@ -970,7 +977,11 @@ impl<'s> Catalog<'s> {
         for (role, members) in [("member", &commit.members), ("input", &commit.inputs)] {
             let mut names = std::collections::BTreeSet::new();
             for member in members {
-                if !names.insert((&member.catalog_name, &member.schema_name, &member.table_name)) {
+                if !names.insert((
+                    &member.catalog_name,
+                    &member.schema_name,
+                    &member.table_name,
+                )) {
                     return Err(OperationsError::InvalidRequest {
                         reason: format!(
                             "{role} {}.{}.{} is named twice",
@@ -1221,9 +1232,12 @@ impl<'s> Catalog<'s> {
             }
         };
         let (outcome, publication_id, reason, conflict_head) = match &settlement {
-            Settlement::Committed { publication_id } => {
-                (SettlementOutcome::Committed, Some(*publication_id), None, None)
-            }
+            Settlement::Committed { publication_id } => (
+                SettlementOutcome::Committed,
+                Some(*publication_id),
+                None,
+                None,
+            ),
             Settlement::ProvedNoncommit => (SettlementOutcome::ProvedNoncommit, None, None, None),
             Settlement::Conflict { reason, head } => (
                 SettlementOutcome::Conflict,
@@ -1275,12 +1289,12 @@ impl<'s> Catalog<'s> {
         let (publication, head) = match read {
             ReadTarget::Publication(publication) => (publication, None),
             ReadTarget::Head(workspace) => (
-                head_of(&tx, target, workspace)
-                    .await?
-                    .ok_or_else(|| OperationsError::NotFound {
+                head_of(&tx, target, workspace).await?.ok_or_else(|| {
+                    OperationsError::NotFound {
                         entity: "workspace head",
                         id: workspace.to_string(),
-                    })?,
+                    }
+                })?,
                 Some(workspace),
             ),
         };
@@ -1378,7 +1392,10 @@ impl<'s> Catalog<'s> {
     /// # Errors
     ///
     /// Classified driver failures.
-    pub async fn release_reader_lease(&self, lease: ReaderLeaseId) -> Result<bool, OperationsError> {
+    pub async fn release_reader_lease(
+        &self,
+        lease: ReaderLeaseId,
+    ) -> Result<bool, OperationsError> {
         let client = self.store.client().await?;
         let released = statements::release_reader_lease()
             .bind(&client, &lease)
@@ -1586,7 +1603,10 @@ impl<'s> Catalog<'s> {
     /// # Errors
     ///
     /// [`OperationsError::NotFound`] for an unknown workspace; classified driver failures.
-    pub async fn begin_collect(&self, workspace: WorkspaceId) -> Result<CollectPlan, OperationsError> {
+    pub async fn begin_collect(
+        &self,
+        workspace: WorkspaceId,
+    ) -> Result<CollectPlan, OperationsError> {
         let target = self.target();
         let mut client = self.store.client().await?;
         let tx = client.transaction().await.classify(target)?;

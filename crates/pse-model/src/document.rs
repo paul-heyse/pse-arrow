@@ -54,7 +54,9 @@ mod tests {
     fn unknown_document_version_refused() {
         assert_eq!(serde_json::to_string(&Version::<2>).unwrap(), "2");
         assert!(serde_json::from_str::<Version<2>>("2").is_ok());
-        let error = serde_json::from_str::<Version<2>>("1").unwrap_err().to_string();
+        let error = serde_json::from_str::<Version<2>>("1")
+            .unwrap_err()
+            .to_string();
         assert!(error.contains("unknown document version 1"), "{error}");
     }
 }

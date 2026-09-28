@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native coefficient diagnostics retain source identities and their LP/MIP scope.
-use pse_model::generated::identities::RunId;
 use super::*;
 use pse_backend_native::{CoefficientProblem, highs, quality::Tolerances, solve::*, transport};
+use pse_model::generated::identities::RunId;
 
 /// An independent diagnostic attempt; a relaxed candidate is never a model result.
 #[derive(Debug)]

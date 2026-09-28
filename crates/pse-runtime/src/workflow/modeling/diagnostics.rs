@@ -4,11 +4,11 @@
 #[cfg(feature = "solver-highs")]
 #[path = "diagnostic_linear.rs"]
 mod linear;
-use pse_model::generated::identities::RunId;
 use super::*;
 use crate::math::modeling::ModelingCasePreparation;
 #[cfg(feature = "solver-highs")]
 pub use linear::ModelingLinearDiagnostics;
+use pse_model::generated::identities::RunId;
 #[path = "diagnostic_nonlinear.rs"]
 mod nonlinear;
 #[path = "diagnostic_samples.rs"]
@@ -735,9 +735,19 @@ impl ModelingPackage {
                         let parallel = matrix
                             .parallel_rows
                             .iter()
-                            .map(|p| ("jacobian.parallel_rows", [rows[p.first], rows[p.second]], p.cosine))
+                            .map(|p| {
+                                (
+                                    "jacobian.parallel_rows",
+                                    [rows[p.first], rows[p.second]],
+                                    p.cosine,
+                                )
+                            })
                             .chain(matrix.parallel_columns.iter().map(|p| {
-                                ("jacobian.parallel_columns", [cols[p.first], cols[p.second]], p.cosine)
+                                (
+                                    "jacobian.parallel_columns",
+                                    [cols[p.first], cols[p.second]],
+                                    p.cosine,
+                                )
                             }))
                             .collect::<Vec<_>>();
                         for (kind, ids, cosine) in parallel {
@@ -796,9 +806,7 @@ impl ModelingPackage {
                         let mut f = finding("jacobian.condition_estimate", locations(), None, None);
                         f.observations.insert(
                             "reason".into(),
-                            Observation::Text(
-                                "singular at the sparse LU pivot tolerance".into(),
-                            ),
+                            Observation::Text("singular at the sparse LU pivot tolerance".into()),
                         );
                         report.push(f, maximum, product);
                     }
@@ -1112,12 +1120,18 @@ mod tests {
         assert_eq!(report.matrix.as_ref().unwrap().rank, 1);
         assert!(report.complete);
         let points = vec![
-            (pse_ids::named_id(root.as_id(), "sample-good"), values.clone()),
+            (
+                pse_ids::named_id(root.as_id(), "sample-good"),
+                values.clone(),
+            ),
             (
                 pse_ids::named_id(root.as_id(), "sample-missing"),
                 CaseValues::default(),
             ),
-            (pse_ids::named_id(root.as_id(), "sample-recovered"), values.clone()),
+            (
+                pse_ids::named_id(root.as_id(), "sample-recovered"),
+                values.clone(),
+            ),
         ];
         let samples = package
             .diagnose_samples(

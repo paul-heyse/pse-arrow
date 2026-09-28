@@ -668,9 +668,10 @@ impl Worker {
                 "finite ordered formal inputs required".into(),
             ));
         }
-        let (Some(layout), Some(program)) =
-            (self.body.layouts[order].as_ref(), self.programs[order].as_mut())
-        else {
+        let (Some(layout), Some(program)) = (
+            self.body.layouts[order].as_ref(),
+            self.programs[order].as_mut(),
+        ) else {
             return Err(MathError::Contract("uncompiled derivative order".into()));
         };
         let width = layout.width();
@@ -689,13 +690,7 @@ impl Worker {
             cancelled,
             max_result_bytes: self.body.limits.scratch_bytes,
         };
-        evaluate_stages(
-            program,
-            &mut self.frame,
-            layout,
-            providers,
-            &context,
-        )?;
+        evaluate_stages(program, &mut self.frame, layout, providers, &context)?;
         context.check().map_err(|cause| MathError::Provider {
             source_id: SemanticId::NIL,
             provider: SemanticId::NIL,

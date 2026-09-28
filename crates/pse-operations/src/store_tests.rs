@@ -12,14 +12,12 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use pse_ids::{ContentHash, SemanticId};
 
-use crate::attempts::{
-    AttemptId, AttemptKind, NewAttempt, TerminationCode, TransitionNote,
-};
+use crate::attempts::{AttemptId, AttemptKind, NewAttempt, TerminationCode, TransitionNote};
 use crate::cancellation::CancelOutcome;
 use crate::catalog::{
     Committed, MemberDescriptor, MemberDescriptorSelection, NewIntent, NewWorkspace,
-    ProtectedRange, PublicationCommit, PublicationId, PublicationKind, ReadTarget,
-    RetentionReason, SettleRequest, Settlement, VersionWindow, WorkspaceId,
+    ProtectedRange, PublicationCommit, PublicationId, PublicationKind, ReadTarget, RetentionReason,
+    SettleRequest, Settlement, VersionWindow, WorkspaceId,
 };
 use crate::jobs::{Enqueued, Finished, JobId, JobOutcome, JobState, NewJob, RetryPolicy};
 use crate::lifecycle::AttemptState;
@@ -274,7 +272,10 @@ async fn generated_schema_creates_empty_store() {
         .unwrap();
     assert_eq!(
         recorded,
-        [[Some(format!("pse.ops.schema.v1 {}", Store::expected_schema()))]]
+        [[Some(format!(
+            "pse.ops.schema.v1 {}",
+            Store::expected_schema()
+        ))]]
     );
     let server = store.server().await.unwrap();
     assert!(server.is_supported(), "{server:?}");
@@ -434,7 +435,10 @@ async fn row_invariants_generated_and_enforced() {
     for (table, spec) in pse_schema::store::relations(registry) {
         for name in spec.checks.keys() {
             let constraint = format!("{table}_{name}_check");
-            assert!(constraints.contains(&constraint), "{constraint} is not generated");
+            assert!(
+                constraints.contains(&constraint),
+                "{constraint} is not generated"
+            );
         }
         for key in &spec.unique_keys {
             assert!(constraints.contains(&format!("{table}_{}_key", key.name)));
@@ -455,7 +459,12 @@ async fn row_invariants_generated_and_enforced() {
         .await
         .unwrap_err();
     assert!(
-        violates(&error, Some("attempts"), "running_holds_lease", InvariantKind::Check),
+        violates(
+            &error,
+            Some("attempts"),
+            "running_holds_lease",
+            InvariantKind::Check
+        ),
         "{error:?}"
     );
     assert!(!error.is_retryable());
@@ -467,7 +476,12 @@ async fn row_invariants_generated_and_enforced() {
         .await
         .unwrap_err();
     assert!(
-        violates(&error, Some("attempts"), "one_termination", InvariantKind::Check),
+        violates(
+            &error,
+            Some("attempts"),
+            "one_termination",
+            InvariantKind::Check
+        ),
         "{error:?}"
     );
     // A finite field domain refuses NaN and infinity in PostgreSQL too.
@@ -604,7 +618,10 @@ async fn sqlstate_errors_map_to_typed_variants() {
     holder.execute("ROLLBACK").await.unwrap();
 
     // 57014: a statement timeout cancels the statement.
-    probe.execute("SET statement_timeout = '20ms'").await.unwrap();
+    probe
+        .execute("SET statement_timeout = '20ms'")
+        .await
+        .unwrap();
     let cancelled = probe.execute("SELECT pg_sleep(2)").await.unwrap_err();
     assert!(
         matches!(cancelled, OperationsError::Cancelled { .. }),
@@ -643,7 +660,10 @@ async fn sqlstate_errors_map_to_typed_variants() {
     let other = new_attempt();
     store.attempts().create(&other, None).await.unwrap();
     let lock = |id: AttemptId| {
-        format!("SELECT 1 FROM pse_ops.attempts WHERE attempt_id = {} FOR UPDATE", lit(id))
+        format!(
+            "SELECT 1 FROM pse_ops.attempts WHERE attempt_id = {} FOR UPDATE",
+            lit(id)
+        )
     };
     let (left, right) = (first, second);
     left.execute(&format!("BEGIN; {}", lock(attempt.attempt_id)))
@@ -683,11 +703,8 @@ async fn dropped_statement_does_not_block_the_pool() {
         .unwrap();
     // A reader cancelled while it waits on the lock: its statement still runs on the
     // server when the future is dropped.
-    let abandoned = tokio::time::timeout(
-        Duration::from_millis(200),
-        store.attempts().get(mint_id()),
-    )
-    .await;
+    let abandoned =
+        tokio::time::timeout(Duration::from_millis(200), store.attempts().get(mint_id())).await;
     assert!(abandoned.is_err(), "the read waits on the lock");
     // The pool does not hand that connection out again while it is busy.
     let server = tokio::time::timeout(Duration::from_secs(10), store.server())
@@ -793,7 +810,9 @@ async fn illegal_transition_rejected() {
             &TransitionNote::by("worker-a")
                 .because("evaluation failed")
                 .terminated(crate::attempts::Termination {
-                    code: TerminationCode::Rule(crate::attempts::DiagnosticCode::SolveEvaluationError),
+                    code: TerminationCode::Rule(
+                        crate::attempts::DiagnosticCode::SolveEvaluationError,
+                    ),
                     detail: Some(serde_json::json!({ "row": 3 })),
                 }),
         )
@@ -1449,7 +1468,10 @@ async fn listener_resyncs_after_connection_loss() {
     assert_eq!(store.listener().unwrap().generation(), 1);
     let first = new_attempt();
     store.attempts().create(&first, None).await.unwrap();
-    store.request_cancel(first.attempt_id, "user").await.unwrap();
+    store
+        .request_cancel(first.attempt_id, "user")
+        .await
+        .unwrap();
     assert_eq!(next_cancel(&mut events).await, first.attempt_id);
 
     // The connection is lost: the listener reconnects, LISTENs again and tells every
@@ -1468,7 +1490,10 @@ async fn listener_resyncs_after_connection_loss() {
     // Notifications flow again, on the new connection.
     let second = new_attempt();
     store.attempts().create(&second, None).await.unwrap();
-    store.request_cancel(second.attempt_id, "user").await.unwrap();
+    store
+        .request_cancel(second.attempt_id, "user")
+        .await
+        .unwrap();
     assert_eq!(next_cancel(&mut events).await, second.attempt_id);
 
     // A stopped listener is reported as unavailable, never as silence.
@@ -1705,7 +1730,10 @@ async fn progress_watcher_follows_the_stream_until_the_attempt_ends() {
     assert_eq!(seen, (0..5).map(progress_event).collect::<Vec<_>>());
     assert_eq!(incumbents.len(), 2);
     for (read, written) in incumbents.iter().zip((0..2).map(incumbent)) {
-        assert!(pse_model::SemanticEq::semantic_eq(read, &written), "{read:?}");
+        assert!(
+            pse_model::SemanticEq::semantic_eq(read, &written),
+            "{read:?}"
+        );
     }
     assert_eq!(
         position,
@@ -1826,7 +1854,12 @@ async fn incumbents_and_solutions_round_trip() {
         .await
         .unwrap_err();
     assert!(
-        violates(&malformed, Some("solutions"), "vectors", InvariantKind::Check),
+        violates(
+            &malformed,
+            Some("solutions"),
+            "vectors",
+            InvariantKind::Check
+        ),
         "{malformed:?}"
     );
     // Only an NLP seed carries a barrier, and only a finite positive one.
@@ -1971,8 +2004,8 @@ async fn incumbent_solutions_follow_the_attempt_chain() {
         },
         created_by: Some(attempt),
     };
-    let incumbent = |attempt, seq, objective, solution: Option<&NewSolution>| {
-        RuntimeOperationalIncumbentsRow {
+    let incumbent =
+        |attempt, seq, objective, solution: Option<&NewSolution>| RuntimeOperationalIncumbentsRow {
             attempt_id: attempt,
             seq,
             step: 0,
@@ -1985,8 +2018,7 @@ async fn incumbent_solutions_follow_the_attempt_chain() {
             nodes: Some(seq),
             seconds: Some(1.0),
             solution_id: solution.map(|s| s.solution_id.into()),
-        }
-    };
+        };
     let (early, late) = (solution(first, 5, 9.0), solution(first, 5, 7.0));
     let batch = [
         incumbent(first, 0, 9.0, Some(&early)),
@@ -1995,24 +2027,44 @@ async fn incumbent_solutions_follow_the_attempt_chain() {
     ];
     let captured = [early.clone(), late.clone()];
     let streams = store.streams();
-    assert_eq!(streams.record_incumbents(&batch, &captured).await.unwrap(), 3);
+    assert_eq!(
+        streams.record_incumbents(&batch, &captured).await.unwrap(),
+        3
+    );
     // A re-sent batch stores nothing new, its solutions included.
-    assert_eq!(streams.record_incumbents(&batch, &captured).await.unwrap(), 0);
+    assert_eq!(
+        streams.record_incumbents(&batch, &captured).await.unwrap(),
+        0
+    );
     for stored in [&early, &late] {
-        let row = store.solutions().get(stored.solution_id).await.unwrap().unwrap();
+        let row = store
+            .solutions()
+            .get(stored.solution_id)
+            .await
+            .unwrap()
+            .unwrap();
         assert!(stores(&row, stored), "{row:?}");
     }
     // A solution no incumbent of the batch references is refused.
     let stray = solution(second, 5, 1.0);
     let refused = streams
-        .record_incumbents(&[incumbent(second, 0, 1.0, None)], std::slice::from_ref(&stray))
+        .record_incumbents(
+            &[incumbent(second, 0, 1.0, None)],
+            std::slice::from_ref(&stray),
+        )
         .await
         .unwrap_err();
-    assert!(matches!(refused, OperationsError::InvalidRequest { .. }), "{refused:?}");
+    assert!(
+        matches!(refused, OperationsError::InvalidRequest { .. }),
+        "{refused:?}"
+    );
     // The second try captured a solution of other coordinates only.
     let other = solution(second, 8, 6.0);
     streams
-        .record_incumbents(&[incumbent(second, 0, 6.0, Some(&other))], std::slice::from_ref(&other))
+        .record_incumbents(
+            &[incumbent(second, 0, 6.0, Some(&other))],
+            std::slice::from_ref(&other),
+        )
         .await
         .unwrap();
 
@@ -2189,7 +2241,11 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
     ));
     // Registering the same intent again is idempotent; another prefix reuses its identity.
     assert_eq!(
-        catalog.register_intent(&intent).await.unwrap().member_prefix,
+        catalog
+            .register_intent(&intent)
+            .await
+            .unwrap()
+            .member_prefix,
         intent.member_prefix
     );
     let other = NewIntent {
@@ -2309,7 +2365,10 @@ async fn maintenance_waits_for_reader_leases() {
             .await
             .unwrap_err(),
     ] {
-        assert!(matches!(busy, OperationsError::ReadersActive { .. }), "{busy:?}");
+        assert!(
+            matches!(busy, OperationsError::ReadersActive { .. }),
+            "{busy:?}"
+        );
     }
     // Versions a live lease reads stay protected.
     let protected = catalog.protected_versions(space.id).await.unwrap();
@@ -2473,14 +2532,15 @@ async fn catalog_protects_published_versions() {
     // inputs (b, written by the deleted P1, is P2's input), each with the ranges it must
     // keep.
     let plan = catalog.begin_collect(space.id).await.unwrap();
-    assert_eq!(
-        plan.tables.keys().cloned().collect::<Vec<_>>(),
-        {
-            let mut tables = vec![a.table_uri.clone(), b.table_uri.clone(), c.table_uri.clone()];
-            tables.sort();
-            tables
-        }
-    );
+    assert_eq!(plan.tables.keys().cloned().collect::<Vec<_>>(), {
+        let mut tables = vec![
+            a.table_uri.clone(),
+            b.table_uri.clone(),
+            c.table_uri.clone(),
+        ];
+        tables.sort();
+        tables
+    });
     assert_eq!(
         plan.tables[&a.table_uri]
             .iter()
@@ -2587,7 +2647,9 @@ async fn commit_requires_member_under_intent_prefix() {
 
     // A member outside the intent's prefix that no publication selects.
     let mut foreign = commit_of(&own, None);
-    foreign.members.push(member("file:///elsewhere/table/", "t", 0));
+    foreign
+        .members
+        .push(member("file:///elsewhere/table/", "t", 0));
     let refused = catalog.commit(&foreign).await.unwrap_err();
     assert!(
         matches!(refused, OperationsError::InvalidRequest { .. }),
@@ -2917,7 +2979,10 @@ async fn head_lease_records_resolved_publication() {
         .await
         .unwrap();
     assert_eq!(exact.lease.head_of, None);
-    assert_eq!(exact.record.publication.publication_id, first.publication_id);
+    assert_eq!(
+        exact.record.publication.publication_id,
+        first.publication_id
+    );
     database.remove().await.unwrap();
 }
 
@@ -2988,7 +3053,11 @@ async fn deletion_plan_excludes_shared_tables() {
         .await
         .unwrap();
     planned.sort();
-    let mut expected = vec![a.table_uri.clone(), c.table_uri.clone(), g.table_uri.clone()];
+    let mut expected = vec![
+        a.table_uri.clone(),
+        c.table_uri.clone(),
+        g.table_uri.clone(),
+    ];
     expected.sort();
     assert_eq!(planned, expected);
     // The other workspace's publication is untouched and still protects e.
@@ -3182,7 +3251,13 @@ async fn reclaimable_intents_are_fenced() {
     for intent in [&duplicate, &stale] {
         catalog.mark_reclaimed(intent.publication_id).await.unwrap();
     }
-    assert!(catalog.claim_reclaimable(space.id).await.unwrap().is_empty());
+    assert!(
+        catalog
+            .claim_reclaimable(space.id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
     assert!(
         catalog
             .intent(abandoned.publication_id)
@@ -3228,7 +3303,10 @@ async fn lost_commit_acknowledgement_settles() {
     proxy.arm(fault(FaultPoint::BeforeCommit));
     let lost = catalog.commit(&first).await.unwrap_err();
     assert!(proxy.fired());
-    assert!(matches!(lost, OperationsError::Unavailable { .. }), "{lost:?}");
+    assert!(
+        matches!(lost, OperationsError::Unavailable { .. }),
+        "{lost:?}"
+    );
     assert_eq!(
         catalog.settle(&settle(&first)).await.unwrap(),
         Settlement::ProvedNoncommit
@@ -3241,7 +3319,10 @@ async fn lost_commit_acknowledgement_settles() {
     proxy.arm(fault(FaultPoint::AfterCommit));
     let lost = catalog.commit(&second).await.unwrap_err();
     assert!(proxy.fired());
-    assert!(matches!(lost, OperationsError::Unavailable { .. }), "{lost:?}");
+    assert!(
+        matches!(lost, OperationsError::Unavailable { .. }),
+        "{lost:?}"
+    );
     assert_eq!(
         catalog.settle(&settle(&second)).await.unwrap(),
         Settlement::Committed {

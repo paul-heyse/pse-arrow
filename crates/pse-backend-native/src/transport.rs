@@ -739,10 +739,23 @@ mod tests {
             ..Report::default()
         };
         recover_diagnostics(&mut report, &n, &[1.0], &contract()).unwrap();
-        assert!(report.ranging.unwrap().values().all(|r| r.value[0] == f64::INFINITY));
+        assert!(
+            report
+                .ranging
+                .unwrap()
+                .values()
+                .all(|r| r.value[0] == f64::INFINITY)
+        );
         let mut report = Report {
             ranging: Some(enum_map::EnumMap::from_fn(|family: RangeFamily| Range {
-                value: vec![1.0; if family.side() == RangeSide::Row { 2 } else { 1 }],
+                value: vec![
+                    1.0;
+                    if family.side() == RangeSide::Row {
+                        2
+                    } else {
+                        1
+                    }
+                ],
                 ..range(family)
             })),
             ..Report::default()

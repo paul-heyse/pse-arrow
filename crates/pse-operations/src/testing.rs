@@ -79,7 +79,11 @@ impl Session {
     ///
     /// Classified driver failures, including a query that does not return one row.
     pub async fn count(&self, sql: &str) -> Result<i64, OperationsError> {
-        let row = self.client.query_one(sql, &[]).await.classify(&self.target)?;
+        let row = self
+            .client
+            .query_one(sql, &[])
+            .await
+            .classify(&self.target)?;
         row.try_get(0).classify(&self.target)
     }
 
@@ -130,7 +134,9 @@ impl TestDatabase {
         let admin = Session::connect(&config, &crate::store::tls()?, &target).await?;
         let name = format!("pse_test_{}", uuid::Uuid::now_v7().simple());
         // The name is minted here from a UUID; it carries no caller text.
-        admin.execute(&format!("CREATE DATABASE \"{name}\"")).await?;
+        admin
+            .execute(&format!("CREATE DATABASE \"{name}\""))
+            .await?;
         let mut url = url::Url::parse(&server).map_err(|error| OperationsError::Configuration {
             reason: format!("{} is not a URL: {error}", crate::DATABASE_URL_ENV),
         })?;
@@ -382,7 +388,10 @@ impl Frames {
 }
 
 fn contains(haystack: &[u8], needle: &[u8]) -> bool {
-    !needle.is_empty() && haystack.windows(needle.len()).any(|window| window == needle)
+    !needle.is_empty()
+        && haystack
+            .windows(needle.len())
+            .any(|window| window == needle)
 }
 
 /// Relay one connection, cutting it once if the armed fault matches.

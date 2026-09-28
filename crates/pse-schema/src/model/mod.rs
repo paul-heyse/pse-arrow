@@ -36,9 +36,7 @@ pub use field::ROW_KEY_ENCODING;
 pub use crate::model::algorithm::{
     AlgorithmDecl, AlgorithmSpec, ArgumentSpec, Determinism, ResultSpec,
 };
-pub use crate::model::document::{
-    DocumentKind, DocumentSection, DocumentSpec, SourceColumn,
-};
+pub use crate::model::document::{DocumentKind, DocumentSection, DocumentSpec, SourceColumn};
 pub use crate::model::enums::{
     Authority, ColumnRole, DerivationGranularity, EnumDecl, EnumMember, EnumSpec, InvariantKind,
     Namespace, Severity, SnapshotClass, Stability,

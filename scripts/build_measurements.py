@@ -446,7 +446,9 @@ def main() -> None:
     parser.add_argument("--mode", choices=("stable", "nightly"), default="stable")
     parser.add_argument("--cache", choices=("auto", "on", "off"), default="auto")
     parser.add_argument("--frontend", type=int, choices=(1, 2, 4, 8))
-    parser.add_argument("--jobs", type=int, help="override the repository Cargo job budget")
+    parser.add_argument(
+        "--jobs", type=int, help="override the repository Cargo job budget"
+    )
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--native", action="store_true")
     parser.add_argument(
@@ -470,7 +472,9 @@ def main() -> None:
         help="use an empty task-owned compiler cache",
     )
     parser.add_argument(
-        "--dependency-opt", type=int, choices=(1, 2, 3),
+        "--dependency-opt",
+        type=int,
+        choices=(1, 2, 3),
         help="override dependency optimization; default preserves the workspace manifest",
     )
     parser.add_argument("--delta-cache", action="store_true")

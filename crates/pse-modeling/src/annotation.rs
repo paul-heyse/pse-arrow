@@ -69,11 +69,26 @@ pub struct Connectivity {
     /// Original annotation and owning instance.
     pub lineage: Lineage,
 }
-pub(crate) fn connectivity_limits(arguments: &[String], at: DeclarationId) -> Result<(Option<usize>, Option<usize>)> {
-    let [incoming, outgoing] = arguments else { return Err(invalid(at, "connectivity requires incoming and outgoing maxima")); };
+pub(crate) fn connectivity_limits(
+    arguments: &[String],
+    at: DeclarationId,
+) -> Result<(Option<usize>, Option<usize>)> {
+    let [incoming, outgoing] = arguments else {
+        return Err(invalid(
+            at,
+            "connectivity requires incoming and outgoing maxima",
+        ));
+    };
     let limit = |text: &str| {
-        if text == "many" { Ok(None) } else {
-            text.parse::<usize>().map(Some).map_err(|_| invalid(at, "connection maximum must be a nonnegative integer or many"))
+        if text == "many" {
+            Ok(None)
+        } else {
+            text.parse::<usize>().map(Some).map_err(|_| {
+                invalid(
+                    at,
+                    "connection maximum must be a nonnegative integer or many",
+                )
+            })
         }
     };
     Ok((limit(incoming)?, limit(outgoing)?))
@@ -103,8 +118,13 @@ impl Engine<'_, '_> {
         let mut counts = std::collections::BTreeMap::<SemanticId, (usize, usize)>::new();
         for connection in self.model.connections.values() {
             for port in [connection.from, connection.to] {
-                if !self.model.ports.contains_key(&port) || !self.model.connectivity.contains_key(&port) {
-                    return Err(invalid(connection.lineage.declaration, "connected port requires an explicit connectivity policy"));
+                if !self.model.ports.contains_key(&port)
+                    || !self.model.connectivity.contains_key(&port)
+                {
+                    return Err(invalid(
+                        connection.lineage.declaration,
+                        "connected port requires an explicit connectivity policy",
+                    ));
                 }
             }
             counts.entry(connection.from).or_default().1 += 1;
@@ -112,11 +132,21 @@ impl Engine<'_, '_> {
         }
         for (port, policy) in &self.model.connectivity {
             if !self.model.ports.contains_key(port) {
-                return Err(invalid(policy.lineage.declaration, "connectivity target is not an active port"));
+                return Err(invalid(
+                    policy.lineage.declaration,
+                    "connectivity target is not an active port",
+                ));
             }
             let (incoming, outgoing) = counts.get(port).copied().unwrap_or_default();
-            if policy.incoming.is_some_and(|max| incoming > max) || policy.outgoing.is_some_and(|max| outgoing > max) {
-                return Err(invalid(policy.lineage.declaration, format!("port {port} exceeds declared connectivity: {incoming} incoming, {outgoing} outgoing")));
+            if policy.incoming.is_some_and(|max| incoming > max)
+                || policy.outgoing.is_some_and(|max| outgoing > max)
+            {
+                return Err(invalid(
+                    policy.lineage.declaration,
+                    format!(
+                        "port {port} exceeds declared connectivity: {incoming} incoming, {outgoing} outgoing"
+                    ),
+                ));
             }
         }
         Ok(())
@@ -139,7 +169,11 @@ impl Engine<'_, '_> {
             let (incoming, outgoing) = connectivity_limits(&a.arguments, at)?;
             for (target, _, _) in targets {
                 self.reserve(1)?;
-                let policy = Connectivity { incoming, outgoing, lineage: self.lineage(instance, row, &[at]) };
+                let policy = Connectivity {
+                    incoming,
+                    outgoing,
+                    lineage: self.lineage(instance, row, &[at]),
+                };
                 if self.model.connectivity.insert(target, policy).is_some() {
                     return Err(invalid(at, "multiple connectivity policies for one port"));
                 }
@@ -185,7 +219,9 @@ impl Engine<'_, '_> {
                         .parse()
                         .map_err(|e| invalid(at, format!("scaling scheme: {e}")))?,
                 ),
-                ("objective", 1) => AnnotationValue::Objective(objective_sense(&a.arguments[0], at)?),
+                ("objective", 1) => {
+                    AnnotationValue::Objective(objective_sense(&a.arguments[0], at)?)
+                }
                 ("report", 1) => AnnotationValue::Report(label(&a.arguments[0], at)?),
                 ("valid", 3) => {
                     let policy = extrapolation_policy(&a.arguments[2], at)?;
@@ -226,7 +262,12 @@ impl Engine<'_, '_> {
                 if !self.model.symbols.contains_key(&target) {
                     return Err(invalid(at, "objective requires a scalar value member"));
                 }
-                if self.model.annotations.iter().any(|a| matches!(a.value, AnnotationValue::Objective(_))) {
+                if self
+                    .model
+                    .annotations
+                    .iter()
+                    .any(|a| matches!(a.value, AnnotationValue::Objective(_)))
+                {
                     return Err(invalid(at, "a selected analysis has exactly one objective"));
                 }
             }

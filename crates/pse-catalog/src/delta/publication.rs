@@ -104,8 +104,10 @@ impl Publication {
     pub fn member(
         &self,
         reference: &datafusion::common::ResolvedTableReference,
-    ) -> std::result::Result<pse_relations::generated::structures::MemberDescriptor, crate::EngineError>
-    {
+    ) -> std::result::Result<
+        pse_relations::generated::structures::MemberDescriptor,
+        crate::EngineError,
+    > {
         crate::selection::selected_member(&self.session, reference)
     }
     /// Begin an owned native relation stream with common admission and requirements.
@@ -225,7 +227,9 @@ pub(crate) async fn selected_provider(
         .map_err(pse_columnar::external)?
     {
         pse_relations::generated::structures::MemberDescriptorSelectionSelected::Full => view,
-        pse_relations::generated::structures::MemberDescriptorSelectionSelected::Revision(selection) => {
+        pse_relations::generated::structures::MemberDescriptorSelectionSelected::Revision(
+            selection,
+        ) => {
             let column = relation
                 .column(&selection.column)
                 .ok_or_else(|| invalid("revision selection column is undeclared"))?;

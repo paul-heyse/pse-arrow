@@ -974,7 +974,7 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             .collect()
     };
     Ok(Sample {
-                        mode: shared.mode.get(),
+        mode: shared.mode.get(),
         integrals,
         time: t,
         state: y.as_slice().to_vec(),

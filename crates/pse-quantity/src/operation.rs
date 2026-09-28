@@ -3,8 +3,8 @@
 
 //! Registered complete-quantity operation declarations (blueprint §6.2, §8.3).
 use crate::{
-    BasisId, BasisRule, ConversionId, InvariantId, Opcode, OperationId, QuantityKindId,
-    QuantityScaleRule, QuantityShapeRule, ReferenceRule, ReferenceStateId, EntityKindId,
+    BasisId, BasisRule, ConversionId, EntityKindId, InvariantId, Opcode, OperationId,
+    QuantityKindId, QuantityScaleRule, QuantityShapeRule, ReferenceRule, ReferenceStateId,
     SubjectRule,
 };
 /// A conversion applied once to the named operand before rule matching.

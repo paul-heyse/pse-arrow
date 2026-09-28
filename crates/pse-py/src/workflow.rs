@@ -4,16 +4,23 @@
 mod modeling;
 mod routes;
 mod settings;
+pub(crate) use modeling::{
+    ModelingDiagnosticSettings, ModelingEventSettings, ModelingFixturePolicy, ModelingLimits,
+    ModelingModeSettings, NativeModelingConformance, NativeModelingDiagnosticSamples,
+    NativeModelingDiagnostics, NativeModelingElasticAttempt, NativeModelingInitialization,
+    NativeModelingInitializationAttempt, NativeModelingNativeAnalysis,
+    NativeModelingNonlinearExplanation, NativeModelingPackage, NativeModelingResult,
+    NativeModelingStudy, NativeModelingTrajectory,
+};
 pub(crate) use routes::{NativeEligibility, NativeIneligible, NativeRoute};
-pub(crate) use modeling::{NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation, NativeModelingElasticAttempt, ModelingLimits, ModelingFixturePolicy, ModelingEventSettings, ModelingModeSettings, ModelingDiagnosticSettings, NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingTrajectory, NativeModelingConformance, NativeModelingInitialization, NativeModelingInitializationAttempt, NativeModelingStudy, NativeModelingPackage, NativeModelingResult};
 mod strategies;
+use crate::inspection::{self, errors, runtime};
+use pse_runtime::{CancelSource, workflow as native};
+use pyo3::prelude::*;
 pub(crate) use strategies::{
     NativeAttempt, NativePreparedFlow, NativePreparedStrategy, NativeStrategyAttempt,
     NativeStrategyResult,
 };
-use crate::inspection::{self, errors, runtime};
-use pse_runtime::{CancelSource, workflow as native};
-use pyo3::prelude::*;
 
 use std::{
     future::Future,
@@ -38,7 +45,10 @@ fn blocking<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + Send
     blocking_on(py, runtime.executor, future, cancel)
 }
 fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + Send>(
-    py: Python<'_>, executor: &tokio::runtime::Runtime, future: F, cancel: impl Fn(),
+    py: Python<'_>,
+    executor: &tokio::runtime::Runtime,
+    future: F,
+    cancel: impl Fn(),
 ) -> PyResult<T> {
     if tokio::runtime::Handle::try_current().is_ok() {
         return Err(invalid(
@@ -301,8 +311,9 @@ impl NativeRuntime {
             }
             None => (None, pse_columnar::CancellationToken::new()),
         };
-        let batch_size = std::num::NonZeroUsize::new(self.owner.shared.budget().execution.batch_size)
-            .ok_or_else(|| invalid(py, "batch size must be positive"))?;
+        let batch_size =
+            std::num::NonZeroUsize::new(self.owner.shared.budget().execution.batch_size)
+                .ok_or_else(|| invalid(py, "batch size must be positive"))?;
         let reader = blocking(
             py,
             &self.owner,
@@ -393,9 +404,7 @@ impl NativeRuntime {
         let result = blocking(
             py,
             &self.owner,
-            async {
-                Ok::<_, native::WorkflowError>(self.inner.settle_publication(&ticket).await)
-            },
+            async { Ok::<_, native::WorkflowError>(self.inner.settle_publication(&ticket).await) },
             || {},
         )?;
         serde_json::to_vec(&result).map_err(|e| invalid(py, e.to_string()))
@@ -486,17 +495,34 @@ impl NativeRuntime {
     }
     #[pyo3(signature=(steps, *, continue_independent=false))]
     fn start(
-        &self, py: Python<'_>, steps: Vec<PyRef<'_,NativePreparedOperation>>, continue_independent: bool,
+        &self,
+        py: Python<'_>,
+        steps: Vec<PyRef<'_, NativePreparedOperation>>,
+        continue_independent: bool,
     ) -> PyResult<NativeRunHandle> {
-        let steps=steps.into_iter().map(|p|match &p.inner {
-            PreparedOperation::Modeling(step)=>Ok(step.as_ref().clone()),
-            _=>Err(invalid(py,"finite solve sequences require authored algebraic cases")),
-        }).collect::<PyResult<Vec<_>>>()?;
-        let cancel=CancelSource::new();
-        let inner=blocking(py,&self.owner,self.inner.start_modeling(steps,continue_independent,&cancel),||cancel.cancel())?;
-        Ok(NativeRunHandle{owner:self.owner.clone(),inner})
+        let steps = steps
+            .into_iter()
+            .map(|p| match &p.inner {
+                PreparedOperation::Modeling(step) => Ok(step.as_ref().clone()),
+                _ => Err(invalid(
+                    py,
+                    "finite solve sequences require authored algebraic cases",
+                )),
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .start_modeling(steps, continue_independent, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeRunHandle {
+            owner: self.owner.clone(),
+            inner,
+        })
     }
-
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -565,7 +591,10 @@ impl NativeRunHandle {
     }
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
         let (events, dropped) = self.inner.progress();
-        (events.into_iter().map(ProgressEvent::native).collect(), dropped)
+        (
+            events.into_iter().map(ProgressEvent::native).collect(),
+            dropped,
+        )
     }
     #[getter]
     fn progress_count(&self) -> (usize, u64) {
@@ -586,8 +615,10 @@ impl NativeRunResult {
     fn available_start(&self, step: usize) -> Option<NativeStart> {
         match self.inner.report().ok()? {
             native::RunReport::Modeling(r) => match &r.get(step)?.outcome {
-                pse_runtime::math::solves::Outcome::Native(r)=>r.warm_start.clone().map(|inner|NativeStart{inner}),
-                _=>None,
+                pse_runtime::math::solves::Outcome::Native(r) => {
+                    r.warm_start.clone().map(|inner| NativeStart { inner })
+                }
+                _ => None,
             },
             native::RunReport::Fit(r) if step == 0 => r
                 .solve
@@ -779,7 +810,8 @@ impl NativeStudyHandle {
         poll_seconds: f64,
         timeout_seconds: Option<f64>,
     ) -> PyResult<Vec<u8>> {
-        let poll = Duration::try_from_secs_f64(poll_seconds).map_err(|e| invalid(py, e.to_string()))?;
+        let poll =
+            Duration::try_from_secs_f64(poll_seconds).map_err(|e| invalid(py, e.to_string()))?;
         let timeout = timeout_seconds
             .map(Duration::try_from_secs_f64)
             .transpose()
@@ -1053,7 +1085,10 @@ impl NativeProgressStream {
                 }
                 ProgressSlot::Reading => {
                     *slot = ProgressSlot::Reading;
-                    return Err(invalid(py, "another thread is reading this progress stream"));
+                    return Err(invalid(
+                        py,
+                        "another thread is reading this progress stream",
+                    ));
                 }
                 ProgressSlot::Closed => {
                     *slot = ProgressSlot::Closed;
@@ -1062,7 +1097,9 @@ impl NativeProgressStream {
             }
         };
         let cancel = self.cancel.clone();
-        let page = blocking(py, &self.owner, state.stream.next_page(), || cancel.cancel());
+        let page = blocking(py, &self.owner, state.stream.next_page(), || {
+            cancel.cancel()
+        });
         let mut slot = self.slot(py)?;
         match page {
             Ok(Some(records)) if !matches!(*slot, ProgressSlot::Closed) => {
@@ -1221,30 +1258,68 @@ impl NativePreparedOperation {
     /// Admitted algebraic route, before native execution.
     #[getter]
     fn route(&self, py: Python<'_>) -> PyResult<NativeRoute> {
-        let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"algebraic route inspection requires an algebraic solve"));};
+        let PreparedOperation::Modeling(p) = &self.inner else {
+            return Err(invalid(
+                py,
+                "algebraic route inspection requires an algebraic solve",
+            ));
+        };
         Ok(p.solve.route().into())
     }
     /// Typed eligibility row of every assessed adapter.
     #[getter]
     fn eligibility(&self, py: Python<'_>) -> PyResult<Vec<NativeEligibility>> {
-        let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"algebraic eligibility requires an algebraic solve"));};
+        let PreparedOperation::Modeling(p) = &self.inner else {
+            return Err(invalid(
+                py,
+                "algebraic eligibility requires an algebraic solve",
+            ));
+        };
         Ok(p.solve.eligibility().iter().map(Into::into).collect())
     }
     fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
-        let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"native warm starts require an algebraic solve"));};
-        let inner=p.as_ref().clone().with_start(seed.inner.clone()).map_err(|e|errors::diagnostic(py,&e))?;
-        Ok(Self{owner:self.owner.clone(),inner:PreparedOperation::Modeling(Box::new(inner))})
+        let PreparedOperation::Modeling(p) = &self.inner else {
+            return Err(invalid(py, "native warm starts require an algebraic solve"));
+        };
+        let inner = p
+            .as_ref()
+            .clone()
+            .with_start(seed.inner.clone())
+            .map_err(|e| errors::diagnostic(py, &e))?;
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner: PreparedOperation::Modeling(Box::new(inner)),
+        })
     }
-    fn with_primal_start(&self, py: Python<'_>, values: std::collections::BTreeMap<String,f64>) -> PyResult<Self> {
-        let PreparedOperation::Modeling(p)=&self.inner else {return Err(invalid(py,"native warm starts require an algebraic solve"));};
-        let values=values.into_iter().map(|(key,value)|id(py,&key).map(|id|(id,value))).collect::<PyResult<_>>()?;
-        let inner=p.as_ref().clone().with_primal_start(values).map_err(|e|errors::diagnostic(py,&e))?;
-        Ok(Self{owner:self.owner.clone(),inner:PreparedOperation::Modeling(Box::new(inner))})
+    fn with_primal_start(
+        &self,
+        py: Python<'_>,
+        values: std::collections::BTreeMap<String, f64>,
+    ) -> PyResult<Self> {
+        let PreparedOperation::Modeling(p) = &self.inner else {
+            return Err(invalid(py, "native warm starts require an algebraic solve"));
+        };
+        let values = values
+            .into_iter()
+            .map(|(key, value)| id(py, &key).map(|id| (id, value)))
+            .collect::<PyResult<_>>()?;
+        let inner = p
+            .as_ref()
+            .clone()
+            .with_primal_start(values)
+            .map_err(|e| errors::diagnostic(py, &e))?;
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner: PreparedOperation::Modeling(Box::new(inner)),
+        })
     }
     #[getter]
     fn identity(&self, py: Python<'_>) -> PyResult<String> {
         Ok(match &self.inner {
-            PreparedOperation::Modeling(p) => p.solve.request_identity().map_err(|e|errors::diagnostic(py,&e))?,
+            PreparedOperation::Modeling(p) => p
+                .solve
+                .request_identity()
+                .map_err(|e| errors::diagnostic(py, &e))?,
             PreparedOperation::Simulation(s) => s.identity(),
             PreparedOperation::Fit(f) => f.identity(),
         }

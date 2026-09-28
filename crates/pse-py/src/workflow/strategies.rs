@@ -45,11 +45,8 @@ impl NativePreparedFlow {
         let handle = py
             .detach(|| {
                 let _enter = self.owner.executor.enter();
-                self.math.select_tears(
-                    self.inner.clone(),
-                    method,
-                    settings.controls.clone(),
-                )
+                self.math
+                    .select_tears(self.inner.clone(), method, settings.controls.clone())
             })
             .map_err(|e| errors::diagnostic(py, &e))?;
         let cancel = handle.cancellation();
@@ -91,8 +88,10 @@ impl NativePreparedStrategy {
             Strategy::Cone(p) => Ok(vec![p.solve().route().into()]),
             #[cfg(feature = "native-solvers")]
             Strategy::Recycle(_) => Ok(vec![
-                pse_backend_native::routing::Route::Native(pse_backend_native::solve::Backend::Kinsol)
-                    .into(),
+                pse_backend_native::routing::Route::Native(
+                    pse_backend_native::solve::Backend::Kinsol,
+                )
+                .into(),
             ]),
             #[cfg(feature = "native-solvers")]
             Strategy::Initialization(p) => p

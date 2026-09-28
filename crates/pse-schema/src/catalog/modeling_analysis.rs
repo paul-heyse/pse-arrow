@@ -233,14 +233,8 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             column(
                 "points",
                 T::list(record(vec![
-                    (
-                        "root_id",
-                        T::id().with_identity("declaration").optional(),
-                    ),
-                    (
-                        "instance_id",
-                        T::id().with_identity("instance").optional(),
-                    ),
+                    ("root_id", T::id().with_identity("declaration").optional()),
+                    ("instance_id", T::id().with_identity("instance").optional()),
                     ("predecessor", count().optional()),
                     ("result_id", T::id().with_identity("run").optional()),
                     ("accepted", flag()),

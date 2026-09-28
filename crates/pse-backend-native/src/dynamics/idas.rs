@@ -861,8 +861,8 @@ impl<'a> Session<'a> {
                     dimension,
                     preconditioner,
                 } => {
-                    let dimension =
-                        i32::try_from(dimension.into_inner()).map_err(|_| contract("IDAS Krylov dimension"))?;
+                    let dimension = i32::try_from(dimension.into_inner())
+                        .map_err(|_| contract("IDAS Krylov dimension"))?;
                     let side = match preconditioner {
                         Preconditioner::None => ffi::SUN_PREC_NONE,
                         Preconditioner::Jacobi => ffi::SUN_PREC_LEFT,

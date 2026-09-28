@@ -135,7 +135,10 @@ fn native_ranging_fills_every_family_on_its_side() {
         &ranging[RangeFamily::ColumnCostDown],
         &ranging[RangeFamily::ColumnCostUp],
     );
-    assert!(down.value[1] <= -2.0 && -2.0 <= up.value[1], "{down:?} {up:?}");
+    assert!(
+        down.value[1] <= -2.0 && -2.0 <= up.value[1],
+        "{down:?} {up:?}"
+    );
     let (down, up) = (
         &ranging[RangeFamily::RowBoundDown],
         &ranging[RangeFamily::RowBoundUp],
@@ -269,7 +272,12 @@ fn highs_incumbents_streamed() {
     session
         .sparse_start(
             &native,
-            &native.contract.variables.iter().map(|v| (v.id, 0.0)).collect(),
+            &native
+                .contract
+                .variables
+                .iter()
+                .map(|v| (v.id, 0.0))
+                .collect(),
         )
         .unwrap();
     let controls = Controls::default();
@@ -335,7 +343,11 @@ fn highs_incumbents_streamed() {
                 .feasible()
             );
         }
-        assert!(incumbent.dual_bound.is_none_or(|d| d <= incumbent.objective + 1e-7));
+        assert!(
+            incumbent
+                .dual_bound
+                .is_none_or(|d| d <= incumbent.objective + 1e-7)
+        );
     }
     // The last incumbent is the result, under the post-solve objective convention. Its
     // capture, deferred by the throttle in so short a search, is taken when the search
@@ -524,7 +536,9 @@ fn cut_pool_captured_on_request() {
     // cut pool is extracted after root cut generation.
     let mut state = 12345_u64;
     let mut next = |range: f64| {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         1.0 + ((state >> 33) as f64 / (1u64 << 31) as f64 * range).floor()
     };
     let n = 40;
@@ -584,7 +598,9 @@ fn cut_pool_captured_on_request() {
     let cut_kind = |r: &SolveReport| {
         r.events.iter().any(|e| {
             e.values.get("kind")
-                == Some(&Metric::Integer(i64::from(ffi::kHighsCallbackMipGetCutPool)))
+                == Some(&Metric::Integer(i64::from(
+                    ffi::kHighsCallbackMipGetCutPool,
+                )))
         })
     };
     assert!(cut_kind(&report));

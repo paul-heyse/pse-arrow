@@ -425,8 +425,9 @@ impl Oracle for DynamicWorker {
 }
 
 pub(crate) fn profile_identity(p: &SimulationProfile) -> ContentHash {
-    let mut h=FramedHasher::new(pse_ids::Frame::DynamicProfileV3);
-    h.str(&native::profile_json(p).to_string()).hash(&p.numerics.key());
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV3);
+    h.str(&native::profile_json(p).to_string())
+        .hash(&p.numerics.key());
     h.finish_hash()
 }
 
@@ -435,15 +436,20 @@ mod tests {
     use super::*;
     #[test]
     fn simulation_identity_includes_backend_and_trial_policy() {
-        let base=SimulationProfile::default();
-        let mut selected=base.clone();selected.method=native::Method::Idas;
-        assert_ne!(profile_identity(&base),profile_identity(&selected));
-        let idas=profile_identity(&selected);
-        selected.trial_failures=native::TrialPolicy::Recoverable;
-        assert_ne!(idas,profile_identity(&selected));
-        selected=base.clone();selected.samples.reverse();
-        if base.samples.len()>1 {assert_ne!(profile_identity(&base),profile_identity(&selected));}
-        selected=base.clone();selected.time_limit+=std::time::Duration::from_nanos(1);
-        assert_ne!(profile_identity(&base),profile_identity(&selected));
+        let base = SimulationProfile::default();
+        let mut selected = base.clone();
+        selected.method = native::Method::Idas;
+        assert_ne!(profile_identity(&base), profile_identity(&selected));
+        let idas = profile_identity(&selected);
+        selected.trial_failures = native::TrialPolicy::Recoverable;
+        assert_ne!(idas, profile_identity(&selected));
+        selected = base.clone();
+        selected.samples.reverse();
+        if base.samples.len() > 1 {
+            assert_ne!(profile_identity(&base), profile_identity(&selected));
+        }
+        selected = base.clone();
+        selected.time_limit += std::time::Duration::from_nanos(1);
+        assert_ne!(profile_identity(&base), profile_identity(&selected));
     }
 }

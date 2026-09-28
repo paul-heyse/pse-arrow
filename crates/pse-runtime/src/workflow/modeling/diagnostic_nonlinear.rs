@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded whole-model infeasibility explanations on POUNCE's ℓ1 exact penalty (ADR-0109
 //! item 2a). Local obstruction never certifies infeasibility.
-use pse_model::generated::identities::RunId;
 use super::*;
 use crate::math::solves::Outcome;
 use pse_backend_native::solve::{Backend, SolveIntent, SolverSelection};
+use pse_model::generated::identities::RunId;
 use pse_modeling::specialize::Formulation;
 use std::{
     collections::BTreeSet,

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Registry projections retain source-coordinate evidence and columnar resource ownership.
-use pse_model::generated::identities::RunId;
 use super::*;
+use pse_model::generated::identities::RunId;
 use pse_relations::columnar::{Collection, FieldCheckedBatch, RelationRow};
 type Tables = BTreeMap<SemanticId, FieldCheckedBatch>;
 
@@ -197,7 +197,10 @@ impl ModelingDiagnostics {
         let (row_ids, column_ids): (
             &TiSlice<GlobalRow, SemanticId>,
             &TiSlice<GlobalCol, SemanticId>,
-        ) = (self.rows.as_slice().as_ref(), self.columns.as_slice().as_ref());
+        ) = (
+            self.rows.as_slice().as_ref(),
+            self.columns.as_slice().as_ref(),
+        );
         export(&self.runtime, self._owner.size(), |columns| {
             let matrix = self
                 .matrix
@@ -239,11 +242,13 @@ impl ModelingDiagnostics {
                     parallel_columns: m
                         .parallel_columns
                         .iter()
-                        .map(|p| RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem {
-                            first_id: column_ids[p.first],
-                            second_id: column_ids[p.second],
-                            cosine: p.cosine,
-                        })
+                        .map(
+                            |p| RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem {
+                                first_id: column_ids[p.first],
+                                second_id: column_ids[p.second],
+                                cosine: p.cosine,
+                            },
+                        )
                         .collect(),
                     modes: m
                         .modes
@@ -356,9 +361,7 @@ impl ModelingInitializationReport {
         export_finding_rows(&self.runtime, rows)
     }
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
-        use pse_model::generated::{
-            runtime::modeling_initializations::*,
-        };
+        use pse_model::generated::runtime::modeling_initializations::*;
         one(&self.runtime, self._owner.size(), || {
             RuntimeModelingInitializationsRow {
                 run_id: self.run_id,

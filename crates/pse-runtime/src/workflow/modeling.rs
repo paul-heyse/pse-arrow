@@ -5,7 +5,8 @@ pub(super) mod cases;
 mod conformance;
 mod pure;
 pub use conformance::{
-    ModelingConformanceCheck, ModelingConformancePolicy, ModelingFixturePolicy, ModelingConformanceReport,
+    ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
+    ModelingFixturePolicy,
 };
 pub use pure::conform_pure_documents;
 pub(super) mod dynamics;
@@ -33,8 +34,8 @@ pub use engines::{
     ModelingStudyReport,
 };
 pub(super) mod analysis_tables;
-pub(super) mod results;
 pub(super) mod assessment;
+pub(super) mod results;
 mod views;
 use super::{PhysicalContext, Runtime, WorkflowError, contract, relation};
 use crate::math::{
@@ -345,9 +346,13 @@ impl ModelingPackage {
             .map(HeapUsage::owned_bytes)
             .try_fold(4096usize, usize::checked_add)
             .and_then(|n| {
-                self.physical.sources.values().chain(self.document_sources.values()).try_fold(n, |n, b| {
-                    n.checked_add(b.batch().get_array_memory_size().checked_mul(8)?)
-                })
+                self.physical
+                    .sources
+                    .values()
+                    .chain(self.document_sources.values())
+                    .try_fold(n, |n, b| {
+                        n.checked_add(b.batch().get_array_memory_size().checked_mul(8)?)
+                    })
             })
             .ok_or_else(|| contract("source export extent"))?;
         let _scratch = self
@@ -500,16 +505,53 @@ impl ModelingPackage {
     /// Prepare predecessor-ordered conditional initialization under the analysis's solve
     /// profile and the supplied continuation stages, without changing the original
     /// specification. The profile is admitted in Rust before any native work (F26).
-    #[cfg(feature="solver-kinsol")]
+    #[cfg(feature = "solver-kinsol")]
     pub async fn prepare_block_initialization(
-        &self, a: &ModelingAnalysis, stages: Vec<BTreeMap<SemanticId, f64>>,
+        &self,
+        a: &ModelingAnalysis,
+        stages: Vec<BTreeMap<SemanticId, f64>>,
         cancel: &crate::CancelSource,
-    ) -> Result<super::PreparedInitializationStrategy,WorkflowError> {
-        let profile=crate::math::initialization::InitializationProfile{solver:a.solver.clone(),stages};
-        let resolved=self.resolve_case(a.root,a.instance,a.bindings.clone(),a.limits,a.case.clone(),a.order,a.compiler,a.solver.clone(),a.numerical.clone(),BTreeMap::new(),BTreeMap::new(),false,cancel).await?;
-        let prepared=self.runtime.native().prepare_modeling_initialization(self.workspace.clone(),resolved.model.case,a.compiler,resolved.numerical,cancel).await?;
-        prepared.validate_profile(&resolved.model.values,&profile)?;
-        Ok(super::PreparedInitializationStrategy{runtime:self.runtime.clone(),values:resolved.model.values,providers:resolved.providers,prepared,profile})
+    ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
+        let profile = crate::math::initialization::InitializationProfile {
+            solver: a.solver.clone(),
+            stages,
+        };
+        let resolved = self
+            .resolve_case(
+                a.root,
+                a.instance,
+                a.bindings.clone(),
+                a.limits,
+                a.case.clone(),
+                a.order,
+                a.compiler,
+                a.solver.clone(),
+                a.numerical.clone(),
+                BTreeMap::new(),
+                BTreeMap::new(),
+                false,
+                cancel,
+            )
+            .await?;
+        let prepared = self
+            .runtime
+            .native()
+            .prepare_modeling_initialization(
+                self.workspace.clone(),
+                resolved.model.case,
+                a.compiler,
+                resolved.numerical,
+                cancel,
+            )
+            .await?;
+        prepared.validate_profile(&resolved.model.values, &profile)?;
+        Ok(super::PreparedInitializationStrategy {
+            runtime: self.runtime.clone(),
+            values: resolved.model.values,
+            providers: resolved.providers,
+            prepared,
+            profile,
+        })
     }
     /// Prepare declared topology independently of the selected case's numerical incidence.
     pub async fn prepare_flow(
@@ -517,9 +559,21 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         selection: pse_compiler::workspace::ModelingFlowSelection,
         cancel: &crate::CancelSource,
-    ) -> Result<crate::math::flows::PreparedFlow,WorkflowError> {
-        let model=self.prepare(analysis.root,analysis.instance,analysis.bindings.clone(),analysis.limits,cancel).await?;
-        Ok(self.runtime.native().prepare_modeling_flow(model,self.quantities.clone(),selection,cancel).await?)
+    ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
+        let model = self
+            .prepare(
+                analysis.root,
+                analysis.instance,
+                analysis.bindings.clone(),
+                analysis.limits,
+                cancel,
+            )
+            .await?;
+        Ok(self
+            .runtime
+            .native()
+            .prepare_modeling_flow(model, self.quantities.clone(), selection, cancel)
+            .await?)
     }
     /// Resolve symbol-path specifications and prepare the existing solver pipeline's case view.
     pub async fn prepare_case(
@@ -554,7 +608,7 @@ impl ModelingPackage {
     /// Replace source declarations while preserving this revision's admitted physical aliases.
     /// No old document text is retained as the source of the edited IR.
     pub fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
-        self.revised(rows,self.revision.quantity_names().clone())
+        self.revised(rows, self.revision.quantity_names().clone())
     }
     /// Replace source inputs while retaining incremental storage. Existing revisions stay valid.
     pub fn revised(
@@ -764,7 +818,13 @@ mod tests {
         cancel.cancel();
         assert!(
             revised
-                .prepare(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(), &cancel)
+                .prepare(
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    &cancel
+                )
                 .await
                 .is_err()
         );

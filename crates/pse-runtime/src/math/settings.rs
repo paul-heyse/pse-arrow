@@ -146,7 +146,10 @@ mod tests {
             json!({"version": 2}),
             json!({"intent": "root"}),
         ] {
-            assert!(serde_json::from_value::<SolveSettings>(misspelled.clone()).is_err(), "{misspelled}");
+            assert!(
+                serde_json::from_value::<SolveSettings>(misspelled.clone()).is_err(),
+                "{misspelled}"
+            );
         }
         // The defaults are the default profile's, and a default document round-trips.
         let default = SolveSettings::default();
@@ -175,7 +178,10 @@ mod tests {
                 json!({"version": 1, "settings": {"backend": "kinsol", "linear": {"kind": "spgmr", "dimension": 0}}}),
                 "PositiveCount",
             ),
-            (json!({"version": 1, "controls": {"time_limit": -3.0}}), "seconds"),
+            (
+                json!({"version": 1, "controls": {"time_limit": -3.0}}),
+                "seconds",
+            ),
         ] {
             let error = serde_json::from_value::<SolveSettings>(document)
                 .unwrap_err()

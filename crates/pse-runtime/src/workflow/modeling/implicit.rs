@@ -50,7 +50,11 @@ impl HintResolver for TrialHints {
             + self.targets.len() * 256
             + (self.declarations.len() + self.policy.requirements.len()) * 512
     }
-    fn resolve(&self, observed: &[f64], terms: Option<&[f64]>) -> Result<(Vec<Unknown>, Options), MathError> {
+    fn resolve(
+        &self,
+        observed: &[f64],
+        terms: Option<&[f64]>,
+    ) -> Result<(Vec<Unknown>, Options), MathError> {
         let failure = |message: &str| MathError::Contract(message.into());
         if observed.len() != self.hints.len() {
             return Err(failure("implicit hint observation extent"));
@@ -81,11 +85,23 @@ impl HintResolver for TrialHints {
             }
         }
         if let Some(terms) = terms {
-            if terms.len() != self.scales.last().map_or(0,|s|s.terms.end) { return Err(failure("implicit original-term extent")); }
+            if terms.len() != self.scales.last().map_or(0, |s| s.terms.end) {
+                return Err(failure("implicit original-term extent"));
+            }
             for scale in &self.scales {
-                let values = terms.get(scale.terms.clone()).ok_or_else(||failure("implicit original-term range"))?;
-                let value = pse_math::numerics::term_scale(scale.scheme,values)?;
-                declarations.push(super::cases::requirement(self.lineage,scale.row,NumericalTarget::Row,scale.source,NumericalSource::DerivedNominal,None,Some(value)));
+                let values = terms
+                    .get(scale.terms.clone())
+                    .ok_or_else(|| failure("implicit original-term range"))?;
+                let value = pse_math::numerics::term_scale(scale.scheme, values)?;
+                declarations.push(super::cases::requirement(
+                    self.lineage,
+                    scale.row,
+                    NumericalTarget::Row,
+                    scale.source,
+                    NumericalSource::DerivedNominal,
+                    None,
+                    Some(value),
+                ));
             }
         }
         let numerics = pse_math::numerics::resolve(
@@ -295,7 +311,9 @@ impl ModelingPackage {
                 // Affine elimination evaluates at a deterministic zero reference; this is
                 // an algorithm coordinate, not a scientific initial condition or a warm start.
                 if inner.algorithm == pse_compiler::workspace::ImplicitAlgorithm::AffineRates {
-                    for id in &inner.unknowns { values.entry(*id).or_insert(0.); }
+                    for id in &inner.unknowns {
+                        values.entry(*id).or_insert(0.);
+                    }
                 }
                 let states = case
                     .variables
@@ -323,7 +341,8 @@ impl ModelingPackage {
                 }) {
                     return Err(contract("missing deterministic start for implicit unknown"));
                 }
-                let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingImplicitTrialHintsV1);
+                let mut hash =
+                    pse_ids::FramedHasher::new(pse_ids::Frame::ModelingImplicitTrialHintsV1);
                 hash.hash(&inner.descriptor.spec().identity())
                     .hash(&residual.body.spec.physical)
                     .id(&residual.id)
@@ -407,25 +426,62 @@ mod tests {
     }
     #[test]
     fn kernel_nested_original_term_nominals_follow_numerical_precedence() {
-        let physical=super::super::super::tests::physical();
-        let quantity=physical.quantities.neutral_dimensionless().unwrap();
-        let unit=physical.quantities.quantity_type(quantity).unwrap().canonical_unit;
-        let x=SemanticId::from_bytes([171;16]);let row=SemanticId::from_bytes([172;16]);let source=SemanticId::from_bytes([173;16]);let declaration=DeclarationId::from(source);
-        let mut resolver=TrialHints{
-            identity:pse_ids::ContentHash::from_bytes([0;32]),quantities:physical.quantities,lineage:solved(source).stage(Some(InstanceId::from_id(source))),
-            unknowns:vec![x],rows:vec![row],hints:vec![(x,declaration,ModelingHint::Nominal)],
-            scales:vec![pse_compiler::workspace::ImplicitScale{row,source:declaration,scheme:pse_model::generated::enums::ConstraintScalingScheme::InverseSum,terms:0..3}],
-            values:BTreeMap::from([(x,1.)]),states:BTreeMap::new(),
-            targets:vec![(x,NumericalTarget::Variable),(row,NumericalTarget::Row)].into_iter().map(|(id,kind)|pse_math::numerics::TargetSpec{id,kind,quantity,unit,integer:false,declared_tolerance:None}).collect(),
-            declarations:vec![],policy:NumericalPolicy::default(),controls:Default::default(),
+        let physical = super::super::super::tests::physical();
+        let quantity = physical.quantities.neutral_dimensionless().unwrap();
+        let unit = physical
+            .quantities
+            .quantity_type(quantity)
+            .unwrap()
+            .canonical_unit;
+        let x = SemanticId::from_bytes([171; 16]);
+        let row = SemanticId::from_bytes([172; 16]);
+        let source = SemanticId::from_bytes([173; 16]);
+        let declaration = DeclarationId::from(source);
+        let mut resolver = TrialHints {
+            identity: pse_ids::ContentHash::from_bytes([0; 32]),
+            quantities: physical.quantities,
+            lineage: solved(source).stage(Some(InstanceId::from_id(source))),
+            unknowns: vec![x],
+            rows: vec![row],
+            hints: vec![(x, declaration, ModelingHint::Nominal)],
+            scales: vec![pse_compiler::workspace::ImplicitScale {
+                row,
+                source: declaration,
+                scheme: pse_model::generated::enums::ConstraintScalingScheme::InverseSum,
+                terms: 0..3,
+            }],
+            values: BTreeMap::from([(x, 1.)]),
+            states: BTreeMap::new(),
+            targets: vec![(x, NumericalTarget::Variable), (row, NumericalTarget::Row)]
+                .into_iter()
+                .map(|(id, kind)| pse_math::numerics::TargetSpec {
+                    id,
+                    kind,
+                    quantity,
+                    unit,
+                    integer: false,
+                    declared_tolerance: None,
+                })
+                .collect(),
+            declarations: vec![],
+            policy: NumericalPolicy::default(),
+            controls: Default::default(),
         };
-        let (_,options)=resolver.resolve(&[3.],Some(&[9.,-4.,0.])).unwrap();
-        assert_eq!(options.variable_nominals,vec![3.]);
-        assert!((options.residual_tolerance[0]-13e-8).abs()<1e-20);
-        resolver.declarations.push(super::super::cases::requirement(solved(source).stage(Some(InstanceId::from_id(source))),row,NumericalTarget::Row,DeclarationId::from(pse_ids::named_id(source,"override")),NumericalSource::Model,Some(7.),None));
-        let (_,options)=resolver.resolve(&[3.],Some(&[9.,-4.,0.])).unwrap();
-        assert!((options.residual_tolerance[0]-7e-8).abs()<1e-20);
-        assert!(resolver.resolve(&[3.],Some(&[f64::NAN,4.,0.])).is_err());
+        let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.])).unwrap();
+        assert_eq!(options.variable_nominals, vec![3.]);
+        assert!((options.residual_tolerance[0] - 13e-8).abs() < 1e-20);
+        resolver.declarations.push(super::super::cases::requirement(
+            solved(source).stage(Some(InstanceId::from_id(source))),
+            row,
+            NumericalTarget::Row,
+            DeclarationId::from(pse_ids::named_id(source, "override")),
+            NumericalSource::Model,
+            Some(7.),
+            None,
+        ));
+        let (_, options) = resolver.resolve(&[3.], Some(&[9., -4., 0.])).unwrap();
+        assert!((options.residual_tolerance[0] - 7e-8).abs() < 1e-20);
+        assert!(resolver.resolve(&[3.], Some(&[f64::NAN, 4., 0.])).is_err());
     }
     #[tokio::test]
     async fn kernel_nested_observations_ignore_undemanded_missing_starts() {
@@ -452,7 +508,13 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let compiler = super::super::super::tests::compiler_profile();
         let model = package
-            .prepare(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(), &cancel)
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         let product = model.compiled();
@@ -589,7 +651,13 @@ mod tests {
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let model = package
-            .prepare(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(), &cancel)
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         let product = model.compiled();

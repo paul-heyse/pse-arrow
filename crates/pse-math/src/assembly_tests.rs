@@ -11,8 +11,8 @@ use crate::{
     typed::{Binary, BodyBuilder, BodyLimits},
 };
 use pse_ids::{ContentHash, SemanticId};
-use pse_model::generated::enums::ModelingVariableDomain;
 use pse_kernels::{DerivativeOrder, Port};
+use pse_model::generated::enums::ModelingVariableDomain;
 use pse_quantity::{
     IndexSet,
     standard::{StandardInvariantChecker, ids, standard_registry},
@@ -335,7 +335,10 @@ fn gram_evidence_is_exact_nonnegative_and_current() {
 #[test]
 fn sparse_limits_fail_before_library_allocation() {
     crate::initialize().unwrap();
-    let outside = [crate::index::Entry::new(GlobalRow::new(2), GlobalCol::new(0))];
+    let outside = [crate::index::Entry::new(
+        GlobalRow::new(2),
+        GlobalCol::new(0),
+    )];
     assert!(crate::sparse::AssemblyMatrix::new(2, 2, &outside, 100).is_err());
     assert!(
         crate::sparse::AssemblyMatrix::new::<GlobalRow, GlobalCol>(
@@ -368,7 +371,9 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
     .unwrap();
     let x = b.input(0, quantity, IndexSet::new(), id(20)).unwrap();
     let squared = b.binary(Binary::Mul, x.clone(), x, None, id(21)).unwrap();
-    let out = b.binary(Binary::Div, squared.clone(), squared, None, id(22)).unwrap();
+    let out = b
+        .binary(Binary::Div, squared.clone(), squared, None, id(22))
+        .unwrap();
     let body: Arc<PreparedBody> = Arc::new(b.prepare(&[out]).unwrap());
     let key = ContentHash::from_bytes([2; 32]);
     let prepare = |lower| {
@@ -438,7 +443,10 @@ fn coefficient_projection_preserves_erased_domain_obligations() {
         crate::presolve::ObligationStatus::Discharged
     );
     assert_eq!(
-        prepare(1.0).presolve_facts(&values, 1, &cancel).unwrap().obligations[&id(9)],
+        prepare(1.0)
+            .presolve_facts(&values, 1, &cancel)
+            .unwrap()
+            .obligations[&id(9)],
         crate::presolve::ObligationStatus::Unestablished
     );
     assert!(prepare(1.0).coefficients(&values, 1, &cancel).is_err());
@@ -736,15 +744,30 @@ fn exhausted_optional_presolve_tapes_preserve_original_evaluation_and_independen
     let limited = assembly.presolve_facts(&values, 2, &cancel).unwrap();
     assert!(!limited.complete[0]);
     assert!(limited.complete[1]);
-    assert_eq!(limited.affine[0].as_ref().unwrap().entries, BTreeMap::from([(0, 10.)]));
+    assert_eq!(
+        limited.affine[0].as_ref().unwrap().entries,
+        BTreeMap::from([(0, 10.)])
+    );
     assert_eq!(limited.objective_degree, None);
-    assert!(limited.tapes.iter().all(|t| t.first_invalid_slot().is_none()));
+    assert!(
+        limited
+            .tapes
+            .iter()
+            .all(|t| t.first_invalid_slot().is_none())
+    );
     let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
     assert_eq!(worker.constraints(&values).unwrap(), vec![20., 0.]);
     let complete = assembly.presolve_facts(&values, 1000, &cancel).unwrap();
     assert!(complete.complete.iter().all(|v| *v));
     let (fixed, _) = fixture(true, true);
-    assert!(fixed.presolve_facts(&CaseValues::default(), 2, &cancel).is_err());
+    assert!(
+        fixed
+            .presolve_facts(&CaseValues::default(), 2, &cancel)
+            .is_err()
+    );
     cancel.store(true, std::sync::atomic::Ordering::Release);
-    assert!(matches!(assembly.presolve_facts(&values, 2, &cancel), Err(crate::MathError::Cancelled)));
+    assert!(matches!(
+        assembly.presolve_facts(&values, 2, &cancel),
+        Err(crate::MathError::Cancelled)
+    ));
 }

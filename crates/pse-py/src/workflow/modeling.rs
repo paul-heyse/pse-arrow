@@ -25,17 +25,41 @@ struct FlowConnectionDocument {
     cost: f64,
     policy: pse_runtime::math::flows::Policy,
 }
-fn flow_selection(py: Python<'_>, bytes: &[u8], allowance: usize) -> PyResult<pse_runtime::math::flows::ModelingFlowSelection> {
-    if bytes.len()>allowance/4 {return Err(invalid(py,"flow selection exceeds workspace allowance"));}
-    let wire=serde_json::from_slice::<strategies::AnalysisDocument<FlowSelectionDocument>>(bytes).map_err(|e|invalid(py,e.to_string()))?.payload;
-    let mut nodes=std::collections::BTreeSet::new();
-    for node in wire.nodes {if !nodes.insert(node) {return Err(invalid(py,"duplicate selected flow node"));}}
-    let mut connections=BTreeMap::new();
+fn flow_selection(
+    py: Python<'_>,
+    bytes: &[u8],
+    allowance: usize,
+) -> PyResult<pse_runtime::math::flows::ModelingFlowSelection> {
+    if bytes.len() > allowance / 4 {
+        return Err(invalid(py, "flow selection exceeds workspace allowance"));
+    }
+    let wire = serde_json::from_slice::<strategies::AnalysisDocument<FlowSelectionDocument>>(bytes)
+        .map_err(|e| invalid(py, e.to_string()))?
+        .payload;
+    let mut nodes = std::collections::BTreeSet::new();
+    for node in wire.nodes {
+        if !nodes.insert(node) {
+            return Err(invalid(py, "duplicate selected flow node"));
+        }
+    }
+    let mut connections = BTreeMap::new();
     for c in wire.connections {
         use pse_runtime::math::flows::Decision;
-        if connections.insert(c.connection,Decision{id:c.group,cost:c.cost,policy:c.policy}).is_some() {return Err(invalid(py,"duplicate selected connection"));}
+        if connections
+            .insert(
+                c.connection,
+                Decision {
+                    id: c.group,
+                    cost: c.cost,
+                    policy: c.policy,
+                },
+            )
+            .is_some()
+        {
+            return Err(invalid(py, "duplicate selected connection"));
+        }
     }
-    Ok(pse_runtime::math::flows::ModelingFlowSelection{nodes,connections})
+    Ok(pse_runtime::math::flows::ModelingFlowSelection { nodes, connections })
 }
 
 /// The registry relation of a qualified table name; each result decides whether it holds
@@ -113,9 +137,20 @@ pub(crate) struct ModelingFixturePolicy {
 impl ModelingFixturePolicy {
     #[new]
     #[pyo3(signature=(settings=None, *, derivative_step=None, derivative_tolerance=None, derivative_cells=None))]
-    fn new(py: Python<'_>, settings: Option<&[u8]>, derivative_step: Option<f64>, derivative_tolerance: Option<f64>, derivative_cells: Option<usize>) -> PyResult<Self> {
-        let settings = settings.map(|s| settings::solve_profile(py, s)).transpose()?;
-        let derivatives = if derivative_step.is_some() || derivative_tolerance.is_some() || derivative_cells.is_some() {
+    fn new(
+        py: Python<'_>,
+        settings: Option<&[u8]>,
+        derivative_step: Option<f64>,
+        derivative_tolerance: Option<f64>,
+        derivative_cells: Option<usize>,
+    ) -> PyResult<Self> {
+        let settings = settings
+            .map(|s| settings::solve_profile(py, s))
+            .transpose()?;
+        let derivatives = if derivative_step.is_some()
+            || derivative_tolerance.is_some()
+            || derivative_cells.is_some()
+        {
             let policy = pse_backend_native::derivative_diagnostics::Policy {
                 perturbation: derivative_step.unwrap_or(1e-6),
                 relative_tolerance: derivative_tolerance.unwrap_or(1e-4),
@@ -123,10 +158,15 @@ impl ModelingFixturePolicy {
             };
             policy.allowance().map_err(|e| errors::diagnostic(py, &e))?;
             Some(policy)
-        } else { None };
-        Ok(Self { inner: native::ModelingFixturePolicy {
-            solver: settings, derivatives,
-        }})
+        } else {
+            None
+        };
+        Ok(Self {
+            inner: native::ModelingFixturePolicy {
+                solver: settings,
+                derivatives,
+            },
+        })
     }
 }
 /// Explicit source expansion limits, independent of runtime memory and native work budgets.
@@ -139,22 +179,45 @@ pub(crate) struct ModelingLimits {
 impl ModelingLimits {
     #[new]
     #[pyo3(signature=(*, depth=None, items=None, members=None, body_occurrences=None))]
-    fn new(py: Python<'_>, depth: Option<usize>, items: Option<usize>, members: Option<usize>, body_occurrences: Option<usize>) -> PyResult<Self> {
+    fn new(
+        py: Python<'_>,
+        depth: Option<usize>,
+        items: Option<usize>,
+        members: Option<usize>,
+        body_occurrences: Option<usize>,
+    ) -> PyResult<Self> {
         let default = pse_modeling::Limits::default();
-        let limits = pse_modeling::Limits { depth: depth.unwrap_or(default.depth), items: items.unwrap_or(default.items), members: members.unwrap_or(default.members), body_occurrences };
-        if limits.depth == 0 || limits.items == 0 || limits.members == 0 || limits.body_occurrences == Some(0) {
+        let limits = pse_modeling::Limits {
+            depth: depth.unwrap_or(default.depth),
+            items: items.unwrap_or(default.items),
+            members: members.unwrap_or(default.members),
+            body_occurrences,
+        };
+        if limits.depth == 0
+            || limits.items == 0
+            || limits.members == 0
+            || limits.body_occurrences == Some(0)
+        {
             return Err(invalid(py, "modeling expansion limits must be positive"));
         }
         Ok(Self { limits })
     }
     #[getter]
-    fn depth(&self) -> usize { self.limits.depth }
+    fn depth(&self) -> usize {
+        self.limits.depth
+    }
     #[getter]
-    fn items(&self) -> usize { self.limits.items }
+    fn items(&self) -> usize {
+        self.limits.items
+    }
     #[getter]
-    fn members(&self) -> usize { self.limits.members }
+    fn members(&self) -> usize {
+        self.limits.members
+    }
     #[getter]
-    fn body_occurrences(&self) -> Option<usize> { self.limits.body_occurrences }
+    fn body_occurrences(&self) -> Option<usize> {
+        self.limits.body_occurrences
+    }
 }
 /// Authored event expression selections; native root handling owns execution.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -217,20 +280,42 @@ impl NativeModelingPackage {
     fn with_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
         #[derive(serde::Deserialize)]
         #[serde(deny_unknown_fields)]
-        struct Edit {declarations:Vec<pse_authoring::language::Declaration>}
-        if source.len()>self.owner.shared.budget().math.workspace_bytes/2 {return Err(invalid(py,"declaration edit exceeds workspace allowance"));}
-        let edit=serde_json::from_slice::<Edit>(source).map_err(|e|invalid(py,e.to_string()))?;
-        let inner=py.detach(||self.inner.with_declarations(edit.declarations)).map_err(|e|errors::diagnostic(py,&e))?;
+        struct Edit {
+            declarations: Vec<pse_authoring::language::Declaration>,
+        }
+        if source.len() > self.owner.shared.budget().math.workspace_bytes / 2 {
+            return Err(invalid(py, "declaration edit exceeds workspace allowance"));
+        }
+        let edit =
+            serde_json::from_slice::<Edit>(source).map_err(|e| invalid(py, e.to_string()))?;
+        let inner = py
+            .detach(|| self.inner.with_declarations(edit.declarations))
+            .map_err(|e| errors::diagnostic(py, &e))?;
         // Edited declarations are not its authored documents: no durable study from it.
-        Ok(Self{owner:self.owner.clone(),inner,limits:self.limits,sources:None})
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner,
+            limits: self.limits,
+            sources: None,
+        })
     }
     fn with_fit_data(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
         if source.len() > self.owner.shared.budget().math.workspace_bytes / 2 {
-            return Err(invalid(py,"fit source extent"));
+            return Err(invalid(py, "fit source extent"));
         }
-        let data: native::FitData = serde_json::from_slice(source).map_err(|e|invalid(py,e.to_string()))?;
-        let inner=self.inner.clone().with_fit_data(data).map_err(|e|errors::diagnostic(py,&e))?;
-        Ok(Self{owner:self.owner.clone(),inner,limits:self.limits,sources:None})
+        let data: native::FitData =
+            serde_json::from_slice(source).map_err(|e| invalid(py, e.to_string()))?;
+        let inner = self
+            .inner
+            .clone()
+            .with_fit_data(data)
+            .map_err(|e| errors::diagnostic(py, &e))?;
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner,
+            limits: self.limits,
+            sources: None,
+        })
     }
 
     #[pyo3(signature=(fit_id, settings, simulations, *, modes=None, rank_tolerance=1e-8, max_cells=1000000))]
@@ -257,8 +342,20 @@ impl NativeModelingPackage {
         }
         let modes = modes.unwrap_or_default();
         let count = modes.len();
-        let modes = modes.into_iter().map(|(key,values)|id(py,&key).map(|key|(InstanceId::from(key),values.into_iter().map(|m|m.mode.clone()).collect()))).collect::<PyResult<BTreeMap<_,_>>>()?;
-        if modes.len()!=count {return Err(invalid(py,"duplicate experiment mode settings"));}
+        let modes = modes
+            .into_iter()
+            .map(|(key, values)| {
+                id(py, &key).map(|key| {
+                    (
+                        InstanceId::from(key),
+                        values.into_iter().map(|m| m.mode.clone()).collect(),
+                    )
+                })
+            })
+            .collect::<PyResult<BTreeMap<_, _>>>()?;
+        if modes.len() != count {
+            return Err(invalid(py, "duplicate experiment mode settings"));
+        }
         let cancel = CancelSource::new();
         let profile = native::FitProfile {
             solver: settings.clone(),
@@ -279,7 +376,6 @@ impl NativeModelingPackage {
             inner: PreparedOperation::Fit(inner),
         })
     }
-
 
     fn with_limits(&self, limits: &ModelingLimits) -> Self {
         // Workers apply default limits: a package with its own limits runs no durable study.
@@ -464,14 +560,21 @@ impl NativeModelingPackage {
     }
     #[pyo3(signature=(case_id,settings,modes=None))]
     fn simulate(
-        &self, py: Python<'_>, case_id: &str, settings: &SimulationSettings,
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &SimulationSettings,
         modes: Option<Vec<PyRef<'_, ModelingModeSettings>>>,
     ) -> PyResult<NativeModelingTrajectory> {
-        let operation=self.prepare_simulation(py,case_id,settings,modes)?;
-        let PreparedOperation::Simulation(prepared)=operation.inner else{return Err(invalid(py,"simulation preparation mismatch"));};
-        let cancel=CancelSource::new();
-        let inner=blocking(py,&self.owner,prepared.run(&cancel),||cancel.cancel())?;
-        Ok(NativeModelingTrajectory{inner:Arc::new(inner)})
+        let operation = self.prepare_simulation(py, case_id, settings, modes)?;
+        let PreparedOperation::Simulation(prepared) = operation.inner else {
+            return Err(invalid(py, "simulation preparation mismatch"));
+        };
+        let cancel = CancelSource::new();
+        let inner = blocking(py, &self.owner, prepared.run(&cancel), || cancel.cancel())?;
+        Ok(NativeModelingTrajectory {
+            inner: Arc::new(inner),
+        })
     }
     fn diagnose(
         &self,
@@ -596,7 +699,13 @@ impl NativeModelingPackage {
                     }
                     let relaxation = relaxation
                         .map(|(lower, upper, row)| {
-                            let finite = |v: f64| pse_model::scalars::FiniteBound::try_new(v).map_err(|e| native::WorkflowError::Contract(format!("global relaxation penalty: {e}")));
+                            let finite = |v: f64| {
+                                pse_model::scalars::FiniteBound::try_new(v).map_err(|e| {
+                                    native::WorkflowError::Contract(format!(
+                                        "global relaxation penalty: {e}"
+                                    ))
+                                })
+                            };
                             Ok::<_, native::WorkflowError>(Penalties {
                                 global: [finite(lower)?, finite(upper)?, finite(row)?],
                                 lower: align(lower_penalties, plan.columns())?,
@@ -906,12 +1015,36 @@ impl NativeModelingPackage {
     }
     fn inspect(&self, py: Python<'_>, case_id: &str, settings: &[u8]) -> PyResult<Vec<u8>> {
         let settings = settings::solve_profile(py, settings)?;
-        let root=declaration(py,case_id)?;
-        let cancel=CancelSource::new();
-        let model=blocking(py,&self.owner,async {
-            let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.clone(),Default::default(),self.limits,&cancel).await?;
-            self.inner.prepare(analysis.root,analysis.instance,analysis.bindings,analysis.limits,&cancel).await
-        },||cancel.cancel())?;
+        let root = declaration(py, case_id)?;
+        let cancel = CancelSource::new();
+        let model = blocking(
+            py,
+            &self.owner,
+            async {
+                let analysis = self
+                    .inner
+                    .declared_analysis(
+                        root,
+                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                        Default::default(),
+                        settings.clone(),
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                self.inner
+                    .prepare(
+                        analysis.root,
+                        analysis.instance,
+                        analysis.bindings,
+                        analysis.limits,
+                        &cancel,
+                    )
+                    .await
+            },
+            || cancel.cancel(),
+        )?;
         py.detach(|| {
             let source=&model.compiled().model;
             let lineage=|l:&pse_modeling::specialize::Lineage|serde_json::json!({"declaration":l.declaration,"instance":l.instance,"path":l.path,"demand":l.demand,"default_owner":l.default_owner,"is_override":l.is_override,"presets":l.presets});
@@ -923,51 +1056,159 @@ impl NativeModelingPackage {
             }}))
         }).map_err(|e|invalid(py,e.to_string()))
     }
-    fn prepare_flow(&self, py: Python<'_>, case_id: &str, selection: &[u8], settings: &[u8]) -> PyResult<NativePreparedFlow> {
+    fn prepare_flow(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        selection: &[u8],
+        settings: &[u8],
+    ) -> PyResult<NativePreparedFlow> {
         let settings = settings::solve_profile(py, settings)?;
-        let root=declaration(py,case_id)?;
-        let selection=flow_selection(py,selection,self.owner.shared.budget().math.workspace_bytes)?;
-        let cancel=CancelSource::new();
-        let inner=blocking(py,&self.owner,async {
-            let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.clone(),Default::default(),self.limits,&cancel).await?;
-            self.inner.prepare_flow(&analysis,selection,&cancel).await
-        },||cancel.cancel())?;
-        Ok(NativePreparedFlow{owner:self.owner.clone(),math:self.owner.shared.math().clone(),inner})
+        let root = declaration(py, case_id)?;
+        let selection = flow_selection(
+            py,
+            selection,
+            self.owner.shared.budget().math.workspace_bytes,
+        )?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let analysis = self
+                    .inner
+                    .declared_analysis(
+                        root,
+                        pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                        Default::default(),
+                        settings.clone(),
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                self.inner.prepare_flow(&analysis, selection, &cancel).await
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativePreparedFlow {
+            owner: self.owner.clone(),
+            math: self.owner.shared.math().clone(),
+            inner,
+        })
     }
-    fn prepare_recycle(&self, py: Python<'_>, case_id: &str, selection: &[u8], request: &[u8], settings: &[u8]) -> PyResult<NativePreparedStrategy> {
+    fn prepare_recycle(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        selection: &[u8],
+        request: &[u8],
+        settings: &[u8],
+    ) -> PyResult<NativePreparedStrategy> {
         let settings = settings::solve_profile(py, settings)?;
-        #[cfg(feature="native-solvers")]
+        #[cfg(feature = "native-solvers")]
         {
-            let root=declaration(py,case_id)?;
-            let selection=flow_selection(py,selection,self.owner.shared.budget().math.workspace_bytes)?;
-            if request.len()>self.owner.shared.budget().math.workspace_bytes/4 {return Err(invalid(py,"recycle request exceeds workspace allowance"));}
-            let request=serde_json::from_slice::<strategies::AnalysisDocument<native::RecycleRequest>>(request).map_err(|e|invalid(py,e.to_string()))?.payload;
-            let cancel=CancelSource::new();
-            let inner=blocking(py,&self.owner,async {
-                let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.clone(),Default::default(),self.limits,&cancel).await?;
-                self.inner.prepare_recycle(&analysis,selection,request,&cancel).await
-            },||cancel.cancel())?;
-            Ok(NativePreparedStrategy{owner:self.owner.clone(),inner:strategies::Strategy::Recycle(inner)})
+            let root = declaration(py, case_id)?;
+            let selection = flow_selection(
+                py,
+                selection,
+                self.owner.shared.budget().math.workspace_bytes,
+            )?;
+            if request.len() > self.owner.shared.budget().math.workspace_bytes / 4 {
+                return Err(invalid(py, "recycle request exceeds workspace allowance"));
+            }
+            let request = serde_json::from_slice::<
+                strategies::AnalysisDocument<native::RecycleRequest>,
+            >(request)
+            .map_err(|e| invalid(py, e.to_string()))?
+            .payload;
+            let cancel = CancelSource::new();
+            let inner = blocking(
+                py,
+                &self.owner,
+                async {
+                    let analysis = self
+                        .inner
+                        .declared_analysis(
+                            root,
+                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                            Default::default(),
+                            settings.clone(),
+                            Default::default(),
+                            self.limits,
+                            &cancel,
+                        )
+                        .await?;
+                    self.inner
+                        .prepare_recycle(&analysis, selection, request, &cancel)
+                        .await
+                },
+                || cancel.cancel(),
+            )?;
+            Ok(NativePreparedStrategy {
+                owner: self.owner.clone(),
+                inner: strategies::Strategy::Recycle(inner),
+            })
         }
-        #[cfg(not(feature="native-solvers"))]
-        {let _=(case_id,selection,request,settings);Err(invalid(py,"KINSOL strategy workflow is not linked"))}
+        #[cfg(not(feature = "native-solvers"))]
+        {
+            let _ = (case_id, selection, request, settings);
+            Err(invalid(py, "KINSOL strategy workflow is not linked"))
+        }
     }
-    fn prepare_block_initialization(&self, py: Python<'_>, case_id: &str, settings: &[u8], stages: Vec<BTreeMap<String,f64>>) -> PyResult<NativePreparedStrategy> {
+    fn prepare_block_initialization(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &[u8],
+        stages: Vec<BTreeMap<String, f64>>,
+    ) -> PyResult<NativePreparedStrategy> {
         let settings = settings::solve_profile(py, settings)?;
-        #[cfg(feature="native-solvers")]
+        #[cfg(feature = "native-solvers")]
         {
             // Admission of the profile and stages is native (`validate_profile`).
-            let root=declaration(py,case_id)?;
-            let stages=stages.into_iter().map(|s|s.into_iter().map(|(k,v)|id(py,&k).map(|k|(k,v))).collect::<PyResult<_>>()).collect::<PyResult<_>>()?;
-            let cancel=CancelSource::new();
-            let inner=blocking(py,&self.owner,async {
-                let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.clone(),Default::default(),self.limits,&cancel).await?;
-                self.inner.prepare_block_initialization(&analysis,stages,&cancel).await
-            },||cancel.cancel())?;
-            Ok(NativePreparedStrategy{owner:self.owner.clone(),inner:strategies::Strategy::Initialization(inner)})
+            let root = declaration(py, case_id)?;
+            let stages = stages
+                .into_iter()
+                .map(|s| {
+                    s.into_iter()
+                        .map(|(k, v)| id(py, &k).map(|k| (k, v)))
+                        .collect::<PyResult<_>>()
+                })
+                .collect::<PyResult<_>>()?;
+            let cancel = CancelSource::new();
+            let inner = blocking(
+                py,
+                &self.owner,
+                async {
+                    let analysis = self
+                        .inner
+                        .declared_analysis(
+                            root,
+                            pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+                            Default::default(),
+                            settings.clone(),
+                            Default::default(),
+                            self.limits,
+                            &cancel,
+                        )
+                        .await?;
+                    self.inner
+                        .prepare_block_initialization(&analysis, stages, &cancel)
+                        .await
+                },
+                || cancel.cancel(),
+            )?;
+            Ok(NativePreparedStrategy {
+                owner: self.owner.clone(),
+                inner: strategies::Strategy::Initialization(inner),
+            })
         }
-        #[cfg(not(feature="native-solvers"))]
-        {let _=(case_id,settings,stages);Err(invalid(py,"initialization workflow is not linked"))}
+        #[cfg(not(feature = "native-solvers"))]
+        {
+            let _ = (case_id, settings, stages);
+            Err(invalid(py, "initialization workflow is not linked"))
+        }
     }
     fn declarations(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         py.detach(|| serde_json::to_vec(self.inner.declarations()))
@@ -987,7 +1228,9 @@ impl NativeModelingPackage {
     ) -> PyResult<NativeModelingConformance> {
         let settings = settings::solve_profile(py, settings)?;
         let cancel = CancelSource::new();
-        let fixture_policies = fixture_policies.unwrap_or_default().into_iter()
+        let fixture_policies = fixture_policies
+            .unwrap_or_default()
+            .into_iter()
             .map(|(key, policy)| Ok((declaration(py, &key)?, policy.borrow(py).inner.clone())))
             .collect::<PyResult<BTreeMap<_, _>>>()?;
         let policy = native::ModelingConformancePolicy {
@@ -1013,17 +1256,42 @@ impl NativeModelingPackage {
     }
     #[pyo3(signature=(case_id, settings, *, route="steady"))]
     fn prepare_solve(
-        &self, py: Python<'_>, case_id: &str, settings: &[u8], route: &str,
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        settings: &[u8],
+        route: &str,
     ) -> PyResult<NativePreparedOperation> {
         let settings = settings::solve_profile(py, settings)?;
-        let root=declaration(py,case_id)?;
-        let route=route.parse().map_err(|_|invalid(py,"unknown modeling analysis route"))?;
-        let cancel=CancelSource::new();
-        let inner=blocking(py,&self.owner,async {
-            let analysis=self.inner.declared_analysis(root,route,Default::default(),settings.clone(),Default::default(),self.limits,&cancel).await?;
-            self.inner.prepare_analysis(&analysis,&cancel).await
-        },||cancel.cancel())?;
-        Ok(NativePreparedOperation{owner:self.owner.clone(),inner:PreparedOperation::Modeling(Box::new(inner))})
+        let root = declaration(py, case_id)?;
+        let route = route
+            .parse()
+            .map_err(|_| invalid(py, "unknown modeling analysis route"))?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            async {
+                let analysis = self
+                    .inner
+                    .declared_analysis(
+                        root,
+                        route,
+                        Default::default(),
+                        settings.clone(),
+                        Default::default(),
+                        self.limits,
+                        &cancel,
+                    )
+                    .await?;
+                self.inner.prepare_analysis(&analysis, &cancel).await
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(NativePreparedOperation {
+            owner: self.owner.clone(),
+            inner: PreparedOperation::Modeling(Box::new(inner)),
+        })
     }
     #[pyo3(signature=(case_id, settings, *, route="steady"))]
     fn solve_case(
@@ -1633,7 +1901,11 @@ impl NativeModelingConformance {
             .ok_or_else(|| invalid(py, "fixture has no initialization report"))
     }
     fn fixtures(&self) -> Vec<String> {
-        self.inner.fixtures().iter().map(|id| id.as_id().to_hex()).collect()
+        self.inner
+            .fixtures()
+            .iter()
+            .map(|id| id.as_id().to_hex())
+            .collect()
     }
     fn fixture_statuses(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.fixture_statuses_table())

@@ -347,7 +347,13 @@ impl Pipeline {
             |p| p.vars_kept.iter().copied().map(OriginalCol::new).collect(),
         );
         report.rows = elim.as_ref().map_or_else(
-            || map.rows_kept.iter().copied().map(OriginalRow::new).collect(),
+            || {
+                map.rows_kept
+                    .iter()
+                    .copied()
+                    .map(OriginalRow::new)
+                    .collect()
+            },
             |p| {
                 p.rows_kept
                     .iter()
@@ -540,11 +546,15 @@ impl Pipeline {
         // rather than uploading an overdetermined transformed oracle.
         if nr > 0 && report.proof.is_none() {
             let admission = crate::structural::oracle(
-                &transport.contract, transport.jac.matrix().symbolic(),
-                &transport.bounds, crate::structural::Mode::Nlp,
+                &transport.contract,
+                transport.jac.matrix().symbolic(),
+                &transport.bounds,
+                crate::structural::Mode::Nlp,
             );
             if let Err(error) = admission {
-                if !matches!(policy, Policy::Auto) || !matches!(error, ProblemError::Structural { .. }) {
+                if !matches!(policy, Policy::Auto)
+                    || !matches!(error, ProblemError::Structural { .. })
+                {
                     return Err(error);
                 }
                 let reason = error.to_string();
@@ -562,17 +572,31 @@ impl Pipeline {
                 let execution = adapter.state.execution.clone();
                 // The original start and supplied original-space warm start remain
                 // the authorities; the declined wrapper's projected start is discarded.
-                let mut fallback = Self::new(adapter.oracle, initial, &Policy::Off,
-                    tolerance, execution, source_warm, compatibility, limit)?;
+                let mut fallback = Self::new(
+                    adapter.oracle,
+                    initial,
+                    &Policy::Off,
+                    tolerance,
+                    execution,
+                    source_warm,
+                    compatibility,
+                    limit,
+                )?;
                 fallback.report.requested = policy.clone();
                 for (pass, mut decision) in report.passes {
                     if decision.applied {
                         decision.applied = false;
-                        decision.reason = Some("transformed equality matching failed; original coordinates retained".into());
+                        decision.reason = Some(
+                            "transformed equality matching failed; original coordinates retained"
+                                .into(),
+                        );
                     }
                     fallback.report.passes.insert(pass, decision);
                 }
-                fallback.report.diagnostics.insert("structure.declined".into(), reason);
+                fallback
+                    .report
+                    .diagnostics
+                    .insert("structure.declined".into(), reason);
                 return Ok(fallback);
             }
         }
@@ -646,9 +670,10 @@ impl Pipeline {
         // The native seed's barrier value and working set are carried into the original seed.
         let (barrier, working) = match report.warm_start.take() {
             Some(WarmStart {
-                payload: WarmPayload::Nlp {
-                    barrier, working, ..
-                },
+                payload:
+                    WarmPayload::Nlp {
+                        barrier, working, ..
+                    },
                 ..
             }) => (barrier, working),
             _ => (None, None),

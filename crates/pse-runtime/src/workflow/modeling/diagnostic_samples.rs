@@ -14,7 +14,7 @@ pub use pse_model::generated::enums::ModelingDiagnosticSampleStop as DiagnosticS
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnosticSamples {
     pub run_id: RunId,
-    pub(in crate::workflow::modeling) runtime:Runtime,
+    pub(in crate::workflow::modeling) runtime: Runtime,
     pub outcomes: Vec<(
         SemanticId,
         Result<Arc<ModelingDiagnostics>, BoundaryDiagnostic>,
@@ -62,7 +62,8 @@ impl ModelingPackage {
             .math()
             .reserve("modeling:diagnostic-samples", bytes)?;
         let mut report = ModelingDiagnosticSamples {
-            run_id: pse_operations::mint_id(),runtime:self.runtime.clone(),
+            run_id: pse_operations::mint_id(),
+            runtime: self.runtime.clone(),
             outcomes: Vec::new(),
             unattempted: samples.len(),
             stop: DiagnosticSampleStop::Completed,

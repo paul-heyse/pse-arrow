@@ -50,9 +50,7 @@ struct Interpretation {
     policies: Arc<Vec<pse_schema::model::provider::ProviderPolicy>>,
 }
 #[derive(Clone, Debug, PartialEq)]
-struct MemberSelection(
-    pse_relations::generated::structures::MemberDescriptor,
-);
+struct MemberSelection(pse_relations::generated::structures::MemberDescriptor);
 // The generated member consists only of strings, integer/identity fields and a
 // typed optional revision. Its equality is reflexive; no floats participate.
 impl Eq for MemberSelection {}

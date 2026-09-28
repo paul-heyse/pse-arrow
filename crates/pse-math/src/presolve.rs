@@ -8,8 +8,7 @@ use crate::{
     binding::{CaseValues, Target},
     factorable::{
         Constraint, FactorableError, FactorableProgram, FactorableRequest, Node, NodeId,
-        ObligationKind,
-        ObligationScope, ProjectedObligation,
+        ObligationKind, ObligationScope, ProjectedObligation,
     },
     library,
 };

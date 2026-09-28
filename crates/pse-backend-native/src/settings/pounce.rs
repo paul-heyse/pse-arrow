@@ -156,7 +156,10 @@ mod scaling {
 /// A caller-supplied permutation or scaling vector, which has no settings encoding.
 #[cfg_attr(
     not(feature = "pounce"),
-    expect(dead_code, reason = "only the linked POUNCE adapter records its FERAL configuration")
+    expect(
+        dead_code,
+        reason = "only the linked POUNCE adapter records its FERAL configuration"
+    )
 )]
 pub(crate) fn record(config: &LinearSettings) -> Result<serde_json::Value, serde_json::Error> {
     FeralIdentity::serialize(config, serde_json::value::Serializer)

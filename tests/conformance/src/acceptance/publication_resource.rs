@@ -77,7 +77,11 @@ async fn authored_publication_resource() {
         .unwrap();
     assert!(interrupted.commit(&cancelled).await.is_err());
     drop(reopened);
-    assert!(rt.open(published.publication_id, &owner.cancel).await.is_ok());
+    assert!(
+        rt.open(published.publication_id, &owner.cancel)
+            .await
+            .is_ok()
+    );
     assert_eq!(
         rt.head(workspace.workspace_id).await.unwrap(),
         Some(published.publication_id)

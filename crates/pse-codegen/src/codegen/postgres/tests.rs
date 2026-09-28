@@ -104,7 +104,9 @@ fn schema_fingerprint_covers_both_files() {
     let source = String::from_utf8(bytes).unwrap();
     let hex = fingerprint(b"schema", b"physical").to_hex();
     assert!(source.contains(&format!("SCHEMA_FINGERPRINT_HEX: &str = \"{hex}\"")));
-    assert!(source.contains(&format!("COMMENT ON SCHEMA pse_ops IS 'pse.ops.schema.v1 {hex}'")));
+    assert!(source.contains(&format!(
+        "COMMENT ON SCHEMA pse_ops IS 'pse.ops.schema.v1 {hex}'"
+    )));
     assert_ne!(
         fingerprint(b"schema", b"physical"),
         fingerprint(b"schema", b"physical2")

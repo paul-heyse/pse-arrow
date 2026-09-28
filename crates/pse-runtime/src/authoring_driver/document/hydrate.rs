@@ -199,7 +199,9 @@ fn context(
                 let supplied = value
                     .text()
                     .ok_or_else(|| contract(Some(row.at), "package reference must be an ID"))?;
-                if crate::authoring_driver::ids::parse_id(supplied, row.at)? != package.package_id.as_id() {
+                if crate::authoring_driver::ids::parse_id(supplied, row.at)?
+                    != package.package_id.as_id()
+                {
                     return Err(contract(
                         Some(row.at),
                         "row package context differs from its document",

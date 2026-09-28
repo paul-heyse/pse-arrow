@@ -39,7 +39,15 @@ pub const JOB_PAYLOAD_VERSION: i32 = 3;
 
 /// How a job's solve is started.
 #[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 #[schemars(rename = "JobStart")]
@@ -162,14 +170,15 @@ impl ModelingJob {
     /// # Errors
     /// A settings serializer refused its value.
     pub fn request_identity(&self) -> Result<ContentHash, WorkflowError> {
-        pse_backend_native::identity::of(pse_ids::Frame::DurableJobRequestV2, self).map_err(
-            |e| WorkflowError::Math(crate::math::MathRuntimeError::from(e)),
-        )
+        pse_backend_native::identity::of(pse_ids::Frame::DurableJobRequestV2, self)
+            .map_err(|e| WorkflowError::Math(crate::math::MathRuntimeError::from(e)))
     }
 }
 
 /// Version 1 of a source bundle's manifest: the path of every document, in order.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct SourceManifest {
     /// Document version.
@@ -540,8 +549,7 @@ impl Runtime {
             .await?;
         let (prepared, applied) = match binding.predecessor {
             Some(predecessor) => {
-                super::study::predecessor_start(operations, &binding, predecessor, prepared)
-                    .await?
+                super::study::predecessor_start(operations, &binding, predecessor, prepared).await?
             }
             None => start(operations, claimed, job.start, prepared).await?,
         };
@@ -622,7 +630,10 @@ impl AppliedStart {
     fn event(&self) -> pse_backend_native::solve::Event {
         use pse_backend_native::solve::{Metric, UnavailableReason};
         let mut values = BTreeMap::from([
-            ("requested".to_owned(), Metric::Text(self.requested.to_owned())),
+            (
+                "requested".to_owned(),
+                Metric::Text(self.requested.to_owned()),
+            ),
             (
                 "solution".to_owned(),
                 self.solution.map_or(
@@ -673,7 +684,10 @@ async fn start(
         JobStart::StoredSolution { solution } => solution,
         JobStart::ResumeFromParent => {
             let Some(parent) = claimed.parent_attempt else {
-                return Ok((prepared, applied(None, Some("first try: no parent attempt"))));
+                return Ok((
+                    prepared,
+                    applied(None, Some("first try: no parent attempt")),
+                ));
             };
             let (Some(target), Some(preparation)) = (
                 prepared.solve.compatibility(),

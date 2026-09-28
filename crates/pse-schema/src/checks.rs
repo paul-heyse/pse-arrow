@@ -105,7 +105,10 @@ fn constraint_declarations(decl: &RelationDecl, context: &str) -> Result<(), Sch
                 .chars()
                 .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
         {
-            return Err(invalid(&label, "constraint names are snake-case identifiers"));
+            return Err(invalid(
+                &label,
+                "constraint names are snake-case identifiers",
+            ));
         }
         let mut seen = BTreeSet::new();
         if columns.is_empty() || !columns.iter().all(|column| seen.insert(*column)) {

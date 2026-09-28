@@ -215,8 +215,7 @@ impl ObjectStore for FaultStore {
     fn list(&self, prefix: Option<&Path>) -> BoxStream<'static, Result<ObjectMeta>> {
         let listed = prefix.cloned().unwrap_or_default();
         if let Some(Fault::FailBefore) = self.action("list", &listed) {
-            return futures_util::stream::once(async move { Err(failure(&listed, false)) })
-                .boxed();
+            return futures_util::stream::once(async move { Err(failure(&listed, false)) }).boxed();
         }
         self.inner.list(prefix)
     }

@@ -404,10 +404,31 @@ mod tests {
             bound: f64,
         }
         let frame = Frame::BackendSettingsV4;
-        let before = of(frame, &Before { mode: Mode::Fast, limit: 2.0 }).unwrap();
-        let after = of(frame, &After { mode: Renamed::Fast, limit: Wrapped(2.0) }).unwrap();
+        let before = of(
+            frame,
+            &Before {
+                mode: Mode::Fast,
+                limit: 2.0,
+            },
+        )
+        .unwrap();
+        let after = of(
+            frame,
+            &After {
+                mode: Renamed::Fast,
+                limit: Wrapped(2.0),
+            },
+        )
+        .unwrap();
         assert_eq!(before, after);
-        let respelled = of(frame, &Respelled { mode: Mode::Fast, bound: 2.0 }).unwrap();
+        let respelled = of(
+            frame,
+            &Respelled {
+                mode: Mode::Fast,
+                bound: 2.0,
+            },
+        )
+        .unwrap();
         assert_ne!(before, respelled);
     }
 }

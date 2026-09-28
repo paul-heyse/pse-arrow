@@ -467,7 +467,14 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         N::Runtime,
         "modeling_checks",
         S::Derived,
-        &["run_id", "step", "sample_index", "target_id", "source_id", "kind"],
+        &[
+            "run_id",
+            "step",
+            "sample_index",
+            "target_id",
+            "source_id",
+            "kind",
+        ],
         vec![
             run_id(),
             column("step", T::nonnegative(i64::MAX)),

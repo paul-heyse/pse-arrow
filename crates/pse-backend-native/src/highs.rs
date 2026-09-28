@@ -93,7 +93,11 @@ fn admit(
         .hessian
         .as_ref()
         .is_some_and(|q| q.val().iter().any(|v| *v != 0.0));
-    if quadratic && p.domains.iter().any(|d| *d != ModelingVariableDomain::Continuous) {
+    if quadratic
+        && p.domains
+            .iter()
+            .any(|d| *d != ModelingVariableDomain::Continuous)
+    {
         return Err(ProblemError::Unsupported(
             "HiGHS MIQP is unsupported".into(),
         ));
@@ -104,7 +108,9 @@ fn admit(
     for (v, d) in p.contract.variables.iter().zip(&p.domains) {
         bounds(v.lower)?;
         bounds(v.upper)?;
-        if *d == ModelingVariableDomain::Binary && v.lower.max(0.0).ceil() > v.upper.min(1.0).floor() {
+        if *d == ModelingVariableDomain::Binary
+            && v.lower.max(0.0).ceil() > v.upper.min(1.0).floor()
+        {
             return Err(ProblemError::Contract("empty binary domain".into()));
         }
         if d.is_semi()
@@ -585,7 +591,10 @@ impl Session {
         options
             .entry("qp_allow_hot_start".into())
             .or_insert(OptionValue::Bool(true));
-        let discrete = p.domains.iter().any(|d| *d != ModelingVariableDomain::Continuous);
+        let discrete = p
+            .domains
+            .iter()
+            .any(|d| *d != ModelingVariableDomain::Continuous);
         let quadratic = p
             .hessian
             .as_ref()
@@ -1100,7 +1109,11 @@ fn qp_regularization(p: &CoefficientProblem, accuracy: &ResolvedAccuracy) -> f64
         .iter()
         .map(|v| {
             let extent = v.lower.abs().max(v.upper.abs());
-            if extent.is_finite() { extent * extent } else { 1.0 }
+            if extent.is_finite() {
+                extent * extent
+            } else {
+                1.0
+            }
         })
         .sum::<f64>()
         .max(1.0);
@@ -1149,7 +1162,11 @@ impl Capture {
     }
     /// A native solution in original coordinates; absent when any value is not finite.
     fn primal(&self, native: &[f64]) -> Option<Vec<f64>> {
-        let primal: Vec<f64> = native.iter().zip(&self.scales).map(|(v, s)| v * s).collect();
+        let primal: Vec<f64> = native
+            .iter()
+            .zip(&self.scales)
+            .map(|(v, s)| v * s)
+            .collect();
         primal.iter().all(|v| v.is_finite()).then_some(primal)
     }
 }
@@ -1635,8 +1652,18 @@ mod tests {
                 (2., f64::INFINITY),
                 true,
             ),
-            (ModelingVariableDomain::Integer, (-10., 10.), (0.5, 0.5), false),
-            (ModelingVariableDomain::Semicontinuous, (1., 10.), (0., 0.), false),
+            (
+                ModelingVariableDomain::Integer,
+                (-10., 10.),
+                (0.5, 0.5),
+                false,
+            ),
+            (
+                ModelingVariableDomain::Semicontinuous,
+                (1., 10.),
+                (0., 0.),
+                false,
+            ),
         ] {
             p.domains[0] = domain;
             p.contract.variables[0].lower = bounds.0;
@@ -1691,7 +1718,8 @@ mod tests {
         let request = crate::transport::diagnostic_request(
             &diagnostics::Request {
                 relaxation: Some(diagnostics::Penalties {
-                    global: [-1., -1., 1.].map(|v| pse_model::scalars::FiniteBound::try_new(v).unwrap()),
+                    global: [-1., -1., 1.]
+                        .map(|v| pse_model::scalars::FiniteBound::try_new(v).unwrap()),
                     lower: None,
                     upper: None,
                     rows: None,
@@ -1715,7 +1743,8 @@ mod tests {
                 &Execution::new(Arc::new(AtomicBool::new(false)), &controls),
             )
             .unwrap();
-        crate::transport::recover_diagnostics(&mut evidence, &n, &[0.], &normalized.contract).unwrap();
+        crate::transport::recover_diagnostics(&mut evidence, &n, &[0.], &normalized.contract)
+            .unwrap();
         let relaxed = evidence.relaxation.unwrap();
         assert_eq!(relaxed.operation_status, 0);
         assert_eq!(relaxed.restored_status.name, "kHighsModelStatusNotset");

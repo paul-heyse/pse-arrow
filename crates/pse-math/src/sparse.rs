@@ -82,7 +82,11 @@ impl AssemblyMatrix {
     /// let jacobian = [Entry::new(GlobalRow::new(0), GlobalCol::new(0))];
     /// let _ = AssemblyMatrix::hessian(1, &jacobian, 10);
     /// ```
-    pub fn hessian<C>(order: usize, entries: &[Entry<C, C>], limit: usize) -> Result<Self, MathError>
+    pub fn hessian<C>(
+        order: usize,
+        entries: &[Entry<C, C>],
+        limit: usize,
+    ) -> Result<Self, MathError>
     where
         C: Copy + Into<usize>,
     {

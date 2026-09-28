@@ -376,7 +376,9 @@ fn render_manifest(inventory: &BTreeSet<String>, sources: &str) -> Result<String
     for name in inventory {
         let line = match name.as_str() {
             "postgres" => continue,
-            "deadpool-postgres" => "deadpool-postgres = { workspace = true, optional = true }".to_owned(),
+            "deadpool-postgres" => {
+                "deadpool-postgres = { workspace = true, optional = true }".to_owned()
+            }
             "serde_json" if named(name) => {
                 "serde_json = { workspace = true, features = [\"raw_value\"] }".to_owned()
             }
@@ -527,7 +529,13 @@ mod tests {
         for dropped in ["postgres", "serde", "uuid"] {
             assert!(!dependencies.contains_key(dropped), "{dropped} is dropped");
         }
-        for kept in ["chrono", "serde_json", "tokio-postgres", "pse-ids", "pse-model"] {
+        for kept in [
+            "chrono",
+            "serde_json",
+            "tokio-postgres",
+            "pse-ids",
+            "pse-model",
+        ] {
             assert!(dependencies.contains_key(kept), "{kept} is kept");
         }
         assert_eq!(

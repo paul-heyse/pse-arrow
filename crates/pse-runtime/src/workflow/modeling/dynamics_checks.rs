@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! The same original-model assessments at explicit trajectory samples.
-use pse_model::generated::identities::RunId;
 use super::*;
+use pse_model::generated::identities::RunId;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub(in crate::workflow) struct SampleChecks {
@@ -175,7 +175,7 @@ impl ModelingSimulation {
                         .ok_or_else(|| contract("trajectory algebraic source absent"))?;
                     sample_checks.push(ModelingCheck {
                         step: 0,
-            run_id,
+                        run_id,
                         sample_index: 0,
                         time: None,
                         target_id: target.id,

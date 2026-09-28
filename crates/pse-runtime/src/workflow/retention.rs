@@ -74,16 +74,10 @@ impl Runtime {
         let state = self.sessions.native_state();
         let mut report = RetireReport::default();
         for publication in publications {
-            cancel
-                .checkpoint()
-                .map_err(pse_engine::EngineError::from)?;
+            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
             catalog.mark_expiring(workspace, *publication).await?;
             catalog
-                .wait_for_readers(
-                    *publication,
-                    Duration::from_millis(50).min(wait),
-                    wait,
-                )
+                .wait_for_readers(*publication, Duration::from_millis(50).min(wait), wait)
                 .await?;
             let tables = catalog.deletion_plan(workspace, *publication).await?;
             let locations = tables
@@ -110,16 +104,21 @@ impl Runtime {
         workspace: WorkspaceId,
         cancel: &CancellationToken,
     ) -> Result<CollectReport, WorkflowError> {
-        let plan = self.operations()?.store().catalog().begin_collect(workspace).await?;
+        let plan = self
+            .operations()?
+            .store()
+            .catalog()
+            .begin_collect(workspace)
+            .await?;
         let now = chrono::Utc::now().timestamp_millis();
         let mut tables = Vec::with_capacity(plan.tables.len());
         for (table, ranges) in &plan.tables {
-            cancel
-                .checkpoint()
-                .map_err(pse_engine::EngineError::from)?;
-            let session =
-                self.sessions
-                    .candidate(std::collections::BTreeMap::new(), self.registry.clone(), cancel)?;
+            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+            let session = self.sessions.candidate(
+                std::collections::BTreeMap::new(),
+                self.registry.clone(),
+                cancel,
+            )?;
             let retained = ranges.iter().map(retained).collect();
             let target = CollectTarget {
                 reference: datafusion::common::ResolvedTableReference {
@@ -163,9 +162,7 @@ impl Runtime {
         let state = self.sessions.native_state();
         let mut report = ReclaimReport::default();
         for intent in catalog.claim_reclaimable(workspace).await? {
-            cancel
-                .checkpoint()
-                .map_err(pse_engine::EngineError::from)?;
+            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
             report.removed_objects +=
                 pse_catalog::delta::collect::remove_prefix(&url(&intent.member_prefix)?, state)
                     .await

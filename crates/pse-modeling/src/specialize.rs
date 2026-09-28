@@ -19,11 +19,11 @@ use pse_authoring::dsl::{
     PathSegment, Span,
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
-pub use pse_model::generated::identities::{DeclarationId, InstanceId};
 use pse_model::generated::enums::{
     ModelingAccumulatorMode as Mode, ModelingContributionRole as Role,
     ModelingDeclarationKind as Kind, ModelingVariableDomain as Domain,
 };
+pub use pse_model::generated::identities::{DeclarationId, InstanceId};
 use std::collections::{BTreeMap, BTreeSet};
 pub use value::{Environment, Value};
 mod fixture;

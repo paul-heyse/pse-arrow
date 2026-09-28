@@ -184,7 +184,11 @@ fn inherit(relations: &mut [RelationSpec]) -> Result<(), SchemaError> {
             let mut edges: Vec<(&str, &str, &str)> = spec
                 .columns
                 .iter()
-                .filter_map(|column| column.fk().map(|fk| (column.name(), fk.relation, fk.column)))
+                .filter_map(|column| {
+                    column
+                        .fk()
+                        .map(|fk| (column.name(), fk.relation, fk.column))
+                })
                 .collect();
             for reference in &spec.foreign_keys {
                 for (local, remote) in reference.columns.iter().zip(&reference.target_columns) {

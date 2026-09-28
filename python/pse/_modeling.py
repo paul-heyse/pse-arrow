@@ -35,7 +35,12 @@ from pse._build import (
 from pse._inspection import TableStream
 from pse._runs import PreparedOperation, StudyHandle, Workspace
 from pse._strategies import PreparedFlow, PreparedStrategy, _AnalysisDocument
-from pse.contracts.authored import (AuthoredModelingDeclarationsRow, AuthoredFitCasesRow, AuthoredObservationsRow, AuthoredDatasetsRow)
+from pse.contracts.authored import (
+    AuthoredModelingDeclarationsRow,
+    AuthoredFitCasesRow,
+    AuthoredObservationsRow,
+    AuthoredDatasetsRow,
+)
 from pse.contracts.documents import PointOverlay, SolveSettings
 
 if TYPE_CHECKING:
@@ -219,7 +224,10 @@ class ModelingConformance:
         return ModelingInitialization(self._handle.initialization(fixture_id.to_hex()))
 
     def fixtures(self) -> tuple[DeclarationId, ...]:
-        return tuple(DeclarationId(SemanticId.from_hex(value)) for value in self._handle.fixtures())
+        return tuple(
+            DeclarationId(SemanticId.from_hex(value))
+            for value in self._handle.fixtures()
+        )
 
     def fixture_statuses(self) -> TableStream:
         """All discovered fixtures, including identities beyond a detailed check limit."""
@@ -451,7 +459,8 @@ class ModelingPackage:
     _handle: _NativeModelingPackage
 
     def with_fit_data(
-        self, fits: tuple[AuthoredFitCasesRow, ...],
+        self,
+        fits: tuple[AuthoredFitCasesRow, ...],
         observations: tuple[AuthoredObservationsRow, ...],
         datasets: tuple[AuthoredDatasetsRow, ...],
     ) -> "ModelingPackage":
@@ -459,9 +468,11 @@ class ModelingPackage:
         converter = codec.converter()
         converter.register_unstructure_hook(SemanticId, SemanticId.to_hex)
         converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
-        data = _FitData(tuple(converter.unstructure(row) for row in fits),
-                        tuple(converter.unstructure(row) for row in observations),
-                        tuple(converter.unstructure(row) for row in datasets))
+        data = _FitData(
+            tuple(converter.unstructure(row) for row in fits),
+            tuple(converter.unstructure(row) for row in observations),
+            tuple(converter.unstructure(row) for row in datasets),
+        )
         return ModelingPackage(self._handle.with_fit_data(codec.encode_json(data)))
 
     def prepare_fit(
@@ -484,12 +495,14 @@ class ModelingPackage:
                 fit_id.to_hex(),
                 codec.encode_json(settings),
                 profiles,
-                modes=[(key.to_hex(), list(values)) for key, values in (modes or {}).items()],
+                modes=[
+                    (key.to_hex(), list(values))
+                    for key, values in (modes or {}).items()
+                ],
                 rank_tolerance=rank_tolerance,
                 max_cells=max_cells,
             )
         )
-
 
     def with_limits(self, limits: ModelingLimits) -> "ModelingPackage":
         """Share the admitted revision while selecting explicit expansion limits."""
@@ -581,7 +594,9 @@ class ModelingPackage:
     ) -> ModelingDiagnostics:
         """Inspect the declared candidate without requesting a native solve."""
         return ModelingDiagnostics(
-            self._handle.diagnose(case_id.to_hex(), codec.encode_json(settings), diagnostics)
+            self._handle.diagnose(
+                case_id.to_hex(), codec.encode_json(settings), diagnostics
+            )
         )
 
     def diagnose_linear(
@@ -653,12 +668,16 @@ class ModelingPackage:
             )
         )
 
-    def with_declarations(self, declarations: Sequence[AuthoredModelingDeclarationsRow]) -> "ModelingPackage":
+    def with_declarations(
+        self, declarations: Sequence[AuthoredModelingDeclarationsRow]
+    ) -> "ModelingPackage":
         """Admit edited generated declarations while retaining the original revision."""
-        converter=codec.converter()
+        converter = codec.converter()
         converter.register_unstructure_hook(SemanticId, SemanticId.to_hex)
         converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
-        data=_DeclarationEdit(tuple(converter.unstructure(row) for row in declarations))
+        data = _DeclarationEdit(
+            tuple(converter.unstructure(row) for row in declarations)
+        )
         return ModelingPackage(self._handle.with_declarations(codec.encode_json(data)))
 
     def declarations(self) -> tuple[AuthoredModelingDeclarationsRow, ...]:
@@ -669,21 +688,61 @@ class ModelingPackage:
             )
         )
 
-    def inspect(self, case_id: DeclarationId, settings: SolveSettings) -> dict[str, object]:
+    def inspect(
+        self, case_id: DeclarationId, settings: SolveSettings
+    ) -> dict[str, object]:
         """Inspect instantiated member lineage and declared topology before execution."""
-        return codec.decode_json(self._handle.inspect(case_id.to_hex(), codec.encode_json(settings)), _AnalysisDocument).payload
+        return codec.decode_json(
+            self._handle.inspect(case_id.to_hex(), codec.encode_json(settings)),
+            _AnalysisDocument,
+        ).payload
 
-    def prepare_flow(self, case_id: DeclarationId, selection: Mapping[str, object], settings: SolveSettings) -> PreparedFlow:
+    def prepare_flow(
+        self,
+        case_id: DeclarationId,
+        selection: Mapping[str, object],
+        settings: SolveSettings,
+    ) -> PreparedFlow:
         """Project explicitly selected authored nodes, ports and connection policies."""
-        return PreparedFlow(self._handle.prepare_flow(case_id.to_hex(), codec.encode_json(_AnalysisDocument(dict(selection))), codec.encode_json(settings)))
+        return PreparedFlow(
+            self._handle.prepare_flow(
+                case_id.to_hex(),
+                codec.encode_json(_AnalysisDocument(dict(selection))),
+                codec.encode_json(settings),
+            )
+        )
 
-    def prepare_recycle(self, case_id: DeclarationId, selection: Mapping[str, object], request: Mapping[str, object], settings: SolveSettings) -> PreparedStrategy:
+    def prepare_recycle(
+        self,
+        case_id: DeclarationId,
+        selection: Mapping[str, object],
+        request: Mapping[str, object],
+        settings: SolveSettings,
+    ) -> PreparedStrategy:
         """Compile explicit causal directions from this immutable authored model."""
-        return PreparedStrategy(self._handle.prepare_recycle(case_id.to_hex(), codec.encode_json(_AnalysisDocument(dict(selection))), codec.encode_json(_AnalysisDocument(dict(request))), codec.encode_json(settings)))
+        return PreparedStrategy(
+            self._handle.prepare_recycle(
+                case_id.to_hex(),
+                codec.encode_json(_AnalysisDocument(dict(selection))),
+                codec.encode_json(_AnalysisDocument(dict(request))),
+                codec.encode_json(settings),
+            )
+        )
 
-    def prepare_block_initialization(self, case_id: DeclarationId, settings: SolveSettings, stages: Sequence[Mapping[SemanticId, float]]) -> PreparedStrategy:
+    def prepare_block_initialization(
+        self,
+        case_id: DeclarationId,
+        settings: SolveSettings,
+        stages: Sequence[Mapping[SemanticId, float]],
+    ) -> PreparedStrategy:
         """Prepare ordered blocks and transactional overlays over original bindings."""
-        return PreparedStrategy(self._handle.prepare_block_initialization(case_id.to_hex(), codec.encode_json(settings), [{k.to_hex(): v for k, v in stage.items()} for stage in stages]))
+        return PreparedStrategy(
+            self._handle.prepare_block_initialization(
+                case_id.to_hex(),
+                codec.encode_json(settings),
+                [{k.to_hex(): v for k, v in stage.items()} for stage in stages],
+            )
+        )
 
     def prepare_solve(
         self,
@@ -693,7 +752,11 @@ class ModelingPackage:
         route: ModelingAnalysisRoute = ModelingAnalysisRoute.STEADY,
     ) -> PreparedOperation:
         """Prepare an authored algebraic case for owned execution and publication."""
-        return PreparedOperation(self._handle.prepare_solve(case_id.to_hex(), codec.encode_json(settings), route=route.value))
+        return PreparedOperation(
+            self._handle.prepare_solve(
+                case_id.to_hex(), codec.encode_json(settings), route=route.value
+            )
+        )
 
     def solve_case(
         self,
@@ -704,7 +767,9 @@ class ModelingPackage:
     ) -> ModelingResult:
         """Use source fixture specifications and model starts through the native solver pipeline."""
         return ModelingResult(
-            self._handle.solve_case(case_id.to_hex(), codec.encode_json(settings), route=route.value)
+            self._handle.solve_case(
+                case_id.to_hex(), codec.encode_json(settings), route=route.value
+            )
         )
 
     def initialize(
@@ -797,7 +862,9 @@ class ModelingPackage:
         """
         if runtime is None:
             if workspace is not None or overlays:
-                raise ValueError("workspace and overlays select a durable study; pass runtime")
+                raise ValueError(
+                    "workspace and overlays select a durable study; pass runtime"
+                )
             return ModelingStudy(
                 self._handle.study(
                     [case.to_hex() for case in case_ids],
@@ -841,6 +908,9 @@ class ModelingPackage:
                 derivative_cells=derivative_cells,
                 derivative_step=derivative_step,
                 derivative_tolerance=derivative_tolerance,
-                fixture_policies={key.to_hex(): value for key, value in (fixture_policies or {}).items()},
+                fixture_policies={
+                    key.to_hex(): value
+                    for key, value in (fixture_policies or {}).items()
+                },
             )
         )

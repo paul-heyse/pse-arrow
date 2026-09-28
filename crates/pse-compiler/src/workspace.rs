@@ -1012,7 +1012,14 @@ fn initialization_blocks(
 ) -> Result<InitializationBlocks> {
     let source = plan(db, i, id, order)?.0;
     let schedule = initialization_plan(db, i, id)?;
-    Ok(InitializationBlocks(conditional_blocks(&source,&schedule,i.quantities(db),profile,i.environment(db),db.cancel())?))
+    Ok(InitializationBlocks(conditional_blocks(
+        &source,
+        &schedule,
+        i.quantities(db),
+        profile,
+        i.environment(db),
+        db.cancel(),
+    )?))
 }
 fn conditional_blocks(
     source: &CasePlan,
@@ -1022,16 +1029,37 @@ fn conditional_blocks(
     environment: &ContentHash,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Arc<Vec<PreparedBlock>>> {
-    if source.structure().objective().is_some() || source.structure().rows().iter().any(|r| !r.lower.is_finite() || r.lower!=r.upper) {
-        return Err(CompileError::Missing("block initialization requires a complete equality selection without an objective".into()));
+    if source.structure().objective().is_some()
+        || source
+            .structure()
+            .rows()
+            .iter()
+            .any(|r| !r.lower.is_finite() || r.lower != r.upper)
+    {
+        return Err(CompileError::Missing(
+            "block initialization requires a complete equality selection without an objective"
+                .into(),
+        ));
     }
-    let mut blocks=Vec::new();
+    let mut blocks = Vec::new();
     for b in &schedule.blocks {
-        if cancel.load(Ordering::Acquire) {return Err(CompileError::Cancelled);}
-        let plan=Arc::new(source.conditional(&b.members.rows.iter().copied().collect(),&b.members.columns.iter().copied().collect(),quantities,cancel)?);
-        let artifacts=artifact_requests(&plan,profile,environment);
-        let structure=structural_plan(SemanticId::NIL,&plan,cancel)?;
-        blocks.push(PreparedBlock{boundary:b.clone(),plan,structure,artifacts});
+        if cancel.load(Ordering::Acquire) {
+            return Err(CompileError::Cancelled);
+        }
+        let plan = Arc::new(source.conditional(
+            &b.members.rows.iter().copied().collect(),
+            &b.members.columns.iter().copied().collect(),
+            quantities,
+            cancel,
+        )?);
+        let artifacts = artifact_requests(&plan, profile, environment);
+        let structure = structural_plan(SemanticId::NIL, &plan, cancel)?;
+        blocks.push(PreparedBlock {
+            boundary: b.clone(),
+            plan,
+            structure,
+            artifacts,
+        });
     }
     Ok(Arc::new(blocks))
 }
@@ -1275,10 +1303,20 @@ impl CompilerWorkspace {
     }
     /// Derive conditional blocks from an immutable prepared case, including its fixed/free selection.
     pub fn prepare_bound_initialization(
-        &self, case: &PreparedCase, profile: Profile, cancel: &Arc<AtomicBool>,
+        &self,
+        case: &PreparedCase,
+        profile: Profile,
+        cancel: &Arc<AtomicBool>,
     ) -> Result<Arc<Vec<PreparedBlock>>> {
-        let schedule=pse_structural::initialization::Plan::from_analysis(&case.structure)?;
-        conditional_blocks(&case.plan,&schedule,&case.quantities,profile,self.inventory.environment(&self.db),cancel)
+        let schedule = pse_structural::initialization::Plan::from_analysis(&case.structure)?;
+        conditional_blocks(
+            &case.plan,
+            &schedule,
+            &case.quantities,
+            profile,
+            self.inventory.environment(&self.db),
+            cancel,
+        )
     }
     /// Pure tracked flow projection. Runtime callers serialize this workspace lease.
     pub fn prepare_flow(

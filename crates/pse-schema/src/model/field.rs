@@ -459,10 +459,7 @@ impl FieldContract {
         if value.0.metadata().keys().any(|key| {
             !matches!(
                 key.as_str(),
-                EXTENSION
-                    | PARAMETER
-                    | DOCUMENT
-                    | super::integer_range::KEY_INTEGER_RANGE
+                EXTENSION | PARAMETER | DOCUMENT | super::integer_range::KEY_INTEGER_RANGE
             )
         }) {
             return render_field(value.field());
@@ -553,7 +550,9 @@ impl FieldContract {
             && (!matches!(self.0.data_type(), DataType::Struct(_))
                 || self.extension().is_some()
                 || !name.starts_with(|character: char| character.is_ascii_uppercase())
-                || !name.chars().all(|character| character.is_ascii_alphanumeric()))
+                || !name
+                    .chars()
+                    .all(|character| character.is_ascii_alphanumeric()))
         {
             return Err(invalid(
                 "a structure name is a PascalCase identifier on a native struct",

@@ -1193,7 +1193,12 @@ fn kernel_stage_variants_preserve_variables_and_restore_final_structure() {
         ..Bindings::default()
     };
     let stage = workspace
-        .admit_modeling(root, InstanceId::from_id(SemanticId::NIL), bindings, Limits::default())
+        .admit_modeling(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            bindings,
+            Limits::default(),
+        )
         .unwrap();
     assert_eq!(normal.inputs, stage.inputs);
     assert_ne!(normal.case.key(), stage.case.key());
@@ -2412,7 +2417,12 @@ fn kernel_structural_interface_parameters_bind_effective_members_before_guards()
         .unwrap();
     assert!(checks.iter().all(|check| check.passed));
     let model = workspace
-        .specialize_modeling(fixture, root_instance(fixture), Bindings::default(), Limits::default())
+        .specialize_modeling(
+            fixture,
+            root_instance(fixture),
+            Bindings::default(),
+            Limits::default(),
+        )
         .unwrap();
     assert_eq!(model.equations.len(), 1);
     assert!(
@@ -2464,7 +2474,12 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
     }"#;
     let (mut workspace, _, _, root) = setup(text);
     let model = workspace
-        .specialize_modeling(root, root_instance(root), Bindings::default(), Limits::default())
+        .specialize_modeling(
+            root,
+            root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+        )
         .unwrap();
     assert_eq!(model.equations.len(), 1);
     let fixture = source(text)
@@ -2488,7 +2503,12 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
     let (mut workspace, _, _, root) = setup(&missing);
     assert!(
         workspace
-            .specialize_modeling(root, root_instance(root), Bindings::default(), Limits::default())
+            .specialize_modeling(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default()
+            )
             .unwrap_err()
             .to_string()
             .contains("missing argument selected")
@@ -2500,7 +2520,12 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
     let (mut workspace, _, _, root) = setup(&recursive);
     assert!(
         workspace
-            .specialize_modeling(root, root_instance(root), Bindings::default(), Limits::default())
+            .specialize_modeling(
+                root,
+                root_instance(root),
+                Bindings::default(),
+                Limits::default()
+            )
             .unwrap_err()
             .to_string()
             .contains("recursive structural definition")
@@ -2525,7 +2550,12 @@ fn kernel_fixture_paths_bind_the_selected_implementation_physical_contract() {
         .unwrap()
         .declaration_id;
     let model = workspace
-        .specialize_modeling(fixture, root_instance(fixture), Bindings::default(), Limits::default())
+        .specialize_modeling(
+            fixture,
+            root_instance(fixture),
+            Bindings::default(),
+            Limits::default(),
+        )
         .unwrap();
     let specifications = &model.fixtures.values().next().unwrap().specifications;
     assert_eq!(specifications["state.hidden"].value, Some(7.));
@@ -2540,7 +2570,12 @@ fn kernel_fixture_paths_bind_the_selected_implementation_physical_contract() {
         .declaration_id;
     assert!(
         workspace
-            .specialize_modeling(fixture, root_instance(fixture), Bindings::default(), Limits::default())
+            .specialize_modeling(
+                fixture,
+                root_instance(fixture),
+                Bindings::default(),
+                Limits::default()
+            )
             .is_err()
     );
 }

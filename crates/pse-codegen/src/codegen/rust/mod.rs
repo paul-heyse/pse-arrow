@@ -112,11 +112,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         },
     )?;
     emit(&mut tree, format!("{ROOT}/enums.rs"), enums::render(reg)?)?;
-    emit(
-        &mut tree,
-        format!("{ROOT}/structures.rs"),
-        structures(reg)?,
-    )?;
+    emit(&mut tree, format!("{ROOT}/structures.rs"), structures(reg)?)?;
     emit(
         &mut tree,
         format!("{ROOT}/algorithm_arguments.rs"),

@@ -141,10 +141,11 @@ pub fn nlp(
     };
     // An optimizing candidate gets the post-solve second-order check (L-N6); feasibility
     // purposes solve a constant objective, whose curvature says nothing.
-    let second_order = (run.intent == SolveIntent::Optimize).then_some(crate::conditioning::Check {
-        dual_budget: step.accuracy.stationarity,
-        limit: run.limit,
-    });
+    let second_order =
+        (run.intent == SolveIntent::Optimize).then_some(crate::conditioning::Check {
+            dual_budget: step.accuracy.stationarity,
+            limit: run.limit,
+        });
     let mut report = pipeline.finish(report, step.tolerances, run.sense, second_order);
     quality::record_kkt(&mut report, step.normalization, step.accuracy);
     quality::qualify(&mut report, step.accuracy);

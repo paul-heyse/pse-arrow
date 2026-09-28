@@ -83,7 +83,10 @@ impl<'t, 'a> Record<'t, 'a> {
             return Err(Box::new(WrongType::new::<Self>(ty.clone())));
         };
         if fields.len() != names.len()
-            || fields.iter().zip(names).any(|(field, name)| field.name() != *name)
+            || fields
+                .iter()
+                .zip(names)
+                .any(|(field, name)| field.name() != *name)
         {
             return Err(refuse(format!(
                 "{}.{} has fields [{}]; the registry row has [{}]",
@@ -116,10 +119,12 @@ impl<'t, 'a> Record<'t, 'a> {
 
     /// The next field's type and bytes; `None` bytes for SQL NULL.
     fn next(&mut self) -> Result<(&'t Type, &'t str, Option<&'a [u8]>), BoxError> {
-        let field = self
-            .fields
-            .next()
-            .ok_or_else(|| refuse(format!("{} record read past its last field", self.ty.name())))?;
+        let field = self.fields.next().ok_or_else(|| {
+            refuse(format!(
+                "{} record read past its last field",
+                self.ty.name()
+            ))
+        })?;
         let oid = u32::from_be_bytes(
             split(&mut self.raw, 4)?
                 .try_into()
@@ -175,7 +180,10 @@ impl<'t, 'a> Record<'t, 'a> {
     pub fn opt_micros(&mut self) -> Result<Option<i64>, BoxError> {
         let (ty, name, bytes) = self.next()?;
         if *ty != Type::TIMESTAMPTZ {
-            return Err(refuse(format!("{}.{name} is {ty}, not timestamptz", self.ty.name())));
+            return Err(refuse(format!(
+                "{}.{name} is {ty}, not timestamptz",
+                self.ty.name()
+            )));
         }
         bytes
             .map(|bytes| {
@@ -202,7 +210,10 @@ impl<'t, 'a> Record<'t, 'a> {
     pub fn opt_json(&mut self) -> Result<Option<String>, BoxError> {
         let (ty, name, bytes) = self.next()?;
         if *ty != Type::JSONB {
-            return Err(refuse(format!("{}.{name} is {ty}, not jsonb", self.ty.name())));
+            return Err(refuse(format!(
+                "{}.{name} is {ty}, not jsonb",
+                self.ty.name()
+            )));
         }
         bytes
             .map(|bytes| match bytes.split_first() {

@@ -334,7 +334,15 @@ pub(crate) async fn release(
             reason: format!("job {job} is {}, not waiting", locked.state.as_str()),
         });
     }
-    attempts::apply(tx, target, locked.attempt_id, AttemptState::Queued, note, None).await?;
+    attempts::apply(
+        tx,
+        target,
+        locked.attempt_id,
+        AttemptState::Queued,
+        note,
+        None,
+    )
+    .await?;
     attempts::notify(tx, target, JOBS_CHANNEL, &job.to_string()).await
 }
 
@@ -575,12 +583,13 @@ impl<'s> Jobs<'s> {
         // A study point's try is now assigned (Plan 22 O7).
         crate::studies::job_changed(&tx, target, job.job_id, &[]).await?;
         tx.commit().await.classify(target)?;
-        let lease_expires_at = attempt.lease_expires_at.ok_or_else(|| {
-            OperationsError::CorruptValue {
-                column: "attempts.lease_expires_at",
-                detail: format!("running attempt {} holds no lease", job.attempt_id),
-            }
-        })?;
+        let lease_expires_at =
+            attempt
+                .lease_expires_at
+                .ok_or_else(|| OperationsError::CorruptValue {
+                    column: "attempts.lease_expires_at",
+                    detail: format!("running attempt {} holds no lease", job.attempt_id),
+                })?;
         Ok(Some(ClaimedJob {
             job_id: job.job_id,
             attempt_id: job.attempt_id,

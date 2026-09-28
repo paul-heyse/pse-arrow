@@ -44,11 +44,12 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
         ParseBudget::default(),
     )
     .unwrap();
-    let constant =
-        reference::constants::View::from_checked(&explicit.batches[&reference::constants::RELATION_ID])
-            .unwrap()
-            .row(0)
-            .unwrap();
+    let constant = reference::constants::View::from_checked(
+        &explicit.batches[&reference::constants::RELATION_ID],
+    )
+    .unwrap()
+    .row(0)
+    .unwrap();
     assert_eq!(constant.name, "probe");
     let entity =
         authored::entities::View::from_checked(&explicit.batches[&authored::entities::RELATION_ID])

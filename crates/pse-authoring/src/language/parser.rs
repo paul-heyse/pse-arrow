@@ -625,7 +625,10 @@ impl Cursor<'_> {
                     .indices()?
                     .into_iter()
                     .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem { name, domain }
+                        AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem {
+                            name,
+                            domain,
+                        }
                     })
                     .collect();
                 self.expect(":")?;
@@ -672,13 +675,13 @@ impl Cursor<'_> {
                 })
             }
             "logic" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueLogicIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices =
+                    self.indices()?
+                        .into_iter()
+                        .map(|(name, domain)| {
+                            AuthoredModelingDeclarationsFieldValueLogicIndicesItem { name, domain }
+                        })
+                        .collect();
                 self.expect(":")?;
                 let proposition = self.until(&[";"])?;
                 self.expect(";")?;

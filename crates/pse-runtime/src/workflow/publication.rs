@@ -17,8 +17,8 @@
 //! ticket queries the catalog.
 use super::{RunResult, WorkflowError, contract};
 use datafusion::common::ResolvedTableReference;
-pub use pse_catalog::delta::ticket::PublicationTicket;
 use pse_catalog::artifact::{ArtifactPlan, RelationOutput};
+pub use pse_catalog::delta::ticket::PublicationTicket;
 use pse_columnar::CancellationToken;
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_operations::{
@@ -50,7 +50,9 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    fn of(row: pse_operations::catalog::RuntimeOperationalWorkspacesRow) -> Result<Self, WorkflowError> {
+    fn of(
+        row: pse_operations::catalog::RuntimeOperationalWorkspacesRow,
+    ) -> Result<Self, WorkflowError> {
         Ok(Self {
             workspace_id: row.workspace_id,
             name: row.name,
@@ -536,7 +538,10 @@ impl super::Runtime {
     /// The head of a workspace; `None` before its first publication.
     /// # Errors
     /// An ephemeral runtime; an unknown workspace; store failures.
-    pub async fn head(&self, workspace: WorkspaceId) -> Result<Option<PublicationId>, WorkflowError> {
+    pub async fn head(
+        &self,
+        workspace: WorkspaceId,
+    ) -> Result<Option<PublicationId>, WorkflowError> {
         Ok(self.operations()?.store().catalog().head(workspace).await?)
     }
 

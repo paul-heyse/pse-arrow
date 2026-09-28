@@ -128,7 +128,9 @@ fn member(
         .selected()
         .map_err(pse_relations::RelationError::from)?
     {
-        Selected::Full => pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
+        Selected::Full => {
+            pse_relations::generated::structures::MemberDescriptorSelection::from_full()
+        }
         Selected::Revision(value) => {
             pse_relations::generated::structures::MemberDescriptorSelection::from_revision(
                 pse_relations::generated::structures::MemberDescriptorSelectionRevision {

@@ -46,7 +46,12 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
         let target = registry.relation(reference.target).unwrap();
         let target_row = row(registry, target, 1);
         for (local, remote) in reference.columns.iter().zip(&reference.target_columns) {
-            set(&mut valid, &invariant.relation, local, target_row[*remote].clone());
+            set(
+                &mut valid,
+                &invariant.relation,
+                local,
+                target_row[*remote].clone(),
+            );
         }
         if reference.target != invariant.relation {
             valid.insert(reference.target.to_owned(), vec![target_row]);
@@ -54,7 +59,10 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
         invalid = valid.clone();
         let bad = default_value(
             registry,
-            &target.column(reference.target_columns[0]).unwrap().value_type(),
+            &target
+                .column(reference.target_columns[0])
+                .unwrap()
+                .value_type(),
             2,
         );
         set(&mut invalid, &invariant.relation, reference.columns[0], bad);
@@ -102,12 +110,14 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
     }
     let mut keys: Vec<Vec<String>> = invalid[&invariant.relation]
         .iter()
-        .take(if invariant.name == "cardinality:member_ordinal" || declared_key.is_some() {
-            // Every row sharing a declared unique key offends, each under its own key.
-            usize::MAX
-        } else {
-            1
-        })
+        .take(
+            if invariant.name == "cardinality:member_ordinal" || declared_key.is_some() {
+                // Every row sharing a declared unique key offends, each under its own key.
+                usize::MAX
+            } else {
+                1
+            },
+        )
         .map(|row| {
             invariant
                 .key_columns
