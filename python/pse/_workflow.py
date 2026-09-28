@@ -31,7 +31,7 @@ from pse._runs import (
 from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import SolveSettings
 from pse.contracts.enums import AttemptState, JobState, StudyState
-from pse.contracts.identities import PublicationId, RunId, WorkspaceId
+from pse.contracts.identities import AttemptId, PublicationId, RunId, StudyId, WorkspaceId
 from pse.contracts.values import ContentHash, SemanticId
 
 SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
@@ -171,7 +171,7 @@ class Runtime:
         )
 
     def progress(
-        self, attempt_id: SemanticId, *, follow: bool = True, page: int = 256
+        self, attempt_id: AttemptId, *, follow: bool = True, page: int = 256
     ) -> ProgressStream:
         """Stream a durable attempt's stored progress events and incumbents.
 
@@ -188,7 +188,7 @@ class Runtime:
             self._handle.progress(attempt_id.to_hex(), follow=follow, page=page)
         )
 
-    def study(self, study_id: SemanticId) -> StudyHandle:
+    def study(self, study_id: StudyId) -> StudyHandle:
         """Return a handle on a durable study of this runtime's store."""
         return StudyHandle(self._handle.study(study_id.to_hex()))
 

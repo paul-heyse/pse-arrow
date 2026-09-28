@@ -15,7 +15,7 @@ from pse._build import (DiagnosticReport, NativeEligibility, NativeRoute,
 from pse._inspection import TableStream
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import AttemptState, JobState, StudyPointState, StudyState
-from pse.contracts.identities import AttemptId, PublicationId, RunId, WorkspaceId
+from pse.contracts.identities import AttemptId, PublicationId, RunId, StudyId, WorkspaceId
 from pse.contracts.values import ContentHash, SemanticId
 
 @attrs.frozen
@@ -303,9 +303,9 @@ class ProgressStream:
     _handle: _NativeProgressStream
 
     @property
-    def attempt_id(self) -> SemanticId:
+    def attempt_id(self) -> AttemptId:
         """The attempt whose streams these are."""
-        return SemanticId.from_hex(self._handle.attempt_id)
+        return AttemptId(SemanticId.from_hex(self._handle.attempt_id))
 
     def __iter__(self) -> Self:
         return self
@@ -359,9 +359,9 @@ class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
     points: tuple[StudyPointStatus, ...]
 
     @property
-    def id(self) -> SemanticId:
+    def id(self) -> StudyId:
         """The study identity."""
-        return SemanticId.from_hex(self.study_id)
+        return StudyId(SemanticId.from_hex(self.study_id))
 
 
 class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
@@ -381,9 +381,9 @@ class StudyHandle:
     _handle: _NativeStudyHandle
 
     @property
-    def study_id(self) -> SemanticId:
+    def study_id(self) -> StudyId:
         """The study identity."""
-        return SemanticId.from_hex(self._handle.study_id)
+        return StudyId(SemanticId.from_hex(self._handle.study_id))
 
     def status(self) -> StudyStatus:
         """Read the study and every point as the operational store holds them now."""

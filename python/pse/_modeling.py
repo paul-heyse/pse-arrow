@@ -41,7 +41,7 @@ from pse.contracts.documents import PointOverlay, SolveSettings
 if TYPE_CHECKING:
     from pse._workflow import Runtime
 from pse.contracts.enums import ModelingAnalysisRoute
-from pse.contracts.identities import FitId, InstanceId, RunId
+from pse.contracts.identities import DeclarationId, FitId, InstanceId, RunId
 from pse.contracts.values import ContentHash, SemanticId
 
 
@@ -212,20 +212,20 @@ class ModelingConformance:
     def failure(self, ordinal: int) -> DiagnosticReport:
         return self._handle.failure(ordinal)
 
-    def trajectory(self, fixture_id: SemanticId) -> "ModelingTrajectory":
+    def trajectory(self, fixture_id: DeclarationId) -> "ModelingTrajectory":
         return ModelingTrajectory(self._handle.trajectory(fixture_id.to_hex()))
 
-    def initialization(self, fixture_id: SemanticId) -> "ModelingInitialization":
+    def initialization(self, fixture_id: DeclarationId) -> "ModelingInitialization":
         return ModelingInitialization(self._handle.initialization(fixture_id.to_hex()))
 
-    def fixtures(self) -> tuple[SemanticId, ...]:
-        return tuple(SemanticId.from_hex(value) for value in self._handle.fixtures())
+    def fixtures(self) -> tuple[DeclarationId, ...]:
+        return tuple(DeclarationId(SemanticId.from_hex(value)) for value in self._handle.fixtures())
 
     def fixture_statuses(self) -> TableStream:
         """All discovered fixtures, including identities beyond a detailed check limit."""
         return TableStream(self._handle.fixture_statuses())
 
-    def result(self, fixture_id: SemanticId) -> ModelingResult:
+    def result(self, fixture_id: DeclarationId) -> ModelingResult:
         return ModelingResult(self._handle.result(fixture_id.to_hex()))
 
 
@@ -497,7 +497,7 @@ class ModelingPackage:
 
     def diagnose_samples(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SolveSettings,
         diagnostics: ModelingDiagnosticSettings,
         samples: tuple[tuple[SemanticId, dict[SemanticId, float]], ...],
@@ -525,7 +525,7 @@ class ModelingPackage:
 
     def explain_nonlinear(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SolveSettings,
         nominals: dict[SemanticId, float],
         *,
@@ -547,7 +547,7 @@ class ModelingPackage:
 
     def prepare_simulation(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SimulationSettings,
         *,
         modes: tuple[ModelingModeSettings, ...] | None = None,
@@ -561,7 +561,7 @@ class ModelingPackage:
 
     def simulate(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SimulationSettings,
         *,
         modes: tuple[ModelingModeSettings, ...] | None = None,
@@ -575,7 +575,7 @@ class ModelingPackage:
 
     def diagnose(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SolveSettings,
         diagnostics: ModelingDiagnosticSettings,
     ) -> ModelingDiagnostics:
@@ -586,7 +586,7 @@ class ModelingPackage:
 
     def diagnose_linear(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SolveSettings,
         *,
         rays: bool = False,
@@ -629,7 +629,7 @@ class ModelingPackage:
 
     def diagnose_jacobian(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SolveSettings,
         *,
         maximum_rows: int = 32,
@@ -669,25 +669,25 @@ class ModelingPackage:
             )
         )
 
-    def inspect(self, case_id: SemanticId, settings: SolveSettings) -> dict[str, object]:
+    def inspect(self, case_id: DeclarationId, settings: SolveSettings) -> dict[str, object]:
         """Inspect instantiated member lineage and declared topology before execution."""
         return codec.decode_json(self._handle.inspect(case_id.to_hex(), codec.encode_json(settings)), _AnalysisDocument).payload
 
-    def prepare_flow(self, case_id: SemanticId, selection: Mapping[str, object], settings: SolveSettings) -> PreparedFlow:
+    def prepare_flow(self, case_id: DeclarationId, selection: Mapping[str, object], settings: SolveSettings) -> PreparedFlow:
         """Project explicitly selected authored nodes, ports and connection policies."""
         return PreparedFlow(self._handle.prepare_flow(case_id.to_hex(), codec.encode_json(_AnalysisDocument(dict(selection))), codec.encode_json(settings)))
 
-    def prepare_recycle(self, case_id: SemanticId, selection: Mapping[str, object], request: Mapping[str, object], settings: SolveSettings) -> PreparedStrategy:
+    def prepare_recycle(self, case_id: DeclarationId, selection: Mapping[str, object], request: Mapping[str, object], settings: SolveSettings) -> PreparedStrategy:
         """Compile explicit causal directions from this immutable authored model."""
         return PreparedStrategy(self._handle.prepare_recycle(case_id.to_hex(), codec.encode_json(_AnalysisDocument(dict(selection))), codec.encode_json(_AnalysisDocument(dict(request))), codec.encode_json(settings)))
 
-    def prepare_block_initialization(self, case_id: SemanticId, settings: SolveSettings, stages: Sequence[Mapping[SemanticId, float]]) -> PreparedStrategy:
+    def prepare_block_initialization(self, case_id: DeclarationId, settings: SolveSettings, stages: Sequence[Mapping[SemanticId, float]]) -> PreparedStrategy:
         """Prepare ordered blocks and transactional overlays over original bindings."""
         return PreparedStrategy(self._handle.prepare_block_initialization(case_id.to_hex(), codec.encode_json(settings), [{k.to_hex(): v for k, v in stage.items()} for stage in stages]))
 
     def prepare_solve(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SolveSettings,
         *,
         route: ModelingAnalysisRoute = ModelingAnalysisRoute.STEADY,
@@ -697,7 +697,7 @@ class ModelingPackage:
 
     def solve_case(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SolveSettings,
         *,
         route: ModelingAnalysisRoute = ModelingAnalysisRoute.STEADY,
@@ -709,7 +709,7 @@ class ModelingPackage:
 
     def initialize(
         self,
-        case_id: SemanticId,
+        case_id: DeclarationId,
         settings: SolveSettings,
         *,
         stages: tuple[str, ...] = (),
@@ -738,7 +738,7 @@ class ModelingPackage:
     @overload
     def study(
         self,
-        case_ids: tuple[SemanticId, ...],
+        case_ids: tuple[DeclarationId, ...],
         settings: SolveSettings,
         *,
         predecessors: tuple[int | None, ...] = (),
@@ -748,7 +748,7 @@ class ModelingPackage:
     @overload
     def study(
         self,
-        case_ids: tuple[SemanticId, ...],
+        case_ids: tuple[DeclarationId, ...],
         settings: SolveSettings,
         *,
         predecessors: tuple[int | None, ...] = (),
@@ -762,7 +762,7 @@ class ModelingPackage:
 
     def study(
         self,
-        case_ids: tuple[SemanticId, ...],
+        case_ids: tuple[DeclarationId, ...],
         settings: SolveSettings,
         *,
         predecessors: tuple[int | None, ...] = (),
@@ -830,7 +830,7 @@ class ModelingPackage:
         derivative_cells: int = 100000,
         derivative_step: float = 1e-6,
         derivative_tolerance: float = 1e-4,
-        fixture_policies: Mapping[SemanticId, ModelingFixturePolicy] | None = None,
+        fixture_policies: Mapping[DeclarationId, ModelingFixturePolicy] | None = None,
     ) -> ModelingConformance:
         """Discover authored tests and run bounded shared checks without importing IDAES."""
         return ModelingConformance(
