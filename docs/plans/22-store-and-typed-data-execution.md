@@ -273,7 +273,7 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 |---|---|---|
 | W0 | D2: ADR-0117 accepted, with the review addendum; this packet written | complete (2026-09-28) |
 | W1 | B1 (R); B3a → B6 (T) | complete: B3a and B6 in merge `8934a521`, B1 in merge `fa5a075c` |
-| W2 | B2 (R); B4 (V); B7 (T) | running (2026-09-28): three track agents in separate worktrees, each with its own `CARGO_TARGET_DIR` |
+| W2 | B2 (R); B4 (V); B7 (T) | complete: B4 in merge `ba5f9676`, B7 in merge `057ade3b`, B2 in merge `c664106e` |
 | W3 | O8 (R); B5 (V) | not started |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | not started |
 | W5 | O9; docs step | not started |
@@ -391,3 +391,92 @@ All failed counts were 0; `PSE_SOLVER_IMAGE` was set for the native runs. `just 
 - the sqlx `migrate` feature;
 - the ADR-0112 comment in the root `Cargo.toml`;
 - the interim casts.
+
+### W2 landed: B4 (`ba5f9676`), B7 (`057ade3b`), B2 (`c664106e`)
+
+**B4 — vocabularies.**
+- **`pse-vocabulary`** (ADR-0117) owns the ten platform vocabularies. The generator re-exports 28 source-owned vocabularies through a declared enum source (16 from pse-quantity, 2 from pse-diagnostics, 10 from pse-vocabulary), which removes twelve duplicate generated enums.
+- **Store rule column.** `termination_rule` is the `DiagnosticCode` ENUM, mapped through an optional `postgres` feature on pse-diagnostics and pse-vocabulary.
+- **Settings vocabularies.** 24 backend and dynamics settings enums are registry enums with unchanged serde spellings. Their native codes and option values moved into adapter functions.
+- **Typed decisions.** `ExtrapolationPolicy` and `NumericalProvenanceField` replace string comparisons.
+- **Deviations:**
+  - `pse-vocabulary` depends on `pse-diagnostics` for its typed parse error, beyond ADR-0117's "serde and thiserror/miette only";
+  - `OperationEffect`'s serde spelling now equals `as_str` (no persisted consumer);
+  - the variant `PardisoMkl` is renamed `Pardisomkl`;
+  - durable failures record `DiagnosticCode` and put the violated named rule in `termination_detail.rule`.
+- **Identity bytes:**
+  - unchanged for Ipopt, SCIP, controls and dynamics, pinned by `settings_identity_bytes_unchanged`;
+  - **changed** for HiGHS, POUNCE, KINSOL and Clarabel, because the identity serializer frames Rust enum type names and those types were renamed for registry uniqueness. **Follow-up (B5):** settings identity must not depend on Rust type names.
+
+**B7 — typed modeling identities.**
+- **Declared identities:** `package` (owner `authored.packages`), `declaration` (owner `authored.modeling_declarations`), and unowned `instance`, `model` and `case`. Nested values may carry an identity.
+- **Converted signatures:** pse-modeling 29 of 31 multi-id signatures and about 56 lineage parameters; pse-compiler 6 of 6; runtime modeling 12 of 13. A root/instance swap fails to compile (a `compile_fail` doctest). Identity bytes, serde and framing are unchanged.
+- **Deviations:**
+  - no separate `root`, `definition`, `member` or `block` identities: roots, definitions and members are declarations (`DeclarationId`) and blocks are instances (`InstanceId`), so the swap still fails to compile;
+  - `source_id`/`fixture_id` in the modeling check and report tables also carry `declaration`.
+- **Recorded:** lineage and solve rows derive model and case from the root instance or fit id by explicit conversion, which makes an existing conflation visible. That is for B3b or the docs step.
+- **Moved to B3b:** the fit experiment ids and `alias`.
+
+**B2 — typed statements.**
+- **Query crate.** Statements are `.sql` files compiled by Cornucopia 1.0.1, used as an xtask library (`gen_fresh` against the local server), into `crates/pse-operations-queries`. The manifest and `lib.rs` are normalized by xtask; every other file is re-printed with prettyplease.
+- **Row decoding.** Whole rows decode into registry rows through a generated composite `FromSql`.
+- **Store runtime:**
+  - deadpool and tokio-postgres with **Verified recycling**. A cancelled call can leave its statement running, and under `Fast` recycling the next caller queued behind it (`dropped_statement_does_not_block_the_pool`);
+  - errors classified by `SqlState`, with 23514/23503 mapped to `InvariantViolation`;
+  - one reconnecting listener task per store;
+  - binary COPY for streams, source documents and publication members;
+  - the store reads `PGUSER` when the URL names no user.
+- **Wire change.** NOTIFY payloads and Python `attempt_id` strings are 32-character hex ids.
+- **Deleted:** `codec.rs`, every `FromRow`, the row-restating records, positional binds, `UNNEST`, `PgListener`, `#[sqlx::test]` and the sqlx and `whoami` pins. `cargo tree -i sqlx` is empty.
+- **Cornucopia limits** (worked around):
+  - a `void` result is refused, so statements use `SELECT true AS … FROM pg_advisory_xact_lock(…)`;
+  - a projection mixing a whole mapped row with another column generates uncompilable code, so catalog statements project columns instead.
+
+**Merge resolutions:**
+- **B7:** generated trees regenerated with `just codegen-bootstrap`; B4's `extrapolation_policy` helper takes a `DeclarationId`.
+- **B2:**
+  - the query crate had to be regenerated first with `cargo run -p xtask --no-default-features -- codegen --only queries`, because the full generator links `pse-runtime` and therefore the stale query crate. **This is the bootstrap order whenever the store schema changes;**
+  - B4's typed rule assertions were re-applied to B2's rewritten store and worker tests.
+
+**Tests on `main` after each merge** (coordinator runs, zero baseline, no concurrent builds; `PSE_SOLVER_IMAGE` set):
+
+| After merge | Command | Result |
+|---|---|---|
+| B4 | `just unit-package pse-schema '… pse-codegen, pse-model, pse-vocabulary, pse-relations'` | 100 passed |
+| B4 | pse-math with `extrapolation_policy_typed` | 77 passed |
+| B4 | `pse-modeling \| pse-compiler` | 149 passed |
+| B4 | `just db-test` | 39 passed |
+| B4 | backend native units | 177 passed |
+| B4 | runtime native units | 150 passed |
+| B4 | `just worker-test` | 1 passed |
+| B4 | pse-model `postgres` feature | 4 passed |
+| B4 | Python (contracts, `Any` lint, settings projection; modeling run, native workflow, Plan 14 acceptance, modeling kernel) | 27 + 29 passed |
+| B7 | schema and codegen | 63 passed |
+| B7 | modeling, compiler, authoring | 161 passed |
+| B7 | pse-math | 76 passed |
+| B7 | `pse-modeling` doctests | passed |
+| B7 | runtime native units | 150 passed |
+| B7 | `just db-test` | 39 passed |
+| B7 | `just worker-test` | 1 passed |
+| B7 | `just unit-invariant-harness 'all()'` | 389 passed |
+| B7 | `just codegen-check`, `just conformance-fixtures-check` | exit 0 |
+| B7 | governance | 27 passed |
+| B7 | Python, same selection | 27 + 29 passed |
+| B2 | `just db-test` | 42 passed |
+| B2 | runtime native units | 150 passed |
+| B2 | `just worker-test` | 1 passed |
+| B2 | xtask `codegen::queries` | 4 passed |
+| B2 | pse-model `postgres` feature | 4 passed |
+| B2 | pse-codegen | 14 passed |
+| B2 | governance | 27 passed |
+| B2 | `just codegen-check` (five targets) | exit 0 |
+| B2 | `just family-check` | OK |
+| B2 | Python, same selection | 27 + 29 passed |
+
+All failed counts were 0. The dev store was reset once, after B4, and `just db-status` reports it current.
+
+**Open follow-ups:**
+- The settings identity serializer frames Rust type names (B5).
+- The presolve `Pass` and `PolicyKind` vocabularies still cross the Python boundary as hand-written enums (B5).
+- The model/case conflation (B3b or the docs step).
+- Plan and ADR text: ADR-0115 lists root, definition, member and block identities; ADR-0117 limits the crate's dependencies; ADR-0114 names a `TerminationCode` enum. Record these in the docs step as deliberate deviations.
