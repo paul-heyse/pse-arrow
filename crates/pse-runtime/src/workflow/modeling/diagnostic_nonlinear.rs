@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Bounded whole-model infeasibility explanations on POUNCE's ℓ1 exact penalty (ADR-0109
 //! item 2a). Local obstruction never certifies infeasibility.
+use pse_model::generated::identities::RunId;
 use super::*;
 use crate::math::solves::Outcome;
 use pse_backend_native::solve::{Backend, SolveIntent, SolverSelection};
@@ -54,7 +55,7 @@ impl ModelingElasticAttempt {
 #[derive(Clone, Debug)]
 pub struct ModelingNonlinearExplanation {
     /// Identity of this explanation run.
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     pub(in crate::workflow::modeling) runtime: Runtime,
     pub(in crate::workflow::modeling) source_identity: pse_ids::ContentHash,
     pub(in crate::workflow::modeling) nominals: BTreeMap<SemanticId, f64>,
@@ -154,7 +155,7 @@ impl ModelingPackage {
             .map(|v| v.port.id)
             .collect();
         let mut report = ModelingNonlinearExplanation {
-            run_id: pse_authoring::ids::uuid_v7(),
+            run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
             source_identity: prepared.model.case.compiled().plan.structure().key(),
             nominals: policy.nominals.clone(),

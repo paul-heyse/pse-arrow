@@ -20,8 +20,9 @@ use std::{collections::BTreeSet, sync::Arc};
 struct TrialHints {
     identity: pse_ids::ContentHash,
     quantities: Arc<pse_quantity::QuantityRegistry>,
-    /// The model its requirements name (`pse_model::lineage::model_of_implicit_stage`).
-    model: ModelId,
+    /// What its requirements name: the enclosing model and case, and the block's
+    /// instance (`pse_model::lineage::Solved::stage`).
+    lineage: pse_model::lineage::Lineage,
     unknowns: Vec<SemanticId>,
     rows: Vec<SemanticId>,
     hints: Vec<(SemanticId, DeclarationId, ModelingHint)>,
@@ -65,7 +66,7 @@ impl HintResolver for TrialHints {
         for ((target, kind), (source, value)) in &selected {
             if *kind == ModelingHint::Nominal {
                 declarations.push(super::cases::requirement(
-                    self.model,
+                    self.lineage,
                     *target,
                     if self.unknowns.contains(target) {
                         NumericalTarget::Variable
@@ -84,7 +85,7 @@ impl HintResolver for TrialHints {
             for scale in &self.scales {
                 let values = terms.get(scale.terms.clone()).ok_or_else(||failure("implicit original-term range"))?;
                 let value = pse_math::numerics::term_scale(scale.scheme,values)?;
-                declarations.push(super::cases::requirement(self.model,scale.row,NumericalTarget::Row,scale.source,NumericalSource::DerivedNominal,None,Some(value)));
+                declarations.push(super::cases::requirement(self.lineage,scale.row,NumericalTarget::Row,scale.source,NumericalSource::DerivedNominal,None,Some(value)));
             }
         }
         let numerics = pse_math::numerics::resolve(
@@ -206,6 +207,12 @@ pub(super) fn factorable_definitions(
             Some((key, definition))
         })
         .collect()
+}
+/// The authored block instance an implicit stage solves; a generated rate system is no
+/// authored instance (`pse_model::lineage::Solved::stage`).
+fn stage_instance(inner: &pse_compiler::workspace::AdmittedImplicit) -> Option<InstanceId> {
+    (inner.algorithm != pse_compiler::workspace::ImplicitAlgorithm::AffineRates)
+        .then(|| InstanceId::from_id(inner.descriptor.spec().id))
 }
 impl ModelingPackage {
     pub(super) async fn inner_registrations(
@@ -352,9 +359,7 @@ impl ModelingPackage {
                     Configuration::Hints(Arc::new(TrialHints {
                         identity: hash.finish_hash(),
                         quantities: self.quantities.clone(),
-                        model: pse_model::lineage::model_of_implicit_stage(
-                            inner.descriptor.spec().id,
-                        ),
+                        lineage: model.solved().stage(stage_instance(&inner)),
                         unknowns: inner.unknowns.clone(),
                         rows: residual.rows.clone(),
                         hints: residual.hint_targets.clone(),
@@ -392,6 +397,14 @@ impl ModelingPackage {
 mod tests {
     use super::*;
     use pse_compiler::workspace::ModelingOutput;
+    /// A definition root specialized as its own instance.
+    fn solved(root: SemanticId) -> pse_model::lineage::Solved {
+        pse_model::lineage::Solved::new(
+            DeclarationId::from_id(root),
+            pse_model::generated::enums::ModelingDeclarationKind::Definition,
+            InstanceId::from_id(root),
+        )
+    }
     #[test]
     fn kernel_nested_original_term_nominals_follow_numerical_precedence() {
         let physical=super::super::super::tests::physical();
@@ -399,7 +412,7 @@ mod tests {
         let unit=physical.quantities.quantity_type(quantity).unwrap().canonical_unit;
         let x=SemanticId::from_bytes([171;16]);let row=SemanticId::from_bytes([172;16]);let source=SemanticId::from_bytes([173;16]);let declaration=DeclarationId::from(source);
         let mut resolver=TrialHints{
-            identity:pse_ids::ContentHash::from_bytes([0;32]),quantities:physical.quantities,model:pse_model::lineage::model_of_implicit_stage(source),
+            identity:pse_ids::ContentHash::from_bytes([0;32]),quantities:physical.quantities,lineage:solved(source).stage(Some(InstanceId::from_id(source))),
             unknowns:vec![x],rows:vec![row],hints:vec![(x,declaration,ModelingHint::Nominal)],
             scales:vec![pse_compiler::workspace::ImplicitScale{row,source:declaration,scheme:pse_model::generated::enums::ConstraintScalingScheme::InverseSum,terms:0..3}],
             values:BTreeMap::from([(x,1.)]),states:BTreeMap::new(),
@@ -409,7 +422,7 @@ mod tests {
         let (_,options)=resolver.resolve(&[3.],Some(&[9.,-4.,0.])).unwrap();
         assert_eq!(options.variable_nominals,vec![3.]);
         assert!((options.residual_tolerance[0]-13e-8).abs()<1e-20);
-        resolver.declarations.push(super::super::cases::requirement(pse_model::lineage::model_of_implicit_stage(source),row,NumericalTarget::Row,DeclarationId::from(pse_ids::named_id(source,"override")),NumericalSource::Model,Some(7.),None));
+        resolver.declarations.push(super::super::cases::requirement(solved(source).stage(Some(InstanceId::from_id(source))),row,NumericalTarget::Row,DeclarationId::from(pse_ids::named_id(source,"override")),NumericalSource::Model,Some(7.),None));
         let (_,options)=resolver.resolve(&[3.],Some(&[9.,-4.,0.])).unwrap();
         assert!((options.residual_tolerance[0]-7e-8).abs()<1e-20);
         assert!(resolver.resolve(&[3.],Some(&[f64::NAN,4.,0.])).is_err());

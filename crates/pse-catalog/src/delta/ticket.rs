@@ -74,7 +74,7 @@ impl PublicationTicket {
     }
     /// Intended immutable publication identity.
     pub const fn publication_id(&self) -> PublicationId {
-        super::manifest::publication_of(&self.candidate)
+        self.candidate.publication_id
     }
     /// Complete planned member inventory; written members receive actual versions when
     /// the candidate executes.

@@ -73,7 +73,7 @@ fn declare_packages(builder: &mut RegistryBuilder) {
         .pk(&["package_id"])
         .columns(vec![
             FieldContract::key("package_id", FieldContract::id(), "The package identity.")
-                .with_identity("package"),
+                .with_owned_identity("package"),
             FieldContract::label(
                 "name",
                 FieldContract::native(arrow_schema::DataType::Utf8),

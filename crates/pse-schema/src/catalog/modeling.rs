@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Generic modeling-language declarations; the sole durable kernel IR schema.
-use super::declarations::{column, enumeration, identity, relation, relation_version};
+use super::declarations::{column, enumeration, identity, relation, relation_version, run_id};
 use crate::builder::RegistryBuilder;
 use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S, TaggedAlternative};
 use arrow_schema::DataType as D;
@@ -434,7 +434,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         S::Model,
         &["declaration_id"],
         vec![
-            column("declaration_id", T::id()).with_identity("declaration"),
+            column("declaration_id", T::id()).with_owned_identity("declaration"),
             column("document_id", T::id()),
             column("parent_id", T::id())
                 .with_identity("declaration")
@@ -469,7 +469,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "step", "sample_index", "target_id", "source_id", "kind"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", T::nonnegative(i64::MAX)),
             column("sample_index", T::nonnegative(i64::MAX)),
             column("time", T::native(D::Float64)).optional(),
@@ -491,7 +491,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "step", "target_id", "source_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", T::nonnegative(i64::MAX)),
             column("target_id", T::id()),
             column("source_id", T::id()).with_identity("declaration"),
@@ -544,7 +544,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "kind",
         ],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("fixture_id", T::id()).with_identity("declaration"),
             column("sample_index", T::nonnegative(i64::MAX)),
             column("time", T::native(D::Float64)).optional(),
@@ -566,7 +566,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "fixture_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("fixture_id", T::id()).with_identity("declaration"),
             column("status", T::enumeration("ModelingConformanceStatus")),
         ],
@@ -580,9 +580,11 @@ mod tests {
 
     use crate::model::FieldContract;
 
-    /// Modeling identities (Plan 22 B7): packages and declarations are owned by their
-    /// keys and inherited through references; models, cases and instances are carried
-    /// without an owning key, an instance only inside a study's points.
+    /// Modeling identities (Plan 22 B7, B3c): packages and declarations are owned by
+    /// their keys and inherited through references; instances are carried without an
+    /// owning key. A model and a case are declarations: every lineage, solve and
+    /// requirement row names them as `declaration`, and the instance or fit it solved in
+    /// columns of their own.
     #[test]
     fn modeling_identities_declared() {
         let registry = crate::registry().unwrap();
@@ -601,8 +603,9 @@ mod tests {
                 "declaration_id".to_owned()
             ))
         );
-        for unowned in ["model", "case", "instance"] {
-            assert_eq!(owner(unowned), None, "{unowned}");
+        assert_eq!(owner("instance"), None);
+        for gone in ["model", "case"] {
+            assert!(registry.identity(gone).is_none(), "{gone}");
         }
         let carried = |relation: &str, column: &str| {
             registry
@@ -619,9 +622,21 @@ mod tests {
             ("reference.reference_states", "subject_id", "declaration"),
             ("runtime.modeling_checks", "source_id", "declaration"),
             ("runtime.modeling_conformance", "fixture_id", "declaration"),
-            ("authored.numerical_requirements", "model_id", "model"),
-            ("runtime.run_lineage", "case_id", "case"),
-            ("runtime.solve_runs", "model_id", "model"),
+            ("authored.numerical_requirements", "model_id", "declaration"),
+            ("authored.numerical_requirements", "case_id", "declaration"),
+            ("authored.numerical_requirements", "instance_id", "instance"),
+            ("authored.numerical_requirements", "fit_id", "fit"),
+            ("runtime.run_lineage", "model_id", "declaration"),
+            ("runtime.run_lineage", "case_id", "declaration"),
+            ("runtime.run_lineage", "instance_id", "instance"),
+            ("runtime.run_lineage", "fit_id", "fit"),
+            ("runtime.solve_runs", "model_id", "declaration"),
+            ("runtime.solve_runs", "case_id", "declaration"),
+            ("runtime.solve_runs", "instance_id", "instance"),
+            ("runtime.run_lineage", "run_id", "run"),
+            ("runtime.solve_runs", "run_id", "run"),
+            ("runtime.modeling_checks", "run_id", "run"),
+            ("runtime.diagnostics_findings", "run_id", "run"),
         ] {
             assert_eq!(
                 carried(relation, column).as_deref(),

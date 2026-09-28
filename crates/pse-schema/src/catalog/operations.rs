@@ -180,7 +180,7 @@ fn declare_identities(b: &mut RegistryBuilder) {
     identity(
         b,
         "run",
-        "A run: the logical request its attempts try, minted by the runtime",
+        "One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt",
     );
     identity(b, "job", "One durable job claimed by workers");
     identity(b, "solution", "One stored reusable solution (a warm-start seed)");
@@ -212,7 +212,7 @@ fn declare_sources(b: &mut RegistryBuilder) {
         "operational_source_bundles",
         &["bundle_hash"],
         vec![
-            column("bundle_hash", T::hash()).with_identity("source_bundle"),
+            column("bundle_hash", T::hash()).with_owned_identity("source_bundle"),
             column("manifest", json()),
             column("created_at", ts()),
         ],
@@ -276,7 +276,7 @@ fn declare_attempts(b: &mut RegistryBuilder) {
             "operational_attempts",
             &["attempt_id"],
             vec![
-                column("attempt_id", T::id()).with_identity("attempt"),
+                column("attempt_id", T::id()).with_owned_identity("attempt"),
                 column("run_id", T::id()).with_identity("run"),
                 column("kind", T::enumeration("AttemptKind")),
                 column("request_identity", T::hash()),
@@ -356,7 +356,7 @@ fn declare_jobs(b: &mut RegistryBuilder) {
             "operational_jobs",
             &["job_id"],
             vec![
-                column("job_id", T::id()).with_identity("job"),
+                column("job_id", T::id()).with_owned_identity("job"),
                 attempt_ref("attempt_id"),
                 column("idempotency_key", text()),
                 column("payload_version", int32()),
@@ -489,7 +489,7 @@ fn declare_solutions(b: &mut RegistryBuilder) {
             "operational_solutions",
             &["solution_id"],
             vec![
-                column("solution_id", T::id()).with_identity("solution"),
+                column("solution_id", T::id()).with_owned_identity("solution"),
                 column("compatibility_stamp", T::hash()),
                 column("preparation_identity", T::hash()),
                 column("kind", T::enumeration("StoredSeedKind")),
@@ -525,7 +525,7 @@ fn declare_studies(b: &mut RegistryBuilder) {
             "operational_studies",
             &["study_id"],
             vec![
-                column("study_id", T::id()).with_identity("study"),
+                column("study_id", T::id()).with_owned_identity("study"),
                 attempt_ref("attempt_id"),
                 column("publication_id", T::id())
                     .with_fk("runtime.operational_publication_intents", "publication_id"),
@@ -625,7 +625,7 @@ fn declare_catalog(b: &mut RegistryBuilder) {
             "operational_workspaces",
             &["workspace_id"],
             vec![
-                column("workspace_id", T::id()).with_identity("workspace"),
+                column("workspace_id", T::id()).with_owned_identity("workspace"),
                 column("name", text()),
                 column("root_uri", text()),
                 column("maintenance_epoch", int64()),
@@ -644,7 +644,7 @@ fn declare_catalog(b: &mut RegistryBuilder) {
             "operational_publication_intents",
             &["publication_id"],
             vec![
-                column("publication_id", T::id()).with_identity("publication"),
+                column("publication_id", T::id()).with_owned_identity("publication"),
                 column("workspace_id", T::id())
                     .with_fk("runtime.operational_workspaces", "workspace_id"),
                 attempt_ref("attempt_id"),
@@ -758,7 +758,7 @@ fn declare_catalog(b: &mut RegistryBuilder) {
             "operational_settlements",
             &["settlement_id"],
             vec![
-                column("settlement_id", T::id()).with_identity("settlement"),
+                column("settlement_id", T::id()).with_owned_identity("settlement"),
                 attempt_ref("attempt_id"),
                 column("outcome", T::enumeration("SettlementOutcome")),
                 publication_ref("publication_id").optional(),
@@ -787,7 +787,7 @@ fn declare_catalog(b: &mut RegistryBuilder) {
             "operational_reader_leases",
             &["lease_id"],
             vec![
-                column("lease_id", T::id()).with_identity("reader_lease"),
+                column("lease_id", T::id()).with_owned_identity("reader_lease"),
                 publication_ref("publication_id"),
                 column("head_of", T::id())
                     .with_fk("runtime.operational_workspaces", "workspace_id")
@@ -863,7 +863,8 @@ mod tests {
             assert!(tables.contains(&table), "{table} is not a store relation");
         }
         assert_eq!(tables.len(), 21);
-        // Identities are owned by their keys and inherited through references.
+        // Identities are owned by the keys declared their owners and inherited through
+        // references.
         let owner = |name: &str| {
             registry
                 .identity(name)
@@ -886,6 +887,14 @@ mod tests {
                 "runtime.operational_publication_intents".to_owned(),
                 "publication_id".to_owned()
             ))
+        );
+        // The one-row export manifest types its key without owning the identity.
+        assert_eq!(
+            registry
+                .relation("runtime.publication_manifests")
+                .and_then(|spec| spec.column("publication_id"))
+                .and_then(crate::model::FieldContract::identity),
+            Some("publication")
         );
         assert_eq!(
             registry.identity("source_bundle").map(|identity| identity.base),

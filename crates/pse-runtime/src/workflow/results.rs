@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Registry-generated physical observations retain Arrow allocation ownership.
+use pse_model::generated::identities::RunId;
 use super::{RunResult, WorkflowError, contract, relation};
 use pse_backend_native::solve::{Metric, OptionValue};
 use pse_ids::SemanticId;
@@ -41,7 +42,7 @@ impl RunResult {
 
 pub(super) fn push_metric(
     builder: &mut metrics::Builder,
-    run_id: SemanticId,
+    run_id: RunId,
     step: i64,
     namespace: &str,
     name: &str,
@@ -142,7 +143,7 @@ fn stored_metric(value: &ProgressValue) -> Metric {
 /// an ephemeral run it is the index in the bounded copy.
 fn push_events(
     builder: &mut metrics::Builder,
-    run_id: SemanticId,
+    run_id: RunId,
     step: i64,
     native: &pse_backend_native::solve::SolveReport,
     events: StepEvents<'_>,
@@ -220,7 +221,7 @@ fn push_events(
 /// Common native options, metrics, certificates, progress and presolve receipt.
 pub(super) fn push_native_metrics(
     builder: &mut metrics::Builder,
-    run_id: SemanticId,
+    run_id: RunId,
     step: i64,
     native: &pse_backend_native::solve::SolveReport,
     events: StepEvents<'_>,

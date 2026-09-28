@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! The same original-model assessments at explicit trajectory samples.
+use pse_model::generated::identities::RunId;
 use super::*;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -48,7 +49,7 @@ impl ModelingSimulation {
     }
     pub(in crate::workflow) fn check_samples(
         &self,
-        run_id: SemanticId,
+        run_id: RunId,
         report: &native::Report,
         parameters: &[f64],
         cancel: &Arc<AtomicBool>,

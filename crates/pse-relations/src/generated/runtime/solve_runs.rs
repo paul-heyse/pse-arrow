@@ -6,20 +6,20 @@
 pub use pse_model::generated::r#runtime::r#solve_runs::{RuntimeSolveRunsRow, Row};
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    135u8, 177u8, 81u8, 229u8, 235u8, 222u8, 208u8, 218u8, 247u8, 163u8, 224u8, 71u8,
-    18u8, 116u8, 245u8, 28u8,
+    99u8, 233u8, 160u8, 112u8, 127u8, 7u8, 164u8, 244u8, 170u8, 38u8, 168u8, 48u8, 30u8,
+    21u8, 248u8, 36u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "solve_runs";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 3u32;
+pub const VERSION: u32 = 4u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    152u8, 49u8, 222u8, 43u8, 85u8, 197u8, 46u8, 164u8, 71u8, 9u8, 174u8, 255u8, 61u8,
-    114u8, 56u8, 44u8, 71u8, 220u8, 155u8, 192u8, 74u8, 57u8, 84u8, 17u8, 118u8, 106u8,
-    192u8, 246u8, 13u8, 174u8, 75u8, 112u8,
+    182u8, 119u8, 210u8, 164u8, 241u8, 214u8, 210u8, 211u8, 179u8, 205u8, 88u8, 242u8,
+    129u8, 234u8, 212u8, 23u8, 173u8, 247u8, 100u8, 145u8, 158u8, 226u8, 5u8, 215u8,
+    58u8, 191u8, 32u8, 250u8, 55u8, 199u8, 117u8, 91u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
     fn append(
@@ -41,56 +41,60 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
             children[3usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#case_id, children[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#backend, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#instance_id,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#backend, children[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#native_code,
-            children[6usize].as_mut(),
+            children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#native_status,
-            children[7usize].as_mut(),
+            children[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#state, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, children[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#termination,
-            children[9usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#assurance,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#qualification,
+            &self.r#assurance,
             children[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#candidate_kind,
+            &self.r#qualification,
             children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#feasible,
+            &self.r#candidate_kind,
             children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective,
+            &self.r#feasible,
             children[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective_sense,
+            &self.r#objective,
             children[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective_quantity_id,
+            &self.r#objective_sense,
             children[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#validation_error,
+            &self.r#objective_quantity_id,
             children[17usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#error, children[18usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validation_error,
+            children[18usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#error, children[19usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#transformation,
-            children[19usize].as_mut(),
+            children[20usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -102,64 +106,67 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <Option<
-            crate::generated::identities::ModelId,
+            crate::generated::identities::DeclarationId,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
             pse_ids::ContentHash,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            crate::generated::identities::CaseId,
+            crate::generated::identities::DeclarationId,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <Option<
-            crate::generated::enums::NativeBackend,
+            crate::generated::identities::InstanceId,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Option<
-            i64,
+            crate::generated::enums::NativeBackend,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
-            String,
+            i64,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <crate::generated::enums::NativeRunState as crate::columnar::ArrowValue>::append_null(
-            children[8usize].as_mut(),
+            children[9usize].as_mut(),
         )?;
         <Option<
             crate::generated::enums::NativeTermination,
-        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <crate::generated::enums::NativeAssurance as crate::columnar::ArrowValue>::append_null(
-            children[10usize].as_mut(),
+            children[11usize].as_mut(),
         )?;
         <crate::generated::enums::NativeQualification as crate::columnar::ArrowValue>::append_null(
-            children[11usize].as_mut(),
+            children[12usize].as_mut(),
         )?;
         <Option<
             crate::generated::enums::NativeCandidateKind,
-        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
-        <Option<
-            bool,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Option<
-            f64,
+            bool,
         > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         <Option<
-            crate::generated::enums::NativeObjectiveSense,
+            f64,
         > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::enums::NativeObjectiveSense,
         > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         <Option<
-            String,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
         <Option<
-            pse_ids::ContentHash,
+            String,
         > as crate::columnar::ArrowValue>::append_null(children[19usize].as_mut())?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[20usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -170,7 +177,7 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#run_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#run_id: <crate::generated::identities::RunId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -179,7 +186,7 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
                 index,
             )?,
             r#model_id: <Option<
-                crate::generated::identities::ModelId,
+                crate::generated::identities::DeclarationId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
@@ -191,93 +198,99 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsRow {
                 index,
             )?,
             r#case_id: <Option<
-                crate::generated::identities::CaseId,
+                crate::generated::identities::DeclarationId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#instance_id: <Option<
+                crate::generated::identities::InstanceId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
                 index,
             )?,
             r#backend: <Option<
                 crate::generated::enums::NativeBackend,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#native_code: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#native_status: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#state: <crate::generated::enums::NativeRunState as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#termination: <Option<
                 crate::generated::enums::NativeTermination,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
-                index,
-            )?,
-            r#assurance: <crate::generated::enums::NativeAssurance as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
                 index,
             )?,
-            r#qualification: <crate::generated::enums::NativeQualification as crate::columnar::ArrowValue>::read(
+            r#assurance: <crate::generated::enums::NativeAssurance as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#qualification: <crate::generated::enums::NativeQualification as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#candidate_kind: <Option<
                 crate::generated::enums::NativeCandidateKind,
             > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#feasible: <Option<
                 bool,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
             r#objective: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(14usize).as_ref(),
+                input.column(15usize).as_ref(),
                 index,
             )?,
             r#objective_sense: <Option<
                 crate::generated::enums::NativeObjectiveSense,
             > as crate::columnar::ArrowValue>::read(
-                input.column(15usize).as_ref(),
+                input.column(16usize).as_ref(),
                 index,
             )?,
             r#objective_quantity_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(16usize).as_ref(),
+                input.column(17usize).as_ref(),
                 index,
             )?,
             r#validation_error: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(17usize).as_ref(),
+                input.column(18usize).as_ref(),
                 index,
             )?,
             r#error: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(18usize).as_ref(),
+                input.column(19usize).as_ref(),
                 index,
             )?,
             r#transformation: <Option<
                 pse_ids::ContentHash,
             > as crate::columnar::ArrowValue>::read(
-                input.column(19usize).as_ref(),
+                input.column(20usize).as_ref(),
                 index,
             )?,
         })
@@ -333,56 +346,60 @@ impl crate::columnar::RelationRow for RuntimeSolveRunsRow {
         crate::columnar::ArrowValue::append(&self.r#model_id, columns[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#revision, columns[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#case_id, columns[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#backend, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#instance_id,
+            columns[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#backend, columns[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#native_code,
-            columns[6usize].as_mut(),
+            columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#native_status,
-            columns[7usize].as_mut(),
+            columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#state, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#state, columns[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#termination,
-            columns[9usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#assurance,
             columns[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#qualification,
+            &self.r#assurance,
             columns[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#candidate_kind,
+            &self.r#qualification,
             columns[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#feasible,
+            &self.r#candidate_kind,
             columns[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective,
+            &self.r#feasible,
             columns[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective_sense,
+            &self.r#objective,
             columns[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#objective_quantity_id,
+            &self.r#objective_sense,
             columns[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#validation_error,
+            &self.r#objective_quantity_id,
             columns[17usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#error, columns[18usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#validation_error,
+            columns[18usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#error, columns[19usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#transformation,
-            columns[19usize].as_mut(),
+            columns[20usize].as_mut(),
         )?;
         Ok(())
     }
@@ -418,10 +435,10 @@ impl crate::columnar::RelationRow for RuntimeSolveRunsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        51_200_usize + size_of::<Self::Builder>()
+        54_272_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        400usize
+        424usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -458,6 +475,17 @@ impl crate::columnar::RelationRow for RuntimeSolveRunsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             if (self.r#case_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#instance_id).is_some() {
                 crate::columnar::allocation_add(
                     1,
                     Ok::<usize, crate::RelationError>(16usize)?,
@@ -620,7 +648,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 20usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 21usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -648,78 +676,83 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 20usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "backend",
+        name: "instance_id",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "native_code",
+        name: "backend",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "native_status",
+        name: "native_code",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "state",
+        name: "native_status",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "termination",
+        name: "state",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "assurance",
+        name: "termination",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "qualification",
+        name: "assurance",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "candidate_kind",
+        name: "qualification",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "feasible",
+        name: "candidate_kind",
         position: 13usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "objective",
+        name: "feasible",
         position: 14usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "objective_sense",
+        name: "objective",
         position: 15usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "objective_quantity_id",
+        name: "objective_sense",
         position: 16usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "validation_error",
+        name: "objective_quantity_id",
         position: 17usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "error",
+        name: "validation_error",
         position: 18usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "transformation",
+        name: "error",
         position: 19usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "transformation",
+        position: 20usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -734,36 +767,38 @@ pub mod columns {
     pub const REVISION: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///case_id
     pub const CASE_ID: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///instance_id
+    pub const INSTANCE_ID: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///backend
-    pub const BACKEND: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const BACKEND: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///native_code
-    pub const NATIVE_CODE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const NATIVE_CODE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///native_status
-    pub const NATIVE_STATUS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const NATIVE_STATUS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///state
-    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///termination
-    pub const TERMINATION: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const TERMINATION: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///assurance
-    pub const ASSURANCE: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const ASSURANCE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///qualification
-    pub const QUALIFICATION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const QUALIFICATION: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///candidate_kind
-    pub const CANDIDATE_KIND: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const CANDIDATE_KIND: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///feasible
-    pub const FEASIBLE: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const FEASIBLE: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///objective
-    pub const OBJECTIVE: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const OBJECTIVE: crate::columnar::ColumnReference = super::COLUMNS[15usize];
     ///objective_sense
-    pub const OBJECTIVE_SENSE: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    pub const OBJECTIVE_SENSE: crate::columnar::ColumnReference = super::COLUMNS[16usize];
     ///objective_quantity_id
-    pub const OBJECTIVE_QUANTITY_ID: crate::columnar::ColumnReference = super::COLUMNS[16usize];
+    pub const OBJECTIVE_QUANTITY_ID: crate::columnar::ColumnReference = super::COLUMNS[17usize];
     ///validation_error
-    pub const VALIDATION_ERROR: crate::columnar::ColumnReference = super::COLUMNS[17usize];
+    pub const VALIDATION_ERROR: crate::columnar::ColumnReference = super::COLUMNS[18usize];
     ///error
-    pub const ERROR: crate::columnar::ColumnReference = super::COLUMNS[18usize];
+    pub const ERROR: crate::columnar::ColumnReference = super::COLUMNS[19usize];
     ///transformation
-    pub const TRANSFORMATION: crate::columnar::ColumnReference = super::COLUMNS[19usize];
+    pub const TRANSFORMATION: crate::columnar::ColumnReference = super::COLUMNS[20usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -775,6 +810,7 @@ pub struct RuntimeSolveRunsView<'a> {
     model_id_column: &'a arrow_array::FixedSizeBinaryArray,
     revision_column: &'a arrow_array::FixedSizeBinaryArray,
     case_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    instance_id_column: &'a arrow_array::FixedSizeBinaryArray,
     backend_column: &'a arrow_array::StringArray,
     native_code_column: &'a arrow_array::Int64Array,
     native_status_column: &'a arrow_array::StringArray,
@@ -844,51 +880,54 @@ impl<'a> RuntimeSolveRunsView<'a> {
             case_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(4usize).as_ref())?,
+            instance_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(5usize).as_ref())?,
             backend_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             native_code_column: crate::columnar::array::<
                 arrow_array::Int64Array,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             native_status_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             state_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             termination_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             assurance_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             qualification_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             candidate_kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             feasible_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
             objective_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
             objective_sense_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(15usize).as_ref())?,
+            >(batch.column(16usize).as_ref())?,
             objective_quantity_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(16usize).as_ref())?,
+            >(batch.column(17usize).as_ref())?,
             validation_error_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(17usize).as_ref())?,
+            >(batch.column(18usize).as_ref())?,
             error_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(18usize).as_ref())?,
+            >(batch.column(19usize).as_ref())?,
             transformation_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(19usize).as_ref())?,
+            >(batch.column(20usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -965,6 +1004,18 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "instance_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn instance_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.instance_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "instance_id", "`.")]
+    pub fn instance_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "backend",
         "`, including its offsets and validity bitmap.",
     )]
@@ -973,7 +1024,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "backend", "`.")]
     pub fn backend_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -985,7 +1036,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "native_code", "`.")]
     pub fn native_code_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -997,7 +1048,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "native_status", "`.")]
     pub fn native_status_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1009,7 +1060,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "state", "`.")]
     pub fn state_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1021,7 +1072,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "termination", "`.")]
     pub fn termination_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1033,7 +1084,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "assurance", "`.")]
     pub fn assurance_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1045,7 +1096,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "qualification", "`.")]
     pub fn qualification_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1057,7 +1108,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "candidate_kind", "`.")]
     pub fn candidate_kind_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1069,7 +1120,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "feasible", "`.")]
     pub fn feasible_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1081,7 +1132,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "objective", "`.")]
     pub fn objective_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1093,7 +1144,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "objective_sense", "`.")]
     pub fn objective_sense_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[16usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1111,7 +1162,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
         "`.",
     )]
     pub fn objective_quantity_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[16usize]
+        &self.batch.schema_ref().fields()[17usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1123,7 +1174,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "validation_error", "`.")]
     pub fn validation_error_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[17usize]
+        &self.batch.schema_ref().fields()[18usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1135,7 +1186,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "error", "`.")]
     pub fn error_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[18usize]
+        &self.batch.schema_ref().fields()[19usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1147,7 +1198,7 @@ impl<'a> RuntimeSolveRunsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "transformation", "`.")]
     pub fn transformation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[19usize]
+        &self.batch.schema_ref().fields()[20usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1166,6 +1217,10 @@ impl<'a> RuntimeSolveRunsView<'a> {
             r#model_id: crate::columnar::ArrowValue::read(self.model_id_column, index)?,
             r#revision: crate::columnar::ArrowValue::read(self.revision_column, index)?,
             r#case_id: crate::columnar::ArrowValue::read(self.case_id_column, index)?,
+            r#instance_id: crate::columnar::ArrowValue::read(
+                self.instance_id_column,
+                index,
+            )?,
             r#backend: crate::columnar::ArrowValue::read(self.backend_column, index)?,
             r#native_code: crate::columnar::ArrowValue::read(
                 self.native_code_column,

@@ -139,7 +139,7 @@ mod tests {
                 "widgets",
                 "widget_id",
                 vec![
-                    F::key("widget_id", F::id(), "the widget").with_identity("widget"),
+                    F::key("widget_id", F::id(), "the widget").with_owned_identity("widget"),
                     F::payload(
                         "seen_at",
                         F::native(crate::model::extension::timestamp_micros_storage()),

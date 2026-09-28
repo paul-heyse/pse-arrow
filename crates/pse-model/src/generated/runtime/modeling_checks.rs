@@ -9,8 +9,8 @@
 )]
 #[derive(Clone, Debug)]
 pub struct RuntimeModelingChecksRow {
-    ///run_id
-    pub r#run_id: pse_ids::SemanticId,
+    ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    pub r#run_id: crate::generated::identities::RunId,
     ///step
     pub r#step: i64,
     ///sample_index

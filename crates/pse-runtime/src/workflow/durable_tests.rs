@@ -162,7 +162,7 @@ async fn durable_run_listed_after_restart() {
         .iter()
         .find(|a| a.attempt_id == attempt_id)
         .expect("the durable run is listed after a restart");
-    assert_eq!(listed.run_id, run_id.into());
+    assert_eq!(listed.run_id, run_id);
     assert_eq!(listed.state, AttemptState::Completed);
     assert_eq!(listed.worker.as_deref(), Some("runtime-a"));
     assert!(listed.finished_at.is_some());

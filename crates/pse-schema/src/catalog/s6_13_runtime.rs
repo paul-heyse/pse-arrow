@@ -34,7 +34,7 @@ pub(super) fn declare_diagnostics(builder: &mut RegistryBuilder) {
 pub fn diagnostic_columns(execution_finding: bool) -> Vec<FieldContract> {
     let mut fields = vec![
         column("finding_id", T::id()),
-        column("run_id", T::id()).optional(),
+        super::declarations::run_id().optional(),
         column("check_id", T::id()),
         column("severity", T::enumeration("FindingSeverity")),
         column("subjects", T::list(T::id())),

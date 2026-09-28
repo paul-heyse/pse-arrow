@@ -22,12 +22,12 @@ use super::{RunReport, RunRequest, RunResult, WorkflowError};
 use pse_backend_native::solve::{
     Compatibility, Event, IncumbentEvent, Metric, ProgressTap, WarmPayload, WarmStart,
 };
-use pse_ids::{ContentHash, FramedHasher, SemanticId};
+use pse_ids::{ContentHash, FramedHasher};
 use pse_model::generated::enums::CandidateUse;
 use pse_operations::{
     OperationsError, Store,
     attempts::{
-        AttemptFilter, AttemptId, AttemptKind, NewAttempt, RuntimeOperationalAttemptsRow,
+        AttemptFilter, AttemptId, AttemptKind, NewAttempt, RunId, RuntimeOperationalAttemptsRow,
         RuntimeTermination, Termination, TerminationCode, TransitionNote,
     },
     jobs::{Finished, JobId, JobOutcome, Requeue},
@@ -310,6 +310,8 @@ impl Outcome {
 pub(crate) struct Claim {
     pub(crate) job: JobId,
     pub(crate) attempt: AttemptId,
+    /// The run the job's attempts try; the claimed try runs as it.
+    pub(crate) run: RunId,
 }
 
 /// One durable attempt of a run: registration, lease, stream and termination.
@@ -361,6 +363,12 @@ impl DurableAttempt {
         self.attempt
     }
 
+    /// The run a claimed attempt tries, as the store holds it; `None` for a new attempt,
+    /// whose run is minted when it starts and stored at registration.
+    pub(super) fn claimed_run(&self) -> Option<RunId> {
+        self.claim.map(|claim| claim.run)
+    }
+
     /// The durable progress tap; every event reaches the store, whatever the in-memory cap.
     pub(super) fn tap(&self) -> Arc<dyn ProgressTap> {
         self.stream.tap.clone()
@@ -381,7 +389,7 @@ impl DurableAttempt {
     /// claimed attempt is already registered and running.
     pub(super) async fn register(
         &self,
-        run_id: SemanticId,
+        run_id: RunId,
         request: &RunRequest,
     ) -> Result<(), WorkflowError> {
         if self.claim.is_some() {
@@ -393,7 +401,7 @@ impl DurableAttempt {
             .create(
                 &NewAttempt {
                     attempt_id: self.attempt,
-                    run_id: run_id.into(),
+                    run_id,
                     kind,
                     request_identity,
                     preparation_identity,

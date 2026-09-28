@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Durable declarations and physical results for the native library compiler.
 //! Expressions are authored DSL; no CAS serialization or evaluator state is durable.
-use super::declarations::{column, enumeration, identity, relation, relation_version};
+use super::declarations::{
+    column, documented, enumeration, identity, relation, relation_version, run_id,
+};
 use crate::{
     RegistryBuilder,
     model::{EnumDecl, EnumMember, FieldContract as T, Namespace as N, SnapshotClass as S},
@@ -23,17 +25,28 @@ fn ordinal() -> T {
 fn record(fields: Vec<(&'static str, T)>) -> T {
     T::structure(fields.into_iter().map(|(n, t)| t.with_name(n)).collect())
 }
+/// The model a row belongs to: the specialized definition, typed `declaration`. Its
+/// derivations live in `pse_model::lineage`; these column documents own the meaning.
+fn model_id(doc: &'static str) -> T {
+    documented("model_id", T::id(), doc).with_identity("declaration")
+}
+/// The case a row belongs to: the solved root when it is a case, typed `declaration`.
+fn case_id(doc: &'static str) -> T {
+    documented("case_id", T::id(), doc)
+        .with_identity("declaration")
+        .optional()
+}
+/// The instance a row's solve prepared, typed `instance`.
+fn instance_id(doc: &'static str) -> T {
+    documented("instance_id", T::id(), doc)
+        .with_identity("instance")
+        .optional()
+}
+/// The fit a row belongs to, typed `fit`.
+fn fit_id(doc: &'static str) -> T {
+    documented("fit_id", T::id(), doc).with_identity("fit").optional()
+}
 pub(super) fn declare(b: &mut RegistryBuilder) {
-    identity(
-        b,
-        "model",
-        "The model a numerical requirement or a run's lineage belongs to",
-    );
-    identity(
-        b,
-        "case",
-        "The analysis case a numerical requirement or a run's lineage belongs to",
-    );
     relation(
         b,
         N::Runtime,
@@ -59,18 +72,28 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "run_lineage",
+        2,
         S::Derived,
         &["run_id", "step"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", ordinal()),
-            column("model_id", T::id()).with_identity("model"),
+            model_id(
+                "The specialized definition the step solved: the root declaration its model specializes. A fit names the one definition all its experiments specialize, and none when they specialize different ones.",
+            )
+            .optional(),
             column("revision", T::hash()),
-            column("case_id", T::id()).with_identity("case"),
+            case_id(
+                "The case declaration the step solved: its root when that root is a case or a test (a case with an oracle), otherwise absent. A fit names the one case all its experiments solve, if they share one.",
+            ),
+            instance_id(
+                "The instance the step's root became: the root declaration's own identity for an ordinary solve or simulation, the experiment's instance for a fit experiment. Absent for a fit, which spans its experiments' instances.",
+            ),
+            fit_id("The fit the step solved; absent for a modeling solve or simulation."),
             column("request_identity", T::hash()),
             column("preparation_identity", T::hash()),
             column("profile_identity", T::hash()),
@@ -78,7 +101,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("physical_identity", T::hash()),
             column("environment_identity", T::hash()),
         ],
-        "Completion-owned semantic lineage. Run identity names the attempt; it is not part of request identity. Effective settings, submitted start and native observations are retained in solve_metrics; source provider and parameter data are retained with the immutable revision.",
+        "Completion-owned semantic lineage. The run is the execution, not its content: it is not part of request identity, and a durable run's tries are attempts recorded in the operational store, the publication naming the attempt. Model, case, instance and fit name what was solved (`pse_model::lineage`). Effective settings, submitted start and native observations are retained in solve_metrics; source provider and parameter data are retained with the immutable revision.",
     );
     enumeration(b, "ComputationKind", ["simulation", "fit"]);
     enumeration(
@@ -162,7 +185,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "step"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", ordinal()),
             column("native_termination", T::enumeration("NativeTermination")).optional(),
             column("numerically_feasible", flag()).optional(),
@@ -180,7 +203,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "step", "target_kind", "target_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", ordinal()),
             column("target_id", T::id()),
             column("target_kind", T::enumeration("NumericalTarget")),
@@ -205,16 +228,26 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         ],
         "Frozen original-representation budgets and selected/overridden source interpretations. Coordinate factors describe model normalization separately from native algorithmic scaling.",
     );
-    relation(
+    relation_version(
         b,
         N::Authored,
         "numerical_requirements",
+        2,
         S::Model,
         &["requirement_id"],
         vec![
             column("requirement_id", T::id()),
-            column("model_id", T::id()).with_identity("model"),
-            column("case_id", T::id()).with_identity("case").optional(),
+            model_id(
+                "The specialized definition the requirement belongs to: the root declaration of the model it is declared for. A modeling preparation's requirements name its root, an implicit block's trial hints their enclosing model's; a fit's parameter requirements name the one definition all its experiments specialize, and none when they specialize different ones.",
+            )
+            .optional(),
+            case_id(
+                "The case declaration the requirement belongs to: the solved root when it is a case or a test, otherwise absent.",
+            ),
+            instance_id(
+                "The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's.",
+            ),
+            fit_id("The fit whose parameter requirement this is; absent otherwise."),
             column("target_id", T::id()),
             column("target_kind", T::enumeration("NumericalTarget")),
             column("nominal", real()).optional(),
@@ -464,17 +497,21 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         b,
         N::Runtime,
         "solve_runs",
-        3,
+        4,
         S::Derived,
         &["run_id", "step"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", ordinal()),
-            column("model_id", T::id())
-                .with_identity("model")
+            model_id("The specialized definition the step solved: the root declaration its model specializes.")
                 .optional(),
             column("revision", T::hash()).optional(),
-            column("case_id", T::id()).with_identity("case").optional(),
+            case_id(
+                "The case declaration the step solved: its root when that root is a case or a test, otherwise absent.",
+            ),
+            instance_id(
+                "The instance the step's root became: the root declaration's own identity, or a fit experiment's instance.",
+            ),
             column("backend", T::enumeration("NativeBackend")).optional(),
             column("native_code", T::native(D::Int64)).optional(),
             column("native_status", text()).optional(),
@@ -501,7 +538,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "step", "symbol_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", ordinal()),
             column("symbol_id", T::id()),
             column("quantity_id", T::id()).optional(),
@@ -531,7 +568,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "step", "row_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", ordinal()),
             column("row_id", T::id()),
             column("quantity_id", T::id()).optional(),
@@ -556,7 +593,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "step", "namespace", "name"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", ordinal()),
             column("namespace", text()),
             column("name", text()),
@@ -577,7 +614,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "step", "rank", "symbol_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("step", ordinal()),
             column("rank", ordinal()),
             column("symbol_id", T::id()),
@@ -603,7 +640,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Case,
         &["fit_id"],
         vec![
-            column("fit_id", T::id()).with_identity("fit"),
+            column("fit_id", T::id()).with_owned_identity("fit"),
             column(
                 "parameters",
                 T::list(record(vec![
@@ -654,7 +691,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("kind", T::enumeration("ComputationKind")),
             column("source_identity", T::hash()),
             column("profile_identity", T::hash()),
@@ -690,7 +727,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "sample", "symbol_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("sample", ordinal()),
             column("time", real()),
             column("symbol_id", T::id()),
@@ -707,7 +744,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "ordinal", "symbol_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("ordinal", ordinal()),
             column("event_id", T::id()).optional(),
             column("time", real()),
@@ -730,7 +767,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             "parameter_id",
         ],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("experiment_id", T::id()).with_identity("instance"),
             column("sample", ordinal()),
             column("time", real()).optional(),
@@ -749,7 +786,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "experiment_id", "symbol_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("experiment_id", T::id()).with_identity("instance"),
             column("symbol_id", T::id()),
             column("quantity_id", T::id()),
@@ -768,7 +805,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "experiment_id", "row_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("experiment_id", T::id()).with_identity("instance"),
             column("row_id", T::id()),
             column("quantity_id", T::id()),
@@ -787,7 +824,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "parameter_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("parameter_id", T::id()),
             column("fixed", flag()),
             column("value", real()).optional(),
@@ -804,7 +841,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "observation_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("observation_id", T::id()),
             column("experiment_id", T::id()).with_identity("instance"),
             column("included", flag()),

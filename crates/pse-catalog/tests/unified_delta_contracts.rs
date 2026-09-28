@@ -125,7 +125,7 @@ fn location(path: &std::path::Path) -> url::Url {
 fn publication_row(id: u8, parent: Option<u8>) -> publication_manifests::Row {
     let identity = |id| pse_ids::SemanticId::from_bytes([id; 16]);
     publication_manifests::Row {
-        publication_id: identity(id),
+        publication_id: identity(id).into(),
         workspace_id: identity(1).into(),
         parent_publication_id: parent.map(|parent| identity(parent).into()),
         attempt_id: identity(id + 100).into(),

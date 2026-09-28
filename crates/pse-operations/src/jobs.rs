@@ -13,7 +13,7 @@ use chrono::{DateTime, Utc};
 use pse_operations_queries::client::Params as _;
 use pse_operations_queries::queries::jobs as statements;
 
-use crate::attempts::{self, AttemptId, Lease, NewAttempt, TransitionNote, Tx, micros, utc};
+use crate::attempts::{self, AttemptId, Lease, NewAttempt, RunId, TransitionNote, Tx, micros, utc};
 use crate::error::{Classify, OperationsError, Target};
 use crate::lifecycle::AttemptState;
 use crate::store::Store;
@@ -178,6 +178,8 @@ pub struct ClaimedJob {
     pub job_id: JobId,
     /// The attempt this try runs as.
     pub attempt_id: AttemptId,
+    /// The run the job's attempts try: a retried try runs as the same run.
+    pub run_id: RunId,
     /// The try this one supersedes, for a requeued job: its incumbents are where a
     /// resumed solve starts (Plan 22 G8). `None` for the first try.
     pub parent_attempt: Option<AttemptId>,
@@ -582,6 +584,7 @@ impl<'s> Jobs<'s> {
         Ok(Some(ClaimedJob {
             job_id: job.job_id,
             attempt_id: job.attempt_id,
+            run_id: attempt.run_id,
             parent_attempt: attempt.parent_attempt,
             payload_version: job.payload_version,
             payload: serde_json::from_str(&job.payload).map_err(|error| {

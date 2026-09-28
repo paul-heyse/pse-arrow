@@ -91,7 +91,7 @@ impl Publication {
     /// The publication identity (32 hexadecimal digits).
     #[getter]
     fn publication_id(&self, py: Python<'_>) -> PyResult<String> {
-        self.record(py, |record| record.publication_id.to_hex())
+        self.record(py, |record| record.publication_id.as_id().to_hex())
     }
     /// The workspace identity.
     #[getter]

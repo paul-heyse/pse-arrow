@@ -6,20 +6,20 @@
 pub use pse_model::generated::r#runtime::r#run_lineage::{RuntimeRunLineageRow, Row};
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    4u8, 113u8, 29u8, 76u8, 94u8, 73u8, 149u8, 27u8, 211u8, 53u8, 250u8, 161u8, 85u8,
-    244u8, 5u8, 232u8,
+    166u8, 157u8, 234u8, 196u8, 148u8, 125u8, 22u8, 34u8, 31u8, 4u8, 81u8, 204u8, 122u8,
+    69u8, 187u8, 41u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "run_lineage";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    41u8, 146u8, 177u8, 245u8, 184u8, 10u8, 215u8, 134u8, 131u8, 123u8, 34u8, 242u8,
-    105u8, 235u8, 114u8, 76u8, 209u8, 224u8, 185u8, 24u8, 243u8, 223u8, 131u8, 66u8,
-    61u8, 170u8, 18u8, 124u8, 20u8, 73u8, 223u8, 19u8,
+    79u8, 39u8, 128u8, 130u8, 41u8, 24u8, 109u8, 224u8, 80u8, 239u8, 94u8, 176u8, 160u8,
+    57u8, 163u8, 203u8, 251u8, 252u8, 170u8, 157u8, 12u8, 127u8, 195u8, 39u8, 101u8,
+    156u8, 89u8, 250u8, 80u8, 183u8, 44u8, 33u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
     fn append(
@@ -42,28 +42,33 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
         )?;
         crate::columnar::ArrowValue::append(&self.r#case_id, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#request_identity,
+            &self.r#instance_id,
             children[5usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#fit_id, children[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#preparation_identity,
-            children[6usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#profile_identity,
+            &self.r#request_identity,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#numerical_identity,
+            &self.r#preparation_identity,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#physical_identity,
+            &self.r#profile_identity,
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#environment_identity,
+            &self.r#numerical_identity,
             children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#physical_identity,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#environment_identity,
+            children[12usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -75,25 +80,25 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <crate::generated::identities::ModelId as crate::columnar::ArrowValue>::append_null(
-            children[2usize].as_mut(),
-        )?;
+        <Option<
+            crate::generated::identities::DeclarationId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
-        <crate::generated::identities::CaseId as crate::columnar::ArrowValue>::append_null(
-            children[4usize].as_mut(),
-        )?;
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
-            children[5usize].as_mut(),
-        )?;
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
-            children[6usize].as_mut(),
-        )?;
+        <Option<
+            crate::generated::identities::DeclarationId,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            crate::generated::identities::InstanceId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            crate::generated::identities::FitId,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[7usize].as_mut(),
         )?;
@@ -106,6 +111,12 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[10usize].as_mut(),
         )?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[11usize].as_mut(),
+        )?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[12usize].as_mut(),
+        )?;
         output.append(false);
         Ok(())
     }
@@ -116,7 +127,7 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#run_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#run_id: <crate::generated::identities::RunId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -124,7 +135,9 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#model_id: <crate::generated::identities::ModelId as crate::columnar::ArrowValue>::read(
+            r#model_id: <Option<
+                crate::generated::identities::DeclarationId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -132,32 +145,46 @@ impl crate::columnar::ArrowValue for RuntimeRunLineageRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#case_id: <crate::generated::identities::CaseId as crate::columnar::ArrowValue>::read(
+            r#case_id: <Option<
+                crate::generated::identities::DeclarationId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#request_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#instance_id: <Option<
+                crate::generated::identities::InstanceId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#preparation_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#fit_id: <Option<
+                crate::generated::identities::FitId,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#profile_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#request_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#numerical_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#preparation_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#physical_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#profile_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
                 index,
             )?,
-            r#environment_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#numerical_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#physical_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#environment_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -214,28 +241,33 @@ impl crate::columnar::RelationRow for RuntimeRunLineageRow {
         crate::columnar::ArrowValue::append(&self.r#revision, columns[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#case_id, columns[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#request_identity,
+            &self.r#instance_id,
             columns[5usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(&self.r#fit_id, columns[6usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#preparation_identity,
-            columns[6usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#profile_identity,
+            &self.r#request_identity,
             columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#numerical_identity,
+            &self.r#preparation_identity,
             columns[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#physical_identity,
+            &self.r#profile_identity,
             columns[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#environment_identity,
+            &self.r#numerical_identity,
             columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#physical_identity,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#environment_identity,
+            columns[12usize].as_mut(),
         )?;
         Ok(())
     }
@@ -271,10 +303,10 @@ impl crate::columnar::RelationRow for RuntimeRunLineageRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        47_104_usize + size_of::<Self::Builder>()
+        53_248_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        368usize
+        416usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -288,7 +320,14 @@ impl crate::columnar::RelationRow for RuntimeRunLineageRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(16usize)?,
+            if (self.r#model_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -296,7 +335,36 @@ impl crate::columnar::RelationRow for RuntimeRunLineageRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(16usize)?,
+            if (self.r#case_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#instance_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#fit_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -332,7 +400,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -360,33 +428,43 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "request_identity",
+        name: "instance_id",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "preparation_identity",
+        name: "fit_id",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "profile_identity",
+        name: "request_identity",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "numerical_identity",
+        name: "preparation_identity",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "physical_identity",
+        name: "profile_identity",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "environment_identity",
+        name: "numerical_identity",
         position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "physical_identity",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "environment_identity",
+        position: 12usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -401,18 +479,22 @@ pub mod columns {
     pub const REVISION: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///case_id
     pub const CASE_ID: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///instance_id
+    pub const INSTANCE_ID: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///fit_id
+    pub const FIT_ID: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///request_identity
-    pub const REQUEST_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const REQUEST_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///preparation_identity
-    pub const PREPARATION_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const PREPARATION_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///profile_identity
-    pub const PROFILE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const PROFILE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///numerical_identity
-    pub const NUMERICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const NUMERICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///physical_identity
-    pub const PHYSICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const PHYSICAL_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///environment_identity
-    pub const ENVIRONMENT_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const ENVIRONMENT_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -424,6 +506,8 @@ pub struct RuntimeRunLineageView<'a> {
     model_id_column: &'a arrow_array::FixedSizeBinaryArray,
     revision_column: &'a arrow_array::FixedSizeBinaryArray,
     case_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    instance_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    fit_id_column: &'a arrow_array::FixedSizeBinaryArray,
     request_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     preparation_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     profile_identity_column: &'a arrow_array::FixedSizeBinaryArray,
@@ -484,24 +568,30 @@ impl<'a> RuntimeRunLineageView<'a> {
             case_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(4usize).as_ref())?,
-            request_identity_column: crate::columnar::array::<
+            instance_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(5usize).as_ref())?,
-            preparation_identity_column: crate::columnar::array::<
+            fit_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(6usize).as_ref())?,
-            profile_identity_column: crate::columnar::array::<
+            request_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(7usize).as_ref())?,
-            numerical_identity_column: crate::columnar::array::<
+            preparation_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(8usize).as_ref())?,
-            physical_identity_column: crate::columnar::array::<
+            profile_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(9usize).as_ref())?,
-            environment_identity_column: crate::columnar::array::<
+            numerical_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(10usize).as_ref())?,
+            physical_identity_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(11usize).as_ref())?,
+            environment_identity_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -578,6 +668,30 @@ impl<'a> RuntimeRunLineageView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "instance_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn instance_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.instance_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "instance_id", "`.")]
+    pub fn instance_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "fit_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn fit_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.fit_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "fit_id", "`.")]
+    pub fn fit_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "request_identity",
         "`, including its offsets and validity bitmap.",
     )]
@@ -588,7 +702,7 @@ impl<'a> RuntimeRunLineageView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "request_identity", "`.")]
     pub fn request_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -606,7 +720,7 @@ impl<'a> RuntimeRunLineageView<'a> {
         "`.",
     )]
     pub fn preparation_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -620,7 +734,7 @@ impl<'a> RuntimeRunLineageView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "profile_identity", "`.")]
     pub fn profile_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -638,7 +752,7 @@ impl<'a> RuntimeRunLineageView<'a> {
         "`.",
     )]
     pub fn numerical_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -652,7 +766,7 @@ impl<'a> RuntimeRunLineageView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "physical_identity", "`.")]
     pub fn physical_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -670,7 +784,7 @@ impl<'a> RuntimeRunLineageView<'a> {
         "`.",
     )]
     pub fn environment_identity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -689,6 +803,11 @@ impl<'a> RuntimeRunLineageView<'a> {
             r#model_id: crate::columnar::ArrowValue::read(self.model_id_column, index)?,
             r#revision: crate::columnar::ArrowValue::read(self.revision_column, index)?,
             r#case_id: crate::columnar::ArrowValue::read(self.case_id_column, index)?,
+            r#instance_id: crate::columnar::ArrowValue::read(
+                self.instance_id_column,
+                index,
+            )?,
+            r#fit_id: crate::columnar::ArrowValue::read(self.fit_id_column, index)?,
             r#request_identity: crate::columnar::ArrowValue::read(
                 self.request_identity_column,
                 index,

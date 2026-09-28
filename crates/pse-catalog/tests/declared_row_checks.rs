@@ -84,7 +84,7 @@ fn candidate(registry: &Registry) -> publication_manifests::Row {
     let spec = registry.relation("authored.pairs").unwrap();
     publication_manifests::Row {
         workspace_id: SemanticId::NIL.into(),
-        publication_id: SemanticId::NIL,
+        publication_id: SemanticId::NIL.into(),
         parent_publication_id: None,
         attempt_id: SemanticId::NIL.into(),
         kind: PublicationKind::Relations,

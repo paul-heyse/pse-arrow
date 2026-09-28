@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Authored source interpretation feeds the common sparse fitting engine.
+use pse_model::generated::identities::RunId;
 use super::*;
 use crate::math::modeling::ModelingPreparation;
 use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
@@ -303,6 +304,11 @@ impl ModelingPackage {
             .into_iter()
             .map(|p| p.ok_or_else(|| contract("fit parameter has no experiment binding")))
             .collect::<Result<Vec<_>, _>>()?;
+        let lineage = pse_model::lineage::Fitted::new(
+            d.fit_id,
+            sources.iter().map(|(_, _, model, _)| model.solved()),
+        );
+        let named = lineage.lineage();
         let mut targets = Vec::new();
         let mut declarations = Vec::new();
         let mut vars = Vec::new();
@@ -333,8 +339,10 @@ impl ModelingPackage {
                         d.fit_id.as_id(),
                         &format!("nominal.{}", p.symbol_id),
                     ),
-                    model_id: pse_model::lineage::model_of_fit(d.fit_id),
-                    case_id: None,
+                    model_id: named.model_id,
+                    case_id: named.case_id,
+                    instance_id: named.instance_id,
+                    fit_id: named.fit_id,
                     target_id: p.symbol_id,
                     target_kind: NumericalTarget::Variable,
                     nominal: Some(p.scale),
@@ -832,6 +840,7 @@ impl ModelingPackage {
         let problem = PreparedExperiments {
             execution_identity: execution_identity.finish_hash(),
             declaration: d,
+            lineage,
             profile,
             order,
             variables: vars,
@@ -859,7 +868,7 @@ impl ModelingPackage {
 impl PreparedFit {
     pub(crate) fn execute(
         &self,
-        run_id: SemanticId,
+        run_id: RunId,
         flag: Arc<std::sync::atomic::AtomicBool>,
         progress: Arc<native::solve::Progress>,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {

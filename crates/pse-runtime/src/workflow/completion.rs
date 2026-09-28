@@ -4,7 +4,6 @@
 use super::{RunReport, RunRequest, RunResult, WorkflowError};
 use crate::math::solves::Outcome;
 use pse_ids::{ContentHash, FramedHasher};
-use pse_model::lineage::{case_of_fit, case_of_instance, model_of_fit, model_of_instance};
 use pse_model::generated::{
     enums::*,
     runtime::{computation_runs, run_lineage, solve_runs},
@@ -45,6 +44,7 @@ impl RunResult {
             RunRequest::Modeling(requests) => {
                 for (ordinal,request) in requests.iter().enumerate() {
                     let step=ordinal as i64;
+                let solved = request.model.model.solved();
                 let declaration = request.model.case.compiled().plan.structure();
                 let outcome = match &self.report {Ok(RunReport::Modeling(r))=>r.get(ordinal).map(|r|&r.outcome),_=>None};
                     let native = match outcome {
@@ -70,9 +70,10 @@ impl RunResult {
                     product.solves.push(solve_runs::Row {
                         run_id: self.run_id,
                         step,
-                        model_id: Some(model_of_instance(request.instance)),
+                        model_id: Some(solved.model()),
                         revision: Some(request.source.revision.identity()),
-                        case_id: Some(case_of_instance(request.instance)),
+                        case_id: solved.case(),
+                        instance_id: Some(solved.instance()),
                         backend: native.map(|r| r.backend),
                         native_code: native.map(|r| r.termination.code),
                         native_status: native.map(|r| r.termination.name.clone()),
@@ -125,7 +126,7 @@ impl RunResult {
                 let selected = request.solve.request_identity().map_err(crate::math::MathRuntimeError::from)?;
                 let profile = crate::math::solves::profile_key(&request.profile).map_err(crate::math::MathRuntimeError::from)?;
                 let mut identity = FramedHasher::new(pse_ids::Frame::CompletedRequestV2);
-                identity.hash(&request.source.revision.identity()).id(&request.instance.as_id()).hash(&preparation).hash(&selected).hash(&profile).hash(&request.solve.numerics().key);
+                identity.hash(&request.source.revision.identity()).id(&solved.instance().as_id()).hash(&preparation).hash(&selected).hash(&profile).hash(&request.solve.numerics().key);
                 // A result is traceable to what seeded it and to native state it reused:
                 // the previous step's seed and the reuse of retained native state enter
                 // its lineage identity (F25).
@@ -136,8 +137,9 @@ impl RunResult {
                     actual_environment.str(native.backend.as_str());
                     for (name,value) in &native.provenance {actual_environment.str(name).str(value);}
                 }
+                let lineage = solved.lineage();
                 product.lineage.push(run_lineage::Row {
-                    run_id:self.run_id,step,model_id:model_of_instance(request.instance),revision:request.source.revision.identity(),case_id:case_of_instance(request.instance),
+                    run_id:self.run_id,step,model_id:lineage.model_id,revision:request.source.revision.identity(),case_id:lineage.case_id,instance_id:lineage.instance_id,fit_id:lineage.fit_id,
                     request_identity:identity.finish_hash(),preparation_identity:preparation,profile_identity:profile,
                     numerical_identity:request.solve.numerics().key,physical_identity:request.source.physical.key,environment_identity:actual_environment.finish_hash(),
                 });
@@ -193,12 +195,15 @@ impl RunResult {
                         p.profile(),
                     ));
                 }
+                let lineage = p.solved.lineage();
                 product.lineage.push(run_lineage::Row {
                     run_id: self.run_id,
                     step: 0,
-                    model_id: model_of_instance(p.instance),
+                    model_id: lineage.model_id,
                     revision: p.source.revision.identity(),
-                    case_id: case_of_instance(p.instance),
+                    case_id: lineage.case_id,
+                    instance_id: lineage.instance_id,
+                    fit_id: lineage.fit_id,
                     request_identity: p.identity(),
                     preparation_identity: p.identity(),
                     profile_identity: profile,
@@ -256,12 +261,15 @@ impl RunResult {
                         actual_environment.str(name).str(value);
                     }
                 }
+                let lineage = p.lineage.lineage();
                 product.lineage.push(run_lineage::Row {
                     run_id: self.run_id,
                     step: 0,
-                    model_id: model_of_fit(p.declaration.fit_id),
+                    model_id: lineage.model_id,
                     revision: p.source_identity,
-                    case_id: case_of_fit(p.declaration.fit_id),
+                    case_id: lineage.case_id,
+                    instance_id: lineage.instance_id,
+                    fit_id: lineage.fit_id,
                     request_identity: p.key,
                     preparation_identity: p.key,
                     profile_identity: p.profile_key,

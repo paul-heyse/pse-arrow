@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Registry projections retain source-coordinate evidence and columnar resource ownership.
+use pse_model::generated::identities::RunId;
 use super::*;
 use pse_relations::columnar::{Collection, FieldCheckedBatch, RelationRow};
 type Tables = BTreeMap<SemanticId, FieldCheckedBatch>;
@@ -77,7 +78,7 @@ fn one<T: RelationRow>(
 }
 /// Project one structured failure using the shared findings relation.
 pub(in crate::workflow) fn finding_row(
-    run_id: SemanticId,
+    run_id: RunId,
     ordinal: i64,
     f: &pse_model::diagnostic::BoundaryDiagnostic,
 ) -> pse_model::generated::runtime::modeling_findings::Row {

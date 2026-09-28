@@ -56,7 +56,7 @@ fn texts() -> BTreeMap<String, String> {
 fn header() -> publication_manifests::Row {
     let id = |value| SemanticId::from_bytes([value; 16]);
     publication_manifests::Row {
-        publication_id: id(2),
+        publication_id: id(2).into(),
         workspace_id: id(1).into(),
         parent_publication_id: None,
         attempt_id: id(3).into(),

@@ -47,7 +47,7 @@ fn registry() -> Arc<Registry> {
 fn record() -> publication_manifests::Row {
     publication_manifests::Row {
         workspace_id: identity(1).into(),
-        publication_id: identity(2),
+        publication_id: identity(2).into(),
         parent_publication_id: None,
         attempt_id: identity(3).into(),
         kind: PublicationKind::Relations,

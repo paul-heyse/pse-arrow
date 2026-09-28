@@ -6,6 +6,7 @@ use super::*;
 pub(super) struct PreparedExperiments {
     pub execution_identity: ContentHash,
     pub declaration: FitDeclaration,
+    pub lineage: pse_model::lineage::Fitted,
     pub profile: FitProfile,
     pub order: DerivativeOrder,
     pub variables: Vec<Variable>,
@@ -32,6 +33,7 @@ impl PreparedExperiments {
         let Self {
             execution_identity,
             declaration: d,
+            lineage,
             profile,
             order,
             variables: vars,
@@ -204,6 +206,7 @@ impl PreparedExperiments {
             quantities,
             source_identity: source,
             declaration: d,
+            lineage,
             profile,
             key: h.finish_hash(),
             profile_key,

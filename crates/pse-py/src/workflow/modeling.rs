@@ -1666,7 +1666,7 @@ impl NativeModelingResult {
     }
     #[getter]
     fn run_id(&self) -> String {
-        self.inner.run_id.to_hex()
+        self.inner.run_id.as_id().to_hex()
     }
     #[getter]
     fn validation_error(&self) -> Option<inspection::DiagnosticReport> {

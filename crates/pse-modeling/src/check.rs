@@ -88,6 +88,10 @@ impl CheckedPackage {
     pub fn declarations(&self) -> impl Iterator<Item = &Declaration> {
         self.declarations.values()
     }
+    /// The admitted declaration with this identity.
+    pub fn declaration(&self, id: DeclarationId) -> Option<&Declaration> {
+        self.declarations.get(&id)
+    }
     fn qualified_name(&self, mut id: DeclarationId) -> Option<String> {
         let mut parts = Vec::new();
         loop {

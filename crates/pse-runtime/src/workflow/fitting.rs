@@ -110,6 +110,8 @@ pub(crate) struct FitProblem {
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
     pub(crate) source_identity: ContentHash,
     pub(crate) declaration: FitDeclaration,
+    /// The fit and the model and case its experiments share (`pse_model::lineage`).
+    pub(crate) lineage: pse_model::lineage::Fitted,
     pub(crate) profile: FitProfile,
     pub(crate) key: ContentHash,
     pub(crate) profile_key: ContentHash,

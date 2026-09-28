@@ -147,7 +147,7 @@ impl Fixture {
             .collect();
         let plan = ArtifactPlan::new(session, outputs, &cancel)?;
         let header = publication_manifests::Row {
-            publication_id: id(attempt),
+            publication_id: id(attempt).into(),
             workspace_id: id(1).into(),
             parent_publication_id: parent.map(|parent| id(parent).into()),
             attempt_id: id(attempt + 100).into(),

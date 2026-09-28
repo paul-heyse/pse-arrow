@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native coefficient diagnostics retain source identities and their LP/MIP scope.
+use pse_model::generated::identities::RunId;
 use super::*;
 use pse_backend_native::{CoefficientProblem, highs, quality::Tolerances, solve::*, transport};
 
@@ -8,7 +9,7 @@ use pse_backend_native::{CoefficientProblem, highs, quality::Tolerances, solve::
 #[derive(Debug)]
 pub struct ModelingLinearDiagnostics {
     /// Identity of this diagnostic run.
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     /// The diagnostic model's own solve.
     pub attempt: SolveReport,
     /// Native diagnostics of that solve, in original coordinates.
@@ -120,7 +121,7 @@ impl ModelingPackage {
             })
             .await?;
         Ok(ModelingLinearDiagnostics {
-            run_id: pse_authoring::ids::uuid_v7(),
+            run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
             source_identity,
             numerical_identity,

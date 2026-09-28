@@ -266,10 +266,10 @@ pub fn prepare_artifact_publication(
         }
     }
     let header = publication_manifests::Row {
-        publication_id: publication_id.into(),
-        workspace_id: workspace.workspace_id.into(),
-        parent_publication_id: parent.map(Into::into),
-        attempt_id: attempt.into(),
+        publication_id,
+        workspace_id: workspace.workspace_id,
+        parent_publication_id: parent,
+        attempt_id: attempt,
         kind,
         inputs: inputs.into_values().collect(),
         members: vec![],
@@ -553,10 +553,10 @@ impl super::Runtime {
         };
         let request = SettleRequest {
             settlement_id: pse_operations::mint_id(),
-            attempt_id: ticket.attempt_id().into(),
-            publication_id: ticket.publication_id().into(),
-            workspace_id: ticket.workspace_id().into(),
-            expected_parent: ticket.parent_publication_id().map(Into::into),
+            attempt_id: ticket.attempt_id(),
+            publication_id: ticket.publication_id(),
+            workspace_id: ticket.workspace_id(),
+            expected_parent: ticket.parent_publication_id(),
         };
         match operations.store().catalog().settle(&request).await {
             Ok(Settlement::Committed { publication_id }) => {

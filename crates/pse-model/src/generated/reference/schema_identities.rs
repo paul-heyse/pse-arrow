@@ -17,7 +17,7 @@ pub struct ReferenceSchemaIdentitiesRow {
     pub r#doc: String,
     ///The wrapped base value: `semantic_id` or `content_hash`.
     pub r#base_logical_type_id: pse_ids::SemanticId,
-    ///The relation whose single-column primary key declares the identity, if any.
+    ///The relation whose single-column primary key was declared the identity's owner, if any.
     pub r#owner_relation_id: Option<pse_ids::SemanticId>,
     ///The owning key column, if any.
     pub r#owner_column: Option<String>,

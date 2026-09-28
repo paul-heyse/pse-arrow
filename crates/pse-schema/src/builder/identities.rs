@@ -5,8 +5,14 @@
 //!
 //! A column declares the identity it carries; a foreign-key column inherits the identity
 //! of the column it references, transitively; a column that declares one identity and
-//! inherits another is refused. The owner of an identity is the one relation whose
-//! single-column primary key declares it; identities without an owner are allowed.
+//! inherits another is refused.
+//!
+//! Ownership is its own declaration ([`FieldContract::with_owned_identity`]): the owner
+//! is the relation where the entity is minted, and its owning column is that relation's
+//! single-column primary key. Carrying an identity never implies owning it, so a keyed
+//! projection of an entity (a one-row export manifest, say) types its key without
+//! becoming a second owner. An identity has at most one owner; identities without an
+//! owner are allowed.
 //!
 //! A nested value (a struct field or list item inside a column) may also declare the
 //! identity it carries, so a row that lists entities types them. Ownership and
@@ -55,6 +61,12 @@ pub(super) fn resolve(
     for spec in relations.iter() {
         for column in &spec.columns {
             for (path, carrier) in carriers(column) {
+                if path != column.name() && carrier.owns_identity() {
+                    return Err(crate::checks::invalid(
+                        format!("column {}.{path}", spec.key),
+                        "a nested value never owns an identity",
+                    ));
+                }
                 let Some(name) = carrier.identity() else {
                     continue;
                 };
@@ -68,7 +80,15 @@ pub(super) fn resolve(
             let Some(name) = column.identity() else {
                 continue;
             };
-            if spec.primary_key.as_slice() == [column.name()] {
+            if column.owns_identity() {
+                if spec.primary_key.as_slice() != [column.name()] {
+                    return Err(crate::checks::invalid(
+                        format!("column {}.{}", spec.key, column.name()),
+                        format!(
+                            "owns identity {name} but is not its relation's single-column primary key"
+                        ),
+                    ));
+                }
                 let owner = IdentityOwner {
                     relation_id: spec.id,
                     relation: spec.qualified_name(),

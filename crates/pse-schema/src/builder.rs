@@ -1539,7 +1539,7 @@ mod tests {
             .declare_relation(simple("widgets").pk(&["widget_id"]).columns(vec![widget_key]))
             .declare_relation(simple("gadgets").pk(&["gadget_id"]).columns(vec![
                 FieldContract::key("gadget_id", FieldContract::id(), "the key")
-                    .with_identity("gadget"),
+                    .with_owned_identity("gadget"),
             ]))
             .declare_relation(keyed("parts", "part_id", vec![part_widget]))
             .declare_relation(simple("slots").pk(&["widget_id", "slot"]).columns(vec![
@@ -1578,7 +1578,7 @@ mod tests {
     fn identity_inherited_through_foreign_keys() -> Result<(), SchemaError> {
         let registry = identity_registry(
             FieldContract::key("widget_id", FieldContract::id(), "the key")
-                .with_identity("widget"),
+                .with_owned_identity("widget"),
             FieldContract::reference("widget_id", FieldContract::id(), "the widget")
                 .with_fk("authored.widgets", "widget_id"),
         )?;
@@ -1598,7 +1598,7 @@ mod tests {
         let widget = registry.identity("widget").expect("declared");
         assert_eq!(widget.base, crate::model::IdentityBase::SemanticId);
         assert_eq!(widget.id, registry_id("identity:widget"));
-        let owner = widget.owner.as_ref().expect("the widget key owns it");
+        let owner = widget.owner.as_ref().expect("the widget key was declared its owner");
         assert_eq!(
             (owner.relation.as_str(), owner.column.as_str()),
             ("authored.widgets", "widget_id")
@@ -1640,7 +1640,7 @@ mod tests {
     fn conflicting_identity_refused() {
         let error = identity_registry(
             FieldContract::key("widget_id", FieldContract::id(), "the key")
-                .with_identity("widget"),
+                .with_owned_identity("widget"),
             FieldContract::reference("widget_id", FieldContract::id(), "the widget")
                 .with_fk("authored.widgets", "widget_id")
                 .with_identity("gadget"),
@@ -1666,19 +1666,64 @@ mod tests {
 
     #[test]
     fn identity_owned_once() {
+        let owning = || {
+            FieldContract::key("id", FieldContract::id(), "the key").with_owned_identity("widget")
+        };
         let mut builder = RegistryBuilder::new();
         builder
             .declare_identity(IdentityDecl::new("widget", "a widget"))
-            .declare_relation(simple("a").columns(vec![
-                FieldContract::key("id", FieldContract::id(), "the key").with_identity("widget"),
-            ]))
+            .declare_relation(simple("a").columns(vec![owning()]))
+            .declare_relation(simple("b").columns(vec![owning()]));
+        let error = builder
+            .build()
+            .expect_err("two keys cannot both be declared an identity's owner");
+        assert!(error.to_string().contains("owned by both"), "{error}");
+        // Ownership is declared, never implied: a keyed projection carries the identity
+        // on its single-column key without becoming a second owner.
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_identity(IdentityDecl::new("widget", "a widget"))
+            .declare_relation(simple("a").columns(vec![owning()]))
             .declare_relation(simple("b").columns(vec![
                 FieldContract::key("id", FieldContract::id(), "the key").with_identity("widget"),
             ]));
-        let error = builder
-            .build()
-            .expect_err("two single-column keys cannot both own an identity");
-        assert!(error.to_string().contains("owned by both"), "{error}");
+        let registry = builder.build().expect("a carrying key is not an owner");
+        let owner = registry
+            .identity("widget")
+            .and_then(|widget| widget.owner.as_ref())
+            .map(|owner| owner.relation.as_str());
+        assert_eq!(owner, Some("authored.a"));
+        // Only a relation's single-column primary key can be declared the owner.
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_identity(IdentityDecl::new("widget", "a widget"))
+            .declare_relation(keyed(
+                "parts",
+                "part_id",
+                vec![
+                    FieldContract::reference("widget_id", FieldContract::id(), "the widget")
+                        .with_owned_identity("widget"),
+                ],
+            ));
+        let error = builder.build().expect_err("a non-key column owns nothing");
+        assert!(error.to_string().contains("single-column primary key"), "{error}");
+        // A nested value never owns an identity.
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_identity(IdentityDecl::new("widget", "a widget"))
+            .declare_relation(keyed(
+                "boxes",
+                "box_id",
+                vec![FieldContract::payload(
+                    "contents",
+                    FieldContract::structure(vec![
+                        FieldContract::id().with_name("widget_id").with_owned_identity("widget"),
+                    ]),
+                    "a nested value",
+                )],
+            ));
+        let error = builder.build().expect_err("a nested owner is refused");
+        assert!(error.to_string().contains("never owns"), "{error}");
         // A carrying column that is not a single-column key leaves the identity unowned.
         let mut builder = RegistryBuilder::new();
         builder

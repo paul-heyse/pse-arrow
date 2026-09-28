@@ -21,9 +21,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    60u8, 255u8, 65u8, 182u8, 213u8, 172u8, 212u8, 159u8, 165u8, 82u8, 236u8, 177u8,
-    59u8, 12u8, 214u8, 3u8, 25u8, 196u8, 158u8, 106u8, 244u8, 137u8, 75u8, 232u8, 203u8,
-    15u8, 73u8, 191u8, 116u8, 237u8, 119u8, 10u8,
+    126u8, 208u8, 128u8, 14u8, 191u8, 182u8, 56u8, 32u8, 208u8, 94u8, 86u8, 72u8, 78u8,
+    186u8, 32u8, 32u8, 152u8, 12u8, 227u8, 23u8, 3u8, 78u8, 225u8, 245u8, 23u8, 92u8,
+    147u8, 163u8, 173u8, 184u8, 13u8, 111u8,
 ]);
 impl crate::columnar::ArrowValue
 for RuntimeModelingNonlinearExplanationsFieldNominalsItem {
@@ -128,7 +128,7 @@ for RuntimeModelingNonlinearExplanationsFieldAttemptsItem {
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::RunId,
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
             i64,
@@ -169,7 +169,7 @@ for RuntimeModelingNonlinearExplanationsFieldAttemptsItem {
                 index,
             )?,
             r#result_id: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::RunId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
@@ -254,7 +254,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingNonlinearExplanationsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
@@ -290,7 +290,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingNonlinearExplanationsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#run_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#run_id: <crate::generated::identities::RunId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,

@@ -65,14 +65,12 @@ pub struct ModelingSolvePreparation {
         BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     pub(in crate::workflow) source: ModelingPackage,
     pub(in crate::workflow) compiler: Profile,
-    pub(in crate::workflow) instance: InstanceId,
     pub(in crate::workflow) profile: SolverProfile,
 }
 /// Numerical resolution precedes native routing so diagnostics can inspect an
 /// underdetermined or otherwise ineligible problem without requesting a solver.
 pub(in crate::workflow) struct ModelingCaseResolution {
     pub compiler: Profile,
-    pub instance: InstanceId,
     pub model: ModelingCasePreparation,
     pub starts: BTreeMap<SemanticId, StartSource>,
     pub providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
@@ -384,7 +382,6 @@ impl ModelingPackage {
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let ModelingCaseResolution {
             compiler,
-            instance,
             model,
             starts,
             providers,
@@ -408,7 +405,6 @@ impl ModelingPackage {
         Ok(ModelingSolvePreparation {
             source: self.clone(),
             compiler,
-            instance,
             profile: solver,
             model,
             solve,
@@ -487,7 +483,6 @@ impl ModelingPackage {
                 &inner,
                 &case,
                 &values,
-                instance,
                 &mut numerical,
                 compiler,
                 &providers,
@@ -520,7 +515,6 @@ impl ModelingPackage {
                 &model,
                 &inner,
                 &prepared,
-                instance,
                 &mut numerical,
                 &solver,
                 compiler,
@@ -530,7 +524,6 @@ impl ModelingPackage {
             .await?;
         Ok(ModelingCaseResolution {
             compiler,
-            instance,
             numerics,
             model: prepared,
             starts,
@@ -551,7 +544,6 @@ impl ModelingPackage {
         inner: &Inner,
         case: &ModelingCaseBindings,
         values: &CaseValues,
-        instance: InstanceId,
         numerical: &mut NumericalInputs,
         compiler: Profile,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
@@ -614,7 +606,7 @@ impl ModelingPackage {
                         NumericalTarget::Observable
                     };
                     numerical.declarations.push(requirement(
-                        pse_model::lineage::model_of_instance(instance),
+                        model.solved().lineage(),
                         *target,
                         kind,
                         *declaration,
@@ -660,7 +652,6 @@ impl ModelingPackage {
         model: &ModelingPreparation,
         inner: &Inner,
         prepared: &ModelingCasePreparation,
-        instance: InstanceId,
         numerical: &mut NumericalInputs,
         solver: &SolverProfile,
         compiler: Profile,
@@ -781,7 +772,7 @@ impl ModelingPackage {
                 let scale = pse_math::numerics::term_scale(scheme, &terms)
                     .map_err(crate::math::MathRuntimeError::from)?;
                 numerical.declarations.push(requirement(
-                    pse_model::lineage::model_of_instance(instance),
+                    model.solved().lineage(),
                     id,
                     NumericalTarget::Row,
                     source,
@@ -897,7 +888,7 @@ fn require_inputs(model: &ModelingPreparation, values: &CaseValues) -> Result<()
 }
 /// A modeling-sourced numerical requirement on `target` of `model`, declared by `source_id`.
 pub(in crate::workflow) fn requirement(
-    model_id: ModelId,
+    lineage: pse_model::lineage::Lineage,
     target: SemanticId,
     kind: NumericalTarget,
     source_id: DeclarationId,
@@ -909,8 +900,10 @@ pub(in crate::workflow) fn requirement(
         source,
         declaration: pse_model::numerics::NumericalRequirement {
             requirement_id: pse_ids::named_id(source_id.as_id(), &target.to_string()),
-            model_id,
-            case_id: None,
+            model_id: lineage.model_id,
+            case_id: lineage.case_id,
+            instance_id: lineage.instance_id,
+            fit_id: lineage.fit_id,
             target_id: target,
             target_kind: kind,
             nominal,

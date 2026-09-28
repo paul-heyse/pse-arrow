@@ -121,7 +121,7 @@ pub(super) fn establishes(
         .unwrap_or_else(std::sync::PoisonError::into_inner);
     Ok(values
         .get(&(
-            super::manifest::publication_of(record),
+            record.publication_id,
             record.attempt_id,
             member.relation_id,
             version,
@@ -151,7 +151,7 @@ impl MemberWriteCompletion {
                 .is_some_and(|owner| Arc::ptr_eq(&owner, registry))
             && self.contract.same_declaration(contract)
             && self.workspace_id == record.workspace_id
-            && self.publication_id == super::manifest::publication_of(record)
+            && self.publication_id == record.publication_id
             && self.attempt_id == record.attempt_id
             && self.inputs == record.inputs
     }
@@ -178,7 +178,7 @@ mod completion_unit {
         };
         let record = publication_manifests::Row {
             workspace_id: WorkspaceId::from_bytes([1; 16]),
-            publication_id: pse_ids::SemanticId::from_bytes([2; 16]),
+            publication_id: PublicationId::from_bytes([2; 16]),
             parent_publication_id: None,
             attempt_id: AttemptId::from_bytes([3; 16]),
             kind: pse_relations::generated::enums::PublicationKind::Relations,
@@ -195,7 +195,7 @@ mod completion_unit {
             Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
         let mut completion = MemberWriteCompletion {
             workspace_id: record.workspace_id,
-            publication_id: super::super::manifest::publication_of(&record),
+            publication_id: record.publication_id,
             attempt_id: record.attempt_id,
             member: member.clone(),
             inputs: vec![],

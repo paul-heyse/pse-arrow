@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Data-authored fixtures acquire the same bounded checks without model-specific test code.
+use pse_model::generated::identities::RunId;
 use super::cases::ModelingCaseResolution;
 use super::*;
 use crate::math::{
@@ -42,7 +43,7 @@ pub struct ModelingConformancePolicy {
 /// Shared check outcomes retain their pool owner and original solver results.
 #[derive(Debug)]
 pub struct ModelingConformanceReport {
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     pub checks: Vec<ModelingConformanceCheck>,
     pub results: BTreeMap<DeclarationId, ModelingResult>,
     pub initializations: BTreeMap<DeclarationId, ModelingInitializationReport>,
@@ -87,7 +88,7 @@ impl ModelingConformanceReport {
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         Ok(Self {
-            run_id: pse_authoring::ids::uuid_v7(),
+            run_id: pse_operations::mint_id(),
             checks: Vec::with_capacity(cap),
             failures: Vec::with_capacity(cap),
             results: BTreeMap::new(),

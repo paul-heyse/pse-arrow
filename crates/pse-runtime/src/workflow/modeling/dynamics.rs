@@ -7,6 +7,7 @@ pub(in crate::workflow) mod checks;
 mod events;
 #[path = "trajectory.rs"]
 mod trajectory;
+use pse_model::generated::identities::RunId;
 use super::*;
 use crate::workflow::dynamics::{
     CoordinateBinding, DynamicCoordinates, DynamicMode, DynamicWorker, FunctionProgram,
@@ -27,7 +28,8 @@ use std::{collections::BTreeSet, sync::Arc};
 /// Immutable generated simulation. No authored state/RHS declaration is introduced.
 #[derive(Clone, Debug)]
 pub struct ModelingSimulation {
-    pub(in crate::workflow) instance: InstanceId,
+    /// The model, case and instance it simulates (`pse_model::lineage`).
+    pub(in crate::workflow) solved: pse_model::lineage::Solved,
     quantities: Arc<pse_quantity::QuantityRegistry>,
     modes: Vec<SimulationMode>,
     contract: native::Contract,
@@ -53,7 +55,7 @@ struct SimulationMode {
 /// The native trajectory and all partial outcomes retain their resource owner.
 #[derive(Clone, Debug)]
 pub struct ModelingTrajectory {
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     pub report: Arc<native::Report>,
     pub prepared: ModelingSimulation,
     /// Physical obligations evaluated at the explicitly requested sample times.
@@ -233,7 +235,7 @@ impl ModelingSimulation {
     }
     pub(in crate::workflow) fn submit(
         &self,
-        run_id: SemanticId,
+        run_id: RunId,
         submission: crate::math::Submission,
     ) -> Result<
         crate::math::solves::SolveHandle<(
@@ -278,7 +280,7 @@ impl ModelingSimulation {
             }
             #[cfg(not(any(feature = "solver-diffsol", feature = "solver-idas")))]
             {
-                let _ = (prepared, flag, progress);
+                let _ = (prepared, flag, progress, run_id);
                 Err(crate::math::MathRuntimeError::Solve(
                     ProblemError::unsupported("dynamic backend is not linked"),
                 ))
@@ -288,7 +290,7 @@ impl ModelingSimulation {
     }
     pub(in crate::workflow) fn finish(
         &self,
-        run_id: SemanticId,
+        run_id: RunId,
         report: native::Report,
         checks: checks::SampleChecks,
         owner: Arc<pse_columnar::AllocationLease>,
@@ -871,7 +873,7 @@ impl ModelingPackage {
                 && let Some(t) = targets.iter().find(|t| t.id == *target)
             {
                 declarations.push(cases::requirement(
-                    pse_model::lineage::model_of_root(root),
+                    model.solved().lineage(),
                     *target,
                     t.kind,
                     *declaration,
@@ -1284,7 +1286,7 @@ impl ModelingPackage {
             })
             .ok_or_else(|| contract_error("dynamic check storage"))?;
         Ok(ModelingSimulation {
-            instance,
+            solved: model.solved(),
             quantities: self.quantities.clone(),
             modes: vec![SimulationMode {
                 name: mode.name.clone(),
@@ -2342,8 +2344,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(trial.termination, native::Termination::Completed);
+        let run: RunId = pse_operations::mint_id();
         let checks = prepared.check_samples(
-            root.as_id(),
+            run,
             &trial,
             &trial_parameters,
             &flag,
@@ -2352,7 +2355,7 @@ mod tests {
         assert!(checks.complete && checks.error.is_none());
         assert!(checks.rows.iter().all(|c| c.satisfied));
         let wrong = prepared.check_samples(
-            root.as_id(),
+            run,
             &trial,
             &prepared.parameters,
             &flag,

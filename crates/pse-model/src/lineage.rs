@@ -1,104 +1,242 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Which model and which case a run's lineage, its solve rows and its numerical
-//! requirements name (ADR-0115; Plan 22 B3b).
+//! Which model, case, instance and fit a run's lineage, its solve rows and its numerical
+//! requirements name (ADR-0115; Plan 22 B3b, B3c).
 //!
-//! `model` and `case` are declared identities without an owning relation: nothing mints
-//! them. Every producer derives them from the identity it actually solved, and these are
-//! the only such derivations. Each is an explicit conversion that keeps the bytes, so the
-//! published `model_id` and `case_id` columns and every identity framed over a
-//! requirement are unchanged by typing them.
+//! The registry column documents of `runtime.run_lineage`, `runtime.solve_runs` and
+//! `authored.numerical_requirements` own the meaning; these are its only derivations.
 //!
-//! What the derivations say today, as the functions name it:
-//! - a modeling solve or simulation names its **root instance** as both its model and
-//!   its case ([`model_of_instance`], [`case_of_instance`]); an ordinary root instance has
-//!   its root declaration's identity, while a fit experiment's instance has the
-//!   experiment's;
-//! - a fit names **itself** as both its model and its case ([`model_of_fit`],
-//!   [`case_of_fit`]);
-//! - modeling-sourced numerical requirements name the instance they were declared for,
-//!   except an integrated simulation's, which name its **root declaration**
-//!   ([`model_of_root`]), and an implicit block's trial hints, which name the **implicit
-//!   stage** that solves the block ([`model_of_implicit_stage`]).
-//!
-//! So the model and the case of one lineage row are the same identity, and one model may
-//! be named by different identities in different producers: a typed swap now fails to
-//! compile, but the columns still carry the identity that was solved, not a separately
-//! declared model or case.
+//! - **Model** (`model_id`, a `declaration`): the specialized definition, that is the root
+//!   declaration a specialization instantiates (a definition, a case or a test; a preset
+//!   root names the preset). Every producer names one model by the same id: a modeling
+//!   solve or simulation, a steady or transient fit experiment, an integrated
+//!   simulation's requirements and an implicit block's trial hints all name the root of
+//!   the specialization they belong to.
+//! - **Case** (`case_id`, a `declaration`): the root, when the root is a `case` or a
+//!   `test` declaration (a test is a case with an oracle; both carry a fixture); absent
+//!   otherwise.
+//! - **Instance** (`instance_id`): what the root became. An ordinary root instance has
+//!   the root declaration's identity; a fit experiment prepares its case under its own
+//!   instance. An implicit block's trial hints name the block's instance, and a generated
+//!   rate system, which is no authored instance, names none.
+//! - **Fit** (`fit_id`): the fit whose rows these are. A fit names the one model (and
+//!   case) all its experiments specialize and no instance; when its experiments
+//!   specialize different definitions, no single model exists and it names none.
 //!
 //! ```
-//! use pse_model::generated::identities::{CaseId, InstanceId, ModelId};
-//! use pse_model::lineage::{case_of_instance, model_of_instance};
+//! use pse_model::generated::enums::ModelingDeclarationKind as Kind;
+//! use pse_model::generated::identities::{DeclarationId, FitId, InstanceId};
+//! use pse_model::lineage::{Fitted, Solved};
 //!
-//! let root = InstanceId::from_bytes([7; 16]);
-//! let (model, case): (ModelId, CaseId) = (model_of_instance(root), case_of_instance(root));
-//! assert_eq!(model.as_id(), case.as_id());
+//! let root = DeclarationId::from_bytes([7; 16]);
+//! let solved = Solved::new(root, Kind::Case, InstanceId::from_bytes([7; 16]));
+//! assert_eq!((solved.model(), solved.case()), (root, Some(root)));
+//! let experiment = Solved::new(root, Kind::Case, InstanceId::from_bytes([8; 16]));
+//! let fit = Fitted::new(FitId::from_bytes([9; 16]), [solved, experiment]);
+//! assert_eq!(fit.lineage().model_id, Some(root));
+//! assert_eq!(fit.lineage().instance_id, None);
 //! ```
+//!
+//! A root is a declaration and the instance it becomes is not, even where both carry the
+//! same bytes:
 //!
 //! ```compile_fail,E0308
-//! use pse_model::generated::identities::{CaseId, InstanceId};
-//! use pse_model::lineage::model_of_instance;
+//! use pse_model::generated::enums::ModelingDeclarationKind as Kind;
+//! use pse_model::generated::identities::DeclarationId;
+//! use pse_model::lineage::Solved;
 //!
-//! // A model is not a case, even where both carry the same bytes.
-//! let case: CaseId = model_of_instance(InstanceId::from_bytes([7; 16]));
+//! let root = DeclarationId::from_bytes([7; 16]);
+//! let _ = Solved::new(root, Kind::Definition, root);
 //! ```
 
-use crate::generated::identities::{CaseId, DeclarationId, FitId, InstanceId, ModelId};
-use pse_ids::SemanticId;
+use crate::generated::enums::ModelingDeclarationKind;
+use crate::generated::identities::{DeclarationId, FitId, InstanceId};
 
-/// The model a modeling solve or simulation of `instance` names: the instance itself.
-#[must_use]
-pub const fn model_of_instance(instance: InstanceId) -> ModelId {
-    ModelId::from_id(instance.as_id())
+/// The four lineage columns a row carries, as the registry declares them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Lineage {
+    /// `model_id`: the specialized definition.
+    pub model_id: Option<DeclarationId>,
+    /// `case_id`: the case declaration, when the root is a case.
+    pub case_id: Option<DeclarationId>,
+    /// `instance_id`: the instance the rows' preparation declared them for.
+    pub instance_id: Option<InstanceId>,
+    /// `fit_id`: the fit, for a fit's rows.
+    pub fit_id: Option<FitId>,
 }
 
-/// The case a modeling solve or simulation of `instance` names: the instance itself.
-#[must_use]
-pub const fn case_of_instance(instance: InstanceId) -> CaseId {
-    CaseId::from_id(instance.as_id())
+/// One specialization that was solved, simulated or prepared as a fit experiment: its
+/// model, its case and the instance its root became.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Solved {
+    model: DeclarationId,
+    case: Option<DeclarationId>,
+    instance: InstanceId,
 }
 
-/// The model an integrated simulation's numerical requirements name: its root
-/// declaration, whichever instance of it was simulated.
-#[must_use]
-pub const fn model_of_root(root: DeclarationId) -> ModelId {
-    ModelId::from_id(root.as_id())
+impl Solved {
+    /// The specialization of `root`, a declaration of `kind`, as `instance`.
+    #[must_use]
+    pub const fn new(root: DeclarationId, kind: ModelingDeclarationKind, instance: InstanceId) -> Self {
+        let case = match kind {
+            ModelingDeclarationKind::Case | ModelingDeclarationKind::Test => Some(root),
+            _ => None,
+        };
+        Self {
+            model: root,
+            case,
+            instance,
+        }
+    }
+
+    /// The specialized definition: the root declaration.
+    #[must_use]
+    pub const fn model(&self) -> DeclarationId {
+        self.model
+    }
+
+    /// The case declaration, when the root is a case or a test.
+    #[must_use]
+    pub const fn case(&self) -> Option<DeclarationId> {
+        self.case
+    }
+
+    /// The instance the root became.
+    #[must_use]
+    pub const fn instance(&self) -> InstanceId {
+        self.instance
+    }
+
+    /// What this specialization's lineage row, solve rows and requirements name.
+    #[must_use]
+    pub const fn lineage(&self) -> Lineage {
+        Lineage {
+            model_id: Some(self.model),
+            case_id: self.case,
+            instance_id: Some(self.instance),
+            fit_id: None,
+        }
+    }
+
+    /// What the trial-hint requirements of an implicit stage inside this specialization
+    /// name: this model and case, and the stage's block instance (`None` for a generated
+    /// rate system, which is no authored instance).
+    #[must_use]
+    pub const fn stage(&self, block: Option<InstanceId>) -> Lineage {
+        Lineage {
+            model_id: Some(self.model),
+            case_id: self.case,
+            instance_id: block,
+            fit_id: None,
+        }
+    }
 }
 
-/// The model a fit names, for its lineage and its parameter requirements: the fit.
-#[must_use]
-pub const fn model_of_fit(fit: FitId) -> ModelId {
-    ModelId::from_id(fit.as_id())
+/// A fit and the model and case its experiments share.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Fitted {
+    fit: FitId,
+    model: Option<DeclarationId>,
+    case: Option<DeclarationId>,
 }
 
-/// The case a fit's lineage names: the fit.
-#[must_use]
-pub const fn case_of_fit(fit: FitId) -> CaseId {
-    CaseId::from_id(fit.as_id())
-}
+impl Fitted {
+    /// `fit` over its experiments' specializations: it names their model and case when
+    /// every experiment specializes the same root, and none otherwise.
+    #[must_use]
+    pub fn new(fit: FitId, experiments: impl IntoIterator<Item = Solved>) -> Self {
+        let mut shared: Option<Option<(DeclarationId, Option<DeclarationId>)>> = None;
+        for experiment in experiments {
+            let this = (experiment.model, experiment.case);
+            shared = Some(match shared {
+                None => Some(this),
+                Some(Some(first)) if first == this => Some(first),
+                Some(_) => None,
+            });
+        }
+        let (model, case) = shared
+            .flatten()
+            .map_or((None, None), |(model, case)| (Some(model), case));
+        Self { fit, model, case }
+    }
 
-/// The model an implicit block's trial-hint requirements name: the implicit stage that
-/// solves the block, whose identity is the block's instance or a generated stage's.
-#[must_use]
-pub const fn model_of_implicit_stage(stage: SemanticId) -> ModelId {
-    ModelId::from_id(stage)
+    /// The fit.
+    #[must_use]
+    pub const fn fit(&self) -> FitId {
+        self.fit
+    }
+
+    /// What the fit's lineage row and its parameter requirements name.
+    #[must_use]
+    pub const fn lineage(&self) -> Lineage {
+        Lineage {
+            model_id: self.model,
+            case_id: self.case,
+            instance_id: None,
+            fit_id: Some(self.fit),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::generated::enums::ModelingDeclarationKind as Kind;
 
-    /// The derivations type the columns without moving a byte.
+    fn declaration(byte: u8) -> DeclarationId {
+        DeclarationId::from_bytes([byte; 16])
+    }
+
+    fn instance(byte: u8) -> InstanceId {
+        InstanceId::from_bytes([byte; 16])
+    }
+
+    /// A root names itself as the model; only a case or a test names a case.
     #[test]
-    fn lineage_derivations_keep_the_solved_identity() {
-        let bytes = [0x5a; 16];
-        let id = SemanticId::from_bytes(bytes);
-        assert_eq!(model_of_instance(InstanceId::from_id(id)).as_id(), id);
-        assert_eq!(case_of_instance(InstanceId::from_id(id)).as_id(), id);
-        assert_eq!(model_of_root(DeclarationId::from_id(id)).as_id(), id);
-        assert_eq!(model_of_fit(FitId::from_id(id)).as_id(), id);
-        assert_eq!(case_of_fit(FitId::from_id(id)).as_id(), id);
-        assert_eq!(model_of_implicit_stage(id).as_bytes(), &bytes);
+    fn a_root_is_the_model_and_a_case_root_the_case() {
+        for (kind, case) in [
+            (Kind::Definition, None),
+            (Kind::Preset, None),
+            (Kind::Case, Some(declaration(1))),
+            (Kind::Test, Some(declaration(1))),
+        ] {
+            let solved = Solved::new(declaration(1), kind, instance(2));
+            assert_eq!(
+                solved.lineage(),
+                Lineage {
+                    model_id: Some(declaration(1)),
+                    case_id: case,
+                    instance_id: Some(instance(2)),
+                    fit_id: None,
+                },
+                "{kind:?}"
+            );
+            assert_eq!(solved.stage(None).instance_id, None);
+            assert_eq!(solved.stage(Some(instance(3))).model_id, Some(declaration(1)));
+        }
+    }
+
+    /// A fit names its experiments' model when they share one, and none otherwise.
+    #[test]
+    fn a_fit_names_the_model_its_experiments_share() {
+        let fit = FitId::from_bytes([9; 16]);
+        let one = Solved::new(declaration(1), Kind::Test, instance(2));
+        let other_instance = Solved::new(declaration(1), Kind::Test, instance(3));
+        let shared = Fitted::new(fit, [one, other_instance]).lineage();
+        assert_eq!(
+            shared,
+            Lineage {
+                model_id: Some(declaration(1)),
+                case_id: Some(declaration(1)),
+                instance_id: None,
+                fit_id: Some(fit),
+            }
+        );
+        let other_model = Solved::new(declaration(4), Kind::Test, instance(5));
+        let spanning = Fitted::new(fit, [one, other_model]).lineage();
+        assert_eq!((spanning.model_id, spanning.case_id), (None, None));
+        assert_eq!(spanning.fit_id, Some(fit));
+        assert_eq!(Fitted::new(fit, []).lineage().model_id, None);
     }
 }

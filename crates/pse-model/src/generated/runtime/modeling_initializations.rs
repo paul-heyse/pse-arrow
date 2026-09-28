@@ -39,7 +39,7 @@ pub struct RuntimeModelingInitializationsFieldAttemptsItem {
     ///fraction
     pub r#fraction: Option<f64>,
     ///result_id
-    pub r#result_id: Option<pse_ids::SemanticId>,
+    pub r#result_id: Option<crate::generated::identities::RunId>,
     ///accepted
     pub r#accepted: bool,
     ///error
@@ -85,8 +85,8 @@ impl PartialEq for RuntimeModelingInitializationsFieldAttemptsItem {
 )]
 #[derive(Clone, Debug)]
 pub struct RuntimeModelingInitializationsRow {
-    ///run_id
-    pub r#run_id: pse_ids::SemanticId,
+    ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    pub r#run_id: crate::generated::identities::RunId,
     ///complete
     pub r#complete: bool,
     ///failure

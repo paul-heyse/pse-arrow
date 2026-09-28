@@ -88,7 +88,7 @@ pub(super) async fn authored_job(
     ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
-        case: case.as_id(),
+        case,
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,
         start: JobStart::Fresh,
@@ -147,7 +147,7 @@ async fn worker_runs_an_authored_job_and_stores_its_seed() {
         operations.sources(&job.modeling[0]).await.unwrap(),
         sources(SQUARE).1
     );
-    let processed = runtime.work_once().await.unwrap();
+    let (processed, result) = runtime.work_once_with_result().await.unwrap();
     assert_eq!(
         processed.state(),
         Some(AttemptState::Completed),
@@ -159,6 +159,13 @@ async fn worker_runs_an_authored_job_and_stores_its_seed() {
     assert_eq!(ran, enqueued.job_id());
     assert_eq!(record.attempt_id, enqueued.attempt_id());
     assert_eq!(record.solutions.len(), 1);
+    // The claimed try runs as the run its job's attempts share: its result rows name
+    // the run the store holds for the attempt.
+    let run = record.attempt.as_ref().unwrap().run_id;
+    let result = result.unwrap();
+    assert_eq!(result.run_id, run);
+    let lineage = &result.completion().unwrap().lineage;
+    assert!(!lineage.is_empty() && lineage.iter().all(|row| row.run_id == run));
     let stored = operations.store().jobs().get(ran).await.unwrap();
     assert_eq!(stored.state, JobState::Completed);
     assert!(matches!(
@@ -283,7 +290,7 @@ fn job_request_identity_independent_of_key_order() {
     let job = ModelingJob {
         physical: pse_ids::ContentHash::from_bytes([1; 32]),
         modeling: vec![pse_ids::ContentHash::from_bytes([2; 32])],
-        case: pse_ids::SemanticId::from_bytes([3; 16]),
+        case: pse_model::generated::identities::DeclarationId::from_bytes([3; 16]),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: ipopt(),
         start: JobStart::Fresh,
@@ -346,7 +353,7 @@ fn job_payload_v3_is_typed_per_task() {
     let job = ModelingJob {
         physical: pse_ids::ContentHash::from_bytes([1; 32]),
         modeling: vec![],
-        case: pse_ids::SemanticId::from_bytes([3; 16]),
+        case: pse_model::generated::identities::DeclarationId::from_bytes([3; 16]),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: ipopt(),
         start: JobStart::Fresh,

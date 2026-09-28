@@ -12,10 +12,14 @@
 pub struct AuthoredNumericalRequirementsRow {
     ///requirement_id
     pub r#requirement_id: pse_ids::SemanticId,
-    ///model_id
-    pub r#model_id: crate::generated::identities::ModelId,
-    ///case_id
-    pub r#case_id: Option<crate::generated::identities::CaseId>,
+    ///The specialized definition the requirement belongs to: the root declaration of the model it is declared for. A modeling preparation's requirements name its root, an implicit block's trial hints their enclosing model's; a fit's parameter requirements name the one definition all its experiments specialize, and none when they specialize different ones.
+    pub r#model_id: Option<crate::generated::identities::DeclarationId>,
+    ///The case declaration the requirement belongs to: the solved root when it is a case or a test, otherwise absent.
+    pub r#case_id: Option<crate::generated::identities::DeclarationId>,
+    ///The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's.
+    pub r#instance_id: Option<crate::generated::identities::InstanceId>,
+    ///The fit whose parameter requirement this is; absent otherwise.
+    pub r#fit_id: Option<crate::generated::identities::FitId>,
     ///target_id
     pub r#target_id: pse_ids::SemanticId,
     ///target_kind
@@ -44,6 +48,8 @@ impl crate::SemanticEq for AuthoredNumericalRequirementsRow {
         crate::SemanticEq::semantic_eq(&self.r#requirement_id, &other.r#requirement_id)
             && crate::SemanticEq::semantic_eq(&self.r#model_id, &other.r#model_id)
             && crate::SemanticEq::semantic_eq(&self.r#case_id, &other.r#case_id)
+            && crate::SemanticEq::semantic_eq(&self.r#instance_id, &other.r#instance_id)
+            && crate::SemanticEq::semantic_eq(&self.r#fit_id, &other.r#fit_id)
             && crate::SemanticEq::semantic_eq(&self.r#target_id, &other.r#target_id)
             && crate::SemanticEq::semantic_eq(&self.r#target_kind, &other.r#target_kind)
             && crate::SemanticEq::semantic_eq(&self.r#nominal, &other.r#nominal)
@@ -80,6 +86,10 @@ impl crate::SemanticFrame for AuthoredNumericalRequirementsRow {
         crate::SemanticFrame::frame(&self.r#model_id, hash);
         hash.str(stringify!(r#case_id));
         crate::SemanticFrame::frame(&self.r#case_id, hash);
+        hash.str(stringify!(r#instance_id));
+        crate::SemanticFrame::frame(&self.r#instance_id, hash);
+        hash.str(stringify!(r#fit_id));
+        crate::SemanticFrame::frame(&self.r#fit_id, hash);
         hash.str(stringify!(r#target_id));
         crate::SemanticFrame::frame(&self.r#target_id, hash);
         hash.str(stringify!(r#target_kind));
@@ -110,6 +120,8 @@ impl crate::HeapUsage for AuthoredNumericalRequirementsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#requirement_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#model_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#case_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#fit_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target_kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#nominal))

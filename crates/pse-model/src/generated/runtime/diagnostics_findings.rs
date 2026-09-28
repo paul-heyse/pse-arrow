@@ -136,8 +136,8 @@ impl RuntimeDiagnosticsFindingsFieldEvidence {
 pub struct RuntimeDiagnosticsFindingsRow {
     ///finding_id
     pub r#finding_id: pse_ids::SemanticId,
-    ///run_id
-    pub r#run_id: Option<pse_ids::SemanticId>,
+    ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    pub r#run_id: Option<crate::generated::identities::RunId>,
     ///check_id
     pub r#check_id: pse_ids::SemanticId,
     ///severity

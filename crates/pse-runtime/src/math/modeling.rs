@@ -7,6 +7,7 @@ use pse_columnar::{AllocationLease, flight::FlightCancellation};
 use pse_compiler::workspace::PreparedModeling;
 use pse_ids::SemanticId;
 use pse_model::HeapUsage;
+use pse_model::lineage::Solved;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
 use pse_quantity::QuantityTypeId;
 use std::{
@@ -22,6 +23,12 @@ pub struct ModelingRevision {
 }
 impl ModelingRevision {
     pub(crate) fn quantity_names(&self) -> &BTreeMap<String,QuantityTypeId> { self.admitted.quantity_names() }
+    /// What specializing `root` as `instance` solves (`pse_model::lineage`).
+    fn solved(&self, root: DeclarationId, instance: InstanceId) -> Result<Solved, MathRuntimeError> {
+        self.admitted.solved(root, instance).ok_or_else(|| {
+            MathRuntimeError::Infrastructure(format!("prepared root {root} is not an admitted declaration"))
+        })
+    }
     pub(crate) fn identity(&self) -> pse_ids::ContentHash { self.identity }
     pub(crate) fn declarations(&self) -> &[Declaration] {
         self.admitted.declarations()
@@ -31,12 +38,18 @@ impl ModelingRevision {
 #[derive(Clone, Debug)]
 pub struct ModelingPreparation {
     product: PreparedModeling,
+    solved: Solved,
     _lease: Arc<AllocationLease>,
 }
 impl ModelingPreparation {
     /// Source lineage, original values, typed mathematics and structural evidence.
     pub fn compiled(&self) -> &PreparedModeling {
         &self.product
+    }
+    /// The model, case and instance this preparation specialized: what its lineage,
+    /// solve rows and numerical requirements name.
+    pub const fn solved(&self) -> Solved {
+        self.solved
     }
 }
 /// One model view and its solver projection share the admitted product reservation.
@@ -498,6 +511,7 @@ impl MathService {
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, MathRuntimeError> {
+        let lineage = revision.clone();
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
@@ -523,9 +537,11 @@ impl MathService {
         );
         tokio::pin!(operation);
         let ((model, case, values), lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let solved = lineage.solved(root, instance)?;
         Ok(ModelingCasePreparation {
             model: ModelingPreparation {
                 product: model,
+                solved,
                 _lease: lease.clone(),
             },
             case: self.own_preparation((case, lease))?,
@@ -582,6 +598,7 @@ impl MathService {
         limits: Limits,
         driver: &crate::CancelSource,
     ) -> Result<ModelingPreparation, MathRuntimeError> {
+        let lineage = revision.clone();
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
         let operation = self.job_retained(
@@ -608,8 +625,10 @@ impl MathService {
         );
         tokio::pin!(operation);
         let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let solved = lineage.solved(root, instance)?;
         Ok(ModelingPreparation {
             product,
+            solved,
             _lease: lease,
         })
     }

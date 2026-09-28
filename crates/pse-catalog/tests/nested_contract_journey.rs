@@ -195,7 +195,7 @@ async fn new_collection_constraint_has_one_decision_across_local_native_delta_an
         let prepared = artifact
             .prepare_publication(
                 pse_relations::generated::runtime::publication_manifests::Row {
-                    publication_id: SemanticId::from_bytes([2; 16]),
+                    publication_id: SemanticId::from_bytes([2; 16]).into(),
                     workspace_id: SemanticId::from_bytes([1; 16]).into(),
                     parent_publication_id: None,
                     attempt_id: SemanticId::from_bytes([3; 16]).into(),

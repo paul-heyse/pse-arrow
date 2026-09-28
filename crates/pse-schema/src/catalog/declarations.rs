@@ -81,6 +81,26 @@ pub(super) fn column(name: &'static str, logical_type: FieldContract) -> FieldCo
     FieldContract::payload(name, logical_type, name)
 }
 
+/// A column whose meaning its declaration documents.
+pub(super) fn documented(
+    name: &'static str,
+    logical_type: FieldContract,
+    doc: &'static str,
+) -> FieldContract {
+    FieldContract::payload(name, logical_type, doc)
+}
+
+/// The run a result row belongs to (identity `run`). One declaration, so every result
+/// relation's `run_id` means the same thing.
+pub(super) fn run_id() -> FieldContract {
+    documented(
+        "run_id",
+        FieldContract::id(),
+        "The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.",
+    )
+    .with_identity("run")
+}
+
 pub(super) fn enumeration(
     builder: &mut RegistryBuilder,
     name: &'static str,

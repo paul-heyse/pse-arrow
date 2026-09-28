@@ -195,7 +195,7 @@ impl ModelingTrajectory {
                         columns
                             .push(response_sensitivities::Row {
                                 run_id: self.run_id,
-                                experiment_id: p.instance,
+                                experiment_id: p.solved.instance(),
                                 sample: sample as i64,
                                 time: Some(point.time),
                                 output_id: *symbol,

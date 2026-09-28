@@ -798,7 +798,7 @@ fn declaration_environment(
     p: &CheckedPackage,
     context: &TypeContext<'_>,
     id: DeclarationId,
-) -> Result<(BTreeMap<String, Type>, BTreeSet<String>)> {
+) -> Result<BTreeMap<String, Type>> {
     let mut env = p.named_types(id);
     let mut owner = Some(id);
     let mut vars = BTreeSet::new();
@@ -818,7 +818,7 @@ fn declaration_environment(
             }
         }
     }
-    Ok((env, vars))
+    Ok(env)
 }
 /// Physical contracts of ADR-0104 declarations; realizations are admitted at specialization.
 fn check_forms(
@@ -883,7 +883,7 @@ fn check_forms(
 }
 pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
     for (id, row) in &p.declarations {
-        let (mut env, mut vars) = declaration_environment(p, context, *id)?;
+        let mut env = declaration_environment(p, context, *id)?;
         let mut ancestors = Vec::new();
         let mut cursor = row.parent_id;
         while let Some(owner) = cursor {
@@ -1270,7 +1270,7 @@ pub(crate) fn check_all(p: &CheckedPackage, context: &TypeContext<'_>) -> Result
                             .map(|a| a.indices.iter().map(|i| (&i.name, &i.domain)).collect())
                     })
                     .unwrap_or_default();
-                let (mut target_env, _) = declaration_environment(p, context, target)?;
+                let mut target_env = declaration_environment(p, context, target)?;
                 for (name, domain) in indices {
                     let expression =
                         dsl::parse_expr(domain).map_err(|e| invalid(*id, e.to_string()))?;
@@ -1584,7 +1584,7 @@ fn path_type(
                 .unwrap_or_default();
             if segment.indices.is_empty() && !indices.is_empty() {
                 let mut axes = Vec::new();
-                let (mut local, _) = declaration_environment(p, c, id)?;
+                let mut local = declaration_environment(p, c, id)?;
                 for (name, domain) in &indices {
                     let domain = dsl::parse_expr(domain).map_err(|e| invalid(id, e.to_string()))?;
                     let (Type::Set(element) | Type::Continuous(_, element)) =
@@ -1613,7 +1613,7 @@ fn path_type(
             if indices.len() != segment.indices.len() {
                 return Err(invalid(at, "member index arity"));
             }
-            let (mut local, _) = declaration_environment(p, c, id)?;
+            let mut local = declaration_environment(p, c, id)?;
             for (index, (name, domain)) in segment.indices.iter().zip(indices) {
                 let domain = dsl::parse_expr(domain).map_err(|e| invalid(id, e.to_string()))?;
                 let (Type::Set(element) | Type::Continuous(_, element)) =

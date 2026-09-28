@@ -39,7 +39,7 @@ pub struct RuntimeModelingNonlinearExplanationsFieldAttemptsItem {
     ///penalty
     pub r#penalty: Option<f64>,
     ///result_id
-    pub r#result_id: Option<pse_ids::SemanticId>,
+    pub r#result_id: Option<crate::generated::identities::RunId>,
     ///failure_ordinal
     pub r#failure_ordinal: Option<i64>,
     ///error
@@ -81,8 +81,8 @@ impl PartialEq for RuntimeModelingNonlinearExplanationsFieldAttemptsItem {
 )]
 #[derive(Clone, Debug)]
 pub struct RuntimeModelingNonlinearExplanationsRow {
-    ///run_id
-    pub r#run_id: pse_ids::SemanticId,
+    ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    pub r#run_id: crate::generated::identities::RunId,
     ///source_identity
     pub r#source_identity: pse_ids::ContentHash,
     ///complete

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Knowledge checks supplement original-space solver qualification without rewriting termination.
+use pse_model::generated::identities::RunId;
 use super::cases::ModelingSolvePreparation;
 use super::*;
 use crate::math::solves::Outcome;
@@ -24,7 +25,7 @@ pub struct ModelingResultData {
     pub values: CaseValues,
     pub checks: Vec<ModelingCheck>,
     pub reports: Vec<ModelingReport>,
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     runtime: Runtime,
     /// Projection of `completion`; never decided separately.
     pub accepted: bool,
@@ -41,7 +42,7 @@ impl std::ops::Deref for ModelingResult {
         &self.0
     }
 }
-fn stamp_start(outcome: &mut Outcome, run: SemanticId, attempt: usize) {
+fn stamp_start(outcome: &mut Outcome, run: RunId, attempt: usize) {
     if let Outcome::Native(native) = outcome {
         if let Some(seed) = &mut native.warm_start {
             seed.origin = Some(pse_backend_native::solve::SeedOrigin {
@@ -176,7 +177,7 @@ pub(in crate::workflow) fn result_bytes(
 impl ModelingResult {
     pub(in crate::workflow) fn from_assessment(
         prepared: ModelingSolvePreparation,
-        run_id: SemanticId,
+        run_id: RunId,
         attempt: usize,
         mut outcome: Outcome,
         point: assessment::AssessedPoint,
@@ -283,7 +284,7 @@ pub(in crate::workflow) fn observation_rows(
     Ok(assessment_units(product).into_values().flatten().collect())
 }
 pub(in crate::workflow) fn assess_observations(
-    run_id: SemanticId,
+    run_id: RunId,
     product: &pse_compiler::workspace::PreparedModeling,
     values: &CaseValues,
     observed: &BTreeMap<SemanticId, f64>,

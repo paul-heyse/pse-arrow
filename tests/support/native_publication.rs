@@ -83,7 +83,7 @@ pub(crate) async fn publish(
         .collect();
     let workspace = pse_authoring::ids::uuid_v7();
     let header = publication_manifests::Row {
-        publication_id: pse_authoring::ids::uuid_v7(),
+        publication_id: pse_authoring::ids::uuid_v7().into(),
         workspace_id: workspace.into(),
         parent_publication_id: None,
         attempt_id: pse_authoring::ids::uuid_v7().into(),

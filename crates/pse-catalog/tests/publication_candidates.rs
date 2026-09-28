@@ -96,7 +96,7 @@ fn name(table: &str) -> ResolvedTableReference {
 
 fn header() -> publication_manifests::Row {
     publication_manifests::Row {
-        publication_id: identity(2),
+        publication_id: identity(2).into(),
         workspace_id: identity(1).into(),
         parent_publication_id: None,
         attempt_id: identity(3).into(),
@@ -167,7 +167,7 @@ async fn candidate_returns_admitted_record_with_actual_versions() {
     let root = url::Url::parse("memory://candidates/").unwrap();
     let (factory, runtime) = fixture(&root);
     let record = candidate(&factory, &root, false).await.unwrap();
-    assert_eq!(record.publication_id, identity(2));
+    assert_eq!(record.publication_id.as_id(), identity(2));
     assert_eq!(record.workspace_id, WorkspaceId::from(identity(1)));
     assert_eq!(record.attempt_id, AttemptId::from(identity(3)));
     assert_eq!(record.parent_publication_id, None);

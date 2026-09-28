@@ -168,7 +168,7 @@ fn manifest_of(
         match export {
             Some((lease, epoch)) => (
                 Some(lease.acquired_at),
-                Some(lease.lease_id.into()),
+                Some(lease.lease_id),
                 Some(lease.expires_at),
                 Some(epoch),
                 Some(pse_operations::generated::SCHEMA_FINGERPRINT),
@@ -176,10 +176,10 @@ fn manifest_of(
             None => (None, None, None, None, None),
         };
     publication_manifests::Row {
-        publication_id: publication.publication_id.into(),
-        workspace_id: publication.workspace_id.into(),
-        parent_publication_id: publication.parent_publication.map(Into::into),
-        attempt_id: publication.attempt_id.into(),
+        publication_id: publication.publication_id,
+        workspace_id: publication.workspace_id,
+        parent_publication_id: publication.parent_publication,
+        attempt_id: publication.attempt_id,
         kind: publication.kind,
         inputs: record.inputs.clone(),
         members: record.members.clone(),
@@ -373,7 +373,7 @@ pub async fn open_export(
         });
     }
     let scope = ReadScope {
-        workspace: record.workspace_id.into(),
+        workspace: record.workspace_id,
         epoch,
     };
     Ok(Publication::open(

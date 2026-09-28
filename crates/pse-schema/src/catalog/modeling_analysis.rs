@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Owned analysis evidence; source identities remain distinct from algorithm coordinates.
-use super::declarations::{column, enumeration, identity, relation, relation_version};
+use super::declarations::{column, enumeration, identity, relation, relation_version, run_id};
 use crate::{
     builder::RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
@@ -64,14 +64,14 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("unattempted", count()),
             column("stop", T::enumeration("ModelingDiagnosticSampleStop")),
             column(
                 "outcomes",
                 T::list(record(vec![
                     ("sample_id", T::id()),
-                    ("report_id", T::id().optional()),
+                    ("report_id", T::id().with_identity("run").optional()),
                     ("failure_ordinal", count().optional()),
                     (
                         "error_class",
@@ -97,7 +97,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("source_identity", T::hash()),
             column("numerical_identity", T::hash()),
             column("profile", text()),
@@ -149,7 +149,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "ordinal"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("ordinal", count()),
             column("class", T::enumeration("NativeBoundaryClass")),
             column("severity", T::enumeration("DiagnosticSeverity")),
@@ -196,7 +196,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("complete", flag()),
             column("failure", text()).optional(),
             column("failure_ordinal", count()).optional(),
@@ -207,7 +207,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
                     ("kind", T::enumeration("ModelingInitializationStep")),
                     ("stage", text().optional()),
                     ("fraction", real().optional()),
-                    ("result_id", T::id().optional()),
+                    ("result_id", T::id().with_identity("run").optional()),
                     ("accepted", flag()),
                     ("error", text().optional()),
                     ("failure_ordinal", count().optional()),
@@ -228,7 +228,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("unattempted", count()),
             column(
                 "points",
@@ -242,7 +242,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
                         T::id().with_identity("instance").optional(),
                     ),
                     ("predecessor", count().optional()),
-                    ("result_id", T::id().optional()),
+                    ("result_id", T::id().with_identity("run").optional()),
                     ("accepted", flag()),
                     ("error", text().optional()),
                     ("failure_ordinal", count().optional()),
@@ -295,7 +295,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("source_identity", T::hash()),
             column("complete", flag()),
             column("stop", text()).optional(),
@@ -310,7 +310,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
                     ("omitted", T::list(T::id())),
                     ("observation", T::enumeration("ModelingElasticObservation")),
                     ("penalty", real().optional()),
-                    ("result_id", T::id().optional()),
+                    ("result_id", T::id().with_identity("run").optional()),
                     ("failure_ordinal", count().optional()),
                     ("error", text().optional()),
                     (
@@ -330,7 +330,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id", "sample"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("sample", count()),
             column("time", real()),
             column("mode", text()),

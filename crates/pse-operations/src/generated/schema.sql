@@ -84,7 +84,7 @@ CREATE DOMAIN pse_ops.publication_id AS uuid;
 -- Entity identity reader_lease: One reader lease protecting a publication
 CREATE DOMAIN pse_ops.reader_lease_id AS uuid;
 
--- Entity identity run: A run: the logical request its attempts try, minted by the runtime
+-- Entity identity run: One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt
 CREATE DOMAIN pse_ops.run_id AS uuid;
 
 -- Entity identity settlement: One settlement of an uncertain commit acknowledgement

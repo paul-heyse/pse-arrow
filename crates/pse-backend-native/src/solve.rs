@@ -835,7 +835,7 @@ pub struct WarmStart {
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct SeedOrigin {
     /// Public run identity when one exists.
-    pub run: Option<SemanticId>,
+    pub run: Option<pse_model::generated::identities::RunId>,
     /// Zero-based original attempt.
     pub attempt: usize,
 }

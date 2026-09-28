@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit finite diagnostic samples share one model and bounded execution policy.
 use super::*;
+use pse_model::generated::identities::RunId;
 use std::{
     collections::BTreeSet,
     time::{Duration, Instant},
@@ -12,7 +13,7 @@ pub use pse_model::generated::enums::ModelingDiagnosticSampleStop as DiagnosticS
 /// Named sample evidence. Every result uses the same original model and numerical profile.
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnosticSamples {
-    pub run_id:SemanticId,
+    pub run_id: RunId,
     pub(in crate::workflow::modeling) runtime:Runtime,
     pub outcomes: Vec<(
         SemanticId,
@@ -61,7 +62,7 @@ impl ModelingPackage {
             .math()
             .reserve("modeling:diagnostic-samples", bytes)?;
         let mut report = ModelingDiagnosticSamples {
-            run_id:pse_authoring::ids::uuid_v7(),runtime:self.runtime.clone(),
+            run_id: pse_operations::mint_id(),runtime:self.runtime.clone(),
             outcomes: Vec::new(),
             unattempted: samples.len(),
             stop: DiagnosticSampleStop::Completed,

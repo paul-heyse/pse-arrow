@@ -227,7 +227,7 @@ fn write_member(
         |(operation_id, dependencies)| super::attempt::MemberAttempt {
             operation_id: *operation_id,
             workspace_id: header.workspace_id,
-            publication_id: super::manifest::publication_of(header),
+            publication_id: header.publication_id,
             attempt_id: header.attempt_id,
             member: descriptor.clone(),
             inputs: header.inputs.clone(),

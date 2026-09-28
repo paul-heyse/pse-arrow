@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native analysis projections retain the distinction between affine and local evidence.
-use super::declarations::{column, relation};
+use super::declarations::{column, relation, run_id};
 use crate::{
     builder::RegistryBuilder,
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
@@ -61,7 +61,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("source_identity", T::hash()),
             column("numerical_identity", T::hash()),
             column("rows", T::list(T::id())),
@@ -122,7 +122,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         S::Derived,
         &["run_id"],
         vec![
-            column("run_id", T::id()),
+            run_id(),
             column("source_identity", T::hash()),
             column("numerical_identity", T::hash()),
             column("point", coordinates()),

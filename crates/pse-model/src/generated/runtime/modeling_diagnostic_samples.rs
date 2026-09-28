@@ -12,7 +12,7 @@ pub struct RuntimeModelingDiagnosticSamplesFieldOutcomesItem {
     ///sample_id
     pub r#sample_id: pse_ids::SemanticId,
     ///report_id
-    pub r#report_id: Option<pse_ids::SemanticId>,
+    pub r#report_id: Option<crate::generated::identities::RunId>,
     ///failure_ordinal
     pub r#failure_ordinal: Option<i64>,
     ///error_class
@@ -44,8 +44,8 @@ impl PartialEq for RuntimeModelingDiagnosticSamplesFieldOutcomesItem {
 )]
 #[derive(Clone, Debug)]
 pub struct RuntimeModelingDiagnosticSamplesRow {
-    ///run_id
-    pub r#run_id: pse_ids::SemanticId,
+    ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    pub r#run_id: crate::generated::identities::RunId,
     ///unattempted
     pub r#unattempted: i64,
     ///stop

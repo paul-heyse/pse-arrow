@@ -7,6 +7,7 @@
 //! run registers its attempt before any effect, queues for native admission, runs under a
 //! heartbeat lease whose durable cancellation flag stops it, streams its progress, and
 //! records its typed termination before its result is published to waiters.
+use pse_model::generated::identities::RunId;
 use super::{
     Runtime, WorkflowError, contract,
     durable::{Canceller, Durability, DurableAttempt, RunDurability, SeedContext},
@@ -43,7 +44,7 @@ pub struct RunHandle {
     lease: Arc<Lease>,
     receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
     progress: Arc<Progress>,
-    run_id: SemanticId,
+    run_id: RunId,
     attempt_id: Option<pse_operations::attempts::AttemptId>,
 }
 impl RunHandle {
@@ -73,8 +74,9 @@ impl RunHandle {
     pub fn progress(&self) -> (Vec<Event>, u64) {
         self.progress.snapshot()
     }
-    /// The run identity, minted before any effect.
-    pub const fn run_id(&self) -> SemanticId {
+    /// The run identity, known before any effect: minted when the run starts, or the run
+    /// a claimed job's attempts share.
+    pub const fn run_id(&self) -> RunId {
         self.run_id
     }
     /// The durable attempt of this run, minted before any effect; `None` when ephemeral.
@@ -113,8 +115,9 @@ pub enum RunRequest {
 /// Immutable joined outcome. Table encoding/publication never invokes a solver again.
 #[derive(Debug)]
 pub struct RunResult {
-    /// Unique execution identity, not mathematical content identity.
-    pub run_id: SemanticId,
+    /// The run: an execution identity, not mathematical content identity. A retried
+    /// job's tries share it; each try is its own attempt.
+    pub run_id: RunId,
     pub(crate) runtime: Runtime,
     pub(crate) request: RunRequest,
     pub(crate) _owner: Option<Arc<pse_columnar::AllocationLease>>,
@@ -133,7 +136,7 @@ pub struct RunResult {
 impl RunResult {
     /// A joined result before completion capture and durable recording.
     fn joined(
-        run_id: SemanticId,
+        run_id: RunId,
         runtime: Runtime,
         request: RunRequest,
         owner: Option<Arc<pse_columnar::AllocationLease>>,
@@ -241,7 +244,7 @@ fn progress_for(history: usize, durable: Option<&DurableAttempt>) -> Arc<Progres
 /// running under its lease; `admission` resolves once native admission holds.
 async fn admit<T>(
     durable: &mut Option<DurableAttempt>,
-    run_id: SemanticId,
+    run_id: RunId,
     request: &RunRequest,
     admission: impl Future<Output = Result<T, WorkflowError>>,
     cancel: Canceller,
@@ -291,7 +294,7 @@ impl super::ModelingSimulation {
     /// Start the authored simulation through the shared joined run and publication lifecycle.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
         let runtime = self.runtime.clone();
-        let run_id = pse_authoring::ids::uuid_v7();
+        let run_id: RunId = pse_operations::mint_id();
         let mut durable = attempt_for(&runtime, None)?;
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
@@ -350,7 +353,7 @@ impl super::PreparedFit {
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
         let runtime = self.problem.runtime.clone();
         let prepared = self.clone();
-        let run_id = pse_authoring::ids::uuid_v7();
+        let run_id: RunId = pse_operations::mint_id();
         let mut durable = attempt_for(&runtime, None)?;
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
@@ -587,7 +590,11 @@ impl Runtime {
         let lease = Arc::new(Lease(FlightCancellation::default(), Some(cancel.clone())));
         let (sender, receiver) = tokio::sync::watch::channel(None);
         let runtime = self.clone();
-        let run_id = pse_authoring::ids::uuid_v7();
+        // A claimed try runs as the run its job's attempts share; a new run is minted.
+        let run_id: RunId = durable
+            .as_ref()
+            .and_then(DurableAttempt::claimed_run)
+            .unwrap_or_else(pse_operations::mint_id);
         let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
         let shared = progress.clone();
         tokio::spawn(async move {

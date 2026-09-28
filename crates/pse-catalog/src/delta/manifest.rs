@@ -28,19 +28,6 @@ use std::{collections::BTreeMap, sync::Arc};
 /// The only version of an export manifest that holds its row.
 pub const MANIFEST_VERSION: i64 = 1;
 
-/// The publication a record describes, as the operational catalog's identity.
-///
-/// The record's other references carry their identities in the registry; its key cannot,
-/// because a single-column key that declares an identity owns it and the catalog's
-/// publication intents own `publication`. This is the one place the key becomes a
-/// [`PublicationId`](pse_model::generated::identities::PublicationId).
-#[must_use]
-pub const fn publication_of(
-    record: &publication_manifests::Row,
-) -> pse_model::generated::identities::PublicationId {
-    pse_model::generated::identities::PublicationId::from_id(record.publication_id)
-}
-
 /// The identity of the former Delta control relation `runtime.publications@2`, whose
 /// tables are refused rather than interpreted.
 fn legacy_control() -> pse_ids::SemanticId {

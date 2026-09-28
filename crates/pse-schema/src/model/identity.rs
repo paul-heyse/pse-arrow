@@ -46,7 +46,8 @@ impl IdentityBase {
     }
 }
 
-/// The relation whose single-column primary key declares an identity.
+/// The relation whose single-column primary key was declared the identity's owner
+/// ([`crate::model::FieldContract::with_owned_identity`]).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdentityOwner {
     /// The owning relation's identity.
@@ -68,7 +69,7 @@ pub struct IdentitySpec {
     pub doc: &'static str,
     /// The base value every carrying column shares.
     pub base: IdentityBase,
-    /// The owning key, when one relation's single-column key declares the identity.
-    /// Unowned identities (a run, a block) are named by keys that are not theirs alone.
+    /// The owning key, when one relation's single-column key was declared its owner.
+    /// Unowned identities (a model instance, say) are carried by columns only.
     pub owner: Option<IdentityOwner>,
 }

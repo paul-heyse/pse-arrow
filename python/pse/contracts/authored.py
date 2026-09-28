@@ -629,8 +629,10 @@ class AuthoredNumericalRequirementsRow:
     """Declared relation row or nested value."""
 
     requirement_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    model_id: i.ModelId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    case_id: i.CaseId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    model_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    case_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    instance_id: i.InstanceId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    fit_id: i.FitId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     target_kind: e.NumericalTarget = attrs.field(validator=attrs.validators.instance_of(e.NumericalTarget))
     nominal: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))

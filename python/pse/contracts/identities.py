@@ -10,9 +10,6 @@ from pse.contracts import values as v
 # One durable attempt: a single try of a run (entity identity `attempt`).
 AttemptId = NewType("AttemptId", v.SemanticId)
 
-# The analysis case a numerical requirement or a run's lineage belongs to (entity identity `case`).
-CaseId = NewType("CaseId", v.SemanticId)
-
 # One authored modeling declaration. A specialization root, a definition and a member are declarations in a role, not separate entities (entity identity `declaration`).
 DeclarationId = NewType("DeclarationId", v.SemanticId)
 
@@ -25,9 +22,6 @@ InstanceId = NewType("InstanceId", v.SemanticId)
 # One durable job claimed by workers (entity identity `job`).
 JobId = NewType("JobId", v.SemanticId)
 
-# The model a numerical requirement or a run's lineage belongs to (entity identity `model`).
-ModelId = NewType("ModelId", v.SemanticId)
-
 # One authored package (entity identity `package`).
 PackageId = NewType("PackageId", v.SemanticId)
 
@@ -37,7 +31,7 @@ PublicationId = NewType("PublicationId", v.SemanticId)
 # One reader lease protecting a publication (entity identity `reader_lease`).
 ReaderLeaseId = NewType("ReaderLeaseId", v.SemanticId)
 
-# A run: the logical request its attempts try, minted by the runtime (entity identity `run`).
+# One run: an execution of a solve, simulation, fit or study, minted by the runtime before any effect. A durable run's tries are its attempts, and a retried job's attempts share its run; result rows name the run, the store and the publication name the attempt (entity identity `run`).
 RunId = NewType("RunId", v.SemanticId)
 
 # One settlement of an uncertain commit acknowledgement (entity identity `settlement`).

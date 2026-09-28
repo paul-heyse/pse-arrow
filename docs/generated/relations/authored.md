@@ -323,13 +323,15 @@ Version: 3. Snapshot class: `model`. Primary key: `declaration_id`.
 
 P05 declarative numerical meaning; selected ID targets, magnitude units and frozen relative budgets. Model/case selection establishes source precedence; runtime analysis overrides use the same row type.
 
-Version: 1. Snapshot class: `model`. Primary key: `requirement_id`.
+Version: 2. Snapshot class: `model`. Primary key: `requirement_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `requirement_id` | `semantic_id` | false | `key` | — | — |
-| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `model_id` | `semantic_id` | true | `payload` | — | — |
 | `case_id` | `semantic_id` | true | `payload` | — | — |
+| `instance_id` | `semantic_id` | true | `payload` | — | — |
+| `fit_id` | `semantic_id` | true | `payload` | — | — |
 | `target_id` | `semantic_id` | false | `payload` | — | — |
 | `target_kind` | `enum:NumericalTarget` | false | `payload` | — | — |
 | `nominal` | `Float64` | true | `payload` | — | — |

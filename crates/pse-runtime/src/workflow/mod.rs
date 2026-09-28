@@ -85,6 +85,7 @@ mod tests;
 mod study_tests;
 #[cfg(test)]
 mod worker_tests;
+use pse_model::generated::identities::RunId;
 use crate::{SharedRuntime, math::MathRuntimeError};
 use pse_engine::{EngineError, session::EngineFactory};
 pub use publication::{
@@ -130,7 +131,7 @@ pub enum WorkflowError {
     )]
     EphemeralPublication {
         /// The run that was asked to publish.
-        run_id: pse_ids::SemanticId,
+        run_id: RunId,
     },
     /// The catalog commit's outcome is unknown: its acknowledgement was lost or the
     /// catalog became unreachable after the members were written. Never retried
@@ -155,7 +156,7 @@ pub enum WorkflowError {
     #[error("the export of publication {publication} expired at {expires_at} (microseconds)")]
     ExportLeaseExpired {
         /// The exported publication.
-        publication: pse_ids::SemanticId,
+        publication: pse_model::generated::identities::PublicationId,
         /// Its expiry, microseconds since the Unix epoch.
         expires_at: i64,
     },

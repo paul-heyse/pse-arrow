@@ -116,7 +116,7 @@ async fn admit(
         .map_err(pse_columnar::external)?
         .row(0)
         .map_err(pse_columnar::external)?;
-    if record.parent_publication_id == Some(super::manifest::publication_of(&record)) {
+    if record.parent_publication_id == Some(record.publication_id) {
         return Err(invalid("a publication cannot be its own parent"));
     }
     super::publication::verify_inputs(&record.inputs, registry, Arc::clone(&state))

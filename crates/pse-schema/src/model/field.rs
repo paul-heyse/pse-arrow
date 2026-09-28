@@ -20,6 +20,8 @@ const FK_RELATION: &str = "pse.domain.fk.relation";
 const FK_COLUMN: &str = "pse.domain.fk.column";
 /// The declared entity identity a top-level identity column carries (ADR-0115).
 const IDENTITY: &str = "pse.domain.identity";
+/// Marks the one key column that owns the identity it carries (Plan 22 B3c).
+const IDENTITY_OWNER: &str = "pse.domain.identity.owner";
 /// The document format of a text column holding one structured document.
 const DOCUMENT: &str = "pse.domain.document";
 /// The one document format: a JSON document (PostgreSQL `jsonb`).
@@ -206,9 +208,21 @@ impl FieldContract {
     pub fn with_identity(self, identity: &str) -> Self {
         self.facet(IDENTITY, identity)
     }
+    /// Declare that this key column carries the named entity identity and owns it: its
+    /// relation is where the entity is minted, and at most one column owns an identity.
+    /// Carrying an identity never implies ownership; a keyed projection of an entity
+    /// declares [`Self::with_identity`] on its key instead.
+    #[must_use]
+    pub fn with_owned_identity(self, identity: &str) -> Self {
+        self.facet(IDENTITY, identity).facet(IDENTITY_OWNER, "true")
+    }
     /// The entity identity this column carries, declared or inherited.
     pub fn identity(&self) -> Option<&str> {
         self.get(IDENTITY)
+    }
+    /// Whether this column was declared the owner of its identity.
+    pub fn owns_identity(&self) -> bool {
+        self.get(IDENTITY_OWNER).is_some()
     }
     /// A text column holding one JSON document (logical type `json`).
     pub fn json_document() -> Self {
@@ -413,6 +427,7 @@ impl FieldContract {
                         | FK_RELATION
                         | FK_COLUMN
                         | IDENTITY
+                        | IDENTITY_OWNER
                         | super::reference::KEY_REFERENCE
                 )
             })
@@ -527,6 +542,7 @@ impl FieldContract {
                     | FK_RELATION
                     | FK_COLUMN
                     | IDENTITY
+                    | IDENTITY_OWNER
                     | DOCUMENT
                     | STRUCTURE
             ) {

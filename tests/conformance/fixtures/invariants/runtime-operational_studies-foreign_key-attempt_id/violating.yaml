@@ -1,5 +1,5 @@
 {
-  "invariant": "runtime.operational_study_points:foreign_key:attempt_id",
+  "invariant": "runtime.operational_studies:foreign_key:attempt_id",
   "rows": {
     "runtime.operational_attempts": [
       {
@@ -29,17 +29,22 @@
         "worker": "[\"text\",\"value-1\"]"
       }
     ],
-    "runtime.operational_study_points": [
+    "runtime.operational_studies": [
       {
-        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "binding_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
-        "point_index": "[\"i64\",1]",
-        "result_ref": "[\"text\",\"value-1\"]",
-        "state": "[\"enum\",\"pending\"]",
+        "attempt_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "created_at": "[\"i64\",1]",
+        "definition": "[\"text\",\"value-1\"]",
+        "finalization_job": "[\"id\",\"01010101010101010101010101010101\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state": "[\"enum\",\"open\"]",
         "study_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "updated_at": "[\"i64\",1]"
       }
     ]
   },
-  "expected_keys": []
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
 }

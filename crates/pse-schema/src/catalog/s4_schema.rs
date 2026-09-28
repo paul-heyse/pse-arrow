@@ -182,7 +182,7 @@ fn declare_identities(builder: &mut RegistryBuilder) {
             FieldContract::reference(
                 "owner_relation_id",
                 FieldContract::id(),
-                "The relation whose single-column primary key declares the identity, if any.",
+                "The relation whose single-column primary key was declared the identity's owner, if any.",
             )
             .with_fk("reference.schema_relations", "relation_id")
             .optional(),

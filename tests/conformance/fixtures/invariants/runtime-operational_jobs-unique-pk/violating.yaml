@@ -15,7 +15,7 @@
         "payload": "[\"text\",\"value-1\"]",
         "payload_version": "[\"i64\",1]",
         "priority": "[\"i64\",1]",
-        "state": "[\"enum\",\"queued\"]",
+        "state": "[\"enum\",\"waiting\"]",
         "tries": "[\"i64\",1]",
         "updated_at": "[\"i64\",1]"
       },
@@ -32,7 +32,7 @@
         "payload": "[\"text\",\"value-1\"]",
         "payload_version": "[\"i64\",1]",
         "priority": "[\"i64\",1]",
-        "state": "[\"enum\",\"queued\"]",
+        "state": "[\"enum\",\"waiting\"]",
         "tries": "[\"i64\",1]",
         "updated_at": "[\"i64\",1]"
       }

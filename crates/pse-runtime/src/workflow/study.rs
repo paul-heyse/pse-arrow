@@ -123,7 +123,7 @@ pub struct StudyDefinition {
 #[serde(deny_unknown_fields)]
 pub struct StudyPointDefinition {
     /// The authored case.
-    pub case: SemanticId,
+    pub case: DeclarationId,
     /// The hash of the point's value bindings.
     pub binding_hash: ContentHash,
     /// The values the point replaces in its case.
@@ -137,7 +137,7 @@ pub struct StudyPointDefinition {
 /// What a point's binding hash frames: its case, route and overlay.
 #[derive(serde::Serialize)]
 struct BindingContent<'a> {
-    case: SemanticId,
+    case: DeclarationId,
     route: ModelingAnalysisRoute,
     overlay: &'a PointOverlay,
 }
@@ -403,7 +403,7 @@ impl Runtime {
             let binding_hash = identity(
                 pse_ids::Frame::DurableStudyPointBindingV1,
                 &BindingContent {
-                    case: point.case.as_id(),
+                    case: point.case,
                     route: plan.route,
                     overlay: &point.overlay,
                 },
@@ -414,7 +414,7 @@ impl Runtime {
                 )));
             }
             points.push(StudyPointDefinition {
-                case: point.case.as_id(),
+                case: point.case,
                 binding_hash,
                 overlay: point.overlay.clone(),
                 predecessor: point.predecessor,
@@ -663,7 +663,7 @@ impl Runtime {
             rows.push(study_outcomes::Row {
                 study_id: record.study.study_id,
                 point_index: i64::from(point.point_index),
-                case_id: defined.case.into(),
+                case_id: defined.case,
                 binding_hash: point.binding_hash,
                 predecessor: point.predecessor.map(i64::from),
                 state: point.state,

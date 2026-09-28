@@ -103,7 +103,7 @@ impl Environment {
             destinations.insert(name.clone(), location.join(&format!("members/{index}/"))?);
         }
         let header = publication_manifests::Row {
-            publication_id: pse_authoring::ids::uuid_v7(),
+            publication_id: pse_authoring::ids::uuid_v7().into(),
             workspace_id: pse_authoring::ids::uuid_v7().into(),
             parent_publication_id: None,
             attempt_id: pse_authoring::ids::uuid_v7().into(),

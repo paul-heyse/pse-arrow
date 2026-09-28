@@ -3,6 +3,7 @@
 //! Original-model assessment of a step's candidate: prepared once per structure, then
 //! evaluated on the step's own worker, so every step of a staged sequence is qualified the
 //! same way without a nested job (A6).
+use pse_model::generated::identities::RunId;
 use super::results::{AssessmentScope, assess_observations, assessment_units};
 use super::*;
 use crate::math::{ExecutableCase, WorkerBudget, solves::Outcome};
@@ -94,7 +95,7 @@ impl Assessment {
     pub(in crate::workflow) fn assess(
         &self,
         prepared: &ModelingSolvePreparation,
-        run_id: SemanticId,
+        run_id: RunId,
         attempt: usize,
         outcome: &Outcome,
         flag: &Arc<AtomicBool>,
@@ -143,7 +144,7 @@ impl Assessment {
     fn evaluate(
         &self,
         prepared: &ModelingSolvePreparation,
-        run_id: SemanticId,
+        run_id: RunId,
         attempt: usize,
         values: &CaseValues,
         flag: &Arc<AtomicBool>,

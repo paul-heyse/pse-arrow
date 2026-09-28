@@ -4,6 +4,7 @@
 #[cfg(feature = "solver-highs")]
 #[path = "diagnostic_linear.rs"]
 mod linear;
+use pse_model::generated::identities::RunId;
 use super::*;
 use crate::math::modeling::ModelingCasePreparation;
 #[cfg(feature = "solver-highs")]
@@ -102,7 +103,7 @@ pub struct ModelingDiagnosticPolicy {
 #[derive(Clone, Debug)]
 pub struct ModelingDiagnostics {
     /// Identity of this diagnostic run.
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     pub(super) runtime: Runtime,
     pub(super) source_identity: pse_ids::ContentHash,
     pub(super) numerical_identity: pse_ids::ContentHash,
@@ -361,7 +362,7 @@ impl ModelingPackage {
                 .ok_or_else(|| contract("diagnostic numerical target absent"))
         };
         let mut report = ModelingDiagnostics {
-            run_id: pse_authoring::ids::uuid_v7(),
+            run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
             source_identity: plan.structure().key(),
             numerical_identity: numerics.key,
@@ -1270,7 +1271,7 @@ mod tests {
 #[derive(Debug)]
 pub struct ModelingJacobianOptimization {
     /// Identity of this analysis run.
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     /// Certificates, degenerate sets and every native attempt.
     pub evidence: pse_backend_native::jacobian_diagnostics::Report,
     pub(in crate::workflow::modeling) runtime: Runtime,
@@ -1359,7 +1360,7 @@ impl ModelingPackage {
             })
             .await?;
         Ok(ModelingJacobianOptimization {
-            run_id: pse_authoring::ids::uuid_v7(),
+            run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
             source_identity,
             numerical_identity,

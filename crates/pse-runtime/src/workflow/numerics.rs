@@ -394,10 +394,10 @@ impl RunResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pse_model::generated::enums::ModelingCheckKind;
+    use pse_model::generated::{enums::ModelingCheckKind, identities::RunId};
     fn check(kind: ModelingCheckKind, satisfied: bool) -> super::super::ModelingCheck {
         super::super::ModelingCheck {
-            run_id: SemanticId::from_bytes([1; 16]),
+            run_id: RunId::from_bytes([1; 16]),
             step: 0,
             sample_index: 0,
             time: None,

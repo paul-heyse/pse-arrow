@@ -1,0 +1,41 @@
+{
+  "invariant": "runtime.operational_studies:foreign_key:finalization_job",
+  "rows": {
+    "runtime.operational_jobs": [
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "available_at": "[\"i64\",1]",
+        "backoff_base_us": "[\"i64\",1]",
+        "backoff_cap_us": "[\"i64\",1]",
+        "enqueued_at": "[\"i64\",1]",
+        "idempotency_key": "[\"text\",\"value-1\"]",
+        "job_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "last_error": "[\"text\",\"value-1\"]",
+        "max_tries": "[\"i64\",1]",
+        "payload": "[\"text\",\"value-1\"]",
+        "payload_version": "[\"i64\",1]",
+        "priority": "[\"i64\",1]",
+        "state": "[\"enum\",\"waiting\"]",
+        "tries": "[\"i64\",1]",
+        "updated_at": "[\"i64\",1]"
+      }
+    ],
+    "runtime.operational_studies": [
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "created_at": "[\"i64\",1]",
+        "definition": "[\"text\",\"value-1\"]",
+        "finalization_job": "[\"id\",\"02020202020202020202020202020202\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state": "[\"enum\",\"open\"]",
+        "study_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "updated_at": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

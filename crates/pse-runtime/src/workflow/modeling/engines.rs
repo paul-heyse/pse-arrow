@@ -4,6 +4,7 @@
 //! (A6): each attempt composes its overlay over the immutable original specification, is
 //! seeded only from a step whose candidate permits it, and shares prepared structure and the
 //! native session with the other steps.
+use pse_model::generated::identities::RunId;
 use super::assessment::Obligations;
 use super::*;
 use crate::math::solves::{NumericalInputs, SolverProfile};
@@ -165,7 +166,7 @@ impl ModelingInitializationAttempt {
 #[derive(Clone, Debug)]
 pub struct ModelingInitializationReport {
     /// Identity of this initialization run.
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     pub(super) runtime: Runtime,
     /// Every attempt in order, including failed and interrupted ones.
     pub attempts: Vec<ModelingInitializationAttempt>,
@@ -190,7 +191,7 @@ pub struct ModelingStudyPoint {
 #[derive(Clone, Debug)]
 pub struct ModelingStudyReport {
     /// Identity of this study run.
-    pub run_id: SemanticId,
+    pub run_id: RunId,
     pub(super) runtime: Runtime,
     pub(super) points: Vec<(Option<DeclarationId>, Option<InstanceId>, Option<usize>)>,
     /// Attempted points in order.
@@ -325,7 +326,7 @@ impl ModelingPackage {
         }
         staged.close().await;
         Ok(ModelingStudyReport {
-            run_id: pse_authoring::ids::uuid_v7(),
+            run_id: pse_operations::mint_id(),
             runtime: self.runtime.clone(),
             points: point_sources,
             unattempted: count - outcomes.len(),
@@ -465,7 +466,7 @@ impl ModelingPackage {
             staged: Staged::open(&self.runtime, None)?,
             accepted: None,
             report: ModelingInitializationReport {
-                run_id: pse_authoring::ids::uuid_v7(),
+                run_id: pse_operations::mint_id(),
                 runtime: self.runtime.clone(),
                 attempts: Vec::with_capacity(policy.maximum_attempts),
                 completed: false,

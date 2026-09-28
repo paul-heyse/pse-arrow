@@ -31,12 +31,16 @@ class AuthoredNumericalRequirementsRow(msgspec.Struct, frozen=True, forbid_unkno
 
     #: absolute_tolerance
     absolute_tolerance: float | None = None
-    #: case_id
+    #: The case declaration the requirement belongs to: the solved root when it is a case or a test, otherwise absent.
     case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
     #: coordinates
     coordinates: enums.NumericalCoordinates
-    #: model_id
-    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The fit whose parameter requirement this is; absent otherwise.
+    fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's.
+    instance_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: The specialized definition the requirement belongs to: the root declaration of the model it is declared for. A modeling preparation's requirements name its root, an implicit block's trial hints their enclosing model's; a fit's parameter requirements name the one definition all its experiments specialize, and none when they specialize different ones.
+    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
     #: nominal
     nominal: float | None = None
     #: priority

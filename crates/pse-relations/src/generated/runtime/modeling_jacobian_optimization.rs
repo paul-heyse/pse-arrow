@@ -29,9 +29,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    203u8, 219u8, 72u8, 78u8, 214u8, 213u8, 195u8, 139u8, 76u8, 15u8, 107u8, 181u8,
-    242u8, 56u8, 82u8, 224u8, 167u8, 223u8, 115u8, 167u8, 177u8, 170u8, 171u8, 87u8,
-    128u8, 247u8, 112u8, 120u8, 38u8, 67u8, 210u8, 76u8,
+    251u8, 59u8, 222u8, 182u8, 130u8, 106u8, 149u8, 40u8, 206u8, 130u8, 150u8, 107u8,
+    238u8, 64u8, 237u8, 209u8, 126u8, 148u8, 181u8, 229u8, 179u8, 2u8, 18u8, 48u8, 32u8,
+    245u8, 108u8, 178u8, 164u8, 217u8, 205u8, 3u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeModelingJacobianOptimizationFieldPointItem {
     fn append(
@@ -658,7 +658,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingJacobianOptimizationRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
@@ -702,7 +702,7 @@ impl crate::columnar::ArrowValue for RuntimeModelingJacobianOptimizationRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#run_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#run_id: <crate::generated::identities::RunId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,

@@ -46,7 +46,6 @@ pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
 use pse_authoring::language::Declaration;
 use pse_compiler::workspace::{Inputs, WorkspaceLimits};
 use pse_ids::SemanticId;
-use pse_model::generated::identities::ModelId;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
 use pse_quantity::QuantityTypeId;
 use pse_relations::columnar::RelationRow;

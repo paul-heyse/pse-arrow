@@ -1647,17 +1647,19 @@ from_version <= through_version
 
 ## `run_lineage`
 
-Completion-owned semantic lineage. Run identity names the attempt; it is not part of request identity. Effective settings, submitted start and native observations are retained in solve_metrics; source provider and parameter data are retained with the immutable revision.
+Completion-owned semantic lineage. The run is the execution, not its content: it is not part of request identity, and a durable run's tries are attempts recorded in the operational store, the publication naming the attempt. Model, case, instance and fit name what was solved (`pse_model::lineage`). Effective settings, submitted start and native observations are retained in solve_metrics; source provider and parameter data are retained with the immutable revision.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
 | `step` | `Int64` | false | `key` | — | — |
-| `model_id` | `semantic_id` | false | `payload` | — | — |
+| `model_id` | `semantic_id` | true | `payload` | — | — |
 | `revision` | `content_hash` | false | `payload` | — | — |
-| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | true | `payload` | — | — |
+| `instance_id` | `semantic_id` | true | `payload` | — | — |
+| `fit_id` | `semantic_id` | true | `payload` | — | — |
 | `request_identity` | `content_hash` | false | `payload` | — | — |
 | `preparation_identity` | `content_hash` | false | `payload` | — | — |
 | `profile_identity` | `content_hash` | false | `payload` | — | — |
@@ -1765,7 +1767,7 @@ Native row check `one_evidence_value` (must be true):
 
 Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution.
 
-Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
+Version: 4. Snapshot class: `derived`. Primary key: `run_id, step`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -1774,6 +1776,7 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `model_id` | `semantic_id` | true | `payload` | — | — |
 | `revision` | `content_hash` | true | `payload` | — | — |
 | `case_id` | `semantic_id` | true | `payload` | — | — |
+| `instance_id` | `semantic_id` | true | `payload` | — | — |
 | `backend` | `enum:NativeBackend` | true | `payload` | — | — |
 | `native_code` | `Int64` | true | `payload` | — | — |
 | `native_status` | `Utf8` | true | `payload` | — | — |

@@ -67,10 +67,10 @@ fn declare_manifests(builder: &mut RegistryBuilder) {
         .pk(&["publication_id"])
         .granularity(crate::model::DerivationGranularity::Row)
         .columns(vec![
-            // The key names the operational catalog's publication but cannot carry the
-            // `publication` identity: a single-column key that declares an identity owns
-            // it, and the catalog's intents own it. The other references carry theirs.
-            T::key("publication_id", T::id(), "Publication identity."),
+            // The key names the operational catalog's publication: it carries the
+            // `publication` identity without owning it, since the catalog's intents
+            // mint publications and own the identity.
+            T::key("publication_id", T::id(), "Publication identity.").with_identity("publication"),
             column("workspace_id", T::id()).with_identity("workspace"),
             column("parent_publication_id", T::id())
                 .with_identity("publication")

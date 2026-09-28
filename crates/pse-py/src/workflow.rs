@@ -604,7 +604,7 @@ impl NativeRunResult {
     }
     #[getter]
     fn run_id(&self) -> String {
-        self.inner.run_id.to_hex()
+        self.inner.run_id.as_id().to_hex()
     }
     /// The durable attempt that recorded this run; `None` when the run is ephemeral.
     #[getter]

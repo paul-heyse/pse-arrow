@@ -42,7 +42,7 @@ fn id(byte: u8) -> SemanticId {
 }
 fn header(publication: u8, kind: PublicationKind) -> publication_manifests::Row {
     publication_manifests::Row {
-        publication_id: id(publication),
+        publication_id: id(publication).into(),
         workspace_id: id(1).into(),
         parent_publication_id: None,
         attempt_id: id(publication + 1).into(),

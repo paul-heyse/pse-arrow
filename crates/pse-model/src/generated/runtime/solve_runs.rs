@@ -10,16 +10,18 @@
     reason = "field names are the authoritative relation contract"
 )]
 pub struct RuntimeSolveRunsRow {
-    ///run_id
-    pub r#run_id: pse_ids::SemanticId,
+    ///The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    pub r#run_id: crate::generated::identities::RunId,
     ///step
     pub r#step: i64,
-    ///model_id
-    pub r#model_id: Option<crate::generated::identities::ModelId>,
+    ///The specialized definition the step solved: the root declaration its model specializes.
+    pub r#model_id: Option<crate::generated::identities::DeclarationId>,
     ///revision
     pub r#revision: Option<pse_ids::ContentHash>,
-    ///case_id
-    pub r#case_id: Option<crate::generated::identities::CaseId>,
+    ///The case declaration the step solved: its root when that root is a case or a test, otherwise absent.
+    pub r#case_id: Option<crate::generated::identities::DeclarationId>,
+    ///The instance the step's root became: the root declaration's own identity, or a fit experiment's instance.
+    pub r#instance_id: Option<crate::generated::identities::InstanceId>,
     ///backend
     pub r#backend: Option<crate::generated::enums::NativeBackend>,
     ///native_code
@@ -58,6 +60,7 @@ impl crate::SemanticEq for RuntimeSolveRunsRow {
             && crate::SemanticEq::semantic_eq(&self.r#model_id, &other.r#model_id)
             && crate::SemanticEq::semantic_eq(&self.r#revision, &other.r#revision)
             && crate::SemanticEq::semantic_eq(&self.r#case_id, &other.r#case_id)
+            && crate::SemanticEq::semantic_eq(&self.r#instance_id, &other.r#instance_id)
             && crate::SemanticEq::semantic_eq(&self.r#backend, &other.r#backend)
             && crate::SemanticEq::semantic_eq(&self.r#native_code, &other.r#native_code)
             && crate::SemanticEq::semantic_eq(
@@ -112,6 +115,8 @@ impl crate::SemanticFrame for RuntimeSolveRunsRow {
         crate::SemanticFrame::frame(&self.r#revision, hash);
         hash.str(stringify!(r#case_id));
         crate::SemanticFrame::frame(&self.r#case_id, hash);
+        hash.str(stringify!(r#instance_id));
+        crate::SemanticFrame::frame(&self.r#instance_id, hash);
         hash.str(stringify!(r#backend));
         crate::SemanticFrame::frame(&self.r#backend, hash);
         hash.str(stringify!(r#native_code));
@@ -152,6 +157,7 @@ impl crate::HeapUsage for RuntimeSolveRunsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#model_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#revision))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#case_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#instance_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#native_code))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#native_status))

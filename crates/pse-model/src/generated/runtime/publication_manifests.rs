@@ -11,7 +11,7 @@
 )]
 pub struct RuntimePublicationManifestsRow {
     ///Publication identity.
-    pub r#publication_id: pse_ids::SemanticId,
+    pub r#publication_id: crate::generated::identities::PublicationId,
     ///workspace_id
     pub r#workspace_id: crate::generated::identities::WorkspaceId,
     ///parent_publication_id

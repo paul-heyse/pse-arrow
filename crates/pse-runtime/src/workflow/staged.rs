@@ -18,6 +18,7 @@
 //! - records each step's typed outcome and candidate-use decision. A later step starts
 //!   only from a step whose decision permits it (ADR-0106, [`Start`]); a failed step seeds
 //!   nothing and does not stop independent steps.
+use pse_model::generated::identities::RunId;
 use super::{
     ModelingAnalysis, ModelingPackage, ModelingResult, ModelingSolvePreparation, Runtime,
     WorkflowError,
@@ -197,7 +198,7 @@ impl Staged {
         &mut self,
         prepared: ModelingSolvePreparation,
         obligations: Obligations,
-        run_id: SemanticId,
+        run_id: RunId,
         attempt: usize,
         previous: Option<Predecessor>,
         cancel: &crate::CancelSource,
@@ -213,7 +214,7 @@ impl Staged {
         &self,
         prepared: ModelingSolvePreparation,
         obligations: Obligations,
-        run_id: SemanticId,
+        run_id: RunId,
         attempt: usize,
         previous: Option<Predecessor>,
         cancel: &crate::CancelSource,
@@ -316,7 +317,7 @@ impl Staged {
             this.execute(
                 prepared,
                 obligations,
-                pse_authoring::ids::uuid_v7(),
+                pse_operations::mint_id(),
                 0,
                 None,
                 &child,

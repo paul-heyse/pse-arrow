@@ -106,7 +106,7 @@ pub struct ModelingJob {
     /// The source bundles of the modeling package closure, in load order.
     pub modeling: Vec<ContentHash>,
     /// The authored case to solve.
-    pub case: SemanticId,
+    pub case: pse_model::generated::identities::DeclarationId,
     /// Its analysis route.
     pub route: ModelingAnalysisRoute,
     /// The solve settings.
@@ -379,6 +379,7 @@ impl Runtime {
             Claim {
                 job,
                 attempt: claimed.attempt_id,
+                run: claimed.run_id,
             },
         );
         let stop = cancel.clone();
@@ -513,7 +514,7 @@ impl Runtime {
         let package = self.package_from_sources(&modeling, physical)?;
         let mut analysis: ModelingAnalysis = package
             .declared_analysis(
-                job.case.into(),
+                job.case,
                 job.route,
                 Default::default(),
                 solver,

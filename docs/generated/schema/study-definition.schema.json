@@ -14,7 +14,7 @@
           ]
         },
         "case_id": {
-          "description": "case_id",
+          "description": "The case declaration the requirement belongs to: the solved root when it is a case or a test, otherwise absent.",
           "pattern": "^[0-9a-fA-F]{32}$",
           "type": [
             "string",
@@ -25,10 +25,29 @@
           "$ref": "#/$defs/NumericalCoordinates",
           "description": "coordinates"
         },
-        "model_id": {
-          "description": "model_id",
+        "fit_id": {
+          "description": "The fit whose parameter requirement this is; absent otherwise.",
           "pattern": "^[0-9a-fA-F]{32}$",
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "instance_id": {
+          "description": "The instance whose preparation declared the requirement: the solved root instance (a fit experiment's own instance), or the implicit block whose trial hints declared it. Absent for a fit's parameter requirements and a generated rate system's.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_id": {
+          "description": "The specialized definition the requirement belongs to: the root declaration of the model it is declared for. A modeling preparation's requirements name its root, an implicit block's trial hints their enclosing model's; a fit's parameter requirements name the one definition all its experiments specialize, and none when they specialize different ones.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "nominal": {
           "description": "nominal",
@@ -92,7 +111,6 @@
       },
       "required": [
         "requirement_id",
-        "model_id",
         "target_id",
         "target_kind",
         "coordinates",

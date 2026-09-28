@@ -173,7 +173,7 @@ async fn worker_runs_authored_case_end_to_end() {
     let job = ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
-        case: case.as_id(),
+        case,
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: settings(),
         start: JobStart::Fresh,
@@ -427,7 +427,7 @@ async fn long_scip_job(
     ModelingJob {
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
-        case: case.as_id(),
+        case,
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,
         start,

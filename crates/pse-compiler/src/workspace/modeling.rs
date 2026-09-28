@@ -43,6 +43,12 @@ impl ModelingRevision {
     pub fn quantity_names(&self) -> &BTreeMap<String, QuantityTypeId> {
         &self.names
     }
+    /// What specializing `root` as `instance` solves: its model, case and instance
+    /// (`pse_model::lineage`), or `None` when the revision admits no such root.
+    pub fn solved(&self, root: DeclarationId, instance: InstanceId) -> Option<pse_model::lineage::Solved> {
+        let kind = self.checked.declaration(root)?.value.kind;
+        Some(pse_model::lineage::Solved::new(root, kind, instance))
+    }
     /// Conservative retained source and checked-state extent.
     pub fn retained_bytes(&self) -> usize {
         self.input_bytes
