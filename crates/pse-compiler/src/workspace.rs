@@ -541,45 +541,6 @@ fn structural_plan(
     Ok(Arc::new(inc.analyze(cancel)?))
 }
 
-fn algebraic_partition(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-    rows: Vec<SemanticId>,
-    columns: Vec<SemanticId>,
-) -> Result<Arc<StructuralAnalysis>> {
-    algebraic_partition_query(
-        db,
-        i,
-        id,
-        SelectionKey::new(db, rows),
-        SelectionKey::new(db, columns),
-    )
-}
-#[salsa::tracked(returns(clone), lru = 64)]
-fn algebraic_partition_query(
-    db: &dyn CompilerDb,
-    i: Inventory,
-    id: SemanticId,
-    rows: SelectionKey<'_>,
-    columns: SelectionKey<'_>,
-) -> Result<Arc<StructuralAnalysis>> {
-    let rows = rows.ids(db);
-    let columns = columns.ids(db);
-    let p = function_plan(
-        db,
-        i,
-        id,
-        rows.clone(),
-        columns.clone(),
-        DerivativeOrder::First,
-    )?
-    .0;
-    checkpoint(db);
-    let result = analyze_partition(id, &p, rows, columns, db.cancel());
-    checkpoint(db);
-    result
-}
 fn analyze_partition(
     id: SemanticId,
     p: &CasePlan,
@@ -1212,39 +1173,6 @@ impl CompilerWorkspace {
     pub fn cancellation_token(&self) -> salsa::CancellationToken {
         self.db.cancellation_token()
     }
-    /// Analyze a mass-zero partition using a bounded pure library-matching query.
-    pub fn analyze_dynamic_partition(
-        &mut self,
-        id: SemanticId,
-        rows: Vec<SemanticId>,
-        columns: Vec<SemanticId>,
-        cancel: Arc<AtomicBool>,
-    ) -> Result<Arc<StructuralAnalysis>> {
-        if cancel.load(Ordering::Acquire) {
-            return Err(CompileError::Cancelled);
-        }
-        if rows.len() > self.limits.entries || columns.len() > self.limits.entries {
-            return Err(CompileError::Limit("dynamic partition"));
-        }
-        if self.retention_exceeded() {
-            self.rebuild(self.inputs.clone())?;
-        }
-        if rows
-            .len()
-            .saturating_add(columns.len())
-            .saturating_mul(size_of::<SemanticId>())
-            > self.limits.retained_bytes
-        {
-            return Err(CompileError::Limit("dynamic partition key payload"));
-        }
-        self.db.cancel = cancel;
-        let result = salsa::Cancelled::catch(|| {
-            algebraic_partition(&self.db, self.inventory, id, rows, columns)
-        })
-        .map_err(|_| CompileError::Cancelled)?;
-        self.trim_queries()?;
-        result
-    }
     /// Prepare general functions through the same bounded pure Salsa database.
     pub fn prepare_functions(
         &mut self,
@@ -1496,7 +1424,6 @@ fn inventory(db: &dyn CompilerDb, i: &Inputs, environment: ContentHash) -> Inven
     .new(db)
 }
 fn configure(db: &mut CompilerDatabase, n: usize) {
-    algebraic_partition_query::set_lru_capacity(db, n);
     function_plan_query::set_lru_capacity(db, n);
     initialization_blocks::set_lru_capacity(db, n);
     flow_declaration::set_lru_capacity(db, n);

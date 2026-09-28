@@ -14,6 +14,20 @@ fn document<T: schemars::JsonSchema>(name: &'static str) -> Document {
     }
 }
 
+/// Every published document, in publication order.
+pub(super) fn documents() -> Vec<Document> {
+    vec![
+        document::<pse_runtime::math::settings::SolveSettings>("solve-settings"),
+        document::<pse_backend_native::execution::BackendSettings>("backend-settings"),
+        document::<pse_backend_native::dynamics::DiffsolSettings>("diffsol-settings"),
+        document::<pse_backend_native::dynamics::IdasSettings>("idas-settings"),
+        document::<pse_runtime::workflow::JobPayload>("job-payload"),
+        document::<pse_runtime::workflow::StudyDefinition>("study-definition"),
+        document::<pse_runtime::workflow::TerminationDetail>("termination-detail"),
+        document::<pse_runtime::workflow::SourceManifest>("source-manifest"),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
@@ -146,18 +160,4 @@ mod tests {
             "{hydration_only:?}"
         );
     }
-}
-
-/// Every published document, in publication order.
-pub(super) fn documents() -> Vec<Document> {
-    vec![
-        document::<pse_runtime::math::settings::SolveSettings>("solve-settings"),
-        document::<pse_backend_native::execution::BackendSettings>("backend-settings"),
-        document::<pse_backend_native::dynamics::DiffsolSettings>("diffsol-settings"),
-        document::<pse_backend_native::dynamics::IdasSettings>("idas-settings"),
-        document::<pse_runtime::workflow::JobPayload>("job-payload"),
-        document::<pse_runtime::workflow::StudyDefinition>("study-definition"),
-        document::<pse_runtime::workflow::TerminationDetail>("termination-detail"),
-        document::<pse_runtime::workflow::SourceManifest>("source-manifest"),
-    ]
 }
