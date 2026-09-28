@@ -8,44 +8,7 @@ use pse_ids::SemanticId;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Effects of an invocation, independent of the native operator/function family.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub enum OperationEffect {
-    /// Read captured relation inputs.
-    Read,
-    /// Read external state whose capture belongs to the invocation.
-    Observe,
-    /// Use time, randomness or another explicitly varying input.
-    Nondeterministic,
-    /// Construct or change private candidate data.
-    Write,
-    /// Change an attempt's namespace/configuration generation.
-    Namespace,
-    /// Write external artifacts or conditionally publish authoritative visibility.
-    Publish,
-}
-impl OperationEffect {
-    /// Canonical effect vocabulary; it does not enumerate eligible engine features.
-    pub const ALL: [Self; 6] = [
-        Self::Read,
-        Self::Observe,
-        Self::Nondeterministic,
-        Self::Write,
-        Self::Namespace,
-        Self::Publish,
-    ];
-    /// Stable metadata spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Read => "read",
-            Self::Observe => "observe",
-            Self::Nondeterministic => "nondeterministic",
-            Self::Write => "write",
-            Self::Namespace => "namespace",
-            Self::Publish => "publish",
-        }
-    }
-}
+pub use pse_vocabulary::OperationEffect;
 
 /// Why a product invocation runs. The selected scope may restrict these effects.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]

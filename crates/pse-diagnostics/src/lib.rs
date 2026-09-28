@@ -4,7 +4,7 @@
 //! Shared diagnostic vocabulary and lossless native engine causes.
 
 mod vocabulary;
-pub use vocabulary::{DiagnosticCode, FailureClass};
+pub use vocabulary::{DiagnosticCode, FailureClass, VocabularyError};
 
 /// Semantic identity and aggregate structure, independent of presentation.
 pub trait TypedDiagnostic: miette::Diagnostic + 'static {

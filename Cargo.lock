@@ -4953,6 +4953,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "postgres-derive"
+version = "0.4.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d9d9089bb0ce62f4b5d52a0be0f4acfb35738b979380670d3dea85fe38d6ddd"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "postgres-protocol"
 version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4978,6 +4990,7 @@ checksum = "851ca9db4932932d69f3ea811b1abe63087a0f740a47692619dd40d4899b68be"
 dependencies = [
  "bytes",
  "fallible-iterator",
+ "postgres-derive",
  "postgres-protocol",
 ]
 
@@ -5488,6 +5501,7 @@ name = "pse-diagnostics"
 version = "0.0.1"
 dependencies = [
  "miette",
+ "postgres-types",
  "thiserror 2.0.20",
 ]
 
@@ -5774,6 +5788,7 @@ dependencies = [
  "pse-diagnostics",
  "pse-ids",
  "pse-quantity",
+ "pse-vocabulary",
  "serde",
  "serde_json",
  "sqlparser",
@@ -5928,6 +5943,16 @@ dependencies = [
 [[package]]
 name = "pse-tests-structural"
 version = "0.0.1"
+
+[[package]]
+name = "pse-vocabulary"
+version = "0.0.1"
+dependencies = [
+ "postgres-types",
+ "pse-diagnostics",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "psm"

@@ -5,44 +5,9 @@
 //! actual native plan children by the caller. There is no registry producer graph,
 //! stage scheduler, stored stage identity, or reconstruction from an algorithm number.
 
-use core::fmt;
-
 use pse_ids::SemanticId;
 
-/// How reproducible an algorithm is (blueprint §14.1).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Determinism {
-    /// The same inputs give the same outputs, byte for byte.
-    Deterministic,
-    /// Deterministic as the least fixed point of its rules (P4, P6).
-    DeterministicFixedPoint,
-    /// Deterministic once a backend is chosen; different backends differ (P16).
-    DeterministicPerBackend,
-}
-
-impl Determinism {
-    /// Every kind, in blueprint §14.1 order.
-    pub const ALL: [Self; 3] = [
-        Self::Deterministic,
-        Self::DeterministicFixedPoint,
-        Self::DeterministicPerBackend,
-    ];
-
-    /// The wire spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Deterministic => "deterministic",
-            Self::DeterministicFixedPoint => "deterministic_fixed_point",
-            Self::DeterministicPerBackend => "deterministic_per_backend",
-        }
-    }
-}
-
-impl fmt::Display for Determinism {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
+pub use pse_vocabulary::Determinism;
 
 /// One declared input of an algorithm (blueprint §6.11).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
