@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! One-shot faults around actual immutable object operations and conditional ref writes.
+//! One-shot faults around actual immutable object operations and conditional ref writes,
+//! listings and deletions.
 #![allow(
     clippy::expect_used,
     reason = "shared test factories and controlled poisoned-lock failures"
 )]
 
-use futures_util::stream::BoxStream;
+use futures_util::{StreamExt, stream::BoxStream};
 use object_store::{
     CopyOptions, GetOptions, GetResult, ListResult, MultipartUpload, ObjectMeta, ObjectStore,
     ObjectStoreExt, PutMultipartOptions, PutOptions, PutPayload, PutResult, Result, path::Path,
@@ -34,7 +35,9 @@ pub enum Fault {
 /// Explicit operation/path/call selection independent of hashing or object identity.
 #[derive(Clone, Debug)]
 pub struct FaultPlan {
-    /// `put` or `get`.
+    /// `put`, `get`, `delete` (one object of a deletion stream) or `list` (the listed
+    /// prefix). A `delete` or `list` fault supports [`Fault::FailBefore`]: the selected
+    /// object is not deleted, or nothing is listed.
     pub operation: &'static str,
     /// Literal path prefix.
     pub prefix: String,
@@ -54,19 +57,19 @@ struct State {
 #[derive(Debug)]
 pub struct FaultStore {
     inner: Arc<dyn ObjectStore>,
-    state: Mutex<State>,
+    state: Arc<Mutex<State>>,
 }
 impl FaultStore {
     /// A wrapper initially behaving exactly like the supplied backend.
     pub fn new(inner: Arc<dyn ObjectStore>) -> Arc<Self> {
         Arc::new(Self {
             inner,
-            state: Mutex::new(State {
+            state: Arc::new(Mutex::new(State {
                 plan: None,
                 matches: 0,
                 fired: 0,
                 puts: Vec::new(),
-            }),
+            })),
         })
     }
     /// Replace the next one-shot selection, resetting observation counters.
@@ -99,22 +102,25 @@ impl FaultStore {
         self.state.lock().expect("fault lock").puts.clone()
     }
     fn action(&self, operation: &str, path: &Path) -> Option<Fault> {
-        let mut state = self.state.lock().expect("fault lock");
-        if operation == "put" {
-            state.puts.push(path.to_string());
-        }
-        let plan = state.plan.as_ref()?;
-        if operation != plan.operation || !path.as_ref().starts_with(&plan.prefix) {
-            return None;
-        }
-        let call = plan.call;
-        state.matches += 1;
-        if state.matches != call {
-            return None;
-        }
-        state.fired += 1;
-        state.plan.take().map(|plan| plan.fault)
+        action(&self.state, operation, path)
     }
+}
+fn action(state: &Mutex<State>, operation: &str, path: &Path) -> Option<Fault> {
+    let mut state = state.lock().expect("fault lock");
+    if operation == "put" {
+        state.puts.push(path.to_string());
+    }
+    let plan = state.plan.as_ref()?;
+    if operation != plan.operation || !path.as_ref().starts_with(&plan.prefix) {
+        return None;
+    }
+    let call = plan.call;
+    state.matches += 1;
+    if state.matches != call {
+        return None;
+    }
+    state.fired += 1;
+    state.plan.take().map(|plan| plan.fault)
 }
 impl std::fmt::Display for FaultStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -193,9 +199,25 @@ impl ObjectStore for FaultStore {
         &self,
         locations: BoxStream<'static, Result<Path>>,
     ) -> BoxStream<'static, Result<Path>> {
-        self.inner.delete_stream(locations)
+        // Each object is selected before the backend sees it; a failed one is not deleted.
+        let state = Arc::clone(&self.state);
+        let checked = locations
+            .map(move |location| {
+                let location = location?;
+                match action(&state, "delete", &location) {
+                    Some(Fault::FailBefore) => Err(failure(&location, false)),
+                    _ => Ok(location),
+                }
+            })
+            .boxed();
+        self.inner.delete_stream(checked)
     }
     fn list(&self, prefix: Option<&Path>) -> BoxStream<'static, Result<ObjectMeta>> {
+        let listed = prefix.cloned().unwrap_or_default();
+        if let Some(Fault::FailBefore) = self.action("list", &listed) {
+            return futures_util::stream::once(async move { Err(failure(&listed, false)) })
+                .boxed();
+        }
         self.inner.list(prefix)
     }
     async fn list_with_delimiter(&self, prefix: Option<&Path>) -> Result<ListResult> {

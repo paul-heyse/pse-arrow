@@ -1032,3 +1032,124 @@ async fn maintainer_binary_retires_and_collects() {
     drop(runtime);
     database.remove().await.unwrap();
 }
+
+/// The object paths under a memory store that contain `needle`.
+async fn objects_with(store: &Arc<pse_testkit::fault_store::FaultStore>, needle: &str) -> usize {
+    futures_util::TryStreamExt::try_collect::<Vec<_>>(object_store::ObjectStore::list(
+        store.as_ref(),
+        None,
+    ))
+    .await
+    .unwrap()
+    .iter()
+    .filter(|meta| meta.location.as_ref().contains(needle))
+    .count()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn interrupted_deletion_resumes() {
+    use pse_testkit::fault_store::{Fault as StoreFault, FaultPlan, FaultStore};
+    let database = TestDatabase::create().await.unwrap();
+    let runtime = durable(database.url(), "interrupted").await;
+    let root = url::Url::parse("memory://interrupted/workspace/").unwrap();
+    let store = FaultStore::new(Arc::new(object_store::memory::InMemory::new()));
+    runtime
+        .sessions()
+        .native_state()
+        .runtime_env()
+        .register_object_store(&root, store.clone());
+    let workspace = runtime.register_workspace("interrupted", root).await.unwrap();
+    let old = publish(&runtime, &workspace, None, "old").await;
+    let middle = publish(&runtime, &workspace, Some(old.publication_id), "middle").await;
+    let head = publish(&runtime, &workspace, Some(middle.publication_id), "head").await;
+    let cancel = CancellationToken::new();
+    let old_id = old.publication_id.to_string();
+    let before = objects_with(&store, &old_id).await;
+    assert!(before > 1);
+
+    // The second object deletion fails: the retirement stops with the publication
+    // expiring and part of its objects gone.
+    store.arm(FaultPlan {
+        operation: "delete",
+        prefix: String::new(),
+        call: 2,
+        fault: StoreFault::FailBefore,
+    });
+    assert!(
+        runtime
+            .retire_publications(
+                workspace.workspace_id,
+                &[old.publication_id],
+                Duration::from_secs(10),
+                &cancel,
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(store.fired(), 1);
+    let remaining = objects_with(&store, &old_id).await;
+    assert!(remaining > 0 && remaining < before, "{remaining} of {before}");
+    let refused = runtime.open(old.publication_id, &cancel).await.unwrap_err();
+    assert!(
+        matches!(
+            refused,
+            WorkflowError::Operations(OperationsError::PublicationRetiring { .. })
+        ),
+        "{refused:?}"
+    );
+    // Rerunning completes it: exactly the remaining objects go.
+    let retired = runtime
+        .retire_publications(
+            workspace.workspace_id,
+            &[old.publication_id],
+            Duration::from_secs(10),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    assert_eq!(retired.retired, [old.publication_id]);
+    assert_eq!(retired.removed_objects, u64::try_from(remaining).unwrap());
+    assert_eq!(objects_with(&store, &old_id).await, 0);
+
+    // A failed listing removes nothing; the rerun removes everything.
+    let middle_id = middle.publication_id.to_string();
+    let listed = objects_with(&store, &middle_id).await;
+    store.arm(FaultPlan {
+        operation: "list",
+        prefix: String::new(),
+        call: 1,
+        fault: StoreFault::FailBefore,
+    });
+    assert!(
+        runtime
+            .retire_publications(
+                workspace.workspace_id,
+                &[middle.publication_id],
+                Duration::from_secs(10),
+                &cancel,
+            )
+            .await
+            .is_err()
+    );
+    assert_eq!(store.fired(), 1);
+    assert_eq!(objects_with(&store, &middle_id).await, listed);
+    runtime
+        .retire_publications(
+            workspace.workspace_id,
+            &[middle.publication_id],
+            Duration::from_secs(10),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    assert_eq!(objects_with(&store, &middle_id).await, 0);
+    // The head is untouched and reads.
+    let current = runtime
+        .open_head(workspace.workspace_id, &cancel)
+        .await
+        .unwrap();
+    assert_eq!(current.publication_id(), head.publication_id);
+    assert_eq!(rows(current.publication(), "authored", "entities").await, 1);
+    drop((current, runtime));
+    database.remove().await.unwrap();
+}
