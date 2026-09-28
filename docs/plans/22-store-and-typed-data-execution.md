@@ -272,7 +272,7 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | Step | Packets | State |
 |---|---|---|
 | W0 | D2: ADR-0117 accepted, with the review addendum; this packet written | complete (2026-09-28) |
-| W1 | B1 (R); B3a → B6 (T) | running (2026-09-28): the two track agents work in separate worktrees |
+| W1 | B1 (R); B3a → B6 (T) | B3a and B6 complete (merge `8934a521`); B1 running |
 | W2 | B2 (R); B4 (V); B7 (T) | not started |
 | W3 | O8 (R); B5 (V) | not started |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | not started |
@@ -284,3 +284,39 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 W0 is complete (`48fd7f33`): ADR-0117 is accepted, and `just adr-lint` passes. W1 is running,
 with B1 on track R and B3a then B6 on track T. Each track works in its own worktree; the
 coordinator merges it into `main` after review and re-runs its targeted tests.
+
+### W1, track T: B3a and B6 landed (merge `8934a521`)
+
+**B3a** (`6d2f0c1e`). `pse_ids::Frame` declares all 104 production `derive_key` contexts in
+one table, with spellings unchanged against the oracle captured beforehand
+(`crates/pse-ids/tests/frame_spellings.txt`) and the golden vectors unchanged.
+- `FramedHasher::new`, `derive_id`, `derive_hash`, the keyed `preimage` entry points and backend-native `identity::of` take a `Frame`.
+- About 106 call sites moved.
+- Deleted: `derive::context` and five test-only spellings.
+
+**B6** (`db403e6c`). `pse_math::index` types now cover every boundary listed for the packet: original, presolved and reduced rows and columns; slots; global rows and columns; addends; typed entries and triplets.
+- Presolve `Report` and pipeline: separate typed `jacobian` and `hessian` builders; the transformation hash is unchanged.
+- The KKT assembly.
+- The assembly-matrix entries and refill map.
+- Assembly instances and rows.
+- The diagnostics' parallel pairs.
+- The fitting `Mapping`.
+- HiGHS ranging: a typed `RangeFamily` in an `EnumMap`, with published spellings and order unchanged; the `"row_"`/`"column_cost_"` prefix matching is deleted.
+- enum-map for the demand groups and compiled programs (`DerivativeOrder` derives `Enum` in `pse-kernels`).
+- New pins: `typed-index-collections =3.5.0`, `enum-map =3.1.0`.
+
+**Tests on `main` after the merge** (coordinator run, zero baseline):
+- `just unit-package pse-math 'package(pse-math)'`: 75 passed, 0 failed.
+- `cargo nextest run -p pse-ids -p pse-relations --lib --test golden_vectors --features pse-relations/force-validate -E 'package(pse-ids)'`: 41 passed, 0 failed.
+- `just unit-native-package pse-backend-native pse-backend-native/native-solvers 'package(pse-backend-native)'` with `PSE_SOLVER_IMAGE` set: 176 passed, 0 failed.
+- `just codegen-rust-contracts-check`: OK.
+
+The agent's worktree runs covered the rest:
+- `cargo test --doc` for `pse-math` (the `compile_fail` cross-space doctests, 5 passed) and `pse-backend-native` conditioning (2 passed);
+- `pse-compiler` 96 passed; runtime fitting, diagnostics and native-analysis units 33 passed; runtime dynamics units 12 passed.
+
+**Follow-ups:**
+- The plan and review text say "119 spellings". The real catalog is 104 frames; the other literals are metadata and preimage version strings. The text is corrected in the docs step.
+- Listing the frame catalog in the generated docs (ADR-0115 Outcome 4) touches the generator track R owns. It moves to B3b.
+- Still untyped: the dynamics oracle's `(row, coordinate)` support and the fitting oracle's coordinate and constraint tuples. They were outside B6's listed boundaries; B3b sweeps them.
+- The Python ranging test (`test_modeling_kernel`) runs after `just py-sync-native`, once B1 lands.
