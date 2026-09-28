@@ -91,6 +91,8 @@ pub enum FactBatch {
     r#ReferenceSchemaEnumTypes(Vec<super::r#reference::r#schema_enum_types::Row>),
     #[doc = stringify!(r#ReferenceSchemaEnums)]
     r#ReferenceSchemaEnums(Vec<super::r#reference::r#schema_enums::Row>),
+    #[doc = stringify!(r#ReferenceSchemaIdentities)]
+    r#ReferenceSchemaIdentities(Vec<super::r#reference::r#schema_identities::Row>),
     #[doc = stringify!(r#ReferenceSchemaInvariants)]
     r#ReferenceSchemaInvariants(Vec<super::r#reference::r#schema_invariants::Row>),
     #[doc = stringify!(r#ReferenceSchemaLogicalTypes)]
@@ -189,6 +191,30 @@ pub enum FactBatch {
     r#RuntimeOperationalProgressValues(
         Vec<super::r#runtime::r#operational_progress_values::Row>,
     ),
+    #[doc = stringify!(r#RuntimeOperationalPublicationHeads)]
+    r#RuntimeOperationalPublicationHeads(
+        Vec<super::r#runtime::r#operational_publication_heads::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalPublicationMembers)]
+    r#RuntimeOperationalPublicationMembers(
+        Vec<super::r#runtime::r#operational_publication_members::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalPublications)]
+    r#RuntimeOperationalPublications(
+        Vec<super::r#runtime::r#operational_publications::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalReaderLeases)]
+    r#RuntimeOperationalReaderLeases(
+        Vec<super::r#runtime::r#operational_reader_leases::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalRetentionMarks)]
+    r#RuntimeOperationalRetentionMarks(
+        Vec<super::r#runtime::r#operational_retention_marks::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeOperationalSettlements)]
+    r#RuntimeOperationalSettlements(
+        Vec<super::r#runtime::r#operational_settlements::Row>,
+    ),
     #[doc = stringify!(r#RuntimeOperationalSolutions)]
     r#RuntimeOperationalSolutions(Vec<super::r#runtime::r#operational_solutions::Row>),
     #[doc = stringify!(r#RuntimeOperationalSourceBundles)]
@@ -205,6 +231,8 @@ pub enum FactBatch {
     r#RuntimeOperationalStudyPoints(
         Vec<super::r#runtime::r#operational_study_points::Row>,
     ),
+    #[doc = stringify!(r#RuntimeOperationalWorkspaces)]
+    r#RuntimeOperationalWorkspaces(Vec<super::r#runtime::r#operational_workspaces::Row>),
     #[doc = stringify!(r#RuntimePublications)]
     r#RuntimePublications(Vec<super::r#runtime::r#publications::Row>),
     #[doc = stringify!(r#RuntimeReleaseCheckpoints)]
@@ -462,6 +490,12 @@ impl FactBatch {
                     205u8, 139u8, 7u8, 194u8, 159u8, 195u8,
                 ])
             }
+            Self::r#ReferenceSchemaIdentities(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    148u8, 5u8, 214u8, 240u8, 85u8, 209u8, 215u8, 108u8, 9u8, 97u8, 12u8,
+                    25u8, 144u8, 144u8, 225u8, 168u8,
+                ])
+            }
             Self::r#ReferenceSchemaInvariants(_) => {
                 pse_ids::SemanticId::from_bytes([
                     237u8, 183u8, 253u8, 17u8, 31u8, 36u8, 146u8, 40u8, 149u8, 190u8,
@@ -696,6 +730,42 @@ impl FactBatch {
                     249u8, 192u8, 234u8, 237u8, 55u8, 179u8,
                 ])
             }
+            Self::r#RuntimeOperationalPublicationHeads(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    155u8, 237u8, 57u8, 221u8, 255u8, 39u8, 135u8, 146u8, 71u8, 19u8,
+                    49u8, 204u8, 162u8, 14u8, 89u8, 28u8,
+                ])
+            }
+            Self::r#RuntimeOperationalPublicationMembers(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    199u8, 235u8, 87u8, 186u8, 11u8, 242u8, 22u8, 72u8, 48u8, 68u8,
+                    251u8, 77u8, 45u8, 9u8, 180u8, 201u8,
+                ])
+            }
+            Self::r#RuntimeOperationalPublications(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    91u8, 42u8, 177u8, 212u8, 29u8, 174u8, 56u8, 204u8, 99u8, 30u8, 68u8,
+                    122u8, 148u8, 56u8, 10u8, 3u8,
+                ])
+            }
+            Self::r#RuntimeOperationalReaderLeases(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    251u8, 162u8, 52u8, 212u8, 116u8, 189u8, 80u8, 122u8, 145u8, 185u8,
+                    80u8, 233u8, 48u8, 97u8, 61u8, 150u8,
+                ])
+            }
+            Self::r#RuntimeOperationalRetentionMarks(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    23u8, 241u8, 168u8, 125u8, 19u8, 133u8, 106u8, 155u8, 157u8, 61u8,
+                    228u8, 231u8, 216u8, 145u8, 29u8, 6u8,
+                ])
+            }
+            Self::r#RuntimeOperationalSettlements(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    29u8, 81u8, 183u8, 242u8, 107u8, 122u8, 182u8, 145u8, 17u8, 239u8,
+                    227u8, 15u8, 130u8, 27u8, 252u8, 157u8,
+                ])
+            }
             Self::r#RuntimeOperationalSolutions(_) => {
                 pse_ids::SemanticId::from_bytes([
                     131u8, 188u8, 216u8, 81u8, 206u8, 155u8, 47u8, 205u8, 222u8, 161u8,
@@ -724,6 +794,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     211u8, 94u8, 213u8, 156u8, 83u8, 247u8, 225u8, 19u8, 248u8, 228u8,
                     97u8, 58u8, 249u8, 177u8, 99u8, 207u8,
+                ])
+            }
+            Self::r#RuntimeOperationalWorkspaces(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    197u8, 34u8, 55u8, 197u8, 230u8, 224u8, 185u8, 104u8, 82u8, 22u8,
+                    199u8, 153u8, 79u8, 253u8, 142u8, 81u8,
                 ])
             }
             Self::r#RuntimePublications(_) => {
@@ -858,6 +934,7 @@ impl FactBatch {
             Self::r#ReferenceSchemaDocuments(rows) => rows.len(),
             Self::r#ReferenceSchemaEnumTypes(rows) => rows.len(),
             Self::r#ReferenceSchemaEnums(rows) => rows.len(),
+            Self::r#ReferenceSchemaIdentities(rows) => rows.len(),
             Self::r#ReferenceSchemaInvariants(rows) => rows.len(),
             Self::r#ReferenceSchemaLogicalTypes(rows) => rows.len(),
             Self::r#ReferenceSchemaMigrations(rows) => rows.len(),
@@ -897,11 +974,18 @@ impl FactBatch {
             Self::r#RuntimeOperationalJobs(rows) => rows.len(),
             Self::r#RuntimeOperationalProgressEvents(rows) => rows.len(),
             Self::r#RuntimeOperationalProgressValues(rows) => rows.len(),
+            Self::r#RuntimeOperationalPublicationHeads(rows) => rows.len(),
+            Self::r#RuntimeOperationalPublicationMembers(rows) => rows.len(),
+            Self::r#RuntimeOperationalPublications(rows) => rows.len(),
+            Self::r#RuntimeOperationalReaderLeases(rows) => rows.len(),
+            Self::r#RuntimeOperationalRetentionMarks(rows) => rows.len(),
+            Self::r#RuntimeOperationalSettlements(rows) => rows.len(),
             Self::r#RuntimeOperationalSolutions(rows) => rows.len(),
             Self::r#RuntimeOperationalSourceBundles(rows) => rows.len(),
             Self::r#RuntimeOperationalSourceDocuments(rows) => rows.len(),
             Self::r#RuntimeOperationalStudies(rows) => rows.len(),
             Self::r#RuntimeOperationalStudyPoints(rows) => rows.len(),
+            Self::r#RuntimeOperationalWorkspaces(rows) => rows.len(),
             Self::r#RuntimePublications(rows) => rows.len(),
             Self::r#RuntimeReleaseCheckpoints(rows) => rows.len(),
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
@@ -1114,6 +1198,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#ReferenceSchemaIdentities(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#ReferenceSchemaInvariants(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1309,6 +1398,36 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeOperationalPublicationHeads(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalPublicationMembers(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalPublications(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalReaderLeases(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalRetentionMarks(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalSettlements(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeOperationalSolutions(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1330,6 +1449,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeOperationalStudyPoints(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeOperationalWorkspaces(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1557,6 +1681,10 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#ReferenceSchemaEnums(vec![row.clone()]))
             }
+            Self::r#ReferenceSchemaIdentities(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#ReferenceSchemaIdentities(vec![row.clone()]))
+            }
             Self::r#ReferenceSchemaInvariants(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#ReferenceSchemaInvariants(vec![row.clone()]))
@@ -1723,6 +1851,36 @@ impl FactBatch {
                         vec![row.clone()],
                     ))
             }
+            Self::r#RuntimeOperationalPublicationHeads(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalPublicationHeads(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalPublicationMembers(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalPublicationMembers(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalPublications(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalPublications(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalReaderLeases(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalReaderLeases(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalRetentionMarks(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalRetentionMarks(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeOperationalSettlements(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalSettlements(vec![row.clone()]))
+            }
             Self::r#RuntimeOperationalSolutions(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalSolutions(vec![row.clone()]))
@@ -1746,6 +1904,10 @@ impl FactBatch {
             Self::r#RuntimeOperationalStudyPoints(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeOperationalStudyPoints(vec![row.clone()]))
+            }
+            Self::r#RuntimeOperationalWorkspaces(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeOperationalWorkspaces(vec![row.clone()]))
             }
             Self::r#RuntimePublications(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimePublications(vec![row.clone()]))
@@ -2173,6 +2335,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#ReferenceSchemaIdentities(left),
+                Self::r#ReferenceSchemaIdentities(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#ReferenceSchemaInvariants(left),
                 Self::r#ReferenceSchemaInvariants(right),
             ) => {
@@ -2587,6 +2760,72 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeOperationalPublicationHeads(left),
+                Self::r#RuntimeOperationalPublicationHeads(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalPublicationMembers(left),
+                Self::r#RuntimeOperationalPublicationMembers(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalPublications(left),
+                Self::r#RuntimeOperationalPublications(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalReaderLeases(left),
+                Self::r#RuntimeOperationalReaderLeases(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalRetentionMarks(left),
+                Self::r#RuntimeOperationalRetentionMarks(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalSettlements(left),
+                Self::r#RuntimeOperationalSettlements(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalSolutions(left),
                 Self::r#RuntimeOperationalSolutions(right),
             ) => {
@@ -2633,6 +2872,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeOperationalStudyPoints(left),
                 Self::r#RuntimeOperationalStudyPoints(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalWorkspaces(left),
+                Self::r#RuntimeOperationalWorkspaces(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3056,6 +3306,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#ReferenceSchemaIdentities(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#ReferenceSchemaInvariants(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -3329,6 +3586,48 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeOperationalPublicationHeads(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalPublicationMembers(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalPublications(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalReaderLeases(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalRetentionMarks(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalSettlements(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeOperationalSolutions(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -3358,6 +3657,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeOperationalStudyPoints(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeOperationalWorkspaces(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -3937,6 +4243,20 @@ impl FactBatch {
                                 &left.r#member_ordinal,
                                 &right.r#member_ordinal,
                             )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#ReferenceSchemaIdentities(left),
+                Self::r#ReferenceSchemaIdentities(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#identity_id,
+                            &right.r#identity_id,
+                        )
                     }
                     _ => false,
                 }
@@ -4523,6 +4843,94 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeOperationalPublicationHeads(left),
+                Self::r#RuntimeOperationalPublicationHeads(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#workspace_id,
+                            &right.r#workspace_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalPublicationMembers(left),
+                Self::r#RuntimeOperationalPublicationMembers(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#publication_id,
+                            &right.r#publication_id,
+                        )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#member,
+                                &right.r#member,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalPublications(left),
+                Self::r#RuntimeOperationalPublications(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#publication_id,
+                            &right.r#publication_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalReaderLeases(left),
+                Self::r#RuntimeOperationalReaderLeases(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#lease_id,
+                            &right.r#lease_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalRetentionMarks(left),
+                Self::r#RuntimeOperationalRetentionMarks(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#publication_id,
+                            &right.r#publication_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalSettlements(left),
+                Self::r#RuntimeOperationalSettlements(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#settlement_id,
+                            &right.r#settlement_id,
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeOperationalSolutions(left),
                 Self::r#RuntimeOperationalSolutions(right),
             ) => {
@@ -4592,6 +5000,20 @@ impl FactBatch {
                                 &left.r#point_index,
                                 &right.r#point_index,
                             )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeOperationalWorkspaces(left),
+                Self::r#RuntimeOperationalWorkspaces(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#workspace_id,
+                            &right.r#workspace_id,
+                        )
                     }
                     _ => false,
                 }
@@ -5026,6 +5448,10 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#enum_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#member_ordinal, &mut hash);
             }
+            Self::r#ReferenceSchemaIdentities(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#identity_id, &mut hash);
+            }
             Self::r#ReferenceSchemaInvariants(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#invariant_id, &mut hash);
@@ -5218,6 +5644,31 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#seq, &mut hash);
                 crate::SemanticFrame::frame(&row.r#name, &mut hash);
             }
+            Self::r#RuntimeOperationalPublicationHeads(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#workspace_id, &mut hash);
+            }
+            Self::r#RuntimeOperationalPublicationMembers(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#member, &mut hash);
+            }
+            Self::r#RuntimeOperationalPublications(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
+            }
+            Self::r#RuntimeOperationalReaderLeases(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#lease_id, &mut hash);
+            }
+            Self::r#RuntimeOperationalRetentionMarks(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#publication_id, &mut hash);
+            }
+            Self::r#RuntimeOperationalSettlements(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#settlement_id, &mut hash);
+            }
             Self::r#RuntimeOperationalSolutions(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#solution_id, &mut hash);
@@ -5239,6 +5690,10 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#study_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#point_index, &mut hash);
+            }
+            Self::r#RuntimeOperationalWorkspaces(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#workspace_id, &mut hash);
             }
             Self::r#RuntimePublications(rows) => {
                 let row = rows.get(index)?;
@@ -5572,6 +6027,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#ReferenceSchemaIdentities(left),
+                Self::r#ReferenceSchemaIdentities(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#ReferenceSchemaInvariants(left),
                 Self::r#ReferenceSchemaInvariants(mut right),
             ) => {
@@ -5839,6 +6301,48 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeOperationalPublicationHeads(left),
+                Self::r#RuntimeOperationalPublicationHeads(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalPublicationMembers(left),
+                Self::r#RuntimeOperationalPublicationMembers(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalPublications(left),
+                Self::r#RuntimeOperationalPublications(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalReaderLeases(left),
+                Self::r#RuntimeOperationalReaderLeases(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalRetentionMarks(left),
+                Self::r#RuntimeOperationalRetentionMarks(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalSettlements(left),
+                Self::r#RuntimeOperationalSettlements(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeOperationalSolutions(left),
                 Self::r#RuntimeOperationalSolutions(mut right),
             ) => {
@@ -5869,6 +6373,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeOperationalStudyPoints(left),
                 Self::r#RuntimeOperationalStudyPoints(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeOperationalWorkspaces(left),
+                Self::r#RuntimeOperationalWorkspaces(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -6034,6 +6545,7 @@ impl crate::HeapUsage for FactBatch {
             Self::r#ReferenceSchemaDocuments(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceSchemaEnumTypes(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceSchemaEnums(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#ReferenceSchemaIdentities(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceSchemaInvariants(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#ReferenceSchemaLogicalTypes(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
@@ -6115,6 +6627,24 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeOperationalProgressValues(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeOperationalPublicationHeads(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalPublicationMembers(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalPublications(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalReaderLeases(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalRetentionMarks(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalSettlements(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeOperationalSolutions(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
@@ -6126,6 +6656,9 @@ impl crate::HeapUsage for FactBatch {
             }
             Self::r#RuntimeOperationalStudies(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeOperationalStudyPoints(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeOperationalWorkspaces(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimePublications(rows) => crate::HeapUsage::heap_bytes(rows),

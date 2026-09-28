@@ -8729,6 +8729,82 @@ impl crate::SemanticFrame for ReferenceStateKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum RetentionPhase {
+    ///expiring
+    #[serde(rename = "expiring")]
+    Expiring,
+    ///deleted
+    #[serde(rename = "deleted")]
+    Deleted,
+}
+impl crate::SemanticEq for RetentionPhase {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl RetentionPhase {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Expiring, Self::Deleted];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Expiring => "expiring",
+            Self::Deleted => "deleted",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Expiring => 0usize,
+            Self::Deleted => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Expiring => None,
+            Self::Deleted => None,
+        }
+    }
+}
+impl core::str::FromStr for RetentionPhase {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "expiring" => Ok(Self::Expiring),
+            "deleted" => Ok(Self::Deleted),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(RetentionPhase).to_owned(),
+                    enumeration: stringify!(RetentionPhase).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum RetentionReason {
     ///publication
     #[serde(rename = "publication")]
@@ -8807,6 +8883,109 @@ impl core::str::FromStr for RetentionReason {
         }
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum RuntimeTermination {
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    Cancelled,
+    ///infrastructure
+    #[serde(rename = "infrastructure")]
+    Infrastructure,
+    ///unattempted
+    #[serde(rename = "unattempted")]
+    Unattempted,
+    ///constant_evaluation
+    #[serde(rename = "constant_evaluation")]
+    ConstantEvaluation,
+    ///unassessed
+    #[serde(rename = "unassessed")]
+    Unassessed,
+}
+impl crate::SemanticEq for RuntimeTermination {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl RuntimeTermination {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Cancelled,
+        Self::Infrastructure,
+        Self::Unattempted,
+        Self::ConstantEvaluation,
+        Self::Unassessed,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Cancelled => "cancelled",
+            Self::Infrastructure => "infrastructure",
+            Self::Unattempted => "unattempted",
+            Self::ConstantEvaluation => "constant_evaluation",
+            Self::Unassessed => "unassessed",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Cancelled => 0usize,
+            Self::Infrastructure => 1usize,
+            Self::Unattempted => 2usize,
+            Self::ConstantEvaluation => 3usize,
+            Self::Unassessed => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Cancelled => None,
+            Self::Infrastructure => None,
+            Self::Unattempted => None,
+            Self::ConstantEvaluation => None,
+            Self::Unassessed => None,
+        }
+    }
+}
+impl core::str::FromStr for RuntimeTermination {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "cancelled" => Ok(Self::Cancelled),
+            "infrastructure" => Ok(Self::Infrastructure),
+            "unattempted" => Ok(Self::Unattempted),
+            "constant_evaluation" => Ok(Self::ConstantEvaluation),
+            "unassessed" => Ok(Self::Unassessed),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(RuntimeTermination).to_owned(),
+                    enumeration: stringify!(RuntimeTermination).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
 /// Physical dictionary owned by the quantity library.
 pub type ScaleKind = pse_quantity::ScaleKind;
 impl crate::SemanticEq for ScaleKind {
@@ -8822,6 +9001,82 @@ impl crate::HeapUsage for ScaleKind {
 impl crate::SemanticFrame for ScaleKind {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum SettlementOutcome {
+    ///committed
+    #[serde(rename = "committed")]
+    Committed,
+    ///proved_noncommit
+    #[serde(rename = "proved_noncommit")]
+    ProvedNoncommit,
+}
+impl crate::SemanticEq for SettlementOutcome {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl SettlementOutcome {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Committed, Self::ProvedNoncommit];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Committed => "committed",
+            Self::ProvedNoncommit => "proved_noncommit",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Committed => 0usize,
+            Self::ProvedNoncommit => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Committed => None,
+            Self::ProvedNoncommit => None,
+        }
+    }
+}
+impl core::str::FromStr for SettlementOutcome {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "committed" => Ok(Self::Committed),
+            "proved_noncommit" => Ok(Self::ProvedNoncommit),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(SettlementOutcome).to_owned(),
+                    enumeration: stringify!(SettlementOutcome).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
     }
 }
 /// A string enumeration projected from the registry.
@@ -9362,6 +9617,109 @@ impl crate::HeapUsage for SubjectRule {
 impl crate::SemanticFrame for SubjectRule {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum TerminationClass {
+    ///native
+    #[serde(rename = "native")]
+    Native,
+    ///run_state
+    #[serde(rename = "run_state")]
+    RunState,
+    ///trajectory
+    #[serde(rename = "trajectory")]
+    Trajectory,
+    ///runtime
+    #[serde(rename = "runtime")]
+    Runtime,
+    ///rule
+    #[serde(rename = "rule")]
+    Rule,
+}
+impl crate::SemanticEq for TerminationClass {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl TerminationClass {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 5usize] = [
+        Self::Native,
+        Self::RunState,
+        Self::Trajectory,
+        Self::Runtime,
+        Self::Rule,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Native => "native",
+            Self::RunState => "run_state",
+            Self::Trajectory => "trajectory",
+            Self::Runtime => "runtime",
+            Self::Rule => "rule",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Native => 0usize,
+            Self::RunState => 1usize,
+            Self::Trajectory => 2usize,
+            Self::Runtime => 3usize,
+            Self::Rule => 4usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Native => None,
+            Self::RunState => None,
+            Self::Trajectory => None,
+            Self::Runtime => None,
+            Self::Rule => None,
+        }
+    }
+}
+impl core::str::FromStr for TerminationClass {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "native" => Ok(Self::Native),
+            "run_state" => Ok(Self::RunState),
+            "trajectory" => Ok(Self::Trajectory),
+            "runtime" => Ok(Self::Runtime),
+            "rule" => Ok(Self::Rule),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(TerminationClass).to_owned(),
+                    enumeration: stringify!(TerminationClass).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
     }
 }
 /// A string enumeration projected from the registry.
@@ -10399,12 +10757,42 @@ impl crate::SemanticFrame for QuantityPreconditionKind {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for RetentionPhase {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for RetentionPhase {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for RetentionReason {
     fn heap_bytes(&self) -> usize {
         0
     }
 }
 impl crate::SemanticFrame for RetentionReason {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for RuntimeTermination {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for RuntimeTermination {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for SettlementOutcome {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for SettlementOutcome {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }
@@ -10465,6 +10853,16 @@ impl crate::HeapUsage for StudyState {
     }
 }
 impl crate::SemanticFrame for StudyState {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for TerminationClass {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for TerminationClass {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

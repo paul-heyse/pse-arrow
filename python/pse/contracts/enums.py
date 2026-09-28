@@ -1022,6 +1022,13 @@ class ReferenceStateKind(StrEnum):
     CUSTOM = "custom"
 
 
+class RetentionPhase(StrEnum):
+    """The declared RetentionPhase enumeration."""
+
+    EXPIRING = "expiring"
+    DELETED = "deleted"
+
+
 class RetentionReason(StrEnum):
     """The declared RetentionReason enumeration."""
 
@@ -1031,11 +1038,28 @@ class RetentionReason(StrEnum):
     CHANGES = "changes"
 
 
+class RuntimeTermination(StrEnum):
+    """The declared RuntimeTermination enumeration."""
+
+    CANCELLED = "cancelled"
+    INFRASTRUCTURE = "infrastructure"
+    UNATTEMPTED = "unattempted"
+    CONSTANT_EVALUATION = "constant_evaluation"
+    UNASSESSED = "unassessed"
+
+
 class ScaleKind(StrEnum):
     """The declared ScaleKind enumeration."""
 
     POINT = "point"
     DIFFERENCE = "difference"
+
+
+class SettlementOutcome(StrEnum):
+    """The declared SettlementOutcome enumeration."""
+
+    COMMITTED = "committed"
+    PROVED_NONCOMMIT = "proved_noncommit"
 
 
 class Severity(StrEnum):
@@ -1094,6 +1118,16 @@ class SubjectRule(StrEnum):
     PRESERVE = "preserve"
     REQUIRE_EQUAL = "require_equal"
     DECLARED_RESULT = "declared_result"
+
+
+class TerminationClass(StrEnum):
+    """The declared TerminationClass enumeration."""
+
+    NATIVE = "native"
+    RUN_STATE = "run_state"
+    TRAJECTORY = "trajectory"
+    RUNTIME = "runtime"
+    RULE = "rule"
 
 
 class TimeCoordinateKind(StrEnum):

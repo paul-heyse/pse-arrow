@@ -22,6 +22,11 @@ pub mod r#runtime;
 pub mod enums;
 /// Declared extension values.
 pub mod extension_values;
+/// Typed entity ids declared by the registry (ADR-0115).
+pub mod identities;
+/// PostgreSQL values of store enums and typed ids (ADR-0114 Outcome 25).
+#[cfg(feature = "postgres")]
+pub mod postgres;
 
 /// Generated typed relational handoff.
 pub mod facts;

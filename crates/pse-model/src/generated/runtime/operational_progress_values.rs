@@ -10,7 +10,7 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeOperationalProgressValuesRow {
     ///attempt_id
-    pub r#attempt_id: pse_ids::SemanticId,
+    pub r#attempt_id: crate::generated::identities::AttemptId,
     ///seq
     pub r#seq: i64,
     ///name

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    58u8, 74u8, 148u8, 221u8, 75u8, 213u8, 118u8, 216u8, 174u8, 201u8, 100u8, 131u8,
-    120u8, 117u8, 160u8, 137u8, 119u8, 215u8, 186u8, 48u8, 157u8, 143u8, 215u8, 193u8,
-    148u8, 141u8, 226u8, 133u8, 91u8, 225u8, 124u8, 240u8,
+    86u8, 182u8, 0u8, 9u8, 172u8, 32u8, 37u8, 201u8, 9u8, 9u8, 48u8, 59u8, 147u8, 10u8,
+    223u8, 215u8, 165u8, 74u8, 160u8, 49u8, 194u8, 175u8, 208u8, 236u8, 39u8, 234u8,
+    198u8, 191u8, 164u8, 242u8, 27u8, 74u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalSourceDocumentsRow {
     fn append(
@@ -52,7 +52,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSourceDocumentsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::SourceBundleId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -70,7 +70,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSourceDocumentsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#bundle_hash: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#bundle_hash: <crate::generated::identities::SourceBundleId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,

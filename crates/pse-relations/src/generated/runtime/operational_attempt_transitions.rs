@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    203u8, 91u8, 155u8, 151u8, 8u8, 237u8, 206u8, 220u8, 153u8, 221u8, 81u8, 233u8,
-    125u8, 194u8, 148u8, 159u8, 59u8, 22u8, 253u8, 104u8, 25u8, 60u8, 254u8, 118u8,
-    110u8, 101u8, 229u8, 12u8, 61u8, 241u8, 49u8, 45u8,
+    134u8, 48u8, 176u8, 210u8, 166u8, 181u8, 229u8, 167u8, 143u8, 65u8, 50u8, 8u8, 114u8,
+    190u8, 180u8, 193u8, 102u8, 216u8, 179u8, 150u8, 110u8, 11u8, 207u8, 0u8, 140u8,
+    184u8, 251u8, 83u8, 238u8, 158u8, 128u8, 229u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalAttemptTransitionsRow {
     fn append(
@@ -58,7 +58,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptTransitionsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <i32 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -85,7 +85,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptTransitionsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#attempt_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#attempt_id: <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -345,7 +345,7 @@ pub struct RuntimeOperationalAttemptTransitionsView<'a> {
     to_state_column: &'a arrow_array::StringArray,
     actor_column: &'a arrow_array::StringArray,
     reason_column: &'a arrow_array::StringArray,
-    at_column: &'a arrow_array::TimestampNanosecondArray,
+    at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalAttemptTransitionsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -404,7 +404,7 @@ impl<'a> RuntimeOperationalAttemptTransitionsView<'a> {
                 arrow_array::StringArray,
             >(batch.column(5usize).as_ref())?,
             at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(6usize).as_ref())?,
         })
     }
@@ -505,7 +505,7 @@ impl<'a> RuntimeOperationalAttemptTransitionsView<'a> {
         "at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "at", "`.")]

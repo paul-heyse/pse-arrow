@@ -943,7 +943,6 @@ fn check_field(
 ) -> Result<(), SchemaError> {
     column.validate_facets(context)?;
     crate::model::IntegerRange::from_field(column.field())?;
-    crate::model::FloatDomain::from_field(column.field())?;
     crate::model::CollectionContract::from_field(column.field())?;
     check_alternative(registry, column, context)?;
     let context = context.to_owned();
@@ -1717,11 +1716,6 @@ mod tests {
                     FieldContract::native(crate::model::extension::timestamp_micros_storage()),
                     "an instant",
                 ),
-                FieldContract::payload(
-                    "value",
-                    FieldContract::native(arrow_schema::DataType::Float64).finite(),
-                    "a finite value",
-                ),
             ],
         ));
         let registry = builder.build()?;
@@ -1747,8 +1741,8 @@ mod tests {
             Some("json")
         );
         assert_eq!(
-            crate::model::FloatDomain::from_field(spec.column("value").expect("declared").field())?,
-            Some(crate::model::FloatDomain::Finite)
+            spec.column("at").expect("declared").value_type().type_name()?,
+            "ts_us"
         );
         // A document is JSON text, nothing else.
         let mut builder = RegistryBuilder::new();

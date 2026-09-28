@@ -10,7 +10,7 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeOperationalStudyPointsRow {
     ///study_id
-    pub r#study_id: pse_ids::SemanticId,
+    pub r#study_id: crate::generated::identities::StudyId,
     ///point_index
     pub r#point_index: i32,
     ///binding_hash
@@ -18,7 +18,7 @@ pub struct RuntimeOperationalStudyPointsRow {
     ///state
     pub r#state: crate::generated::enums::StudyPointState,
     ///attempt_id
-    pub r#attempt_id: Option<pse_ids::SemanticId>,
+    pub r#attempt_id: Option<crate::generated::identities::AttemptId>,
     ///result_ref
     pub r#result_ref: Option<String>,
     ///updated_at

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Durability classes against isolated PostgreSQL 18 databases (Plan 22 O3–O6). Each
-//! durable test creates its own migrated database on the server `DATABASE_URL` names.
+//! durable test creates its own database with the generated schema on the server
+//! `DATABASE_URL` names.
 use super::tests::{compiler_profile, physical, profile, runtime};
 use super::*;
 use pse_backend_native::solve::{Backend, ReusePolicy, SolverSelection};
@@ -165,7 +166,12 @@ async fn durable_run_listed_after_restart() {
     assert_eq!(listed.worker.as_deref(), Some("runtime-a"));
     assert!(listed.finished_at.is_some());
     let termination = listed.termination.as_ref().unwrap();
-    assert_eq!(termination.code, "success");
+    assert_eq!(
+        termination.code,
+        pse_operations::attempts::TerminationCode::Native(
+            pse_operations::attempts::NativeTermination::Success
+        )
+    );
     let history = operations
         .store()
         .attempts()

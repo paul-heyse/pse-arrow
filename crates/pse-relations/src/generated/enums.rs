@@ -24,9 +24,10 @@ pub use pse_model::generated::r#enums::{
     NumericalCoordinates, NumericalSource, NumericalTarget, ObservationTimeBasis, Opcode,
     OperationEffect, PackageKind, PublicationKind, QuantityAdditionKind,
     QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule,
-    RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, RetentionReason,
-    ScaleKind, Severity, SnapshotClass, Stability, StoredSeedKind, StudyPointState,
-    StudyState, SubjectRule, TimeCoordinateKind, TrajectoryTermination, TruthValue,
+    RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind, RetentionPhase,
+    RetentionReason, RuntimeTermination, ScaleKind, SettlementOutcome, Severity,
+    SnapshotClass, Stability, StoredSeedKind, StudyPointState, StudyState, SubjectRule,
+    TerminationClass, TimeCoordinateKind, TrajectoryTermination, TruthValue,
     WeightNormalization,
 };
 impl crate::columnar::ArrowValue for ArtifactReconstruction {
@@ -1722,7 +1723,45 @@ impl crate::columnar::ArrowValue for ReferenceStateKind {
             })
     }
 }
+impl crate::columnar::ArrowValue for RetentionPhase {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
 impl crate::columnar::ArrowValue for RetentionReason {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
+    }
+}
+impl crate::columnar::ArrowValue for RuntimeTermination {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -1764,6 +1803,25 @@ impl crate::columnar::ArrowValue for ScaleKind {
                 enumeration: stringify!(ScaleKind).to_owned(),
                 value: value.to_owned(),
             })
+    }
+}
+impl crate::columnar::ArrowValue for SettlementOutcome {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
 impl crate::columnar::ArrowValue for Severity {
@@ -1903,6 +1961,25 @@ impl crate::columnar::ArrowValue for SubjectRule {
                 enumeration: stringify!(SubjectRule).to_owned(),
                 value: value.to_owned(),
             })
+    }
+}
+impl crate::columnar::ArrowValue for TerminationClass {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse().map_err(Into::into)
     }
 }
 impl crate::columnar::ArrowValue for TimeCoordinateKind {

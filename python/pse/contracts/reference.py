@@ -278,6 +278,7 @@ class ReferenceSchemaColumnsRow:
     role: e.ColumnRole = attrs.field(validator=attrs.validators.instance_of(e.ColumnRole))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     native_field: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    identity_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
 
 @attrs.frozen(kw_only=True)
@@ -325,6 +326,18 @@ class ReferenceSchemaEnumsRow:
     idaes_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     deprecated: b.bool = attrs.field(validator=v.exact_type(b.bool))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceSchemaIdentitiesRow:
+    """Declared relation row or nested value."""
+
+    identity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    base_logical_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    owner_relation_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    owner_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
 @attrs.frozen(kw_only=True)
@@ -380,6 +393,24 @@ class ReferenceSchemaRelationsFieldDeltaPropertiesItem:
 
 
 @attrs.frozen(kw_only=True)
+class ReferenceSchemaRelationsFieldUniqueKeysItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceSchemaRelationsFieldForeignKeysItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    target_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    target_columns: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class ReferenceSchemaRelationsRow:
     """Declared relation row or nested value."""
 
@@ -395,6 +426,8 @@ class ReferenceSchemaRelationsRow:
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     checks: b.tuple[ReferenceSchemaRelationsFieldChecksItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldChecksItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     delta_properties: b.tuple[ReferenceSchemaRelationsFieldDeltaPropertiesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldDeltaPropertiesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unique_keys: b.tuple[ReferenceSchemaRelationsFieldUniqueKeysItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldUniqueKeysItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    foreign_keys: b.tuple[ReferenceSchemaRelationsFieldForeignKeysItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldForeignKeysItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

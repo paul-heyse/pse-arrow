@@ -10,7 +10,7 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeOperationalIncumbentsRow {
     ///attempt_id
-    pub r#attempt_id: pse_ids::SemanticId,
+    pub r#attempt_id: crate::generated::identities::AttemptId,
     ///seq
     pub r#seq: i64,
     ///at
@@ -22,7 +22,7 @@ pub struct RuntimeOperationalIncumbentsRow {
     ///gap
     pub r#gap: Option<f64>,
     ///solution_id
-    pub r#solution_id: Option<pse_ids::SemanticId>,
+    pub r#solution_id: Option<crate::generated::identities::SolutionId>,
 }
 impl crate::SemanticEq for RuntimeOperationalIncumbentsRow {
     fn semantic_eq(&self, other: &Self) -> bool {

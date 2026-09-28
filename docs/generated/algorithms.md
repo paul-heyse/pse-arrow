@@ -12,6 +12,7 @@ Version: `1`. Determinism: `deterministic`. Native effects: {Read}.
 |---|---|---|
 | output | `schema_relations` | `reference.schema_relations` |
 | output | `schema_columns` | `reference.schema_columns` |
+| output | `schema_identities` | `reference.schema_identities` |
 | output | `schema_logical_types` | `reference.schema_logical_types` |
 | output | `schema_enum_types` | `reference.schema_enum_types` |
 | output | `schema_enums` | `reference.schema_enums` |

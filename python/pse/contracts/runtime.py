@@ -9,6 +9,7 @@ from datetime import datetime
 import attrs
 
 from pse.contracts import enums as e
+from pse.contracts import identities as i
 from pse.contracts import values as v
 
 
@@ -1059,7 +1060,7 @@ class RuntimeNativeDependenciesRow:
 class RuntimeOperationalAttemptTransitionsRow:
     """Declared relation row or nested value."""
 
-    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     seq: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
     from_state: e.AttemptState | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.AttemptState)))
     to_state: e.AttemptState = attrs.field(validator=attrs.validators.instance_of(e.AttemptState))
@@ -1072,20 +1073,25 @@ class RuntimeOperationalAttemptTransitionsRow:
 class RuntimeOperationalAttemptsRow:
     """Declared relation row or nested value."""
 
-    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.AttemptKind = attrs.field(validator=attrs.validators.instance_of(e.AttemptKind))
     request_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     preparation_identity: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     state: e.AttemptState = attrs.field(validator=attrs.validators.instance_of(e.AttemptState))
     state_version: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
-    parent_attempt: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    parent_attempt: i.AttemptId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     worker: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     lease_expires_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
     heartbeat_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
     cancel_requested: b.bool = attrs.field(validator=v.exact_type(b.bool))
     cancel_requested_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
-    termination: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    termination_class: e.TerminationClass | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.TerminationClass)))
+    termination_native: e.NativeTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeTermination)))
+    termination_run_state: e.NativeRunState | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.NativeRunState)))
+    termination_trajectory: e.TrajectoryTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.TrajectoryTermination)))
+    termination_runtime: e.RuntimeTermination | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.RuntimeTermination)))
+    termination_rule: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     termination_detail: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
@@ -1097,21 +1103,21 @@ class RuntimeOperationalAttemptsRow:
 class RuntimeOperationalIncumbentsRow:
     """Declared relation row or nested value."""
 
-    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     seq: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     at: datetime = attrs.field(validator=v.utc_timestamp)
     objective: b.float = attrs.field(validator=v.finite_float)
     dual_bound: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     gap: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    solution_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    solution_id: i.SolutionId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
 
 @attrs.frozen(kw_only=True)
 class RuntimeOperationalJobsRow:
     """Declared relation row or nested value."""
 
-    job_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    job_id: i.JobId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     idempotency_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     payload_version: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
     payload: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
@@ -1131,7 +1137,7 @@ class RuntimeOperationalJobsRow:
 class RuntimeOperationalProgressEventsRow:
     """Declared relation row or nested value."""
 
-    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     seq: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     step: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
     at: datetime = attrs.field(validator=v.utc_timestamp)
@@ -1143,7 +1149,7 @@ class RuntimeOperationalProgressEventsRow:
 class RuntimeOperationalProgressValuesRow:
     """Declared relation row or nested value."""
 
-    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     seq: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: e.NativeMetricKind = attrs.field(validator=attrs.validators.instance_of(e.NativeMetricKind))
@@ -1155,10 +1161,74 @@ class RuntimeOperationalProgressValuesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeOperationalPublicationHeadsRow:
+    """Declared relation row or nested value."""
+
+    workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    publication_id: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    advanced_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalPublicationMembersRow:
+    """Declared relation row or nested value."""
+
+    publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    delta_version: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalPublicationsRow:
+    """Declared relation row or nested value."""
+
+    publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parent_publication: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    committed_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalReaderLeasesRow:
+    """Declared relation row or nested value."""
+
+    lease_id: i.ReaderLeaseId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    holder: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    acquired_at: datetime = attrs.field(validator=v.utc_timestamp)
+    expires_at: datetime = attrs.field(validator=v.utc_timestamp)
+    released_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalRetentionMarksRow:
+    """Declared relation row or nested value."""
+
+    publication_id: i.PublicationId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    phase: e.RetentionPhase = attrs.field(validator=attrs.validators.instance_of(e.RetentionPhase))
+    marked_at: datetime = attrs.field(validator=v.utc_timestamp)
+    deleted_at: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalSettlementsRow:
+    """Declared relation row or nested value."""
+
+    settlement_id: i.SettlementId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    attempt_id: i.AttemptId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    outcome: e.SettlementOutcome = attrs.field(validator=attrs.validators.instance_of(e.SettlementOutcome))
+    publication_id: i.PublicationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    settled_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeOperationalSolutionsRow:
     """Declared relation row or nested value."""
 
-    solution_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    solution_id: i.SolutionId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     compatibility_stamp: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     preparation_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     kind: e.StoredSeedKind = attrs.field(validator=attrs.validators.instance_of(e.StoredSeedKind))
@@ -1173,7 +1243,7 @@ class RuntimeOperationalSolutionsRow:
     barrier: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     basis_columns: b.tuple[b.int, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=v.integer_range(-2147483648, 2147483647), iterable_validator=attrs.validators.instance_of(b.tuple))))
     basis_rows: b.tuple[b.int, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=v.integer_range(-2147483648, 2147483647), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    created_by: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    created_by: i.AttemptId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
 
 
@@ -1181,7 +1251,7 @@ class RuntimeOperationalSolutionsRow:
 class RuntimeOperationalSourceBundlesRow:
     """Declared relation row or nested value."""
 
-    bundle_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    bundle_hash: i.SourceBundleId = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     manifest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
 
@@ -1190,7 +1260,7 @@ class RuntimeOperationalSourceBundlesRow:
 class RuntimeOperationalSourceDocumentsRow:
     """Declared relation row or nested value."""
 
-    bundle_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    bundle_hash: i.SourceBundleId = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     content_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     content: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
@@ -1200,7 +1270,7 @@ class RuntimeOperationalSourceDocumentsRow:
 class RuntimeOperationalStudiesRow:
     """Declared relation row or nested value."""
 
-    study_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    study_id: i.StudyId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     definition: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     state: e.StudyState = attrs.field(validator=attrs.validators.instance_of(e.StudyState))
     created_at: datetime = attrs.field(validator=v.utc_timestamp)
@@ -1211,13 +1281,23 @@ class RuntimeOperationalStudiesRow:
 class RuntimeOperationalStudyPointsRow:
     """Declared relation row or nested value."""
 
-    study_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    study_id: i.StudyId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     point_index: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
     binding_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     state: e.StudyPointState = attrs.field(validator=attrs.validators.instance_of(e.StudyPointState))
-    attempt_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    attempt_id: i.AttemptId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     result_ref: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     updated_at: datetime = attrs.field(validator=v.utc_timestamp)
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeOperationalWorkspacesRow:
+    """Declared relation row or nested value."""
+
+    workspace_id: i.WorkspaceId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    root_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    created_at: datetime = attrs.field(validator=v.utc_timestamp)
 
 
 @attrs.frozen(kw_only=True)

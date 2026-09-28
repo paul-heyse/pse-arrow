@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! The publication catalog (ADR-0112 Outcomes 6 and 7; architecture §9.5).
+//! The publication catalog (ADR-0114 Outcomes 6 and 7; architecture §9.5).
 //!
 //! One transaction is the visibility boundary: it checks that the workspace head names the
 //! expected parent, inserts the publication and its members, and advances the head. Readers
@@ -188,7 +188,7 @@ async fn lock_publication(
     publication: SemanticId,
 ) -> Result<(SemanticId, Option<String>), OperationsError> {
     let row = sqlx::query(
-        "SELECT p.workspace_id, r.phase FROM pse_ops.publications AS p \
+        "SELECT p.workspace_id, r.phase::text AS phase FROM pse_ops.publications AS p \
          LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id \
          WHERE p.publication_id = $1 FOR NO KEY UPDATE OF p",
     )
@@ -280,7 +280,7 @@ impl<'s> Catalog<'s> {
         let mut tx = self.store.pool().begin().await.classify(target)?;
         // FOR SHARE on the attempt: a concurrent settlement (FOR UPDATE) waits for us.
         let state: Option<String> = sqlx::query_scalar(
-            "SELECT state FROM pse_ops.attempts WHERE attempt_id = $1 FOR SHARE",
+            "SELECT state::text AS state FROM pse_ops.attempts WHERE attempt_id = $1 FOR SHARE",
         )
         .bind(codec::uuid(commit.attempt_id))
         .fetch_optional(&mut *tx)
@@ -451,12 +451,13 @@ impl<'s> Catalog<'s> {
             None => (Settlement::ProvedNoncommit, "proved_noncommit"),
         };
         sqlx::query(
-            "INSERT INTO pse_ops.settlements (attempt_id, outcome, publication_id) \
-             VALUES ($1, $2, $3)",
+            "INSERT INTO pse_ops.settlements (settlement_id, attempt_id, outcome, publication_id) \
+             VALUES ($4, $1, $2::pse_ops.settlement_outcome, $3)",
         )
         .bind(codec::uuid(attempt))
         .bind(outcome)
         .bind(publication.map(codec::uuid))
+        .bind(codec::uuid(codec::mint_id()))
         .execute(&mut *tx)
         .await
         .classify(target)?;
@@ -501,7 +502,7 @@ impl<'s> Catalog<'s> {
         // FOR SHARE conflicts with maintenance's FOR NO KEY UPDATE: a lease is either
         // granted before a publication is marked expiring or refused after.
         let row = sqlx::query(
-            "SELECT r.phase FROM pse_ops.publications AS p \
+            "SELECT r.phase::text AS phase FROM pse_ops.publications AS p \
              LEFT JOIN pse_ops.retention_marks AS r ON r.publication_id = p.publication_id \
              WHERE p.publication_id = $1 FOR SHARE OF p",
         )
@@ -518,12 +519,13 @@ impl<'s> Catalog<'s> {
             return Err(OperationsError::PublicationRetiring { publication, phase });
         }
         let lease = sqlx::query(
-            "INSERT INTO pse_ops.reader_leases (publication_id, holder, expires_at) \
-             VALUES ($1, $2, now() + $3) RETURNING lease_id, expires_at",
+            "INSERT INTO pse_ops.reader_leases (lease_id, publication_id, holder, expires_at) \
+             VALUES ($4, $1, $2, now() + $3) RETURNING lease_id, expires_at",
         )
         .bind(codec::uuid(publication))
         .bind(holder)
         .bind(codec::interval(ttl))
+        .bind(codec::uuid(codec::mint_id()))
         .fetch_one(&mut *tx)
         .await
         .classify(target)?;

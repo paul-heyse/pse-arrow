@@ -10,7 +10,7 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeOperationalStudiesRow {
     ///study_id
-    pub r#study_id: pse_ids::SemanticId,
+    pub r#study_id: crate::generated::identities::StudyId,
     ///definition
     pub r#definition: String,
     ///state

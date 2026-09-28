@@ -378,11 +378,20 @@ def is_local_database(url: str) -> bool:
     return not host or host.startswith("/") or host in {"localhost", "127.0.0.1", "::1"}
 
 
-def check_operational_store() -> Check:
-    """Never blocking: ephemeral work runs without the operational store (ADR-0112)."""
-    setup = (
-        "just db-bootstrap (once), then just db-migrate; docs/dev/operational-store.md"
+def expected_schema_fingerprint() -> str:
+    """The schema fingerprint this checkout generates (ADR-0114 Outcome 23)."""
+    source = (OPERATIONS / "src/generated/fingerprint.rs").read_text(encoding="utf-8")
+    found = re.search(
+        r'^pub const SCHEMA_FINGERPRINT_HEX: &str = "([0-9a-f]{64})";$',
+        source,
+        re.MULTILINE,
     )
+    return found.group(1) if found else ""
+
+
+def check_operational_store() -> Check:
+    """Never blocking: ephemeral work runs without the operational store (ADR-0114)."""
+    setup = "just db-bootstrap (once), then just db-status; docs/dev/operational-store.md"
     url = operational_store_url()
     psql = shutil.which("psql")
     if psql is None or not url:
@@ -415,7 +424,8 @@ def check_operational_store() -> Check:
 
     code, out = query(
         "SELECT current_setting('server_version_num'), current_setting('server_version'),"
-        " to_regclass('_sqlx_migrations') IS NOT NULL"
+        " (SELECT coalesce(obj_description(oid, 'pg_namespace'), '<none>')"
+        " FROM pg_namespace WHERE nspname = 'pse_ops')"
     )
     if code != 0:
         first = (
@@ -424,7 +434,7 @@ def check_operational_store() -> Check:
         return Check(
             "opstore", False, f"unreachable: {first}"[:80], setup, blocking=False
         )
-    version_num, version, tracked = out.split("|", 2)
+    version_num, version, recorded = out.split("|", 2)
     version = version.split(" ", 1)[0]
     if int(version_num) < 180000:
         return Check(
@@ -434,34 +444,24 @@ def check_operational_store() -> Check:
             "upgrade the server; docs/dev/operational-store.md",
             blocking=False,
         )
-    applied: set[int] = set()
-    if tracked == "t":
-        code, out = query("SELECT version FROM _sqlx_migrations WHERE success")
-        if code != 0:
-            return Check(
-                "opstore",
-                False,
-                f"migrations unreadable: {out}"[:80],
-                setup,
-                blocking=False,
-            )
-        applied = {int(line) for line in out.split() if line}
-    embedded = {
-        int(match.group(1))
-        for path in (OPERATIONS / "migrations").glob("*.sql")
-        if (match := re.fullmatch(r"(\d+)_.*(?<!\.down)\.sql", path.name))
-    }
-    pending, unknown = embedded - applied, applied - embedded
-    if pending or unknown:
-        detail = f"PostgreSQL {version}; {len(pending)} pending, {len(unknown)} unknown migration(s)"
-        fix = (
-            "just db-migrate"
-            if pending
-            else "update this checkout: the database is newer"
+    expected = expected_schema_fingerprint()
+    if not recorded:
+        return Check(
+            "opstore",
+            True,
+            f"PostgreSQL {version}; no pse_ops schema yet (the first durable open creates it)",
+            blocking=False,
         )
-        return Check("opstore", False, detail, fix, blocking=False)
+    if recorded != f"pse.ops.schema.v1 {expected}":
+        return Check(
+            "opstore",
+            False,
+            f"PostgreSQL {version}; pse_ops schema is another build's",
+            "just db-reset (the store holds regenerable data only)",
+            blocking=False,
+        )
     return Check(
-        "opstore", True, f"PostgreSQL {version}; migrations current", blocking=False
+        "opstore", True, f"PostgreSQL {version}; schema current", blocking=False
     )
 
 

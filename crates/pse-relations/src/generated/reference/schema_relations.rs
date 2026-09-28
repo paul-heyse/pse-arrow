@@ -5,7 +5,9 @@
 /// Registry-generated semantic values; native codecs remain local.
 pub use pse_model::generated::r#reference::r#schema_relations::{
     ReferenceSchemaRelationsFieldChecksItem,
-    ReferenceSchemaRelationsFieldDeltaPropertiesItem, ReferenceSchemaRelationsRow, Row,
+    ReferenceSchemaRelationsFieldDeltaPropertiesItem,
+    ReferenceSchemaRelationsFieldUniqueKeysItem,
+    ReferenceSchemaRelationsFieldForeignKeysItem, ReferenceSchemaRelationsRow, Row,
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
@@ -20,9 +22,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    55u8, 239u8, 83u8, 171u8, 46u8, 37u8, 21u8, 29u8, 232u8, 103u8, 117u8, 92u8, 255u8,
-    174u8, 76u8, 92u8, 41u8, 131u8, 40u8, 31u8, 101u8, 175u8, 83u8, 248u8, 18u8, 75u8,
-    119u8, 102u8, 85u8, 166u8, 171u8, 227u8,
+    185u8, 252u8, 172u8, 42u8, 231u8, 24u8, 165u8, 151u8, 157u8, 133u8, 250u8, 248u8,
+    23u8, 60u8, 193u8, 133u8, 151u8, 224u8, 107u8, 39u8, 243u8, 118u8, 212u8, 65u8,
+    101u8, 174u8, 184u8, 214u8, 39u8, 11u8, 89u8, 158u8,
 ]);
 impl crate::columnar::ArrowValue for ReferenceSchemaRelationsFieldChecksItem {
     fn append(
@@ -112,6 +114,126 @@ impl crate::columnar::ArrowValue for ReferenceSchemaRelationsFieldDeltaPropertie
         })
     }
 }
+impl crate::columnar::ArrowValue for ReferenceSchemaRelationsFieldUniqueKeysItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#columns, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Vec<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#columns: <Vec<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for ReferenceSchemaRelationsFieldForeignKeysItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#columns, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#target_relation_id,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#target_columns,
+            children[3usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <Vec<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Vec<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#columns: <Vec<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#target_relation_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#target_columns: <Vec<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 impl crate::columnar::ArrowValue for ReferenceSchemaRelationsRow {
     fn append(
         &self,
@@ -157,6 +279,14 @@ impl crate::columnar::ArrowValue for ReferenceSchemaRelationsRow {
             &self.r#delta_properties,
             children[11usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unique_keys,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#foreign_keys,
+            children[13usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -197,6 +327,12 @@ impl crate::columnar::ArrowValue for ReferenceSchemaRelationsRow {
         <Vec<
             ReferenceSchemaRelationsFieldDeltaPropertiesItem,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Vec<
+            ReferenceSchemaRelationsFieldUniqueKeysItem,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Vec<
+            ReferenceSchemaRelationsFieldForeignKeysItem,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -261,6 +397,18 @@ impl crate::columnar::ArrowValue for ReferenceSchemaRelationsRow {
                 ReferenceSchemaRelationsFieldDeltaPropertiesItem,
             > as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#unique_keys: <Vec<
+                ReferenceSchemaRelationsFieldUniqueKeysItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#foreign_keys: <Vec<
+                ReferenceSchemaRelationsFieldForeignKeysItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
                 index,
             )?,
         })
@@ -347,6 +495,14 @@ impl crate::columnar::RelationRow for ReferenceSchemaRelationsRow {
             &self.r#delta_properties,
             columns[11usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#unique_keys,
+            columns[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#foreign_keys,
+            columns[13usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -381,10 +537,10 @@ impl crate::columnar::RelationRow for ReferenceSchemaRelationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        34_816_usize + size_of::<Self::Builder>()
+        55_296_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        272usize
+        432usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -489,6 +645,84 @@ impl crate::columnar::RelationRow for ReferenceSchemaRelationsRow {
                     ),
                 )?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#unique_keys)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        {
+                            let mut bytes = 1usize;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#columns)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            crate::columnar::allocation_add(8, (item).len())?,
+                                        ),
+                                    )?,
+                            )?;
+                            Ok::<usize, crate::RelationError>(bytes)
+                        }?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#foreign_keys)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        {
+                            let mut bytes = 1usize;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                crate::columnar::allocation_add(8, ((item).r#name).len())?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#columns)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            crate::columnar::allocation_add(8, (item).len())?,
+                                        ),
+                                    )?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(16usize)?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                ((item).r#target_columns)
+                                    .iter()
+                                    .try_fold(
+                                        8usize,
+                                        |bytes, item| crate::columnar::allocation_add(
+                                            bytes,
+                                            crate::columnar::allocation_add(8, (item).len())?,
+                                        ),
+                                    )?,
+                            )?;
+                            Ok::<usize, crate::RelationError>(bytes)
+                        }?,
+                    ),
+                )?,
+        )?;
         Ok(bytes)
     }
 }
@@ -499,7 +733,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "relation_id",
@@ -560,6 +794,16 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
         name: "delta_properties",
         position: 11usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "unique_keys",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "foreign_keys",
+        position: 13usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -587,6 +831,10 @@ pub mod columns {
     pub const CHECKS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///delta_properties
     pub const DELTA_PROPERTIES: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    ///unique_keys
+    pub const UNIQUE_KEYS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    ///foreign_keys
+    pub const FOREIGN_KEYS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -605,6 +853,8 @@ pub struct ReferenceSchemaRelationsView<'a> {
     doc_column: &'a arrow_array::StringArray,
     checks_column: &'a arrow_array::ListArray,
     delta_properties_column: &'a arrow_array::ListArray,
+    unique_keys_column: &'a arrow_array::ListArray,
+    foreign_keys_column: &'a arrow_array::ListArray,
 }
 impl<'a> ReferenceSchemaRelationsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -680,6 +930,12 @@ impl<'a> ReferenceSchemaRelationsView<'a> {
             delta_properties_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(11usize).as_ref())?,
+            unique_keys_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(12usize).as_ref())?,
+            foreign_keys_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(13usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -842,6 +1098,30 @@ impl<'a> ReferenceSchemaRelationsView<'a> {
     pub fn delta_properties_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[11usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "unique_keys",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn unique_keys_column(&self) -> &'a arrow_array::ListArray {
+        self.unique_keys_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "unique_keys", "`.")]
+    pub fn unique_keys_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "foreign_keys",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn foreign_keys_column(&self) -> &'a arrow_array::ListArray {
+        self.foreign_keys_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "foreign_keys", "`.")]
+    pub fn foreign_keys_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -888,6 +1168,14 @@ impl<'a> ReferenceSchemaRelationsView<'a> {
             r#checks: crate::columnar::ArrowValue::read(self.checks_column, index)?,
             r#delta_properties: crate::columnar::ArrowValue::read(
                 self.delta_properties_column,
+                index,
+            )?,
+            r#unique_keys: crate::columnar::ArrowValue::read(
+                self.unique_keys_column,
+                index,
+            )?,
+            r#foreign_keys: crate::columnar::ArrowValue::read(
+                self.foreign_keys_column,
                 index,
             )?,
         })

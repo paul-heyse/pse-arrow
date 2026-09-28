@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Durability classes and durable attempts (ADR-0112 Outcomes 12–17; Plan 22 O3–O6).
+//! Durability classes and durable attempts (ADR-0114 Outcomes 12–17; Plan 22 O3–O6).
 //!
 //! A runtime is [`Durability::Ephemeral`] (in memory, as a library call or unit test needs;
 //! it cannot publish) or [`Durability::Durable`]: every run is then an attempt registered
@@ -24,7 +24,8 @@ use pse_model::generated::enums::CandidateUse;
 use pse_operations::{
     OperationsError, Store,
     attempts::{
-        AttemptFilter, AttemptKind, AttemptRecord, NewAttempt, Termination, TransitionNote,
+        AttemptFilter, AttemptKind, AttemptRecord, NewAttempt, RuntimeTermination, Termination,
+        TerminationCode, TransitionNote,
     },
     jobs::{Finished, JobOutcome, Requeue},
     lifecycle::AttemptState,
@@ -90,34 +91,27 @@ pub struct Recovery {
 }
 
 impl Operations {
-    /// Connect, require the embedded migrations to be applied, and recover: expired leases
-    /// are marked stale (and their jobs requeued) and old streams are pruned.
+    /// Connect, open the store's schema (creating it on an empty store, refusing a
+    /// different one), and recover: expired leases are marked stale (and their jobs
+    /// requeued) and old streams are pruned.
     ///
     /// # Errors
-    /// The infrastructure class when the store is unreachable; a configuration refusal when
-    /// its schema is not current (`just db-migrate`).
+    /// The infrastructure class when the store is unreachable; a configuration refusal
+    /// ([`OperationsError::SchemaMismatch`]) when its schema is another build's
+    /// (`just db-reset`).
     pub async fn connect(
         url: &str,
         worker: impl Into<String>,
         policy: LeasePolicy,
     ) -> Result<Self, WorkflowError> {
         let store = Store::connect(url).await?;
-        let status = store.migration_status().await?;
-        if !status.is_current() {
-            return Err(OperationsError::Configuration {
-                reason: format!(
-                    "{} has pending, edited or unknown migrations ({status:?}); run `just db-migrate`",
-                    store.target()
-                ),
-            }
-            .into());
-        }
+        store.open().await?;
         let operations = Self::from_store(store, worker, policy);
         operations.recover().await?;
         Ok(operations)
     }
 
-    /// Use an already connected and migrated store without recovery.
+    /// Use an already connected and opened store without recovery.
     pub fn from_store(store: Store, worker: impl Into<String>, policy: LeasePolicy) -> Self {
         Self {
             store,
@@ -198,7 +192,7 @@ impl Operations {
 impl super::Runtime {
     /// The durable attempts of this runtime's operational store, newest first, as the
     /// registry relation `runtime.operational_attempts`. They survive a restart of the
-    /// process that ran them (ADR-0112 Outcome 16).
+    /// process that ran them (ADR-0114 Outcome 16).
     ///
     /// # Errors
     /// An ephemeral runtime, which records no attempts; store failures; a stored value
@@ -210,20 +204,20 @@ impl super::Runtime {
         use pse_relations::generated::runtime::operational_attempts as attempts;
         let Durability::Durable(operations) = &self.durability else {
             return Err(super::contract(
-                "the run listing needs a durable runtime (ADR-0112 Outcome 16)",
+                "the run listing needs a durable runtime (ADR-0114 Outcome 16)",
             ));
         };
         let records = operations.runs(filter).await?;
         let mut rows = attempts::Builder::with_registry(&self.registry, records.len())
             .map_err(super::relation)?;
         for record in &records {
-            rows.push(record.row()?).map_err(super::relation)?;
+            rows.push(record.row()).map_err(super::relation)?;
         }
         rows.finish().map_err(super::relation)
     }
 }
 
-/// How a runtime keeps its runs (ADR-0112 Outcome 16): an explicit policy.
+/// How a runtime keeps its runs (ADR-0114 Outcome 16): an explicit policy.
 #[derive(Clone, Debug, Default)]
 pub enum Durability {
     /// In memory only: nothing survives the process and nothing may be published.
@@ -517,9 +511,9 @@ fn identities(
     })
 }
 
-fn termination(code: &str, detail: serde_json::Value) -> Termination {
+const fn termination(code: TerminationCode, detail: serde_json::Value) -> Termination {
     Termination {
-        code: code.to_owned(),
+        code,
         detail: Some(detail),
     }
 }
@@ -547,14 +541,17 @@ fn failure(error: &WorkflowError, cancelled: bool) -> Outcome {
     if cancelled || is_cancel {
         Outcome {
             state: AttemptState::Cancelled,
-            termination: termination("runtime.cancelled", detail),
+            termination: termination(
+                TerminationCode::Runtime(RuntimeTermination::Cancelled),
+                detail,
+            ),
             reason: "cancellation requested".to_owned(),
             retryable: false,
         }
     } else {
         Outcome {
             state: AttemptState::Failed,
-            termination: termination(&code, detail),
+            termination: termination(TerminationCode::Rule(code), detail),
             reason: error.to_string(),
             retryable,
         }
@@ -565,7 +562,7 @@ fn infrastructure(error: &WorkflowError) -> Outcome {
     Outcome {
         state: AttemptState::Failed,
         termination: termination(
-            "runtime.infrastructure",
+            TerminationCode::Runtime(RuntimeTermination::Infrastructure),
             serde_json::json!({ "error": error.to_string() }),
         ),
         reason: error.to_string(),
@@ -598,23 +595,23 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
             .solves
             .iter()
             .rev()
-            .find_map(|s| s.termination.map(|t| t.as_str().to_owned()))
+            .find_map(|s| s.termination.map(TerminationCode::Native))
             .unwrap_or_else(|| {
-                c.solves
-                    .last()
-                    .map_or("unattempted", |s| s.state.as_str())
-                    .to_owned()
+                c.solves.last().map_or(
+                    TerminationCode::Runtime(RuntimeTermination::Unattempted),
+                    |s| TerminationCode::RunState(s.state),
+                )
             }),
-        (RunReport::Simulation(t), _) => t.report.termination.as_str().to_owned(),
+        (RunReport::Simulation(t), _) => TerminationCode::Trajectory(t.report.termination),
         (RunReport::Fit(_), Ok(c)) => c
             .computation
             .as_ref()
             .and_then(|r| r.termination)
-            .map_or_else(
-                || "constant_evaluation".to_owned(),
-                |t| t.as_str().to_owned(),
+            .map_or(
+                TerminationCode::Runtime(RuntimeTermination::ConstantEvaluation),
+                TerminationCode::Native,
             ),
-        (_, Err(_)) => "unassessed".to_owned(),
+        (_, Err(_)) => TerminationCode::Runtime(RuntimeTermination::Unassessed),
     };
     let detail = serde_json::json!({ "usable": result.usable(), "candidate_use": uses });
     let (state, reason) = if cancelled {
@@ -636,9 +633,9 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
         state,
         termination: termination(
             if cancelled {
-                "runtime.cancelled"
+                TerminationCode::Runtime(RuntimeTermination::Cancelled)
             } else {
-                &code
+                code
             },
             detail,
         ),

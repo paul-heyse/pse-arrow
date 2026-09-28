@@ -221,6 +221,6 @@ def operational_store() -> OperationalStore:
     """The operational store durable runs register in (ADR-0112 Outcome 16).
 
     ``PSE_DATABASE_URL``, else the development default: the local socket with
-    peer authentication, migrated by ``just db-migrate``.
+    peer authentication; the first durable open creates the generated schema.
     """
     return OperationalStore()

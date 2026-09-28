@@ -320,6 +320,7 @@ Version: 1. Snapshot class: `model`. Primary key: `relation_id, ordinal`.
 | `role` | `enum:ColumnRole` | false | `label` | — | — |
 | `doc` | `Utf8` | false | `label` | — | — |
 | `native_field` | `Utf8` | false | `payload` | — | — |
+| `identity_id` | `semantic_id` | true | `reference` | `reference.schema_identities.identity_id` | — |
 
 ## `schema_document_sections`
 
@@ -379,6 +380,21 @@ Version: 1. Snapshot class: `model`. Primary key: `enum_id, member_ordinal`.
 | `idaes_name` | `Utf8` | true | `label` | — | — |
 | `deprecated` | `Boolean` | false | `payload` | — | — |
 | `doc` | `Utf8` | false | `label` | — | — |
+
+## `schema_identities`
+
+One row per declared entity identity: the typed ids generated into Rust, PostgreSQL and Python (ADR-0115).
+
+Version: 1. Snapshot class: `model`. Primary key: `identity_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `identity_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `label` | — | — |
+| `doc` | `Utf8` | false | `label` | — | — |
+| `base_logical_type_id` | `semantic_id` | false | `reference` | `reference.schema_logical_types.logical_type_id` | — |
+| `owner_relation_id` | `semantic_id` | true | `reference` | `reference.schema_relations.relation_id` | — |
+| `owner_column` | `Utf8` | true | `label` | — | — |
 
 ## `schema_invariants`
 
@@ -454,6 +470,19 @@ Version: 1. Snapshot class: `model`. Primary key: `relation_id`.
 | `delta_properties.item` | `Struct` | false | `payload` | — | — |
 | `delta_properties.item.name` | `Utf8` | false | `payload` | — | — |
 | `delta_properties.item.value` | `Utf8` | false | `payload` | — | — |
+| `unique_keys` | `List` | false | `payload` | — | — |
+| `unique_keys.item` | `Struct` | false | `payload` | — | — |
+| `unique_keys.item.name` | `Utf8` | false | `payload` | — | — |
+| `unique_keys.item.columns` | `List` | false | `payload` | — | — |
+| `unique_keys.item.columns.item` | `Utf8` | false | `payload` | — | — |
+| `foreign_keys` | `List` | false | `payload` | — | — |
+| `foreign_keys.item` | `Struct` | false | `payload` | — | — |
+| `foreign_keys.item.name` | `Utf8` | false | `payload` | — | — |
+| `foreign_keys.item.columns` | `List` | false | `payload` | — | — |
+| `foreign_keys.item.columns.item` | `Utf8` | false | `payload` | — | — |
+| `foreign_keys.item.target_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
+| `foreign_keys.item.target_columns` | `List` | false | `payload` | — | — |
+| `foreign_keys.item.target_columns.item` | `Utf8` | false | `payload` | — | — |
 
 ## `unit_sets`
 

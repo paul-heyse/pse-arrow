@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Authored source bundles for job execution, content-addressed by the §6.1 package
-//! content hash (ADR-0112 Outcome 14). A bundle is immutable: storing it again is a no-op.
+//! content hash (ADR-0114 Outcome 14). A bundle is immutable: storing it again is a no-op.
 //! The runtime computes the hashes with the authoring driver's one definition and verifies
 //! them again when it loads a bundle.
 

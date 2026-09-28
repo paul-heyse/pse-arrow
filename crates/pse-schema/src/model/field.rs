@@ -197,16 +197,6 @@ impl FieldContract {
     pub fn document(&self) -> Option<&str> {
         self.get(DOCUMENT)
     }
-    /// Admit only finite values (no NaN, no infinity) in this floating-point column.
-    #[must_use]
-    pub fn finite(self) -> Self {
-        Self(super::FloatDomain::Finite.annotate(self.0))
-    }
-    /// Admit every value except NaN in this floating-point column; infinities remain.
-    #[must_use]
-    pub fn not_nan(self) -> Self {
-        Self(super::FloatDomain::NotNan.annotate(self.0))
-    }
     /// Assign a quantity facet obtained from another declared field.
     #[must_use]
     pub fn with_quantity_contract(mut self, quantity: QuantityContract<'_>) -> Self {
@@ -428,7 +418,6 @@ impl FieldContract {
                     | PARAMETER
                     | DOCUMENT
                     | super::integer_range::KEY_INTEGER_RANGE
-                    | super::float_domain::KEY_FLOAT_DOMAIN
             )
         }) {
             return render_field(value.field());

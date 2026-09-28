@@ -10,9 +10,9 @@
 #[derive(Clone, Debug)]
 pub struct RuntimeOperationalAttemptsRow {
     ///attempt_id
-    pub r#attempt_id: pse_ids::SemanticId,
+    pub r#attempt_id: crate::generated::identities::AttemptId,
     ///run_id
-    pub r#run_id: pse_ids::SemanticId,
+    pub r#run_id: crate::generated::identities::RunId,
     ///kind
     pub r#kind: crate::generated::enums::AttemptKind,
     ///request_identity
@@ -24,7 +24,7 @@ pub struct RuntimeOperationalAttemptsRow {
     ///state_version
     pub r#state_version: i32,
     ///parent_attempt
-    pub r#parent_attempt: Option<pse_ids::SemanticId>,
+    pub r#parent_attempt: Option<crate::generated::identities::AttemptId>,
     ///worker
     pub r#worker: Option<String>,
     ///lease_expires_at
@@ -35,8 +35,18 @@ pub struct RuntimeOperationalAttemptsRow {
     pub r#cancel_requested: bool,
     ///cancel_requested_at
     pub r#cancel_requested_at: Option<i64>,
-    ///termination
-    pub r#termination: Option<String>,
+    ///termination_class
+    pub r#termination_class: Option<crate::generated::enums::TerminationClass>,
+    ///termination_native
+    pub r#termination_native: Option<crate::generated::enums::NativeTermination>,
+    ///termination_run_state
+    pub r#termination_run_state: Option<crate::generated::enums::NativeRunState>,
+    ///termination_trajectory
+    pub r#termination_trajectory: Option<crate::generated::enums::TrajectoryTermination>,
+    ///termination_runtime
+    pub r#termination_runtime: Option<crate::generated::enums::RuntimeTermination>,
+    ///termination_rule
+    pub r#termination_rule: Option<String>,
     ///termination_detail
     pub r#termination_detail: Option<String>,
     ///created_at
@@ -85,7 +95,30 @@ impl crate::SemanticEq for RuntimeOperationalAttemptsRow {
                 &self.r#cancel_requested_at,
                 &other.r#cancel_requested_at,
             )
-            && crate::SemanticEq::semantic_eq(&self.r#termination, &other.r#termination)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#termination_class,
+                &other.r#termination_class,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#termination_native,
+                &other.r#termination_native,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#termination_run_state,
+                &other.r#termination_run_state,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#termination_trajectory,
+                &other.r#termination_trajectory,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#termination_runtime,
+                &other.r#termination_runtime,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#termination_rule,
+                &other.r#termination_rule,
+            )
             && crate::SemanticEq::semantic_eq(
                 &self.r#termination_detail,
                 &other.r#termination_detail,
@@ -130,8 +163,18 @@ impl crate::SemanticFrame for RuntimeOperationalAttemptsRow {
         crate::SemanticFrame::frame(&self.r#cancel_requested, hash);
         hash.str(stringify!(r#cancel_requested_at));
         crate::SemanticFrame::frame(&self.r#cancel_requested_at, hash);
-        hash.str(stringify!(r#termination));
-        crate::SemanticFrame::frame(&self.r#termination, hash);
+        hash.str(stringify!(r#termination_class));
+        crate::SemanticFrame::frame(&self.r#termination_class, hash);
+        hash.str(stringify!(r#termination_native));
+        crate::SemanticFrame::frame(&self.r#termination_native, hash);
+        hash.str(stringify!(r#termination_run_state));
+        crate::SemanticFrame::frame(&self.r#termination_run_state, hash);
+        hash.str(stringify!(r#termination_trajectory));
+        crate::SemanticFrame::frame(&self.r#termination_trajectory, hash);
+        hash.str(stringify!(r#termination_runtime));
+        crate::SemanticFrame::frame(&self.r#termination_runtime, hash);
+        hash.str(stringify!(r#termination_rule));
+        crate::SemanticFrame::frame(&self.r#termination_rule, hash);
         hash.str(stringify!(r#termination_detail));
         crate::SemanticFrame::frame(&self.r#termination_detail, hash);
         hash.str(stringify!(r#created_at));
@@ -160,7 +203,12 @@ impl crate::HeapUsage for RuntimeOperationalAttemptsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#heartbeat_at))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#cancel_requested))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#cancel_requested_at))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination_class))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination_native))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination_run_state))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination_trajectory))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination_runtime))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination_rule))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#termination_detail))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#created_at))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#updated_at))

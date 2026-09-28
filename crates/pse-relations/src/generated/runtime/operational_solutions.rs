@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    38u8, 53u8, 152u8, 108u8, 0u8, 211u8, 89u8, 174u8, 61u8, 165u8, 194u8, 115u8, 251u8,
-    238u8, 238u8, 148u8, 154u8, 14u8, 64u8, 92u8, 156u8, 94u8, 140u8, 28u8, 124u8, 150u8,
-    65u8, 119u8, 121u8, 134u8, 217u8, 191u8,
+    98u8, 159u8, 103u8, 212u8, 224u8, 88u8, 38u8, 163u8, 115u8, 226u8, 133u8, 213u8,
+    224u8, 178u8, 238u8, 207u8, 82u8, 182u8, 82u8, 115u8, 254u8, 97u8, 176u8, 80u8,
+    111u8, 220u8, 180u8, 94u8, 84u8, 209u8, 218u8, 111u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
     fn append(
@@ -101,7 +101,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::SolutionId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
@@ -147,7 +147,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
             Vec<i32>,
         > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::AttemptId,
         > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         output.append(false);
@@ -160,7 +160,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#solution_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#solution_id: <crate::generated::identities::SolutionId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -237,7 +237,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
                 index,
             )?,
             r#created_by: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::AttemptId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(15usize).as_ref(),
                 index,
@@ -733,7 +733,7 @@ pub struct RuntimeOperationalSolutionsView<'a> {
     basis_columns_column: &'a arrow_array::ListArray,
     basis_rows_column: &'a arrow_array::ListArray,
     created_by_column: &'a arrow_array::FixedSizeBinaryArray,
-    created_at_column: &'a arrow_array::TimestampNanosecondArray,
+    created_at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalSolutionsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -822,7 +822,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(15usize).as_ref())?,
             created_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(16usize).as_ref())?,
         })
     }
@@ -1047,7 +1047,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
         "created_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn created_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn created_at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.created_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "created_at", "`.")]

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    19u8, 75u8, 133u8, 1u8, 130u8, 139u8, 38u8, 254u8, 170u8, 86u8, 233u8, 36u8, 62u8,
-    145u8, 52u8, 6u8, 162u8, 144u8, 248u8, 49u8, 66u8, 72u8, 135u8, 90u8, 199u8, 86u8,
-    91u8, 180u8, 85u8, 78u8, 95u8, 160u8,
+    221u8, 173u8, 196u8, 214u8, 115u8, 179u8, 128u8, 147u8, 119u8, 12u8, 53u8, 68u8,
+    78u8, 70u8, 36u8, 205u8, 232u8, 124u8, 151u8, 167u8, 0u8, 56u8, 20u8, 207u8, 133u8,
+    163u8, 107u8, 76u8, 216u8, 235u8, 19u8, 150u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
     fn append(
@@ -73,28 +73,48 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
             children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#termination,
+            &self.r#termination_class,
             children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#termination_detail,
+            &self.r#termination_native,
             children[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#created_at,
+            &self.r#termination_run_state,
             children[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#updated_at,
+            &self.r#termination_trajectory,
             children[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#started_at,
+            &self.r#termination_runtime,
             children[17usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#finished_at,
+            &self.r#termination_rule,
             children[18usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#termination_detail,
+            children[19usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#created_at,
+            children[20usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#updated_at,
+            children[21usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#started_at,
+            children[22usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#finished_at,
+            children[23usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -106,10 +126,10 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::RunId as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
         <crate::generated::enums::AttemptKind as crate::columnar::ArrowValue>::append_null(
@@ -126,7 +146,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
         )?;
         <i32 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
-            pse_ids::SemanticId,
+            crate::generated::identities::AttemptId,
         > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
             String,
@@ -142,19 +162,34 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
             i64,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
-            String,
+            crate::generated::enums::TerminationClass,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Option<
-            String,
+            crate::generated::enums::NativeTermination,
         > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         <Option<
-            i64,
+            crate::generated::enums::NativeRunState,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <Option<
+            crate::generated::enums::TrajectoryTermination,
+        > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <Option<
+            crate::generated::enums::RuntimeTermination,
         > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
         <Option<
-            i64,
+            String,
         > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[19usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[20usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[21usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[22usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[23usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -165,11 +200,11 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#attempt_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#attempt_id: <crate::generated::identities::AttemptId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#run_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#run_id: <crate::generated::identities::RunId as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -196,7 +231,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
                 index,
             )?,
             r#parent_attempt: <Option<
-                pse_ids::SemanticId,
+                crate::generated::identities::AttemptId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
@@ -229,36 +264,66 @@ impl crate::columnar::ArrowValue for RuntimeOperationalAttemptsRow {
                 input.column(12usize).as_ref(),
                 index,
             )?,
-            r#termination: <Option<
-                String,
+            r#termination_class: <Option<
+                crate::generated::enums::TerminationClass,
             > as crate::columnar::ArrowValue>::read(
                 input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#termination_native: <Option<
+                crate::generated::enums::NativeTermination,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#termination_run_state: <Option<
+                crate::generated::enums::NativeRunState,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
+                index,
+            )?,
+            r#termination_trajectory: <Option<
+                crate::generated::enums::TrajectoryTermination,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(16usize).as_ref(),
+                index,
+            )?,
+            r#termination_runtime: <Option<
+                crate::generated::enums::RuntimeTermination,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(17usize).as_ref(),
+                index,
+            )?,
+            r#termination_rule: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(18usize).as_ref(),
                 index,
             )?,
             r#termination_detail: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(14usize).as_ref(),
+                input.column(19usize).as_ref(),
                 index,
             )?,
             r#created_at: <i64 as crate::columnar::ArrowValue>::read(
-                input.column(15usize).as_ref(),
+                input.column(20usize).as_ref(),
                 index,
             )?,
             r#updated_at: <i64 as crate::columnar::ArrowValue>::read(
-                input.column(16usize).as_ref(),
+                input.column(21usize).as_ref(),
                 index,
             )?,
             r#started_at: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(17usize).as_ref(),
+                input.column(22usize).as_ref(),
                 index,
             )?,
             r#finished_at: <Option<
                 i64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(18usize).as_ref(),
+                input.column(23usize).as_ref(),
                 index,
             )?,
         })
@@ -350,28 +415,48 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
             columns[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#termination,
+            &self.r#termination_class,
             columns[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#termination_detail,
+            &self.r#termination_native,
             columns[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#created_at,
+            &self.r#termination_run_state,
             columns[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#updated_at,
+            &self.r#termination_trajectory,
             columns[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#started_at,
+            &self.r#termination_runtime,
             columns[17usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#finished_at,
+            &self.r#termination_rule,
             columns[18usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#termination_detail,
+            columns[19usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#created_at,
+            columns[20usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#updated_at,
+            columns[21usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#started_at,
+            columns[22usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#finished_at,
+            columns[23usize].as_mut(),
         )?;
         Ok(())
     }
@@ -407,10 +492,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        48_128_usize + size_of::<Self::Builder>()
+        58_368_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        376usize
+        456usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -510,7 +595,62 @@ impl crate::columnar::RelationRow for RuntimeOperationalAttemptsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if let Some(value) = (self.r#termination).as_ref() {
+            if let Some(value) = (self.r#termination_class).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#termination_native).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#termination_run_state).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#termination_trajectory).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#termination_runtime).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#termination_rule).as_ref() {
                 crate::columnar::allocation_add(
                     1,
                     crate::columnar::allocation_add(8, (value).len())?,
@@ -570,7 +710,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 19usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 24usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "attempt_id",
@@ -638,33 +778,58 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 19usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "termination",
+        name: "termination_class",
         position: 13usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "termination_detail",
+        name: "termination_native",
         position: 14usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "created_at",
+        name: "termination_run_state",
         position: 15usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "updated_at",
+        name: "termination_trajectory",
         position: 16usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "started_at",
+        name: "termination_runtime",
         position: 17usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "finished_at",
+        name: "termination_rule",
         position: 18usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "termination_detail",
+        position: 19usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "created_at",
+        position: 20usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "updated_at",
+        position: 21usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "started_at",
+        position: 22usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "finished_at",
+        position: 23usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -695,18 +860,28 @@ pub mod columns {
     pub const CANCEL_REQUESTED: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///cancel_requested_at
     pub const CANCEL_REQUESTED_AT: crate::columnar::ColumnReference = super::COLUMNS[12usize];
-    ///termination
-    pub const TERMINATION: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    ///termination_class
+    pub const TERMINATION_CLASS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    ///termination_native
+    pub const TERMINATION_NATIVE: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    ///termination_run_state
+    pub const TERMINATION_RUN_STATE: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    ///termination_trajectory
+    pub const TERMINATION_TRAJECTORY: crate::columnar::ColumnReference = super::COLUMNS[16usize];
+    ///termination_runtime
+    pub const TERMINATION_RUNTIME: crate::columnar::ColumnReference = super::COLUMNS[17usize];
+    ///termination_rule
+    pub const TERMINATION_RULE: crate::columnar::ColumnReference = super::COLUMNS[18usize];
     ///termination_detail
-    pub const TERMINATION_DETAIL: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const TERMINATION_DETAIL: crate::columnar::ColumnReference = super::COLUMNS[19usize];
     ///created_at
-    pub const CREATED_AT: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    pub const CREATED_AT: crate::columnar::ColumnReference = super::COLUMNS[20usize];
     ///updated_at
-    pub const UPDATED_AT: crate::columnar::ColumnReference = super::COLUMNS[16usize];
+    pub const UPDATED_AT: crate::columnar::ColumnReference = super::COLUMNS[21usize];
     ///started_at
-    pub const STARTED_AT: crate::columnar::ColumnReference = super::COLUMNS[17usize];
+    pub const STARTED_AT: crate::columnar::ColumnReference = super::COLUMNS[22usize];
     ///finished_at
-    pub const FINISHED_AT: crate::columnar::ColumnReference = super::COLUMNS[18usize];
+    pub const FINISHED_AT: crate::columnar::ColumnReference = super::COLUMNS[23usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -722,16 +897,21 @@ pub struct RuntimeOperationalAttemptsView<'a> {
     state_version_column: &'a arrow_array::Int32Array,
     parent_attempt_column: &'a arrow_array::FixedSizeBinaryArray,
     worker_column: &'a arrow_array::StringArray,
-    lease_expires_at_column: &'a arrow_array::TimestampNanosecondArray,
-    heartbeat_at_column: &'a arrow_array::TimestampNanosecondArray,
+    lease_expires_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    heartbeat_at_column: &'a arrow_array::TimestampMicrosecondArray,
     cancel_requested_column: &'a arrow_array::BooleanArray,
-    cancel_requested_at_column: &'a arrow_array::TimestampNanosecondArray,
-    termination_column: &'a arrow_array::StringArray,
+    cancel_requested_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    termination_class_column: &'a arrow_array::StringArray,
+    termination_native_column: &'a arrow_array::StringArray,
+    termination_run_state_column: &'a arrow_array::StringArray,
+    termination_trajectory_column: &'a arrow_array::StringArray,
+    termination_runtime_column: &'a arrow_array::StringArray,
+    termination_rule_column: &'a arrow_array::StringArray,
     termination_detail_column: &'a arrow_array::StringArray,
-    created_at_column: &'a arrow_array::TimestampNanosecondArray,
-    updated_at_column: &'a arrow_array::TimestampNanosecondArray,
-    started_at_column: &'a arrow_array::TimestampNanosecondArray,
-    finished_at_column: &'a arrow_array::TimestampNanosecondArray,
+    created_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    updated_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    started_at_column: &'a arrow_array::TimestampMicrosecondArray,
+    finished_at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalAttemptsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -799,35 +979,50 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
                 arrow_array::StringArray,
             >(batch.column(8usize).as_ref())?,
             lease_expires_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(9usize).as_ref())?,
             heartbeat_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(10usize).as_ref())?,
             cancel_requested_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
             >(batch.column(11usize).as_ref())?,
             cancel_requested_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(12usize).as_ref())?,
-            termination_column: crate::columnar::array::<
+            termination_class_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(13usize).as_ref())?,
-            termination_detail_column: crate::columnar::array::<
+            termination_native_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(14usize).as_ref())?,
-            created_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+            termination_run_state_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(15usize).as_ref())?,
-            updated_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+            termination_trajectory_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(16usize).as_ref())?,
-            started_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+            termination_runtime_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(17usize).as_ref())?,
-            finished_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+            termination_rule_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(18usize).as_ref())?,
+            termination_detail_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(19usize).as_ref())?,
+            created_at_column: crate::columnar::array::<
+                arrow_array::TimestampMicrosecondArray,
+            >(batch.column(20usize).as_ref())?,
+            updated_at_column: crate::columnar::array::<
+                arrow_array::TimestampMicrosecondArray,
+            >(batch.column(21usize).as_ref())?,
+            started_at_column: crate::columnar::array::<
+                arrow_array::TimestampMicrosecondArray,
+            >(batch.column(22usize).as_ref())?,
+            finished_at_column: crate::columnar::array::<
+                arrow_array::TimestampMicrosecondArray,
+            >(batch.column(23usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -965,7 +1160,7 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
     )]
     pub const fn lease_expires_at_column(
         &self,
-    ) -> &'a arrow_array::TimestampNanosecondArray {
+    ) -> &'a arrow_array::TimestampMicrosecondArray {
         self.lease_expires_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "lease_expires_at", "`.")]
@@ -979,7 +1174,7 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
     )]
     pub const fn heartbeat_at_column(
         &self,
-    ) -> &'a arrow_array::TimestampNanosecondArray {
+    ) -> &'a arrow_array::TimestampMicrosecondArray {
         self.heartbeat_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "heartbeat_at", "`.")]
@@ -1005,7 +1200,7 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
     )]
     pub const fn cancel_requested_at_column(
         &self,
-    ) -> &'a arrow_array::TimestampNanosecondArray {
+    ) -> &'a arrow_array::TimestampMicrosecondArray {
         self.cancel_requested_at_column
     }
     #[doc = concat!(
@@ -1018,15 +1213,91 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "termination",
+        "termination_class",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn termination_column(&self) -> &'a arrow_array::StringArray {
-        self.termination_column
+    pub const fn termination_class_column(&self) -> &'a arrow_array::StringArray {
+        self.termination_class_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "termination", "`.")]
-    pub fn termination_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "termination_class", "`.")]
+    pub fn termination_class_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[13usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "termination_native",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn termination_native_column(&self) -> &'a arrow_array::StringArray {
+        self.termination_native_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "termination_native",
+        "`.",
+    )]
+    pub fn termination_native_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[14usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "termination_run_state",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn termination_run_state_column(&self) -> &'a arrow_array::StringArray {
+        self.termination_run_state_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "termination_run_state",
+        "`.",
+    )]
+    pub fn termination_run_state_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[15usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "termination_trajectory",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn termination_trajectory_column(&self) -> &'a arrow_array::StringArray {
+        self.termination_trajectory_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "termination_trajectory",
+        "`.",
+    )]
+    pub fn termination_trajectory_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[16usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "termination_runtime",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn termination_runtime_column(&self) -> &'a arrow_array::StringArray {
+        self.termination_runtime_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "termination_runtime",
+        "`.",
+    )]
+    pub fn termination_runtime_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[17usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "termination_rule",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn termination_rule_column(&self) -> &'a arrow_array::StringArray {
+        self.termination_rule_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "termination_rule", "`.")]
+    pub fn termination_rule_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[18usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1042,55 +1313,57 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
         "`.",
     )]
     pub fn termination_detail_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[19usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
         "created_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn created_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn created_at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.created_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "created_at", "`.")]
     pub fn created_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[20usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
         "updated_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn updated_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn updated_at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.updated_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "updated_at", "`.")]
     pub fn updated_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[16usize]
+        &self.batch.schema_ref().fields()[21usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
         "started_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn started_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn started_at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.started_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "started_at", "`.")]
     pub fn started_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[17usize]
+        &self.batch.schema_ref().fields()[22usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
         "finished_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn finished_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn finished_at_column(
+        &self,
+    ) -> &'a arrow_array::TimestampMicrosecondArray {
         self.finished_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "finished_at", "`.")]
     pub fn finished_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[18usize]
+        &self.batch.schema_ref().fields()[23usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1144,8 +1417,28 @@ impl<'a> RuntimeOperationalAttemptsView<'a> {
                 self.cancel_requested_at_column,
                 index,
             )?,
-            r#termination: crate::columnar::ArrowValue::read(
-                self.termination_column,
+            r#termination_class: crate::columnar::ArrowValue::read(
+                self.termination_class_column,
+                index,
+            )?,
+            r#termination_native: crate::columnar::ArrowValue::read(
+                self.termination_native_column,
+                index,
+            )?,
+            r#termination_run_state: crate::columnar::ArrowValue::read(
+                self.termination_run_state_column,
+                index,
+            )?,
+            r#termination_trajectory: crate::columnar::ArrowValue::read(
+                self.termination_trajectory_column,
+                index,
+            )?,
+            r#termination_runtime: crate::columnar::ArrowValue::read(
+                self.termination_runtime_column,
+                index,
+            )?,
+            r#termination_rule: crate::columnar::ArrowValue::read(
+                self.termination_rule_column,
                 index,
             )?,
             r#termination_detail: crate::columnar::ArrowValue::read(

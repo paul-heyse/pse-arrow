@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    163u8, 195u8, 8u8, 57u8, 170u8, 136u8, 148u8, 20u8, 61u8, 8u8, 210u8, 196u8, 217u8,
-    251u8, 224u8, 232u8, 179u8, 35u8, 226u8, 150u8, 138u8, 185u8, 211u8, 98u8, 98u8,
-    52u8, 143u8, 34u8, 63u8, 32u8, 6u8, 61u8,
+    222u8, 37u8, 4u8, 235u8, 119u8, 240u8, 36u8, 139u8, 181u8, 244u8, 246u8, 207u8,
+    112u8, 73u8, 204u8, 235u8, 198u8, 79u8, 44u8, 129u8, 26u8, 224u8, 182u8, 75u8, 202u8,
+    139u8, 174u8, 247u8, 241u8, 126u8, 86u8, 55u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalSourceBundlesRow {
     fn append(
@@ -54,7 +54,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSourceBundlesRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::identities::SourceBundleId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
@@ -69,7 +69,7 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSourceBundlesRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#bundle_hash: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#bundle_hash: <crate::generated::identities::SourceBundleId as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
@@ -234,7 +234,7 @@ pub struct RuntimeOperationalSourceBundlesView<'a> {
     batch: &'a crate::RecordBatch,
     bundle_hash_column: &'a arrow_array::FixedSizeBinaryArray,
     manifest_column: &'a arrow_array::StringArray,
-    created_at_column: &'a arrow_array::TimestampNanosecondArray,
+    created_at_column: &'a arrow_array::TimestampMicrosecondArray,
 }
 impl<'a> RuntimeOperationalSourceBundlesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -281,7 +281,7 @@ impl<'a> RuntimeOperationalSourceBundlesView<'a> {
                 arrow_array::StringArray,
             >(batch.column(1usize).as_ref())?,
             created_at_column: crate::columnar::array::<
-                arrow_array::TimestampNanosecondArray,
+                arrow_array::TimestampMicrosecondArray,
             >(batch.column(2usize).as_ref())?,
         })
     }
@@ -326,7 +326,7 @@ impl<'a> RuntimeOperationalSourceBundlesView<'a> {
         "created_at",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn created_at_column(&self) -> &'a arrow_array::TimestampNanosecondArray {
+    pub const fn created_at_column(&self) -> &'a arrow_array::TimestampMicrosecondArray {
         self.created_at_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "created_at", "`.")]
