@@ -1,0 +1,26 @@
+{
+  "invariant": "runtime.operational_settlements:unique:pk",
+  "rows": {
+    "runtime.operational_settlements": [
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "outcome": "[\"enum\",\"committed\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "settled_at": "[\"i64\",1]",
+        "settlement_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "outcome": "[\"enum\",\"committed\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "settled_at": "[\"i64\",1]",
+        "settlement_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

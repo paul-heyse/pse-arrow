@@ -1,0 +1,24 @@
+{
+  "invariant": "runtime.operational_retention_marks:unique:pk",
+  "rows": {
+    "runtime.operational_retention_marks": [
+      {
+        "deleted_at": "[\"i64\",1]",
+        "marked_at": "[\"i64\",1]",
+        "phase": "[\"enum\",\"expiring\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "deleted_at": "[\"i64\",1]",
+        "marked_at": "[\"i64\",1]",
+        "phase": "[\"enum\",\"expiring\"]",
+        "publication_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

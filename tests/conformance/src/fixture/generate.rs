@@ -24,8 +24,40 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
     let subject = row(registry, spec, 1);
     valid.insert(invariant.relation.clone(), vec![subject.clone()]);
     let mut invalid = valid.clone();
+    let declared_key = invariant
+        .name
+        .strip_prefix("unique:")
+        .and_then(|name| spec.unique_keys.iter().find(|key| key.name == name));
+    let declared_reference = invariant
+        .name
+        .strip_prefix("foreign_key:")
+        .and_then(|name| spec.foreign_keys.iter().find(|key| key.name == name));
     if invariant.name == "unique:pk" {
         invalid.get_mut(&invariant.relation).unwrap().push(subject);
+    } else if let Some(key) = declared_key {
+        // A second row with its own primary key repeats the declared unique key.
+        let mut repeat = row(registry, spec, 2);
+        for column in &key.columns {
+            repeat.insert((*column).to_owned(), subject[*column].clone());
+        }
+        invalid.get_mut(&invariant.relation).unwrap().push(repeat);
+    } else if let Some(reference) = declared_reference {
+        // A composite reference resolves pairwise against one target row.
+        let target = registry.relation(reference.target).unwrap();
+        let target_row = row(registry, target, 1);
+        for (local, remote) in reference.columns.iter().zip(&reference.target_columns) {
+            set(&mut valid, &invariant.relation, local, target_row[*remote].clone());
+        }
+        if reference.target != invariant.relation {
+            valid.insert(reference.target.to_owned(), vec![target_row]);
+        }
+        invalid = valid.clone();
+        let bad = default_value(
+            registry,
+            &target.column(reference.target_columns[0]).unwrap().value_type(),
+            2,
+        );
+        set(&mut invalid, &invariant.relation, reference.columns[0], bad);
     } else if let Some(column) = invariant.name.strip_prefix("foreign_key:") {
         let product = registry.obligations(spec.key).unwrap();
         let occurrence = product
@@ -70,7 +102,8 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
     }
     let keys = invalid[&invariant.relation]
         .iter()
-        .take(if invariant.name == "cardinality:member_ordinal" {
+        .take(if invariant.name == "cardinality:member_ordinal" || declared_key.is_some() {
+            // Every row sharing a declared unique key offends, each under its own key.
             usize::MAX
         } else {
             1
