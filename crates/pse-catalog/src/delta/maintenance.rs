@@ -234,7 +234,7 @@ async fn maintain(
                 "referenced publications, outputs, attempts or CDF ranges cannot be reclaimed",
             ));
         }
-        Some(super::attempt::admit_reclamation(&table, &target.head.location, &state).await?)
+        Some(super::attempt::admit_reclamation(&table, &state).await?)
     } else {
         None
     };
@@ -262,12 +262,21 @@ async fn maintain(
     let fence_version = table
         .version()
         .ok_or_else(|| invalid("maintenance fence has no version"))?;
-    apply_maintenance(target, &state, table, &contract, retained, reclamation)
-        .await
+    apply_maintenance(
+        &target.location,
+        target.action == MaintenanceAction::Optimize,
+        target.log_cutoff_ms,
+        &state,
+        table,
+        &contract,
+        retained,
+        reclamation,
+    )
+    .await
         .map_err(|source| super::settlement::maintenance_interrupted(fence_version, source))
 }
 
-async fn maintenance_fence(
+pub(super) async fn maintenance_fence(
     table: deltalake::DeltaTable,
     state: &SessionState,
 ) -> Result<deltalake::DeltaTable> {
@@ -297,22 +306,32 @@ async fn maintenance_fence(
     fenced
 }
 
-struct EffectiveRetention {
+pub(super) struct EffectiveRetention {
     ranges: Vec<(u64, u64)>,
-    versions: BTreeSet<u64>,
-    changes: bool,
-    attempts: bool,
+    pub(super) versions: BTreeSet<u64>,
+    pub(super) changes: bool,
+    pub(super) attempts: bool,
     reservation: pse_columnar::MemoryReservation,
 }
 
 impl EffectiveRetention {
-    fn protect(&mut self, start: u64, end: u64) -> Result<()> {
+    pub(super) fn new(pool: &Arc<dyn pse_columnar::MemoryPool>) -> Self {
+        Self {
+            ranges: Vec::new(),
+            versions: BTreeSet::new(),
+            changes: false,
+            attempts: false,
+            reservation: pse_columnar::MemoryConsumer::new("delta:retained-versions")
+                .register(pool),
+        }
+    }
+    pub(super) fn protect(&mut self, start: u64, end: u64) -> Result<()> {
         self.reservation.try_grow(32).map_err(external)?;
         self.ranges.push((start, end));
         Ok(())
     }
     // Keep compact intervals through admission, then expand once for Delta keep_versions.
-    fn expand(&mut self, cancel: &CancellationToken) -> Result<()> {
+    pub(super) fn expand(&mut self, cancel: &CancellationToken) -> Result<()> {
         self.ranges.sort_unstable();
         let mut through = None;
         for (start, end) in &self.ranges {
@@ -376,7 +395,7 @@ impl MaintenancePolicy {
         })
     }
 }
-fn now_ms() -> Result<i64> {
+pub(super) fn now_ms() -> Result<i64> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|error| DataFusionError::External(Box::new(error)))?;
@@ -458,8 +477,14 @@ fn selected_versions(
     Ok(retained)
 }
 
-async fn apply_maintenance(
-    target: &MaintenanceTarget,
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one ordered native maintenance sequence over an admitted table and its protections"
+)]
+pub(super) async fn apply_maintenance(
+    location: &url::Url,
+    optimize: bool,
+    log_cutoff_ms: i64,
     state: &SessionState,
     mut table: deltalake::DeltaTable,
     contract: &super::contract::DeclaredCheck,
@@ -474,7 +499,7 @@ async fn apply_maintenance(
     let policy = MaintenancePolicy::resolve(
         properties.deleted_file_retention_duration(),
         properties.log_retention_duration(),
-        target.log_cutoff_ms,
+        log_cutoff_ms,
         now_ms()?,
         retained.changes,
         retained.attempts,
@@ -499,7 +524,7 @@ async fn apply_maintenance(
         let reclaim = context.with_commit(reclamation, super::operation::CommitKind::Maintenance);
         table = reclaim.delete(table).await.map_err(external)?.0;
     }
-    if target.action == MaintenanceAction::Optimize {
+    if optimize {
         table = context.optimize(table).await.map_err(external)?.0;
     }
     checkpoints::create_checkpoint(&table, None)
@@ -537,7 +562,7 @@ async fn apply_maintenance(
     let mut output = maintenance_outcomes::Builder::new().map_err(external)?;
     output
         .push(maintenance_outcomes::Row {
-            table_uri: target.location.to_string(),
+            table_uri: location.to_string(),
             delta_version: super::provider::signed_version(version)?,
             deleted_files: metrics.files_deleted,
             deleted_logs: i64::try_from(deleted_logs)

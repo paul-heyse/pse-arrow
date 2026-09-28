@@ -38,7 +38,7 @@ mod improvement_unit;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Key {
     store: usize,
-    maintenance: crate::delta::lease::Generation,
+    maintenance: crate::delta::scope::CacheScope,
     selection: Arc<MemberSelection>,
     schema: SchemaRef,
     interpretation: Arc<Interpretation>,
@@ -498,11 +498,14 @@ impl ExecutionPlan for SelectedExec {
                 .get_store(&location)?;
             let generation = service.native().generation(&location, store);
             let key = generation
-                .zip(lease.as_ref())
+                .zip(crate::delta::scope::CacheScope::of(
+                    context.session_config(),
+                    lease.as_deref(),
+                ))
                 .filter(|_| reuse)
-                .map(|(store, lease)| Key {
+                .map(|(store, maintenance)| Key {
                     store,
-                    maintenance: lease.generation.clone(),
+                    maintenance,
                     selection,
                     schema: full_schema,
                     interpretation,

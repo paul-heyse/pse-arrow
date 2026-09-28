@@ -106,7 +106,7 @@ impl Environment {
             members: vec![],
         };
         let (prepared, _ticket) = plan
-            .prepare_publication(
+            .prepare_control_publication(
                 PublicationTarget {
                     reference: ResolvedTableReference {
                         catalog: "artifact".into(),
@@ -144,7 +144,7 @@ impl Environment {
         })
     }
     pub(crate) async fn open(&self, root: PublicationRoot) -> Result<Publication> {
-        Ok(Publication::open(
+        Ok(Publication::open_control(
             root,
             Arc::clone(&self.registry),
             &self.sessions,

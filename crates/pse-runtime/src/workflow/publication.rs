@@ -253,7 +253,7 @@ impl RunResult {
             })
             .collect::<Result<BTreeMap<_, _>, WorkflowError>>()?;
         let root = base.join("control/").map_err(|e| contract(e.to_string()))?;
-        let (command, ticket) = artifact.prepare_publication(
+        let (command, ticket) = artifact.prepare_control_publication(
             PublicationTarget {
                 reference: ResolvedTableReference {
                     catalog: "artifact".into(),
@@ -308,7 +308,7 @@ impl super::Runtime {
         cancel: &CancellationToken,
     ) -> Result<Arc<pse_catalog::delta::publication::Publication>, WorkflowError> {
         Ok(Arc::new(
-            pse_catalog::delta::publication::Publication::open(
+            pse_catalog::delta::publication::Publication::open_control(
                 root,
                 self.registry.clone(),
                 &self.sessions,

@@ -10,7 +10,7 @@ use datafusion::{
     execution::session_state::SessionState,
 };
 use pse_columnar::CancellationToken;
-use pse_relations::generated::runtime::publications;
+use pse_relations::generated::runtime::{publication_manifests, publications};
 use std::sync::Arc;
 
 /// Serializable complete publication request, minted before any native write.
@@ -19,8 +19,9 @@ use std::sync::Arc;
 #[serde(deny_unknown_fields)]
 pub struct PublicationTicket {
     version: u32,
-    location: url::Url,
-    candidate: publications::Row,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    location: Option<url::Url>,
+    candidate: publication_manifests::Row,
     attempts: Vec<MemberAttempt>,
 }
 /// Read-only settlement result. Missing history is always unresolved.
@@ -50,8 +51,8 @@ pub enum PublicationSettlement {
 }
 impl PublicationTicket {
     pub(super) fn new(
-        location: url::Url,
-        mut candidate: publications::Row,
+        location: Option<url::Url>,
+        mut candidate: publication_manifests::Row,
         attempts: Vec<MemberAttempt>,
     ) -> Self {
         candidate.members.sort_by(|a, b| {
@@ -62,11 +63,24 @@ impl PublicationTicket {
             ))
         });
         Self {
-            version: 1,
+            version: 2,
             location,
             candidate,
             attempts,
         }
+    }
+    /// The workspace the publication is prepared in.
+    pub fn workspace_id(&self) -> pse_ids::SemanticId {
+        self.candidate.workspace_id
+    }
+    /// The exact parent the publication was prepared against; never rebased.
+    pub fn parent_publication_id(&self) -> Option<pse_ids::SemanticId> {
+        self.candidate.parent_publication_id
+    }
+    /// The planned candidate record; written members carry their actual versions only
+    /// once the candidate executes.
+    pub fn candidate(&self) -> &publication_manifests::Row {
+        &self.candidate
     }
     /// Identity of the original attempt, not a new retry.
     pub fn attempt_id(&self) -> pse_ids::SemanticId {
@@ -124,12 +138,16 @@ impl PublicationTicket {
         cancel
             .checkpoint()
             .map_err(|e| DataFusionError::External(Box::new(e)))?;
-        if self.version != 1 || self.candidate.members.is_empty() || self.attempts.is_empty() {
+        if self.version != 2 || self.candidate.members.is_empty() || self.attempts.is_empty() {
             return Err(invalid("malformed or unsupported publication ticket"));
         }
-        let _control = super::lease::read(&self.location, cancel).await?;
+        let location = self
+            .location
+            .clone()
+            .ok_or_else(|| invalid("the ticket is not a control-table publication"))?;
+        let _control = super::lease::read(&location, cancel).await?;
         // Resolve the latest native version freshly; retained exact snapshots may serve that version.
-        let Some(opened) = super::publish::load(&self.location, &state).await? else {
+        let Some(opened) = super::publish::load(&location, &state).await? else {
             return Ok(PublicationSettlement::Unresolved {
                 reason: "no durable control witness".into(),
             });
@@ -164,17 +182,16 @@ impl PublicationTicket {
         };
         if let Some(version) = committed {
             let root = PublicationRoot {
-                location: self.location.clone(),
+                location: location.clone(),
                 version,
             };
             let actual = super::publication::read_record(&root, &registry, state.clone()).await?;
-            let mut expected = self.candidate.clone();
+            let mut expected = super::publication::control_of(&self.candidate);
             for request in &self.attempts {
                 cancel
                     .checkpoint()
                     .map_err(|e| DataFusionError::External(Box::new(e)))?;
-                if request.publication_uri != self.location
-                    || request.attempt_id != self.attempt_id()
+                if request.attempt_id != self.attempt_id()
                     || request.publication_id != self.publication_id()
                 {
                     return Err(invalid("ticket member belongs to another request"));
@@ -224,7 +241,7 @@ impl PublicationTicket {
         )?;
         let current = super::publication::read_optional_record(
             &PublicationRoot {
-                location: self.location.clone(),
+                location: location.clone(),
                 version,
             },
             &registry,
@@ -322,7 +339,7 @@ mod tests {
             members: vec![],
         };
         let (command, ticket) = artifact
-            .prepare_publication(
+            .prepare_control_publication(
                 PublicationTarget {
                     reference: ResolvedTableReference {
                         catalog: "artifact".into(),
@@ -350,7 +367,7 @@ mod tests {
         assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
         let child = |byte: u8| {
             artifact
-                .prepare_publication(
+                .prepare_control_publication(
                     PublicationTarget {
                         reference: ResolvedTableReference {
                             catalog: "artifact".into(),
@@ -405,7 +422,7 @@ mod tests {
             PublicationSettlement::Conflict { .. }
         ));
         // A later head and an unpublished competing member cannot alter the exact old result.
-        let old = super::super::publication::Publication::open(
+        let old = super::super::publication::Publication::open_control(
             root.clone(),
             registry.clone(),
             &factory,
@@ -441,9 +458,9 @@ mod tests {
             )]),
         );
         let changed = Arc::new(changed.build().unwrap());
-        let compatible = super::super::publication::Publication::open(
+        let compatible = super::super::publication::Publication::open_control(
             PublicationRoot {
-                location: ticket.location.clone(),
+                location: ticket.location.clone().unwrap(),
                 version: 1,
             },
             changed,

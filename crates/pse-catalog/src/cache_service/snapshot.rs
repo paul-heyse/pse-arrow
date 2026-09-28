@@ -33,7 +33,7 @@ pub enum LoadRequirement {
 struct Key {
     store: usize,
     version: u64,
-    maintenance: crate::delta::lease::Generation,
+    maintenance: crate::delta::scope::CacheScope,
     requirement: LoadRequirement,
 }
 impl CacheKey for Key {
@@ -242,7 +242,7 @@ impl DeltaCacheService {
         } else {
             crate::delta::lease::read(&location, &cancel).await?
         };
-        let maintenance = lease.as_ref().map(|lease| lease.generation.clone());
+        let maintenance = crate::delta::scope::CacheScope::of(state.config(), lease.as_deref());
         let store = state
             .runtime_env()
             .object_store_registry
@@ -332,8 +332,12 @@ impl DeltaCacheService {
             return Ok(());
         };
         let epoch = self.snapshots.retention.generation();
-        let Some(maintenance) = crate::delta::lease::generation(&location)? else {
-            return Ok(());
+        let maintenance = match crate::delta::scope::ReadScope::of(state) {
+            Some(scope) => crate::delta::scope::CacheScope::Catalog(scope),
+            None => match crate::delta::lease::generation(&location)? {
+                Some(generation) => crate::delta::scope::CacheScope::Lease(generation),
+                None => return Ok(()),
+            },
         };
         let reservation = MemoryConsumer::new("pse.cache.committed_snapshot").register(&self.pool);
         let value = self.retain_snapshot(table.clone(), reservation)?;
@@ -438,7 +442,7 @@ mod tests {
         let key = Key {
             store: service.native().generation(&root, store.clone()).unwrap(),
             version: 7,
-            maintenance: lease.generation.clone(),
+            maintenance: crate::delta::scope::CacheScope::Lease(lease.generation.clone()),
             requirement: LoadRequirement::Query,
         };
         // A fake retained value isolates cache routing. No Delta commit/replay is
@@ -458,6 +462,87 @@ mod tests {
         assert_eq!(store.gets.load(Ordering::SeqCst), 0);
         assert_eq!(store.lists.load(Ordering::SeqCst), 0);
         assert_eq!(service.snapshots.loads(), 0);
+    }
+    #[tokio::test]
+    async fn read_scope_is_a_cache_lookup_input() {
+        use crate::delta::scope::{CacheScope, ReadScope};
+        use datafusion::execution::{
+            config::SessionConfig, runtime_env::RuntimeEnvBuilder,
+            session_state::SessionStateBuilder,
+        };
+        // A memory store has no local file lease: only a catalog read scope keys it.
+        let root = url::Url::parse("memory://scoped/table/").unwrap();
+        let store = Arc::new(super::super::store_tests::CountingStore::default());
+        let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(32 << 20));
+        let runtime = RuntimeEnvBuilder::new()
+            .with_memory_pool(pool.clone())
+            .build_arc()
+            .unwrap();
+        runtime.register_object_store(&root, store.clone());
+        let service =
+            DeltaCacheService::new(DeltaCacheBudget::for_memory(32 << 20), &pool).unwrap();
+        let scope = ReadScope {
+            workspace: pse_ids::SemanticId::from_bytes([1; 16]).into(),
+            epoch: 3,
+        };
+        let key = Key {
+            store: service.native().generation(&root, store.clone()).unwrap(),
+            version: 7,
+            maintenance: CacheScope::Catalog(scope),
+            requirement: LoadRequirement::Query,
+        };
+        let expected = retained(&service.snapshots, &pool);
+        service.snapshots.admit(&key, Entry(expected.clone()), 0);
+        let state = |scope: Option<ReadScope>| {
+            let mut config = SessionConfig::new();
+            if let Some(scope) = scope {
+                scope.install(&mut config);
+            }
+            Arc::new(
+                SessionStateBuilder::new()
+                    .with_default_features()
+                    .with_config(config)
+                    .with_runtime_env(runtime.clone())
+                    .build(),
+            )
+        };
+        // The same scope hits without any I/O.
+        let hit = service
+            .open_snapshot(root.clone(), Some(7), LoadRequirement::Query, state(Some(scope)))
+            .await
+            .unwrap();
+        #[expect(
+            clippy::used_underscore_binding,
+            reason = "test compares the actual cache value owner without interpreting the fake table"
+        )]
+        let actual_owner = &hit._owner.0;
+        assert!(Arc::ptr_eq(actual_owner, &expected));
+        assert_eq!(store.gets.load(Ordering::SeqCst), 0);
+        // After maintenance advanced the epoch the entry is not found (a miss that loads,
+        // and here fails: the fake store holds no table).
+        let later = ReadScope { epoch: 4, ..scope };
+        assert!(
+            service
+                .open_snapshot(root.clone(), Some(7), LoadRequirement::Query, state(Some(later)))
+                .await
+                .is_err()
+        );
+        // Without a scope the cache is bypassed.
+        assert!(
+            service
+                .open_snapshot(root, Some(7), LoadRequirement::Query, state(None))
+                .await
+                .is_err()
+        );
+        let report = service.snapshots.report();
+        assert_eq!((report.hits, report.misses, report.bypasses), (1, 1, 1));
+        assert_ne!(
+            key,
+            Key {
+                maintenance: CacheScope::Catalog(later),
+                ..key.clone()
+            }
+        );
     }
     #[tokio::test]
     async fn exact_versions_never_observe_head_and_unpinned_requests_observe_it_once() {
@@ -496,7 +581,9 @@ mod tests {
         Key {
             store: 0,
             version,
-            maintenance: crate::delta::lease::test_generation(2),
+            maintenance: crate::delta::scope::CacheScope::Lease(
+                crate::delta::lease::test_generation(2),
+            ),
             requirement: LoadRequirement::Query,
         }
     }
@@ -532,7 +619,9 @@ mod tests {
         assert_ne!(
             original,
             Key {
-                maintenance: crate::delta::lease::test_generation(3),
+                maintenance: crate::delta::scope::CacheScope::Lease(
+                    crate::delta::lease::test_generation(3),
+                ),
                 ..original.clone()
             }
         );

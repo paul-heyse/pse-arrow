@@ -123,7 +123,7 @@ async fn publish(
         })
         .collect();
     let result = artifact
-        .prepare_publication(
+        .prepare_control_publication(
             PublicationTarget {
                 reference: name("publications"),
                 location: location.clone(),
@@ -187,7 +187,7 @@ async fn selected_after_update(
         .unwrap();
     member.delta_version = i64::try_from(updated.version().unwrap()).unwrap();
     let plan = publication_plan::plan(
-        previous.root().location.clone(),
+        previous.root().unwrap().location.clone(),
         header(publication_id, Some(parent)),
         vec![Member::Retained(member)],
         registry.clone(),
@@ -204,7 +204,7 @@ async fn selected_after_update(
         .await
         .unwrap();
     let root = PublicationRoot {
-        location: previous.root().location.clone(),
+        location: previous.root().unwrap().location.clone(),
         version: result.batches()[0]
             .column(0)
             .as_any()
@@ -212,7 +212,7 @@ async fn selected_after_update(
             .unwrap()
             .value(0),
     };
-    Publication::open(root, registry, factory, cancel)
+    Publication::open_control(root, registry, factory, cancel)
         .await
         .unwrap()
 }
@@ -318,7 +318,7 @@ pub(crate) async fn run_policy(
     let root = publish(&artifact, &base, "source", header(2, None), &cancel).await;
     let publish_seconds = start.elapsed().as_secs_f64();
     let start = Instant::now();
-    let first = Publication::open(root.clone(), registry.clone(), &factory, &cancel)
+    let first = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
         .await
         .unwrap();
     let open_seconds = start.elapsed().as_secs_f64();
@@ -368,7 +368,7 @@ pub(crate) async fn run_policy(
             .status()
             .unwrap();
         assert!(status.success());
-        let reopened = Publication::open(root.clone(), registry.clone(), &factory, &cancel)
+        let reopened = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
             .await
             .unwrap();
         assert!(
@@ -425,7 +425,7 @@ pub(crate) async fn run_policy(
             .display_indent()
     );
     let output_root = publish(&structural, &base, "derived", header(10, None), &cancel).await;
-    let output = Publication::open(output_root, registry.clone(), &factory, &cancel)
+    let output = Publication::open_control(output_root, registry.clone(), &factory, &cancel)
         .await
         .unwrap();
     let next = selected_after_update(

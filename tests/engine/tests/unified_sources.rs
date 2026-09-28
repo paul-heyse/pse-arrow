@@ -142,7 +142,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
         version: 1,
     };
     let plan = ArtifactPlan::new(session, outputs, &cancel).unwrap();
-    plan.prepare_publication(
+    plan.prepare_control_publication(
         PublicationTarget {
             reference: ResolvedTableReference {
                 catalog: "source".into(),
@@ -166,7 +166,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let cold = native_fixture();
     let budget = cold.resources.pool.clone();
     let factory = cold.factory.clone();
-    let publication = Publication::open(selection, Arc::clone(&registry), &factory, &cancel)
+    let publication = Publication::open_control(selection, Arc::clone(&registry), &factory, &cancel)
         .await
         .unwrap();
     let reopened = publication.session().clone();
@@ -246,8 +246,8 @@ async fn capture_source_facts(
         },
     )
     .unwrap();
-    let session = Publication::open(
-        publication.root().clone(),
+    let session = Publication::open_control(
+        publication.root().unwrap().clone(),
         Arc::clone(registry),
         &factory,
         cancel,

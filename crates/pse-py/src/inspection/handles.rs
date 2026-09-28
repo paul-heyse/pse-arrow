@@ -43,6 +43,8 @@ impl Publication {
             .selected()
             .map_err(|error| errors::diagnostic(py, &error))?
             .root()
+            .ok_or_else(|| errors::invalid("the publication was not opened from a control table"))
+            .map_err(|error| errors::diagnostic(py, &error))?
             .location
             .to_string())
     }
@@ -52,6 +54,8 @@ impl Publication {
             .selected()
             .map_err(|error| errors::diagnostic(py, &error))?
             .root()
+            .ok_or_else(|| errors::invalid("the publication was not opened from a control table"))
+            .map_err(|error| errors::diagnostic(py, &error))?
             .version)
     }
     fn tables(&self, py: Python<'_>) -> PyResult<Vec<super::TableName>> {
@@ -136,7 +140,7 @@ pub(crate) fn open_publication(
         let location = url::Url::parse(location)
             .map_err(|_| errors::invalid("publication location must be an absolute URI"))?;
         let runtime = runtime::acquire(settings)?;
-        let publication = runtime.executor.block_on(NativePublication::open(
+        let publication = runtime.executor.block_on(NativePublication::open_control(
             PublicationRoot { location, version },
             Arc::clone(&runtime.registry),
             &runtime.sessions,

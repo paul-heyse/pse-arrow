@@ -136,7 +136,7 @@ async fn explicit_product_reopens_after_eviction_and_refuses_another_descriptor(
         members: vec![],
     };
     let command = artifact
-        .prepare_publication(
+        .prepare_control_publication(
             PublicationTarget {
                 reference: name("runtime", "publications"),
                 location: control.clone(),
@@ -159,7 +159,7 @@ async fn explicit_product_reopens_after_eviction_and_refuses_another_descriptor(
     drop(artifact);
     // A fresh native factory cannot inherit producer cells or mutable old providers.
     let cold = self::factory();
-    let publication = Publication::open(
+    let publication = Publication::open_control(
         PublicationRoot {
             location: control,
             version,
@@ -274,7 +274,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         BTreeMap::from([(name("authored", "values"), base.join("values/").unwrap())]);
     let publish = || {
         artifact
-            .prepare_publication(
+            .prepare_control_publication(
                 target.clone(),
                 header.clone(),
                 destinations.clone(),
@@ -307,7 +307,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         location: target.location,
         version,
     };
-    let publication = Publication::open(root.clone(), registry.clone(), &factory, &cancel)
+    let publication = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
         .await
         .unwrap();
     let reused = artifact
@@ -373,7 +373,18 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
     let member = publication.member(&name("authored", "values")).unwrap();
     let relation_id = member.relation_id;
     let mut controls = publications::Builder::with_registry(&registry, 1).unwrap();
-    controls.push(publication.record().clone()).unwrap();
+    let record = publication.record();
+    controls
+        .push(publications::Row {
+            workspace_id: record.workspace_id,
+            publication_id: record.publication_id,
+            parent_publication_id: record.parent_publication_id,
+            attempt_id: record.attempt_id,
+            kind: record.kind,
+            inputs: record.inputs.clone(),
+            members: record.members.clone(),
+        })
+        .unwrap();
     let empty = retained_versions::Builder::with_registry(&registry, 0)
         .unwrap()
         .finish()
@@ -484,7 +495,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         cause = cause.source().unwrap();
     };
     assert!(fence_version > 0);
-    let protected = Publication::open(root.clone(), registry.clone(), &factory, &cancel)
+    let protected = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
         .await
         .unwrap();
     let protected_rows = protected
@@ -517,7 +528,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
     .execute(&cancel)
     .await
     .unwrap();
-    let reopened = Publication::open(root.clone(), registry.clone(), &factory, &cancel)
+    let reopened = Publication::open_control(root.clone(), registry.clone(), &factory, &cancel)
         .await
         .unwrap();
     let rows = reopened
@@ -544,7 +555,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
     let orphan = base.join("unpublished/").unwrap();
     let failed_publication = || {
         artifact
-            .prepare_publication(
+            .prepare_control_publication(
                 PublicationTarget {
                     reference: name("runtime", "publications"),
                     location: root.location.clone(),
@@ -595,7 +606,7 @@ async fn exact_reuse_cdf_and_maintenance_share_native_ownership() {
         failed_publication().execute(&cancel).await.is_err(),
         "retirement cannot resurrect the original writer"
     );
-    let actual = Publication::open(root, registry, &factory, &cancel)
+    let actual = Publication::open_control(root, registry, &factory, &cancel)
         .await
         .unwrap();
     assert_eq!(actual.record().publication_id, id(2));

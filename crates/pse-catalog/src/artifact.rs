@@ -3,12 +3,10 @@
 
 //! Named native outputs and one coherent Delta publication. There is no scheduler,
 //! pass record, content-addressed stage restore, or execution callback here.
-mod checkpoint;
 mod consumption;
 pub(crate) mod dependencies;
 mod descriptor;
 use crate::delta::publication_plan::{self, Member, MemberWrite};
-pub use checkpoint::prepare_checkpoint;
 use datafusion::{common::ResolvedTableReference, logical_expr::LogicalPlan};
 use pse_columnar::CancellationToken;
 use pse_engine::{
@@ -16,7 +14,7 @@ use pse_engine::{
     session::{EngineSession, PreparedComputation},
 };
 use pse_ids::SemanticId;
-use pse_relations::generated::runtime::publications;
+use pse_relations::generated::runtime::{publication_manifests, publications};
 use pse_schema::model::provider::{OperationPurpose, ProviderScope};
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -410,16 +408,56 @@ impl ArtifactPlan {
         self.session.prepare_rule_plan(output.plan.clone(), cancel)
     }
     /// Compose exactly these outputs and explicit unchanged members into one native
-    /// publication command. Every requested output has exactly one Delta destination.
-    /// The caller's exact input vector is checked before writes can start.
+    /// publication candidate (Plan 22 X9): the member writes, then the admission of the
+    /// complete record. Executing it returns the admitted `runtime.publication_manifests`
+    /// row with every member's actual version and makes nothing visible; the catalog
+    /// commit of that row does. Every requested output has exactly one Delta
+    /// destination, and the caller's exact input vector is checked before writes start.
     /// Returns the serializable recovery ticket before any effects start.
     /// # Errors
     /// Different destination inventory, different input selections, invalid members,
     /// output contract, native planning, scoped policy or cancellation failure.
     pub fn prepare_publication(
         &self,
+        header: publication_manifests::Row,
+        destinations: BTreeMap<ResolvedTableReference, url::Url>,
+        retained: Vec<pse_relations::generated::structures::MemberDescriptor>,
+        cancel: &CancellationToken,
+    ) -> Result<(PreparedComputation, crate::delta::ticket::PublicationTicket), EngineError> {
+        self.prepare_sink(
+            publication_plan::Sink::Candidate,
+            None,
+            header,
+            destinations,
+            retained,
+            cancel,
+        )
+    }
+    /// Compose outputs into one conditional commit of a Delta control table.
+    /// # Errors
+    /// As for [`ArtifactPlan::prepare_publication`].
+    pub fn prepare_control_publication(
+        &self,
         target: PublicationTarget,
-        mut header: publications::Row,
+        header: publications::Row,
+        destinations: BTreeMap<ResolvedTableReference, url::Url>,
+        retained: Vec<pse_relations::generated::structures::MemberDescriptor>,
+        cancel: &CancellationToken,
+    ) -> Result<(PreparedComputation, crate::delta::ticket::PublicationTicket), EngineError> {
+        self.prepare_sink(
+            publication_plan::Sink::Control(target.location),
+            Some(target.reference),
+            crate::delta::publication::manifest_of(&header),
+            destinations,
+            retained,
+            cancel,
+        )
+    }
+    fn prepare_sink(
+        &self,
+        sink: publication_plan::Sink,
+        control: Option<ResolvedTableReference>,
+        mut header: publication_manifests::Row,
         mut destinations: BTreeMap<ResolvedTableReference, url::Url>,
         retained: Vec<pse_relations::generated::structures::MemberDescriptor>,
         cancel: &CancellationToken,
@@ -438,7 +476,9 @@ impl ArtifactPlan {
         }
         self.check_publication_inputs(&mut header, &retained, cancel)?;
         let mut session = self.session.with_purpose(OperationPurpose::Publish);
-        session.bind_target(scope(&target.reference));
+        if let Some(control) = &control {
+            session.bind_target(scope(control));
+        }
         let mut members = Vec::with_capacity(self.outputs.len() + retained.len());
         for (reference, output) in &self.outputs {
             session.bind_target(scope(reference));
@@ -463,7 +503,7 @@ impl ArtifactPlan {
         }
         members.extend(retained.into_iter().map(Member::Retained));
         let (plan, ticket) = publication_plan::plan_bound(
-            target.location,
+            sink,
             header,
             members,
             Arc::clone(session.registry()),
@@ -477,9 +517,25 @@ impl ArtifactPlan {
         .map_err(pse_engine::session::engine)?;
         Ok((session.prepare(plan, cancel)?, ticket))
     }
+    /// Name this composition's member writes by a stable operation identity instead of
+    /// the one minted for it. A durable attempt's results are immutable, so its attempt
+    /// identity names them: a publisher that re-prepares the same attempt's publication
+    /// (after a conflict, or in another process) recovers the members it already wrote
+    /// instead of writing them again.
+    /// # Errors
+    /// Fresh observations, which must never be recovered as the same operation.
+    pub fn with_operation(mut self, operation_id: SemanticId) -> Result<Self, EngineError> {
+        if self.fresh_observations {
+            return Err(invalid(
+                "observed or unknown native inputs require a fresh operation identity",
+            ));
+        }
+        self.operation_id = operation_id;
+        Ok(self)
+    }
     fn check_publication_inputs(
         &self,
-        header: &mut publications::Row,
+        header: &mut publication_manifests::Row,
         retained: &[pse_relations::generated::structures::MemberDescriptor],
         cancel: &CancellationToken,
     ) -> Result<(), EngineError> {

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Exact Delta publication opening. The control relation selects the entire catalog.
+//! Exact Delta publication opening. The catalog selects a publication's complete record
+//! (Plan 22 X9-X12); this crate opens exactly its member versions.
 use datafusion::{
     catalog::{
         CatalogProvider, CatalogProviderList, MemoryCatalogProvider, MemoryCatalogProviderList,
@@ -14,7 +15,7 @@ use datafusion::{
     physical_plan::collect,
 };
 use futures_util::{FutureExt, StreamExt, TryStreamExt};
-use pse_relations::generated::runtime::publications;
+use pse_relations::generated::runtime::{publication_manifests, publications};
 use pse_schema::Registry;
 use std::sync::Arc;
 
@@ -28,21 +29,127 @@ pub struct PublicationRoot {
     pub version: i64,
 }
 
+/// What a reader selected: the complete publication record the catalog granted, the
+/// catalog read scope of that grant, and the owner that keeps the grant alive (a reader
+/// lease guard). An offline reader of an export manifest has the record and the scope
+/// the export recorded, and no owner.
+#[derive(Clone, Debug)]
+pub struct PublicationSelection {
+    /// The complete record: exact member and input versions.
+    pub record: publication_manifests::Row,
+    /// The catalog read scope; caches are keyed on it and bypassed without one.
+    pub scope: Option<super::scope::ReadScope>,
+    /// Retained for as long as any session or stream of the publication lives.
+    pub owner: Option<Arc<dyn pse_engine::provider::witness::ExecutionOwner>>,
+}
+
 /// Exact selected publication and its admitted native execution environment.
 /// Reads retain policies, requirements, cancellation and Arrow ownership through
 /// the same boundary as SQL and compiler plans.
 #[derive(Debug)]
 pub struct Publication {
-    root: PublicationRoot,
-    record: publications::Row,
+    root: Option<PublicationRoot>,
+    record: publication_manifests::Row,
     session: pse_engine::session::EngineSession,
 }
+
+/// The publication record a Delta control row describes (the control table's record,
+/// until the control table is removed).
+pub(crate) fn manifest_of(control: &publications::Row) -> publication_manifests::Row {
+    publication_manifests::Row {
+        publication_id: control.publication_id,
+        workspace_id: control.workspace_id,
+        parent_publication_id: control.parent_publication_id,
+        attempt_id: control.attempt_id,
+        kind: control.kind,
+        inputs: control.inputs.clone(),
+        members: control.members.clone(),
+        windows: Vec::new(),
+        exported_at: None,
+        export_lease_id: None,
+        export_expires_at: None,
+        maintenance_epoch: None,
+        store_fingerprint: None,
+    }
+}
+
+/// The Delta control row of a publication record (the control table's row, until the
+/// control table is removed).
+pub(crate) fn control_of(record: &publication_manifests::Row) -> publications::Row {
+    publications::Row {
+        workspace_id: record.workspace_id,
+        publication_id: record.publication_id,
+        parent_publication_id: record.parent_publication_id,
+        attempt_id: record.attempt_id,
+        kind: record.kind,
+        inputs: record.inputs.clone(),
+        members: record.members.clone(),
+    }
+}
+
 impl Publication {
+    /// Open exactly the member versions a catalog selection names, under the caller's
+    /// native policy. Relation payloads remain lazy; opening verifies declarations and
+    /// selections. The selection's owner is retained by the session.
+    /// # Errors
+    /// Missing versions, incompatible contracts, policy refusal or cancellation.
+    pub async fn open(
+        selection: PublicationSelection,
+        registry: Arc<Registry>,
+        factory: &pse_engine::session::EngineFactory,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> std::result::Result<Self, crate::EngineError> {
+        cancel.checkpoint()?;
+        let PublicationSelection {
+            record,
+            scope,
+            owner,
+        } = selection;
+        super::admission::admit_profile(&record, &registry).map_err(pse_engine::session::engine)?;
+        let mut state = factory.native_state().clone();
+        state.config_mut().set_extension(Arc::new(
+            pse_engine::session::execution::AttemptScope::default(),
+        ));
+        if let Some(scope) = scope {
+            scope.install(state.config_mut());
+        }
+        let state = cancel
+            .until_cancelled(bind_members(&record.members, &registry, Arc::new(state)))
+            .await?
+            .map_err(pse_engine::session::engine)?;
+        let mut session =
+            crate::selection::bind_publication(&record.members, &state, registry, factory, cancel)
+                .await?;
+        if let Some(owner) = owner {
+            session.retain_owner(owner);
+        }
+        Self::admitted(None, record, session, cancel).await
+    }
+
+    async fn admitted(
+        root: Option<PublicationRoot>,
+        record: publication_manifests::Row,
+        session: pse_engine::session::EngineSession,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> std::result::Result<Self, crate::EngineError> {
+        // Binding does not certify requirements, but an open cannot bypass them.
+        session.check_requirements(cancel).await?;
+        let publication = Self {
+            root,
+            record,
+            session,
+        };
+        if publication.record.kind != pse_relations::generated::enums::PublicationKind::Relations {
+            publication.artifact_descriptor(cancel).await?;
+        }
+        Ok(publication)
+    }
+
     /// Open exact control/member versions under the actual caller's native policy.
     /// Relation payloads remain lazy; opening verifies declaration and selection.
     /// # Errors
     /// Missing versions, incompatible contracts, policy refusal or cancellation.
-    pub async fn open(
+    pub async fn open_control(
         root: PublicationRoot,
         registry: Arc<Registry>,
         factory: &pse_engine::session::EngineFactory,
@@ -70,6 +177,7 @@ impl Publication {
             .until_cancelled(read_record(&root, &registry, Arc::clone(&state)))
             .await?
             .map_err(pse_engine::session::engine)?;
+        let record = manifest_of(&record);
         super::admission::admit_profile(&record, &registry).map_err(pse_engine::session::engine)?;
         for location in record
             .members
@@ -92,28 +200,19 @@ impl Publication {
             .await?
             .map_err(pse_engine::session::engine)?;
         let mut session =
-            crate::selection::bind_publication(&record, &state, registry, factory, cancel).await?;
+            crate::selection::bind_publication(&record.members, &state, registry, factory, cancel)
+                .await?;
         for owner in leases {
             session.retain_owner(owner);
         }
-        // Binding does not certify requirements, but an open cannot bypass them.
-        session.check_requirements(cancel).await?;
-        let publication = Self {
-            root,
-            record,
-            session,
-        };
-        if publication.record.kind != pse_relations::generated::enums::PublicationKind::Relations {
-            publication.artifact_descriptor(cancel).await?;
-        }
-        Ok(publication)
+        Self::admitted(Some(root), record, session, cancel).await
     }
-    /// Exact root retained by this handle.
-    pub fn root(&self) -> &PublicationRoot {
-        &self.root
+    /// Exact control root retained by a handle opened from the control table.
+    pub fn root(&self) -> Option<&PublicationRoot> {
+        self.root.as_ref()
     }
-    /// Complete generated control record; no parallel manifest is retained.
-    pub fn record(&self) -> &publications::Row {
+    /// The complete publication record; no parallel manifest is retained.
+    pub fn record(&self) -> &publication_manifests::Row {
         &self.record
     }
     /// Actual immutable execution environment over the selected native hierarchy.
@@ -124,7 +223,7 @@ impl Publication {
     pub fn into_session(self) -> pse_engine::session::EngineSession {
         self.session
     }
-    /// Exact generated member selected by the control transaction.
+    /// Exact generated member the publication selects.
     /// # Errors
     /// The qualified name is outside this publication.
     pub fn member(
@@ -359,13 +458,14 @@ pub(crate) async fn selected_provider(
     crate::cache_service::resident::selected(super::provider::selected_view(view), member, &state)
 }
 
+/// Every exact input opens under its declared contract.
 pub(super) async fn verify_inputs(
-    record: &publications::Row,
+    inputs: &[pse_relations::generated::structures::MemberDescriptor],
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<()> {
     // Inputs and members are the one registry structure `MemberDescriptor`.
-    bind_members(&record.inputs, registry, state).await?;
+    bind_members(inputs, registry, state).await?;
     Ok(())
 }
 

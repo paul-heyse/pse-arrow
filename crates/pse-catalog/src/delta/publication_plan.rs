@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Native composition from relation writes to one coherent publication command.
+//! Native composition from relation writes to one publication candidate.
 use super::{
     contract::DeclaredCheck, layout::DurableLayout, publish::DeltaPublish, write::DeltaWrite,
 };
@@ -17,9 +17,11 @@ use datafusion::{
 };
 use deltalake::{DeltaTable, kernel::transaction::CommitProperties, protocol::SaveMode};
 use pse_ids::SemanticId;
-use pse_relations::generated::runtime::publications;
+use pse_relations::generated::runtime::{publication_manifests, publications};
 use pse_schema::Registry;
 use std::sync::Arc;
+
+type Descriptor = pse_relations::generated::structures::MemberDescriptor;
 
 #[cfg(test)]
 mod tests;
@@ -39,13 +41,23 @@ pub struct MemberWrite {
 }
 
 /// A member selected by a new publication. Both routes are validated together
-/// against the complete candidate vector before the control commit.
+/// against the complete candidate vector before anything becomes visible.
 #[derive(Debug)]
 pub enum Member {
     /// Execute a declared native write and select its actual committed version.
     Write(MemberWrite),
     /// Select an unchanged exact version and optional revision slice.
-    Retained(pse_relations::generated::structures::MemberDescriptor),
+    Retained(Descriptor),
+}
+
+/// What the composed member writes feed.
+#[derive(Clone, Debug)]
+pub(crate) enum Sink {
+    /// The conditional commit of a Delta control table at this location.
+    Control(url::Url),
+    /// Admission of the candidate record; nothing becomes visible (Plan 22 X9). The
+    /// catalog commit makes the admitted record visible.
+    Candidate,
 }
 
 /// Compose all member writes, their actual committed versions and the conditional
@@ -61,23 +73,45 @@ pub fn plan(
     members: Vec<Member>,
     registry: Arc<Registry>,
 ) -> Result<LogicalPlan> {
-    compose(location, header, members, registry, None).map(|(plan, _)| plan)
+    compose(
+        super::publication::manifest_of(&header),
+        members,
+        registry,
+        None,
+        Sink::Control(location),
+    )
+    .map(|(plan, _)| plan)
+}
+
+/// Compose the member writes and the admission of the complete candidate record: the
+/// plan's one output row is the admitted `runtime.publication_manifests` record with
+/// every member's actual version. It makes nothing visible.
+/// `header.members` must be empty; writes and exact retained selectors supply the vector.
+/// # Errors
+/// Invalid declarations, duplicate names, empty inputs, incompatible fields or a
+/// header that already contains members.
+pub fn candidate(
+    header: publication_manifests::Row,
+    members: Vec<Member>,
+    registry: Arc<Registry>,
+) -> Result<LogicalPlan> {
+    compose(header, members, registry, None, Sink::Candidate).map(|(plan, _)| plan)
 }
 
 pub(crate) fn plan_bound(
-    location: url::Url,
-    header: publications::Row,
+    sink: Sink,
+    header: publication_manifests::Row,
     members: Vec<Member>,
     registry: Arc<Registry>,
     operation_id: SemanticId,
     dependencies: Vec<pse_relations::generated::runtime::native_dependencies::Row>,
 ) -> Result<(LogicalPlan, super::ticket::PublicationTicket)> {
     compose(
-        location,
         header,
         members,
         registry,
         Some(&(operation_id, dependencies)),
+        sink,
     )
     .and_then(|(plan, ticket)| {
         Ok((
@@ -88,27 +122,29 @@ pub(crate) fn plan_bound(
 }
 
 fn compose(
-    location: url::Url,
-    header: publications::Row,
+    header: publication_manifests::Row,
     members: Vec<Member>,
     registry: Arc<Registry>,
     identity: Option<&(
         SemanticId,
         Vec<pse_relations::generated::runtime::native_dependencies::Row>,
     )>,
+    sink: Sink,
 ) -> Result<(LogicalPlan, Option<super::ticket::PublicationTicket>)> {
     if !header.members.is_empty() || members.is_empty() {
         return Err(invalid(
             "publication composition needs an empty member header and explicit members",
         ));
     }
+    // The record's declared row checks are SQL: bind this registry's native validation.
+    pse_engine::validation::bind_defaults(&registry).map_err(external)?;
     let mut names = std::collections::BTreeSet::new();
     let mut candidate = header.clone();
     let mut inputs = Vec::new();
     let mut attempts = Vec::new();
     for member in members {
         let (outcome, descriptor, attempt) = match member {
-            Member::Write(member) => write_member(member, &header, &registry, &location, identity)?,
+            Member::Write(member) => write_member(member, &header, &registry, identity)?,
             Member::Retained(descriptor) => {
                 let version = LogicalPlanBuilder::empty(true)
                     .project([lit(descriptor.delta_version).alias("version")])?
@@ -128,7 +164,7 @@ fn compose(
             attempts.push(attempt);
         }
         candidate.members.push(descriptor.clone());
-        inputs.push(Arc::new(describe(outcome, &header, descriptor)?));
+        inputs.push(Arc::new(describe(outcome, &header, descriptor, &registry)?));
     }
     super::admission::admit_profile(&candidate, &registry)?;
     let union = if inputs.len() == 1 {
@@ -154,7 +190,10 @@ fn compose(
                 .alias("members"),
         ],
     )?);
-    let literal = control_batch(header)?;
+    let literal = match &sink {
+        Sink::Control(_) => control_batch(super::publication::control_of(&header))?,
+        Sink::Candidate => manifest_batch(header, &registry)?,
+    };
     let layout = DurableLayout::new(literal.schema())?;
     let expressions = literal
         .schema()
@@ -178,32 +217,39 @@ fn compose(
                 .alias(field.name()))
         })
         .collect::<Result<Vec<_>>>()?;
-    let control = layout.decode(LogicalPlan::Projection(Projection::try_new(
+    let record = layout.decode(LogicalPlan::Projection(Projection::try_new(
         expressions,
         Arc::new(members),
     )?))?;
+    let location = match &sink {
+        Sink::Control(location) => Some(location.clone()),
+        Sink::Candidate => None,
+    };
     let ticket = identity
-        .map(|_| super::ticket::PublicationTicket::new(location.clone(), candidate, attempts));
-    Ok((DeltaPublish::plan(location, control, registry)?, ticket))
+        .map(|_| super::ticket::PublicationTicket::new(location, candidate, attempts));
+    let plan = match sink {
+        Sink::Control(location) => DeltaPublish::plan(location, record, registry)?,
+        Sink::Candidate => super::candidate::AdmitCandidate::plan(record, registry)?,
+    };
+    Ok((plan, ticket))
 }
 fn write_member(
     member: MemberWrite,
-    header: &publications::Row,
+    header: &publication_manifests::Row,
     registry: &Registry,
-    location: &url::Url,
     identity: Option<&(
         SemanticId,
         Vec<pse_relations::generated::runtime::native_dependencies::Row>,
     )>,
 ) -> Result<(
     LogicalPlan,
-    pse_relations::generated::structures::MemberDescriptor,
+    Descriptor,
     Option<super::attempt::MemberAttempt>,
 )> {
     let spec = registry
         .relation_by_id(member.relation_id)
         .ok_or_else(|| invalid("unknown publication member contract"))?;
-    let descriptor = pse_relations::generated::structures::MemberDescriptor {
+    let descriptor = Descriptor {
         catalog_name: member.reference.catalog.to_string(),
         schema_name: member.reference.schema.to_string(),
         table_name: member.reference.table.to_string(),
@@ -227,10 +273,8 @@ fn write_member(
     let attempt = identity.map(
         |(operation_id, dependencies)| super::attempt::MemberAttempt {
             operation_id: *operation_id,
-            publication_uri: location.clone(),
             workspace_id: header.workspace_id,
             publication_id: header.publication_id,
-            parent_publication_id: header.parent_publication_id,
             attempt_id: header.attempt_id,
             member: descriptor.clone(),
             inputs: header.inputs.clone(),
@@ -251,12 +295,13 @@ fn write_member(
 
 fn describe(
     write: LogicalPlan,
-    header: &publications::Row,
-    descriptor: pse_relations::generated::structures::MemberDescriptor,
+    header: &publication_manifests::Row,
+    descriptor: Descriptor,
+    registry: &Registry,
 ) -> Result<LogicalPlan> {
     let mut sample = header.clone();
     sample.members = vec![descriptor.clone()];
-    let batch = control_batch(sample)?;
+    let batch = manifest_batch(sample, registry)?;
     let list = batch
         .column_by_name("members")
         .and_then(|c| c.as_any().downcast_ref::<ListArray>())
@@ -287,6 +332,15 @@ fn describe(
 }
 fn control_batch(row: publications::Row) -> Result<datafusion::arrow::array::RecordBatch> {
     let mut builder = publications::Builder::new().map_err(external)?;
+    builder.push(row).map_err(external)?;
+    Ok(builder.finish().map_err(external)?.into_batch())
+}
+fn manifest_batch(
+    row: publication_manifests::Row,
+    registry: &Registry,
+) -> Result<datafusion::arrow::array::RecordBatch> {
+    let mut builder =
+        publication_manifests::Builder::with_registry(registry, 1).map_err(external)?;
     builder.push(row).map_err(external)?;
     Ok(builder.finish().map_err(external)?.into_batch())
 }

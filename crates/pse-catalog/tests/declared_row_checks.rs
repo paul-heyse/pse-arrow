@@ -28,7 +28,7 @@ use deltalake::{
 };
 use pse_catalog::delta::{admission::violation_plans, contract::DeclaredCheck, write::DeltaWrite};
 use pse_ids::SemanticId;
-use pse_relations::generated::{enums::PublicationKind, runtime::publications};
+use pse_relations::generated::{enums::PublicationKind, runtime::publication_manifests};
 use pse_schema::{Registry, RegistryBuilder, model::*};
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -80,9 +80,9 @@ fn batch(schema: &SchemaRef, left: &[i64], right: &[i64], approved: Option<bool>
     )
     .unwrap()
 }
-fn candidate(registry: &Registry) -> publications::Row {
+fn candidate(registry: &Registry) -> publication_manifests::Row {
     let spec = registry.relation("authored.pairs").unwrap();
-    publications::Row {
+    publication_manifests::Row {
         workspace_id: SemanticId::NIL,
         publication_id: SemanticId::NIL,
         parent_publication_id: None,
@@ -100,6 +100,12 @@ fn candidate(registry: &Registry) -> publications::Row {
             delta_version: 1,
             selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
         }],
+        windows: vec![],
+        exported_at: None,
+        export_lease_id: None,
+        export_expires_at: None,
+        maintenance_epoch: None,
+        store_fingerprint: None,
     }
 }
 

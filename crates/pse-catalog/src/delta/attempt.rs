@@ -18,7 +18,12 @@ use pse_ids::SemanticId;
 use pse_relations::generated::structures::MemberDescriptor as Member;
 use serde::{Deserialize, Serialize};
 
-const KEY: &str = "pse.member_attempt.v3";
+/// The member receipt key (v4, Plan 22 X11): the receipt names the workspace,
+/// publication and attempt, never the control table or the expected parent, so a
+/// conflict loser that re-prepares against a new head recovers its written members.
+const KEY: &str = "pse.member_attempt.v4";
+/// Receipts written under the Delta control table; refused, never interpreted.
+const LEGACY_KEYS: [&str; 1] = ["pse.member_attempt.v3"];
 
 /// A member failure whose settlement differs from an ordinary computation failure.
 #[derive(Debug, thiserror::Error)]
@@ -38,6 +43,13 @@ pub enum MemberAttemptError {
         /// Observation failure. Never interpreted as rollback or empty history.
         source: Box<dyn std::error::Error + Send + Sync>,
     },
+    /// The table holds a member receipt of an unsupported historical format (written
+    /// under the Delta control table). It is never migrated: regenerate by rerunning.
+    #[error("member receipt {key} is an unsupported historical format; regenerate by rerunning")]
+    MigrationRequired {
+        /// The receipt key found.
+        key: String,
+    },
 }
 
 /// Minted by an immutable `ArtifactPlan`, never accepted as a caller-supplied digest.
@@ -46,10 +58,8 @@ pub enum MemberAttemptError {
 #[serde(deny_unknown_fields)]
 pub(crate) struct MemberAttempt {
     pub operation_id: SemanticId,
-    pub publication_uri: url::Url,
     pub workspace_id: SemanticId,
     pub publication_id: SemanticId,
-    pub parent_publication_id: Option<SemanticId>,
     pub attempt_id: SemanticId,
     pub member: Member,
     pub inputs: Vec<Member>,
@@ -179,6 +189,7 @@ impl MemberAttempt {
                         transaction_count += 1;
                     }
                     Action::CommitInfo(mut info) => {
+                        refuse_legacy(&info.info)?;
                         if let Some(value) = info.info.remove(KEY) {
                             if receipt.is_some() {
                                 return Err(unresolved("duplicate member receipt"));
@@ -248,7 +259,6 @@ pub(super) fn rejected(
 /// An unrelated table, missing commit or later unaccounted mutation refuses.
 pub(super) async fn admit_reclamation(
     table: &DeltaTable,
-    control: &url::Url,
     state: &SessionState,
 ) -> Result<(CommitProperties, MemoryReservation)> {
     let version = table
@@ -283,14 +293,13 @@ pub(super) async fn admit_reclamation(
             .canonicalize()
             .map_err(external)
     };
-    if canonical(&receipt.request.publication_uri)? != canonical(control)?
-        || canonical(
-            &url::Url::parse(&receipt.request.member.table_uri)
-                .map_err(|error| DataFusionError::External(Box::new(error)))?,
-        )? != canonical(table.table_url())?
+    if canonical(
+        &url::Url::parse(&receipt.request.member.table_uri)
+            .map_err(|error| DataFusionError::External(Box::new(error)))?,
+    )? != canonical(table.table_url())?
     {
         return Err(rejected(
-            "member attempt belongs to a different control root or destination",
+            "member attempt belongs to a different destination",
         ));
     }
     receipt.request.commit(Phase::Reclaimed, state)
@@ -314,7 +323,11 @@ pub(super) async fn read_dependencies(
     .await?;
     let mut found = None;
     for action in actions.iter() {
-        if let Action::CommitInfo(mut info) = action?
+        let action = action?;
+        if let Action::CommitInfo(info) = &action {
+            refuse_legacy(&info.info)?;
+        }
+        if let Action::CommitInfo(mut info) = action
             && let Some(value) = info.info.remove(KEY)
         {
             let receipt: Receipt = serde_json::from_value(value)
@@ -334,6 +347,16 @@ pub(super) async fn read_dependencies(
     })
 }
 
+/// Refuse a commit carrying a receipt of an unsupported historical format.
+fn refuse_legacy(info: &std::collections::HashMap<String, serde_json::Value>) -> Result<()> {
+    match LEGACY_KEYS.iter().find(|key| info.contains_key(**key)) {
+        Some(key) => Err(external(MemberAttemptError::MigrationRequired {
+            key: (*key).to_owned(),
+        })),
+        None => Ok(()),
+    }
+}
+
 fn external(error: impl Into<DataFusionError>) -> DataFusionError {
     error.into()
 }
@@ -342,6 +365,7 @@ pse_diagnostics::impl_diagnostic! {
     MemberAttemptError,
     code(this) { match this {
             Self::IdentityReused => Some(pse_diagnostics::DiagnosticCode::ConfigInvalid),
+            Self::MigrationRequired { .. } => Some(pse_diagnostics::DiagnosticCode::SchemaInvalidDeclaration),
             Self::Rejected { .. } | Self::Unresolved { .. } => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
 
             _ => None,
@@ -358,10 +382,8 @@ mod tests {
     fn request() -> MemberAttempt {
         MemberAttempt {
             operation_id: SemanticId::from_bytes([1; 16]),
-            publication_uri: url::Url::parse("memory:///workspace/control/").unwrap(),
             workspace_id: SemanticId::from_bytes([2; 16]),
             publication_id: SemanticId::from_bytes([3; 16]),
-            parent_publication_id: None,
             attempt_id: SemanticId::from_bytes([4; 16]),
             member: Member {
                 catalog_name: "artifact".into(), schema_name: "authored".into(), table_name: "a".into(),

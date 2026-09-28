@@ -167,7 +167,7 @@ impl Fixture {
             })
             .collect();
         let result = plan
-            .prepare_publication(
+            .prepare_control_publication(
                 PublicationTarget {
                     reference: ResolvedTableReference {
                         catalog: "artifact".into(),
@@ -207,7 +207,7 @@ impl Fixture {
             location: control,
             version: i64::try_from(table.version().unwrap()).unwrap(),
         };
-        Publication::open(
+        Publication::open_control(
             root,
             self.registry.clone(),
             &self.factory,
@@ -264,13 +264,13 @@ async fn every_actual_delta_write_boundary_preserves_a_complete_publication() {
         // A native optional post-commit write may fail after the transaction settled.
         // In either outcome the visible control row selects one complete vector.
         if let Ok(root) = result {
-            assert_eq!(latest.root(), &root);
+            assert_eq!(latest.root(), Some(&root));
             fixture.assert_values(&latest, 99).await;
         } else {
-            assert_eq!(latest.root(), &old);
+            assert_eq!(latest.root(), Some(&old));
             fixture.assert_values(&latest, 1).await;
         }
-        let original = Publication::open(
+        let original = Publication::open_control(
             old,
             fixture.registry.clone(),
             &fixture.factory,

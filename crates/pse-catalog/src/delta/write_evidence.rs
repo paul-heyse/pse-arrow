@@ -6,7 +6,7 @@
 use datafusion::{common::Result, execution::session_state::SessionState};
 use pse_engine::session::execution::NativeExecutionContext;
 use pse_model::HeapUsage;
-use pse_relations::generated::runtime::publications;
+use pse_relations::generated::runtime::publication_manifests;
 use std::sync::{Arc, Mutex, Weak};
 
 type EvidenceKey = (
@@ -21,7 +21,6 @@ struct WriteEvidenceSet(Mutex<std::collections::BTreeMap<EvidenceKey, Vec<Member
 struct MemberWriteCompletion {
     workspace_id: pse_ids::SemanticId,
     publication_id: pse_ids::SemanticId,
-    parent_publication_id: Option<pse_ids::SemanticId>,
     attempt_id: pse_ids::SemanticId,
     member: pse_relations::generated::structures::MemberDescriptor,
     inputs: Vec<pse_relations::generated::structures::MemberDescriptor>,
@@ -75,7 +74,6 @@ impl Pending {
             completion: MemberWriteCompletion {
                 workspace_id: attempt.workspace_id,
                 publication_id: attempt.publication_id,
-                parent_publication_id: attempt.parent_publication_id,
                 attempt_id: attempt.attempt_id,
                 member: attempt.member.clone(),
                 inputs: attempt.inputs.clone(),
@@ -107,7 +105,7 @@ impl Pending {
 pub(super) fn establishes(
     state: &SessionState,
     registry: &Arc<pse_schema::Registry>,
-    record: &publications::Row,
+    record: &publication_manifests::Row,
     member: &pse_relations::generated::structures::MemberDescriptor,
 ) -> Result<bool> {
     let Some(services) = state.config().get_extension::<NativeExecutionContext>() else {
@@ -139,7 +137,7 @@ impl MemberWriteCompletion {
     fn matches(
         &self,
         registry: &Arc<pse_schema::Registry>,
-        record: &publications::Row,
+        record: &publication_manifests::Row,
         member: &pse_relations::generated::structures::MemberDescriptor,
         contract: &super::contract::DeclaredCheck,
     ) -> bool {
@@ -157,7 +155,6 @@ impl MemberWriteCompletion {
             && self.contract.same_declaration(contract)
             && self.workspace_id == record.workspace_id
             && self.publication_id == record.publication_id
-            && self.parent_publication_id == record.parent_publication_id
             && self.attempt_id == record.attempt_id
             && self.inputs == record.inputs
     }
@@ -182,7 +179,7 @@ mod completion_unit {
             delta_version: 7,
             selection: pse_relations::generated::structures::MemberDescriptorSelection::from_full(),
         };
-        let record = publications::Row {
+        let record = publication_manifests::Row {
             workspace_id: pse_ids::SemanticId::from_bytes([1; 16]),
             publication_id: pse_ids::SemanticId::from_bytes([2; 16]),
             parent_publication_id: None,
@@ -190,13 +187,18 @@ mod completion_unit {
             kind: pse_relations::generated::enums::PublicationKind::Relations,
             inputs: vec![],
             members: vec![member.clone()],
+            windows: vec![],
+            exported_at: None,
+            export_lease_id: None,
+            export_expires_at: None,
+            maintenance_epoch: None,
+            store_fingerprint: None,
         };
         let pool: Arc<dyn pse_columnar::MemoryPool> =
             Arc::new(pse_columnar::GreedyMemoryPool::new(4096));
         let mut completion = MemberWriteCompletion {
             workspace_id: record.workspace_id,
             publication_id: record.publication_id,
-            parent_publication_id: record.parent_publication_id,
             attempt_id: record.attempt_id,
             member: member.clone(),
             inputs: vec![],

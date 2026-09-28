@@ -11,7 +11,7 @@ use datafusion::{
     physical_plan::execute_stream,
 };
 use futures_util::TryStreamExt;
-use pse_relations::generated::runtime::publications;
+use pse_relations::generated::runtime::publication_manifests;
 use pse_schema::Registry;
 use std::sync::Arc;
 
@@ -20,7 +20,7 @@ use std::sync::Arc;
 /// # Errors
 /// A contract/reference is missing or native query construction fails.
 pub async fn violation_plans(
-    record: &publications::Row,
+    record: &publication_manifests::Row,
     registry: Arc<Registry>,
     state: &SessionState,
 ) -> Result<Vec<LogicalPlan>> {
@@ -74,7 +74,10 @@ pub async fn violation_plans(
 
 /// Validate a complete artifact's declared inventory before reading member values.
 /// Empty relations remain required; a partial checkpoint uses the `relations` kind.
-pub(super) fn admit_profile(record: &publications::Row, registry: &Registry) -> Result<()> {
+pub(super) fn admit_profile(
+    record: &publication_manifests::Row,
+    registry: &Registry,
+) -> Result<()> {
     let present = record
         .members
         .iter()
@@ -85,7 +88,7 @@ pub(super) fn admit_profile(record: &publications::Row, registry: &Registry) -> 
 }
 
 pub(super) async fn selected_table(
-    record: &publications::Row,
+    record: &publication_manifests::Row,
     relation: pse_ids::SemanticId,
     catalog: &str,
     context: &SessionContext,
@@ -116,7 +119,7 @@ pub(super) async fn selected_table(
     ))
 }
 pub(super) async fn admit(
-    record: &publications::Row,
+    record: &publication_manifests::Row,
     registry: Arc<Registry>,
     state: &SessionState,
 ) -> Result<()> {

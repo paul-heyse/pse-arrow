@@ -233,11 +233,15 @@ async fn commit_inner(
     if record.parent_publication_id == Some(record.publication_id) {
         return Err(invalid("a publication cannot be its own parent"));
     }
-    super::publication::verify_inputs(record, registry, Arc::clone(&state)).await?;
+    super::publication::verify_inputs(&record.inputs, registry, Arc::clone(&state)).await?;
     let candidate = super::publication::bind_members(&record.members, registry, Arc::clone(&state))
         .await
         .map_err(|error| error.context("bind publication members"))?;
-    super::admission::admit(record, Arc::clone(registry), &candidate)
+    super::admission::admit(
+        &super::publication::manifest_of(record),
+        Arc::clone(registry),
+        &candidate,
+    )
         .await
         .map_err(|error| error.context("admit publication members"))?;
     let physical = encoded_candidate(batch, &state)

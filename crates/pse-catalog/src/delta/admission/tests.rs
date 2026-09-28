@@ -44,8 +44,8 @@ fn registry() -> Arc<Registry> {
     Arc::new(builder.build().unwrap())
 }
 
-fn record() -> publications::Row {
-    publications::Row {
+fn record() -> publication_manifests::Row {
+    publication_manifests::Row {
         workspace_id: identity(1),
         publication_id: identity(2),
         parent_publication_id: None,
@@ -53,12 +53,18 @@ fn record() -> publications::Row {
         kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
+        windows: vec![],
+        exported_at: None,
+        export_lease_id: None,
+        export_expires_at: None,
+        maintenance_epoch: None,
+        store_fingerprint: None,
     }
 }
 
 fn bind(
     context: &SessionContext,
-    record: &mut publications::Row,
+    record: &mut publication_manifests::Row,
     registry: &Registry,
     relation: &str,
     rows: &[Vec<serde_json::Value>],

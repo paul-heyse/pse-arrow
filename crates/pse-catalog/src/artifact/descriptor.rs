@@ -10,7 +10,7 @@ use pse_model::HeapUsage;
 use pse_model::artifact::ArtifactDescriptor;
 use pse_relations::{
     columnar::RelationRow,
-    generated::runtime::{artifact_descriptors as wire, publications},
+    generated::runtime::{artifact_descriptors as wire, publication_manifests},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -108,7 +108,7 @@ impl ArtifactPlan {
 
     pub(super) fn validate_product_header(
         &self,
-        header: &publications::Row,
+        header: &publication_manifests::Row,
         cancel: &CancellationToken,
     ) -> Result<(), EngineError> {
         let PublicationSelection::Product(descriptor) = &self.publication else {

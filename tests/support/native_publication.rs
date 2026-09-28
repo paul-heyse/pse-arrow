@@ -92,7 +92,7 @@ pub(crate) async fn publish(
         members: vec![],
     };
     let command = artifact
-        .prepare_publication(
+        .prepare_control_publication(
             PublicationTarget {
                 reference: name("runtime", "publications"),
                 location: control.clone(),
@@ -114,7 +114,7 @@ pub(crate) async fn publish(
     drop(result);
     drop(artifact);
     // Keep the shared fixture's stack bounded as member opens gain concurrency.
-    let publication = Box::pin(Publication::open(
+    let publication = Box::pin(Publication::open_control(
         PublicationRoot {
             location: control,
             version,

@@ -194,7 +194,7 @@ async fn new_collection_constraint_has_one_decision_across_local_native_delta_an
         .unwrap();
         let control = base.join("publication/").unwrap();
         let prepared = artifact
-            .prepare_publication(
+            .prepare_control_publication(
                 pse_catalog::artifact::PublicationTarget {
                     reference: name("runtime", "publications"),
                     location: control.clone(),
@@ -225,7 +225,7 @@ async fn new_collection_constraint_has_one_decision_across_local_native_delta_an
             .unwrap()
             .value(0);
         drop(completed);
-        let publication = pse_catalog::delta::publication::Publication::open(
+        let publication = pse_catalog::delta::publication::Publication::open_control(
             pse_catalog::delta::publication::PublicationRoot {
                 location: control,
                 version,

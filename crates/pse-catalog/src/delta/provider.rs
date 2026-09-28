@@ -135,7 +135,8 @@ pub(crate) fn bind_cache_state(
         .config()
         .get_extension::<pse_engine::cache_service::NativeCacheService>()
     {
-        let generation = lease.map(|lease| format!("{:?}", lease.generation));
+        let generation = super::scope::CacheScope::of(state.config(), lease)
+            .map(|scope| scope.namespace());
         native.bind_state_with_generation(location, state, generation.as_deref())
     } else {
         pse_engine::cache_service::bind_state(location, state)

@@ -1829,7 +1829,7 @@ async fn open_publication(
         registry.fingerprint(),
         pse_engine::validation::registry().unwrap().fingerprint()
     );
-    pse_catalog::delta::publication::Publication::open(
+    pse_catalog::delta::publication::Publication::open_control(
         root,
         pse_schema::shared_registry().unwrap(),
         &native_factory(&state),
