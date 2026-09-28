@@ -20,6 +20,7 @@ use crate::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotCl
 pub fn declare(builder: &mut RegistryBuilder) {
     declare_relations(builder);
     declare_columns(builder);
+    declare_identities(builder);
     declare_logical_types(builder);
     declare_enums(builder);
     declare_invariants(builder);
@@ -121,6 +122,76 @@ pub fn declare_relations(builder: &mut RegistryBuilder) {
                 ])),
                 "Declared native Delta policies in name order; part of the exact table contract.",
             ),
+            FieldContract::payload(
+                "unique_keys",
+                FieldContract::list(FieldContract::structure(vec![
+                    FieldContract::native(arrow_schema::DataType::Utf8).with_name("name"),
+                    FieldContract::list(FieldContract::native(arrow_schema::DataType::Utf8))
+                        .with_name("columns"),
+                ])),
+                "Unique keys besides the primary key, in declaration order.",
+            ),
+            FieldContract::payload(
+                "foreign_keys",
+                FieldContract::list(FieldContract::structure(vec![
+                    FieldContract::native(arrow_schema::DataType::Utf8).with_name("name"),
+                    FieldContract::list(FieldContract::native(arrow_schema::DataType::Utf8))
+                        .with_name("columns"),
+                    FieldContract::id()
+                        .with_name("target_relation_id")
+                        .with_fk("reference.schema_relations", "relation_id"),
+                    FieldContract::list(FieldContract::native(arrow_schema::DataType::Utf8))
+                        .with_name("target_columns"),
+                ])),
+                "Table-level (composite) references to a target key, in declaration order.",
+            ),
+        ]),
+    );
+}
+
+/// `reference.schema_identities @1` (ADR-0115 Outcome 1).
+fn declare_identities(builder: &mut RegistryBuilder) {
+    builder.declare_relation(
+        reference(
+            "schema_identities",
+            "One row per declared entity identity: the typed ids generated into Rust, PostgreSQL and Python (ADR-0115).",
+        )
+        .pk(&["identity_id"])
+        .columns(vec![
+            FieldContract::key(
+                "identity_id",
+                FieldContract::id(),
+                "`named_id(REGISTRY_PACKAGE_ID, \"identity:<name>\")` (ADR-0050).",
+            ),
+            FieldContract::label(
+                "name",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "The identity name, a snake-case entity noun.",
+            ),
+            FieldContract::label(
+                "doc",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "What the identity identifies.",
+            ),
+            FieldContract::reference(
+                "base_logical_type_id",
+                FieldContract::id(),
+                "The wrapped base value: `semantic_id` or `content_hash`.",
+            )
+            .with_fk("reference.schema_logical_types", "logical_type_id"),
+            FieldContract::reference(
+                "owner_relation_id",
+                FieldContract::id(),
+                "The relation whose single-column primary key declares the identity, if any.",
+            )
+            .with_fk("reference.schema_relations", "relation_id")
+            .optional(),
+            FieldContract::label(
+                "owner_column",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "The owning key column, if any.",
+            )
+            .optional(),
         ]),
     );
 }
@@ -178,6 +249,13 @@ fn declare_columns(builder: &mut RegistryBuilder) {
             ),
             FieldContract::label("doc", FieldContract::native(arrow_schema::DataType::Utf8), "What the column means."),
             FieldContract::payload("native_field", FieldContract::native(arrow_schema::DataType::Utf8), "Complete canonical Arrow field declaration, including every nested domain facet and metadata entry."),
+            FieldContract::reference(
+                "identity_id",
+                FieldContract::id(),
+                "The entity identity the column carries, declared or inherited through its reference.",
+            )
+            .with_fk("reference.schema_identities", "identity_id")
+            .optional(),
         ]),
     );
 }

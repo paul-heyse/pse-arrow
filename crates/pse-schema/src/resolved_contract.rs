@@ -437,6 +437,9 @@ pub(crate) fn resolve_relation(
         }
         pending.extend(field.children());
     }
+    for reference in &spec.foreign_keys {
+        references.insert(target(registry, reference.target)?);
+    }
     Ok(ResolvedRelationContract {
         declaration,
         fields,

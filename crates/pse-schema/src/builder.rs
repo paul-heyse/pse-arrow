@@ -23,10 +23,11 @@ use crate::error::SchemaError;
 use crate::ext_metadata;
 use crate::model::{
     AlgorithmDecl, AlgorithmSpec, DocumentSpec, EnumDecl, EnumSpec, ExtensionUse, FieldContract,
-    FieldTypeRow, InvariantDecl, InvariantSpec, MigrationSpec, RelationDecl, RelationKey,
-    RelationSpec, render_data_type,
+    FieldTypeRow, IdentityDecl, IdentitySpec, InvariantDecl, InvariantSpec, MigrationSpec,
+    RelationDecl, RelationKey, RelationSpec, render_data_type,
 };
 
+mod identities;
 mod integrity;
 
 mod native;
@@ -72,9 +73,10 @@ pub fn quantity_type_id(qualified_name: &str) -> SemanticId {
 /// silent equality between two different schemas, which is the failure mode a fingerprint
 /// exists to prevent. A declared relation supplies its own key, so a future version bump
 /// is picked up rather than overridden.
-const SELF_DESCRIBING_RELATIONS: [&str; 14] = [
+const SELF_DESCRIBING_RELATIONS: [&str; 15] = [
     "reference.schema_relations",
     "reference.schema_columns",
+    "reference.schema_identities",
     "reference.schema_logical_types",
     "reference.schema_enums",
     "reference.schema_enum_types",
@@ -111,6 +113,8 @@ pub struct Registry {
     relation_by_id: BTreeMap<SemanticId, usize>,
     /// Sorted by name.
     enums: Vec<EnumSpec>,
+    /// Entity identities, sorted by name (ADR-0115).
+    identities: Vec<IdentitySpec>,
     /// Sorted by name.
     logical_types: Vec<FieldTypeRow>,
     /// Resolved native Arrow storage in the same name order; compiled once.
@@ -273,6 +277,19 @@ impl Registry {
             .and_then(|index| self.enums.get(index))
     }
 
+    /// Every declared entity identity, sorted by name (ADR-0115).
+    pub fn identities(&self) -> &[IdentitySpec] {
+        &self.identities
+    }
+
+    /// The entity identity of that name.
+    pub fn identity(&self, name: &str) -> Option<&IdentitySpec> {
+        self.identities
+            .binary_search_by(|candidate| candidate.name.cmp(name))
+            .ok()
+            .and_then(|index| self.identities.get(index))
+    }
+
     /// The logical-type catalog, sorted by name (blueprint §4.5).
     pub fn logical_types(&self) -> &[FieldTypeRow] {
         &self.logical_types
@@ -382,6 +399,8 @@ pub struct RegistryBuilder {
     >,
     /// Enumerations, in declaration order.
     enums: Vec<EnumDecl>,
+    /// Entity identities, in declaration order.
+    identities: Vec<IdentityDecl>,
     /// Invariants, in declaration order.
     invariants: Vec<InvariantDecl>,
     /// Passes, in declaration order.
@@ -440,6 +459,13 @@ impl RegistryBuilder {
     /// Declares an enumeration.
     pub fn declare_enum(&mut self, decl: EnumDecl) -> &mut Self {
         self.enums.push(decl);
+        self
+    }
+
+    /// Declares an entity identity; columns carry it with
+    /// [`FieldContract::with_identity`] (ADR-0115).
+    pub fn declare_identity(&mut self, decl: IdentityDecl) -> &mut Self {
+        self.identities.push(decl);
         self
     }
 
@@ -532,7 +558,8 @@ impl RegistryBuilder {
 
     /// Resolve only declarations. Bootstrap consumers do not recursively build a registry.
     fn resolve_base(&self) -> Result<Registry, SchemaError> {
-        let relations = self.resolve_relations()?;
+        let mut relations = self.resolve_relations()?;
+        let identities = identities::resolve(&mut relations, &self.identities)?;
         let relation_index = index_relations(&relations);
         let relation_by_id = relations
             .iter()
@@ -555,6 +582,7 @@ impl RegistryBuilder {
             relation_index,
             relation_by_id,
             enums,
+            identities,
             logical_types,
             logical_storage: Vec::new(),
             invariants: Vec::new(),
@@ -605,6 +633,8 @@ impl RegistryBuilder {
                 })?,
                 columns: decl.columns.clone(),
                 checks: decl.checks.clone(),
+                unique_keys: decl.unique_keys.clone(),
+                foreign_keys: decl.foreign_keys.clone(),
                 delta_properties: decl.delta_properties.clone(),
                 doc: decl.doc,
                 fingerprint: ContentHash::NIL,
@@ -701,6 +731,8 @@ fn collect_logical_types(
         FieldContract::native(arrow_schema::DataType::Boolean),
         FieldContract::native(arrow_schema::DataType::Utf8),
         FieldContract::native(crate::model::extension::timestamp_storage()),
+        FieldContract::native(crate::model::extension::timestamp_micros_storage()),
+        FieldContract::json_document(),
         FieldContract::source_support(),
     ] {
         record_logical_type(&scalar, &mut types)?;
@@ -791,6 +823,57 @@ fn check_relation_references(registry: &Registry) -> Result<(), SchemaError> {
         for column in &spec.columns {
             check_column(registry, spec, column)?;
         }
+        check_constraints(registry, spec)?;
+    }
+    Ok(())
+}
+
+/// Resolves every table-level reference against its target key.
+///
+/// # Errors
+///
+/// [`SchemaError::UnknownReference`] for a missing target relation or column; an invalid
+/// declaration when component types differ or the target columns are not a key.
+fn check_constraints(registry: &Registry, spec: &RelationSpec) -> Result<(), SchemaError> {
+    for reference in &spec.foreign_keys {
+        let context = format!("foreign key {}:{}", spec.key, reference.name);
+        let target =
+            registry
+                .relation(reference.target)
+                .ok_or_else(|| SchemaError::UnknownReference {
+                    context: context.clone(),
+                    reference: reference.target.to_owned(),
+                })?;
+        for (local, remote) in reference.columns.iter().zip(&reference.target_columns) {
+            let target_column =
+                target
+                    .column(remote)
+                    .ok_or_else(|| SchemaError::UnknownReference {
+                        context: context.clone(),
+                        reference: format!("{}.{remote}", reference.target),
+                    })?;
+            let column = spec
+                .column(local)
+                .ok_or_else(|| crate::checks::invalid(&context, "unknown local column"))?;
+            if column.value_type() != target_column.value_type() {
+                return Err(crate::checks::invalid(
+                    &context,
+                    format!("{local} and {}.{remote} have different value types", reference.target),
+                ));
+            }
+        }
+        let referenced: BTreeSet<&str> = reference.target_columns.iter().copied().collect();
+        let is_key = |columns: &[&'static str]| {
+            columns.iter().copied().collect::<BTreeSet<_>>() == referenced
+        };
+        if !is_key(&target.primary_key)
+            && !target.unique_keys.iter().any(|key| is_key(&key.columns))
+        {
+            return Err(crate::checks::invalid(
+                &context,
+                "the target columns must be the target's primary key or one of its unique keys",
+            ));
+        }
     }
     Ok(())
 }
@@ -860,6 +943,7 @@ fn check_field(
 ) -> Result<(), SchemaError> {
     column.validate_facets(context)?;
     crate::model::IntegerRange::from_field(column.field())?;
+    crate::model::FloatDomain::from_field(column.field())?;
     crate::model::CollectionContract::from_field(column.field())?;
     check_alternative(registry, column, context)?;
     let context = context.to_owned();
@@ -1426,11 +1510,363 @@ mod tests {
         ));
     }
 
+    /// A relation keyed by `<key>` carrying no identity unless the caller adds one.
+    fn keyed(name: &'static str, key: &'static str, columns: Vec<FieldContract>) -> RelationDecl {
+        let mut all = vec![FieldContract::key(key, FieldContract::id(), "the key")];
+        all.extend(columns);
+        simple(name).pk(&[key]).columns(all)
+    }
+
+    fn identity_registry(
+        widget_key: FieldContract,
+        part_widget: FieldContract,
+    ) -> Result<Registry, SchemaError> {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_identity(IdentityDecl::new("widget", "a widget"))
+            .declare_identity(IdentityDecl::new("gadget", "a gadget"))
+            .declare_relation(simple("widgets").pk(&["widget_id"]).columns(vec![widget_key]))
+            .declare_relation(simple("gadgets").pk(&["gadget_id"]).columns(vec![
+                FieldContract::key("gadget_id", FieldContract::id(), "the key")
+                    .with_identity("gadget"),
+            ]))
+            .declare_relation(keyed("parts", "part_id", vec![part_widget]))
+            .declare_relation(simple("slots").pk(&["widget_id", "slot"]).columns(vec![
+                FieldContract::key("widget_id", FieldContract::id(), "the widget")
+                    .with_fk("authored.widgets", "widget_id"),
+                FieldContract::key(
+                    "slot",
+                    FieldContract::native(arrow_schema::DataType::Utf8),
+                    "the slot",
+                ),
+            ]))
+            .declare_relation(
+                keyed(
+                    "slot_notes",
+                    "note_id",
+                    vec![
+                        FieldContract::reference("widget_id", FieldContract::id(), "the widget"),
+                        FieldContract::reference(
+                            "slot",
+                            FieldContract::native(arrow_schema::DataType::Utf8),
+                            "the slot",
+                        ),
+                    ],
+                )
+                .foreign_key(
+                    "slot",
+                    &["widget_id", "slot"],
+                    "authored.slots",
+                    &["widget_id", "slot"],
+                ),
+            );
+        builder.build()
+    }
+
+    #[test]
+    fn identity_inherited_through_foreign_keys() -> Result<(), SchemaError> {
+        let registry = identity_registry(
+            FieldContract::key("widget_id", FieldContract::id(), "the key")
+                .with_identity("widget"),
+            FieldContract::reference("widget_id", FieldContract::id(), "the widget")
+                .with_fk("authored.widgets", "widget_id"),
+        )?;
+        let carried = |relation: &str, column: &str| {
+            registry
+                .relation(relation)
+                .and_then(|spec| spec.column(column))
+                .and_then(FieldContract::identity)
+        };
+        // A column reference, a key component that references, and a composite reference
+        // to that key: inheritance is transitive and follows each column pairwise.
+        assert_eq!(carried("authored.parts", "widget_id"), Some("widget"));
+        assert_eq!(carried("authored.parts", "part_id"), None);
+        assert_eq!(carried("authored.slots", "widget_id"), Some("widget"));
+        assert_eq!(carried("authored.slot_notes", "widget_id"), Some("widget"));
+        assert_eq!(carried("authored.slot_notes", "slot"), None);
+        let widget = registry.identity("widget").expect("declared");
+        assert_eq!(widget.base, crate::model::IdentityBase::SemanticId);
+        assert_eq!(widget.id, registry_id("identity:widget"));
+        let owner = widget.owner.as_ref().expect("the widget key owns it");
+        assert_eq!(
+            (owner.relation.as_str(), owner.column.as_str()),
+            ("authored.widgets", "widget_id")
+        );
+        let spec = registry.relation("authored.parts").expect("declared");
+        let schema = crate::arrow::relation_schema(&registry, spec)?;
+        assert_eq!(
+            schema
+                .field_with_name("widget_id")
+                .map_err(|e| crate::checks::invalid("test", e.to_string()))?
+                .metadata()
+                .get(crate::arrow::KEY_IDENTITY),
+            Some(&widget.id.to_hex())
+        );
+        let columns = &registry
+            .schema_batches()
+            .iter()
+            .find(|(key, _)| key.name == "schema_columns")
+            .expect("self-described")
+            .1;
+        let identity = columns
+            .column_by_name("identity_id")
+            .expect("declared column");
+        assert_eq!(
+            identity.len() - identity.null_count(),
+            5,
+            "two owning keys and three inheriting references"
+        );
+        assert!(
+            registry
+                .schema_batches()
+                .iter()
+                .any(|(key, rows)| key.name == "schema_identities" && rows.num_rows() == 2)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn conflicting_identity_refused() {
+        let error = identity_registry(
+            FieldContract::key("widget_id", FieldContract::id(), "the key")
+                .with_identity("widget"),
+            FieldContract::reference("widget_id", FieldContract::id(), "the widget")
+                .with_fk("authored.widgets", "widget_id")
+                .with_identity("gadget"),
+        )
+        .expect_err("a reference cannot carry another entity's identity");
+        assert!(error.to_string().contains("conflicting identity"), "{error}");
+        let error = identity_registry(
+            FieldContract::key("widget_id", FieldContract::id(), "the key")
+                .with_identity("unheard_of"),
+            FieldContract::reference("widget_id", FieldContract::id(), "the widget"),
+        )
+        .expect_err("an identity must be declared");
+        assert!(matches!(error, SchemaError::UnknownReference { .. }));
+        let error = identity_registry(
+            FieldContract::key("widget_id", FieldContract::hash(), "the key")
+                .with_identity("widget"),
+            FieldContract::reference("widget_id", FieldContract::id(), "the widget")
+                .with_identity("widget"),
+        )
+        .expect_err("one base per identity");
+        assert!(error.to_string().contains("different bases"), "{error}");
+    }
+
+    #[test]
+    fn identity_owned_once() {
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_identity(IdentityDecl::new("widget", "a widget"))
+            .declare_relation(simple("a").columns(vec![
+                FieldContract::key("id", FieldContract::id(), "the key").with_identity("widget"),
+            ]))
+            .declare_relation(simple("b").columns(vec![
+                FieldContract::key("id", FieldContract::id(), "the key").with_identity("widget"),
+            ]));
+        let error = builder
+            .build()
+            .expect_err("two single-column keys cannot both own an identity");
+        assert!(error.to_string().contains("owned by both"), "{error}");
+        // A carrying column that is not a single-column key leaves the identity unowned.
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_identity(IdentityDecl::new("run", "a run"))
+            .declare_relation(keyed(
+                "attempts",
+                "attempt_id",
+                vec![
+                    FieldContract::reference("run_id", FieldContract::id(), "the run")
+                        .with_identity("run"),
+                ],
+            ));
+        let registry = builder.build().expect("unowned identities are allowed");
+        assert_eq!(registry.identity("run").and_then(|r| r.owner.as_ref()), None);
+        // A declaration no column carries is refused.
+        let mut builder = RegistryBuilder::new();
+        builder.declare_identity(IdentityDecl::new("orphan", "nothing carries it"));
+        assert!(builder.build().is_err());
+        // Nested values never carry an identity.
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_identity(IdentityDecl::new("run", "a run"))
+            .declare_relation(keyed(
+                "nested",
+                "nested_id",
+                vec![FieldContract::payload(
+                    "value",
+                    FieldContract::structure(vec![
+                        FieldContract::id().with_name("run_id").with_identity("run"),
+                    ]),
+                    "a nested value",
+                )],
+            ));
+        assert!(builder.build().is_err());
+    }
+
+    #[test]
+    fn json_document_is_a_logical_type() -> Result<(), SchemaError> {
+        let mut builder = RegistryBuilder::new();
+        builder.declare_relation(keyed(
+            "documents",
+            "document_id",
+            vec![
+                FieldContract::payload("body", FieldContract::json_document(), "a document"),
+                FieldContract::payload(
+                    "at",
+                    FieldContract::native(crate::model::extension::timestamp_micros_storage()),
+                    "an instant",
+                ),
+                FieldContract::payload(
+                    "value",
+                    FieldContract::native(arrow_schema::DataType::Float64).finite(),
+                    "a finite value",
+                ),
+            ],
+        ));
+        let registry = builder.build()?;
+        let json = registry.logical_type("json").expect("the json logical type");
+        assert_eq!(json.arrow_storage, r#""Utf8""#);
+        assert!(registry.logical_type("ts_us").is_some());
+        let spec = registry.relation("authored.documents").expect("declared");
+        let body = spec.column("body").expect("declared");
+        assert_eq!(body.value_type().type_name()?, "json");
+        let schema = crate::arrow::relation_schema(&registry, spec)?;
+        let field = schema
+            .field_with_name("body")
+            .map_err(|e| crate::checks::invalid("test", e.to_string()))?;
+        assert_eq!(
+            field.metadata().get(crate::arrow::KEY_DOCUMENT).map(String::as_str),
+            Some("json")
+        );
+        assert_eq!(
+            field
+                .metadata()
+                .get(crate::arrow::KEY_LOGICAL_TYPE)
+                .map(String::as_str),
+            Some("json")
+        );
+        assert_eq!(
+            crate::model::FloatDomain::from_field(spec.column("value").expect("declared").field())?,
+            Some(crate::model::FloatDomain::Finite)
+        );
+        // A document is JSON text, nothing else.
+        let mut builder = RegistryBuilder::new();
+        builder.declare_relation(keyed(
+            "bad_documents",
+            "document_id",
+            vec![FieldContract::payload(
+                "body",
+                FieldContract::from_field(
+                    arrow_schema::Field::new("body", arrow_schema::DataType::Int64, false)
+                        .with_metadata(std::collections::HashMap::from([(
+                            "pse.domain.document".to_owned(),
+                            "json".to_owned(),
+                        )])),
+                ),
+                "not text",
+            )],
+        ));
+        assert!(builder.build().is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn unique_and_composite_keys_described() -> Result<(), SchemaError> {
+        let registry = identity_registry(
+            FieldContract::key("widget_id", FieldContract::id(), "the key")
+                .with_identity("widget"),
+            FieldContract::reference("widget_id", FieldContract::id(), "the widget")
+                .with_fk("authored.widgets", "widget_id"),
+        )?;
+        let notes = registry.relation("authored.slot_notes").expect("declared");
+        let description = crate::fingerprint::semantic_description(&registry, notes)?;
+        assert_eq!(
+            description["foreign_keys"]["slot"]["target_columns"],
+            serde_json::json!(["widget_id", "slot"])
+        );
+        assert!(
+            registry
+                .invariant_id("authored.slot_notes:foreign_key:slot")
+                .is_some()
+        );
+        let widgets = registry.relation("authored.widgets").expect("declared");
+        let plain = crate::fingerprint::semantic_description(&registry, widgets)?;
+        assert!(plain.get("unique_keys").is_none() && plain.get("foreign_keys").is_none());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_relation(
+                keyed(
+                    "named",
+                    "named_id",
+                    vec![FieldContract::label(
+                        "name",
+                        FieldContract::native(arrow_schema::DataType::Utf8),
+                        "a unique name",
+                    )],
+                )
+                .unique("name", &["name"]),
+            )
+            .declare_relation(
+                keyed(
+                    "by_name",
+                    "by_name_id",
+                    vec![FieldContract::reference(
+                        "name",
+                        FieldContract::native(arrow_schema::DataType::Utf8),
+                        "a name",
+                    )],
+                )
+                .foreign_key("named", &["name"], "authored.named", &["name"]),
+            );
+        let registry = builder.build()?;
+        let named = registry.relation("authored.named").expect("declared");
+        let description = crate::fingerprint::semantic_description(&registry, named)?;
+        assert_eq!(description["unique_keys"]["name"], serde_json::json!(["name"]));
+        assert!(registry.invariant_id("authored.named:unique:name").is_some());
+        let relations = &registry
+            .schema_batches()
+            .iter()
+            .find(|(key, _)| key.name == "schema_relations")
+            .expect("self-described")
+            .1;
+        assert!(relations.column_by_name("unique_keys").is_some());
+        assert!(relations.column_by_name("foreign_keys").is_some());
+
+        // A reference must name a target key.
+        let mut builder = RegistryBuilder::new();
+        builder
+            .declare_relation(keyed(
+                "named",
+                "named_id",
+                vec![FieldContract::label(
+                    "name",
+                    FieldContract::native(arrow_schema::DataType::Utf8),
+                    "not a key",
+                )],
+            ))
+            .declare_relation(
+                keyed(
+                    "by_name",
+                    "by_name_id",
+                    vec![FieldContract::reference(
+                        "name",
+                        FieldContract::native(arrow_schema::DataType::Utf8),
+                        "a name",
+                    )],
+                )
+                .foreign_key("named", &["name"], "authored.named", &["name"]),
+            );
+        assert!(builder.build().is_err());
+        Ok(())
+    }
+
     #[test]
     fn the_logical_type_catalog_always_carries_the_declared_scalars() {
         let registry = RegistryBuilder::new().build().unwrap();
         for name in [
-            "f64", "i64", "i32", "u8", "u16", "u32", "u64", "bool", "text", "ts",
+            "f64", "i64", "i32", "u8", "u16", "u32", "u64", "bool", "text", "ts", "ts_us", "json",
         ] {
             assert!(
                 registry.logical_type(name).is_some(),

@@ -113,6 +113,31 @@ impl fmt::Display for ForeignKey<'_> {
     }
 }
 
+/// A declared unique key besides the primary key. Rows whose key columns are all
+/// present are unique; a row with an absent component is not constrained.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UniqueKey {
+    /// The key's name inside its relation.
+    pub name: &'static str,
+    /// The key columns, in key order.
+    pub columns: Vec<&'static str>,
+}
+
+/// A declared (possibly composite) reference from ordered local columns to a target
+/// key. A row whose local columns are all present references exactly one target row.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ForeignKeyDecl {
+    /// The reference's name inside its relation.
+    pub name: &'static str,
+    /// The local columns, in order.
+    pub columns: Vec<&'static str>,
+    /// The qualified target relation.
+    pub target: &'static str,
+    /// The target columns, pairwise with [`Self::columns`]; they form the target's
+    /// primary key or one of its unique keys.
+    pub target_columns: Vec<&'static str>,
+}
+
 /// A declared relation (blueprint §4.1 `reference.schema_relations`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RelationSpec {
@@ -136,6 +161,11 @@ pub struct RelationSpec {
     /// Named native DataFusion SQL predicates. Each must evaluate to true for a row;
     /// false and null are violations. Binding uses the actual execution session.
     pub checks: std::collections::BTreeMap<String, String>,
+    /// Unique keys besides the primary key, in declaration order.
+    pub unique_keys: Vec<UniqueKey>,
+    /// Table-level (composite) references, in declaration order. A single column's
+    /// reference is its field facet ([`FieldContract::fk`]).
+    pub foreign_keys: Vec<ForeignKeyDecl>,
     /// Native Delta properties. These participate in contract identity and are
     /// verified at every declared open/write, including registry-free opening.
     pub delta_properties: std::collections::BTreeMap<String, String>,
@@ -189,6 +219,10 @@ pub struct RelationDecl {
     pub columns: Vec<FieldContract>,
     /// See [`RelationSpec::checks`].
     pub checks: std::collections::BTreeMap<String, String>,
+    /// See [`RelationSpec::unique_keys`].
+    pub unique_keys: Vec<UniqueKey>,
+    /// See [`RelationSpec::foreign_keys`].
+    pub foreign_keys: Vec<ForeignKeyDecl>,
     /// See [`RelationSpec::delta_properties`].
     pub delta_properties: std::collections::BTreeMap<String, String>,
     /// See [`RelationSpec::doc`].
@@ -215,6 +249,8 @@ impl RelationDecl {
             primary_key: None,
             columns: Vec::new(),
             checks: std::collections::BTreeMap::new(),
+            unique_keys: Vec::new(),
+            foreign_keys: Vec::new(),
             delta_properties: std::collections::BTreeMap::from([
                 ("delta.enableChangeDataFeed".into(), "true".into()),
                 // Retained publication selections own log retention. Automatic
@@ -246,6 +282,42 @@ impl RelationDecl {
     #[must_use]
     pub fn checks(mut self, checks: std::collections::BTreeMap<String, String>) -> Self {
         self.checks = checks;
+        self
+    }
+
+    /// Add one named native row predicate (see [`RelationSpec::checks`]).
+    #[must_use]
+    pub fn check(mut self, name: &str, sql: impl Into<String>) -> Self {
+        self.checks.insert(name.to_owned(), sql.into());
+        self
+    }
+
+    /// Declare a unique key besides the primary key.
+    #[must_use]
+    pub fn unique(mut self, name: &'static str, columns: &[&'static str]) -> Self {
+        self.unique_keys.push(UniqueKey {
+            name,
+            columns: columns.to_vec(),
+        });
+        self
+    }
+
+    /// Declare a (composite) reference from `columns` to `target_columns` of the
+    /// qualified relation `target`.
+    #[must_use]
+    pub fn foreign_key(
+        mut self,
+        name: &'static str,
+        columns: &[&'static str],
+        target: &'static str,
+        target_columns: &[&'static str],
+    ) -> Self {
+        self.foreign_keys.push(ForeignKeyDecl {
+            name,
+            columns: columns.to_vec(),
+            target,
+            target_columns: target_columns.to_vec(),
+        });
         self
     }
 

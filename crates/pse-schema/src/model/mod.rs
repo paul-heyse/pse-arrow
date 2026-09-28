@@ -22,6 +22,8 @@ pub mod document;
 pub mod enums;
 pub mod extension;
 pub mod field;
+pub mod float_domain;
+pub mod identity;
 pub mod integer_range;
 pub mod invariant;
 pub mod migration;
@@ -48,12 +50,15 @@ pub use crate::model::field::{FieldTypeRow, render_data_type};
 pub use crate::model::invariant::{InvariantDecl, InvariantSpec};
 pub use crate::model::migration::{MigrationSpec, MigrationStep};
 pub use crate::model::relation::{
-    ForeignKey, QuantityContract, RelationDecl, RelationKey, RelationSpec,
+    ForeignKey, ForeignKeyDecl, QuantityContract, RelationDecl, RelationKey, RelationSpec,
+    UniqueKey,
 };
 pub use pse_ids::source_path::ExpressionPathSegmentKind;
 
 pub use collection::{CollectionContract, CollectionOrder};
 pub use field::FieldContract;
+pub use float_domain::FloatDomain;
+pub use identity::{IdentityBase, IdentityDecl, IdentityOwner, IdentitySpec};
 pub use integer_range::IntegerRange;
 pub use reference::{ReferenceColumn, ReferenceContract, ReferenceNullPolicy};
 pub use tagged_alternative::TaggedAlternative;
