@@ -149,6 +149,24 @@ db-restore file:
 db-test filter="package(pse-operations)" *args:
     DATABASE_URL={{ quote(db_url) }} just unit-package pse-operations {{ quote(filter) }} {{ args }}
 
+[group('local')]
+[doc('Run the durable job worker (ADR-0112) against the operational store with the linked solver environment; e.g. --until-idle')]
+pse-worker *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-execution-env.sh
+    cargo run --quiet --locked -p pse-runtime --bin pse-worker --features native-solvers -- --url {{ quote(db_url) }} {{ args }}
+
+[group('local')]
+[doc('The pse-worker journey: the worker binary runs an authored case in a child process against an isolated store')]
+worker-test *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/build-env.sh
+    source scripts/native-solver-env.sh
+    source scripts/native-math-env.sh
+    cargo nextest {{ nextest_action }} -p pse-runtime --test worker --locked --features pse-runtime/native-solvers,pse-relations/force-validate {{ args }}
+
 # ---------------------------------------------------------------- discovery --
 
 [group('discovery')]

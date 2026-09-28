@@ -7,6 +7,10 @@ mod durable;
 pub use completion::Completion;
 pub use durable::{Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability};
 pub use pse_operations::attempts::{AttemptFilter, AttemptRecord};
+mod worker;
+pub use worker::{
+    JobPresolve, JobProfile, MODELING_JOB_VERSION, ModelingJob, Processed, WorkerSettings,
+};
 pub(crate) mod numerics;
 mod staged;
 mod strategies;
@@ -55,6 +59,8 @@ mod run;
 mod simulation_results;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod worker_tests;
 use crate::{SharedRuntime, math::MathRuntimeError};
 use pse_engine::{EngineError, session::EngineFactory};
 pub use publication::{

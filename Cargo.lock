@@ -5661,6 +5661,7 @@ name = "pse-runtime"
 version = "0.0.1"
 dependencies = [
  "chrono",
+ "clap",
  "datafusion",
  "datafusion-common",
  "datafusion-execution",
