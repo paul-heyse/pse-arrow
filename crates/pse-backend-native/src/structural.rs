@@ -251,7 +251,9 @@ mod tests {
         let analysis = graph
             .analyze(&std::sync::atomic::AtomicBool::new(false))
             .unwrap();
-        let pattern = pse_math::sparse::AssemblyMatrix::new(1, 1, &[(0, 0)], 10).unwrap();
+        use pse_math::index::{Entry, OriginalCol, OriginalRow};
+        let entry = Entry::new(OriginalRow::new(0), OriginalCol::new(0));
+        let pattern = pse_math::sparse::AssemblyMatrix::new(1, 1, &[entry], 10).unwrap();
         // Repeated validation consumes the same witness, without invoking analyze.
         for _ in 0..1000 {
             check(
@@ -263,7 +265,9 @@ mod tests {
             )
             .unwrap();
         }
-        let empty = pse_math::sparse::AssemblyMatrix::new(1, 1, &[], 10).unwrap();
+        let empty =
+            pse_math::sparse::AssemblyMatrix::new::<OriginalRow, OriginalCol>(1, 1, &[], 10)
+                .unwrap();
         assert!(
             check(
                 &contract,

@@ -216,16 +216,25 @@ impl DynamicWorker {
                     for (row, &original) in program.rows.iter().enumerate() {
                         if !program.constants.contains_key(&row) && source.row_idx()[k] == original
                         {
-                            refill.push((k, pairs.len(), program.scales[row] * scale));
+                            refill.push((
+                                k,
+                                pse_math::index::Addend::new(pairs.len()),
+                                program.scales[row] * scale,
+                            ));
                             pairs.push((row, c));
                         }
                     }
                 }
             }
+            // The dynamic oracle's support speaks `(row, coordinate)` positions.
+            let entries = pairs
+                .iter()
+                .map(|&(row, c)| pse_math::index::Entry::new(row, c))
+                .collect::<Vec<_>>();
             let jacobian = pse_math::sparse::AssemblyMatrix::new(
                 program.rows.len(),
                 chain.len(),
-                &pairs,
+                &entries,
                 max_cells,
             )?;
             functions.insert(
@@ -278,7 +287,7 @@ struct FunctionWorker {
     program: FunctionProgram,
     worker: CaseWorker,
     jacobian: pse_math::sparse::AssemblyMatrix,
-    refill: Vec<(usize, usize, f64)>,
+    refill: Vec<(usize, pse_math::index::Addend, f64)>,
     pairs: Vec<(usize, usize)>,
     // Mode/function and provider/build identity are fixed by this worker. Every
     // varying time/state/parameter bit participates, including signed zero.

@@ -41,27 +41,44 @@ pub struct SingularMode {
     pub left: Vec<f64>,
     pub right: Vec<f64>,
 }
+/// Two numerically parallel rows, or two parallel columns, of one index space.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Parallel<I> {
+    /// The earlier of the two.
+    pub first: I,
+    /// The later of the two.
+    pub second: I,
+    /// Absolute cosine of the angle between them, at most one.
+    pub cosine: f64,
+}
 /// Numerical evidence at exactly one supplied point, never a structural or feasibility proof.
+/// Rows are indices of the row space `R` and columns of the column space `C`.
 #[derive(Clone, Debug)]
-pub struct MatrixReport {
+pub struct MatrixReport<R, C> {
+    /// Euclidean norm of each scaled row, in row order.
     pub row_norms: Vec<f64>,
+    /// Euclidean norm of each scaled column, in column order.
     pub column_norms: Vec<f64>,
-    pub parallel_rows: Vec<(usize, usize, f64)>,
-    pub parallel_columns: Vec<(usize, usize, f64)>,
+    /// Row pairs within the parallel tolerance.
+    pub parallel_rows: Vec<Parallel<R>>,
+    /// Column pairs within the parallel tolerance.
+    pub parallel_columns: Vec<Parallel<C>>,
+    /// Singular values above `cutoff`.
     pub rank: usize,
+    /// The rank cutoff: the larger of the absolute and the relative rank tolerance.
     pub cutoff: f64,
     /// Ascending singular values, including rectangular null-space modes.
     pub modes: Vec<SingularMode>,
 }
 /// Normalize once using frozen positive scales. Use library matrix products and full
 /// SVD so the smallest modes, including rectangular null spaces, remain available.
-pub fn analyze_matrix(
+pub fn analyze_matrix<R: From<usize>, C: From<usize>>(
     matrix: SparseColMatRef<'_, usize, f64>,
     row_scales: &[f64],
     column_scales: &[f64],
     policy: MatrixPolicy,
     cancel: &AtomicBool,
-) -> Result<MatrixReport, MathError> {
+) -> Result<MatrixReport<R, C>, MathError> {
     if cancel.load(Ordering::Acquire) {
         return Err(MathError::Cancelled);
     }
@@ -135,8 +152,23 @@ pub fn analyze_matrix(
             }
             Ok(out)
         };
-    let parallel_rows = pairs(&row_gram, &row_norms)?;
-    let parallel_columns = pairs(&column_gram, &column_norms)?;
+    // faer's dense interior indexes by `usize`; the report names the spaces.
+    let parallel_rows = pairs(&row_gram, &row_norms)?
+        .into_iter()
+        .map(|(i, j, cosine)| Parallel {
+            first: R::from(i),
+            second: R::from(j),
+            cosine,
+        })
+        .collect();
+    let parallel_columns = pairs(&column_gram, &column_norms)?
+        .into_iter()
+        .map(|(i, j, cosine)| Parallel {
+            first: C::from(i),
+            second: C::from(j),
+            cosine,
+        })
+        .collect();
     let decomposition = scaled
         .svd()
         .map_err(|e| MathError::Library(format!("diagnostic SVD: {e:?}")))?;
@@ -177,6 +209,8 @@ pub fn analyze_matrix(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::index::{GlobalCol, GlobalRow};
+    type Report = MatrixReport<GlobalRow, GlobalCol>;
     #[test]
     fn diagnostics_faer_smallest_modes_parallelism_and_bounded_rectangular_nullspaces() {
         let a = faer::sparse::SparseColMat::try_new_from_triplets(
@@ -200,10 +234,17 @@ mod tests {
             rank_relative: 1e-8,
         };
         let flag = AtomicBool::new(false);
-        let r = analyze_matrix(a.as_ref(), &[1.; 3], &[1.; 2], p, &flag).unwrap();
+        let r: Report = analyze_matrix(a.as_ref(), &[1.; 3], &[1.; 2], p, &flag).unwrap();
         assert_eq!(r.rank, 1);
         assert_eq!(r.parallel_rows.len(), 3);
-        assert_eq!(r.parallel_columns.len(), 1);
+        assert_eq!(
+            r.parallel_columns,
+            [Parallel {
+                first: GlobalCol::new(0),
+                second: GlobalCol::new(1),
+                cosine: 1.0
+            }]
+        );
         assert_eq!(r.modes.len(), 3);
         assert!(r.modes[0].value <= 1e-12);
         assert!(
@@ -220,7 +261,7 @@ mod tests {
             }
         }
         assert!(matches!(
-            analyze_matrix(
+            analyze_matrix::<GlobalRow, GlobalCol>(
                 a.as_ref(),
                 &[1.; 3],
                 &[1.; 2],
@@ -234,7 +275,7 @@ mod tests {
         ));
         flag.store(true, Ordering::Release);
         assert!(matches!(
-            analyze_matrix(a.as_ref(), &[1.; 3], &[1.; 2], p, &flag),
+            analyze_matrix::<GlobalRow, GlobalCol>(a.as_ref(), &[1.; 3], &[1.; 2], p, &flag),
             Err(MathError::Cancelled)
         ));
     }

@@ -21,7 +21,11 @@ use pounce_nlp::{
     },
 };
 use pounce_presolve::{LinearEqElimTnlp, PresolveMap, PresolveTnlp};
-use pse_math::{binding::ObjectiveSense, sparse::AssemblyMatrix};
+use pse_math::{
+    binding::ObjectiveSense,
+    index::{Addend, Entry, OriginalCol, OriginalRow, PresolvedCol, PresolvedRow, TiVec},
+    sparse::AssemblyMatrix,
+};
 use std::{cell::RefCell, rc::Rc};
 
 /// Attempt-owned wrapper stack and original worker. Never stored in Salsa or sent across workers.
@@ -133,7 +137,10 @@ impl Pipeline {
             oracle.contract().rows.len(),
         )?;
         let mut report = policy.qualify(oracle.as_ref(), tolerance)?;
-        let (n, m, _, _) = report.dimensions;
+        let (n, m) = (
+            report.dimensions.original_columns,
+            report.dimensions.original_rows,
+        );
         if n > limit || m > limit || initial.len() != n || initial.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::Contract(
                 "presolve dimensions/start/cap".into(),
@@ -333,19 +340,32 @@ impl Pipeline {
         let elim = affine
             .as_ref()
             .and_then(|p| p.borrow_mut().elimination_plan());
-        report.columns = elim
-            .as_ref()
-            .map_or_else(|| (0..n).collect(), |p| p.vars_kept.clone());
+        // POUNCE reports kept indices as `usize`; the maps name their spaces here. The
+        // affine stage keeps rows of the row stage, which keeps rows of the original.
+        report.columns = elim.as_ref().map_or_else(
+            || (0..n).map(OriginalCol::new).collect(),
+            |p| p.vars_kept.iter().copied().map(OriginalCol::new).collect(),
+        );
         report.rows = elim.as_ref().map_or_else(
-            || map.rows_kept.clone(),
-            |p| p.rows_kept.iter().map(|i| map.rows_kept[*i]).collect(),
+            || map.rows_kept.iter().copied().map(OriginalRow::new).collect(),
+            |p| {
+                p.rows_kept
+                    .iter()
+                    .map(|i| OriginalRow::new(map.rows_kept[*i]))
+                    .collect()
+            },
         );
         if report.columns.len() != nr || report.rows.len() != mr {
             return Err(ProblemError::Internal(
                 "presolve semantic maps disagree with native shape".into(),
             ));
         }
-        report.dimensions = (n, m, nr, mr);
+        report.dimensions = super::Dimensions {
+            original_columns: n,
+            original_rows: m,
+            presolved_columns: nr,
+            presolved_rows: mr,
+        };
         if let Some(p) = &row_wrapper {
             let p = p.borrow();
 
@@ -412,8 +432,11 @@ impl Pipeline {
         if let Some(f) = report.facts {
             h.hash(&f);
         }
-        for i in report.columns.iter().chain(&report.rows) {
-            h.u64(*i as u64);
+        for i in report.columns.iter().map(|c| c.get()) {
+            h.u64(i as u64);
+        }
+        for i in report.rows.iter().map(|r| r.get()) {
+            h.u64(i as u64);
         }
         for v in xl.iter().chain(&xu).chain(&gl).chain(&gu) {
             h.u64(v.to_bits());
@@ -484,20 +507,23 @@ impl Pipeline {
         });
         let mut contract = source_contract;
         contract.identity = report.transformation;
+        // Projected bounds arrive in presolved order; variables and rows come from the
+        // original contract through the maps.
+        let (xl, xu): (&TiVec<PresolvedCol, f64>, &TiVec<PresolvedCol, f64>) =
+            (TiVec::from_ref(&xl), TiVec::from_ref(&xu));
         contract.variables = report
             .columns
-            .iter()
-            .enumerate()
+            .iter_enumerated()
             .map(|(j, i)| {
-                let mut v = contract.variables[*i].clone();
+                let mut v = contract.variables[i.get()].clone();
                 v.lower = xl[j];
                 v.upper = xu[j];
                 v
             })
             .collect();
-        contract.rows = report.rows.iter().map(|i| contract.rows[*i]).collect();
-        let (jac, nj) = matrix(&outer, mr, nr, info.nnz_jac_g as usize, false, limit)?;
-        let (hess, nh) = matrix(&outer, nr, nr, info.nnz_h_lag as usize, true, limit)?;
+        contract.rows = report.rows.iter().map(|i| contract.rows[i.get()]).collect();
+        let (jac, nj) = jacobian(&outer, mr, nr, info.nnz_jac_g as usize, limit)?;
+        let (hess, nh) = hessian(&outer, nr, info.nnz_h_lag as usize, limit)?;
         let transport = Transport {
             outer: outer.clone(),
             original: original.clone(),
@@ -580,13 +606,15 @@ impl Pipeline {
                 .report
                 .columns
                 .iter()
-                .map(|i| t.variables[*i] / self.original.borrow().normalization.variables[*i])
+                .map(|i| {
+                    t.variables[i.get()] / self.original.borrow().normalization.variables[i.get()]
+                })
                 .collect(),
             rows: self
                 .report
                 .rows
                 .iter()
-                .map(|i| t.rows[*i] / self.original.borrow().normalization.rows[*i])
+                .map(|i| t.rows[i.get()] / self.original.borrow().normalization.rows[i.get()])
                 .collect(),
             integrality: t.integrality,
         }
@@ -745,14 +773,33 @@ fn failure(original: &Rc<RefCell<Adapter>>) -> ProblemError {
         ProblemError::internal("presolve evaluation failed without an attributable source witness")
     })
 }
-fn matrix(
+/// The presolved constraint Jacobian's `(row, column)` structure.
+fn jacobian(
     outer: &Rc<RefCell<dyn TNLP>>,
     rows: usize,
     cols: usize,
     nnz: usize,
-    hessian: bool,
     limit: usize,
 ) -> Result<(AssemblyMatrix, usize), ProblemError> {
+    let entries = structure::<PresolvedRow>(outer, nnz, false)?;
+    Ok((AssemblyMatrix::new(rows, cols, &entries, limit)?, nnz))
+}
+/// The presolved Lagrangian Hessian's `(column, column)` lower-triangle structure.
+fn hessian(
+    outer: &Rc<RefCell<dyn TNLP>>,
+    cols: usize,
+    nnz: usize,
+    limit: usize,
+) -> Result<(AssemblyMatrix, usize), ProblemError> {
+    let entries = structure::<PresolvedCol>(outer, nnz, true)?;
+    Ok((AssemblyMatrix::hessian(cols, &entries, limit)?, nnz))
+}
+/// The native wrapper's `i32` COO structure, converted into the presolved spaces.
+fn structure<R: From<usize>>(
+    outer: &Rc<RefCell<dyn TNLP>>,
+    nnz: usize,
+    hessian: bool,
+) -> Result<Vec<Entry<R, PresolvedCol>>, ProblemError> {
     let (mut r, mut c) = (vec![0; nnz], vec![0; nnz]);
     let mode = SparsityRequest::Structure {
         irow: &mut r,
@@ -770,19 +817,21 @@ fn matrix(
             "presolve sparse structure callback failed".into(),
         ));
     }
-    let pairs = r
-        .into_iter()
+    r.into_iter()
         .zip(c)
         .map(|(r, c)| {
-            Ok((
-                usize::try_from(r)
-                    .map_err(|_| ProblemError::Internal("negative native row".into()))?,
-                usize::try_from(c)
-                    .map_err(|_| ProblemError::Internal("negative native column".into()))?,
+            Ok(Entry::new(
+                R::from(
+                    usize::try_from(r)
+                        .map_err(|_| ProblemError::Internal("negative native row".into()))?,
+                ),
+                PresolvedCol::new(
+                    usize::try_from(c)
+                        .map_err(|_| ProblemError::Internal("negative native column".into()))?,
+                ),
             ))
         })
-        .collect::<Result<Vec<_>, ProblemError>>()?;
-    Ok((AssemblyMatrix::new(rows, cols, &pairs, limit)?, nnz))
+        .collect()
 }
 /// Faer canonicalizes native COO output. This type never implements a reduction algorithm.
 pub struct Transport {
@@ -869,7 +918,7 @@ impl NlpOracle for Transport {
 fn refill(matrix: &mut AssemblyMatrix, v: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
     matrix.clear();
     for (i, v) in v.iter().enumerate() {
-        matrix.add(i, *v)?;
+        matrix.add(Addend::new(i), *v)?;
     }
     crate::tnlp::copy(matrix.matrix().val(), out)
 }

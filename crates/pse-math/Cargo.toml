@@ -27,6 +27,8 @@ pse-diagnostics.workspace = true
 pse-quantity.workspace = true
 pse-kernels.workspace = true
 serde.workspace = true
+typed-index-collections.workspace = true
+enum-map.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 

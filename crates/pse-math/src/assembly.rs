@@ -6,10 +6,12 @@ use crate::{
     MathError,
     binding::{CaseStructure, CaseValues, Target},
     guarded::{CompiledBody, Evaluation, PreparedBody, Worker},
+    index::{Addend, Entry, GlobalCol, GlobalRow, Slot},
     jets::EvaluationLimits,
     library::Optimization,
     sparse::AssemblyMatrix,
 };
+use enum_map::EnumMap;
 use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{DerivativeOrder, Provider, ProviderKey};
 use pse_quantity::QuantityRegistry;
@@ -40,7 +42,8 @@ impl Default for AssemblyLimits {
         }
     }
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Which contributions one compiled local demand evaluates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, enum_map::Enum)]
 enum Demand {
     Objective,
     Constraints,
@@ -51,11 +54,13 @@ struct Group {
     outputs: Vec<usize>,
     request: usize,
 }
+/// One binding's compiled demands and its derivative coordinates: `coordinates[k]` is the
+/// formal slot of local coordinate `k`, and `columns[k]` its case-global column.
 #[derive(Clone, Debug)]
 struct Instance {
-    groups: Vec<Option<Group>>,
-    coordinates: Vec<usize>,
-    columns: Vec<usize>,
+    groups: EnumMap<Demand, Option<Group>>,
+    coordinates: Vec<Slot>,
+    columns: Vec<GlobalCol>,
 }
 #[derive(Clone, Debug)]
 struct Term {
@@ -72,7 +77,7 @@ pub struct CasePlan {
     structure: Arc<CaseStructure>,
     bodies: BTreeMap<ContentHash, Arc<PreparedBody>>,
     columns: Arc<Vec<SemanticId>>,
-    rows: Arc<BTreeMap<SemanticId, usize>>,
+    rows: Arc<BTreeMap<SemanticId, GlobalRow>>,
     instances: Arc<Vec<Instance>>,
     jacobian: Arc<AssemblyMatrix>,
     hessian: Arc<AssemblyMatrix>,
@@ -107,16 +112,16 @@ impl CasePlan {
                 .map(|b| b.retained_bytes())
                 .sum::<usize>()
             + self.columns.capacity() * size_of::<SemanticId>()
-            + self.rows.len() * size_of::<(SemanticId, usize)>()
+            + self.rows.len() * size_of::<(SemanticId, GlobalRow)>()
             + self
                 .instances
                 .iter()
                 .map(|i| {
                     size_of_val(i)
-                        + i.coordinates.capacity() * size_of::<usize>()
-                        + i.columns.capacity() * size_of::<usize>()
+                        + i.coordinates.capacity() * size_of::<Slot>()
+                        + i.columns.capacity() * size_of::<GlobalCol>()
                         + i.groups
-                            .iter()
+                            .values()
                             .flatten()
                             .map(|g| size_of_val(g) + g.outputs.capacity() * size_of::<usize>())
                             .sum::<usize>()
@@ -182,13 +187,16 @@ impl CasePlan {
                 "unknown or duplicate derivative coordinate".into(),
             ));
         }
-        let column_map: BTreeMap<_, _> =
-            columns.iter().enumerate().map(|(i, &id)| (id, i)).collect();
+        let column_map: BTreeMap<_, _> = columns
+            .iter()
+            .enumerate()
+            .map(|(i, &id)| (id, GlobalCol::new(i)))
+            .collect();
         let rows: BTreeMap<_, _> = structure
             .rows()
             .iter()
             .enumerate()
-            .map(|(i, r)| (r.id, i))
+            .map(|(i, r)| (r.id, GlobalRow::new(i)))
             .collect();
         if columns.len() > limits.native_index || rows.len() > limits.native_index {
             return Err(MathError::Limit("native index width"));
@@ -196,8 +204,8 @@ impl CasePlan {
         let mut requests = Vec::<LocalDemand>::new();
         let mut request_indices = BTreeMap::new();
         let mut instances = vec![];
-        let mut jp = vec![];
-        let mut hp = vec![];
+        let mut jp = Vec::<Entry<GlobalRow, GlobalCol>>::new();
+        let mut hp = Vec::<Entry<GlobalCol, GlobalCol>>::new();
         let mut jt = vec![];
         let mut ht = vec![];
         let mut target_counts = BTreeMap::new();
@@ -232,7 +240,7 @@ impl CasePlan {
                     .get(c.output)
                     .ok_or_else(|| MathError::Contract("untyped or missing body output".into()))?;
                 let target = match c.target {
-                    Target::Row(id) => structure.rows()[rows[&id]].quantity,
+                    Target::Row(id) => structure.rows()[rows[&id].get()].quantity,
                     Target::Objective => {
                         structure
                             .objective()
@@ -259,18 +267,20 @@ impl CasePlan {
                     }
                 }
             }
-            let coordinates: Vec<_> = binding
+            let coordinates: Vec<Slot> = binding
                 .slots
                 .iter()
                 .enumerate()
-                .filter_map(|(i, s)| column_map.contains_key(&s.source()).then_some(i))
+                .filter_map(|(i, s)| column_map.contains_key(&s.source()).then_some(Slot::new(i)))
                 .collect();
-            let local_columns: Vec<_> = coordinates
+            let local_columns: Vec<GlobalCol> = coordinates
                 .iter()
-                .map(|&i| column_map[&binding.slots[i].source()])
+                .map(|&i| column_map[&binding.slots[i.get()].source()])
                 .collect();
-            let mut groups: Vec<Option<Group>> = vec![];
-            for demand in [Demand::Objective, Demand::Constraints, Demand::All] {
+            // The library compiles over formal slot positions.
+            let formal: Vec<usize> = coordinates.iter().map(|s| s.get()).collect();
+            let mut groups = EnumMap::<Demand, Option<Group>>::default();
+            for (demand, group) in &mut groups {
                 let outputs: Vec<_> = binding
                     .contributions
                     .iter()
@@ -280,13 +290,12 @@ impl CasePlan {
                     .into_iter()
                     .collect();
                 if outputs.is_empty() {
-                    groups.push(None);
                     continue;
                 }
                 let demand = LocalDemand {
                     body: binding.body,
                     outputs: outputs.clone(),
-                    coordinates: coordinates.clone(),
+                    coordinates: formal.clone(),
                     order,
                 };
                 let key = (
@@ -298,19 +307,19 @@ impl CasePlan {
                     requests.push(demand);
                     requests.len() - 1
                 });
-                groups.push(Some(Group { outputs, request }));
+                *group = Some(Group { outputs, request });
             }
             for c in &binding.contributions {
                 if let Target::Row(r) = c.target {
                     for (i, &formal) in coordinates.iter().enumerate() {
-                        if body.support().first[c.output].contains(&formal) {
-                            jp.push((rows[&r], local_columns[i]));
+                        if body.support().first[c.output].contains(&formal.get()) {
+                            jp.push(Entry::new(rows[&r], local_columns[i]));
                             jt.push(Term {
                                 instance: index,
                                 output: c.output,
                                 i,
                                 j: 0,
-                                scale: c.scale * binding.slots[formal].scale(),
+                                scale: c.scale * binding.slots[formal.get()].scale(),
                                 target: c.target,
                             });
                         }
@@ -319,11 +328,12 @@ impl CasePlan {
                 if order >= DerivativeOrder::Second {
                     for (i, &a) in coordinates.iter().enumerate() {
                         for (j, &b) in coordinates.iter().enumerate() {
+                            let (a, b) = (a.get(), b.get());
                             if local_columns[i] >= local_columns[j]
                                 && body.support().second[c.output].contains(&(a.min(b), a.max(b)))
                             {
                                 // Both ordered local pairs survive when aliases meet on a global diagonal.
-                                hp.push((local_columns[i], local_columns[j]));
+                                hp.push(Entry::new(local_columns[i], local_columns[j]));
                                 ht.push(Term {
                                     instance: index,
                                     output: c.output,
@@ -354,7 +364,7 @@ impl CasePlan {
         }
         let bound = limits.native_index;
         let jacobian = AssemblyMatrix::new(rows.len(), columns.len(), &jp, bound)?;
-        let hessian = AssemblyMatrix::new(columns.len(), columns.len(), &hp, bound)?;
+        let hessian = AssemblyMatrix::hessian(columns.len(), &hp, bound)?;
         Ok(Self {
             structure,
             bodies,
@@ -528,13 +538,13 @@ impl CasePlan {
         &self.requests
     }
     /// All-branch objective support in global free-variable order.
-    pub fn objective_support(&self) -> BTreeSet<usize> {
+    pub fn objective_support(&self) -> BTreeSet<GlobalCol> {
         let mut support = BTreeSet::new();
         for (b, i) in self.structure.instances().iter().zip(self.instances.iter()) {
             for c in &b.contributions {
                 if c.target == Target::Objective {
                     for (&slot, &col) in i.coordinates.iter().zip(&i.columns) {
-                        if self.bodies[&b.body].support().first[c.output].contains(&slot) {
+                        if self.bodies[&b.body].support().first[c.output].contains(&slot.get()) {
                             support.insert(col);
                         }
                     }
@@ -554,7 +564,7 @@ impl CasePlan {
         let bytes = self
             .instances
             .iter()
-            .flat_map(|i| i.groups.iter().flatten())
+            .flat_map(|i| i.groups.values().flatten())
             .try_fold(0usize, |n, g| {
                 n.checked_add(programs[g.request].scratch_bytes())
             })
@@ -634,15 +644,12 @@ impl CaseAssembly {
             .instances
             .iter()
             .map(|i| {
-                i.groups
-                    .iter()
-                    .map(|g| {
-                        g.as_ref().map(|g| GroupWorker {
-                            worker: self.programs[g.request].worker(),
-                            cache: None,
-                        })
+                EnumMap::from_fn(|demand| {
+                    i.groups[demand].as_ref().map(|g| GroupWorker {
+                        worker: self.programs[g.request].worker(),
+                        cache: None,
                     })
-                    .collect()
+                })
             })
             .collect();
         CaseWorker {
@@ -664,7 +671,7 @@ struct GroupWorker {
 #[derive(Debug)]
 pub struct CaseWorker {
     assembly: Arc<CaseAssembly>,
-    groups: Vec<Vec<Option<GroupWorker>>>,
+    groups: Vec<EnumMap<Demand, Option<GroupWorker>>>,
     providers: BTreeMap<ProviderKey, Box<dyn Provider>>,
     cancel: Arc<AtomicBool>,
     jacobian: AssemblyMatrix,
@@ -697,7 +704,7 @@ impl CaseWorker {
             return Err(MathError::Cancelled);
         }
         for (i, binding) in self.assembly.structure.instances().iter().enumerate() {
-            let Some(worker) = &mut self.groups[i][demand as usize] else {
+            let Some(worker) = &mut self.groups[i][demand] else {
                 continue;
             };
             let context = |cause| MathError::Instance {
@@ -731,14 +738,14 @@ impl CaseWorker {
         output: usize,
         demand: Demand,
     ) -> Result<(&Evaluation, usize), MathError> {
-        let group = self.assembly.instances[instance].groups[demand as usize]
+        let group = self.assembly.instances[instance].groups[demand]
             .as_ref()
             .ok_or_else(|| MathError::Contract("missing compiled demand".into()))?;
         let row = group
             .outputs
             .binary_search(&output)
             .map_err(|_| MathError::Contract("missing demand output".into()))?;
-        let result = self.groups[instance][demand as usize]
+        let result = self.groups[instance][demand]
             .as_ref()
             .and_then(|g| g.cache.as_ref())
             .ok_or_else(|| MathError::Contract("unevaluated demand".into()))?;
@@ -772,7 +779,7 @@ impl CaseWorker {
             for c in &b.contributions {
                 if let Target::Row(id) = c.target {
                     let (v, r) = self.result(i, c.output, Demand::Constraints)?;
-                    out[self.assembly.rows[&id]] += c.scale * v.values[r];
+                    out[self.assembly.rows[&id].get()] += c.scale * v.values[r];
                 }
             }
         }
@@ -809,9 +816,9 @@ impl CaseWorker {
                 if c.target == Target::Objective {
                     let (v, r) = self.result(i, c.output, Demand::Objective)?;
                     for (k, &formal) in local.coordinates.iter().enumerate() {
-                        out[local.columns[k]] += self.objective_sign()
+                        out[local.columns[k].get()] += self.objective_sign()
                             * c.scale
-                            * b.slots[formal].scale()
+                            * b.slots[formal.get()].scale()
                             * v.jacobian[r * local.coordinates.len() + k];
                     }
                 }
@@ -830,7 +837,7 @@ impl CaseWorker {
             let (v, r) = self.result(t.instance, t.output, Demand::Constraints)?;
             let n = self.assembly.instances[t.instance].coordinates.len();
             let value = t.scale * v.jacobian[r * n + t.i];
-            self.jacobian.add(k, value)?;
+            self.jacobian.add(Addend::new(k), value)?;
         }
         Ok(self.jacobian.matrix())
     }
@@ -853,12 +860,12 @@ impl CaseWorker {
         for (k, t) in self.assembly.hessian_terms.iter().enumerate() {
             let weight = match t.target {
                 Target::Objective => objective_weight * self.objective_sign(),
-                Target::Row(id) => multipliers[self.assembly.rows[&id]],
+                Target::Row(id) => multipliers[self.assembly.rows[&id].get()],
             };
             let (v, r) = self.result(t.instance, t.output, Demand::All)?;
             let n = self.assembly.instances[t.instance].coordinates.len();
             let value = weight * t.scale * v.hessians[r * n * n + t.i * n + t.j];
-            self.hessian.add(k, value)?;
+            self.hessian.add(Addend::new(k), value)?;
         }
         Ok(self.hessian.matrix())
     }

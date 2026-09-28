@@ -348,7 +348,7 @@ pub(super) fn push_native_metrics(
                 }
             }
         }
-        for (family, ranges) in &d.ranging {
+        for (family, ranges) in d.ranging.iter().flat_map(|m| m.iter()) {
             for (i, id) in ranges.ids.iter().enumerate() {
                 let ns = format!("highs.ranging.{family}.{}", id.to_hex());
                 for (name, value) in [

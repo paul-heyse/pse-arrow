@@ -15,6 +15,7 @@ pub mod facts;
 mod functions;
 pub mod guarded;
 pub mod implicit;
+pub mod index;
 pub mod jets;
 pub mod library;
 pub mod normalization;

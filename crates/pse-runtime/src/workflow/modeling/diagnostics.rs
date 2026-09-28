@@ -19,6 +19,7 @@ pub use nonlinear::{
 use pse_math::{
     binding::CaseValues,
     diagnostics::{MatrixPolicy, MatrixReport, TermPolicy},
+    index::{GlobalCol, GlobalRow, TiSlice},
 };
 use pse_model::{
     diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation, Severity, SourceLocation},
@@ -112,8 +113,9 @@ pub struct ModelingDiagnostics {
     pub findings: Vec<BoundaryDiagnostic>,
     /// Structure counts of the case.
     pub statistics: BTreeMap<String, usize>,
-    /// Dense analysis of the normalized Jacobian, when its budget allowed one.
-    pub matrix: Option<MatrixReport>,
+    /// Dense analysis of the normalized Jacobian, when its budget allowed one; its rows and
+    /// columns index [`Self::rows`] and [`Self::columns`].
+    pub matrix: Option<MatrixReport<GlobalRow, GlobalCol>>,
     /// Every analysis ran within its budgets.
     pub complete: bool,
     /// Jacobian rows, as equation ids.
@@ -654,7 +656,7 @@ impl ModelingPackage {
                     })
                     .map(|(i, j, v)| (i, j, v * scaled_rows[i] / scaled_columns[j]))
                     .collect::<Vec<_>>();
-                let matrix = pse_math::diagnostics::analyze_matrix(
+                let matrix = pse_math::diagnostics::analyze_matrix::<GlobalRow, GlobalCol>(
                     jacobian.as_ref(),
                     &scaled_rows,
                     &scaled_columns,
@@ -725,26 +727,29 @@ impl ModelingPackage {
                                 }
                             }
                         }
-                        for (pairs, ids, kind) in [
-                            (&matrix.parallel_rows, &row_ids, "jacobian.parallel_rows"),
-                            (
-                                &matrix.parallel_columns,
-                                &columns,
-                                "jacobian.parallel_columns",
-                            ),
-                        ] {
-                            for (a, b, cosine) in pairs {
-                                report.push(
-                                    finding(
-                                        kind,
-                                        [ids[*a], ids[*b]],
-                                        Some(*cosine),
-                                        Some(policy.matrix.parallel_tolerance),
-                                    ),
-                                    maximum,
-                                    product,
-                                );
-                            }
+                        let (rows, cols): (
+                            &TiSlice<GlobalRow, SemanticId>,
+                            &TiSlice<GlobalCol, SemanticId>,
+                        ) = (row_ids.as_slice().as_ref(), columns.as_slice().as_ref());
+                        let parallel = matrix
+                            .parallel_rows
+                            .iter()
+                            .map(|p| ("jacobian.parallel_rows", [rows[p.first], rows[p.second]], p.cosine))
+                            .chain(matrix.parallel_columns.iter().map(|p| {
+                                ("jacobian.parallel_columns", [cols[p.first], cols[p.second]], p.cosine)
+                            }))
+                            .collect::<Vec<_>>();
+                        for (kind, ids, cosine) in parallel {
+                            report.push(
+                                finding(
+                                    kind,
+                                    ids,
+                                    Some(cosine),
+                                    Some(policy.matrix.parallel_tolerance),
+                                ),
+                                maximum,
+                                product,
+                            );
                         }
                         if matrix.rank < row_ids.len().min(columns.len()) {
                             report.push(

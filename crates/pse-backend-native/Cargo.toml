@@ -53,6 +53,7 @@ pse-ids.workspace = true
 pse-diagnostics.workspace = true
 pse-kernels.workspace = true
 pse-math.workspace = true
+enum-map.workspace = true
 pse-structural.workspace = true
 faer.workspace = true
 clarabel.workspace = true

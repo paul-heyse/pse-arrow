@@ -97,7 +97,7 @@ impl EvaluationContext<'_> {
 }
 
 /// Required partial derivative order; distinct from physical phase and conditioning.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, enum_map::Enum)]
 pub enum DerivativeOrder {
     /// Values only.
     Value,

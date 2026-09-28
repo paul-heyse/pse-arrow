@@ -525,7 +525,7 @@ fn structural_plan(
     let objective = p
         .objective_support()
         .into_iter()
-        .map(|c| columns[c])
+        .map(|c| columns[c.get()])
         .collect();
     let inc = CaseIncidence::new(
         Scope::Whole(id),

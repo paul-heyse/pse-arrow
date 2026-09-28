@@ -94,6 +94,52 @@ fn commitment_milp(y: ModelingVariableDomain, y_bounds: (f64, f64)) -> Coefficie
 }
 
 #[test]
+fn native_ranging_fills_every_family_on_its_side() {
+    use diagnostics::{RangeFamily, RangeSide};
+    let p = commitment_milp(CONTINUOUS, (0.0, 10.0));
+    let mut session = Session::new(&p, None, stamp(Backend::Highs)).unwrap();
+    let report = solve(&mut session, &p, &Controls::default(), &Settings::default());
+    assert_eq!(report.termination.category, Termination::Success);
+    let evidence = diagnose(
+        &mut session,
+        &p,
+        diagnostics::Request {
+            ranging: true,
+            ..Default::default()
+        },
+    );
+    let ranging = evidence
+        .ranging
+        .unwrap_or_else(|| panic!("{:?}", evidence.unavailable));
+    let columns: Vec<_> = p.contract.variables.iter().map(|v| v.id).collect();
+    for (family, range) in &ranging {
+        let ids = match family.side() {
+            RangeSide::Column => &columns,
+            RangeSide::Row => &p.contract.rows,
+        };
+        assert_eq!(&range.ids, ids, "{family}");
+        assert_eq!(range.value.len(), ids.len(), "{family}");
+    }
+    // Each current cost and binding row bound lies inside its own family pair's range:
+    // y (cost -2) is basic, and both rows bind at x = 0.4, y = 3.1.
+    let (down, up) = (
+        &ranging[RangeFamily::ColumnCostDown],
+        &ranging[RangeFamily::ColumnCostUp],
+    );
+    assert!(down.value[1] <= -2.0 && -2.0 <= up.value[1], "{down:?} {up:?}");
+    let (down, up) = (
+        &ranging[RangeFamily::RowBoundDown],
+        &ranging[RangeFamily::RowBoundUp],
+    );
+    for (row, bound) in [(0, 3.5), (1, 0.4)] {
+        assert!(
+            down.value[row] <= bound + 1e-9 && bound - 1e-9 <= up.value[row],
+            "{row}: {down:?} {up:?}"
+        );
+    }
+}
+
+#[test]
 fn fixed_lp_duals_conditional_on_commitment() {
     let p = commitment_milp(INTEGER, (0.0, 10.0));
     let mut session = Session::new(&p, None, stamp(Backend::Highs)).unwrap();

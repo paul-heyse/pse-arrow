@@ -287,7 +287,11 @@ fn rank(
     }
     let sub = SparseColMat::try_new_from_triplets(selected.len(), matrix.ncols(), &entries)
         .map_err(|e| ProblemError::Internal(e.to_string()))?;
-    Ok(pse_math::diagnostics::analyze_matrix(
+    // Rows are the selected subset; only the rank is read.
+    Ok(pse_math::diagnostics::analyze_matrix::<
+        pse_math::index::ReducedRow,
+        pse_math::index::OriginalCol,
+    >(
         sub.as_ref(),
         &vec![1.; selected.len()],
         &vec![1.; matrix.ncols()],
