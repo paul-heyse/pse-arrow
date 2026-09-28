@@ -872,8 +872,6 @@ enum Kind {
     /// One side of a linear row under an indicator, `sign·(a·x) <= rhs`: `+1` holds the
     /// upper side and `-1` the lower side.
     Indicator { constant: f64, sign: f64 },
-    /// A nonlinear row whose constraint a superindicator enforces.
-    Superindicator,
 }
 /// One exported constraint, retained for readback and IIS attribution.
 #[derive(Debug)]
@@ -1362,7 +1360,7 @@ pub(crate) fn export(
                     });
                 }
             }
-            (None, condition) => {
+            (None, None) => {
                 let lhs = instance.native(c.lower)?;
                 let rhs = instance.native(c.upper)?;
                 let mut cons = ptr::null_mut();
@@ -1377,29 +1375,6 @@ pub(crate) fn export(
                         rhs
                     )
                 )?;
-                let kind = if let Some(binvar) = condition {
-                    // The superindicator captures the nonlinear constraint, which is not
-                    // added to the problem itself.
-                    let mut wrapper = ptr::null_mut();
-                    let created = native!(
-                        "SCIPcreateConsBasicSuperindicator",
-                        ffi::SCIPcreateConsBasicSuperindicator(
-                            instance.ptr(),
-                            &mut wrapper,
-                            name.as_ptr(),
-                            binvar,
-                            cons
-                        )
-                    );
-                    // SAFETY: releases the creation reference of the wrapped constraint;
-                    // the superindicator holds its own.
-                    let _ = unsafe { ffi::SCIPreleaseCons(instance.ptr(), &mut cons) };
-                    created?;
-                    cons = wrapper;
-                    Kind::Superindicator
-                } else {
-                    Kind::Nonlinear
-                };
                 instance.hold(cons)?;
                 nonlinear += 1;
                 constraints.push(Exported {
@@ -1407,8 +1382,105 @@ pub(crate) fn export(
                     node: c.node,
                     lower: c.lower,
                     upper: c.upper,
-                    kind,
+                    kind: Kind::Nonlinear,
                 });
+            }
+            (None, Some(binvar)) => {
+                // A nonlinear row under an indicator is lifted exactly, as SCIP lifts a
+                // linear one: f − s ≤ u and f + t ≥ l with slacks s, t ≥ 0 that the
+                // literal forces to zero. SCIP 10.0.2's superindicator over a nonlinear
+                // constraint crashes during solving, so it is not used.
+                for (upper, side) in [(true, c.upper), (false, c.lower)] {
+                    if !side.is_finite() {
+                        continue;
+                    }
+                    let suffix = if upper { "u" } else { "l" };
+                    let slack = instance.variable(
+                        &format!("s{k}{suffix}"),
+                        (0.0, f64::INFINITY),
+                        0.0,
+                        ffi::SCIP_Vartype_SCIP_VARTYPE_CONTINUOUS,
+                    )?;
+                    let mut slack_expr = ptr::null_mut();
+                    native!(
+                        "SCIPcreateExprVar",
+                        ffi::SCIPcreateExprVar(
+                            instance.ptr(),
+                            &mut slack_expr,
+                            slack,
+                            None,
+                            ptr::null_mut()
+                        )
+                    )?;
+                    let mut terms = [exprs.nodes[c.node], slack_expr];
+                    let mut weights = [1.0, if upper { -1.0 } else { 1.0 }];
+                    let mut expr = ptr::null_mut();
+                    let created = native!(
+                        "SCIPcreateExprSum",
+                        ffi::SCIPcreateExprSum(
+                            instance.ptr(),
+                            &mut expr,
+                            2,
+                            terms.as_mut_ptr(),
+                            weights.as_mut_ptr(),
+                            0.0,
+                            None,
+                            ptr::null_mut()
+                        )
+                    );
+                    // SAFETY: releases the slack expression's creation reference; the sum
+                    // holds one.
+                    let _ = unsafe { ffi::SCIPreleaseExpr(instance.ptr(), &mut slack_expr) };
+                    created?;
+                    let (lhs, rhs) = if upper {
+                        (-instance.infinity, instance.native(side)?)
+                    } else {
+                        (instance.native(side)?, instance.infinity)
+                    };
+                    let mut cons = ptr::null_mut();
+                    let created = native!(
+                        "SCIPcreateConsBasicNonlinear",
+                        ffi::SCIPcreateConsBasicNonlinear(
+                            instance.ptr(),
+                            &mut cons,
+                            name.as_ptr(),
+                            expr,
+                            lhs,
+                            rhs
+                        )
+                    );
+                    // SAFETY: releases the lifted expression's creation reference.
+                    let _ = unsafe { ffi::SCIPreleaseExpr(instance.ptr(), &mut expr) };
+                    created?;
+                    instance.hold(cons)?;
+                    nonlinear += 1;
+                    // Read back at zero slack: the lifted function is the row's.
+                    constraints.push(Exported {
+                        cons,
+                        node: c.node,
+                        lower: if upper { f64::NEG_INFINITY } else { c.lower },
+                        upper: if upper { c.upper } else { f64::INFINITY },
+                        kind: Kind::Nonlinear,
+                    });
+                    let mut vars = [slack];
+                    let mut vals = [1.0];
+                    let mut switch = ptr::null_mut();
+                    native!(
+                        "SCIPcreateConsBasicIndicator",
+                        ffi::SCIPcreateConsBasicIndicator(
+                            instance.ptr(),
+                            &mut switch,
+                            name.as_ptr(),
+                            binvar,
+                            1,
+                            vars.as_mut_ptr(),
+                            vals.as_mut_ptr(),
+                            0.0
+                        )
+                    )?;
+                    instance.hold(switch)?;
+                    linear += 1;
+                }
             }
         }
     }
@@ -1829,15 +1901,6 @@ pub(crate) fn readback(
                 worst = worst
                     .max(deviation(sign * a + constant, neutral))
                     .max(side(bound, expected));
-            }
-            Kind::Superindicator => {
-                // SAFETY: a live superindicator constraint owns its slack constraint.
-                let slack = unsafe { ffi::SCIPgetSlackConsSuperindicator(c.cons) };
-                let (native, lhs, rhs) = nonlinear(slack)?;
-                worst = worst
-                    .max(deviation(native, neutral))
-                    .max(side(lhs, c.lower))
-                    .max(side(rhs, c.upper));
             }
             Kind::Nonlinear => {
                 let (native, lhs, rhs) = nonlinear(c.cons)?;

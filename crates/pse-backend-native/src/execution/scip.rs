@@ -107,7 +107,7 @@ static CAPABILITY: Capability = Capability {
     // Concurrent solving in deterministic mode, with the admitted permits as threads.
     parallel: true,
     certifies: true,
-    // Indicator (and superindicator for nonlinear rows), SOS1/SOS2, and/or/xor and
+    // Indicator (nonlinear rows lifted exactly through slacks), SOS1/SOS2, and/or/xor and
     // cardinality handlers; an asserted `or` is upgraded to logicor by SCIP presolve.
     native_forms: &[
         NativeConstraintForm::Indicator,

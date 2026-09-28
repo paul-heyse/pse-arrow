@@ -1706,3 +1706,55 @@ fn iis_irreducible_whatever_the_row_order() {
         ]
     );
 }
+
+/// min (x − 3)² + b/2 over x ∈ [0, 5] with x·x ≤ 4 enforced only while b = 0: running
+/// unconstrained (b = 1) costs 0.5, the constrained alternative (x = 2) costs 1.
+#[test]
+fn indicator_on_nonlinear_row_unenforced_in_fixed_assignment_resolve() {
+    let registry = standard_registry().unwrap();
+    let mut b = Body::new(&registry, 2);
+    let (x, on) = (b.x[0].clone(), b.x[1].clone());
+    let xx = b.op(Binary::Mul, &x, &x);
+    let three = b.c(3.0);
+    let half = b.c(0.5);
+    let gap = b.op(Binary::Sub, &x, &three);
+    let square = b.op(Binary::Mul, &gap, &gap);
+    let penalty = b.op(Binary::Mul, &half, &on);
+    let objective = b.op(Binary::Add, &square, &penalty);
+    let body = b.b.prepare(&[xx, objective]).unwrap();
+    let case = case_with(
+        &registry,
+        body,
+        &[
+            (ModelingVariableDomain::Continuous, Some(0.0), Some(5.0), 1.0),
+            (ModelingVariableDomain::Binary, None, None, 0.0),
+        ],
+        &[(f64::NEG_INFINITY, 4.0)],
+        Some((1, ObjectiveSense::Minimize)),
+        DerivativeOrder::Second,
+        vec![NativeConstraint::Indicator {
+            row: id(101),
+            variable: id(2),
+            active: false,
+        }],
+    );
+    let program = case.program(&FactorableRequest::default());
+    let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+    // The nonlinear row is lifted through a slack the indicator zeroes; the candidate is the continuous
+    // re-solve with b fixed at 1, where the row is not enforced.
+    assert!(matches!(
+        report.metrics["export.constraints.nonlinear"],
+        crate::solve::Metric::Integer(n) if n >= 1
+    ));
+    let g = report.evidence.global.unwrap();
+    assert_eq!(g.primal, PrimalSource::FixedAssignment, "{:?}", report.metrics);
+    let x = &report.candidate.as_ref().unwrap().primal;
+    assert!((x[1] - 1.0).abs() < 1e-9 && (x[0] - 3.0).abs() < 1e-5, "{x:?}");
+    let objective = report.observation.as_ref().unwrap().objective.unwrap();
+    assert!((objective - 0.5).abs() < 1e-6, "{objective}");
+    // The unenforced row is unconstrained in original qualification.
+    let observation = report.observation.as_ref().unwrap();
+    assert_eq!(observation.bounds[0], (f64::NEG_INFINITY, f64::INFINITY));
+    assert!(report.quality.as_ref().unwrap().feasible());
+    assert_eq!(report.qualification, Qualification::GapQualified);
+}
