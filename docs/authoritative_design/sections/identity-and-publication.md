@@ -73,8 +73,11 @@ it is not a membership proof, and actual key columns remain authoritative.
 
 **Typed identities.** A registry key column may declare an entity identity
 (`declare_identity`, `FieldContract::with_identity`). A foreign-key column inherits the
-identity of the column it references, assembly refuses a conflicting declaration, each
-identity has at most one owning key, and `reference.schema_identities` describes them. The
+identity of the column it references, and assembly refuses a conflicting declaration.
+Ownership is declared separately (`FieldContract::with_owned_identity`): an owner is its
+relation's single-column primary key, each identity has at most one, and a column that only
+carries an identity never owns it (the export manifest's key carries `publication`, which the
+catalog's intents own). `reference.schema_identities` describes the declarations. The
 generator emits one typed id per identity into `pse-model` through the single
 `semantic_id_newtype!` macro of `pse-ids`, which the `pse-quantity` physical-registry ids
 also use. A typed id is a transparent wrapper with `From` in both directions and
@@ -83,7 +86,9 @@ moved. Generated rows, the operational store's identity domains
 ([§20.6](#section-20-6)) and the Python `NewType`s of `pse.contracts.identities` follow. The
 operational and publication identities are run, attempt, job, study, solution, settlement,
 reader lease, workspace, publication and source bundle; the modeling identities include
-package, declaration, instance and fit. Consumers take the typed ids, so passing one
+package, declaration, instance and fit. There is no separate model or case identity: a
+model is named by the root declaration it specializes and a case by its case declaration,
+both as `declaration` ([§20.3](#section-20-3)). Consumers take the typed ids, so passing one
 identity where another belongs fails to compile; `compile_fail` doctests pin
 representative swaps.
 
@@ -127,8 +132,10 @@ hash. Diagnostic spans can refresh without changing mathematics
 | Used start | the submitted seed by content, predecessor attempt, partial start and reuse of retained native state, framed into the completed step's request identity ([§16.5](numerical-execution.md#section-16-5)) | the run and attempt that produced the seed |
 | Result, publication | separate scopes of their own | the request identity |
 
-**Run and attempt.** Starting a prepared case mints a fresh run ID (UUIDv7). The run ID
-names the attempt; it is not part of request identity, so repeating the same request with
+**Run and attempt.** Starting a prepared case mints a fresh run ID (UUIDv7). The run is
+its own identity: an ephemeral run has no attempt, and a durable run's tries are its
+attempts, so a retried job's attempts share its run ID. Result rows name the run; the store
+and the publication name the attempt. The run ID is not part of request identity, so repeating the same request with
 the same start is a new run with the same request and preparation identities
 (`runtime.run_lineage`), while a different start is a different request identity
 ([§20.3](#section-20-3)). A publication has its own publication ID; the attempt it names is
@@ -367,8 +374,14 @@ acknowledgements and repeated settlement are exercised by the `pse-runtime`
 
 A run records the exact identities it consumed, not names:
 
-- `runtime.run_lineage`: model ID, revision identity, case ID and the request,
-  preparation, profile, numerical, physical and environment identities of every step.
+- `runtime.run_lineage`: the model, case, instance and fit a step solved, its revision
+  identity, and the request, preparation, profile, numerical, physical and environment
+  identities of every step. The model ID is the root declaration the model specializes; the
+  case ID is that root when it is a case or a test (a case with an oracle); the instance ID
+  is what the root became (the experiment's instance for a fit experiment). A fit names its
+  fit ID, plus the model and case only when all its experiments share them. Every producer
+  derives these through `pse_model::lineage`, so one model has one ID everywhere, and
+  `runtime.solve_runs` and `runtime.numerical_requirements` carry the same columns.
   An algebraic step's request identity (`pse.completed.request.v2`) also frames the start
   it actually used and whether it reused retained native state
   ([§16.5](numerical-execution.md#section-16-5)).
