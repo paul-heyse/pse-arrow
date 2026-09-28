@@ -72,7 +72,7 @@ their oracle references identify the authored assertion, not a live upstream exe
 `pse_runtime::workflow::Runtime::from_shared` borrows a deployment's existing
 `SharedRuntime`, schema registry and engine factory. It creates no executor or
 independent resource budget. Python `pse.Runtime(EngineSettings(...))` shares
-those owners with `pse.open`; settings must agree with the process's first runtime.
+those owners with `pse.open_export`; settings must agree with the process's first runtime.
 
 `authored.modeling_declarations` is the generated generic declaration authority.
 `models/*.pse` is the primary authoring surface. Document loading, direct generated
@@ -212,12 +212,19 @@ async waiter requests native stop, while the handle retains access to the eventu
 terminal result. Native factorization may finish before cooperative cancellation is
 observed. Repeated waits never rerun a solver.
 
-`result.prepare_publication(base_directory_uri, workspace_id, parent=...)` constructs
-a reviewable one-use `PublicationAttempt`. Preparation does not write. `commit()`
-returns the exact control URI and version for `pse.open`. The command uses existing
-member writes, conditional parent checks and control-last settlement. Attempt and
-publication identities remain available after an error. Inspect native effect
-settlement before retrying an unresolved write; no marker alone deduplicates retries.
+Only a durable run publishes, into a workspace registered in the operational catalog
+(`runtime.register_workspace(name, root)`).
+`result.prepare_publication(workspace, parent=..., publication_id=...)` constructs a
+reviewable one-use `PublicationAttempt` whose attempt is the run's durable attempt.
+Preparation does not write. `commit()` registers the intent, writes the members under
+`{root}members/{attempt}/{publication}/` and commits the admitted record in the catalog
+if the workspace head is still `parent`; it returns `Published`. A conflict raises:
+re-prepare with the same `publication_id` against the head, which recovers the members
+already written. A lost commit acknowledgement raises as unresolved: settle the ticket
+with `runtime.settle_publication(ticket)`, which queries the catalog and never writes.
+`runtime.open(id)` and `runtime.open_head(workspace_id)` read under a catalog reader
+lease; `runtime.export_publication` writes a manifest `pse.open_export` opens offline.
+See [the operational store](operational-store.md#publication-catalog).
 Stored declarations rebuild mathematical products; CAS display text, Salsa handles
 and native solver factors are never durable authorities.
 
