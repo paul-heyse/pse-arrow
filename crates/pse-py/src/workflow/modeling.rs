@@ -87,6 +87,10 @@ pub(super) fn from_documents(
         owner: runtime.owner.clone(),
         inner,
         limits: Default::default(),
+        sources: Some(Arc::new(native::PackageSources {
+            physical: physical.documents.as_ref().clone(),
+            modeling: documents,
+        })),
     })
 }
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -95,6 +99,9 @@ pub(crate) struct NativeModelingPackage {
     owner: Arc<runtime::Runtime>,
     inner: native::ModelingPackage,
     limits: pse_modeling::Limits,
+    /// The authored documents the package was admitted from, which a durable study stores
+    /// for its workers; none once the package was changed in memory.
+    sources: Option<Arc<native::PackageSources>>,
 }
 /// Fixture-local solve and derivative inspection choices over the shared harness.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
@@ -214,7 +221,8 @@ impl NativeModelingPackage {
         if source.len()>self.owner.shared.budget().math.workspace_bytes/2 {return Err(invalid(py,"declaration edit exceeds workspace allowance"));}
         let edit=serde_json::from_slice::<Edit>(source).map_err(|e|invalid(py,e.to_string()))?;
         let inner=py.detach(||self.inner.with_declarations(edit.declarations)).map_err(|e|errors::diagnostic(py,&e))?;
-        Ok(Self{owner:self.owner.clone(),inner,limits:self.limits})
+        // Edited declarations are not its authored documents: no durable study from it.
+        Ok(Self{owner:self.owner.clone(),inner,limits:self.limits,sources:None})
     }
     fn with_fit_data(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
         if source.len() > self.owner.shared.budget().math.workspace_bytes / 2 {
@@ -222,7 +230,7 @@ impl NativeModelingPackage {
         }
         let data: native::FitData = serde_json::from_slice(source).map_err(|e|invalid(py,e.to_string()))?;
         let inner=self.inner.clone().with_fit_data(data).map_err(|e|errors::diagnostic(py,&e))?;
-        Ok(Self{owner:self.owner.clone(),inner,limits:self.limits})
+        Ok(Self{owner:self.owner.clone(),inner,limits:self.limits,sources:None})
     }
 
     #[pyo3(signature=(fit_id, settings, simulations, *, modes=None, rank_tolerance=1e-8, max_cells=1000000))]
@@ -273,7 +281,13 @@ impl NativeModelingPackage {
 
 
     fn with_limits(&self, limits: &ModelingLimits) -> Self {
-        Self { owner: self.owner.clone(), inner: self.inner.clone(), limits: limits.limits }
+        // Workers apply default limits: a package with its own limits runs no durable study.
+        Self {
+            owner: self.owner.clone(),
+            inner: self.inner.clone(),
+            limits: limits.limits,
+            sources: None,
+        }
     }
 
     #[pyo3(signature=(case_id,settings,nominals,*,penalty_tolerance,maximum_attempts,time_limit))]
@@ -813,6 +827,80 @@ impl NativeModelingPackage {
         )?;
         Ok(NativeModelingStudy {
             inner: Arc::new(inner),
+        })
+    }
+    /// Start a durable study of authored cases in `runtime`'s operational store (Plan 22
+    /// O7): workers run the points, and the study publishes once in `workspace` (a
+    /// workspace JSON document). `overlays` holds each point's encoded `PointOverlay`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one study: store, workspace, points, settings, dependencies, overlays and job policy"
+    )]
+    #[pyo3(signature=(runtime, workspace, case_ids, settings, *, predecessors=Vec::new(), overlays=Vec::new(), max_tries=1, priority=0))]
+    fn start_study(
+        &self,
+        py: Python<'_>,
+        runtime: &NativeRuntime,
+        workspace: &[u8],
+        case_ids: Vec<String>,
+        settings: &[u8],
+        predecessors: Vec<Option<u32>>,
+        overlays: Vec<Vec<u8>>,
+        max_tries: u32,
+        priority: i32,
+    ) -> PyResult<NativeStudyHandle> {
+        let sources = self.sources.as_ref().ok_or_else(|| {
+            invalid(
+                py,
+                "a durable study runs the package's authored documents; this package was changed in memory",
+            )
+        })?;
+        if !predecessors.is_empty() && predecessors.len() != case_ids.len()
+            || !overlays.is_empty() && overlays.len() != case_ids.len()
+        {
+            return Err(invalid(
+                py,
+                "a study's predecessors and overlays name every point or none",
+            ));
+        }
+        let workspace: native::Workspace =
+            serde_json::from_slice(workspace).map_err(|e| invalid(py, e.to_string()))?;
+        let settings = settings::solve_settings(py, settings)?;
+        let points = case_ids
+            .iter()
+            .enumerate()
+            .map(|(index, case)| {
+                Ok(native::StudyPoint {
+                    case: declaration(py, case)?,
+                    overlay: overlays
+                        .get(index)
+                        .map(|overlay| settings::point_overlay(py, overlay))
+                        .transpose()?
+                        .unwrap_or_default(),
+                    predecessor: predecessors.get(index).copied().flatten(),
+                })
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let plan = native::StudyPlan {
+            sources: sources.as_ref().clone(),
+            route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
+            settings,
+            points,
+            retry: native::RetryPolicy {
+                max_tries,
+                ..native::RetryPolicy::ONCE
+            },
+            priority,
+        };
+        let inner = blocking(
+            py,
+            &runtime.owner,
+            runtime.inner.start_study(&workspace, plan),
+            || {},
+        )?;
+        Ok(NativeStudyHandle {
+            owner: runtime.owner.clone(),
+            inner,
         })
     }
     fn inspect(&self, py: Python<'_>, case_id: &str, settings: &[u8]) -> PyResult<Vec<u8>> {

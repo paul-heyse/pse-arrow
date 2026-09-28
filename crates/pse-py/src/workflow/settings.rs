@@ -31,6 +31,25 @@ pub(super) fn solve_profile(py: Python<'_>, bytes: &[u8]) -> PyResult<SolverProf
         .map_err(|e| crate::inspection::errors::diagnostic(py, &e))
 }
 
+/// An encoded `SolveSettings` document, admitted as [`solve_profile`] admits it and kept as
+/// the document a durable job carries.
+pub(super) fn solve_settings(py: Python<'_>, bytes: &[u8]) -> PyResult<SolveSettings> {
+    let settings = document::<SolveSettings>(py, "solve settings", bytes)?;
+    settings
+        .clone()
+        .profile()
+        .map_err(|e| crate::inspection::errors::diagnostic(py, &e))?;
+    Ok(settings)
+}
+
+/// An encoded `PointOverlay` document of a study point.
+pub(super) fn point_overlay(
+    py: Python<'_>,
+    bytes: &[u8],
+) -> PyResult<pse_runtime::workflow::PointOverlay> {
+    document(py, "study point overlay", bytes)
+}
+
 /// An encoded `DiffsolSettings` document.
 pub(super) fn diffsol(py: Python<'_>, bytes: &[u8]) -> PyResult<dynamics::DiffsolSettings> {
     document(py, "Diffsol settings", bytes)

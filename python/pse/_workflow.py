@@ -24,16 +24,17 @@ from pse._runs import (
     PreparedOperation, RunHandle, RunResult, RunCompletion, PublicationTicket,
     PublicationCommitted, PublicationNoncommit, PublicationConflict,
     PublicationUnresolved, PublicationSettlement, PublicationAttempt, Published,
-    Workspace, ExportReceipt,
+    Workspace, ExportReceipt, StudyHandle, StudyStatus, StudyPointStatus, StudyCancel,
 )
 
 from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import SolveSettings
-from pse.contracts.enums import AttemptState
+from pse.contracts.enums import AttemptState, StudyState
 from pse.contracts.values import ContentHash, SemanticId
 
 SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
 OperationalAttempt = result_contracts.RuntimeOperationalAttemptsRow
+OperationalStudy = result_contracts.RuntimeOperationalStudiesRow
 
 @attrs.frozen(init=False)
 class Runtime:
@@ -86,6 +87,49 @@ class Runtime:
         return tuple(
             codec.structure_rows(pa.table(stream).to_pylist(), OperationalAttempt)
         )
+
+    def studies(
+        self,
+        *,
+        states: Sequence[StudyState] = (),
+        limit: int = 100,
+    ) -> tuple[OperationalStudy, ...]:
+        """List the store's durable studies, newest first.
+
+        Args:
+            states: Only studies in these states; every state when empty.
+            limit: At most this many studies.
+
+        Returns:
+            One registry ``runtime.operational_studies`` row per study.
+        """
+        stream = TableStream(
+            self._handle.studies(
+                states=[StudyState(state).value for state in states], limit=limit
+            )
+        )
+        return tuple(
+            codec.structure_rows(pa.table(stream).to_pylist(), OperationalStudy)
+        )
+
+    def study(self, study_id: SemanticId) -> StudyHandle:
+        """Return a handle on a durable study of this runtime's store."""
+        return StudyHandle(self._handle.study(study_id.to_hex()))
+
+    def work(self, *, jobs: int | None = None) -> int:
+        """Serve the durable job queue in this process until it is empty.
+
+        This process claims jobs as ``pse-worker --until-idle`` does: each
+        runs under a lease, and a study's points, finalization and publication
+        run here like in any worker.
+
+        Args:
+            jobs: Stop after this many jobs.
+
+        Returns:
+            The number of jobs processed.
+        """
+        return self._handle.work(jobs=jobs)
 
     def physical_from_documents(
         self, documents: Mapping[str, str]

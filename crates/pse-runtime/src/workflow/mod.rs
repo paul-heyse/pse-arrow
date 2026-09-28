@@ -23,6 +23,7 @@ pub use study::{
     MAXIMUM_STUDY_POINTS, PackageSources, PointStatus, StudyDefinition, StudyHandle, StudyPlan,
     StudyPoint, StudyPointDefinition, StudyStatus,
 };
+pub use pse_operations::jobs::RetryPolicy;
 pub use pse_operations::studies::{StudyCancel, StudyFilter, StudyId, StudyPointState, StudyState};
 pub(crate) mod numerics;
 mod staged;

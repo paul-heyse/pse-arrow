@@ -616,6 +616,19 @@ class NativeModelingPackage:
     def solve_case(
         self, /, case_id: str, settings: bytes, *, route: str = "steady"
     ) -> NativeModelingResult: ...
+    def start_study(
+        self,
+        /,
+        runtime: NativeRuntime,
+        workspace: bytes,
+        case_ids: Sequence[str],
+        settings: bytes,
+        *,
+        predecessors: Sequence[int | None] = ...,
+        overlays: Sequence[Sequence[int]] = ...,
+        max_tries: int = 1,
+        priority: int = 0,
+    ) -> NativeStudyHandle: ...
     def study(
         self,
         /,
@@ -795,6 +808,11 @@ class NativeRuntime:
         *,
         continue_independent: bool = False,
     ) -> NativeRunHandle: ...
+    def studies(
+        self, /, *, states: Sequence[str] = ..., limit: int = 100
+    ) -> TableStream: ...
+    def study(self, /, study_id: str) -> NativeStudyHandle: ...
+    def work(self, /, *, jobs: int | None = None) -> int: ...
     def workspace(self, /, name: str) -> bytes: ...
 
 @final
@@ -819,6 +837,17 @@ class NativeStrategyResult:
     def attempts(self, /) -> list[NativeStrategyAttempt]: ...
     def initialization_json(self, /) -> str | None: ...
     def tears_json(self, /) -> str | None: ...
+
+@final
+class NativeStudyHandle:
+    def cancel(self, /) -> bytes: ...
+    def result(self, /) -> bytes | None: ...
+    def status(self, /) -> bytes: ...
+    @property
+    def study_id(self, /) -> str: ...
+    def wait(
+        self, /, *, poll_seconds: float = 0.5, timeout_seconds: float | None = None
+    ) -> bytes: ...
 
 @final
 class OperationalStore:

@@ -2,15 +2,17 @@
 # Copyright (c) 2026 Paul Heyse
 """Source-independent joined computation and publication handles."""
 from collections.abc import Mapping
+from datetime import timedelta
 from typing import TypeAlias
 import attrs
 import msgspec
 from pse import codec
 from pse._build import (DiagnosticReport, NativeEligibility, NativeRoute,
     ProgressEvent, _NativePreparedOperation, _NativePublicationAttempt,
-    _NativeRunHandle, _NativeRunResult, _NativeStart)
+    _NativeRunHandle, _NativeRunResult, _NativeStart, _NativeStudyHandle)
 from pse._inspection import TableStream
 from pse.contracts import runtime as result_contracts
+from pse.contracts.enums import AttemptState, JobState, StudyPointState, StudyState
 from pse.contracts.values import ContentHash, SemanticId
 
 @attrs.frozen
@@ -281,5 +283,96 @@ class RunHandle:
     def progress_count(self) -> tuple[int, int]:
         """Retained native events and dropped-event count."""
         return self._handle.progress_count
+
+
+class StudyPointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    """One point of a durable study: its state, the point that seeds it, its latest try
+    and why it failed or was cancelled."""
+
+    point_index: int
+    state: StudyPointState
+    predecessor: int | None
+    attempt_id: str
+    attempt_state: AttemptState
+    job_state: JobState
+    error: str | None
+
+
+class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    """A durable study: open while its points run, concluded once every point is
+    terminal, published once its one publication is committed."""
+
+    study_id: str
+    state: StudyState
+    attempt_id: str
+    attempt_state: AttemptState
+    publication_id: str
+    finalization: JobState
+    finalization_error: str | None
+    points: tuple[StudyPointStatus, ...]
+
+    @property
+    def id(self) -> SemanticId:
+        """The study identity."""
+        return SemanticId.from_hex(self.study_id)
+
+
+class StudyCancel(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    """What cancelling a study did: points cancelled before they started, running
+    tries asked to stop, and whether the study concluded now or had already."""
+
+    cancelled: tuple[int, ...]
+    stopping: tuple[int, ...]
+    concluded: bool
+    already_concluded: bool
+
+
+@attrs.frozen
+class StudyHandle:
+    """A durable study run by workers: its status, cancellation and one publication."""
+
+    _handle: _NativeStudyHandle
+
+    @property
+    def study_id(self) -> SemanticId:
+        """The study identity."""
+        return SemanticId.from_hex(self._handle.study_id)
+
+    def status(self) -> StudyStatus:
+        """Read the study and every point as the operational store holds them now."""
+        return msgspec.json.decode(self._handle.status(), type=StudyStatus)
+
+    def cancel(self) -> StudyCancel:
+        """Cancel the points that have not started and stop the running tries; what
+        completed is still published."""
+        return msgspec.json.decode(self._handle.cancel(), type=StudyCancel)
+
+    def result(self) -> Published | None:
+        """The study's publication once committed; ``None`` before."""
+        published = self._handle.result()
+        return None if published is None else msgspec.json.decode(published, type=Published)
+
+    def wait(
+        self,
+        *,
+        poll: timedelta = timedelta(milliseconds=500),
+        timeout: timedelta | None = None,
+    ) -> Published:
+        """Wait until the study is published.
+
+        Args:
+            poll: How often the study's state is read.
+            timeout: Give up after this long; wait indefinitely when ``None``.
+
+        Returns:
+            The study's one publication.
+        """
+        return msgspec.json.decode(
+            self._handle.wait(
+                poll_seconds=poll.total_seconds(),
+                timeout_seconds=None if timeout is None else timeout.total_seconds(),
+            ),
+            type=Published,
+        )
 
 

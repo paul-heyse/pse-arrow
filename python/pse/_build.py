@@ -71,6 +71,7 @@ NativeAttempt = _native.NativeAttempt
 _NativePreparedOperation = _native.NativePreparedOperation
 SimulationSettings = _native.SimulationSettings
 _NativeRunHandle = _native.NativeRunHandle
+_NativeStudyHandle = _native.NativeStudyHandle
 _NativeRunResult = _native.NativeRunResult
 _NativePublicationAttempt = _native.NativePublicationAttempt
 NativeRoute = _native.NativeRoute
