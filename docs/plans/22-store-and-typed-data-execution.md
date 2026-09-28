@@ -274,8 +274,8 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | W0 | D2: ADR-0117 accepted, with the review addendum; this packet written | complete (2026-09-28) |
 | W1 | B1 (R); B3a → B6 (T) | complete: B3a and B6 in merge `8934a521`, B1 in merge `fa5a075c` |
 | W2 | B2 (R); B4 (V); B7 (T) | complete: B4 in merge `ba5f9676`, B7 in merge `057ade3b`, B2 in merge `c664106e` |
-| W3 | O8 (R); B5 (V) | B5 complete (merge `d26bdebe`); O8 running |
-| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | G8 started early on track V (it needs only B2 and B5; 2026-09-28); O7 and B3b wait for O8 |
+| W3 | O8 (R); B5 (V) | complete: B5 in merge `d26bdebe`, O8 in merge `4487adfc` |
+| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | G8 complete (merge `b80f8d4c`); O7 and B3b running |
 | W5 | O9; docs step | not started |
 | W6 | Scoped qualification | not started |
 
@@ -526,3 +526,117 @@ All failed counts were 0. The dev store was reset once, after B4, and `just db-s
 | Native workflow, modeling run, strategies, kernel and Plan 14 acceptance (pytest) | 32 passed |
 
 The store schema did not change, so no reset was needed.
+
+### W3, track R: O8 landed (merge `4487adfc`)
+
+**Commits:** `edaff499` (O8.1), `03a0ba45` (O8.2), `77255ea8` (O8.3), `95515bf4` (O8.4), `d2add488` (O8.5, cut-over), `67936a44` (O8.6, deletion), `93161d64` (O8.7), `40b32c14` (O8.8).
+
+The PostgreSQL catalog is now the only publication authority.
+
+**Registry and catalog:**
+- `MemberDescriptor` is one registry named structure, kept out of identity and fingerprint projections.
+- The catalog statements, written for Cornucopia, own:
+  - workspaces;
+  - intents (X9);
+  - a commit compare-and-set with a complete-request comparison, which refuses a second publication of the same attempt as `PublicationIdentityReused`;
+  - settlement: committed, proved_noncommit and conflict with reason and head, where D9 settles a ticket with no registered intent as `ProvedNoncommit`;
+  - reader leases that renew at a third of their TTL and cancel the reader on lapse;
+  - change windows;
+  - retention for the reasons publication, attempt and changes;
+  - maintenance epochs and two-phase deletion.
+
+**pse-catalog** keeps Delta member I/O:
+- candidates that make nothing visible;
+- member receipts v4, with v3 refused as MigrationRequired;
+- `ReadScope` as the only cache key (X10);
+- export manifests (X12);
+- `collect`, `remove_tables` and `remove_prefix`.
+
+**Runtime and Python:**
+- The runtime publishes on the durable attempt id through an intent (X9).
+- Python gains `register_workspace`, `workspace` and `head`; `Published`; `open` and `open_head` through a reader-lease guard; export and offline `open_export`.
+- New `pse-publication` binary (export, retire, collect, reclaim), plus the `publication-test` and `pse-publication` recipes.
+
+**Deleted:**
+- the Delta control relation `runtime.publications`, together with `release_checkpoints`;
+- `publish.rs`, `lease.rs`, `.pse-retention.lock`, `retention.rs`, ticket `settle`/`observe` and `PublicationRoot`;
+- `prepare_checkpoint`, which had no caller and whose identity clashed with D1;
+- the Python `pse.open(location, version)`, `PublicationRoot` and `PublicationRequest`;
+- the control-mechanism tests.
+
+The xtask inspection fixture is now an export manifest, so it needs PostgreSQL to generate.
+
+**Additions and deviations:**
+- **Retirement refinement.** Retiring a publication also removes inputs whose writer is already deleted, so a table written by a retired publication and read by a live one does not leak.
+- **Retry without rewriting.** `ArtifactPlan::with_operation(attempt_id)` names the member writes, so a conflict loser re-prepares without rewriting members (the concurrency test confirms version 1 stays).
+- **Commit grouping.** The O8.2 commit also carries statements, the repository and store tests, because the query crate needs them.
+- **Also updated:** `docs/dev/native-workflow.md`.
+
+**Merge resolution:**
+- generated trees regenerated in bootstrap order;
+- `test_modeling_run.py` combines O8's publication API with B5's typed settings;
+- four B7 typed-id mismatches in the native-acceptance test support fixed (`tests/support/plan14.rs`, `acceptance/global_certification.rs`). The B7 verification had not compiled `pse-tests-conformance` with `native-acceptance`; that compile is now part of every native merge check.
+
+**Tests on `main` after the merge** (zero baseline, `PSE_SOLVER_IMAGE` set):
+
+| Command | Result |
+|---|---|
+| `just publication-test` | 9 passed |
+| `just db-test` | 53 passed |
+| `cargo nextest run -p pse-catalog` (force-validate) | 148 passed |
+| `cargo nextest run -p pse-tests-engine -p pse-tests-lifecycle` | 16 passed |
+| Runtime native units | 154 passed |
+| `just worker-test` | 1 passed |
+| `just native-test -E 'test(authored_publication_resource)'` | 1 passed (262 s) |
+| `just governance-tests` | 87 passed |
+| `just unit-invariant-harness 'all()'` | 411 passed |
+| `just codegen-check`, `just conformance-fixtures-check`, `just family-check` | clean |
+
+**Python:**
+- The unit and component scopes and the durable publication tests pass, once the inspection fixture is built.
+- `just inspection-fixture <dir>`, then `PSE_INSPECTION_PUBLICATION=<dir>` under `scripts/native-execution-env.sh`: 22 passed across `test_publication_streams`, `test_native_registry` and `test_native_caches`. The remaining unit and component tests: 144 passed.
+- **Harness gap, for W6:** `just py-test` builds the fixture but runs pytest without the native library environment. `py-test` needs a native variant, or `native_exec`.
+
+**Findings.** T02 is resolved by catalog reader leases held in short transactions; T16 by retention computed in catalog SQL, with windows, and with the lock file deleted. Evidence: `maintenance_waits_for_reader_leases`, `catalog_protects_published_versions`, `interrupted_deletion_resumes`.
+
+### W4, track V: G8 and O5's incumbents landed (merge `b80f8d4c`)
+
+**Commits:** `62231cb0`, `5f314f0c`, `431d4d39`, `6b05f58d`, `52d0cc2d`.
+
+**What landed:**
+- **Typed incumbent events.** The native `Event` carries a typed `IncumbentEvent`: objective in post-solve convention with the export offset, dual bound, gap, nodes, seconds and a throttled primal. Non-finite values are `None`.
+  - SCIP reads incumbents from `SCIPgetBestSol` over the export's program columns, including the solution it holds at `initsol`, and only in the INITSOLVE to SOLVED stages (`SCIPgetGap` aborts earlier).
+  - HiGHS emits one on callback kind 4, scaled to original coordinates.
+  - Throttle: the first solution is captured immediately, then at most one per second, and the last incumbent always has a solution.
+- **Durable sink.** The streamer stores each captured primal as a seed of its step (NLP seeds from SCIP, HiGHS seeds from HiGHS), plus an incumbents row, in one transaction. A new statement, `latest_in_attempt_chain`, follows `parent_attempt`.
+- **Resume.** A claimed job honours `JobStart::ResumeFromParent` and `StoredSolution` through `with_stored_start` (`StartSource::Stored`, SCIP injection or HiGHS start), recorded as the try's `job.start` event. The "until G8" refusal is deleted.
+- **Deleted:** `SolveReport::incumbents` and the duplicated bound metrics.
+
+**Deviations:**
+- HiGHS kind 3 is not an incumbent, because it fires for non-improving feasible solutions.
+- The worker tests need `--memory-mib 8192` for SCIP.
+- New `Runtime::work_once_with_result`.
+
+**Open follow-ups:**
+- durable incumbents are not published to Delta;
+- the incumbents table has no `step` column;
+- pse-py `ProgressEvent` does not expose the incumbent;
+- captured solutions are never pruned;
+- `StoredStart::Latest` may pick an incumbent capture;
+- SCIP concurrent mode is untested;
+- SCIP objectives for nonlinear objectives are epigraph values;
+- architecture §5.3 still says the store stream is "not yet" built (docs step).
+
+**Tests on `main` after the merge** (zero baseline, `PSE_SOLVER_IMAGE` set):
+
+| Command | Result |
+|---|---|
+| `just check-solver-contracts`; `pse-tests-conformance` check with `native-acceptance,native-profiles,math-composition` | compile |
+| Backend native units | 180 passed |
+| Runtime native units | 157 passed |
+| `just db-test` | 54 passed |
+| `just worker-test` | 3 passed: `killed_worker_attempt_goes_stale_and_resumes_from_incumbent`, `cross_process_cancel_stops_scip`, end-to-end |
+| `just publication-test` | 9 passed |
+| `just native-test -E 'binary_id(pse-tests-conformance) and test(/coefficient_conic/)'` | 2 passed |
+| `just codegen-check` | exit 0 |
+| `just governance-tests` | 87 passed |
