@@ -9,6 +9,7 @@
 //! generator does not read: `cargo xtask codegen` renders `fingerprint.rs` with
 //! [`fingerprint_file`] from both files.
 
+mod copy;
 mod ddl;
 mod mapping;
 pub(crate) mod names;
@@ -80,10 +81,12 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub const SCHEMA_SQL: &str = include_str!("schema.sql");
             /// Cornucopia's type mapping from store types to registry Rust types.
             pub const CORNUCOPIA_TOML: &str = include_str!("cornucopia.toml");
+            pub mod copy;
             mod fingerprint;
             pub use fingerprint::{RECORD_SQL, SCHEMA_FINGERPRINT, SCHEMA_FINGERPRINT_HEX};
         },
     )?;
+    emit_rust(&mut tree, "copy.rs", copy::render(reg))?;
     Ok(tree)
 }
 

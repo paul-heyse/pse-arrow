@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! The durable job queue from the runtime's side (ADR-0112 Outcomes 14, 15 and 18; Plan 22
+//! The durable job queue from the runtime's side (ADR-0114 Outcomes 14, 15 and 18; Plan 22
 //! O4): versioned job payloads over content-addressed source bundles, and the worker that
 //! claims jobs, runs them under its lease and ends each try through the job's retry
 //! policy.
@@ -139,7 +139,7 @@ pub enum Processed {
     /// A claimed job's try ended; the record says how.
     Ran {
         /// The job.
-        job: SemanticId,
+        job: pse_operations::jobs::JobId,
         /// The try's durable record.
         record: Box<DurableRecord>,
     },
@@ -183,7 +183,7 @@ fn operations(runtime: &Runtime) -> Result<&Operations, WorkflowError> {
     match &runtime.durability {
         Durability::Durable(operations) => Ok(operations),
         Durability::Ephemeral => Err(contract(
-            "the job queue needs a durable runtime (ADR-0112 Outcome 16)",
+            "the job queue needs a durable runtime (ADR-0114 Outcome 16)",
         )),
     }
 }
@@ -210,7 +210,7 @@ impl Operations {
         self.store()
             .sources()
             .put(&SourceBundle {
-                bundle_hash,
+                bundle_hash: bundle_hash.into(),
                 manifest: serde_json::json!({ "paths": texts.keys().collect::<Vec<_>>() }),
                 documents,
             })
@@ -226,7 +226,7 @@ impl Operations {
         &self,
         bundle: &ContentHash,
     ) -> Result<BTreeMap<String, String>, WorkflowError> {
-        let stored = self.store().sources().get(bundle).await?;
+        let stored = self.store().sources().get(&(*bundle).into()).await?;
         let mut texts = BTreeMap::new();
         for document in stored.documents {
             if pse_ids::encoding_checksum(document.content.as_bytes()).content_hash()

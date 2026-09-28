@@ -59,7 +59,42 @@ fn ddl_covers_store_relations_enums_identities() {
     for name in ddl::enums(registry) {
         assert!(mapping.contains(&format!("\"pse_ops.{}\"", names::enum_type(name))));
     }
+    // Every table's row type maps to the registry row it stores, owned (X7).
+    for (table, _) in &relations {
+        assert!(
+            mapping.contains(&format!("\"pse_ops.{table}\" = {{ rust-type = ")),
+            "{table} row type is not mapped"
+        );
+    }
+    assert!(mapping.contains(
+        "\"pse_ops.attempts\" = { rust-type = \"pse_model::generated::runtime::operational_attempts::RuntimeOperationalAttemptsRow\", is-copy = false }"
+    ));
     assert!(text(&tree, "mod.rs").contains("include_str!(\"schema.sql\")"));
+}
+
+#[test]
+fn copy_statements_cover_store_tables() {
+    let registry = crate::registry().unwrap();
+    let tree = crate::codegen::generate(registry, Language::Postgres).unwrap();
+    let copy = text(&tree, "copy.rs");
+    for (table, spec) in pse_schema::store::relations(registry) {
+        let columns = spec
+            .columns
+            .iter()
+            .map(|column| format!("\\\"{}\\\"", column.name()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        assert!(
+            copy.contains(&format!(
+                "COPY pse_ops.\\\"{table}\\\" ({columns}) FROM STDIN (FORMAT binary)"
+            )),
+            "{table} has no binary copy"
+        );
+        assert!(copy.contains(&format!(
+            "SELECT {columns} FROM pse_ops.\\\"{table}\\\" WHERE false"
+        )));
+    }
+    assert!(text(&tree, "mod.rs").contains("pub mod copy;"));
 }
 
 #[test]

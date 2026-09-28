@@ -10,15 +10,19 @@
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use pse_ids::SemanticId;
-use sqlx::postgres::PgRow;
-use sqlx::{FromRow, PgConnection, Row};
+use pse_operations_queries::client::Params as _;
+use pse_operations_queries::queries::jobs as statements;
 
-use crate::attempts::{self, Lease, NewAttempt, TransitionNote};
-use crate::codec;
+use crate::attempts::{self, AttemptId, Lease, NewAttempt, TransitionNote, Tx, micros, utc};
 use crate::error::{Classify, OperationsError, Target};
 use crate::lifecycle::AttemptState;
 use crate::store::Store;
+/// The queue state of a job (registry enumeration `JobState`): queued, running, completed
+/// (with a completed or partial attempt), failed (not retried further) or cancelled. The
+/// attempt carries the lifecycle of each try.
+pub use pse_model::generated::enums::JobState;
+pub use pse_model::generated::identities::JobId;
+pub use pse_model::generated::runtime::operational_jobs::RuntimeOperationalJobsRow;
 
 /// The notification channel for new jobs; the payload is the job identity.
 pub const JOBS_CHANNEL: &str = "pse_ops_jobs";
@@ -41,6 +45,29 @@ impl RetryPolicy {
         backoff: Duration::ZERO,
         backoff_cap: Duration::ZERO,
     };
+
+    /// The policy a stored job carries.
+    ///
+    /// # Errors
+    /// [`OperationsError::CorruptValue`] for a negative count or backoff.
+    pub fn of(job: &RuntimeOperationalJobsRow) -> Result<Self, OperationsError> {
+        let duration = |column: &'static str, micros: i64| {
+            u64::try_from(micros)
+                .map(Duration::from_micros)
+                .map_err(|_| OperationsError::CorruptValue {
+                    column,
+                    detail: format!("negative backoff {micros}"),
+                })
+        };
+        Ok(Self {
+            max_tries: u32::try_from(job.max_tries).map_err(|_| OperationsError::CorruptValue {
+                column: "jobs.max_tries",
+                detail: format!("negative max_tries {}", job.max_tries),
+            })?,
+            backoff: duration("jobs.backoff_base_us", job.backoff_base_us)?,
+            backoff_cap: duration("jobs.backoff_cap_us", job.backoff_cap_us)?,
+        })
+    }
 
     /// The delay before try number `next_try` (1-based), or `None` when the policy is
     /// exhausted. The first try has no delay; later tries back off exponentially up to
@@ -73,11 +100,6 @@ impl RetryPolicy {
     }
 }
 
-/// The queue state of a job (registry enumeration `JobState`): queued, running, completed
-/// (with a completed or partial attempt), failed (not retried further) or cancelled. The
-/// attempt carries the lifecycle of each try.
-pub use pse_model::generated::enums::JobState;
-
 /// Work to enqueue together with its first attempt.
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewJob {
@@ -101,29 +123,29 @@ pub enum Enqueued {
     /// A new job and attempt were stored.
     Created {
         /// The job.
-        job_id: SemanticId,
+        job_id: JobId,
         /// Its first attempt.
-        attempt_id: SemanticId,
+        attempt_id: AttemptId,
     },
     /// The idempotency key already named a job; nothing was stored.
     Existing {
         /// The existing job.
-        job_id: SemanticId,
+        job_id: JobId,
         /// Its current attempt.
-        attempt_id: SemanticId,
+        attempt_id: AttemptId,
     },
 }
 
 impl Enqueued {
     /// The job, created or existing.
-    pub const fn job_id(&self) -> SemanticId {
+    pub const fn job_id(&self) -> JobId {
         match self {
             Self::Created { job_id, .. } | Self::Existing { job_id, .. } => *job_id,
         }
     }
 
     /// The job's current attempt.
-    pub const fn attempt_id(&self) -> SemanticId {
+    pub const fn attempt_id(&self) -> AttemptId {
         match self {
             Self::Created { attempt_id, .. } | Self::Existing { attempt_id, .. } => *attempt_id,
         }
@@ -134,9 +156,9 @@ impl Enqueued {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ClaimedJob {
     /// The job.
-    pub job_id: SemanticId,
+    pub job_id: JobId,
     /// The attempt this try runs as.
-    pub attempt_id: SemanticId,
+    pub attempt_id: AttemptId,
     /// The payload format version.
     pub payload_version: i32,
     /// The payload.
@@ -145,75 +167,6 @@ pub struct ClaimedJob {
     pub try_number: i32,
     /// The lease expiry; extend it with [`crate::attempts::Attempts::heartbeat`].
     pub lease_expires_at: DateTime<Utc>,
-}
-
-/// A job as stored.
-#[derive(Clone, Debug, PartialEq)]
-pub struct JobRecord {
-    /// The job.
-    pub job_id: SemanticId,
-    /// Its current attempt.
-    pub attempt_id: SemanticId,
-    /// Its idempotency key.
-    pub idempotency_key: String,
-    /// The payload format version.
-    pub payload_version: i32,
-    /// The priority.
-    pub priority: i32,
-    /// The queue state.
-    pub state: JobState,
-    /// Tries so far.
-    pub tries: i32,
-    /// The retry policy.
-    pub retry: RetryPolicy,
-    /// When the job may next be claimed.
-    pub available_at: DateTime<Utc>,
-    /// Why the last try ended without success.
-    pub last_error: Option<String>,
-}
-
-/// A backoff column: integral microseconds.
-fn duration(row: &PgRow, column: &str) -> Result<Duration, sqlx::Error> {
-    let micros: i64 = row.try_get(column)?;
-    let micros = u64::try_from(micros).map_err(|_| sqlx::Error::ColumnDecode {
-        index: column.to_owned(),
-        source: "negative backoff".into(),
-    })?;
-    Ok(Duration::from_micros(micros))
-}
-
-/// The backoff column value of a duration: integral microseconds, saturating.
-fn micros(duration: Duration) -> i64 {
-    i64::try_from(duration.as_micros()).unwrap_or(i64::MAX)
-}
-
-fn policy(row: &PgRow) -> Result<RetryPolicy, sqlx::Error> {
-    let max_tries: i32 = row.try_get("max_tries")?;
-    Ok(RetryPolicy {
-        max_tries: u32::try_from(max_tries).map_err(|_| sqlx::Error::ColumnDecode {
-            index: "max_tries".to_owned(),
-            source: "negative max_tries".into(),
-        })?,
-        backoff: duration(row, "backoff_base_us")?,
-        backoff_cap: duration(row, "backoff_cap_us")?,
-    })
-}
-
-impl FromRow<'_, PgRow> for JobRecord {
-    fn from_row(row: &PgRow) -> Result<Self, sqlx::Error> {
-        Ok(Self {
-            job_id: codec::id(row, "job_id")?,
-            attempt_id: codec::id(row, "attempt_id")?,
-            idempotency_key: row.try_get("idempotency_key")?,
-            payload_version: row.try_get("payload_version")?,
-            priority: row.try_get("priority")?,
-            state: codec::parsed(row, "state")?,
-            tries: row.try_get("tries")?,
-            retry: policy(row)?,
-            available_at: row.try_get("available_at")?,
-            last_error: row.try_get("last_error")?,
-        })
-    }
 }
 
 /// How a worker ends its try.
@@ -225,7 +178,7 @@ pub struct JobOutcome {
     pub note: TransitionNote,
     /// For a failed try: retry as this new attempt (minted by the caller) if the policy
     /// still allows another try.
-    pub retry_as: Option<SemanticId>,
+    pub retry_as: Option<AttemptId>,
 }
 
 /// What finishing a try did to the job.
@@ -236,7 +189,7 @@ pub enum Finished {
     /// The job was requeued as a new attempt.
     Requeued {
         /// The new attempt.
-        attempt_id: SemanticId,
+        attempt_id: AttemptId,
         /// When it may be claimed.
         available_at: DateTime<Utc>,
     },
@@ -246,91 +199,72 @@ pub enum Finished {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Requeue {
     /// The job.
-    pub job_id: SemanticId,
+    pub job_id: JobId,
     /// The attempt whose lease expired; now stale or superseded.
-    pub stale_attempt: SemanticId,
+    pub stale_attempt: AttemptId,
     /// What happened to the job.
     pub outcome: Finished,
 }
 
-struct LockedJob {
-    job_id: SemanticId,
-    attempt_id: SemanticId,
-    state: JobState,
-    tries: i32,
-    retry: RetryPolicy,
-}
-
 async fn lock_job(
-    conn: &mut PgConnection,
+    tx: &Tx<'_>,
     target: &Target,
-    job: SemanticId,
-) -> Result<LockedJob, OperationsError> {
-    let row = sqlx::query(
-        "SELECT job_id, attempt_id, state::text AS state, tries, max_tries, backoff_base_us, \
-             backoff_cap_us \
-         FROM pse_ops.jobs WHERE job_id = $1 FOR UPDATE",
-    )
-    .bind(codec::uuid(job))
-    .fetch_optional(&mut *conn)
-    .await
-    .classify(target)?
-    .ok_or_else(|| OperationsError::NotFound {
-        entity: "job",
-        id: job.to_string(),
-    })?;
-    Ok(LockedJob {
-        job_id: codec::id(&row, "job_id").classify(target)?,
-        attempt_id: codec::id(&row, "attempt_id").classify(target)?,
-        state: codec::parsed(&row, "state").classify(target)?,
-        tries: row.try_get("tries").classify(target)?,
-        retry: policy(&row).classify(target)?,
-    })
+    job: JobId,
+) -> Result<RuntimeOperationalJobsRow, OperationsError> {
+    statements::lock_job()
+        .bind(tx, &job)
+        .opt()
+        .await
+        .classify(target)?
+        .ok_or_else(|| OperationsError::NotFound {
+            entity: "job",
+            id: job.to_string(),
+        })
 }
 
-async fn set_job_state(
-    conn: &mut PgConnection,
+pub(crate) async fn set_job_state(
+    tx: &Tx<'_>,
     target: &Target,
-    job: SemanticId,
+    job: JobId,
     state: JobState,
     error: Option<&str>,
 ) -> Result<(), OperationsError> {
-    sqlx::query(
-        "UPDATE pse_ops.jobs SET state = $2::pse_ops.job_state, \
-             last_error = coalesce($3, last_error), updated_at = now() \
-         WHERE job_id = $1",
-    )
-    .bind(codec::uuid(job))
-    .bind(state.as_str())
-    .bind(error)
-    .execute(&mut *conn)
-    .await
-    .classify(target)?;
+    statements::set_job_state()
+        .params(
+            tx,
+            &statements::SetJobStateParams {
+                state,
+                last_error: error,
+                job_id: job,
+            },
+        )
+        .await
+        .classify(target)?;
     Ok(())
 }
 
-/// Requeue `job` as `next`, a new attempt whose parent is `previous`, when the retry
-/// policy allows another try; otherwise end the job as failed. A cancellation requested
-/// on the previous attempt ends the job as cancelled instead.
+/// Requeue `job` as `next`, a new attempt whose parent is its current attempt, when the
+/// retry policy allows another try; otherwise end the job as failed. A cancellation
+/// requested on the previous attempt ends the job as cancelled instead.
 async fn requeue(
-    conn: &mut PgConnection,
+    tx: &Tx<'_>,
     target: &Target,
-    job: &LockedJob,
-    previous: SemanticId,
-    next: SemanticId,
+    job: &RuntimeOperationalJobsRow,
+    next: AttemptId,
     reason: &str,
 ) -> Result<Finished, OperationsError> {
-    let prior = attempts::fetch(conn, target, previous).await?;
+    let previous = job.attempt_id;
+    let prior = attempts::fetch(tx, target, previous).await?;
     if prior.cancel_requested {
-        set_job_state(conn, target, job.job_id, JobState::Cancelled, Some(reason)).await?;
+        set_job_state(tx, target, job.job_id, JobState::Cancelled, Some(reason)).await?;
         return Ok(Finished::Ended(JobState::Cancelled));
     }
     let next_try = u32::try_from(job.tries)
         .unwrap_or(u32::MAX)
         .saturating_add(1);
-    let Some(delay) = job.retry.delay_before(next_try) else {
+    let Some(delay) = RetryPolicy::of(job)?.delay_before(next_try) else {
         let exhausted = format!("{reason}; retries exhausted after {} tries", job.tries);
-        set_job_state(conn, target, job.job_id, JobState::Failed, Some(&exhausted)).await?;
+        set_job_state(tx, target, job.job_id, JobState::Failed, Some(&exhausted)).await?;
         return Ok(Finished::Ended(JobState::Failed));
     };
     let attempt = NewAttempt {
@@ -341,13 +275,13 @@ async fn requeue(
         preparation_identity: prior.preparation_identity,
         parent_attempt: Some(previous),
     };
-    attempts::insert(conn, target, &attempt, Some("retry")).await?;
+    attempts::insert(tx, target, &attempt, Some("retry")).await?;
     let queued = TransitionNote::by("retry").because(format!("try {next_try} after {previous}"));
-    attempts::apply(conn, target, next, AttemptState::Queued, &queued, None).await?;
+    attempts::apply(tx, target, next, AttemptState::Queued, &queued, None).await?;
     if prior.state == AttemptState::Stale {
         let superseded = TransitionNote::by("retry").because(format!("superseded by {next}"));
         attempts::apply(
-            conn,
+            tx,
             target,
             previous,
             AttemptState::Superseded,
@@ -356,18 +290,20 @@ async fn requeue(
         )
         .await?;
     }
-    let available_at: DateTime<Utc> = sqlx::query_scalar(
-        "UPDATE pse_ops.jobs SET attempt_id = $2, state = 'queued', \
-             available_at = now() + $3, last_error = $4, updated_at = now() \
-         WHERE job_id = $1 RETURNING available_at",
-    )
-    .bind(codec::uuid(job.job_id))
-    .bind(codec::uuid(next))
-    .bind(codec::interval(delay))
-    .bind(reason)
-    .fetch_one(&mut *conn)
-    .await
-    .classify(target)?;
+    let available_at = statements::requeue_job()
+        .params(
+            tx,
+            &statements::RequeueJobParams {
+                attempt_id: next,
+                state: JobState::Queued,
+                delay_us: micros(delay),
+                last_error: reason,
+                job_id: job.job_id,
+            },
+        )
+        .one()
+        .await
+        .classify(target)?;
     Ok(Finished::Requeued {
         attempt_id: next,
         available_at,
@@ -408,11 +344,12 @@ impl<'s> Jobs<'s> {
             return Ok(existing);
         }
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        attempts::insert(&mut tx, target, &job.attempt, Some("enqueue")).await?;
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        attempts::insert(&tx, target, &job.attempt, Some("enqueue")).await?;
         let note = TransitionNote::by("enqueue");
         attempts::apply(
-            &mut tx,
+            &tx,
             target,
             job.attempt.attempt_id,
             AttemptState::Queued,
@@ -420,29 +357,29 @@ impl<'s> Jobs<'s> {
             None,
         )
         .await?;
-        let max_tries = i32::try_from(job.retry.max_tries).unwrap_or(i32::MAX);
         // The job identity is minted here, on the runtime's UUIDv7 path; the store mints
         // no domain identity (ADR-0114 Outcome 13).
-        let job_id = codec::mint_id();
-        let created: Option<uuid::Uuid> = sqlx::query_scalar(
-            "INSERT INTO pse_ops.jobs (job_id, attempt_id, idempotency_key, payload_version, \
-                 payload, priority, state, max_tries, backoff_base_us, backoff_cap_us) \
-             VALUES ($9, $1, $2, $3, $4, $5, 'queued', $6, $7, $8) \
-             ON CONFLICT (idempotency_key) DO NOTHING RETURNING job_id",
-        )
-        .bind(codec::uuid(job.attempt.attempt_id))
-        .bind(&job.idempotency_key)
-        .bind(job.payload_version)
-        .bind(&job.payload)
-        .bind(job.priority)
-        .bind(max_tries)
-        .bind(micros(job.retry.backoff))
-        .bind(micros(job.retry.backoff_cap))
-        .bind(codec::uuid(job_id))
-        .fetch_optional(&mut *tx)
-        .await
-        .classify(target)?;
-        let Some(job_id) = created else {
+        let job_id: JobId = crate::mint_id();
+        let created = statements::insert_job()
+            .params(
+                &tx,
+                &statements::InsertJobParams {
+                    job_id,
+                    attempt_id: job.attempt.attempt_id,
+                    idempotency_key: job.idempotency_key.as_str(),
+                    payload_version: job.payload_version,
+                    payload: &job.payload,
+                    priority: job.priority,
+                    state: JobState::Queued,
+                    max_tries: i32::try_from(job.retry.max_tries).unwrap_or(i32::MAX),
+                    backoff_base_us: micros(job.retry.backoff),
+                    backoff_cap_us: micros(job.retry.backoff_cap),
+                },
+            )
+            .opt()
+            .await
+            .classify(target)?;
+        if created.is_none() {
             // A concurrent enqueue with the same key committed first: undo our attempt.
             tx.rollback().await.classify(target)?;
             return self
@@ -452,37 +389,28 @@ impl<'s> Jobs<'s> {
                     entity: "job with idempotency key",
                     id: job.idempotency_key.clone(),
                 });
-        };
+        }
         // Wakes idle workers when the transaction commits; workers also poll, so a lost
         // notification only delays a claim.
-        sqlx::query("SELECT pg_notify($1, $2)")
-            .bind(JOBS_CHANNEL)
-            .bind(job_id.to_string())
-            .execute(&mut *tx)
-            .await
-            .classify(target)?;
+        attempts::notify(&tx, target, JOBS_CHANNEL, &job_id.to_string()).await?;
         tx.commit().await.classify(target)?;
         Ok(Enqueued::Created {
-            job_id: SemanticId::from_bytes(job_id.into_bytes()),
+            job_id,
             attempt_id: job.attempt.attempt_id,
         })
     }
 
     async fn find_by_key(&self, key: &str) -> Result<Option<Enqueued>, OperationsError> {
-        let row =
-            sqlx::query("SELECT job_id, attempt_id FROM pse_ops.jobs WHERE idempotency_key = $1")
-                .bind(key)
-                .fetch_optional(self.store.pool())
-                .await
-                .classify(self.target())?;
-        row.map(|row| {
-            Ok(Enqueued::Existing {
-                job_id: codec::id(&row, "job_id")?,
-                attempt_id: codec::id(&row, "attempt_id")?,
-            })
-        })
-        .transpose()
-        .classify(self.target())
+        let client = self.store.client().await?;
+        let job = statements::job_by_key()
+            .bind(&client, &key)
+            .opt()
+            .await
+            .classify(self.target())?;
+        Ok(job.map(|job| Enqueued::Existing {
+            job_id: job.job_id,
+            attempt_id: job.attempt_id,
+        }))
     }
 
     /// Read one job.
@@ -490,21 +418,17 @@ impl<'s> Jobs<'s> {
     /// # Errors
     ///
     /// [`OperationsError::NotFound`]; classified driver failures.
-    pub async fn get(&self, job: SemanticId) -> Result<JobRecord, OperationsError> {
-        sqlx::query_as(
-            "SELECT job_id, attempt_id, idempotency_key, payload_version, priority, \
-                 state::text AS state, tries, max_tries, backoff_base_us, backoff_cap_us, \
-                 available_at, last_error \
-             FROM pse_ops.jobs WHERE job_id = $1",
-        )
-        .bind(codec::uuid(job))
-        .fetch_optional(self.store.pool())
-        .await
-        .classify(self.target())?
-        .ok_or_else(|| OperationsError::NotFound {
-            entity: "job",
-            id: job.to_string(),
-        })
+    pub async fn get(&self, job: JobId) -> Result<RuntimeOperationalJobsRow, OperationsError> {
+        let client = self.store.client().await?;
+        statements::job()
+            .bind(&client, &job)
+            .opt()
+            .await
+            .classify(self.target())?
+            .ok_or_else(|| OperationsError::NotFound {
+                entity: "job",
+                id: job.to_string(),
+            })
     }
 
     /// Claim the next available job for `worker`: the highest priority, then the oldest
@@ -513,41 +437,31 @@ impl<'s> Jobs<'s> {
     ///
     /// # Errors
     ///
-    /// Classified driver failures.
+    /// [`OperationsError::CorruptValue`] for a stored payload that is not JSON; classified
+    /// driver failures.
     pub async fn claim(
         &self,
         worker: &str,
         lease: Duration,
     ) -> Result<Option<ClaimedJob>, OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        let row = sqlx::query(
-            "WITH next AS ( \
-                 SELECT job_id FROM pse_ops.jobs \
-                 WHERE state = 'queued' AND available_at <= now() \
-                 ORDER BY priority DESC, available_at, job_id \
-                 LIMIT 1 FOR UPDATE SKIP LOCKED \
-             ) \
-             UPDATE pse_ops.jobs AS j SET state = 'running', tries = j.tries + 1, updated_at = now() \
-             FROM next WHERE j.job_id = next.job_id \
-             RETURNING j.job_id, j.attempt_id, j.payload_version, j.payload, j.tries",
-        )
-        .fetch_optional(&mut *tx)
-        .await
-        .classify(target)?;
-        let Some(row) = row else {
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let Some(job) = statements::claim_job()
+            .bind(&tx, &JobState::Running)
+            .opt()
+            .await
+            .classify(target)?
+        else {
             tx.rollback().await.classify(target)?;
             return Ok(None);
         };
-        let job_id = codec::id(&row, "job_id").classify(target)?;
-        let attempt_id = codec::id(&row, "attempt_id").classify(target)?;
-        let try_number: i32 = row.try_get("tries").classify(target)?;
-        let note =
-            TransitionNote::by(worker).because(format!("claimed job {job_id}, try {try_number}"));
+        let note = TransitionNote::by(worker)
+            .because(format!("claimed job {}, try {}", job.job_id, job.tries));
         attempts::apply(
-            &mut tx,
+            &tx,
             target,
-            attempt_id,
+            job.attempt_id,
             AttemptState::Running,
             &note,
             Some(Lease {
@@ -556,21 +470,26 @@ impl<'s> Jobs<'s> {
             }),
         )
         .await?;
-        let lease_expires_at: DateTime<Utc> = sqlx::query_scalar(
-            "SELECT lease_expires_at FROM pse_ops.attempts WHERE attempt_id = $1",
-        )
-        .bind(codec::uuid(attempt_id))
-        .fetch_one(&mut *tx)
-        .await
-        .classify(target)?;
+        let attempt = attempts::fetch(&tx, target, job.attempt_id).await?;
         tx.commit().await.classify(target)?;
+        let lease_expires_at = attempt.lease_expires_at.ok_or_else(|| {
+            OperationsError::CorruptValue {
+                column: "attempts.lease_expires_at",
+                detail: format!("running attempt {} holds no lease", job.attempt_id),
+            }
+        })?;
         Ok(Some(ClaimedJob {
-            job_id,
-            attempt_id,
-            payload_version: row.try_get("payload_version").classify(target)?,
-            payload: row.try_get("payload").classify(target)?,
-            try_number,
-            lease_expires_at,
+            job_id: job.job_id,
+            attempt_id: job.attempt_id,
+            payload_version: job.payload_version,
+            payload: serde_json::from_str(&job.payload).map_err(|error| {
+                OperationsError::CorruptValue {
+                    column: "jobs.payload",
+                    detail: error.to_string(),
+                }
+            })?,
+            try_number: job.tries,
+            lease_expires_at: utc("attempts.lease_expires_at", lease_expires_at)?,
         }))
     }
 
@@ -584,7 +503,7 @@ impl<'s> Jobs<'s> {
     /// outcome that does not end work; classified driver failures.
     pub async fn finish(
         &self,
-        job: SemanticId,
+        job: JobId,
         worker: &str,
         outcome: &JobOutcome,
     ) -> Result<Finished, OperationsError> {
@@ -600,17 +519,21 @@ impl<'s> Jobs<'s> {
             });
         }
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        let locked = lock_job(&mut tx, target, job).await?;
-        let owner: Option<String> = sqlx::query_scalar(
-            "SELECT worker FROM pse_ops.attempts \
-             WHERE attempt_id = $1 AND state = 'running' FOR UPDATE",
-        )
-        .bind(codec::uuid(locked.attempt_id))
-        .fetch_optional(&mut *tx)
-        .await
-        .classify(target)?
-        .flatten();
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let locked = lock_job(&tx, target, job).await?;
+        let owner = statements::running_owner()
+            .params(
+                &tx,
+                &statements::RunningOwnerParams {
+                    attempt_id: locked.attempt_id,
+                    running: AttemptState::Running,
+                },
+            )
+            .opt()
+            .await
+            .classify(target)?
+            .flatten();
         if locked.state != JobState::Running || owner.as_deref() != Some(worker) {
             return Err(OperationsError::LeaseLost {
                 attempt: locked.attempt_id,
@@ -618,7 +541,7 @@ impl<'s> Jobs<'s> {
             });
         }
         attempts::apply(
-            &mut tx,
+            &tx,
             target,
             locked.attempt_id,
             outcome.state,
@@ -633,7 +556,7 @@ impl<'s> Jobs<'s> {
                     .reason
                     .clone()
                     .unwrap_or_else(|| "try failed".to_owned());
-                requeue(&mut tx, target, &locked, locked.attempt_id, next, &reason).await?
+                requeue(&tx, target, &locked, next, &reason).await?
             }
             (state, _) => {
                 let ended = match state {
@@ -641,7 +564,7 @@ impl<'s> Jobs<'s> {
                     AttemptState::Cancelled => JobState::Cancelled,
                     _ => JobState::Failed,
                 };
-                set_job_state(&mut tx, target, job, ended, outcome.note.reason.as_deref()).await?;
+                set_job_state(&tx, target, job, ended, outcome.note.reason.as_deref()).await?;
                 Finished::Ended(ended)
             }
         };
@@ -660,30 +583,24 @@ impl<'s> Jobs<'s> {
     pub async fn requeue_expired(
         &self,
         limit: i64,
-        mut mint: impl FnMut() -> SemanticId,
+        mut mint: impl FnMut() -> AttemptId,
     ) -> Result<Vec<Requeue>, OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        let rows = sqlx::query(
-            "SELECT j.job_id FROM pse_ops.jobs AS j \
-             JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id \
-             WHERE j.state = 'running' \
-               AND (a.state = 'stale' OR (a.state = 'running' AND a.lease_expires_at <= now())) \
-             ORDER BY j.job_id LIMIT $1 FOR UPDATE OF j SKIP LOCKED",
-        )
-        .bind(limit)
-        .fetch_all(&mut *tx)
-        .await
-        .classify(target)?;
-        let mut handled = Vec::with_capacity(rows.len());
-        for row in rows {
-            let job_id = codec::id(&row, "job_id").classify(target)?;
-            let locked = lock_job(&mut tx, target, job_id).await?;
-            let (state, _) = attempts::lock_state(&mut tx, target, locked.attempt_id).await?;
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let expired = statements::expired_jobs()
+            .bind(&tx, &limit)
+            .all()
+            .await
+            .classify(target)?;
+        let mut handled = Vec::with_capacity(expired.len());
+        for job_id in expired.into_iter().map(JobId::from_id) {
+            let locked = lock_job(&tx, target, job_id).await?;
+            let (state, _) = attempts::lock_state(&tx, target, locked.attempt_id).await?;
             if state == AttemptState::Running {
                 let note = TransitionNote::by("stale-sweep").because("lease expired");
                 attempts::apply(
-                    &mut tx,
+                    &tx,
                     target,
                     locked.attempt_id,
                     AttemptState::Stale,
@@ -692,15 +609,7 @@ impl<'s> Jobs<'s> {
                 )
                 .await?;
             }
-            let outcome = requeue(
-                &mut tx,
-                target,
-                &locked,
-                locked.attempt_id,
-                mint(),
-                "lease expired",
-            )
-            .await?;
+            let outcome = requeue(&tx, target, &locked, mint(), "lease expired").await?;
             handled.push(Requeue {
                 job_id,
                 stale_attempt: locked.attempt_id,

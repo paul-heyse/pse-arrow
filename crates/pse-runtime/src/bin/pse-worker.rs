@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! `pse-worker`: claim durable jobs from the operational store and run them (ADR-0112
+//! `pse-worker`: claim durable jobs from the operational store and run them (ADR-0114
 //! Outcome 18; Plan 22 O4).
 //!
 //! The worker is a composition root: one shared runtime and `MathService`, a durable
@@ -30,7 +30,7 @@ use pse_runtime::workflow::{
 };
 use pse_runtime::{CancelSource, ResourceBudget, SharedRuntime};
 
-/// Durable job worker (ADR-0112).
+/// Durable job worker (ADR-0114).
 #[derive(Debug, Parser)]
 #[command(name = "pse-worker", version)]
 struct Cli {

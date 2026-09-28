@@ -93,9 +93,8 @@ fetch-external:
 # `pse` over the local Unix socket with peer authentication, so no credential exists.
 db_default_url := replace_regex(read("crates/pse-operations/src/store.rs"), '(?s)^.*\npub const DEFAULT_DATABASE_URL: &str = "([^"]*)";.*$', '$1')
 db_url := env("PSE_DATABASE_URL", db_default_url)
-# Every recipe (test, unit-package, native-test, ...) gets the operational-store URL so the
-# #[sqlx::test] store tests run rather than fail; an explicit DATABASE_URL still wins.
-export DATABASE_URL := env("DATABASE_URL", db_url)
+# Store tests and query generation read PSE_DATABASE_URL themselves, falling back to the
+# same default; each store test creates and drops its own database on that server.
 
 [group('env')]
 [doc('Create the peer-authenticated login role for $USER (CREATEDB) and database `pse` it owns; idempotent; runs psql as postgres via sudo')]
@@ -135,8 +134,7 @@ db-backup dir:
     set -euo pipefail
     mkdir -p {{ quote(dir) }}
     file={{ quote(dir) }}/pse-$(date -u +%Y%m%dT%H%M%SZ).dump
-    # _sqlx_test is the #[sqlx::test] harness's bookkeeping, not operational state.
-    pg_dump --format=custom --exclude-schema=_sqlx_test --file="$file" --dbname={{ quote(db_url) }}
+    pg_dump --format=custom --file="$file" --dbname={{ quote(db_url) }}
     echo "$file"
 
 [group('env')]
@@ -146,12 +144,12 @@ db-restore file:
     pg_restore --clean --if-exists --no-owner --single-transaction --exit-on-error --dbname={{ quote(db_url) }} {{ quote(file) }}
 
 [group('local')]
-[doc('pse-operations tests; maps PSE_DATABASE_URL to DATABASE_URL so each #[sqlx::test] gets its own database')]
+[doc('pse-operations tests; each store test creates and drops its own database on the PSE_DATABASE_URL server')]
 db-test filter="package(pse-operations)" *args:
-    DATABASE_URL={{ quote(db_url) }} just unit-package pse-operations {{ quote(filter) }} {{ args }}
+    PSE_DATABASE_URL={{ quote(db_url) }} just unit-package pse-operations {{ quote(filter) }} {{ args }}
 
 [group('local')]
-[doc('Run the durable job worker (ADR-0112) against the operational store with the linked solver environment; e.g. --until-idle')]
+[doc('Run the durable job worker (ADR-0114) against the operational store with the linked solver environment; e.g. --until-idle')]
 pse-worker *args:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -288,6 +286,11 @@ codegen-docs-check:
 [doc('The operational store schema, Cornucopia mapping and fingerprint match a fresh regeneration')]
 codegen-postgres-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only postgres --check
+
+[group('local')]
+[doc('The operational store statements prepare against the generated schema and match the committed query crate; needs PostgreSQL (`just db-status`)')]
+codegen-queries-check:
+    cargo run -p xtask --no-default-features --locked -- codegen --only queries --check
 
 [group('local')]
 codegen-bindgen-check:
@@ -840,7 +843,7 @@ fmt:
     "{{ ruff }}" format
 
 [group('mutating')]
-[doc('Regenerate relations, Python contracts, docs/generated and the Ipopt bindings')]
+[doc('Regenerate relations, Python contracts, docs/generated, the store schema and statements, and the Ipopt bindings')]
 codegen *args:
     bash scripts/native_exec.sh cargo xtask codegen {{ args }}
 

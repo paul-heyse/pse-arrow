@@ -5,7 +5,6 @@
 use super::durable_tests::quick;
 use super::*;
 use pse_backend_native::solve::{Backend, SolveIntent};
-use pse_ids::SemanticId;
 use pse_operations::{
     jobs::{JobState, RetryPolicy},
     lifecycle::AttemptState,
@@ -185,17 +184,15 @@ async fn unknown_payload_version_refused() {
     let attempt = record.attempt.as_ref().unwrap();
     assert_eq!(attempt.state, AttemptState::Failed);
     // The typed diagnostic code, with the violated named contract in the detail (X4).
-    let termination = attempt.termination.as_ref().unwrap();
     assert_eq!(
-        termination.code,
-        pse_operations::attempts::TerminationCode::Rule(
+        pse_operations::attempts::TerminationCode::of(attempt).unwrap(),
+        Some(pse_operations::attempts::TerminationCode::Rule(
             pse_diagnostics::DiagnosticCode::ConfigInvalid
-        )
+        ))
     );
-    assert_eq!(
-        termination.detail.as_ref().unwrap()["rule"],
-        "workflow.job_payload_version"
-    );
+    let detail: serde_json::Value =
+        serde_json::from_str(attempt.termination_detail.as_deref().unwrap()).unwrap();
+    assert_eq!(detail["rule"], "workflow.job_payload_version");
     // A refusal is not an infrastructure failure: it is not retried, whatever the policy.
     let job = operations
         .store()
@@ -232,8 +229,8 @@ async fn blocked_try(
     database: &TestDatabase,
     runtime: &Runtime,
 ) -> (
-    SemanticId,
-    sqlx_lock::Lock,
+    pse_operations::attempts::AttemptId,
+    store_lock::Lock,
     tokio::task::JoinHandle<Result<Processed, WorkflowError>>,
 ) {
     let job = authored_job(runtime, SQUARE, ipopt()).await;
@@ -241,7 +238,7 @@ async fn blocked_try(
         .enqueue_modeling(&job, "blocked", retry(), 0)
         .await
         .unwrap();
-    let lock = sqlx_lock::Lock::source_bundles(database).await;
+    let lock = store_lock::Lock::source_bundles(database).await;
     let worker = runtime.clone();
     let task = tokio::spawn(async move { worker.work_once().await });
     // Running under the worker's lease, with its cancellation watcher listening.
@@ -266,8 +263,7 @@ async fn blocked_try(
 
 /// A table lock held in an open transaction on its own connection, and an autocommit probe
 /// (a transaction would see one cached `pg_stat_activity` snapshot).
-mod sqlx_lock {
-    use pse_ids::SemanticId;
+mod store_lock {
     use pse_operations::testing::{Session, TestDatabase};
 
     pub(super) struct Lock {
@@ -275,8 +271,14 @@ mod sqlx_lock {
         probe: Session,
     }
 
-    const LISTENERS: &str = "FROM pg_stat_activity \
-        WHERE datname = current_database() AND query LIKE 'LISTEN%pse_ops_cancel%'";
+    /// The store's listener connection, by its application name (Plan 22 X8).
+    fn listeners() -> String {
+        format!(
+            "FROM pg_stat_activity WHERE datname = current_database() \
+             AND application_name = '{}'",
+            pse_operations::LISTENER_APPLICATION
+        )
+    }
 
     impl Lock {
         pub(super) async fn source_bundles(database: &TestDatabase) -> Self {
@@ -293,17 +295,18 @@ mod sqlx_lock {
 
         pub(super) async fn listeners(&self) -> i64 {
             self.probe
-                .count(&format!("SELECT count(*) {LISTENERS}"))
+                .count(&format!("SELECT count(*) {}", listeners()))
                 .await
                 .unwrap()
         }
 
-        /// Drop every cancellation listener's connection; the listeners reconnect.
+        /// Drop the store listener's connection; the listener reconnects.
         pub(super) async fn terminate_listeners(&self) {
             let terminated = self
                 .probe
                 .count(&format!(
-                    "SELECT count(*) FILTER (WHERE pg_terminate_backend(pid)) {LISTENERS}"
+                    "SELECT count(*) FILTER (WHERE pg_terminate_backend(pid)) {}",
+                    listeners()
                 ))
                 .await
                 .unwrap();
@@ -311,7 +314,7 @@ mod sqlx_lock {
         }
 
         /// Record a cancellation request without its notification.
-        pub(super) async fn set_cancel_silently(&self, attempt: SemanticId) {
+        pub(super) async fn set_cancel_silently(&self, attempt: pse_operations::attempts::AttemptId) {
             let changed = self
                 .probe
                 .execute(&format!(

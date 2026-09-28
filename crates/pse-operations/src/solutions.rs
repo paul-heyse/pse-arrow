@@ -3,19 +3,21 @@
 
 //! The solution and warm-start store, keyed by the coordinate-compatibility stamp and the
 //! preparation identity (ADR-0114 Outcome 17). Seeds are typed vectors in original source
-//! coordinates, stored exactly. The solution identity is a seed identity that enters
-//! lineage, so the runtime mints it.
+//! coordinates, stored exactly; reads return the `runtime.operational_solutions` row, and
+//! [`SeedVectors::of`] gives its vectors their native meaning. The solution identity is a
+//! seed identity that enters lineage, so the runtime mints it.
 
-use chrono::{DateTime, Utc};
-use pse_ids::{ContentHash, SemanticId};
+use pse_ids::ContentHash;
 use pse_model::generated::enums::NativeBackend;
-use sqlx::postgres::PgRow;
-use sqlx::{FromRow, Row};
+use pse_operations_queries::client::Params as _;
+use pse_operations_queries::queries::solutions as statements;
 
-use crate::codec;
+use crate::attempts::AttemptId;
 use crate::error::{Classify, OperationsError, Target};
 use crate::store::Store;
 pub use pse_model::generated::enums::StoredSeedKind;
+pub use pse_model::generated::identities::SolutionId;
+pub use pse_model::generated::runtime::operational_solutions::RuntimeOperationalSolutionsRow;
 
 /// The vectors of a stored seed, by native meaning. Which vectors exist is fixed by the
 /// variant; the database enforces the same rule.
@@ -58,13 +60,44 @@ impl SeedVectors {
             Self::Highs { .. } => StoredSeedKind::Highs,
         }
     }
+
+    /// The vectors a stored solution holds, by its kind.
+    ///
+    /// # Errors
+    /// [`OperationsError::CorruptValue`] for a root or NLP seed without its primal (the
+    /// store's row check refuses one).
+    pub fn of(row: &RuntimeOperationalSolutionsRow) -> Result<Self, OperationsError> {
+        let primal = || {
+            row.primal.clone().ok_or_else(|| OperationsError::CorruptValue {
+                column: "solutions.primal",
+                detail: format!("a {} seed requires a primal", row.kind.as_str()),
+            })
+        };
+        Ok(match row.kind {
+            StoredSeedKind::Root => Self::Root { primal: primal()? },
+            StoredSeedKind::Nlp => Self::Nlp {
+                primal: primal()?,
+                bounds: row
+                    .lower_bound_duals
+                    .clone()
+                    .zip(row.upper_bound_duals.clone()),
+                rows: row.row_duals.clone(),
+                barrier: row.barrier,
+            },
+            StoredSeedKind::Highs => Self::Highs {
+                primal: row.primal.clone(),
+                dual: row.column_duals.clone().zip(row.row_duals.clone()),
+                basis: row.basis_columns.clone().zip(row.basis_rows.clone()),
+            },
+        })
+    }
 }
 
-/// A stored solution: a portable seed and its compatibility evidence.
+/// A seed to store: its identity, its compatibility evidence and its vectors.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Solution {
+pub struct NewSolution {
     /// The seed identity, minted by the runtime.
-    pub solution_id: SemanticId,
+    pub solution_id: SolutionId,
     /// The coordinate-compatibility (layout) stamp the vectors are valid for.
     pub compatibility_stamp: ContentHash,
     /// The preparation identity that produced the coordinates.
@@ -78,76 +111,7 @@ pub struct Solution {
     /// The vectors.
     pub vectors: SeedVectors,
     /// The attempt that produced it.
-    pub created_by: Option<SemanticId>,
-}
-
-fn vectors(row: &PgRow) -> Result<SeedVectors, sqlx::Error> {
-    let kind: StoredSeedKind = codec::parsed(row, "kind")?;
-    let reals = |column: &str| row.try_get::<Option<Vec<f64>>, _>(column);
-    let codes = |column: &str| row.try_get::<Option<Vec<i32>>, _>(column);
-    let pair = |a: Option<Vec<f64>>, b: Option<Vec<f64>>| a.zip(b);
-    let missing = || sqlx::Error::ColumnDecode {
-        index: "primal".to_owned(),
-        source: format!("a {} seed requires a primal", kind.as_str()).into(),
-    };
-    Ok(match kind {
-        StoredSeedKind::Root => SeedVectors::Root {
-            primal: reals("primal")?.ok_or_else(missing)?,
-        },
-        StoredSeedKind::Nlp => SeedVectors::Nlp {
-            primal: reals("primal")?.ok_or_else(missing)?,
-            bounds: pair(reals("lower_bound_duals")?, reals("upper_bound_duals")?),
-            rows: reals("row_duals")?,
-            barrier: row.try_get("barrier")?,
-        },
-        StoredSeedKind::Highs => SeedVectors::Highs {
-            primal: reals("primal")?,
-            dual: pair(reals("column_duals")?, reals("row_duals")?),
-            basis: codes("basis_columns")?.zip(codes("basis_rows")?),
-        },
-    })
-}
-
-impl FromRow<'_, PgRow> for Solution {
-    fn from_row(row: &PgRow) -> Result<Self, sqlx::Error> {
-        Ok(Self {
-            solution_id: codec::id(row, "solution_id")?,
-            compatibility_stamp: codec::hash(row, "compatibility_stamp")?,
-            preparation_identity: codec::hash(row, "preparation_identity")?,
-            backend: codec::parsed(row, "backend")?,
-            profile_stamp: codec::hash(row, "profile_stamp")?,
-            data_stamp: codec::hash(row, "data_stamp")?,
-            vectors: vectors(row)?,
-            created_by: codec::opt_id(row, "created_by")?,
-        })
-    }
-}
-
-/// A stored solution with its storage time.
-#[derive(Clone, Debug, PartialEq)]
-pub struct StoredSolution {
-    /// The solution.
-    pub solution: Solution,
-    /// When it was stored.
-    pub created_at: DateTime<Utc>,
-}
-
-impl FromRow<'_, PgRow> for StoredSolution {
-    fn from_row(row: &PgRow) -> Result<Self, sqlx::Error> {
-        Ok(Self {
-            solution: Solution::from_row(row)?,
-            created_at: row.try_get("created_at")?,
-        })
-    }
-}
-
-macro_rules! solution_columns {
-    () => {
-        "solution_id, compatibility_stamp, preparation_identity, kind::text AS kind, \
-         backend::text AS backend, profile_stamp, data_stamp, primal, lower_bound_duals, \
-         upper_bound_duals, column_duals, row_duals, barrier, basis_columns, basis_rows, \
-         created_by, created_at"
-    };
+    pub created_by: Option<AttemptId>,
 }
 
 /// The solution repository.
@@ -165,76 +129,76 @@ impl<'s> Solutions<'s> {
         self.store.target()
     }
 
-    /// Store a solution. Solutions are immutable: storing an existing identity again is a
-    /// [`OperationsError::Duplicate`].
+    /// Store a solution and return it as stored. Solutions are immutable: storing an
+    /// existing identity again is a [`OperationsError::Duplicate`].
     ///
     /// # Errors
     ///
-    /// [`OperationsError::Duplicate`]; classified driver failures, including a CHECK
-    /// violation for nonconforming vectors.
-    pub async fn put(&self, solution: &Solution) -> Result<DateTime<Utc>, OperationsError> {
-        let none = None::<Vec<f64>>;
-        let mut barrier = None;
-        let (primal, lower, upper, columns, rows, basis) = match &solution.vectors {
-            SeedVectors::Root { primal } => (Some(primal.clone()), None, None, None, None, None),
+    /// [`OperationsError::Duplicate`]; [`OperationsError::InvariantViolation`] for
+    /// nonconforming vectors; classified driver failures.
+    pub async fn put(
+        &self,
+        solution: &NewSolution,
+    ) -> Result<RuntimeOperationalSolutionsRow, OperationsError> {
+        let none: Option<&[f64]> = None;
+        let (primal, lower, upper, columns, rows, barrier, basis) = match &solution.vectors {
+            SeedVectors::Root { primal } => {
+                (Some(primal.as_slice()), none, none, none, none, None, None)
+            }
             SeedVectors::Nlp {
                 primal,
                 bounds,
                 rows,
-                barrier: final_barrier,
-            } => {
-                barrier = *final_barrier;
-                (
-                    Some(primal.clone()),
-                    bounds.as_ref().map(|b| b.0.clone()),
-                    bounds.as_ref().map(|b| b.1.clone()),
-                    none.clone(),
-                    rows.clone(),
-                    None,
-                )
-            }
+                barrier,
+            } => (
+                Some(primal.as_slice()),
+                bounds.as_ref().map(|b| b.0.as_slice()),
+                bounds.as_ref().map(|b| b.1.as_slice()),
+                none,
+                rows.as_deref(),
+                *barrier,
+                None,
+            ),
             SeedVectors::Highs {
                 primal,
                 dual,
                 basis,
             } => (
-                primal.clone(),
+                primal.as_deref(),
+                none,
+                none,
+                dual.as_ref().map(|d| d.0.as_slice()),
+                dual.as_ref().map(|d| d.1.as_slice()),
                 None,
-                None,
-                dual.as_ref().map(|d| d.0.clone()),
-                dual.as_ref().map(|d| d.1.clone()),
-                basis.clone(),
+                basis.as_ref(),
             ),
         };
-        let (basis_columns, basis_rows) = basis.unzip();
-        sqlx::query_scalar(
-            "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, \
-                 preparation_identity, kind, backend, profile_stamp, data_stamp, primal, \
-                 lower_bound_duals, upper_bound_duals, column_duals, row_duals, barrier, \
-                 basis_columns, basis_rows, created_by) \
-             VALUES ($1, $2, $3, $4::pse_ops.stored_seed_kind, $5::pse_ops.native_backend, \
-                 $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) \
-             RETURNING created_at",
-        )
-        .bind(codec::uuid(solution.solution_id))
-        .bind(codec::hash_bytes(&solution.compatibility_stamp))
-        .bind(codec::hash_bytes(&solution.preparation_identity))
-        .bind(solution.vectors.kind().as_str())
-        .bind(solution.backend.as_str())
-        .bind(codec::hash_bytes(&solution.profile_stamp))
-        .bind(codec::hash_bytes(&solution.data_stamp))
-        .bind(primal)
-        .bind(lower)
-        .bind(upper)
-        .bind(columns)
-        .bind(rows)
-        .bind(barrier)
-        .bind(basis_columns)
-        .bind(basis_rows)
-        .bind(solution.created_by.map(codec::uuid))
-        .fetch_one(self.store.pool())
-        .await
-        .classify(self.target())
+        let client = self.store.client().await?;
+        statements::insert_solution()
+            .params(
+                &client,
+                &statements::InsertSolutionParams {
+                    solution_id: solution.solution_id,
+                    compatibility_stamp: solution.compatibility_stamp,
+                    preparation_identity: solution.preparation_identity,
+                    kind: solution.vectors.kind(),
+                    backend: solution.backend,
+                    profile_stamp: solution.profile_stamp,
+                    data_stamp: solution.data_stamp,
+                    primal,
+                    lower_bound_duals: lower,
+                    upper_bound_duals: upper,
+                    column_duals: columns,
+                    row_duals: rows,
+                    barrier,
+                    basis_columns: basis.map(|b| b.0.as_slice()),
+                    basis_rows: basis.map(|b| b.1.as_slice()),
+                    created_by: solution.created_by,
+                },
+            )
+            .one()
+            .await
+            .classify(self.target())
     }
 
     /// Read one solution by identity.
@@ -244,17 +208,14 @@ impl<'s> Solutions<'s> {
     /// Classified driver failures.
     pub async fn get(
         &self,
-        solution: SemanticId,
-    ) -> Result<Option<StoredSolution>, OperationsError> {
-        sqlx::query_as(concat!(
-            "SELECT ",
-            solution_columns!(),
-            " FROM pse_ops.solutions WHERE solution_id = $1"
-        ))
-        .bind(codec::uuid(solution))
-        .fetch_optional(self.store.pool())
-        .await
-        .classify(self.target())
+        solution: SolutionId,
+    ) -> Result<Option<RuntimeOperationalSolutionsRow>, OperationsError> {
+        let client = self.store.client().await?;
+        statements::solution()
+            .bind(&client, &solution)
+            .opt()
+            .await
+            .classify(self.target())
     }
 
     /// The newest solution for `backend` compatible with `stamp` under `preparation`: the
@@ -269,20 +230,19 @@ impl<'s> Solutions<'s> {
         stamp: &ContentHash,
         preparation: &ContentHash,
         backend: NativeBackend,
-    ) -> Result<Option<StoredSolution>, OperationsError> {
-        sqlx::query_as(concat!(
-            "SELECT ",
-            solution_columns!(),
-            " FROM pse_ops.solutions \
-             WHERE compatibility_stamp = $1 AND preparation_identity = $2 \
-               AND backend = $3::pse_ops.native_backend \
-             ORDER BY created_at DESC, solution_id DESC LIMIT 1"
-        ))
-        .bind(codec::hash_bytes(stamp))
-        .bind(codec::hash_bytes(preparation))
-        .bind(backend.as_str())
-        .fetch_optional(self.store.pool())
-        .await
-        .classify(self.target())
+    ) -> Result<Option<RuntimeOperationalSolutionsRow>, OperationsError> {
+        let client = self.store.client().await?;
+        statements::latest_compatible()
+            .params(
+                &client,
+                &statements::LatestCompatibleParams {
+                    compatibility_stamp: *stamp,
+                    preparation_identity: *preparation,
+                    backend,
+                },
+            )
+            .opt()
+            .await
+            .classify(self.target())
     }
 }

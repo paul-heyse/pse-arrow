@@ -80,6 +80,7 @@ GROUPS = {
         "codegen-python-check",
         "codegen-docs-check",
         "codegen-postgres-check",
+        "codegen-queries-check",
         "codegen-bindgen-check",
     ),
     "codegen-contracts-check": (

@@ -3,13 +3,31 @@
 
 //! PostgreSQL values of registry types (ADR-0114 Outcome 25), generated into `pse-model`
 //! behind its `postgres` feature: every store enumeration maps to its ENUM type by name
-//! and member set, and every typed id to its identity domain (a result column arrives as
-//! the base type, so the base type is accepted too).
+//! and member set, every typed id to its identity domain (a result column arrives as the
+//! base type, so the base type is accepted too), and every store row decodes from its
+//! table's composite row type (Plan 22 X7), field names checked against the registry.
 
+use arrow_schema::{DataType, TimeUnit};
 use quote::{format_ident, quote};
 
 use crate::Registry;
-use crate::model::IdentityBase;
+use crate::model::{FieldContract, IdentityBase};
+
+/// How a store column is read from its composite field.
+fn read(column: &FieldContract) -> proc_macro2::TokenStream {
+    let timestamp = matches!(
+        column.data_type(),
+        DataType::Timestamp(TimeUnit::Microsecond, Some(ref zone)) if zone.as_ref() == "UTC"
+    );
+    let document = column.document() == Some(crate::model::field::JSON_DOCUMENT);
+    match (timestamp, document, column.nullable()) {
+        (true, _, false) => quote!(record.micros()?),
+        (true, _, true) => quote!(record.opt_micros()?),
+        (_, true, false) => quote!(record.json()?),
+        (_, true, true) => quote!(record.opt_json()?),
+        _ => quote!(record.value()?),
+    }
+}
 
 const MODEL: &str = "crates/pse-model/src/generated/postgres.rs";
 
@@ -79,11 +97,40 @@ pub(super) fn emit(
             }
         });
     }
+    for (table, spec) in pse_schema::store::relations(reg) {
+        let namespace = super::types::ident(spec.key.namespace.as_str());
+        let module = super::types::ident(spec.key.name);
+        let row = format_ident!(
+            "{}{}Row",
+            super::types::pascal(spec.key.namespace.as_str()),
+            super::types::pascal(spec.key.name)
+        );
+        let names = spec.columns.iter().map(FieldContract::name);
+        let fields = spec.columns.iter().map(|column| {
+            let field = super::types::ident(column.name());
+            let read = read(column);
+            quote!(#field: #read)
+        });
+        items.push(quote! {
+            impl<'a> FromSql<'a> for crate::generated::#namespace::#module::#row {
+                fn from_sql(ty: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+                    let mut record = crate::postgres::Record::read(ty, raw, &[#(#names),*])?;
+                    let row = Self { #(#fields,)* };
+                    record.finish()?;
+                    Ok(row)
+                }
+                fn accepts(ty: &Type) -> bool {
+                    crate::postgres::composite(ty, #schema, #table)
+                }
+            }
+        });
+    }
     super::emit(
         tree,
         MODEL,
         quote! {
-            //! PostgreSQL values of the operational store's registry enums and typed ids.
+            //! PostgreSQL values of the operational store's registry enums, typed ids and
+            //! rows.
             use pse_ids::postgres::BytesMut;
             use postgres_types::{FromSql, IsNull, Kind, ToSql, Type};
             type BoxError = Box<dyn std::error::Error + Sync + Send>;

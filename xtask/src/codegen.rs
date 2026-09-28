@@ -8,6 +8,7 @@ mod physical;
 
 mod ipopt;
 pub(super) mod python_stubs;
+mod queries;
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
@@ -29,7 +30,9 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Relations | Target::RustContracts) => vec![Language::Rust],
         Some(Target::Python) => vec![Language::Python],
         Some(Target::Docs) => vec![Language::Markdown],
-        Some(Target::Postgres) => vec![Language::Postgres],
+        // The query crate is compiled against the freshly rendered store schema, which is
+        // generated in memory and neither written nor compared by this arm.
+        Some(Target::Postgres | Target::Queries) => vec![Language::Postgres],
         Some(Target::Bindgen) => return ipopt::run(root, check),
         None => Language::ALL.to_vec(),
     };
@@ -78,6 +81,18 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             }
         }
         trees.push(tree);
+    }
+    if matches!(only, None | Some(Target::Queries)) {
+        let schema = trees
+            .iter()
+            .position(|tree| tree.roots == Language::Postgres.roots())
+            .context("the query crate needs the rendered store schema")?;
+        let statements = queries::generate(root, &trees[schema], check)?;
+        validate_tree(&statements)?;
+        if only == Some(Target::Queries) {
+            trees.remove(schema);
+        }
+        trees.push(statements);
     }
     for tree in &trees {
         if check {

@@ -68,7 +68,7 @@ fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + S
         }
     }
 }
-/// The PostgreSQL operational store a durable runtime registers its runs in (ADR-0112).
+/// The PostgreSQL operational store a durable runtime registers its runs in (ADR-0114).
 /// `url` defaults to `PSE_DATABASE_URL`, else the development default (the local socket
 /// with peer authentication); `worker` names the lease owner and defaults to this process.
 /// Nothing connects until a runtime is created with it.
@@ -147,7 +147,7 @@ impl NativeRuntime {
     }
     /// A runtime over the shared deployment. With `store`, every run is a durable attempt
     /// registered in that operational store and may be published; without it runs are
-    /// ephemeral and cannot publish (ADR-0112 Outcome 16).
+    /// ephemeral and cannot publish (ADR-0114 Outcome 16).
     #[new]
     #[pyo3(signature = (settings, *, store=None))]
     fn new(
@@ -197,7 +197,7 @@ impl NativeRuntime {
         limit: i64,
     ) -> PyResult<inspection::TableStream> {
         let filter = native::AttemptFilter {
-            run: run_id.map(|r| id(py, r)).transpose()?,
+            run: run_id.map(|r| id(py, r).map(Into::into)).transpose()?,
             states: states
                 .iter()
                 .map(|s| settings::named(py, "attempt state", s))
@@ -340,7 +340,7 @@ impl NativeRunHandle {
     /// The durable attempt of this run, minted before any effect; `None` when ephemeral.
     #[getter]
     fn attempt_id(&self) -> Option<String> {
-        self.inner.attempt_id().map(|id| id.to_hex())
+        self.inner.attempt_id().map(|id| id.to_string())
     }
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
         let (events, dropped) = self.inner.progress();
@@ -390,7 +390,7 @@ impl NativeRunResult {
     fn attempt_id(&self) -> Option<String> {
         match self.inner.durability() {
             native::RunDurability::Ephemeral => None,
-            native::RunDurability::Durable(record) => Some(record.attempt_id.to_hex()),
+            native::RunDurability::Durable(record) => Some(record.attempt_id.to_string()),
         }
     }
     fn completion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {

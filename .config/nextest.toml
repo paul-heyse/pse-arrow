@@ -12,11 +12,19 @@ serial = { max-threads = 1 }
 # Each engineering workflow has its own 64 GiB ceiling and two workers.
 # At most two such processes run together (128 GiB aggregate declared ceiling).
 engineering = { max-threads = 4 }
+# Each operational-store test creates its own database with a four-connection pool, a
+# listener and sessions; the local server allows 100 connections (ADR-0114 Outcome 28).
+store = { max-threads = 8 }
 
 [profile.default]
 fail-fast = false
 slow-timeout = { period = "60s", terminate-after = 2 }
 leak-timeout = "500ms"
+
+[[profile.default.overrides]]
+# Tests that create a TestDatabase on the local PostgreSQL server.
+filter = 'package(pse-operations) | (package(pse-runtime) & (test(durable_tests::) | test(worker_tests::)))'
+test-group = "store"
 
 [[profile.default.overrides]]
 filter = 'package(pse-backend-native) | package(pse-tests-lifecycle) | test(/(^|::)solve_/)'

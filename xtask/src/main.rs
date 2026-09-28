@@ -121,6 +121,10 @@ enum Target {
     /// `pse-schema` output: the operational store's DDL, Cornucopia mapping and schema
     /// fingerprint (ADR-0114 Outcome 22).
     Postgres,
+    /// Cornucopia output: the operational store's statements compiled into
+    /// `crates/pse-operations-queries` against the rendered schema (ADR-0114 Outcome 24).
+    /// Needs a reachable PostgreSQL server (`PSE_DATABASE_URL`, else the store default).
+    Queries,
     /// `bindgen` output for the Ipopt C API.
     Bindgen,
 }

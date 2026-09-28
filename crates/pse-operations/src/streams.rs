@@ -1,23 +1,30 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Live progress and incumbent streams, inserted in typed `UNNEST` batches
-//! (ADR-0114 Outcome 17). Rows are keyed by (attempt, sequence) as the producer numbers
-//! them, so a re-sent batch is idempotent. Progress values are typed columns in the
-//! `runtime.solve_metrics` value vocabulary, so every number round-trips exactly. Streams
-//! are bounded by a retention policy over finished attempts, not by an event cap.
+//! Live progress and incumbent streams, inserted by binary `COPY` (ADR-0114 Outcomes 17
+//! and 26). Rows are keyed by (attempt, sequence) as the producer numbers them: the
+//! sequence numbers already stored are filtered out in the same transaction, so a re-sent
+//! batch is idempotent. Progress values are typed columns in the `runtime.solve_metrics`
+//! value vocabulary, so every number round-trips exactly. Streams are bounded by a
+//! retention policy over finished attempts, not by an event cap.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use chrono::{DateTime, Utc};
-use pse_ids::SemanticId;
 use pse_model::generated::enums::{EvidenceUnavailableReason, NativeMetricKind};
-use sqlx::postgres::PgRow;
-use sqlx::{FromRow, Row};
+use pse_operations_queries::client::Params as _;
+use pse_operations_queries::queries::streams as statements;
+use tokio_postgres::types::ToSql;
 
-use crate::codec;
+use crate::attempts::{self, AttemptId, micros, utc};
+use crate::bulk::{Cells, copy_in};
 use crate::error::{Classify, OperationsError, Target};
+use crate::generated::copy;
+use crate::listener::{Channel, Event, Subscription};
 use crate::store::Store;
+pub use pse_model::generated::runtime::operational_incumbents::RuntimeOperationalIncumbentsRow;
+use pse_model::generated::runtime::operational_progress_events::RuntimeOperationalProgressEventsRow;
+use pse_model::generated::runtime::operational_progress_values::RuntimeOperationalProgressValuesRow;
 
 /// The notification channel for new progress; the payload is the attempt identity.
 pub const PROGRESS_CHANNEL: &str = "pse_ops_progress";
@@ -58,9 +65,31 @@ impl ProgressValue {
             Self::Unavailable(_) => NativeMetricKind::Unavailable,
         }
     }
+
+    /// The value a stored row holds: exactly the column its kind selects.
+    fn of(row: &RuntimeOperationalProgressValuesRow) -> Result<Self, OperationsError> {
+        let missing = || OperationsError::CorruptValue {
+            column: "progress_values.kind",
+            detail: format!(
+                "progress value `{}` lacks its {} field",
+                row.name,
+                row.kind.as_str()
+            ),
+        };
+        Ok(match row.kind {
+            NativeMetricKind::Real => Self::Real(row.real.ok_or_else(missing)?),
+            NativeMetricKind::Integer => Self::Integer(row.integer.ok_or_else(missing)?),
+            NativeMetricKind::Boolean => Self::Boolean(row.boolean.ok_or_else(missing)?),
+            NativeMetricKind::Text => Self::Text(row.text.clone().ok_or_else(missing)?),
+            NativeMetricKind::Unavailable => {
+                Self::Unavailable(row.unavailable.ok_or_else(missing)?)
+            }
+        })
+    }
 }
 
-/// One progress event of a durable attempt.
+/// One progress event of a durable attempt: a `runtime.operational_progress_events` row
+/// with its values.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProgressEvent {
     /// The producer's sequence number within the attempt.
@@ -77,36 +106,6 @@ pub struct ProgressEvent {
     pub values: BTreeMap<String, ProgressValue>,
 }
 
-/// One incumbent: an improving feasible point and the bound at that time.
-#[derive(Clone, Debug, PartialEq)]
-pub struct Incumbent {
-    /// The producer's sequence number within the attempt.
-    pub seq: i64,
-    /// When it was found.
-    pub at: DateTime<Utc>,
-    /// The incumbent objective.
-    pub objective: f64,
-    /// The dual bound, when the solver reports one.
-    pub dual_bound: Option<f64>,
-    /// The relative gap, when defined.
-    pub gap: Option<f64>,
-    /// The stored solution, when kept for warm starts or resumption.
-    pub solution_id: Option<SemanticId>,
-}
-
-impl FromRow<'_, PgRow> for Incumbent {
-    fn from_row(row: &PgRow) -> Result<Self, sqlx::Error> {
-        Ok(Self {
-            seq: row.try_get("seq")?,
-            at: row.try_get("at")?,
-            objective: row.try_get("objective")?,
-            dual_bound: row.try_get("dual_bound")?,
-            gap: row.try_get("gap")?,
-            solution_id: codec::opt_id(row, "solution_id")?,
-        })
-    }
-}
-
 /// How long the streams of finished attempts are kept.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Retention {
@@ -114,76 +113,46 @@ pub struct Retention {
     pub finished_for: std::time::Duration,
 }
 
-/// Flattened columns of a value batch, one entry per (event, value).
-#[derive(Default)]
-struct ValueColumns<'a> {
-    seq: Vec<i64>,
-    name: Vec<&'a str>,
-    kind: Vec<&'static str>,
-    real: Vec<Option<f64>>,
-    integer: Vec<Option<i64>>,
-    boolean: Vec<Option<bool>>,
-    text: Vec<Option<&'a str>>,
-    unavailable: Vec<Option<&'static str>>,
+/// One progress value's cells, in the order of the table's binary copy.
+struct ValueCells<'a> {
+    seq: i64,
+    name: &'a str,
+    kind: NativeMetricKind,
+    real: Option<f64>,
+    integer: Option<i64>,
+    boolean: Option<bool>,
+    text: Option<&'a str>,
+    unavailable: Option<EvidenceUnavailableReason>,
 }
 
-impl<'a> ValueColumns<'a> {
-    fn push(&mut self, seq: i64, name: &'a str, value: &'a ProgressValue) {
-        self.seq.push(seq);
-        self.name.push(name);
-        self.kind.push(value.kind().as_str());
-        self.real.push(match value {
-            ProgressValue::Real(v) => Some(*v),
-            _ => None,
-        });
-        self.integer.push(match value {
-            ProgressValue::Integer(v) => Some(*v),
-            _ => None,
-        });
-        self.boolean.push(match value {
-            ProgressValue::Boolean(v) => Some(*v),
-            _ => None,
-        });
-        self.text.push(match value {
-            ProgressValue::Text(v) => Some(v.as_str()),
-            _ => None,
-        });
-        self.unavailable.push(match value {
-            ProgressValue::Unavailable(reason) => Some(reason.as_str()),
-            _ => None,
-        });
+impl<'a> ValueCells<'a> {
+    fn new(seq: i64, name: &'a str, value: &'a ProgressValue) -> Self {
+        Self {
+            seq,
+            name,
+            kind: value.kind(),
+            real: match value {
+                ProgressValue::Real(v) => Some(*v),
+                _ => None,
+            },
+            integer: match value {
+                ProgressValue::Integer(v) => Some(*v),
+                _ => None,
+            },
+            boolean: match value {
+                ProgressValue::Boolean(v) => Some(*v),
+                _ => None,
+            },
+            text: match value {
+                ProgressValue::Text(v) => Some(v.as_str()),
+                _ => None,
+            },
+            unavailable: match value {
+                ProgressValue::Unavailable(reason) => Some(*reason),
+                _ => None,
+            },
+        }
     }
-}
-
-fn value_of(row: &PgRow) -> Result<(i64, String, ProgressValue), sqlx::Error> {
-    let seq: i64 = row.try_get("seq")?;
-    let name: String = row.try_get("name")?;
-    let kind: NativeMetricKind = codec::parsed(row, "kind")?;
-    let missing = || sqlx::Error::ColumnDecode {
-        index: "kind".to_owned(),
-        source: format!("progress value `{name}` lacks its {} field", kind.as_str()).into(),
-    };
-    let value = match kind {
-        NativeMetricKind::Real => {
-            ProgressValue::Real(row.try_get::<Option<f64>, _>("real")?.ok_or_else(missing)?)
-        }
-        NativeMetricKind::Integer => ProgressValue::Integer(
-            row.try_get::<Option<i64>, _>("integer")?
-                .ok_or_else(missing)?,
-        ),
-        NativeMetricKind::Boolean => ProgressValue::Boolean(
-            row.try_get::<Option<bool>, _>("boolean")?
-                .ok_or_else(missing)?,
-        ),
-        NativeMetricKind::Text => ProgressValue::Text(
-            row.try_get::<Option<String>, _>("text")?
-                .ok_or_else(missing)?,
-        ),
-        NativeMetricKind::Unavailable => {
-            ProgressValue::Unavailable(codec::opt_parsed(row, "unavailable")?.ok_or_else(missing)?)
-        }
-    };
-    Ok((seq, name, value))
 }
 
 /// The stream repository.
@@ -207,66 +176,74 @@ impl<'s> Streams<'s> {
     ///
     /// # Errors
     ///
-    /// Classified driver failures (a missing attempt is a foreign-key violation).
+    /// Classified driver failures (a missing attempt is an invariant violation of the
+    /// `attempt_id` reference).
     pub async fn append_progress(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
         events: &[ProgressEvent],
     ) -> Result<u64, OperationsError> {
         if events.is_empty() {
             return Ok(0);
         }
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        let inserted: Vec<i64> = sqlx::query_scalar(
-            "INSERT INTO pse_ops.progress_events (attempt_id, seq, step, at, elapsed_seconds, phase) \
-             SELECT $1, e.seq, e.step, e.at, e.elapsed, e.phase \
-             FROM UNNEST($2::bigint[], $3::integer[], $4::timestamptz[], \
-                         $5::float8[], $6::text[]) AS e (seq, step, at, elapsed, phase) \
-             ON CONFLICT (attempt_id, seq) DO NOTHING RETURNING seq",
-        )
-        .bind(codec::uuid(attempt))
-        .bind(events.iter().map(|e| e.seq).collect::<Vec<_>>())
-        .bind(events.iter().map(|e| e.step).collect::<Vec<_>>())
-        .bind(events.iter().map(|e| e.at).collect::<Vec<_>>())
-        .bind(events.iter().map(|e| e.elapsed_seconds).collect::<Vec<_>>())
-        .bind(events.iter().map(|e| e.phase.as_str()).collect::<Vec<_>>())
-        .fetch_all(&mut *tx)
-        .await
-        .classify(target)?;
-        let fresh: std::collections::BTreeSet<i64> = inserted.iter().copied().collect();
-        let mut columns = ValueColumns::default();
-        for event in events.iter().filter(|e| fresh.contains(&e.seq)) {
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let seqs: Vec<i64> = events.iter().map(|event| event.seq).collect();
+        let stored: BTreeSet<i64> = statements::existing_progress_seqs()
+            .params(
+                &tx,
+                &statements::ExistingProgressSeqsParams {
+                    attempt_id: attempt,
+                    seqs: seqs.as_slice(),
+                },
+            )
+            .all()
+            .await
+            .classify(target)?
+            .into_iter()
+            .collect();
+        let fresh: Vec<&ProgressEvent> = events
+            .iter()
+            .filter(|event| !stored.contains(&event.seq))
+            .collect();
+        let id: &(dyn ToSql + Sync) = &attempt;
+        let mut rows: Vec<Cells<'_>> = Vec::with_capacity(fresh.len());
+        for event in &fresh {
+            rows.push(vec![
+                id,
+                &event.seq,
+                &event.step,
+                &event.at,
+                &event.elapsed_seconds,
+                &event.phase,
+            ]);
+        }
+        let inserted = copy_in(&tx, target, &copy::PROGRESS_EVENTS, &rows).await?;
+        let mut cells: Vec<ValueCells<'_>> = Vec::new();
+        for event in &fresh {
             for (name, value) in &event.values {
-                columns.push(event.seq, name, value);
+                cells.push(ValueCells::new(event.seq, name, value));
             }
         }
-        if !columns.seq.is_empty() {
-            sqlx::query(
-                "INSERT INTO pse_ops.progress_values \
-                     (attempt_id, seq, name, kind, \"real\", \"integer\", \"boolean\", \"text\", unavailable) \
-                 SELECT $1, v.seq, v.name, v.kind::pse_ops.native_metric_kind, v.r, v.i, v.b, \
-                     v.t, v.u::pse_ops.evidence_unavailable_reason \
-                 FROM UNNEST($2::bigint[], $3::text[], $4::text[], $5::float8[], $6::bigint[], \
-                             $7::boolean[], $8::text[], $9::text[]) \
-                     AS v (seq, name, kind, r, i, b, t, u)",
-            )
-            .bind(codec::uuid(attempt))
-            .bind(&columns.seq)
-            .bind(&columns.name)
-            .bind(&columns.kind)
-            .bind(&columns.real)
-            .bind(&columns.integer)
-            .bind(&columns.boolean)
-            .bind(&columns.text)
-            .bind(&columns.unavailable)
-            .execute(&mut *tx)
-            .await
-            .classify(target)?;
+        let mut rows: Vec<Cells<'_>> = Vec::with_capacity(cells.len());
+        for cell in &cells {
+            rows.push(vec![
+                id,
+                &cell.seq,
+                &cell.name,
+                &cell.kind,
+                &cell.real,
+                &cell.integer,
+                &cell.boolean,
+                &cell.text,
+                &cell.unavailable,
+            ]);
         }
-        notify(&mut tx, target, PROGRESS_CHANNEL, attempt).await?;
+        copy_in(&tx, target, &copy::PROGRESS_VALUES, &rows).await?;
+        attempts::notify(&tx, target, PROGRESS_CHANNEL, &attempt.to_string()).await?;
         tx.commit().await.classify(target)?;
-        Ok(u64::try_from(inserted.len()).unwrap_or(u64::MAX))
+        Ok(inserted)
     }
 
     /// Progress events after `after` (exclusive), in sequence order, at most `limit`, with
@@ -274,58 +251,61 @@ impl<'s> Streams<'s> {
     ///
     /// # Errors
     ///
-    /// Classified driver failures, and a decode failure for a value that violates its kind.
+    /// Classified driver failures, and a value that violates its kind.
     pub async fn progress(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
         after: Option<i64>,
         limit: i64,
     ) -> Result<Vec<ProgressEvent>, OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        let rows = sqlx::query(
-            "SELECT seq, step, at, elapsed_seconds, phase FROM pse_ops.progress_events \
-             WHERE attempt_id = $1 AND seq > coalesce($2, -1) ORDER BY seq LIMIT $3",
-        )
-        .bind(codec::uuid(attempt))
-        .bind(after)
-        .bind(limit)
-        .fetch_all(&mut *tx)
-        .await
-        .classify(target)?;
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let rows: Vec<RuntimeOperationalProgressEventsRow> = statements::progress_page()
+            .params(
+                &tx,
+                &statements::ProgressPageParams {
+                    attempt_id: attempt,
+                    after,
+                    limit,
+                },
+            )
+            .all()
+            .await
+            .classify(target)?;
         let mut events = rows
-            .iter()
+            .into_iter()
             .map(|row| {
                 Ok(ProgressEvent {
-                    seq: row.try_get("seq")?,
-                    step: row.try_get("step")?,
-                    at: row.try_get("at")?,
-                    elapsed_seconds: row.try_get("elapsed_seconds")?,
-                    phase: row.try_get("phase")?,
+                    seq: row.seq,
+                    step: row.step,
+                    at: utc("progress_events.at", row.at)?,
+                    elapsed_seconds: row.elapsed_seconds,
+                    phase: row.phase,
                     values: BTreeMap::new(),
                 })
             })
-            .collect::<Result<Vec<_>, sqlx::Error>>()
-            .classify(target)?;
+            .collect::<Result<Vec<_>, OperationsError>>()?;
         if let (Some(first), Some(last)) = (events.first(), events.last()) {
-            let values = sqlx::query(
-                "SELECT seq, name, kind::text AS kind, \"real\", \"integer\", \"boolean\", \"text\", \
-                     unavailable::text AS unavailable \
-                 FROM pse_ops.progress_values \
-                 WHERE attempt_id = $1 AND seq BETWEEN $2 AND $3 ORDER BY seq, name",
-            )
-            .bind(codec::uuid(attempt))
-            .bind(first.seq)
-            .bind(last.seq)
-            .fetch_all(&mut *tx)
-            .await
-            .classify(target)?;
+            let values = statements::progress_values()
+                .params(
+                    &tx,
+                    &statements::ProgressValuesParams {
+                        attempt_id: attempt,
+                        first: first.seq,
+                        last: last.seq,
+                    },
+                )
+                .all()
+                .await
+                .classify(target)?;
             let index: BTreeMap<i64, usize> =
                 events.iter().enumerate().map(|(i, e)| (e.seq, i)).collect();
             for row in &values {
-                let (seq, name, value) = value_of(row).classify(target)?;
-                if let Some(&i) = index.get(&seq) {
-                    events[i].values.insert(name, value);
+                if let Some(&i) = index.get(&row.seq) {
+                    events[i]
+                        .values
+                        .insert(row.name.clone(), ProgressValue::of(row)?);
                 }
             }
         }
@@ -339,10 +319,7 @@ impl<'s> Streams<'s> {
     /// # Errors
     ///
     /// As for [`Streams::progress`].
-    pub async fn snapshot(
-        &self,
-        attempt: SemanticId,
-    ) -> Result<Vec<ProgressEvent>, OperationsError> {
+    pub async fn snapshot(&self, attempt: AttemptId) -> Result<Vec<ProgressEvent>, OperationsError> {
         const PAGE: i64 = 4096;
         let mut all = Vec::new();
         let mut after = None;
@@ -366,79 +343,82 @@ impl<'s> Streams<'s> {
     /// Classified driver failures.
     pub async fn apply_retention(&self, policy: Retention) -> Result<u64, OperationsError> {
         let target = self.target();
-        let mut tx = self.store.pool().begin().await.classify(target)?;
-        let age = codec::interval(policy.finished_for);
-        // Deletes are explicit (no cascade): an event's values go before the event.
-        sqlx::query(
-            "DELETE FROM pse_ops.progress_values AS v USING pse_ops.attempts AS a \
-             WHERE v.attempt_id = a.attempt_id AND a.finished_at IS NOT NULL \
-               AND a.finished_at < now() - $1",
-        )
-        .bind(age)
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
-        let removed = sqlx::query(
-            "DELETE FROM pse_ops.progress_events AS e USING pse_ops.attempts AS a \
-             WHERE e.attempt_id = a.attempt_id AND a.finished_at IS NOT NULL \
-               AND a.finished_at < now() - $1",
-        )
-        .bind(age)
-        .execute(&mut *tx)
-        .await
-        .classify(target)?
-        .rows_affected();
-        sqlx::query(
-            "DELETE FROM pse_ops.incumbents AS i USING pse_ops.attempts AS a \
-             WHERE i.attempt_id = a.attempt_id AND i.solution_id IS NULL \
-               AND a.finished_at IS NOT NULL AND a.finished_at < now() - $1",
-        )
-        .bind(age)
-        .execute(&mut *tx)
-        .await
-        .classify(target)?;
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let age = micros(policy.finished_for);
+        statements::delete_finished_values()
+            .bind(&tx, &age)
+            .await
+            .classify(target)?;
+        let removed = statements::delete_finished_events()
+            .bind(&tx, &age)
+            .await
+            .classify(target)?;
+        statements::delete_finished_incumbents()
+            .bind(&tx, &age)
+            .await
+            .classify(target)?;
         tx.commit().await.classify(target)?;
         Ok(removed)
     }
 
-    /// Insert a batch of incumbents in one statement. Returns the rows inserted.
+    /// Insert a batch of incumbents of one attempt; incumbents whose sequence number is
+    /// already stored are skipped. Returns the rows inserted.
     ///
     /// # Errors
     ///
-    /// Classified driver failures.
+    /// [`OperationsError::InvalidRequest`] for a batch naming several attempts; classified
+    /// driver failures.
     pub async fn record_incumbents(
         &self,
-        attempt: SemanticId,
-        incumbents: &[Incumbent],
+        incumbents: &[RuntimeOperationalIncumbentsRow],
     ) -> Result<u64, OperationsError> {
-        if incumbents.is_empty() {
+        let Some(attempt) = incumbents.first().map(|incumbent| incumbent.attempt_id) else {
             return Ok(0);
+        };
+        if incumbents.iter().any(|incumbent| incumbent.attempt_id != attempt) {
+            return Err(OperationsError::InvalidRequest {
+                reason: "an incumbent batch belongs to one attempt".to_owned(),
+            });
         }
-        sqlx::query(
-            "INSERT INTO pse_ops.incumbents \
-                 (attempt_id, seq, at, objective, dual_bound, gap, solution_id) \
-             SELECT $1, i.seq, i.at, i.objective, i.dual_bound, i.gap, i.solution_id \
-             FROM UNNEST($2::bigint[], $3::timestamptz[], $4::float8[], $5::float8[], \
-                         $6::float8[], $7::uuid[]) \
-                 AS i (seq, at, objective, dual_bound, gap, solution_id) \
-             ON CONFLICT (attempt_id, seq) DO NOTHING",
-        )
-        .bind(codec::uuid(attempt))
-        .bind(incumbents.iter().map(|i| i.seq).collect::<Vec<_>>())
-        .bind(incumbents.iter().map(|i| i.at).collect::<Vec<_>>())
-        .bind(incumbents.iter().map(|i| i.objective).collect::<Vec<_>>())
-        .bind(incumbents.iter().map(|i| i.dual_bound).collect::<Vec<_>>())
-        .bind(incumbents.iter().map(|i| i.gap).collect::<Vec<_>>())
-        .bind(
-            incumbents
-                .iter()
-                .map(|i| i.solution_id.map(codec::uuid))
-                .collect::<Vec<_>>(),
-        )
-        .execute(self.store.pool())
-        .await
-        .classify(self.target())
-        .map(|done| done.rows_affected())
+        let target = self.target();
+        let mut client = self.store.client().await?;
+        let tx = client.transaction().await.classify(target)?;
+        let seqs: Vec<i64> = incumbents.iter().map(|incumbent| incumbent.seq).collect();
+        let stored: BTreeSet<i64> = statements::existing_incumbent_seqs()
+            .params(
+                &tx,
+                &statements::ExistingIncumbentSeqsParams {
+                    attempt_id: attempt,
+                    seqs: seqs.as_slice(),
+                },
+            )
+            .all()
+            .await
+            .classify(target)?
+            .into_iter()
+            .collect();
+        let fresh = incumbents
+            .iter()
+            .filter(|incumbent| !stored.contains(&incumbent.seq))
+            .map(|incumbent| Ok((incumbent, utc("incumbents.at", incumbent.at)?)))
+            .collect::<Result<Vec<_>, OperationsError>>()?;
+        let mut rows: Vec<Cells<'_>> = Vec::with_capacity(fresh.len());
+        for (incumbent, at) in &fresh {
+            let id: &(dyn ToSql + Sync) = &incumbent.attempt_id;
+            rows.push(vec![
+                id,
+                &incumbent.seq,
+                at,
+                &incumbent.objective,
+                &incumbent.dual_bound,
+                &incumbent.gap,
+                &incumbent.solution_id,
+            ]);
+        }
+        let inserted = copy_in(&tx, target, &copy::INCUMBENTS, &rows).await?;
+        tx.commit().await.classify(target)?;
+        Ok(inserted)
     }
 
     /// The latest incumbent of an attempt, if any.
@@ -448,41 +428,33 @@ impl<'s> Streams<'s> {
     /// Classified driver failures.
     pub async fn latest_incumbent(
         &self,
-        attempt: SemanticId,
-    ) -> Result<Option<Incumbent>, OperationsError> {
-        sqlx::query_as(
-            "SELECT seq, at, objective, dual_bound, gap, solution_id FROM pse_ops.incumbents \
-             WHERE attempt_id = $1 ORDER BY seq DESC LIMIT 1",
-        )
-        .bind(codec::uuid(attempt))
-        .fetch_optional(self.store.pool())
-        .await
-        .classify(self.target())
+        attempt: AttemptId,
+    ) -> Result<Option<RuntimeOperationalIncumbentsRow>, OperationsError> {
+        let client = self.store.client().await?;
+        statements::latest_incumbent()
+            .bind(&client, &attempt)
+            .opt()
+            .await
+            .classify(self.target())
     }
 }
 
 impl Store {
-    /// Watch one attempt's progress stream. The watcher holds one pooled connection for
-    /// `LISTEN`; notifications only wake it, and it always reads the stored events.
+    /// Watch one attempt's progress stream. The watcher subscribes to the store's listener
+    /// and returns once `LISTEN` is in effect; notifications only wake it, and it always
+    /// reads the stored events.
     ///
     /// # Errors
     ///
-    /// Classified driver failures.
+    /// [`OperationsError::Unavailable`] when `LISTEN` does not take effect.
     pub async fn watch_progress(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
     ) -> Result<ProgressWatcher, OperationsError> {
-        let target = self.target().clone();
-        let mut listener = sqlx::postgres::PgListener::connect_with(self.pool())
-            .await
-            .classify(&target)?;
-        // Autocommit: LISTEN is in effect once this returns, before the first read.
-        listener.listen(PROGRESS_CHANNEL).await.classify(&target)?;
         Ok(ProgressWatcher {
-            listener,
+            events: self.subscribe().await?,
             store: self.clone(),
             attempt,
-            payload: codec::uuid(attempt).to_string(),
         })
     }
 }
@@ -490,28 +462,27 @@ impl Store {
 /// Follows one attempt's progress stream as it is written (ADR-0114 Outcome 17).
 #[derive(Debug)]
 pub struct ProgressWatcher {
-    listener: sqlx::postgres::PgListener,
+    events: Subscription,
     store: Store,
-    attempt: SemanticId,
-    payload: String,
+    attempt: AttemptId,
 }
 
 impl ProgressWatcher {
     /// The next stored events after `after`, at most `limit`, waiting until some exist.
     /// Returns an empty page once the attempt has stopped working and every stored event
     /// was returned. A notification lost while the listener reconnects only delays the
-    /// read: the watcher reads again after every reconnect.
+    /// read: the watcher reads again on every resynchronization.
     ///
     /// # Errors
     ///
-    /// Classified driver failures; [`OperationsError::NotFound`] for an unknown attempt.
+    /// Classified driver failures; [`OperationsError::NotFound`] for an unknown attempt;
+    /// [`OperationsError::Unavailable`] once the store's listener stopped.
     pub async fn next(
         &mut self,
         after: Option<i64>,
         limit: i64,
     ) -> Result<Vec<ProgressEvent>, OperationsError> {
         use crate::lifecycle::Lifecycle;
-        let target = self.store.target().clone();
         loop {
             let page = self
                 .store
@@ -531,27 +502,15 @@ impl ProgressWatcher {
                     .await;
             }
             loop {
-                match self.listener.try_recv().await.classify(&target)? {
-                    Some(notification) if notification.payload() == self.payload => break,
-                    Some(_) => {}
-                    None => break,
+                match self.events.next().await? {
+                    Event::Notification {
+                        channel: Channel::Progress,
+                        attempt,
+                    } if attempt == self.attempt => break,
+                    Event::Resync => break,
+                    Event::Notification { .. } => {}
                 }
             }
         }
     }
-}
-
-async fn notify(
-    conn: &mut sqlx::PgConnection,
-    target: &Target,
-    channel: &str,
-    attempt: SemanticId,
-) -> Result<(), OperationsError> {
-    sqlx::query("SELECT pg_notify($1, $2)")
-        .bind(channel)
-        .bind(codec::uuid(attempt).to_string())
-        .execute(&mut *conn)
-        .await
-        .classify(target)?;
-    Ok(())
 }

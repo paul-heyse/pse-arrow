@@ -161,16 +161,15 @@ async fn durable_run_listed_after_restart() {
         .iter()
         .find(|a| a.attempt_id == attempt_id)
         .expect("the durable run is listed after a restart");
-    assert_eq!(listed.run_id, run_id);
+    assert_eq!(listed.run_id, run_id.into());
     assert_eq!(listed.state, AttemptState::Completed);
     assert_eq!(listed.worker.as_deref(), Some("runtime-a"));
     assert!(listed.finished_at.is_some());
-    let termination = listed.termination.as_ref().unwrap();
     assert_eq!(
-        termination.code,
-        pse_operations::attempts::TerminationCode::Native(
+        pse_operations::attempts::TerminationCode::of(listed).unwrap(),
+        Some(pse_operations::attempts::TerminationCode::Native(
             pse_operations::attempts::NativeTermination::Success
-        )
+        ))
     );
     let history = operations
         .store()
@@ -179,7 +178,7 @@ async fn durable_run_listed_after_restart() {
         .await
         .unwrap();
     let steps: Vec<(Option<AttemptState>, AttemptState)> =
-        history.iter().map(|t| (t.from, t.to)).collect();
+        history.iter().map(|t| (t.from_state, t.to_state)).collect();
     assert_eq!(
         steps,
         [
@@ -387,7 +386,7 @@ async fn incompatible_seed_refused() {
         reused
             .starts
             .values()
-            .any(|s| *s == StartSource::Stored { solution })
+            .any(|s| *s == StartSource::Stored { solution: solution.as_id() })
     );
     // Different coordinates: the explicit stored seed is refused, and none is found.
     let (other, mut different) = package_on(&runtime, LINEAR);

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Waiter cancellation never takes native ownership away from the existing supervisor.
 //!
-//! Every run is supervised under its runtime's durability class (ADR-0112 Outcome 16). An
+//! Every run is supervised under its runtime's durability class (ADR-0114 Outcome 16). An
 //! ephemeral run is admitted at once or refused, and keeps its record in memory. A durable
 //! run registers its attempt before any effect, queues for native admission, runs under a
 //! heartbeat lease whose durable cancellation flag stops it, streams its progress, and
@@ -44,7 +44,7 @@ pub struct RunHandle {
     receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
     progress: Arc<Progress>,
     run_id: SemanticId,
-    attempt_id: Option<SemanticId>,
+    attempt_id: Option<pse_operations::attempts::AttemptId>,
 }
 impl RunHandle {
     /// Request stop; result ownership remains live until native teardown and join.
@@ -78,7 +78,7 @@ impl RunHandle {
         self.run_id
     }
     /// The durable attempt of this run, minted before any effect; `None` when ephemeral.
-    pub const fn attempt_id(&self) -> Option<SemanticId> {
+    pub const fn attempt_id(&self) -> Option<pse_operations::attempts::AttemptId> {
         self.attempt_id
     }
 }
@@ -88,7 +88,7 @@ pub enum StoredStart {
     /// The newest seed stored for the preparation's coordinates and backend.
     Latest,
     /// This stored solution.
-    Solution(SemanticId),
+    Solution(pse_operations::solutions::SolutionId),
 }
 /// Mathematical report variants share one joined public job lifecycle.
 #[derive(Debug)]
@@ -443,7 +443,7 @@ impl super::ModelingSolvePreparation {
         self.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
         Ok(self)
     }
-    /// Start from a seed in the operational store's solution store (ADR-0112 Outcome 17):
+    /// Start from a seed in the operational store's solution store (ADR-0114 Outcome 17):
     /// the newest seed stored for this preparation's coordinates and backend, or an
     /// explicit solution. The seed must match the coordinate-compatibility (layout) stamp
     /// and backend exactly; numeric data and native options may differ (F24). Every free
@@ -486,9 +486,9 @@ impl super::ModelingSolvePreparation {
                 })
             })?,
         };
-        let solution = stored.solution.solution_id;
+        let solution = stored.solution_id.as_id();
         let columns: Vec<SemanticId> = self.model.case.compiled().plan.columns().to_vec();
-        let mut seeded = self.with_start(super::durable::warm_start(&stored.solution))?;
+        let mut seeded = self.with_start(super::durable::warm_start(&stored)?)?;
         for column in columns {
             seeded
                 .starts

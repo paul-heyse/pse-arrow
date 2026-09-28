@@ -200,7 +200,7 @@ async fn worker_runs_authored_case_end_to_end() {
     assert_eq!(attempt.state, AttemptState::Completed);
     assert_eq!(attempt.worker.as_deref(), Some("worker-child"));
     assert_eq!(
-        attempt.termination.as_ref().map(|t| &t.code),
+        TerminationCode::of(&attempt).unwrap().as_ref(),
         Some(&TerminationCode::Native(NativeTermination::Success))
     );
     let history: Vec<_> = store
@@ -209,7 +209,7 @@ async fn worker_runs_authored_case_end_to_end() {
         .await
         .unwrap()
         .iter()
-        .map(|t| t.to)
+        .map(|t| t.to_state)
         .collect();
     assert_eq!(
         history,
@@ -270,11 +270,11 @@ async fn stored_seed_reused_across_processes(
     let stored = operations
         .store()
         .solutions()
-        .get(solution)
+        .get(solution.into())
         .await
         .unwrap()
         .unwrap();
-    assert_ne!(stored.solution.created_by, None);
+    assert_ne!(stored.created_by, None);
     let result = seeded.start().unwrap().wait().await.unwrap();
     assert!(result.usable());
     let RunDurability::Durable(record) = result.durability() else {
@@ -296,7 +296,7 @@ async fn stored_seed_reused_across_processes(
     let seed = receipt.seed.as_ref().unwrap();
     assert_eq!(
         seed.compatibility.layout,
-        stored.solution.compatibility_stamp
+        stored.compatibility_stamp
     );
     // Its identity is in the result's lineage: the stored seed changes the request identity.
     let unseeded = package.prepare_analysis(&analysis, &cancel).await.unwrap();

@@ -6,9 +6,9 @@ mod diagnostics;
 mod durable;
 pub use completion::Completion;
 pub use durable::{Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability};
-pub use pse_operations::attempts::{AttemptFilter, AttemptRecord};
+pub use pse_operations::attempts::AttemptFilter;
 /// The operational store a process connects to: `PSE_DATABASE_URL`, else the development
-/// default (ADR-0112 Outcome 20).
+/// default (ADR-0114 Outcome 21).
 pub use pse_operations::database_url_from_env;
 mod worker;
 pub use worker::{
@@ -94,11 +94,11 @@ pub enum WorkflowError {
     /// A complete diagnostic for invalid API input.
     #[error("native workflow contract: {0}")]
     Contract(String),
-    /// The operational store refused or failed a durable operation (ADR-0112).
+    /// The operational store refused or failed a durable operation (ADR-0114).
     #[error(transparent)]
     Operations(#[from] pse_operations::OperationsError),
     /// A run of the ephemeral durability class cannot be published: publication needs a
-    /// registered, finished attempt (ADR-0112 Outcome 16). This is a policy, never a
+    /// registered, finished attempt (ADR-0114 Outcome 16). This is a policy, never a
     /// fallback.
     #[error(
         "run {run_id} is ephemeral: publication requires a durable run registered in the operational store"
@@ -107,7 +107,7 @@ pub enum WorkflowError {
         /// The run that was asked to publish.
         run_id: pse_ids::SemanticId,
     },
-    /// A stored job payload this build cannot execute (ADR-0112 Outcome 14).
+    /// A stored job payload this build cannot execute (ADR-0114 Outcome 14).
     #[error(
         "job payload version {version} is not supported by this worker (supported: {supported})"
     )]
@@ -171,7 +171,7 @@ impl Runtime {
             durability: Durability::Ephemeral,
         }
     }
-    /// The same deployment under an explicit durability class (ADR-0112 Outcome 16).
+    /// The same deployment under an explicit durability class (ADR-0114 Outcome 16).
     /// Packages and preparations made from the returned runtime run under it.
     #[must_use]
     pub fn with_durability(mut self, durability: Durability) -> Self {

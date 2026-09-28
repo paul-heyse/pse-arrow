@@ -14,12 +14,12 @@ case "$target/" in
   "$root/"*) ;;
   *) mounts+=(-v "$target:$target:ro") ;;
 esac
-# Durable-run tests reach the local operational store (ADR-0112) over its Unix socket,
+# Durable-run tests reach the local operational store (ADR-0114) over its Unix socket,
 # which works without a network. PGUSER names the peer-authenticated role, because the
-# container has no passwd entry for the host user.
+# container has no passwd entry for the host user; the store honours it as libpq does.
 store=()
 if [[ -d /var/run/postgresql ]]; then
-  store=(-v /var/run/postgresql:/var/run/postgresql -e DATABASE_URL -e PSE_DATABASE_URL
+  store=(-v /var/run/postgresql:/var/run/postgresql -e PSE_DATABASE_URL
     -e "PGUSER=${PGUSER:-$(id -un)}")
 fi
 exec docker run --rm --network none --user "$(id -u):$(id -g)" \

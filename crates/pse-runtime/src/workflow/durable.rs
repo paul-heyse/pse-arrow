@@ -24,12 +24,12 @@ use pse_model::generated::enums::CandidateUse;
 use pse_operations::{
     OperationsError, Store,
     attempts::{
-        AttemptFilter, AttemptKind, AttemptRecord, NewAttempt, RuntimeTermination, Termination,
-        TerminationCode, TransitionNote,
+        AttemptFilter, AttemptId, AttemptKind, NewAttempt, RuntimeOperationalAttemptsRow,
+        RuntimeTermination, Termination, TerminationCode, TransitionNote,
     },
-    jobs::{Finished, JobOutcome, Requeue},
+    jobs::{Finished, JobId, JobOutcome, Requeue},
     lifecycle::AttemptState,
-    solutions::{SeedVectors, Solution},
+    solutions::{NewSolution, RuntimeOperationalSolutionsRow, SeedVectors, SolutionId},
     streams::{ProgressEvent, ProgressValue, Retention},
 };
 use std::{
@@ -85,7 +85,7 @@ pub struct Recovery {
     /// Jobs whose worker vanished, with the new attempt or final state of each.
     pub requeued: Vec<Requeue>,
     /// Other running attempts whose lease had expired, now stale.
-    pub stale: Vec<SemanticId>,
+    pub stale: Vec<AttemptId>,
     /// Progress events of finished attempts removed by the retention policy.
     pub pruned_events: u64,
 }
@@ -184,7 +184,10 @@ impl Operations {
     ///
     /// # Errors
     /// Store failures.
-    pub async fn runs(&self, filter: &AttemptFilter) -> Result<Vec<AttemptRecord>, WorkflowError> {
+    pub async fn runs(
+        &self,
+        filter: &AttemptFilter,
+    ) -> Result<Vec<RuntimeOperationalAttemptsRow>, WorkflowError> {
         Ok(self.store.attempts().list(filter).await?)
     }
 }
@@ -210,8 +213,8 @@ impl super::Runtime {
         let records = operations.runs(filter).await?;
         let mut rows = attempts::Builder::with_registry(&self.registry, records.len())
             .map_err(super::relation)?;
-        for record in &records {
-            rows.push(record.row()).map_err(super::relation)?;
+        for row in records {
+            rows.push(row).map_err(super::relation)?;
         }
         rows.finish().map_err(super::relation)
     }
@@ -240,13 +243,13 @@ pub enum RunDurability {
 #[derive(Clone, Debug)]
 pub struct DurableRecord {
     /// The attempt identity, minted before any effect.
-    pub attempt_id: SemanticId,
+    pub attempt_id: AttemptId,
     /// The attempt as stored after its terminal transition, or why it was not recorded.
-    pub attempt: Result<AttemptRecord, Arc<WorkflowError>>,
+    pub attempt: Result<RuntimeOperationalAttemptsRow, Arc<WorkflowError>>,
     /// The complete progress stream as stored: the snapshot publication derives from.
     pub progress: Result<Vec<ProgressEvent>, Arc<WorkflowError>>,
     /// Seeds stored from accepted steps, by step.
-    pub solutions: Vec<(usize, SemanticId)>,
+    pub solutions: Vec<(usize, SolutionId)>,
 }
 
 /// Cancels the supervised run; shared with the heartbeat.
@@ -265,15 +268,15 @@ pub(super) struct Outcome {
 /// Where a claimed attempt ends: through its job, under the job's retry policy.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Claim {
-    pub(crate) job: SemanticId,
-    pub(crate) attempt: SemanticId,
+    pub(crate) job: JobId,
+    pub(crate) attempt: AttemptId,
 }
 
 /// One durable attempt of a run: registration, lease, stream and termination.
 #[derive(Debug)]
 pub(crate) struct DurableAttempt {
     operations: Operations,
-    attempt: SemanticId,
+    attempt: AttemptId,
     claim: Option<Claim>,
     stream: Streamer,
     heartbeat: Option<Heartbeat>,
@@ -282,7 +285,7 @@ pub(crate) struct DurableAttempt {
 impl DurableAttempt {
     /// A new attempt for a run of this process. Nothing is stored until [`Self::register`].
     pub(super) fn new(operations: &Operations) -> Self {
-        let attempt = pse_operations::mint_id();
+        let attempt: AttemptId = pse_operations::mint_id();
         Self {
             stream: Streamer::spawn(operations, attempt),
             operations: operations.clone(),
@@ -303,7 +306,7 @@ impl DurableAttempt {
         }
     }
 
-    pub(super) const fn attempt_id(&self) -> SemanticId {
+    pub(super) const fn attempt_id(&self) -> AttemptId {
         self.attempt
     }
 
@@ -336,7 +339,7 @@ impl DurableAttempt {
             .create(
                 &NewAttempt {
                     attempt_id: self.attempt,
-                    run_id,
+                    run_id: run_id.into(),
                     kind,
                     request_identity,
                     preparation_identity,
@@ -435,7 +438,10 @@ impl DurableAttempt {
         }
     }
 
-    async fn cancel_unstarted(&self, outcome: &Outcome) -> Result<AttemptRecord, WorkflowError> {
+    async fn cancel_unstarted(
+        &self,
+        outcome: &Outcome,
+    ) -> Result<RuntimeOperationalAttemptsRow, WorkflowError> {
         let attempts = self.operations.store.attempts();
         match attempts.get(self.attempt).await {
             Ok(record) if matches!(record.state, AttemptState::Planned | AttemptState::Queued) => {
@@ -451,7 +457,10 @@ impl DurableAttempt {
         }
     }
 
-    async fn terminate(&self, outcome: &Outcome) -> Result<AttemptRecord, WorkflowError> {
+    async fn terminate(
+        &self,
+        outcome: &Outcome,
+    ) -> Result<RuntimeOperationalAttemptsRow, WorkflowError> {
         let note = TransitionNote::by(self.operations.worker())
             .because(outcome.reason.clone())
             .terminated(outcome.termination.clone());
@@ -653,7 +662,7 @@ struct Heartbeat {
 }
 
 impl Heartbeat {
-    fn spawn(operations: &Operations, attempt: SemanticId, cancel: Canceller) -> Self {
+    fn spawn(operations: &Operations, attempt: AttemptId, cancel: Canceller) -> Self {
         let (stop, mut stopped) = tokio::sync::oneshot::channel::<()>();
         let lost = Arc::new(AtomicBool::new(false));
         let lease_lost = lost.clone();
@@ -754,7 +763,7 @@ fn value(metric: &Metric) -> ProgressValue {
 }
 
 impl Streamer {
-    fn spawn(operations: &Operations, attempt: SemanticId) -> Self {
+    fn spawn(operations: &Operations, attempt: AttemptId) -> Self {
         let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<Observed>();
         let tap = Arc::new(Tap {
             step: AtomicI32::new(0),
@@ -831,7 +840,7 @@ fn event(seq: &mut i64, (step, at, event): Observed) -> ProgressEvent {
 /// Append one batch, retrying transient store failures a bounded number of times.
 async fn append(
     operations: &Operations,
-    attempt: SemanticId,
+    attempt: AttemptId,
     batch: &[ProgressEvent],
 ) -> Result<(), WorkflowError> {
     let mut delay = Duration::from_millis(50);
@@ -894,19 +903,21 @@ pub(super) fn seed_vectors(payload: &WarmPayload) -> SeedVectors {
 
 /// The owned warm start a stored solution describes, with its original compatibility
 /// stamps. Whether it may seed a given preparation is decided by `WarmStart::validate`.
-pub(super) fn warm_start(solution: &Solution) -> WarmStart {
-    let payload = match &solution.vectors {
-        SeedVectors::Root { primal } => WarmPayload::Root(primal.clone()),
+pub(super) fn warm_start(
+    solution: &RuntimeOperationalSolutionsRow,
+) -> Result<WarmStart, OperationsError> {
+    let payload = match SeedVectors::of(solution)? {
+        SeedVectors::Root { primal } => WarmPayload::Root(primal),
         SeedVectors::Nlp {
             primal,
             bounds,
             rows,
             barrier,
         } => WarmPayload::Nlp {
-            primal: primal.clone(),
-            bounds: bounds.clone(),
-            rows: rows.clone(),
-            barrier: *barrier,
+            primal,
+            bounds,
+            rows,
+            barrier,
             working: None,
         },
         SeedVectors::Highs {
@@ -914,17 +925,12 @@ pub(super) fn warm_start(solution: &Solution) -> WarmStart {
             dual,
             basis,
         } => WarmPayload::Highs {
-            primal: primal.clone(),
-            dual: dual.clone(),
-            basis: basis
-                .as_ref()
-                .map(|(columns, rows)| pse_backend_native::solve::Basis {
-                    columns: columns.clone(),
-                    rows: rows.clone(),
-                }),
+            primal,
+            dual,
+            basis: basis.map(|(columns, rows)| pse_backend_native::solve::Basis { columns, rows }),
         },
     };
-    WarmStart {
+    Ok(WarmStart {
         origin: None,
         compatibility: Compatibility {
             layout: solution.compatibility_stamp,
@@ -933,16 +939,16 @@ pub(super) fn warm_start(solution: &Solution) -> WarmStart {
             backend: solution.backend,
         },
         payload,
-    }
+    })
 }
 
 /// Store the output seed of every accepted step whose candidate may be used (ADR-0106),
 /// keyed by its layout stamp and seed preparation identity.
 async fn store_seeds(
     operations: &Operations,
-    attempt: SemanticId,
+    attempt: AttemptId,
     result: &RunResult,
-) -> Result<Vec<(usize, SemanticId)>, WorkflowError> {
+) -> Result<Vec<(usize, SolutionId)>, WorkflowError> {
     let (Ok(RunReport::Modeling(steps)), RunRequest::Modeling(requests)) =
         (result.report(), result.request())
     else {
@@ -963,11 +969,11 @@ async fn store_seeds(
             continue;
         };
         let vectors = seed_vectors(&seed.payload);
-        let solution_id = pse_operations::mint_id();
+        let solution_id: SolutionId = pse_operations::mint_id();
         operations
             .store
             .solutions()
-            .put(&Solution {
+            .put(&NewSolution {
                 solution_id,
                 compatibility_stamp: seed.compatibility.layout,
                 preparation_identity: preparation,
