@@ -44,9 +44,18 @@ pub(super) fn runtime() -> Runtime {
     runtime_with_workspace(16 << 20)
 }
 pub(super) fn runtime_with_workspace(workspace_bytes: usize) -> Runtime {
+    runtime_with(workspace_bytes, 1 << 20, 512 << 20)
+}
+/// A runtime whose native jobs admit `foreign_bytes` of library-owned memory within a
+/// `pool_bytes` memory pool; SCIP takes its memory limit from the foreign allowance.
+pub(super) fn runtime_with(
+    workspace_bytes: usize,
+    foreign_bytes: usize,
+    pool_bytes: usize,
+) -> Runtime {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let shared = SharedRuntime::build(crate::ResourceBudget {
-        memory_limit_bytes: n(512 << 20),
+        memory_limit_bytes: n(pool_bytes),
         spill_dir: std::env::temp_dir(),
         max_temp_dir_bytes: 1 << 30,
         top_consumers: n(5),
@@ -59,7 +68,7 @@ pub(super) fn runtime_with_workspace(workspace_bytes: usize) -> Runtime {
         math: crate::math::MathPolicy {
             worker_bytes: 8 << 20,
             workspace_bytes,
-            foreign_bytes: 1 << 20,
+            foreign_bytes,
             ..Default::default()
         },
         hashing_may_use_pool: false,

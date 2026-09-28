@@ -17,7 +17,7 @@ use crate::{
     quality::Tolerances,
     scip::{self, Status},
     solve::{
-        Assurance, Backend, BoundSource, Controls, Execution, OptionValue, PrimalSource,
+        Assurance, Backend, BoundSource, Controls, Execution, IisMember, OptionValue, PrimalSource,
         Qualification, ResolvedAccuracy, SolveIntent, SolveReport, Termination, WarmCapability,
     },
     solver_tests::stamp,
@@ -40,7 +40,10 @@ use pse_math::{
     normalization::Normalization,
     typed::{Binary, BodyBuilder, BodyLimits, TypedValue},
 };
-use pse_model::generated::enums::ModelingVariableDomain;
+use pse_model::{
+    forms::{LogicOperand, NativeConstraint},
+    generated::enums::{ModelingVariableDomain, NativeConstraintForm},
+};
 use pse_quantity::{
     IndexSet, QuantityRegistry, QuantityTypeId,
     literal::LiteralContext,
@@ -132,6 +135,18 @@ fn case(
     objective: Option<(usize, ObjectiveSense)>,
     order: DerivativeOrder,
 ) -> Case {
+    case_with(registry, body, columns, rows, objective, order, vec![])
+}
+/// As [`case`], with constraint forms left to native handlers (ADR-0104).
+fn case_with(
+    registry: &QuantityRegistry,
+    body: pse_math::guarded::PreparedBody,
+    columns: &[(ModelingVariableDomain, Option<f64>, Option<f64>, f64)],
+    rows: &[(f64, f64)],
+    objective: Option<(usize, ObjectiveSense)>,
+    order: DerivativeOrder,
+    native: Vec<NativeConstraint>,
+) -> Case {
     let key = ContentHash::from_bytes([7; 32]);
     let variables = columns
         .iter()
@@ -192,6 +207,8 @@ fn case(
             }),
             CaseLimits::default(),
         )
+        .unwrap()
+        .with_native(native)
         .unwrap(),
     );
     let assembly = Arc::new(
@@ -326,9 +343,34 @@ fn run(
     resolve: bool,
     cancel: bool,
 ) -> Result<SolveReport, ProblemError> {
+    run_with(
+        case,
+        program,
+        intent,
+        resolve,
+        cancel,
+        &ScipSettings::default(),
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+}
+/// [`run`] with typed settings, controls and a retained session.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a test run binds its case, program, intent, re-solve, cancellation, settings, controls and session"
+)]
+fn run_with(
+    case: &Case,
+    program: &FactorableProgram,
+    intent: SolveIntent,
+    resolve: bool,
+    cancel: bool,
+    settings: &ScipSettings,
+    controls: &Controls,
+    retained: &mut Retained,
+) -> Result<SolveReport, ProblemError> {
     let n = program.variables.len();
     let m = program.rows.len();
-    let controls = Controls::default();
     let accuracy = ResolvedAccuracy::nominal();
     let tolerances = tolerances(n, m);
     let normalization = Normalization::identity(n, m);
@@ -336,19 +378,21 @@ fn run(
     let mut fixed = |a: &BTreeMap<usize, f64>| case.fixed_oracle(a);
     let presolve = crate::presolve::Policy::Auto;
     let initial = case.initial();
+    let mut execution = execution(cancel);
+    execution.time_limit = controls.time_limit;
     execution::factorable(
         Step {
             adapter: execution::adapter(Backend::Scip),
-            settings: &BackendSettings::Default,
-            controls: &controls,
+            settings: &BackendSettings::Scip(settings.clone()),
+            controls,
             accuracy: &accuracy,
-            execution: execution(cancel),
+            execution,
             tolerances: &tolerances,
             normalization: &normalization,
             compatibility: stamp(Backend::Scip),
             warm: None,
         },
-        &mut Retained::default(),
+        retained,
         Factorable {
             program,
             initial: &initial,
@@ -444,7 +488,8 @@ fn scip_abi_matches_image() {
         execution::Representation::Factorable
     );
     let row = adapter.capability().row(Backend::Scip);
-    assert!(row.certifies && !row.parallel);
+    // Concurrent solving takes the admitted permits (Plan 22 G7).
+    assert!(row.certifies && row.parallel);
     assert_eq!(row.warm, WarmCapability::Primal);
     assert!(
         execution::LINKED
@@ -644,7 +689,7 @@ fn scip_export_readback_equivalent() {
 }
 
 #[test]
-fn scip_solves_small_nonconvex_nlp_globally() {
+fn certify_known_global_optimum() {
     let registry = standard_registry().unwrap();
     let case = quartic(&registry, (Some(-2.0), Some(2.0)));
     let program = case.program(&FactorableRequest::default());
@@ -705,14 +750,43 @@ fn scip_solves_small_nonconvex_nlp_globally() {
     assert!((bound - quartic_value(global)).abs() < 1e-3, "{bound}");
     assert_eq!(report.qualification, Qualification::GapQualified);
     assert_eq!(report.termination.assurance, Assurance::GlobalBound);
-    // Tolerances and the box are recorded with the claim.
+    // Tolerances, fidelity and the box are recorded with the claim.
     assert!(g.feasibility > 0.0 && g.gap_relative > 0.0 && g.gap_absolute > 0.0);
     assert!(g.nodes >= 1);
     assert_eq!(report.options["misc/catchctrlc"], OptionValue::Bool(false));
+    let record = report.global.as_ref().unwrap();
+    assert_eq!(record.boxes, vec![(-2.0, 2.0), (0.0, 4.0)]);
+    assert!(record.pool.is_empty() && record.iis.is_none());
+    // A nonconvex QP certifies too: min x·y over [−1, 2]² with x + y ≤ 1.5 has its
+    // global minimum −2 at two corners, while (0.5, 0.5) is a local saddle start.
+    let mut b = Body::new(&registry, 2);
+    let (x, y) = (b.x[0].clone(), b.x[1].clone());
+    let sum = b.op(Binary::Add, &x, &y);
+    let product = b.op(Binary::Mul, &x, &y);
+    let body = b.b.prepare(&[sum, product]).unwrap();
+    let qp = super::scip_tests::case(
+        &registry,
+        body,
+        &[
+            (ModelingVariableDomain::Continuous, Some(-1.0), Some(2.0), 0.5),
+            (ModelingVariableDomain::Continuous, Some(-1.0), Some(2.0), 0.5),
+        ],
+        &[(f64::NEG_INFINITY, 1.5)],
+        Some((1, ObjectiveSense::Minimize)),
+        DerivativeOrder::Second,
+    );
+    let program = qp.program(&FactorableRequest::default());
+    let report = run(&qp, &program, SolveIntent::Certify, true, false).unwrap();
+    let g = report.evidence.global.unwrap();
+    assert!((g.dual_bound.unwrap() + 2.0).abs() < 1e-6, "{g:?}");
+    let objective = report.observation.as_ref().unwrap().objective.unwrap();
+    assert!((objective + 2.0).abs() < 1e-6, "{objective}");
+    assert_eq!(report.qualification, Qualification::GapQualified);
+    assert_eq!(report.termination.assurance, Assurance::GlobalBound);
 }
 
 #[test]
-fn scip_minlp_small_synthesis() {
+fn small_synthesis_minlp_optimal() {
     let registry = standard_registry().unwrap();
     let case = synthesis(&registry);
     let program = case.program(&FactorableRequest::default());
@@ -913,6 +987,7 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
         nlp_linear_solver: IpoptLinearSolver::Pardisomkl,
         seed: 3,
         nodes: Some(1000),
+        ..ScipSettings::default()
     };
     let options = scip::testing::configured(&pardiso, &controls, &accuracy).unwrap();
     assert_eq!(
@@ -958,9 +1033,13 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
     };
     let cancellation =
         std::env::var("OMP_CANCELLATION").is_ok_and(|v| v.eq_ignore_ascii_case("true"));
-    assert_eq!(spral.admit().is_ok(), cancellation);
-    // Foreign settings and extra threads are refused by the adapter.
+    assert_eq!(spral.admit(1).is_ok(), cancellation);
+    // Admitted permits run SCIP concurrently; modes that exclude one another are refused.
     let adapter = execution::adapter(Backend::Scip);
+    let threads = Controls {
+        threads: 2,
+        ..Controls::default()
+    };
     assert!(
         adapter
             .admit_settings(&BackendSettings::Scip(pardiso), &Controls::default())
@@ -968,15 +1047,49 @@ fn scip_internal_ipopt_uses_typed_linear_solver() {
     );
     assert!(
         adapter
-            .admit_settings(
-                &BackendSettings::Default,
-                &Controls {
-                    threads: 2,
-                    ..Controls::default()
-                }
-            )
-            .is_err()
+            .admit_settings(&BackendSettings::Default, &threads)
+            .is_ok()
     );
+    for (settings, controls) in [
+        (
+            ScipSettings {
+                exact: true,
+                reoptimize: true,
+                ..ScipSettings::default()
+            },
+            Controls::default(),
+        ),
+        (
+            ScipSettings {
+                exact: true,
+                iis: true,
+                ..ScipSettings::default()
+            },
+            Controls::default(),
+        ),
+        (
+            ScipSettings {
+                exact: true,
+                ..ScipSettings::default()
+            },
+            threads.clone(),
+        ),
+        (
+            ScipSettings {
+                reoptimize: true,
+                ..ScipSettings::default()
+            },
+            threads.clone(),
+        ),
+    ] {
+        assert!(
+            matches!(
+                adapter.admit_settings(&BackendSettings::Scip(settings.clone()), &controls),
+                Err(ProblemError::Unsupported(_))
+            ),
+            "{settings:?}"
+        );
+    }
 }
 
 #[test]
@@ -994,4 +1107,546 @@ fn scip_cancel_flag_is_not_ambient() {
     let (status, ..) =
         scip::testing::raw_status(&program, SolveIntent::Optimize, &execution(false)).unwrap();
     assert_ne!(status, Status::UserInterrupt);
+}
+
+/// x·x ≥ 4, x·x ≤ 1 and the redundant x·x ≤ 100 over x ∈ [−3, 3]: infeasible, with
+/// the first two rows the only infeasible subsystem.
+fn obstruction(registry: &QuantityRegistry) -> Case {
+    let mut b = Body::new(registry, 1);
+    let x = b.x[0].clone();
+    let xx = b.op(Binary::Mul, &x, &x);
+    let body = b.b.prepare(&[xx.clone(), xx.clone(), xx]).unwrap();
+    case(
+        registry,
+        body,
+        &[(ModelingVariableDomain::Continuous, Some(-3.0), Some(3.0), 1.5)],
+        &[(4.0, f64::INFINITY), (f64::NEG_INFINITY, 1.0), (f64::NEG_INFINITY, 100.0)],
+        None,
+        DerivativeOrder::Second,
+    )
+}
+
+#[test]
+fn global_infeasibility_proof() {
+    let registry = standard_registry().unwrap();
+    let case = obstruction(&registry);
+    let program = case.program(&FactorableRequest::default());
+    assert_eq!(program.fidelity(), Fidelity::Exact);
+    let report = run(&case, &program, SolveIntent::Certify, false, false).unwrap();
+    assert_eq!(report.termination.category, Termination::Infeasible);
+    assert_eq!(report.termination.name, "SCIP_STATUS_INFEASIBLE");
+    // A global conclusion over the declared box, tolerance-qualified (T10), never a
+    // solution: no candidate and no qualification.
+    assert_eq!(report.termination.assurance, Assurance::ProvenInfeasible);
+    assert!(report.candidate.is_none());
+    assert_eq!(report.qualification, Qualification::Unqualified);
+    let g = report.evidence.global.unwrap();
+    assert!(g.infeasible && g.readback && !g.exact);
+    assert_eq!(g.dual, BoundSource::ExactExport);
+    // Without the obstruction the same box is feasible and no proof is claimed.
+    let mut b = Body::new(&registry, 1);
+    let x = b.x[0].clone();
+    let xx = b.op(Binary::Mul, &x, &x);
+    let body = b.b.prepare(&[xx]).unwrap();
+    let feasible = super::scip_tests::case(
+        &registry,
+        body,
+        &[(ModelingVariableDomain::Continuous, Some(-3.0), Some(3.0), 1.5)],
+        &[(4.0, f64::INFINITY)],
+        None,
+        DerivativeOrder::Second,
+    );
+    let program = feasible.program(&FactorableRequest::default());
+    let report = run(&feasible, &program, SolveIntent::Certify, false, false).unwrap();
+    assert_eq!(report.termination.category, Termination::Success);
+    assert_ne!(report.termination.assurance, Assurance::ProvenInfeasible);
+    assert_eq!(report.qualification, Qualification::Feasible);
+}
+
+#[test]
+fn nonlinear_iis_irreducible_flag() {
+    let registry = standard_registry().unwrap();
+    let case = obstruction(&registry);
+    let program = case.program(&FactorableRequest::default());
+    let settings = ScipSettings {
+        iis: true,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Certify,
+        false,
+        false,
+        &settings,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    assert_eq!(report.termination.assurance, Assurance::ProvenInfeasible);
+    let iis = report.global.as_ref().unwrap().iis.clone().unwrap();
+    assert!(iis.irreducible, "{iis:?}");
+    // Both obstructing rows and the kept bounds of the variable they use; not the
+    // redundant row.
+    assert_eq!(
+        iis.members,
+        vec![
+            IisMember::Row(id(101)),
+            IisMember::Row(id(102)),
+            IisMember::VariableLower(id(1)),
+            IisMember::VariableUpper(id(1)),
+        ]
+    );
+    // Without the request no subsystem is computed.
+    let report = run(&case, &program, SolveIntent::Certify, false, false).unwrap();
+    assert!(report.global.as_ref().unwrap().iis.is_none());
+}
+
+#[test]
+fn mip_iis_on_true_mip() {
+    // 2x + 2y = 3 over integers x, y ∈ [0, 5] with x − y ≤ 10: the continuous
+    // relaxation is feasible (x = 1.5, y = 0), the mixed-integer program is not.
+    let registry = standard_registry().unwrap();
+    let mut b = Body::new(&registry, 2);
+    let (x, y) = (b.x[0].clone(), b.x[1].clone());
+    let two = b.c(2.0);
+    let tx = b.op(Binary::Mul, &two, &x);
+    let ty = b.op(Binary::Mul, &two, &y);
+    let parity = b.op(Binary::Add, &tx, &ty);
+    let spread = b.op(Binary::Sub, &x, &y);
+    let body = b.b.prepare(&[parity, spread]).unwrap();
+    let columns = [
+        (ModelingVariableDomain::Integer, Some(0.0), Some(5.0), 0.0),
+        (ModelingVariableDomain::Integer, Some(0.0), Some(5.0), 0.0),
+    ];
+    let rows = [(3.0, 3.0), (f64::NEG_INFINITY, 10.0)];
+    let case = case(&registry, body, &columns, &rows, None, DerivativeOrder::Value);
+    let program = case.program(&FactorableRequest::default());
+    // The relaxation's feasible point exists, so an LP IIS would find nothing.
+    let values = program.evaluate(&[1.5, 0.0], &[]).unwrap();
+    let row = |r: usize| values[program.rows[r].expression.unwrap()];
+    assert!((row(0) - 3.0).abs() < 1e-12 && row(1) <= 10.0);
+    let settings = ScipSettings {
+        iis: true,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Certify,
+        false,
+        false,
+        &settings,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    assert_eq!(report.termination.category, Termination::Infeasible);
+    assert_eq!(report.termination.assurance, Assurance::ProvenInfeasible);
+    let iis = report.global.as_ref().unwrap().iis.clone().unwrap();
+    assert!(iis.irreducible, "{iis:?}");
+    assert!(iis.members.contains(&IisMember::Row(id(101))), "{iis:?}");
+    assert!(!iis.members.contains(&IisMember::Row(id(102))), "{iis:?}");
+}
+
+/// Native forms over one small MILP (ADR-0104):
+/// max x₁ + 2x₂ + 3x₃ − 5b − 0.5c + w₁ + w₂ subject to
+/// - x₁ + x₂ + x₃ ≤ 10, with {x₁, x₂, x₃} ⊂ [0, 4] an SOS1 set;
+/// - x₃ ≤ 1 while b = 0 (indicator);
+/// - z = b ∨ c (logic) and z = 1;
+/// - at most one of w₁, w₂ ∈ [0, 1] nonzero (cardinality).
+///
+/// Enumeration: b = 1 gives 12 − 5 + 1 = 8; b = 0 forces c = 1 and gives
+/// 2·4 − 0.5 + 1 = 8.5, the optimum.
+fn native_forms(registry: &QuantityRegistry) -> Case {
+    native_forms_only(registry, &[0, 1, 2, 3])
+}
+fn native_forms_only(registry: &QuantityRegistry, keep: &[usize]) -> Case {
+    let mut b = Body::new(registry, 8);
+    let x = b.x.clone();
+    let s12 = b.op(Binary::Add, &x[0], &x[1]);
+    let supply = b.op(Binary::Add, &s12, &x[2]);
+    let two = b.c(2.0);
+    let three = b.c(3.0);
+    let five = b.c(5.0);
+    let half = b.c(0.5);
+    let t2 = b.op(Binary::Mul, &two, &x[1]);
+    let t3 = b.op(Binary::Mul, &three, &x[2]);
+    let tb = b.op(Binary::Mul, &five, &x[3]);
+    let tc = b.op(Binary::Mul, &half, &x[4]);
+    let o = b.op(Binary::Add, &x[0], &t2);
+    let o = b.op(Binary::Add, &o, &t3);
+    let o = b.op(Binary::Sub, &o, &tb);
+    let o = b.op(Binary::Sub, &o, &tc);
+    let o = b.op(Binary::Add, &o, &x[6]);
+    let o = b.op(Binary::Add, &o, &x[7]);
+    let body = b.b.prepare(&[supply, x[2].clone(), x[5].clone(), o]).unwrap();
+    let continuous = |upper| (ModelingVariableDomain::Continuous, Some(0.0), Some(upper), 0.0);
+    let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
+    case_with(
+        registry,
+        body,
+        &[
+            continuous(4.0),
+            continuous(4.0),
+            continuous(4.0),
+            binary,
+            binary,
+            binary,
+            continuous(1.0),
+            continuous(1.0),
+        ],
+        &[(f64::NEG_INFINITY, 10.0), (f64::NEG_INFINITY, 1.0), (1.0, 1.0)],
+        Some((3, ObjectiveSense::Maximize)),
+        DerivativeOrder::Value,
+        vec![
+            NativeConstraint::Sos {
+                form: NativeConstraintForm::Sos1,
+                members: vec![(id(1), 1.0), (id(2), 2.0), (id(3), 3.0)],
+            },
+            NativeConstraint::Indicator {
+                row: id(102),
+                variable: id(4),
+                active: false,
+            },
+            NativeConstraint::Logic {
+                form: NativeConstraintForm::Or,
+                resultant: id(6),
+                operands: vec![
+                    LogicOperand {
+                        variable: id(4),
+                        negated: false,
+                    },
+                    LogicOperand {
+                        variable: id(5),
+                        negated: false,
+                    },
+                ],
+            },
+            NativeConstraint::Cardinality {
+                members: vec![id(7), id(8)],
+                bound: 1,
+            },
+        ]
+        .into_iter()
+        .enumerate()
+        .filter(|(k, _)| keep.contains(k))
+        .map(|(_, c)| c)
+        .collect(),
+    )
+}
+
+#[test]
+fn native_forms_consumed_by_scip() {
+    let registry = standard_registry().unwrap();
+    let case = native_forms(&registry);
+    let program = case.program(&FactorableRequest::default());
+    assert_eq!(program.native.len(), 4);
+    assert_eq!(program.fidelity(), Fidelity::Exact);
+    // The record consumes every form the registry declares.
+    let record = execution::adapter(Backend::Scip).capability();
+    for form in NativeConstraintForm::ALL {
+        assert!(record.native_forms.contains(&form), "{form:?}");
+    }
+    let report = run(&case, &program, SolveIntent::Optimize, true, false).unwrap();
+    assert_eq!(report.termination.category, Termination::Success);
+    let x = &report.candidate.as_ref().unwrap().primal;
+    let objective = report.observation.as_ref().unwrap().objective.unwrap();
+    assert!((objective - 8.5).abs() < 1e-6, "{objective} {x:?}");
+    // b = 0 leaves x₃ ≤ 1 enforced, c = 1 satisfies the asserted disjunction, and the
+    // SOS1 and cardinality sets each hold one nonzero.
+    assert!(x[3].abs() < 1e-9 && (x[4] - 1.0).abs() < 1e-9 && (x[5] - 1.0).abs() < 1e-9);
+    assert!((x[1] - 4.0).abs() < 1e-6 && x[0].abs() < 1e-9 && x[2].abs() < 1e-9);
+    assert!((x[6] + x[7] - 1.0).abs() < 1e-6 && x[6].min(x[7]).abs() < 1e-9);
+    assert!(matches!(
+        report.metrics["export.constraints.native"],
+        crate::solve::Metric::Integer(3)
+    ));
+    // Original qualification checks every form's structure beside rows and integrality.
+    let quality = report.quality.as_ref().unwrap();
+    assert!(quality.feasible());
+    assert_eq!(quality.integrality.len(), 3 + 3);
+    assert_eq!(report.qualification, Qualification::GapQualified);
+    // The indicator row is enforced while its binary column holds the inactive value.
+    let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
+    let condition = execution::factorable::Enforcement::When(
+        execution::factorable::Condition {
+            column: 3,
+            active: false,
+        },
+    );
+    assert_eq!(plan.rows[1], condition);
+    assert!(condition.enforced(&[0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0]));
+    assert!(!condition.enforced(&[0.0, 0.0, 4.0, 1.0, 0.0, 1.0, 0.0, 0.0]));
+}
+
+#[test]
+fn solution_pool_ranked() {
+    let registry = standard_registry().unwrap();
+    let case = native_forms(&registry);
+    let program = case.program(&FactorableRequest::default());
+    let settings = ScipSettings {
+        pool: 4,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Optimize,
+        false,
+        false,
+        &settings,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    let pool = &report.global.as_ref().unwrap().pool;
+    assert!(!pool.is_empty() && pool.len() <= 4, "{pool:?}");
+    // Ranked best first for the maximization; every member is re-qualified in original
+    // coordinates, and the first is the candidate.
+    for (rank, solution) in pool.iter().enumerate() {
+        assert_eq!(solution.rank, rank);
+        assert_eq!(solution.feasible, Some(true), "{solution:?}");
+    }
+    for pair in pool.windows(2) {
+        assert!(pair[0].objective.unwrap() >= pair[1].objective.unwrap() - 1e-9);
+    }
+    assert_eq!(pool[0].primal, report.candidate.as_ref().unwrap().primal);
+    assert!((pool[0].objective.unwrap() - 8.5).abs() < 1e-6);
+}
+
+/// max x + y over binaries with 10⁹x + 10⁹y ≤ 2·10⁹ − 1: the exact optimum is 1, while
+/// x = y = 1 violates the row by one unit, a relative 5·10⁻¹⁰ below the float
+/// feasibility tolerance.
+fn delicate(registry: &QuantityRegistry) -> Case {
+    let mut b = Body::new(registry, 2);
+    let (x, y) = (b.x[0].clone(), b.x[1].clone());
+    let scale = b.c(1e9);
+    let sx = b.op(Binary::Mul, &scale, &x);
+    let sy = b.op(Binary::Mul, &scale, &y);
+    let row = b.op(Binary::Add, &sx, &sy);
+    let objective = b.op(Binary::Add, &x, &y);
+    let body = b.b.prepare(&[row, objective]).unwrap();
+    let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
+    case(
+        registry,
+        body,
+        &[binary, binary],
+        &[(f64::NEG_INFINITY, 2e9 - 1.0)],
+        Some((1, ObjectiveSense::Maximize)),
+        DerivativeOrder::Value,
+    )
+}
+
+#[test]
+fn exact_mode_on_delicate_milp() {
+    let registry = standard_registry().unwrap();
+    let case = delicate(&registry);
+    let program = case.program(&FactorableRequest::default());
+    let exact = ScipSettings {
+        exact: true,
+        ..ScipSettings::default()
+    };
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Certify,
+        false,
+        false,
+        &exact,
+        &Controls::default(),
+        &mut Retained::default(),
+    )
+    .unwrap();
+    assert_eq!(report.termination.category, Termination::Success);
+    let g = report.evidence.global.unwrap();
+    assert!(g.exact && g.readback, "{g:?}");
+    assert_eq!(report.termination.assurance, Assurance::ExactCertificate);
+    assert_eq!(report.qualification, Qualification::OptimalWithinTolerance);
+    let objective = report.observation.as_ref().unwrap().objective.unwrap();
+    assert!((objective - 1.0).abs() < 1e-12, "{objective}");
+    assert_eq!(
+        report.global.as_ref().unwrap().exact_objective.as_deref(),
+        Some("1")
+    );
+    // Floating-point solving may accept the violated point within its relative
+    // tolerance; original-coordinate qualification then refuses it, so no claim
+    // transfers, and no float claim is ever an exact certificate.
+    let float = run(&case, &program, SolveIntent::Certify, false, false).unwrap();
+    let x = &float.candidate.as_ref().unwrap().primal;
+    if x[0] + x[1] > 1.5 {
+        assert!(!float.quality.as_ref().unwrap().feasible());
+        assert_ne!(float.qualification, Qualification::GapQualified);
+    }
+    assert_ne!(float.termination.assurance, Assurance::ExactCertificate);
+    // Exact solving refuses what it cannot represent: a nonlinear program.
+    let quartic = quartic(&registry, (Some(-2.0), Some(2.0)));
+    let program = quartic.program(&FactorableRequest::default());
+    assert!(matches!(
+        run_with(
+            &quartic,
+            &program,
+            SolveIntent::Certify,
+            false,
+            false,
+            &exact,
+            &Controls::default(),
+            &mut Retained::default(),
+        ),
+        Err(ProblemError::Unsupported(m)) if m.contains("exact")
+    ));
+}
+
+/// A price sequence on one commitment MILP: max Σ pₜ·xₜ − 3·Σ uₜ with xₜ ≤ 5uₜ,
+/// x₁ + x₂ ≤ 8, xₜ ∈ [0, 5], uₜ binary. Only the prices change between steps.
+fn commitment(registry: &QuantityRegistry, prices: [f64; 2]) -> Case {
+    let mut b = Body::new(registry, 4);
+    let x = b.x.clone();
+    let five = b.c(5.0);
+    let three = b.c(3.0);
+    let mut outputs = vec![];
+    for t in 0..2 {
+        let cap = b.op(Binary::Mul, &five, &x[2 + t]);
+        outputs.push(b.op(Binary::Sub, &x[t], &cap));
+    }
+    outputs.push(b.op(Binary::Add, &x[0], &x[1]));
+    let p0 = b.c(prices[0]);
+    let p1 = b.c(prices[1]);
+    let r0 = b.op(Binary::Mul, &p0, &x[0]);
+    let r1 = b.op(Binary::Mul, &p1, &x[1]);
+    let on = b.op(Binary::Add, &x[2], &x[3]);
+    let cost = b.op(Binary::Mul, &three, &on);
+    let revenue = b.op(Binary::Add, &r0, &r1);
+    outputs.push(b.op(Binary::Sub, &revenue, &cost));
+    let body = b.b.prepare(&outputs).unwrap();
+    let flow = (ModelingVariableDomain::Continuous, Some(0.0), Some(5.0), 0.0);
+    let binary = (ModelingVariableDomain::Binary, None, None, 0.0);
+    case(
+        registry,
+        body,
+        &[flow, flow, binary, binary],
+        &[
+            (f64::NEG_INFINITY, 0.0),
+            (f64::NEG_INFINITY, 0.0),
+            (f64::NEG_INFINITY, 8.0),
+        ],
+        Some((3, ObjectiveSense::Maximize)),
+        DerivativeOrder::Value,
+    )
+}
+/// Enumerated optimum of [`commitment`]: each commitment fills the better price first.
+fn commitment_optimum(prices: [f64; 2]) -> f64 {
+    let mut order = [0, 1];
+    order.sort_by(|a, b| prices[*b].total_cmp(&prices[*a]));
+    [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+        .into_iter()
+        .map(|u: [f64; 2]| {
+            let mut left = 8.0_f64;
+            let mut value = -3.0 * (u[0] + u[1]);
+            for t in order {
+                let x = (5.0 * u[t]).min(left);
+                if prices[t] > 0.0 {
+                    value += prices[t] * x;
+                    left -= x;
+                }
+            }
+            value
+        })
+        .fold(f64::NEG_INFINITY, f64::max)
+}
+
+#[test]
+fn reoptimized_sequence_matches_cold_solves() {
+    let registry = standard_registry().unwrap();
+    let settings = ScipSettings {
+        reoptimize: true,
+        ..ScipSettings::default()
+    };
+    let controls = Controls {
+        reuse: crate::solve::ReusePolicy::AllowRebuild,
+        ..Controls::default()
+    };
+    let mut retained = Retained::default();
+    for (step, prices) in [[4.0, 1.0], [1.0, 4.0], [0.5, 0.2], [2.0, 2.0]]
+        .into_iter()
+        .enumerate()
+    {
+        let case = commitment(&registry, prices);
+        let program = case.program(&FactorableRequest::default());
+        let report = run_with(
+            &case,
+            &program,
+            SolveIntent::Optimize,
+            false,
+            false,
+            &settings,
+            &controls,
+            &mut retained,
+        )
+        .unwrap();
+        let objective = report.observation.as_ref().unwrap().objective.unwrap();
+        let expected = commitment_optimum(prices);
+        assert!(
+            (objective - expected).abs() < 1e-6,
+            "{step}: {objective} vs {expected}"
+        );
+        assert_eq!(report.qualification, Qualification::GapQualified, "{step}");
+        // The first step builds the session; later steps reuse its search tree.
+        assert_eq!(report.evidence.reused_native_state, step > 0, "{step}");
+        assert_eq!(report.global.as_ref().unwrap().reoptimized, step > 0);
+        assert_eq!(retained.backend(), Some(Backend::Scip));
+        // The cold solve agrees.
+        let cold = run(&case, &program, SolveIntent::Optimize, false, false).unwrap();
+        let cold = cold.observation.as_ref().unwrap().objective.unwrap();
+        assert!((cold - objective).abs() < 1e-6, "{step}");
+    }
+    // A changed constraint system rebuilds instead of reusing.
+    let case = delicate(&registry);
+    let program = case.program(&FactorableRequest::default());
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Optimize,
+        false,
+        false,
+        &settings,
+        &controls,
+        &mut retained,
+    )
+    .unwrap();
+    assert!(!report.evidence.reused_native_state);
+}
+
+#[test]
+fn concurrent_mode_under_admitted_permits() {
+    let registry = standard_registry().unwrap();
+    let case = synthesis(&registry);
+    let program = case.program(&FactorableRequest::default());
+    let controls = Controls {
+        threads: 2,
+        ..Controls::default()
+    };
+    let report = run_with(
+        &case,
+        &program,
+        SolveIntent::Optimize,
+        true,
+        false,
+        &ScipSettings::default(),
+        &controls,
+        &mut Retained::default(),
+    )
+    .unwrap();
+    assert!(matches!(
+        report.metrics["scip.threads"],
+        crate::solve::Metric::Integer(2)
+    ));
+    assert_eq!(
+        report.options["parallel/maxnthreads"],
+        OptionValue::Integer(2)
+    );
+    assert_eq!(report.options["parallel/mode"], OptionValue::Integer(1));
+    let objective = report.observation.as_ref().unwrap().objective.unwrap();
+    assert!((objective - 6.5).abs() < 1e-5, "{objective}");
+    assert_eq!(report.qualification, Qualification::GapQualified);
 }

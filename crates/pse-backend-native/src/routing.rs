@@ -11,10 +11,8 @@ use crate::{
     },
 };
 use pse_kernels::DerivativeOrder;
+use pse_math::facts::{BoundShape, ProblemFacts};
 use pse_model::generated::enums::{ModelingVariableDomain, NativeConstraintForm};
-use pse_math::{
-    facts::{BoundShape, ProblemFacts},
-};
 /// Selected execution class, including the zero-variable path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Route {
@@ -89,9 +87,9 @@ impl std::fmt::Display for Ineligible {
                     _ => "first",
                 }
             ),
-            Self::Bounds { signs: true } => {
-                f.write_str("cannot represent two-sided bounds; only one-sided (shifted sign) bounds")
-            }
+            Self::Bounds { signs: true } => f.write_str(
+                "cannot represent two-sided bounds; only one-sided (shifted sign) bounds",
+            ),
             Self::Bounds { signs: false } => f.write_str("cannot represent variable bounds"),
             Self::NativeForms { missing } => write!(
                 f,
@@ -179,7 +177,9 @@ pub fn oracle_facts(c: &crate::OracleContract, objective: bool, equalities: bool
     }
 }
 fn continuous(f: &ProblemFacts) -> bool {
-    f.domains.iter().all(|d| *d == ModelingVariableDomain::Continuous)
+    f.domains
+        .iter()
+        .all(|d| *d == ModelingVariableDomain::Continuous)
 }
 fn square_root(f: &ProblemFacts) -> bool {
     f.equalities && f.rows == f.variables && !f.objective && continuous(f)
@@ -540,13 +540,22 @@ mod tests {
         let missing = Ineligible::NativeForms {
             missing: vec![NativeConstraintForm::Indicator],
         };
+        // SCIP's record consumes the indicator handler (Plan 22 G7); every other record
+        // is refused with the form it lacks, and automatic routing selects SCIP.
         for choice in requirements.eligibility() {
-            assert!(choice.reasons.contains(&missing), "{choice:?}");
+            let consumes = adapter(choice.backend)
+                .capability()
+                .native_forms
+                .contains(&NativeConstraintForm::Indicator);
+            assert_eq!(consumes, choice.backend == Backend::Scip, "{choice:?}");
+            assert_eq!(!consumes, choice.reasons.contains(&missing), "{choice:?}");
         }
-        assert!(matches!(
-            requirements.select(SolverSelection::Auto),
-            Err(ProblemError::Unsupported(_))
-        ));
+        assert_eq!(
+            requirements.select(SolverSelection::Auto).ok(),
+            adapter(Backend::Scip)
+                .linked()
+                .then_some(Route::Native(Backend::Scip))
+        );
         // The rule reads the record: one that consumes the handler admits the form.
         let highs = adapter(Backend::Highs).capability();
         let consuming = Capability {

@@ -28,7 +28,10 @@ use crate::{
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_math::{
     binding::ObjectiveSense,
-    factorable::{BoundOwner, Constraint, FactorableProgram, Fidelity, MissingBound, Node, NodeId},
+    factorable::{
+        BoundOwner, Constraint, FactorableProgram, Fidelity, MissingBound, NativeOperand, Node,
+        NodeId, ProjectedNative,
+    },
 };
 use pse_model::generated::enums::ModelingVariableDomain;
 use std::collections::BTreeMap;
@@ -52,6 +55,10 @@ pub enum Refusal {
     SemiDomain(SemanticId),
     /// A constant or exponent outside finite representation.
     Constant(NodeId),
+    /// A row is conditional on more than one indicator; a native handler takes one.
+    Conjunctive(SemanticId),
+    /// A native logic or indicator operand is not a binary column or a fixed 0/1 value.
+    NativeOperand(usize),
 }
 impl std::fmt::Display for Refusal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -79,6 +86,14 @@ impl std::fmt::Display for Refusal {
                 "variable {id} has a semi domain, which needs a declared lowering"
             ),
             Self::Constant(node) => write!(f, "node {node} holds a nonfinite constant"),
+            Self::Conjunctive(row) => write!(
+                f,
+                "row {row} is conditional on more than one indicator; a native indicator takes one"
+            ),
+            Self::NativeOperand(k) => write!(
+                f,
+                "native constraint {k} needs binary operands (a binary column or a fixed 0 or 1)"
+            ),
         }
     }
 }
@@ -95,13 +110,40 @@ pub(crate) enum Origin {
     /// An implicit block's declared bound.
     ImplicitBound(usize, usize),
 }
-/// One exported constraint `lower <= node <= upper`.
+/// The binary column whose value activates a conditional row (ADR-0104).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Condition {
+    pub column: usize,
+    pub active: bool,
+}
+/// Whether a selected row is enforced at a point.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Enforcement {
+    /// At every point.
+    Always,
+    /// Never: its indicator is fixed at the inactive value.
+    Never,
+    /// While the condition holds.
+    When(Condition),
+}
+impl Enforcement {
+    /// Whether the row is enforced at `x`; an indicator counts as set when it rounds to 1.
+    pub(crate) fn enforced(self, x: &[f64]) -> bool {
+        match self {
+            Self::Always => true,
+            Self::Never => false,
+            Self::When(c) => (x[c.column].round() == 1.0) == c.active,
+        }
+    }
+}
+/// One exported constraint `lower <= node <= upper`, enforced while `condition` holds.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Function {
     pub node: NodeId,
     pub lower: f64,
     pub upper: f64,
     pub origin: Origin,
+    pub condition: Option<Condition>,
 }
 /// An affine form over the combined coordinates: columns first, then auxiliaries.
 #[derive(Clone, Debug, PartialEq)]
@@ -128,6 +170,10 @@ pub(crate) struct Plan<'p> {
     pub affine: Vec<Option<Affine>>,
     /// Identity of the declared box and domains the backend branches over.
     pub domain: ContentHash,
+    /// Enforcement of every selected row, in row order.
+    pub rows: Vec<Enforcement>,
+    /// Native constraints other than indicators, by ordinal in the program.
+    pub native: Vec<usize>,
 }
 impl Plan<'_> {
     /// Some exported function or the objective is not affine.
@@ -138,9 +184,17 @@ impl Plan<'_> {
             .chain(self.objective.map(|o| o.0))
             .any(|n| self.affine[n].is_none())
     }
-    /// A column has an integer domain.
+    /// A column has an integer domain, or a native form makes the program combinatorial.
     pub(crate) fn discrete(&self) -> bool {
         self.program.variables.iter().any(|v| v.domain.is_integer())
+            || !self.program.native.is_empty()
+    }
+}
+/// A native operand that must be binary: a binary column, or a fixed 0 or 1.
+fn binary(program: &FactorableProgram, operand: NativeOperand) -> bool {
+    match operand {
+        NativeOperand::Column(c) => program.variables[c].domain == ModelingVariableDomain::Binary,
+        NativeOperand::Fixed(v) => v == 0.0 || v == 1.0,
     }
 }
 
@@ -289,10 +343,61 @@ pub(crate) fn plan(
         },
         _ => None,
     };
+    // Indicator rows are enforced conditionally; a fixed inactive indicator removes its
+    // row exactly, and every other native form needs binary operands where it is logic.
+    let mut enforcement = vec![Enforcement::Always; program.rows.len()];
+    let mut native = Vec::new();
+    for (k, n) in program.native.iter().enumerate() {
+        match n {
+            ProjectedNative::Indicator {
+                row,
+                indicator,
+                active,
+            } => {
+                if !binary(program, *indicator) {
+                    refusals.push(Refusal::NativeOperand(k));
+                    continue;
+                }
+                let e = &mut enforcement[*row];
+                *e = match (*e, *indicator) {
+                    (Enforcement::Never, _) => Enforcement::Never,
+                    (_, NativeOperand::Fixed(v)) if (v == 1.0) != *active => Enforcement::Never,
+                    (e, NativeOperand::Fixed(_)) => e,
+                    (Enforcement::Always, NativeOperand::Column(column)) => {
+                        Enforcement::When(Condition {
+                            column,
+                            active: *active,
+                        })
+                    }
+                    (Enforcement::When(_), NativeOperand::Column(_)) => {
+                        refusals.push(Refusal::Conjunctive(program.rows[*row].id));
+                        *e
+                    }
+                };
+            }
+            ProjectedNative::Logic {
+                resultant,
+                operands,
+                ..
+            } => {
+                if !binary(program, *resultant) || operands.iter().any(|(o, _)| !binary(program, *o))
+                {
+                    refusals.push(Refusal::NativeOperand(k));
+                }
+                native.push(k);
+            }
+            ProjectedNative::Sos { .. } | ProjectedNative::Cardinality { .. } => native.push(k),
+        }
+    }
     let mut constraints = Vec::new();
     let mut dropped = 0;
     let mut fidelity = Fidelity::Exact;
     for (r, row) in program.rows.iter().enumerate() {
+        let condition = match enforcement[r] {
+            Enforcement::Never => continue,
+            Enforcement::Always => None,
+            Enforcement::When(c) => Some(c),
+        };
         match row.expression {
             Some(node) => {
                 fidelity = fidelity.max(row.fidelity);
@@ -301,6 +406,7 @@ pub(crate) fn plan(
                     lower: row.lower,
                     upper: row.upper,
                     origin: Origin::Row(r),
+                    condition,
                 });
             }
             None => dropped += 1,
@@ -321,6 +427,7 @@ pub(crate) fn plan(
                 lower,
                 upper,
                 origin: Origin::Obligation(o, k),
+                condition: None,
             });
         }
     }
@@ -332,6 +439,7 @@ pub(crate) fn plan(
                 lower: 0.0,
                 upper: 0.0,
                 origin: Origin::Residual(b, k),
+                condition: None,
             });
         }
         for (k, c) in block.bounds.iter().enumerate() {
@@ -341,6 +449,7 @@ pub(crate) fn plan(
                 lower,
                 upper,
                 origin: Origin::ImplicitBound(b, k),
+                condition: None,
             });
         }
     }
@@ -447,6 +556,8 @@ pub(crate) fn plan(
         boxes,
         affine,
         domain: h.finish_hash(),
+        rows: enforcement,
+        native,
     })
 }
 /// Every typed refusal of exporting `program` for `intent`; empty means admitted.
@@ -543,6 +654,14 @@ pub fn factorable(
         },
     )?;
     observe(&mut report, &plan, run.original, step.tolerances);
+    // Every pooled solution is re-qualified in original coordinates, like the candidate.
+    if let Some(record) = report.global.as_mut() {
+        for solution in &mut std::sync::Arc::make_mut(record).pool {
+            solution.feasible = assess(&plan, run.original, step.tolerances, &solution.primal)
+                .ok()
+                .map(|(q, _)| q.feasible());
+        }
+    }
     report.metrics.insert(
         "export.rows.dropped".into(),
         Metric::Integer(i64::try_from(plan.dropped).unwrap_or(i64::MAX)),
@@ -565,7 +684,7 @@ pub fn factorable(
             && let Some(resolve) = run.resolve
         {
             let objective = plan.objective.is_some();
-            match fixed_assignment(&step, retained, &report, run.program, resolve, objective) {
+            match fixed_assignment(&step, &report, &plan, resolve, objective) {
                 Ok(resolved) => {
                     if adopt(&mut report, resolved, &plan, run.original, &step) {
                         global.primal = PrimalSource::FixedAssignment;
@@ -597,31 +716,64 @@ fn observe(
     original: &mut dyn OriginalModel,
     tolerances: &quality::Tolerances,
 ) {
-    let program = plan.program;
     let Some(candidate) = report.candidate.as_ref() else {
         return;
     };
-    let result = quality::contained(|| {
-        let x = &candidate.primal;
+    match assess(plan, original, tolerances, &candidate.primal) {
+        Ok((q, o)) => {
+            report.quality = Some(q);
+            report.observation = Some(o);
+            report.clear_validation_failure();
+        }
+        Err(e) => {
+            report.quality = None;
+            report.observation = None;
+            report.record_validation_failure(e);
+        }
+    }
+}
+/// Original-coordinate quality at `x`: rows enforced there against their bounds (an
+/// inactive indicator row is unconstrained), the declared box, integrality and every
+/// native form's discrete structure.
+fn assess(
+    plan: &Plan<'_>,
+    original: &mut dyn OriginalModel,
+    tolerances: &quality::Tolerances,
+    x: &[f64],
+) -> Result<(Quality, Observation), ProblemError> {
+    let program = plan.program;
+    quality::contained(|| {
         tolerances.validate(program.variables.len(), program.rows.len())?;
         if x.len() != program.variables.len() || x.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("invalid factorable candidate"));
         }
         let fresh = original.evaluate(x)?;
-        let limits: Vec<(f64, f64)> = program.rows.iter().map(|r| (r.lower, r.upper)).collect();
-        let mut observation = Observation::from_values(fresh.objective, fresh.constraints, limits)?;
-        observation.sources = fresh.sources;
+        let limits: Vec<(f64, f64)> = program
+            .rows
+            .iter()
+            .zip(&plan.rows)
+            .map(|(r, e)| {
+                if e.enforced(x) {
+                    (r.lower, r.upper)
+                } else {
+                    (f64::NEG_INFINITY, f64::INFINITY)
+                }
+            })
+            .collect();
         let rows = program
             .rows
             .iter()
-            .zip(&observation.values)
+            .zip(&fresh.constraints)
+            .zip(&limits)
             .zip(&tolerances.rows)
-            .map(|((r, v), t)| Violation {
+            .map(|(((r, v), (lower, upper)), t)| Violation {
                 id: r.id,
-                physical: quality::interval(*v, r.lower, r.upper),
+                physical: quality::interval(*v, *lower, *upper),
                 tolerance: *t,
             })
             .collect();
+        let mut observation = Observation::from_values(fresh.objective, fresh.constraints, limits)?;
+        observation.sources = fresh.sources;
         let mut bounds = Vec::with_capacity(x.len());
         let mut integrality = Vec::new();
         for (((v, x), t), (lower, upper)) in program
@@ -644,48 +796,141 @@ fn observe(
                 });
             }
         }
+        integrality.extend(native_violations(plan, tolerances, x));
         Ok((Quality::new(rows, bounds, integrality)?, observation))
-    });
-    match result {
-        Ok((q, o)) => {
-            report.quality = Some(q);
-            report.observation = Some(o);
-            report.clear_validation_failure();
-        }
-        Err(e) => {
-            report.quality = None;
-            report.observation = None;
-            report.record_validation_failure(e);
-        }
+    })
+}
+/// Dimensionless discrete-structure violations of the native forms at `x`: the excess
+/// nonzero count of an SOS or cardinality set (SOS2 members must also be adjacent), and
+/// a logic resultant that differs from its operands' value.
+fn native_violations(plan: &Plan<'_>, tolerances: &quality::Tolerances, x: &[f64]) -> Vec<Violation> {
+    use pse_model::generated::enums::NativeConstraintForm as F;
+    let program = plan.program;
+    let value = |o: &NativeOperand| match o {
+        NativeOperand::Column(c) => x[*c],
+        NativeOperand::Fixed(v) => *v,
+    };
+    let tolerance = |o: &NativeOperand| match o {
+        NativeOperand::Column(c) => tolerances.variables[*c],
+        NativeOperand::Fixed(_) => tolerances.integrality,
+    };
+    // The first column member names the violation; an all-fixed form has no identity.
+    fn owner<'o>(
+        program: &FactorableProgram,
+        mut ops: impl Iterator<Item = &'o NativeOperand>,
+    ) -> SemanticId {
+        ops.find_map(|o| match o {
+            NativeOperand::Column(c) => Some(program.variables[*c].id),
+            NativeOperand::Fixed(_) => None,
+        })
+        .unwrap_or(SemanticId::NIL)
     }
+    let nonzero = |o: &NativeOperand| value(o).abs() > tolerance(o);
+    plan.native
+        .iter()
+        .filter_map(|k| {
+            let (excess, owner) = match &program.native[*k] {
+                ProjectedNative::Indicator { .. } => return None,
+                ProjectedNative::Sos { form, members } => {
+                    let set: Vec<usize> = (0..members.len())
+                        .filter(|i| nonzero(&members[*i].0))
+                        .collect();
+                    let allowed = if *form == F::Sos2 { 2 } else { 1 };
+                    let mut excess = set.len().saturating_sub(allowed);
+                    if *form == F::Sos2 && set.len() == 2 && set[1] != set[0] + 1 {
+                        excess = 1;
+                    }
+                    (excess, owner(program, members.iter().map(|(o, _)| o)))
+                }
+                ProjectedNative::Cardinality { members, bound } => (
+                    members
+                        .iter()
+                        .filter(|o| nonzero(o))
+                        .count()
+                        .saturating_sub(*bound as usize),
+                    owner(program, members.iter()),
+                ),
+                ProjectedNative::Logic {
+                    form,
+                    resultant,
+                    operands,
+                } => {
+                    let literal = |(o, negated): &(NativeOperand, bool)| {
+                        (value(o).round() == 1.0) != *negated
+                    };
+                    let truth = match form {
+                        F::And => operands.iter().all(literal),
+                        F::Or => operands.iter().any(literal),
+                        _ => operands.iter().filter(|o| literal(o)).count() % 2 == 1,
+                    };
+                    (
+                        usize::from((value(resultant).round() == 1.0) != truth),
+                        owner(program, std::iter::once(resultant)),
+                    )
+                }
+            };
+            Some(Violation {
+                id: owner,
+                physical: excess as f64,
+                tolerance: tolerances.integrality,
+            })
+        })
+        .collect()
 }
 
-/// The continuous problem with every integer column fixed at its rounded incumbent value,
-/// solved through the one NLP runner by the automatic NLP route and seeded there.
+/// The continuous problem of the backend's discrete assignment, solved through the one NLP
+/// runner by the automatic NLP route and seeded there: every integer column is fixed at its
+/// rounded incumbent value, every SOS or cardinality member at zero stays zero, and a row
+/// whose indicator is inactive under the assignment is unconstrained. The re-solve's
+/// native state is its own and never replaces a retained global session.
 fn fixed_assignment(
     step: &Step<'_>,
-    retained: &mut Retained,
     report: &SolveReport,
-    program: &FactorableProgram,
+    plan: &Plan<'_>,
     resolve: Resolve<'_>,
     objective: bool,
 ) -> Result<SolveReport, ProblemError> {
+    let program = plan.program;
     let incumbent = report
         .candidate
         .as_ref()
         .ok_or_else(|| ProblemError::Internal("fixed assignment without an incumbent".into()))?;
-    let assignment: BTreeMap<usize, f64> = program
+    let mut assignment: BTreeMap<usize, f64> = program
         .variables
         .iter()
         .enumerate()
         .filter(|(_, v)| v.domain.is_integer())
         .map(|(i, _)| (i, incumbent.primal[i].round()))
         .collect();
+    for k in &plan.native {
+        let members: Vec<NativeOperand> = match &program.native[*k] {
+            ProjectedNative::Sos { members, .. } => members.iter().map(|(o, _)| *o).collect(),
+            ProjectedNative::Cardinality { members, .. } => members.clone(),
+            ProjectedNative::Indicator { .. } | ProjectedNative::Logic { .. } => continue,
+        };
+        for member in members {
+            if let NativeOperand::Column(c) = member
+                && incumbent.primal[c].abs() <= step.tolerances.variables[c]
+            {
+                assignment.insert(c, 0.0);
+            }
+        }
+    }
     let mut start = incumbent.primal.clone();
     for (i, v) in &assignment {
         start[*i] = *v;
     }
-    let oracle = (resolve.oracle)(&assignment)?;
+    let mut oracle = (resolve.oracle)(&assignment)?;
+    let relaxed: Vec<usize> = plan
+        .rows
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| !e.enforced(&start))
+        .map(|(r, _)| r)
+        .collect();
+    if !relaxed.is_empty() {
+        oracle = Box::new(Unconstrained::new(oracle, &relaxed)?);
+    }
     let equalities = oracle
         .constraint_bounds()
         .iter()
@@ -756,7 +1001,7 @@ fn fixed_assignment(
             compatibility,
             warm: Some(&seed),
         },
-        retained,
+        &mut Retained::default(),
         Nlp {
             oracle,
             initial: &start,
@@ -825,4 +1070,68 @@ fn adopt(
         observation.dual_error = local.dual_error;
     }
     true
+}
+
+/// NLP callbacks with the bounds of some rows removed: the rows a discrete assignment
+/// leaves unenforced. Proofs tied to the original row bounds are not forwarded.
+#[derive(Debug)]
+struct Unconstrained {
+    inner: Box<dyn NlpOracle>,
+    bounds: Vec<(f64, f64)>,
+}
+impl Unconstrained {
+    fn new(inner: Box<dyn NlpOracle>, rows: &[usize]) -> Result<Self, ProblemError> {
+        let mut bounds = inner.constraint_bounds().to_vec();
+        for r in rows {
+            *bounds
+                .get_mut(*r)
+                .ok_or_else(|| ProblemError::Internal("unconstrained row ordinal".into()))? =
+                (f64::NEG_INFINITY, f64::INFINITY);
+        }
+        Ok(Self { inner, bounds })
+    }
+}
+impl NlpOracle for Unconstrained {
+    fn normalization(&self) -> Option<&pse_math::normalization::Normalization> {
+        self.inner.normalization()
+    }
+    fn constraint_sources(&self) -> Result<Vec<pse_math::assembly::OutputValue>, ProblemError> {
+        self.inner.constraint_sources()
+    }
+    fn derivative_facts(&self) -> crate::DerivativeFacts {
+        self.inner.derivative_facts()
+    }
+    fn contract(&self) -> &crate::OracleContract {
+        self.inner.contract()
+    }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.inner.jacobian_pattern()
+    }
+    fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
+        self.inner.hessian_pattern()
+    }
+    fn constraint_bounds(&self) -> &[(f64, f64)] {
+        &self.bounds
+    }
+    fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
+        self.inner.objective(x)
+    }
+    fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.inner.constraints(x, out)
+    }
+    fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.inner.gradient(x, out)
+    }
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        self.inner.jacobian(x, out)
+    }
+    fn hessian(
+        &mut self,
+        x: &[f64],
+        objective_weight: f64,
+        multipliers: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        self.inner.hessian(x, objective_weight, multipliers, out)
+    }
 }

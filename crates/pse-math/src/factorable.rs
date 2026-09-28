@@ -427,6 +427,64 @@ pub struct FactorableRequest {
     pub branches: BranchPolicy,
 }
 
+/// An operand of a native constraint: a free column, or a value the case fixes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NativeOperand {
+    /// Free case column, in [`CasePlan::columns`] order.
+    Column(usize),
+    /// A fixed value; its bits are among the program's consumed values.
+    Fixed(f64),
+}
+/// A constraint form a native realization leaves to the backend's handler (ADR-0104),
+/// over program coordinates. The rows it names stay in [`FactorableProgram::rows`];
+/// only their enforcement is conditional.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ProjectedNative {
+    /// Row `row` holds only while `indicator` equals `active`.
+    Indicator {
+        /// Row ordinal in [`FactorableProgram::rows`].
+        row: usize,
+        /// Binary indicator.
+        indicator: NativeOperand,
+        /// The indicator value that activates the row.
+        active: bool,
+    },
+    /// A special ordered set of type 1 or 2, by strictly increasing weights.
+    Sos {
+        /// `Sos1` or `Sos2`.
+        form: pse_model::generated::enums::NativeConstraintForm,
+        /// Members and their weights.
+        members: Vec<(NativeOperand, f64)>,
+    },
+    /// `resultant = op(operands)` for `And`, `Or` or `Xor`; an operand may be negated.
+    Logic {
+        /// `And`, `Or` or `Xor`.
+        form: pse_model::generated::enums::NativeConstraintForm,
+        /// Binary resultant.
+        resultant: NativeOperand,
+        /// Binary operands and whether each is complemented.
+        operands: Vec<(NativeOperand, bool)>,
+    },
+    /// At most `bound` of `members` are nonzero.
+    Cardinality {
+        /// Members.
+        members: Vec<NativeOperand>,
+        /// Largest nonzero count.
+        bound: u32,
+    },
+}
+impl ProjectedNative {
+    /// The handler the constraint needs.
+    pub const fn form(&self) -> pse_model::generated::enums::NativeConstraintForm {
+        use pse_model::generated::enums::NativeConstraintForm as F;
+        match self {
+            Self::Indicator { .. } => F::Indicator,
+            Self::Sos { form, .. } | Self::Logic { form, .. } => *form,
+            Self::Cardinality { .. } => F::Cardinality,
+        }
+    }
+}
+
 /// Which bound of a variable or auxiliary is missing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BoundOwner {
@@ -481,6 +539,8 @@ pub struct FactorableProgram {
     pub obligations: Vec<ProjectedObligation>,
     /// Implicit blocks exported through their residuals.
     pub implicit: Vec<ProjectedImplicit>,
+    /// Constraint forms left to native handlers, in structure order (ADR-0104).
+    pub native: Vec<ProjectedNative>,
     /// Instances whose projection exhausted the node budget.
     pub incomplete: Vec<SemanticId>,
     fidelity: Vec<Fidelity>,
@@ -608,6 +668,25 @@ impl FactorableProgram {
                 })
                 .sum::<usize>()
             + self.values.len() * 64
+            + self
+                .native
+                .iter()
+                .map(|n| {
+                    size_of_val(n)
+                        + match n {
+                            ProjectedNative::Indicator { .. } => 0,
+                            ProjectedNative::Sos { members, .. } => {
+                                members.capacity() * size_of::<(NativeOperand, f64)>()
+                            }
+                            ProjectedNative::Logic { operands, .. } => {
+                                operands.capacity() * size_of::<(NativeOperand, bool)>()
+                            }
+                            ProjectedNative::Cardinality { members, .. } => {
+                                members.capacity() * size_of::<NativeOperand>()
+                            }
+                        }
+                })
+                .sum::<usize>()
             + self.incomplete.capacity() * size_of::<SemanticId>()
     }
 }
@@ -773,6 +852,7 @@ impl CasePlan {
             }),
             None => None,
         };
+        let native = project_native(self, &columns, &rows, values, &mut consumed)?;
         let mut h = FramedHasher::new("pse.math.factorable.v1");
         h.hash(&self.structure().key())
             .str(match request.branches {
@@ -806,12 +886,80 @@ impl CasePlan {
             objective,
             obligations: builder.obligations,
             implicit: builder.implicit,
+            native,
             incomplete: builder.incomplete,
             fidelity: vec![],
         };
         classify(&mut program);
         Ok(program)
     }
+}
+
+/// Native constraints over program coordinates; a fixed operand's value is consumed.
+fn project_native(
+    plan: &CasePlan,
+    columns: &BTreeMap<SemanticId, usize>,
+    rows: &BTreeMap<SemanticId, usize>,
+    values: &CaseValues,
+    consumed: &mut BTreeMap<SemanticId, u64>,
+) -> Result<Vec<ProjectedNative>, MathError> {
+    use pse_model::forms::NativeConstraint as C;
+    let mut operand = |id: &SemanticId| -> Result<NativeOperand, MathError> {
+        if let Some(&c) = columns.get(id) {
+            return Ok(NativeOperand::Column(c));
+        }
+        let v = *values
+            .scalars
+            .get(id)
+            .ok_or_else(|| MathError::Contract("missing fixed native operand".into()))?;
+        if !v.is_finite() {
+            return Err(MathError::Contract("nonfinite fixed native operand".into()));
+        }
+        consumed.insert(*id, v.to_bits());
+        Ok(NativeOperand::Fixed(v))
+    };
+    plan.structure()
+        .native()
+        .iter()
+        .map(|c| {
+            Ok(match c {
+                C::Indicator {
+                    row,
+                    variable,
+                    active,
+                } => ProjectedNative::Indicator {
+                    row: *rows
+                        .get(row)
+                        .ok_or_else(|| MathError::Contract("native indicator row".into()))?,
+                    indicator: operand(variable)?,
+                    active: *active,
+                },
+                C::Sos { form, members } => ProjectedNative::Sos {
+                    form: *form,
+                    members: members
+                        .iter()
+                        .map(|(id, w)| Ok((operand(id)?, *w)))
+                        .collect::<Result<_, MathError>>()?,
+                },
+                C::Logic {
+                    form,
+                    resultant,
+                    operands,
+                } => ProjectedNative::Logic {
+                    form: *form,
+                    resultant: operand(resultant)?,
+                    operands: operands
+                        .iter()
+                        .map(|o| Ok((operand(&o.variable)?, o.negated)))
+                        .collect::<Result<_, MathError>>()?,
+                },
+                C::Cardinality { members, bound } => ProjectedNative::Cardinality {
+                    members: members.iter().map(&mut operand).collect::<Result<_, _>>()?,
+                    bound: *bound,
+                },
+            })
+        })
+        .collect()
 }
 
 /// Propagate auxiliary fidelity through the DAG. Implicit unknowns take the fidelity of

@@ -13,6 +13,13 @@ use pse_kernels::DerivativeOrder;
 use pse_model::{forms::NativeConstraint, generated::enums::NativeConstraintForm};
 
 fn package(text: &str) -> (ModelingPackage, SemanticId) {
+    package_on(text, fixture::runtime())
+}
+/// A package whose native jobs admit a foreign allowance SCIP can take as its memory limit.
+fn scip_package(text: &str) -> (ModelingPackage, SemanticId) {
+    package_on(text, fixture::runtime_with(16 << 20, 16 << 20, 2 << 30))
+}
+fn package_on(text: &str, runtime: crate::workflow::Runtime) -> (ModelingPackage, SemanticId) {
     let physical = fixture::physical();
     let mut names = fixture::discrete_names();
     names.insert(
@@ -31,9 +38,7 @@ fn package(text: &str) -> (ModelingPackage, SemanticId) {
         .find(|r| r.name == "Root")
         .unwrap()
         .declaration_id;
-    let package = fixture::runtime()
-        .modeling_package(rows, physical, names)
-        .unwrap();
+    let package = runtime.modeling_package(rows, physical, names).unwrap();
     (package, root)
 }
 fn profile(selection: SolverSelection) -> crate::math::solves::SolverProfile {
@@ -86,6 +91,18 @@ async fn optimal<const N: usize>(
     case: ModelingCaseBindings,
     reports: [&str; N],
 ) -> [f64; N] {
+    optimal_on(package, root, case, reports, Backend::Highs).await
+}
+/// Solve with automatic routing, require `backend` and an accepted candidate, and return
+/// reports in the order requested. HiGHS solves the linear lowerings as a discrete
+/// coefficient model; SCIP consumes native forms through the factorable export.
+async fn optimal_on<const N: usize>(
+    package: &ModelingPackage,
+    root: SemanticId,
+    case: ModelingCaseBindings,
+    reports: [&str; N],
+    backend: Backend,
+) -> [f64; N] {
     let prepared = prepare(package, root, case, SolverSelection::Auto)
         .await
         .unwrap();
@@ -100,20 +117,29 @@ async fn optimal<const N: usize>(
     let Outcome::Native(native) = &result.outcome else {
         panic!("expected a native outcome: {:?}", result.outcome);
     };
-    assert_eq!(native.backend, Backend::Highs);
-    assert!(
-        native
-            .evidence
-            .coefficient
-            .as_ref()
-            .is_some_and(|c| c.discrete),
-        "{:?}",
-        native.evidence
-    );
+    assert_eq!(native.backend, backend);
+    if backend == Backend::Highs {
+        assert!(
+            native
+                .evidence
+                .coefficient
+                .as_ref()
+                .is_some_and(|c| c.discrete),
+            "{:?}",
+            native.evidence
+        );
+    } else {
+        assert!(native.evidence.global.is_some(), "{:?}", native.evidence);
+    }
     assert!(
         result.accepted,
-        "{:?}; {:?}",
-        result.validation_error, result.checks
+        "{:?}; {:?}; {:?} {:?} {:?} {:?}",
+        result.validation_error,
+        result.checks,
+        native.termination,
+        native.qualification,
+        native.quality,
+        native.metrics
     );
     reports.map(|label| {
         result
@@ -170,8 +196,8 @@ async fn gdp_hull_and_bigm_same_optimum() {
 }
 
 #[tokio::test]
-async fn indicator_realization_requires_native_backend() {
-    let (package, root) = package(&GDP.replace("REALIZATION", "indicator"));
+async fn gdp_indicator_matches_hull() {
+    let (package, root) = scip_package(&GDP.replace("REALIZATION", "indicator"));
     // Preparation records one native indicator per disjunct row, over its alternative.
     let resolution = package
         .resolve_case(
@@ -200,12 +226,9 @@ async fn indicator_realization_requires_native_backend() {
             .all(|c| matches!(c, NativeConstraint::Indicator { active: true, .. }))
     );
     assert_eq!(compiled.facts.native, vec![NativeConstraintForm::Indicator]);
-    for selection in [
-        SolverSelection::Auto,
-        SolverSelection::Explicit(Backend::Highs),
-        SolverSelection::Explicit(Backend::Ipopt),
-    ] {
-        let error = prepare(&package, root, case(&[]), selection)
+    // Adapters without the handler refuse the native realization, with no conversion.
+    for backend in [Backend::Highs, Backend::Ipopt] {
+        let error = prepare(&package, root, case(&[]), SolverSelection::Explicit(backend))
             .await
             .err()
             .unwrap();
@@ -213,6 +236,25 @@ async fn indicator_realization_requires_native_backend() {
             native_refusal(&error).contains("native indicator realization"),
             "{error}"
         );
+    }
+    // Automatic routing selects SCIP, which consumes the indicators natively and reaches
+    // the hull reformulation's optimum on HiGHS at every demand.
+    let (hull, hull_root) = self::package(&GDP.replace("REALIZATION", "hull"));
+    for demand in [40.0, 60.0, 0.0] {
+        let [cost] = optimal_on(
+            &package,
+            root,
+            case(&[("demand", demand)]),
+            ["cost"],
+            Backend::Scip,
+        )
+        .await;
+        let reference = optimum(&hull, hull_root, case(&[("demand", demand)]), "cost").await;
+        assert!(
+            (cost - reference).abs() < 1e-6,
+            "{demand}: {cost} vs {reference}"
+        );
+        assert!((cost - gdp_oracle(demand)).abs() < 1e-6, "{demand}: {cost}");
     }
 }
 
@@ -317,6 +359,7 @@ async fn indicator_linear_lowering_matches_native() {
     // the unit is optimal below an 80 W charge and idling above it; the idle charge guards
     // the MIP whose presolve HiGHS 1.14.3 solved as running (net −10 W, zero gap).
     let (linear, root) = package(&INDICATOR.replace("REALIZE", ""));
+    let linear_root = root;
     for charge in [20.0, 50.0, 90.0] {
         let mut branches = Vec::new();
         for on in [0.0, 1.0] {
@@ -358,7 +401,7 @@ async fn indicator_linear_lowering_matches_native() {
         assert!((on - running).abs() < 1e-6, "{charge}: on = {on}");
     }
     // The native realization keeps the authored rows with their indicator metadata.
-    let (native, root) = package(&INDICATOR.replace(
+    let (native, root) = scip_package(&INDICATOR.replace(
         "REALIZE",
         "realize r1 on cap using indicator; realize r2 on off using indicator;",
     ));
@@ -392,13 +435,39 @@ async fn indicator_linear_lowering_matches_native() {
         })
         .collect::<std::collections::BTreeSet<_>>();
     assert_eq!(actives, [false, true].into_iter().collect());
-    // Both conditional rows are the authored relations, unrelaxed.
+    // Both conditional rows are the authored relations, unrelaxed. HiGHS refuses them;
+    // automatic routing hands them to SCIP's indicator handler, which agrees with the
+    // linear lowering at every charge.
     assert_eq!(compiled.plan.structure().rows().len(), 2);
-    let error = prepare(&native, root, case(&[]), SolverSelection::Auto)
-        .await
-        .err()
-        .unwrap();
+    let error = prepare(
+        &native,
+        root,
+        case(&[]),
+        SolverSelection::Explicit(Backend::Highs),
+    )
+    .await
+    .err()
+    .unwrap();
     assert!(native_refusal(&error).contains("indicator"), "{error}");
+    for charge in [20.0, 50.0, 90.0] {
+        let [net, on] = optimal_on(
+            &native,
+            root,
+            case(&[("charge", charge)]),
+            ["net", "on"],
+            Backend::Scip,
+        )
+        .await;
+        let [lowered, lowered_on] = optimal(
+            &linear,
+            linear_root,
+            case(&[("charge", charge)]),
+            ["net", "on"],
+        )
+        .await;
+        assert!((net - lowered).abs() < 1e-6, "{charge}: {net} vs {lowered}");
+        assert!((on - lowered_on).abs() < 1e-6, "{charge}: on = {on}");
+    }
 }
 
 const PIECEWISE: &str = "package p {
@@ -457,20 +526,23 @@ async fn native_only_realization_refused_on_highs() {
     let (linear, root) = package(&SOS.replace("REALIZE", ""));
     let value = optimum(&linear, root, case(&[]), "value").await;
     assert!((value - 12.0).abs() < 1e-6, "{value}");
-    let (native, root) = package(&SOS.replace("REALIZE", "realize r on pick using native;"));
-    for selection in [
-        SolverSelection::Auto,
+    let (native, root) = scip_package(&SOS.replace("REALIZE", "realize r on pick using native;"));
+    let error = prepare(
+        &native,
+        root,
+        case(&[]),
         SolverSelection::Explicit(Backend::Highs),
-    ] {
-        let error = prepare(&native, root, case(&[]), selection)
-            .await
-            .err()
-            .unwrap();
-        assert!(
-            native_refusal(&error).contains("native sos1 realization"),
-            "{error}"
-        );
-    }
+    )
+    .await
+    .err()
+    .unwrap();
+    assert!(
+        native_refusal(&error).contains("native sos1 realization"),
+        "{error}"
+    );
+    // Automatic routing selects SCIP's SOS1 handler, which agrees with the lowering.
+    let [native_value] = optimal_on(&native, root, case(&[]), ["value"], Backend::Scip).await;
+    assert!((native_value - value).abs() < 1e-6, "{native_value}");
 }
 
 #[tokio::test]

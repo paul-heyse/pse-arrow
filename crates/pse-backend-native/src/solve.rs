@@ -861,6 +861,87 @@ pub struct GlobalEvidence {
     pub primal: PrimalSource,
     /// The backend concluded that the exported program is infeasible over the box.
     pub infeasible: bool,
+    /// Optimality or infeasibility was established in rational arithmetic (exact MILP).
+    pub exact: bool,
+}
+/// Bulky records of a certifying adapter beside the decision evidence: the declared box,
+/// the ranked solution pool, an infeasible subsystem and an exact objective. Nothing here
+/// grants a claim; [`GlobalEvidence`] carries the decision inputs.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct GlobalRecord {
+    /// The declared closed box the backend branched over: program columns in order, then
+    /// auxiliaries.
+    pub boxes: Vec<(f64, f64)>,
+    /// Ranked solutions the backend stored, best first, each re-qualified in original
+    /// coordinates by the runner.
+    pub pool: Vec<PoolSolution>,
+    /// Infeasible subsystem of the exported program, when requested after a proof of
+    /// infeasibility.
+    pub iis: Option<Iis>,
+    /// Exact rational objective of the reported solution, as native text.
+    pub exact_objective: Option<String>,
+    /// The attempt reused a retained native search tree (reoptimization).
+    pub reoptimized: bool,
+}
+/// One ranked solution of the backend's pool.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PoolSolution {
+    /// Rank in the backend's ordering, zero first.
+    pub rank: usize,
+    /// Values in program column order.
+    pub primal: Vec<f64>,
+    /// Native objective in the authored sense, when an objective is exported.
+    pub objective: Option<f64>,
+    /// Original-coordinate feasibility; absent when it could not be evaluated.
+    pub feasible: Option<bool>,
+}
+/// An infeasible subsystem of the exported program (ADR-0105 §8): exported functions and
+/// declared bounds whose conjunction the backend proved infeasible over the box. The
+/// functions are minimized; the declared bounds of the variables they use are kept.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Iis {
+    /// The backend reports the subsystem irreducible: removing any function member leaves
+    /// a feasible system over the kept bounds, within its tolerances.
+    pub irreducible: bool,
+    /// Members in a deterministic order.
+    pub members: Vec<IisMember>,
+}
+/// One member of an infeasible subsystem.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum IisMember {
+    /// A selected row.
+    Row(SemanticId),
+    /// An unconditional obligation's closed constraint.
+    Obligation {
+        /// Bound instance.
+        instance: SemanticId,
+        /// Authored occurrence.
+        source: SemanticId,
+    },
+    /// An implicit block's residual.
+    Residual {
+        /// Instance evaluating the block.
+        instance: SemanticId,
+        /// Residual ordinal.
+        ordinal: usize,
+    },
+    /// An implicit block's declared bound.
+    ImplicitBound {
+        /// Instance evaluating the block.
+        instance: SemanticId,
+        /// Bound ordinal.
+        ordinal: usize,
+    },
+    /// A native constraint, by its ordinal in the program.
+    Native(usize),
+    /// A variable's lower bound.
+    VariableLower(SemanticId),
+    /// A variable's upper bound.
+    VariableUpper(SemanticId),
+    /// An auxiliary's lower bound, by auxiliary ordinal.
+    AuxiliaryLower(usize),
+    /// An auxiliary's upper bound, by auxiliary ordinal.
+    AuxiliaryUpper(usize),
 }
 /// Typed adapter evidence. Qualification, retry and start receipts read only this;
 /// metrics remain observations and are never an input to a decision.
@@ -903,6 +984,8 @@ pub struct SolveReport {
     pub pounce_statistics: Option<Box<pounce_rs::SolveStatistics>>,
     /// Native infeasibility/unboundedness certificates, never exposed as primal solutions.
     pub certificate: Option<Certificate>,
+    /// Records of a certifying adapter: box, solution pool, IIS, exact objective.
+    pub global: Option<Arc<GlobalRecord>>,
     /// Selected native implementation.
     pub backend: Backend,
     /// Declared source variable order.
@@ -990,6 +1073,7 @@ impl SolveReport {
             observation: None,
             preprocessing: None,
             certificate: None,
+            global: None,
             #[cfg(feature = "highs")]
             highs_diagnostics: None,
             #[cfg(feature = "pounce")]
