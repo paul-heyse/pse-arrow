@@ -274,7 +274,7 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | W0 | D2: ADR-0117 accepted, with the review addendum; this packet written | complete (2026-09-28) |
 | W1 | B1 (R); B3a → B6 (T) | complete: B3a and B6 in merge `8934a521`, B1 in merge `fa5a075c` |
 | W2 | B2 (R); B4 (V); B7 (T) | complete: B4 in merge `ba5f9676`, B7 in merge `057ade3b`, B2 in merge `c664106e` |
-| W3 | O8 (R); B5 (V) | running (2026-09-28): two track agents in separate worktrees, each with its own target directory and, where Python is needed, its own venv |
+| W3 | O8 (R); B5 (V) | B5 complete (merge `d26bdebe`); O8 running |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | not started |
 | W5 | O9; docs step | not started |
 | W6 | Scoped qualification | not started |
@@ -480,3 +480,49 @@ All failed counts were 0. The dev store was reset once, after B4, and `just db-s
 - The presolve `Pass` and `PolicyKind` vocabularies still cross the Python boundary as hand-written enums (B5).
 - The model/case conflation (B3b or the docs step).
 - Plan and ADR text: ADR-0115 lists root, definition, member and block identities; ADR-0117 limits the crate's dependencies; ADR-0114 names a `TerminationCode` enum. Record these in the docs step as deliberate deviations.
+
+### W3, track V: B5 landed (merge `d26bdebe`)
+
+**What landed:**
+- **Settings module.** Every backend's settings type lives in an always-compiled `pse_backend_native::settings` module and is described by schemars 1.2.2. `BackendSettings` is tagged by `backend`, and every data-carrying choice by `kind`.
+- **New documents:** a versioned `SolveSettings` (pse-runtime `math/settings.rs`); versioned `DiffsolSettings` and `IdasSettings`; `Controls`, with the time limit in seconds.
+- **Job payload v2** carries the whole `SolveSettings` plus a `JobStart` (`Fresh` | `ResumeFromParent` | `StoredSolution`).
+  - `enqueue` takes the typed job and frames the request identity from it.
+  - A non-`Fresh` start is refused until G8.
+  - v1, `JobProfile` and `JobPresolve` are deleted.
+- **Stored documents.** `TerminationDetail` and `SourceManifest` are typed and versioned.
+- **Schemas target.** `Target::Schemas` publishes seven document schemas plus the authoring schema to `docs/generated/schema/`, and generates frozen msgspec document types in `python/pse/contracts/documents/`. They come from a new closed emitter (`pse-codegen` `codegen/documents.rs`): every enumeration must be a registry vocabulary, and anything unmapped is a generation error.
+  - `just codegen-schemas-check` is in the `codegen-check` group.
+  - `pse.governance` lints the msgspec types.
+- **Python settings (X13).** The Python settings are the generated types. The pyo3 keyword classes and `**fields` signatures are deleted, and the stubs are regenerated.
+- **Validated scalars** (nutype 0.8 with `derive_unchecked` schemars): `Tolerance`, `Fraction`, `PositiveCount` and `FiniteBound`.
+- **More registry vocabularies:** presolve `Pass` and `PolicyKind`, tear method, FERAL ordering and scaling.
+- **Settings identity no longer depends on Rust type names.** It frames field names, serde spellings and exact float bits. Six frames are bumped: `backend.settings.v4`, `native.controls.v2`, `native.accuracy.v3`, `cone.layout.v3`, `explicit-conic.v3`, `durable.job_request.v2`. The new values are pinned by `settings_identity_is_type_name_independent`, and the frame oracle is updated.
+
+**Deviations:**
+- **Python emitter.** datamodel-code-generator was not adopted: it emits `Any`, duplicate enums, unfrozen structs and relies on external formatters. The repository's own closed emitter is used instead.
+- **Authoring schema (B5.6).** It keeps its source emitter, because the schemars view describes structs after parsing and hydration, with required span and integrity columns and no `id` alias. The shared fields agree (`authoring_schema_equivalent_under_schemars`), and the reason is recorded on `jsonschema::generate`.
+- **Settings JSON shapes changed:** `kind` tags, `Eta::Constant { value }`, untagged `OptionValue`, time limit in seconds.
+- **Pyo3 classes that remain.** `SimulationSettings` and `ModelingFixturePolicy` take encoded documents as `bytes`.
+- **Unchanged validation.** `NumericalPolicy` budgets keep `validate()`.
+- **Version fields** are required.
+- **ADR-0116 text** says the settings identity is unchanged and names `JobProfile`. Both are recorded for the docs step.
+
+**Tests on `main` after the merge** (coordinator run, zero baseline, `PSE_SOLVER_IMAGE` set):
+
+| Command | Result |
+|---|---|
+| Backend native units | 179 passed |
+| Runtime native units | 154 passed |
+| pse-ids golden and frames | 46 passed |
+| schema, codegen, model, vocabulary | 76 passed |
+| `cargo nextest run -p xtask -E 'test(codegen)'` | 24 passed |
+| `just governance-tests` | 87 passed |
+| `just db-test` | 42 passed |
+| `just worker-test` | 1 passed |
+| `just codegen-check` (seven targets) | exit 0 |
+| `just family-check` | OK |
+| `just py-unit-native` over the `Any` lint, contracts, settings projection and stub surface | 34 passed |
+| Native workflow, modeling run, strategies, kernel and Plan 14 acceptance (pytest) | 32 passed |
+
+The store schema did not change, so no reset was needed.
