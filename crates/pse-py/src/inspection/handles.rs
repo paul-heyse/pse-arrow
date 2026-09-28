@@ -80,19 +80,19 @@ impl Publication {
     /// The workspace identity.
     #[getter]
     fn workspace_id(&self, py: Python<'_>) -> PyResult<String> {
-        self.record(py, |record| record.workspace_id.to_hex())
+        self.record(py, |record| record.workspace_id.to_string())
     }
     /// The parent publication, if any.
     #[getter]
     fn parent_publication_id(&self, py: Python<'_>) -> PyResult<Option<String>> {
         self.record(py, |record| {
-            record.parent_publication_id.map(|id| id.to_hex())
+            record.parent_publication_id.map(|id| id.to_string())
         })
     }
     /// The durable attempt the publication publishes.
     #[getter]
     fn attempt_id(&self, py: Python<'_>) -> PyResult<String> {
-        self.record(py, |record| record.attempt_id.to_hex())
+        self.record(py, |record| record.attempt_id.to_string())
     }
     fn tables(&self, py: Python<'_>) -> PyResult<Vec<super::TableName>> {
         Ok(self

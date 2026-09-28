@@ -104,9 +104,9 @@ impl Environment {
         }
         let header = publication_manifests::Row {
             publication_id: pse_authoring::ids::uuid_v7(),
-            workspace_id: pse_authoring::ids::uuid_v7(),
+            workspace_id: pse_authoring::ids::uuid_v7().into(),
             parent_publication_id: None,
-            attempt_id: pse_authoring::ids::uuid_v7(),
+            attempt_id: pse_authoring::ids::uuid_v7().into(),
             kind,
             inputs: vec![],
             members: vec![],
@@ -142,7 +142,7 @@ impl Environment {
         // is the nil hash.
         let record = publication_manifests::Row {
             exported_at: Some(now),
-            export_lease_id: Some(pse_authoring::ids::uuid_v7()),
+            export_lease_id: Some(pse_authoring::ids::uuid_v7().into()),
             export_expires_at: Some(now + FIXTURE_EXPORT_MICROS),
             maintenance_epoch: Some(0),
             store_fingerprint: Some(pse_ids::ContentHash::NIL),

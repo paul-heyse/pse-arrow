@@ -13,11 +13,11 @@ pub struct RuntimePublicationManifestsRow {
     ///Publication identity.
     pub r#publication_id: pse_ids::SemanticId,
     ///workspace_id
-    pub r#workspace_id: pse_ids::SemanticId,
+    pub r#workspace_id: crate::generated::identities::WorkspaceId,
     ///parent_publication_id
-    pub r#parent_publication_id: Option<pse_ids::SemanticId>,
+    pub r#parent_publication_id: Option<crate::generated::identities::PublicationId>,
     ///attempt_id
-    pub r#attempt_id: pse_ids::SemanticId,
+    pub r#attempt_id: crate::generated::identities::AttemptId,
     ///kind
     pub r#kind: crate::generated::enums::PublicationKind,
     ///inputs
@@ -29,7 +29,7 @@ pub struct RuntimePublicationManifestsRow {
     ///exported_at
     pub r#exported_at: Option<i64>,
     ///export_lease_id
-    pub r#export_lease_id: Option<pse_ids::SemanticId>,
+    pub r#export_lease_id: Option<crate::generated::identities::ReaderLeaseId>,
     ///export_expires_at
     pub r#export_expires_at: Option<i64>,
     ///maintenance_epoch

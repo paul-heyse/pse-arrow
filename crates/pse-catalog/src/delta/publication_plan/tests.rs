@@ -78,9 +78,9 @@ fn declared_publication_preserves_deep_shared_inputs_without_running_them() {
         let id = SemanticId::from_bytes([1; 16]);
         let header = publication_manifests::Row {
             publication_id: id,
-            workspace_id: id,
+            workspace_id: id.into(),
             parent_publication_id: None,
-            attempt_id: id,
+            attempt_id: id.into(),
             kind: PublicationKind::Relations,
             inputs: vec![],
             members: vec![],

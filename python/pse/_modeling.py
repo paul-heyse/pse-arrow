@@ -37,6 +37,7 @@ from pse._strategies import PreparedFlow, PreparedStrategy, _AnalysisDocument
 from pse.contracts.authored import (AuthoredModelingDeclarationsRow, AuthoredFitCasesRow, AuthoredObservationsRow, AuthoredDatasetsRow)
 from pse.contracts.documents import SolveSettings
 from pse.contracts.enums import ModelingAnalysisRoute
+from pse.contracts.identities import RunId
 from pse.contracts.values import ContentHash, SemanticId
 
 
@@ -61,8 +62,8 @@ class ModelingResult:
         return self._handle.accepted
 
     @property
-    def run_id(self) -> SemanticId:
-        return SemanticId.from_hex(self._handle.run_id)
+    def run_id(self) -> RunId:
+        return RunId(SemanticId.from_hex(self._handle.run_id))
 
     @property
     def outcome_kind(self) -> str:

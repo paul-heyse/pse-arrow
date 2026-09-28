@@ -23,6 +23,7 @@ from pse import modeling as w
 from pse.contracts import authored as a
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import AttemptKind, AttemptState, ModelingAnalysisRoute
+from pse.contracts.identities import PublicationId
 from pse.contracts.values import ContentHash, SemanticId, SourceSpan
 
 
@@ -523,7 +524,7 @@ def test_completion_projection_and_pre_effect_publication_ticket(
     assert durable_runtime.workspace(workspace.name) == workspace
     assert durable_runtime.head(workspace.id) is None
     # The publication attempt is the durable attempt; the ticket exists before any effect.
-    attempt = result.prepare_publication(workspace, publication_id=identity(241))
+    attempt = result.prepare_publication(workspace, publication_id=PublicationId(identity(241)))
     ticket = attempt.ticket
     assert attempt.publication_id == identity(241)
     assert attempt.attempt_id == result.attempt_id
