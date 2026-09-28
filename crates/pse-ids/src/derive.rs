@@ -21,10 +21,15 @@
 
 use crate::id::{ContentHash, SemanticId};
 
-/// Declares the frame catalog: one variant per `derive_key` context, its exact spelling,
-/// and the list of all of them, from a single table.
+/// Declares the frame catalog from a single table: one variant per `derive_key` context,
+/// its exact spelling and its meaning (the variant's documentation), grouped by the area
+/// and crates that derive under it. The generated reference lists the same table.
 macro_rules! frames {
-    ($( $(#[$attr:meta])* $variant:ident => $spelling:literal, )*) => {
+    ($(
+        $area:literal ($owners:literal) {
+            $( $(#[doc = $doc:literal])* $variant:ident => $spelling:literal, )*
+        }
+    )*) => {
         /// Every `derive_key` context in the workspace (blueprint §5.1, §5.3, ADR-0050,
         /// ADR-0115 Outcome 4).
         ///
@@ -35,28 +40,53 @@ macro_rules! frames {
         ///
         /// [`FramedHasher::new`], [`derive_id`], [`derive_hash`] and the keyed
         /// [`crate::preimage`] entry points take a `Frame`, so every context is declared
-        /// here and nowhere else.
+        /// here and nowhere else. `docs/generated/frames.md` lists the catalog.
         ///
         /// ```
         /// use pse_ids::Frame;
         ///
         /// assert_eq!(Frame::NamedV1.as_str(), "pse:named:v1");
         /// assert!(Frame::ALL.contains(&Frame::RegistryV1));
+        /// assert_eq!(Frame::FitCoordinateV1.area(), "runtime and workflows");
         /// ```
         #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum Frame {
-            $( $(#[$attr])* $variant, )*
+            $($( $(#[doc = $doc])* $variant, )*)*
         }
 
         impl Frame {
             /// Every frame, in declaration order.
-            pub const ALL: &'static [Self] = &[$(Self::$variant,)*];
+            pub const ALL: &'static [Self] = &[$($(Self::$variant,)*)*];
 
             /// The exact `derive_key` context spelling of this frame.
             #[must_use]
             pub const fn as_str(self) -> &'static str {
                 match self {
-                    $(Self::$variant => $spelling,)*
+                    $($(Self::$variant => $spelling,)*)*
+                }
+            }
+
+            /// The area that derives under this frame, which groups the catalog.
+            #[must_use]
+            pub const fn area(self) -> &'static str {
+                match self {
+                    $($(Self::$variant => $area,)*)*
+                }
+            }
+
+            /// The crates that derive under this frame's area.
+            #[must_use]
+            pub const fn owners(self) -> &'static str {
+                match self {
+                    $($(Self::$variant => $owners,)*)*
+                }
+            }
+
+            /// What is derived under this frame: the variant's documentation on one line.
+            #[must_use]
+            pub const fn meaning(self) -> &'static str {
+                match self {
+                    $($(Self::$variant => concat!($($doc),*).trim_ascii(),)*)*
                 }
             }
         }
@@ -64,231 +94,240 @@ macro_rules! frames {
 }
 
 frames! {
-    // ---- identity, registry and platform (pse-ids, pse-schema, pse-columnar, pse-model)
-    /// Named-policy entity identity: `named_id(package_id, qualified_name)`.
-    NamedV1 => "pse:named:v1",
-    /// Registry identity and the registry fingerprint.
-    RegistryV1 => "pse:registry:v1",
-    /// An engine settings or profile digest (blueprint §14.3, §23.2).
-    SettingsV1 => "pse:settings:v1",
-    /// The digest of the build inputs recorded as build provenance.
-    BuildInputsV1 => "pse:build-inputs:v1",
-    /// A stored artifact descriptor's identity.
-    ArtifactDescriptorV1 => "pse:artifact-descriptor:v1",
-    /// A field-directed native value payload digest.
-    NativeValuePayloadV1 => "pse:native-value-payload:v1",
-    /// Durable semantic row tokens over native values; also the published row-key encoding.
-    RowKeyNativeValuesV2 => "pse:row-key:native-values:v2",
-    /// A generated typed fact batch, including relation and empty membership.
-    TypedFactsV1 => "pse:typed-facts:v1",
-    /// A generated typed fact row's primary-key lookup bucket.
-    TypedRowKeyV1 => "pse:typed-row-key:v1",
-    /// A relation's complete local semantic description.
-    SchemaSemanticRelationV2 => "pse.schema.semantic-relation.v2",
-    /// A semantic contract over a support closure.
-    SchemaSemanticProductV2 => "pse.schema.semantic-product.v2",
-    /// A profile's requirements and requested support closure.
-    SchemaSemanticProfileV2 => "pse.schema.semantic-profile.v2",
-    /// The exact observed native field layout.
-    SchemaExecutionEncodingV1 => "pse.schema.execution-encoding.v1",
-    /// An effective numerical policy request.
-    NumericalPolicyV1 => "pse.numerical.policy.v1",
-    /// A kernel provider's physical, algorithm and data identity.
-    ProviderV4 => "pse.provider.v4",
+    "identity, registry and platform" ("pse-ids, pse-schema, pse-columnar, pse-model") {
+        /// Named-policy entity identity: `named_id(package_id, qualified_name)`.
+        NamedV1 => "pse:named:v1",
+        /// Registry identity and the registry fingerprint.
+        RegistryV1 => "pse:registry:v1",
+        /// An engine settings or profile digest (blueprint §14.3, §23.2).
+        SettingsV1 => "pse:settings:v1",
+        /// The digest of the build inputs recorded as build provenance.
+        BuildInputsV1 => "pse:build-inputs:v1",
+        /// A stored artifact descriptor's identity.
+        ArtifactDescriptorV1 => "pse:artifact-descriptor:v1",
+        /// A field-directed native value payload digest.
+        NativeValuePayloadV1 => "pse:native-value-payload:v1",
+        /// Durable semantic row tokens over native values; also the published row-key encoding.
+        RowKeyNativeValuesV2 => "pse:row-key:native-values:v2",
+        /// A generated typed fact batch, including relation and empty membership.
+        TypedFactsV1 => "pse:typed-facts:v1",
+        /// A generated typed fact row's primary-key lookup bucket.
+        TypedRowKeyV1 => "pse:typed-row-key:v1",
+        /// A relation's complete local semantic description.
+        SchemaSemanticRelationV2 => "pse.schema.semantic-relation.v2",
+        /// A semantic contract over a support closure.
+        SchemaSemanticProductV2 => "pse.schema.semantic-product.v2",
+        /// A profile's requirements and requested support closure.
+        SchemaSemanticProfileV2 => "pse.schema.semantic-profile.v2",
+        /// The exact observed native field layout.
+        SchemaExecutionEncodingV1 => "pse.schema.execution-encoding.v1",
+        /// An effective numerical policy request.
+        NumericalPolicyV1 => "pse.numerical.policy.v1",
+        /// A kernel provider's physical, algorithm and data identity.
+        ProviderV4 => "pse.provider.v4",
+    }
 
-    // ---- structure (pse-structural)
-    /// A flowsheet projection over canonicalized inventories.
-    FlowProjectionV1 => "pse.flow.projection.v1",
-    /// A structural block's canonical membership.
-    StructuralBlockV1 => "pse.structural.block.v1",
-    /// A structural analysis scope, independent of traversal order.
-    StructuralScopeV1 => "pse.structural.scope.v1",
+    "structure" ("pse-structural") {
+        /// A flowsheet projection over canonicalized inventories.
+        FlowProjectionV1 => "pse.flow.projection.v1",
+        /// A structural block's canonical membership.
+        StructuralBlockV1 => "pse.structural.block.v1",
+        /// A structural analysis scope, independent of traversal order.
+        StructuralScopeV1 => "pse.structural.scope.v1",
+    }
 
-    // ---- mathematics (pse-math)
-    /// An expression body key, never over printed atoms or process-global identifiers.
-    MathBodyV1 => "pse.math.body.v1",
-    /// A bound case's structure: bindings, units, inventories and class declarations.
-    MathCaseStructureV3 => "pse.math.case-structure.v3",
-    /// A bound case's values, separate from structure and prepared arithmetic.
-    MathCaseValuesV1 => "pse.math.case-values.v1",
-    /// The compiler-owned guarded-real interpretation policy.
-    MathGuardedRealV1 => "pse.math.guarded-real.v1",
-    /// Shared bound facts of a presolve analysis.
-    MathBoundFactsV2 => "pse.math.bound-facts.v2",
-    /// Coefficient extraction assumptions over shared bound facts.
-    MathCoefficientAssumptionsV1 => "pse.math.coefficient-assumptions.v1",
-    /// A quadratic Gram representation.
-    MathGramV1 => "pse.math.gram.v1",
-    /// A convexity assessment of an admitted snapshot.
-    MathConvexityV1 => "pse.math.convexity.v1",
-    /// The mathematics environment projection.
-    MathEnvironmentV1 => "pse.math.environment.v1",
-    /// A factorable decomposition.
-    MathFactorableV1 => "pse.math.factorable.v1",
-    /// A normalization, separate from native algorithmic scaling.
-    MathNormalizationV1 => "pse.math.normalization.v1",
-    /// Value and guard assumptions projected through a normalization.
-    MathNormalizedFactsV1 => "pse.math.normalized-facts.v1",
-    /// A canonical sparse pattern, excluding values.
-    SparsePatternV1 => "pse.sparse.pattern.v1",
-    /// Projected numerical magnitudes.
-    NumericalProjectionV1 => "pse.numerical.projection.v1",
-    /// Resolved numerical targets.
-    NumericalResolvedV1 => "pse.numerical.resolved.v1",
-    /// An implicit block's configuration.
-    ImplicitConfigurationV1 => "pse.implicit.configuration.v1",
-    /// An implicit block's fixed configuration.
-    ImplicitFixedConfigurationV1 => "pse.implicit.fixed-configuration.v1",
-    /// An implicit block's regime configuration.
-    ImplicitRegimeConfigurationV1 => "pse.implicit.regime-configuration.v1",
-    /// An inner solver implementation's versioned capability name.
-    InnerSolverV1 => "pse.inner-solver.v1",
+    "mathematics" ("pse-math") {
+        /// An expression body key, never over printed atoms or process-global identifiers.
+        MathBodyV1 => "pse.math.body.v1",
+        /// A bound case's structure: bindings, units, inventories and class declarations.
+        MathCaseStructureV3 => "pse.math.case-structure.v3",
+        /// A bound case's values, separate from structure and prepared arithmetic.
+        MathCaseValuesV1 => "pse.math.case-values.v1",
+        /// The compiler-owned guarded-real interpretation policy.
+        MathGuardedRealV1 => "pse.math.guarded-real.v1",
+        /// Shared bound facts of a presolve analysis.
+        MathBoundFactsV2 => "pse.math.bound-facts.v2",
+        /// Coefficient extraction assumptions over shared bound facts.
+        MathCoefficientAssumptionsV1 => "pse.math.coefficient-assumptions.v1",
+        /// A quadratic Gram representation.
+        MathGramV1 => "pse.math.gram.v1",
+        /// A convexity assessment of an admitted snapshot.
+        MathConvexityV1 => "pse.math.convexity.v1",
+        /// The mathematics environment projection.
+        MathEnvironmentV1 => "pse.math.environment.v1",
+        /// A factorable decomposition.
+        MathFactorableV1 => "pse.math.factorable.v1",
+        /// A normalization, separate from native algorithmic scaling.
+        MathNormalizationV1 => "pse.math.normalization.v1",
+        /// Value and guard assumptions projected through a normalization.
+        MathNormalizedFactsV1 => "pse.math.normalized-facts.v1",
+        /// A canonical sparse pattern, excluding values.
+        SparsePatternV1 => "pse.sparse.pattern.v1",
+        /// Projected numerical magnitudes.
+        NumericalProjectionV1 => "pse.numerical.projection.v1",
+        /// Resolved numerical targets.
+        NumericalResolvedV1 => "pse.numerical.resolved.v1",
+        /// An implicit block's configuration.
+        ImplicitConfigurationV1 => "pse.implicit.configuration.v1",
+        /// An implicit block's fixed configuration.
+        ImplicitFixedConfigurationV1 => "pse.implicit.fixed-configuration.v1",
+        /// An implicit block's regime configuration.
+        ImplicitRegimeConfigurationV1 => "pse.implicit.regime-configuration.v1",
+        /// An inner solver implementation's versioned capability name.
+        InnerSolverV1 => "pse.inner-solver.v1",
+    }
 
-    // ---- compilation (pse-compiler)
-    /// A compiled mathematics artifact request.
-    MathArtifactV4 => "pse.math.artifact.v4",
-    /// A local expression occurrence.
-    MathLocalOccurrenceV2 => "pse.math.local-occurrence.v2",
-    /// A physical inventory.
-    MathPhysicalInventoryV3 => "pse.math.physical-inventory.v3",
-    /// A physical reduction pass.
-    MathPhysicalPassV1 => "pse.math.physical-pass.v1",
-    /// A typed definition's admitted outputs.
-    MathTypedDefinitionV2 => "pse.math.typed-definition.v2",
-    /// A prepared view of a compiled modeling structure.
-    CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
-    /// A grouped consumer body.
-    ModelingConsumerBodyV1 => "pse.modeling.consumer-body.v1",
-    /// An implicit residual.
-    ModelingImplicitResidualV1 => "pse.modeling.implicit-residual.v1",
+    "compilation" ("pse-compiler") {
+        /// A compiled mathematics artifact request.
+        MathArtifactV4 => "pse.math.artifact.v4",
+        /// A local expression occurrence.
+        MathLocalOccurrenceV2 => "pse.math.local-occurrence.v2",
+        /// A physical inventory.
+        MathPhysicalInventoryV3 => "pse.math.physical-inventory.v3",
+        /// A physical reduction pass.
+        MathPhysicalPassV1 => "pse.math.physical-pass.v1",
+        /// A typed definition's admitted outputs.
+        MathTypedDefinitionV2 => "pse.math.typed-definition.v2",
+        /// A prepared view of a compiled modeling structure.
+        CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
+        /// A grouped consumer body.
+        ModelingConsumerBodyV1 => "pse.modeling.consumer-body.v1",
+        /// An implicit residual.
+        ModelingImplicitResidualV1 => "pse.modeling.implicit-residual.v1",
+    }
 
-    // ---- modeling specialization (pse-modeling)
-    /// A continuity derivative.
-    ModelingContinuityV1 => "pse.modeling.continuity.v1",
-    /// A coordinate, preserving compound-key identity.
-    ModelingCoordinateV1 => "pse.modeling.coordinate.v1",
-    /// A definite integral.
-    ModelingDefiniteIntegralV1 => "pse.modeling.definite-integral.v1",
-    /// A dispatch group body.
-    ModelingDispatchBodyV1 => "pse.modeling.dispatch-body.v1",
-    /// A finite function instantiation.
-    ModelingFiniteFunctionV1 => "pse.modeling.finite-function.v1",
-    /// A finite reduction rewrite.
-    ModelingFiniteReductionV1 => "pse.modeling.finite-reduction.v1",
-    /// A specialized member.
-    ModelingMemberV1 => "pse.modeling.member.v1",
-    /// A realized mesh coordinate.
-    ModelingMeshCoordinateV1 => "pse.modeling.mesh-coordinate.v1",
-    /// A typed constant.
-    ModelingTypedConstantV1 => "pse.modeling.typed-constant.v1",
+    "modeling specialization" ("pse-modeling") {
+        /// A continuity derivative.
+        ModelingContinuityV1 => "pse.modeling.continuity.v1",
+        /// A coordinate, preserving compound-key identity.
+        ModelingCoordinateV1 => "pse.modeling.coordinate.v1",
+        /// A definite integral.
+        ModelingDefiniteIntegralV1 => "pse.modeling.definite-integral.v1",
+        /// A dispatch group body.
+        ModelingDispatchBodyV1 => "pse.modeling.dispatch-body.v1",
+        /// A finite function instantiation.
+        ModelingFiniteFunctionV1 => "pse.modeling.finite-function.v1",
+        /// A finite reduction rewrite.
+        ModelingFiniteReductionV1 => "pse.modeling.finite-reduction.v1",
+        /// A specialized member.
+        ModelingMemberV1 => "pse.modeling.member.v1",
+        /// A realized mesh coordinate.
+        ModelingMeshCoordinateV1 => "pse.modeling.mesh-coordinate.v1",
+        /// A typed constant.
+        ModelingTypedConstantV1 => "pse.modeling.typed-constant.v1",
+    }
 
-    // ---- native solvers (pse-backend-native)
-    /// Complete backend settings, derived from serde.
-    BackendSettingsV4 => "pse.backend.settings.v4",
-    /// A cone sequence layout in the pse encoding.
-    ConeLayoutV3 => "pse.cone.layout.v3",
-    /// A factorable problem's variable domains.
-    FactorableDomainV1 => "pse.factorable.domain.v1",
-    /// The continuous problem of a fixed discrete assignment.
-    FactorableFixedAssignmentV1 => "pse.factorable.fixed-assignment.v1",
-    /// The profile of a fixed discrete assignment's continuous solve.
-    FactorableFixedAssignmentProfileV1 => "pse.factorable.fixed-assignment.profile.v1",
-    /// A HiGHS irreducible-infeasible-subsystem relaxation.
-    HighsIisRelaxationV1 => "pse.highs.iis-relaxation.v1",
-    /// A Jacobian diagnostic problem family's pattern and domains.
-    JacobianDiagnosticLayoutV1 => "pse.jacobian-diagnostic.layout.v1",
-    /// A Jacobian diagnostic problem.
-    JacobianDiagnosticProblemV1 => "pse.jacobian-diagnostic.problem.v1",
-    /// Resolved native accuracy budgets.
-    NativeAccuracyV3 => "pse.native.accuracy.v3",
-    /// Every linked adapter's native build.
-    NativeBuildV1 => "pse.native.build.v1",
-    /// Native solve controls.
-    NativeControlsV2 => "pse.native.controls.v2",
-    /// The linked Ipopt build.
-    NativeIpoptBuildV1 => "pse.native.ipopt.build.v1",
-    /// A seed's content, without its execution origin.
-    NativeSeedV2 => "pse.native.seed.v2",
-    /// A structural analysis scope over a residual Jacobian.
-    NativeStructuralScopeV1 => "pse.native.structural-scope.v1",
-    /// Presolve options.
-    PresolvePolicyV1 => "pse.presolve.policy.v1",
-    /// A presolve transformation.
-    PresolveTransformationV2 => "pse.presolve.transformation.v2",
-    /// The constraint system a SCIP reoptimization session was built for.
-    ScipReoptimizationSystemV1 => "pse.scip.reoptimization.system.v1",
-    /// A tear-selection decision column.
-    TearDecisionV1 => "pse.tear.decision.v1",
-    /// A tear-selection order column.
-    TearOrderV1 => "pse.tear.order.v1",
+    "native solvers" ("pse-backend-native") {
+        /// Complete backend settings, derived from serde.
+        BackendSettingsV4 => "pse.backend.settings.v4",
+        /// A cone sequence layout in the pse encoding.
+        ConeLayoutV3 => "pse.cone.layout.v3",
+        /// A factorable problem's variable domains.
+        FactorableDomainV1 => "pse.factorable.domain.v1",
+        /// The continuous problem of a fixed discrete assignment.
+        FactorableFixedAssignmentV1 => "pse.factorable.fixed-assignment.v1",
+        /// The profile of a fixed discrete assignment's continuous solve.
+        FactorableFixedAssignmentProfileV1 => "pse.factorable.fixed-assignment.profile.v1",
+        /// A HiGHS irreducible-infeasible-subsystem relaxation.
+        HighsIisRelaxationV1 => "pse.highs.iis-relaxation.v1",
+        /// A Jacobian diagnostic problem family's pattern and domains.
+        JacobianDiagnosticLayoutV1 => "pse.jacobian-diagnostic.layout.v1",
+        /// A Jacobian diagnostic problem.
+        JacobianDiagnosticProblemV1 => "pse.jacobian-diagnostic.problem.v1",
+        /// Resolved native accuracy budgets.
+        NativeAccuracyV3 => "pse.native.accuracy.v3",
+        /// Every linked adapter's native build.
+        NativeBuildV1 => "pse.native.build.v1",
+        /// Native solve controls.
+        NativeControlsV2 => "pse.native.controls.v2",
+        /// The linked Ipopt build.
+        NativeIpoptBuildV1 => "pse.native.ipopt.build.v1",
+        /// A seed's content, without its execution origin.
+        NativeSeedV2 => "pse.native.seed.v2",
+        /// A structural analysis scope over a residual Jacobian.
+        NativeStructuralScopeV1 => "pse.native.structural-scope.v1",
+        /// Presolve options.
+        PresolvePolicyV1 => "pse.presolve.policy.v1",
+        /// A presolve transformation.
+        PresolveTransformationV2 => "pse.presolve.transformation.v2",
+        /// The constraint system a SCIP reoptimization session was built for.
+        ScipReoptimizationSystemV1 => "pse.scip.reoptimization.system.v1",
+        /// A tear-selection decision column.
+        TearDecisionV1 => "pse.tear.decision.v1",
+        /// A tear-selection order column.
+        TearOrderV1 => "pse.tear.order.v1",
+    }
 
-    // ---- runtime and workflows (pse-runtime)
-    /// A conditional strategy's causal map.
-    CausalMapV2 => "pse.causal-map.v2",
-    /// The environment a completed step actually ran in.
-    CompletedEnvironmentV1 => "pse.completed.environment.v1",
-    /// A completed step's request lineage.
-    CompletedRequestV2 => "pse.completed.request.v2",
-    /// A durable job request.
-    DurableJobRequestV2 => "pse.durable.job_request.v2",
-    /// A durable modeling request.
-    DurableModelingRequestV1 => "pse.durable.modeling_request.v1",
-    /// A dynamic simulation profile.
-    DynamicProfileV3 => "pse.dynamic.profile.v3",
-    /// An explicit conic request.
-    ExplicitConicV3 => "pse.explicit-conic.v3",
-    /// A fitting coordinate alias of an experiment and source.
-    FitCoordinateV1 => "pse.fit.coordinate.v1",
-    /// A prepared fit.
-    FitPreparedV1 => "pse.fit.prepared.v1",
-    /// A fit profile.
-    FitProfileV2 => "pse.fit.profile.v2",
-    /// A fit source.
-    FitSourceV1 => "pse.fit.source.v1",
-    /// Compiled simulation modes.
-    ModelingDynamicModesV1 => "pse.modeling.dynamic-modes.v1",
-    /// A modeling dynamic simulation.
-    ModelingDynamicV1 => "pse.modeling.dynamic.v1",
-    /// A modeling fit's execution.
-    ModelingFitExecutionV1 => "pse.modeling.fit-execution.v1",
-    /// A modeling fit's source.
-    ModelingFitSourceV1 => "pse.modeling.fit-source.v1",
-    /// Implicit trial hints.
-    ModelingImplicitTrialHintsV1 => "pse.modeling.implicit-trial-hints.v1",
-    /// A modeling source revision.
-    ModelingSourceRevisionV1 => "pse.modeling.source-revision.v1",
-    /// A prepared numerical cone request.
-    NumericalConeV1 => "pse.numerical.cone.v1",
-    /// A publication request's algorithms.
-    RunAlgorithmsV1 => "pse.run.algorithms.v1",
-    /// A publication request's source.
-    RunSourceV1 => "pse.run.source.v1",
-    /// A publication request's target.
-    RunTargetV1 => "pse.run.target.v1",
-    /// A solve's compilation and normalization, before a seed is attached.
-    SolvePreparationV1 => "pse.solve.preparation.v1",
-    /// A complete selected solve request.
-    SolveRequestV1 => "pse.solve.request.v1",
-    /// The preparation a stored seed is keyed by.
-    SolveSeedPreparationV1 => "pse.solve.seed_preparation.v1",
-    /// Conic solver data.
-    SolverConicDataV1 => "pse.solver.conic-data.v1",
-    /// A conic solver layout.
-    SolverConicLayoutV3 => "pse.solver.conic-layout.v3",
-    /// A conic solver session.
-    SolverConicSessionV1 => "pse.solver.conic-session.v1",
-    /// A solver session's coordinates.
-    SolverCoordinatesV1 => "pse.solver.coordinates.v1",
-    /// A solver session's data.
-    SolverDataV1 => "pse.solver.data.v1",
-    /// A complete effective solver request profile.
-    SolverProfileV3 => "pse.solver.profile.v3",
-    /// A native solver session's compatibility.
-    SolverSessionV1 => "pse.solver.session.v1",
-    // ---- operational store (pse-operations, generated by pse-codegen)
-    /// The operational store's schema fingerprint over the generated `schema.sql` and
-    /// `physical.sql` (ADR-0114 Outcome 23). Added after the catalog was captured.
-    OpsSchemaV1 => "pse.ops.schema.v1",
+    "runtime and workflows" ("pse-runtime") {
+        /// A conditional strategy's causal map.
+        CausalMapV2 => "pse.causal-map.v2",
+        /// The environment a completed step actually ran in.
+        CompletedEnvironmentV1 => "pse.completed.environment.v1",
+        /// A completed step's request lineage.
+        CompletedRequestV2 => "pse.completed.request.v2",
+        /// A durable job request.
+        DurableJobRequestV2 => "pse.durable.job_request.v2",
+        /// A durable modeling request.
+        DurableModelingRequestV1 => "pse.durable.modeling_request.v1",
+        /// A dynamic simulation profile.
+        DynamicProfileV3 => "pse.dynamic.profile.v3",
+        /// An explicit conic request.
+        ExplicitConicV3 => "pse.explicit-conic.v3",
+        /// A fitting coordinate alias of an experiment and source.
+        FitCoordinateV1 => "pse.fit.coordinate.v1",
+        /// A prepared fit.
+        FitPreparedV1 => "pse.fit.prepared.v1",
+        /// A fit profile.
+        FitProfileV2 => "pse.fit.profile.v2",
+        /// A fit source.
+        FitSourceV1 => "pse.fit.source.v1",
+        /// Compiled simulation modes.
+        ModelingDynamicModesV1 => "pse.modeling.dynamic-modes.v1",
+        /// A modeling dynamic simulation.
+        ModelingDynamicV1 => "pse.modeling.dynamic.v1",
+        /// A modeling fit's execution.
+        ModelingFitExecutionV1 => "pse.modeling.fit-execution.v1",
+        /// A modeling fit's source.
+        ModelingFitSourceV1 => "pse.modeling.fit-source.v1",
+        /// Implicit trial hints.
+        ModelingImplicitTrialHintsV1 => "pse.modeling.implicit-trial-hints.v1",
+        /// A modeling source revision.
+        ModelingSourceRevisionV1 => "pse.modeling.source-revision.v1",
+        /// A prepared numerical cone request.
+        NumericalConeV1 => "pse.numerical.cone.v1",
+        /// A publication request's algorithms.
+        RunAlgorithmsV1 => "pse.run.algorithms.v1",
+        /// A publication request's source.
+        RunSourceV1 => "pse.run.source.v1",
+        /// A publication request's target.
+        RunTargetV1 => "pse.run.target.v1",
+        /// A solve's compilation and normalization, before a seed is attached.
+        SolvePreparationV1 => "pse.solve.preparation.v1",
+        /// A complete selected solve request.
+        SolveRequestV1 => "pse.solve.request.v1",
+        /// The preparation a stored seed is keyed by.
+        SolveSeedPreparationV1 => "pse.solve.seed_preparation.v1",
+        /// Conic solver data.
+        SolverConicDataV1 => "pse.solver.conic-data.v1",
+        /// A conic solver layout.
+        SolverConicLayoutV3 => "pse.solver.conic-layout.v3",
+        /// A conic solver session.
+        SolverConicSessionV1 => "pse.solver.conic-session.v1",
+        /// A solver session's coordinates.
+        SolverCoordinatesV1 => "pse.solver.coordinates.v1",
+        /// A solver session's data.
+        SolverDataV1 => "pse.solver.data.v1",
+        /// A complete effective solver request profile.
+        SolverProfileV3 => "pse.solver.profile.v3",
+        /// A native solver session's compatibility.
+        SolverSessionV1 => "pse.solver.session.v1",
+    }
+
+    "operational store" ("pse-operations, pse-codegen") {
+        /// The operational store's schema fingerprint over the generated `schema.sql` and
+        /// `physical.sql` (ADR-0114 Outcome 23). Added after the catalog was captured.
+        OpsSchemaV1 => "pse.ops.schema.v1",
+    }
 }
 
 impl std::fmt::Display for Frame {
@@ -462,6 +501,27 @@ mod consolidation_unit {
         // `ALL` lists each variant once, so its length is the variant count.
         let variants: std::collections::BTreeSet<_> = Frame::ALL.iter().collect();
         assert_eq!(variants.len(), Frame::ALL.len());
+    }
+
+    /// The generated catalog lists each frame with its area and meaning, so every
+    /// variant is documented, and an area's frames are declared together.
+    #[test]
+    fn frame_catalog_documents_every_frame() {
+        let mut areas = Vec::new();
+        for frame in Frame::ALL {
+            assert!(!frame.meaning().is_empty(), "{frame:?} has no meaning");
+            assert_eq!(frame.meaning(), frame.meaning().trim(), "{frame:?}");
+            assert!(!frame.owners().is_empty(), "{frame:?} has no owners");
+            if areas.last() != Some(&frame.area()) {
+                assert!(!areas.contains(&frame.area()), "{frame:?} splits its area");
+                areas.push(frame.area());
+            }
+        }
+        assert_eq!(
+            Frame::RowKeyNativeValuesV2.meaning(),
+            "Durable semantic row tokens over native values; also the published row-key encoding."
+        );
+        assert_eq!(Frame::OpsSchemaV1.owners(), "pse-operations, pse-codegen");
     }
 
     #[test]

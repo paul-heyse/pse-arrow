@@ -143,9 +143,10 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             format!("# {namespace} relations\n\n{source}"),
         );
     }
-    index.push_str("- [Enumerations](enums.md)\n- [Extension types](extension_types.md)\n- [Native algorithm signatures](algorithms.md)\n- [Rules and invariants](rules.md)\n");
+    index.push_str("- [Enumerations](enums.md)\n- [Extension types](extension_types.md)\n- [Native algorithm signatures](algorithms.md)\n- [Rules and invariants](rules.md)\n- [Hash frames](frames.md)\n");
     emit(&mut tree, "README", index);
     emit(&mut tree, "enums", enums(reg));
+    emit(&mut tree, "frames", frames());
     let extensions = EXTENSION_TYPES
         .iter()
         .map(|extension| {
@@ -188,6 +189,38 @@ fn enums(reg: &Registry) -> String {
             );
         }
         source.push('\n');
+    }
+    source
+}
+
+/// The hash-frame catalog (ADR-0115 Outcome 4): every `derive_key` context `pse_ids::Frame`
+/// declares, grouped by area in declaration order. The catalog is the Rust declaration;
+/// this page only lists it.
+fn frames() -> String {
+    let mut source = String::from(
+        "# Hash frames\n\nEvery `derive_key` context in the workspace, declared once by `pse_ids::Frame` (ADR-0115 Outcome 4). A spelling is part of the identity contract: a new meaning or a new derivation version is a new frame, never a new spelling for an existing one.\n",
+    );
+    let mut area = None;
+    for frame in pse_ids::Frame::ALL {
+        if area != Some(frame.area()) {
+            area = Some(frame.area());
+            let mut title = frame.area().chars();
+            let title = title
+                .next()
+                .map(|first| first.to_uppercase().chain(title).collect::<String>())
+                .unwrap_or_default();
+            let _ = writeln!(
+                source,
+                "\n## {title}\n\nDerived in: {}.\n\n| Frame | Spelling | Meaning |\n|---|---|---|",
+                frame.owners()
+            );
+        }
+        let _ = writeln!(
+            source,
+            "| `{frame:?}` | `{}` | {} |",
+            frame.as_str(),
+            frame.meaning().replace('|', "&#124;")
+        );
     }
     source
 }
@@ -238,4 +271,30 @@ fn rules(reg: &Registry) -> String {
         );
     }
     source
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "assertions over the generated reference")]
+
+    use super::*;
+
+    /// The generated reference lists every hash frame, with its spelling, and the index
+    /// links the page (ADR-0115 Outcome 4).
+    #[test]
+    fn frame_catalog_listed_in_generated_docs() {
+        let tree = generate(crate::registry().unwrap()).unwrap();
+        let page = |name: &str| {
+            String::from_utf8(tree.files[&std::path::PathBuf::from(format!("docs/generated/{name}.md"))].clone())
+                .unwrap()
+        };
+        let frames = page("frames");
+        assert!(frames.starts_with(HEADER));
+        for frame in pse_ids::Frame::ALL {
+            let row = format!("| `{frame:?}` | `{}` |", frame.as_str());
+            assert_eq!(frames.matches(&row).count(), 1, "{row}");
+        }
+        assert!(frames.contains("\n## Runtime and workflows\n"));
+        assert!(page("README").contains("- [Hash frames](frames.md)"));
+    }
 }

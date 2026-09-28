@@ -13,3 +13,4 @@ Projected from the admitted registry `f4b3c783d8254d7003b04d034d4105f8dbd2b5ca5e
 - [Extension types](extension_types.md)
 - [Native algorithm signatures](algorithms.md)
 - [Rules and invariants](rules.md)
+- [Hash frames](frames.md)
