@@ -3026,3 +3026,58 @@ async fn reclaimable_intents_are_fenced() {
     database.remove().await.unwrap();
 }
 
+#[tokio::test]
+async fn lost_commit_acknowledgement_settles() {
+    use crate::testing::{Fault, FaultPoint, FaultProxy};
+    let database = TestDatabase::create().await.unwrap();
+    let proxy = FaultProxy::start(database.url()).await.unwrap();
+    let store = Store::open_with(proxy.url(), &crate::StoreOptions::for_tests())
+        .await
+        .unwrap();
+    let catalog = store.catalog();
+    let space = space(&store).await;
+    let fault = |point| Fault {
+        marker: "INSERT INTO pse_ops.publications ",
+        point,
+    };
+    let settle = |commit: &PublicationCommit| SettleRequest {
+        settlement_id: mint_id(),
+        attempt_id: commit.attempt_id,
+        publication_id: commit.publication_id,
+        workspace_id: commit.workspace_id,
+        expected_parent: commit.expected_parent,
+    };
+
+    // The connection drops before COMMIT reaches the server: nothing was committed.
+    let first = commit_of(&intent(&store, &space).await, None);
+    proxy.arm(fault(FaultPoint::BeforeCommit));
+    let lost = catalog.commit(&first).await.unwrap_err();
+    assert!(proxy.fired());
+    assert!(matches!(lost, OperationsError::Unavailable { .. }), "{lost:?}");
+    assert_eq!(
+        catalog.settle(&settle(&first)).await.unwrap(),
+        Settlement::ProvedNoncommit
+    );
+    // The same request commits on a retry.
+    catalog.commit(&first).await.unwrap();
+
+    // The server commits but the acknowledgement is lost: settlement finds it.
+    let second = commit_of(&intent(&store, &space).await, Some(first.publication_id));
+    proxy.arm(fault(FaultPoint::AfterCommit));
+    let lost = catalog.commit(&second).await.unwrap_err();
+    assert!(proxy.fired());
+    assert!(matches!(lost, OperationsError::Unavailable { .. }), "{lost:?}");
+    assert_eq!(
+        catalog.settle(&settle(&second)).await.unwrap(),
+        Settlement::Committed {
+            publication_id: second.publication_id
+        }
+    );
+    assert_eq!(
+        catalog.head(space.id).await.unwrap(),
+        Some(second.publication_id)
+    );
+    store.close();
+    drop(proxy);
+    database.remove().await.unwrap();
+}
