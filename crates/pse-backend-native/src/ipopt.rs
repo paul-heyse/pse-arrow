@@ -1183,10 +1183,10 @@ mod tests {
             assert_eq!(report.options["linear_solver"], text("mumps"));
             assert_eq!(
                 report.options["mumps_pivot_order"],
-                OptionValue::Integer(ordering as i32)
+                OptionValue::Integer(settings::mumps_pivot_order(ordering))
             );
         }
-        assert_eq!(MumpsOrdering::Metis as i32, 5);
+        assert_eq!(settings::mumps_pivot_order(MumpsOrdering::Metis), 5);
     }
     #[test]
     fn ipopt_spral_selectable_and_recorded() {
@@ -1248,7 +1248,7 @@ mod tests {
         let observed = Runtime::observe();
         // The image links exactly MUMPS, SPRAL and oneMKL Pardiso: no HSL, no loaded Pardiso.
         for solver in IpoptLinearSolver::ALL {
-            assert_ne!(observed.linked & solver.mask(), 0, "{solver:?}");
+            assert_ne!(observed.linked & settings::mask(solver), 0, "{solver:?}");
         }
         assert_eq!(observed.linked & ffi::IPOPTLINEARSOLVER_ALLHSL, 0);
         assert_eq!(observed.linked & ffi::IPOPTLINEARSOLVER_PARDISO, 0);
@@ -1256,10 +1256,10 @@ mod tests {
             let settings = match solver {
                 IpoptLinearSolver::Mumps => Settings::default(),
                 IpoptLinearSolver::Spral => spral(),
-                IpoptLinearSolver::PardisoMkl => pardiso(),
+                IpoptLinearSolver::Pardisomkl => pardiso(),
             };
             let without = Runtime {
-                linked: observed.linked & !solver.mask(),
+                linked: observed.linked & !settings::mask(solver),
                 ..observed
             };
             assert!(

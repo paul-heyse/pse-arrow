@@ -24,7 +24,7 @@ pub type LinearSettings = pounce_feral::FeralConfig;
 /// configuration serializes through a remote definition checked against every upstream
 /// field, so a FERAL upgrade that adds a field fails to compile instead of leaving
 /// identity (F09).
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Settings {
     /// NLP method.
@@ -103,22 +103,24 @@ const _: fn(&LinearSettings) = |c| {
         static_pivoting: _,
     } = c;
 };
-/// Algorithm is explicit; POUNCE never silently changes the selected problem class.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Method {
-    /// Native barrier/filter NLP method.
-    #[default]
-    InteriorPoint,
-    /// Native active-set sequential quadratic programming.
-    ActiveSetSqp,
-    /// The Thierry–Biegler ℓ1 exact penalty-barrier method (`pounce-l1penalty`, ADR-0109).
-    /// Explicit only: never selected automatically and never a retry. Every row is relaxed
-    /// (inequalities through bounded slacks), so an infeasible model returns a
-    /// least-infeasible point and a feasible one a point the penalty makes exact. Presolve
-    /// `Auto` resolves to `Off` for it, recorded in the presolve report; explicit passes
-    /// are refused, since every pass assumes the rows hold.
-    L1ExactPenalty,
+/// The NLP method, a registry vocabulary (ADR-0115 Outcome 3). The algorithm is
+/// explicit; POUNCE never silently changes the selected problem class. The Thierry–Biegler
+/// ℓ1 exact penalty-barrier method (`pounce-l1penalty`, ADR-0109) is explicit only: never
+/// selected automatically and never a retry. Every row is relaxed (inequalities through
+/// bounded slacks), so an infeasible model returns a least-infeasible point and a feasible
+/// one a point the penalty makes exact. Presolve `Auto` resolves to `Off` for it, recorded
+/// in the presolve report; explicit passes are refused, since every pass assumes the rows
+/// hold.
+pub use pse_model::generated::enums::PounceMethod as Method;
+impl Default for Settings {
+    /// The interior-point method with FERAL's own defaults and the default restart.
+    fn default() -> Self {
+        Self {
+            method: Method::InteriorPoint,
+            linear: LinearSettings::default(),
+            restart: WarmRestart::default(),
+        }
+    }
 }
 /// Worker count of FERAL's own factorization pool, by the rule feral 0.18 applies when it
 /// builds that pool (`Solver::pool_num_threads`): `RAYON_NUM_THREADS` when it parses as a

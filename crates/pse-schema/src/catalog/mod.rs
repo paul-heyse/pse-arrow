@@ -27,6 +27,7 @@ mod normalization;
 mod operations;
 mod publication;
 mod row_checks;
+pub mod solve_settings;
 pub mod s14_passes;
 pub mod s4_schema;
 pub mod s6_10_cases;
@@ -89,6 +90,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     s6_11_numerical::declare(builder);
     s6_13_runtime::declare(builder);
     native_math::declare(builder);
+    solve_settings::declare(builder);
     modeling::declare(builder);
     modeling_analysis::register(builder);
     modeling_native_analysis::register(builder);

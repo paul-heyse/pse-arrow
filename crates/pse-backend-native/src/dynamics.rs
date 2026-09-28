@@ -15,62 +15,33 @@ mod idas;
 #[cfg(feature = "diffsol")]
 mod integrator;
 
-/// Requested native integration algorithm. Auto resolves from trial requirements.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Method {
-    /// Diffsol normally; IDAS when native trial recovery is required.
-    #[default]
-    Auto,
-    /// Rust BDF with library-owned hybrid reset sensitivities.
-    Diffsol,
-    /// Residual BDF with recoverable trial callbacks.
-    Idas,
-}
-/// Explicit contract for domain errors at internal trial points.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TrialPolicy {
-    /// A trial failure terminates this attempt.
-    #[default]
-    Terminal,
-    /// The native method must support rejecting and retrying a trial.
-    Recoverable,
-}
-/// Diffsol time-stepping scheme (ADR-0110 item 2). Every scheme is library-owned.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DiffsolMethod {
-    /// Variable-order variable-step BDF.
-    #[default]
-    Bdf,
-    /// Two-stage SDIRK TR-BDF2.
-    TrBdf2,
-    /// Four-stage ESDIRK 3(4).
-    Esdirk34,
-    /// Explicit Tsitouras 4(5); only a mass-free ODE is admitted.
-    Tsit45,
-}
-/// Sparse factorization of Diffsol's Newton iteration matrices.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum DiffsolLinear {
-    /// faer sparse LU.
-    #[default]
-    FaerLu,
-    /// SuiteSparse KLU (Diffsol `suitesparse` backend).
-    Klu,
-}
-/// Typed Diffsol-only method controls.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+/// Registry vocabularies of the dynamics settings (ADR-0110, ADR-0115 Outcome 3): the
+/// requested integration algorithm (`auto` resolves from trial requirements), the contract
+/// for domain errors at internal trial points, Diffsol's library-owned time-stepping scheme
+/// and the sparse factorization of its Newton matrices, IDAS's forward-sensitivity
+/// corrector (`IDASensInit`), its consistent initialization (`IDACalcIC`) and the declared
+/// sign of a normalized state (`IDASetConstraints`).
+pub use pse_model::generated::enums::{
+    DiffsolLinear, DiffsolMethod, DynamicsMethod as Method, IdasInitialization,
+    SensitivityCorrector, StateSign, TrialPolicy,
+};
+/// Typed Diffsol-only method controls; absent fields take these defaults.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct DiffsolSettings {
     /// Time-stepping scheme.
-    #[serde(default)]
     pub method: DiffsolMethod,
     /// Newton linear solver of the implicit schemes.
-    #[serde(default)]
     pub linear: DiffsolLinear,
+}
+impl Default for DiffsolSettings {
+    /// Variable-order BDF over faer sparse LU.
+    fn default() -> Self {
+        Self {
+            method: DiffsolMethod::Bdf,
+            linear: DiffsolLinear::FaerLu,
+        }
+    }
 }
 /// IDAS Newton linear solver.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -83,86 +54,61 @@ pub enum IdasLinear {
     Spgmr {
         /// Maximum Krylov subspace dimension.
         dimension: usize,
-        /// Left preconditioner built from the compiled Jacobian.
-        #[serde(default)]
+        /// Left preconditioner built from the compiled Jacobian; none when absent.
+        #[serde(default = "unpreconditioned")]
         preconditioner: crate::solve::Preconditioner,
     },
     /// Matrix-free flexible GMRES over analytic Jacobian-vector products.
     Spfgmr {
         /// Maximum Krylov subspace dimension.
         dimension: usize,
-        /// Left preconditioner built from the compiled Jacobian.
-        #[serde(default)]
+        /// Left preconditioner built from the compiled Jacobian; none when absent.
+        #[serde(default = "unpreconditioned")]
         preconditioner: crate::solve::Preconditioner,
     },
 }
-/// IDAS forward-sensitivity corrector (`IDASensInit`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SensitivityCorrector {
-    /// State and sensitivity corrections in one Newton iteration (`IDA_SIMULTANEOUS`).
-    #[default]
-    Simultaneous,
-    /// Sensitivities corrected after each converged state step (`IDA_STAGGERED`).
-    Staggered,
+const fn unpreconditioned() -> crate::solve::Preconditioner {
+    crate::solve::Preconditioner::None
 }
-/// Consistent initialization at the start of the horizon (`IDACalcIC`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum IdasInitialization {
-    /// Keep the requested differential states; compute algebraic states and all rates
-    /// (`IDA_YA_YDP_INIT`).
-    #[default]
-    AlgebraicAndRates,
-    /// Every rate is zero and every state is computed (`IDA_Y_INIT`): a steady start. The
-    /// requested initial values are only the Newton guess.
-    SteadyStates,
-}
-/// Declared sign of one normalized state, enforced by IDAS at every step (`IDASetConstraints`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StateSign {
-    /// Unconstrained.
-    #[default]
-    Free,
-    /// `x >= 0`.
-    NonNegative,
-    /// `x > 0`.
-    Positive,
-    /// `x <= 0`.
-    NonPositive,
-    /// `x < 0`.
-    Negative,
-}
-impl StateSign {
-    /// The native IDAS/KINSOL constraint code.
-    pub const fn code(self) -> f64 {
-        match self {
-            Self::Free => 0.0,
-            Self::NonNegative => 1.0,
-            Self::Positive => 2.0,
-            Self::NonPositive => -1.0,
-            Self::Negative => -2.0,
-        }
+/// The native IDAS/KINSOL constraint code of a declared state sign.
+#[cfg_attr(
+    not(feature = "idas"),
+    expect(dead_code, reason = "the native constraint codes exist only with IDAS")
+)]
+pub(crate) const fn state_sign_code(sign: StateSign) -> f64 {
+    match sign {
+        StateSign::Free => 0.0,
+        StateSign::NonNegative => 1.0,
+        StateSign::Positive => 2.0,
+        StateSign::NonPositive => -1.0,
+        StateSign::Negative => -2.0,
     }
 }
-/// Typed IDAS-only method controls (ADR-0110 item 1).
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
+/// Typed IDAS-only method controls (ADR-0110 item 1); absent fields take these defaults.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
 pub struct IdasSettings {
     /// Newton linear solver.
-    #[serde(default)]
     pub linear: IdasLinear,
     /// Forward-sensitivity corrector.
-    #[serde(default)]
     pub sensitivity: SensitivityCorrector,
     /// Consistent initialization at the start of the horizon; scheduled changes and resets
     /// always keep their differential states.
-    #[serde(default)]
     pub initialization: IdasInitialization,
     /// Empty, or one declared sign per state in state order.
-    #[serde(default)]
     pub constraints: Vec<StateSign>,
+}
+impl Default for IdasSettings {
+    /// KLU over the analytic Jacobian, the simultaneous corrector, an initialization that
+    /// keeps the requested differential states, and no declared signs.
+    fn default() -> Self {
+        Self {
+            linear: IdasLinear::Klu,
+            sensitivity: SensitivityCorrector::Simultaneous,
+            initialization: IdasInitialization::AlgebraicAndRates,
+            constraints: Vec::new(),
+        }
+    }
 }
 /// Guard crossing detected by an event (`IDASetRootDirection`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -333,11 +279,11 @@ impl Contract {
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Profile {
-    /// Native method selected from the required trial semantics.
-    #[serde(default)]
+    /// Native method selected from the required trial semantics; automatic when absent.
+    #[serde(default = "automatic")]
     pub method: Method,
-    /// Behavior required for internal domain failures.
-    #[serde(default)]
+    /// Behavior required for internal domain failures; terminal when absent.
+    #[serde(default = "terminal")]
     pub trial_failures: TrialPolicy,
     /// Physical acceptance and ID-keyed nominal requests, distinct from integration error controls.
     #[serde(default)]
@@ -473,7 +419,7 @@ impl Profile {
                             "explicit tsit45 integrates mass-free ODEs only; algebraic states need an implicit scheme",
                         ));
                     }
-                    if self.diffsol.linear != DiffsolLinear::default() {
+                    if self.diffsol.linear != DiffsolSettings::default().linear {
                         return Err(contract("explicit tsit45 has no Newton linear solver"));
                     }
                 }
@@ -895,11 +841,17 @@ mod ode_options {
     }
 }
 
+const fn automatic() -> Method {
+    Method::Auto
+}
+const fn terminal() -> TrialPolicy {
+    TrialPolicy::Terminal
+}
 impl Default for Profile {
     fn default() -> Self {
         Self {
-            method: Method::default(),
-            trial_failures: TrialPolicy::default(),
+            method: automatic(),
+            trial_failures: terminal(),
             numerics: Default::default(),
             start: 0.0,
             end: 1.0,

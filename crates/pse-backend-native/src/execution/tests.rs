@@ -519,3 +519,160 @@ fn settings_documents_round_trip_every_variant() {
         }
     }
 }
+
+/// The registry-owned settings vocabularies keep the serde spellings and the type names of
+/// the enums they replaced, so a settings document and its serde-derived identity
+/// (`pse.backend.settings.v3`, `pse.native.controls.v1`) keep their bytes (Plan 22 B4).
+/// The values were captured from the hand-written enums before they were deleted.
+#[test]
+fn settings_identity_bytes_unchanged() {
+    use serde_json::json;
+    let mut observed = Vec::new();
+    let mut documents = vec![(
+        "scip",
+        Backend::Scip,
+        json!({"nlp_linear_solver": "pardisomkl", "seed": 3}),
+    )];
+    if cfg!(feature = "ipopt") {
+        documents.push((
+            "ipopt-spral",
+            Backend::Ipopt,
+            json!({
+                "linear": {"spral": {"ordering": "matching", "scaling": "mc64", "pivot": "threshold"}},
+                "mu_strategy": "adaptive",
+            }),
+        ));
+        documents.push((
+            "ipopt-pardiso",
+            Backend::Ipopt,
+            json!({
+                "linear": {"pardisomkl": {"ordering": "parallel_metis", "matching": "complete_plus2x2"}},
+            }),
+        ));
+        documents.push((
+            "ipopt-mumps",
+            Backend::Ipopt,
+            json!({"linear": {"mumps": {"ordering": "qamd"}}}),
+        ));
+    }
+    for (label, backend, fields) in documents {
+        let settings = BackendSettings::from_fields(backend, fields).unwrap();
+        observed.push((
+            label,
+            serde_json::to_string(&settings.document().unwrap()).unwrap(),
+            settings.identity().unwrap().to_prefixed(),
+        ));
+    }
+    let controls = crate::solve::Controls {
+        hessian: HessianMode::LimitedMemory,
+        reuse: ReusePolicy::AllowRebuild,
+        ..Default::default()
+    };
+    observed.push((
+        "controls",
+        serde_json::to_string(&controls).unwrap(),
+        controls.identity().unwrap().to_prefixed(),
+    ));
+    let restart = r#""restart":{"barrier":"seed","bound_push":1e-9,"bound_frac":1e-9,"slack_bound_push":1e-9,"slack_bound_frac":1e-9,"mult_bound_push":1e-9}"#;
+    let mut expected = vec![(
+        "scip",
+        r#"{"version":1,"backend":"scip","settings":{"nlp_linear_solver":"pardisomkl","seed":3,"nodes":null,"pool":0,"iis":false,"exact":false,"reoptimize":false}}"#.to_owned(),
+        "blake3:72f817e397d3fbe5bf3d6907af1451462387361c4551eb226055dd1e5961550c",
+    )];
+    if cfg!(feature = "ipopt") {
+        expected.extend([
+            (
+                "ipopt-spral",
+                format!(
+                    r#"{{"version":1,"backend":"ipopt","settings":{{"linear":{{"spral":{{"ordering":"matching","scaling":"mc64","pivot":"threshold"}}}},"mu_strategy":"adaptive","bound_push":0.01,"bound_frac":0.01,{restart}}}}}"#
+                ),
+                "blake3:1695712d4f089905da60c7251a38f086710eae08953d58fda1283bfd15efb2c4",
+            ),
+            (
+                "ipopt-pardiso",
+                format!(
+                    r#"{{"version":1,"backend":"ipopt","settings":{{"linear":{{"pardisomkl":{{"ordering":"parallel_metis","matching":"complete_plus2x2"}}}},"mu_strategy":"monotone","bound_push":0.01,"bound_frac":0.01,{restart}}}}}"#
+                ),
+                "blake3:b2c4165793bb5a6b9b5f5c8c963bcf85006e1a5312f532dc32afe9b16272f3de",
+            ),
+            (
+                "ipopt-mumps",
+                format!(
+                    r#"{{"version":1,"backend":"ipopt","settings":{{"linear":{{"mumps":{{"ordering":"qamd"}}}},"mu_strategy":"monotone","bound_push":0.01,"bound_frac":0.01,{restart}}}}}"#
+                ),
+                "blake3:d49e9d0faaa65fcdfd1d4f4a6901b0322f255a338d97104028485db4674ea2dc",
+            ),
+        ]);
+    }
+    expected.push((
+        "controls",
+        r#"{"time_limit":{"secs":300,"nanos":0},"iterations":3000,"threads":1,"history":256,"hessian":"limited_memory","reuse":"allow_rebuild","start":"no_prior_start","options":{}}"#.to_owned(),
+        "blake3:9247c3908515c1cf548cfe3c33772ba236c5d105f031d3cd5351c7cc9ccc387d",
+    ));
+    let expected = expected
+        .into_iter()
+        .map(|(label, document, identity)| (label, document, identity.to_owned()))
+        .collect::<Vec<_>>();
+    assert_eq!(observed, expected);
+    // The documents of the other settings types keep their bytes too. (Their identities
+    // frame the renamed registry type names: `HighsMethod`, `PounceMethod`,
+    // `KinsolStrategy`, `KinsolOrthogonalization`, `ClarabelMode`, `ClarabelMergeMethod`.)
+    let document = |backend, fields| {
+        let settings = BackendSettings::from_fields(backend, fields).unwrap();
+        serde_json::to_string(&settings.document().unwrap()).unwrap()
+    };
+    if cfg!(feature = "highs") {
+        assert_eq!(
+            document(Backend::Highs, json!({"method": "ipm"})),
+            r#"{"version":1,"backend":"highs","settings":{"method":"ipm","nodes":null,"diagnostics":{"rays":false,"iis":false,"ranging":false,"relaxation":null,"fixed_lp":false,"basis_inverse":null,"presolve":false,"cut_pool":false},"sparse_start":null}}"#
+        );
+    }
+    if cfg!(feature = "kinsol") {
+        let fields = json!({
+            "strategy": "fixed_point",
+            "orthogonalization": "inverse_compact_wy",
+            "preconditioner": "jacobi",
+        });
+        assert_eq!(
+            document(Backend::Kinsol, fields),
+            r#"{"version":1,"backend":"kinsol","settings":{"strategy":"fixed_point","linear":"klu","anderson":0,"damping":1.0,"setup_interval":10,"max_newton_step":null,"eta":"choice1","preconditioner":"jacobi","orthogonalization":"inverse_compact_wy","anderson_delay":0}}"#
+        );
+    }
+    if cfg!(feature = "pounce") {
+        let fields = BackendSettings::from_fields(Backend::Pounce, json!({"method": "l1_exact_penalty"}))
+            .unwrap()
+            .fields()
+            .unwrap();
+        assert_eq!(fields["method"], "l1_exact_penalty");
+    }
+    let fields = BackendSettings::from_fields(
+        Backend::Clarabel,
+        json!({"mode": "reusable_data", "chordal_decomposition_merge_method": "parent_child"}),
+    )
+    .unwrap()
+    .fields()
+    .unwrap();
+    assert_eq!(fields["mode"], "reusable_data");
+    assert_eq!(fields["chordal_decomposition_merge_method"], "parent_child");
+    assert_eq!(
+        serde_json::to_string(&crate::dynamics::DiffsolSettings {
+            method: crate::dynamics::DiffsolMethod::TrBdf2,
+            linear: crate::dynamics::DiffsolLinear::Klu,
+        })
+        .unwrap(),
+        r#"{"method":"tr_bdf2","linear":"klu"}"#
+    );
+    let idas = json!({
+        "linear": {"spgmr": {"dimension": 5, "preconditioner": "jacobi"}},
+        "sensitivity": "staggered",
+        "initialization": "steady_states",
+        "constraints": ["non_negative", "free", "negative"],
+    });
+    assert_eq!(
+        serde_json::to_string(
+            &serde_json::from_value::<crate::dynamics::IdasSettings>(idas).unwrap()
+        )
+        .unwrap(),
+        r#"{"linear":{"spgmr":{"dimension":5,"preconditioner":"jacobi"}},"sensitivity":"staggered","initialization":"steady_states","constraints":["non_negative","free","negative"]}"#
+    );
+}

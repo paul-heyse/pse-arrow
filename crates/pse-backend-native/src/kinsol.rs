@@ -63,19 +63,12 @@ impl Function {
         }
     }
 }
-/// KINSOL nonlinear strategy, without a project-owned Newton method.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Strategy {
-    /// Declared constant linear splitting with native Anderson acceleration.
-    Picard,
-    /// Full Newton step.
-    Newton,
-    /// Globalized Newton line search.
-    LineSearch,
-    /// Declared fixed-point map with native Anderson acceleration.
-    FixedPoint,
-}
+/// KINSOL nonlinear strategy, without a project-owned Newton method, and the Anderson
+/// acceleration QR orthogonalization (`KINSetOrthAA`, fixed at allocation): registry
+/// vocabularies (ADR-0115 Outcome 3).
+pub use pse_model::generated::enums::{
+    KinsolOrthogonalization as Orthogonalization, KinsolStrategy as Strategy,
+};
 /// Selected native linear algebra. Dense allocation has an explicit dimension ceiling;
 /// the matrix-free Krylov routes use the analytic Jacobian-vector product.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -138,28 +131,13 @@ pub enum Eta {
     /// A constant forcing term in (0, 1] (`KINSetEtaConstValue`).
     Constant(f64),
 }
-/// Anderson-acceleration QR orthogonalization (`KINSetOrthAA`), fixed at allocation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Orthogonalization {
-    /// Modified Gram-Schmidt, KINSOL's default.
-    #[default]
-    ModifiedGramSchmidt,
-    /// Inverse compact WY modified Gram-Schmidt.
-    InverseCompactWy,
-    /// Classical Gram-Schmidt with reorthogonalization.
-    ClassicalGramSchmidt2,
-    /// Classical Gram-Schmidt with delayed reorthogonalization.
-    DelayedClassicalGramSchmidt2,
-}
-impl Orthogonalization {
-    const fn code(self) -> i32 {
-        match self {
-            Self::ModifiedGramSchmidt => ffi::KIN_ORTH_MGS,
-            Self::InverseCompactWy => ffi::KIN_ORTH_ICWY,
-            Self::ClassicalGramSchmidt2 => ffi::KIN_ORTH_CGS2,
-            Self::DelayedClassicalGramSchmidt2 => ffi::KIN_ORTH_DCGS2,
-        }
+/// The native `KINSetOrthAA` code of an orthogonalization.
+const fn orthogonalization_code(orthogonalization: Orthogonalization) -> i32 {
+    match orthogonalization {
+        Orthogonalization::ModifiedGramSchmidt => ffi::KIN_ORTH_MGS,
+        Orthogonalization::InverseCompactWy => ffi::KIN_ORTH_ICWY,
+        Orthogonalization::ClassicalGramSchmidt2 => ffi::KIN_ORTH_CGS2,
+        Orthogonalization::DelayedClassicalGramSchmidt2 => ffi::KIN_ORTH_DCGS2,
     }
 }
 /// Typed SUNDIALS-specific controls in addition to common finite limits.
@@ -215,7 +193,7 @@ impl Default for Method {
             max_newton_step: None,
             eta: Eta::default(),
             preconditioner: Preconditioner::None,
-            orthogonalization: Orthogonalization::default(),
+            orthogonalization: Orthogonalization::ModifiedGramSchmidt,
             anderson_delay: 0,
         }
     }
@@ -389,7 +367,7 @@ impl Settings {
             || (m.preconditioner != Preconditioner::None && (!krylov || fixed))
             || (m.anderson == 0
                 && (m.anderson_delay != 0
-                    || m.orthogonalization != Orthogonalization::default()))
+                    || m.orthogonalization != Orthogonalization::ModifiedGramSchmidt))
             || std::ffi::c_long::try_from(m.anderson_delay).is_err()
         {
             return Err(ProblemError::Contract(
@@ -883,7 +861,10 @@ impl Session {
                 "Anderson history",
             )?;
             check(
-                ffi::KINSetOrthAA(s.mem, s.settings.method.orthogonalization.code()),
+                ffi::KINSetOrthAA(
+                    s.mem,
+                    orthogonalization_code(s.settings.method.orthogonalization),
+                ),
                 "Anderson orthogonalization",
             )?;
             check(ffi::KINInit(s.mem, Some(residual), s.x), "initialization")?;
@@ -1696,7 +1677,7 @@ mod tests {
                     method: other,
                     ..settings()
                 }),
-                orthogonalization == Orthogonalization::default()
+                orthogonalization == Orthogonalization::ModifiedGramSchmidt
             );
             let report = session
                 .solve(

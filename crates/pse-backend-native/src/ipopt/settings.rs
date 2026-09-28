@@ -9,6 +9,12 @@ use crate::{
     ProblemError,
     solve::{IpoptLinearSolver, OptionValue, Options, WarmRestart},
 };
+/// The registry vocabularies these settings are written in (ADR-0115 Outcome 3); their
+/// native option values and codes are the adapter functions below.
+pub use pse_model::generated::enums::{
+    MuStrategy, MumpsOrdering, PardisoMatching, PardisoOrdering, SpralOrdering, SpralPivot,
+    SpralScaling,
+};
 
 /// The Ipopt adapter's settings type. Its identity derives from serde, and absent fields
 /// take these defaults across the Python boundary (ADR-0113).
@@ -76,14 +82,43 @@ impl Default for Linear {
         }
     }
 }
-impl IpoptLinearSolver {
-    /// Bit of this solver in `IpoptGetAvailableLinearSolvers`.
-    pub const fn mask(self) -> u32 {
-        match self {
-            Self::Mumps => pse_ipopt_sys::IPOPTLINEARSOLVER_MUMPS,
-            Self::Spral => pse_ipopt_sys::IPOPTLINEARSOLVER_SPRAL,
-            Self::PardisoMkl => pse_ipopt_sys::IPOPTLINEARSOLVER_PARDISOMKL,
-        }
+/// Bit of `solver` in `IpoptGetAvailableLinearSolvers`.
+pub(crate) const fn mask(solver: IpoptLinearSolver) -> u32 {
+    match solver {
+        IpoptLinearSolver::Mumps => pse_ipopt_sys::IPOPTLINEARSOLVER_MUMPS,
+        IpoptLinearSolver::Spral => pse_ipopt_sys::IPOPTLINEARSOLVER_SPRAL,
+        IpoptLinearSolver::Pardisomkl => pse_ipopt_sys::IPOPTLINEARSOLVER_PARDISOMKL,
+    }
+}
+/// Whether `solver` consumes more than one admitted thread; MUMPS is sequential.
+const fn parallel(solver: IpoptLinearSolver) -> bool {
+    !matches!(solver, IpoptLinearSolver::Mumps)
+}
+/// MUMPS ICNTL(7) code of an ordering (`mumps_pivot_order`). Automatic choice (7) is not
+/// representable: the ordering is always stated (T06). SCOTCH is not linked.
+pub(crate) const fn mumps_pivot_order(ordering: MumpsOrdering) -> i32 {
+    match ordering {
+        MumpsOrdering::Amd => 0,
+        MumpsOrdering::Amf => 2,
+        MumpsOrdering::Pord => 4,
+        MumpsOrdering::Metis => 5,
+        MumpsOrdering::Qamd => 6,
+    }
+}
+/// Ipopt's `pardisomkl_order` value (its undocumented `one` is not representable).
+const fn pardiso_order(ordering: PardisoOrdering) -> &'static str {
+    match ordering {
+        PardisoOrdering::Amd => "amd",
+        PardisoOrdering::Metis => "metis",
+        PardisoOrdering::ParallelMetis => "pmetis",
+    }
+}
+/// Ipopt's `pardisomkl_matching_strategy` value (oneMKL IPARM(13)).
+const fn pardiso_matching(matching: PardisoMatching) -> &'static str {
+    match matching {
+        PardisoMatching::Complete => "complete",
+        PardisoMatching::CompletePlus2x2 => "complete+2x2",
+        PardisoMatching::Constraints => "constraints",
     }
 }
 impl Linear {
@@ -92,7 +127,7 @@ impl Linear {
         match self {
             Self::Mumps { .. } => IpoptLinearSolver::Mumps,
             Self::Spral { .. } => IpoptLinearSolver::Spral,
-            Self::PardisoMkl { .. } => IpoptLinearSolver::PardisoMkl,
+            Self::PardisoMkl { .. } => IpoptLinearSolver::Pardisomkl,
         }
     }
     fn options(&self) -> Vec<(&'static str, OptionValue)> {
@@ -100,155 +135,32 @@ impl Linear {
         let mut out = vec![("linear_solver", text(self.solver().as_str()))];
         match *self {
             Self::Mumps { ordering } => {
-                out.push(("mumps_pivot_order", OptionValue::Integer(ordering as i32)));
+                out.push((
+                    "mumps_pivot_order",
+                    OptionValue::Integer(mumps_pivot_order(ordering)),
+                ));
             }
             Self::Spral {
                 ordering,
                 scaling,
                 pivot,
             } => out.extend([
+                // SPRAL's option values are the registry spellings.
                 ("spral_order", text(ordering.as_str())),
                 ("spral_scaling", text(scaling.as_str())),
                 ("spral_pivot_method", text(pivot.as_str())),
             ]),
             Self::PardisoMkl { ordering, matching } => out.extend([
-                ("pardisomkl_order", text(ordering.as_str())),
-                ("pardisomkl_matching_strategy", text(matching.as_str())),
+                ("pardisomkl_order", text(pardiso_order(ordering))),
+                (
+                    "pardisomkl_matching_strategy",
+                    text(pardiso_matching(matching)),
+                ),
             ]),
         }
         out
     }
 }
-/// MUMPS fill-reducing orderings built into, or linked with, the image's MUMPS. Automatic
-/// choice (7) is not representable: the ordering is always stated (T06). SCOTCH is not
-/// linked.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MumpsOrdering {
-    /// Approximate minimum degree.
-    Amd = 0,
-    /// Approximate minimum fill.
-    Amf = 2,
-    /// PORD.
-    Pord = 4,
-    /// METIS nested dissection (the image's shared METIS).
-    Metis = 5,
-    /// Approximate minimum degree with quasi-dense row detection.
-    Qamd = 6,
-}
-/// SPRAL elimination orderings.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SpralOrdering {
-    /// METIS with default settings.
-    Metis,
-    /// Matching-based elimination ordering.
-    Matching,
-}
-impl SpralOrdering {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Metis => "metis",
-            Self::Matching => "matching",
-        }
-    }
-}
-/// SPRAL scalings (the dynamic switch family is not representable).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SpralScaling {
-    /// No scaling.
-    None,
-    /// Weighted bipartite matching (MC64).
-    Mc64,
-    /// Auction algorithm.
-    Auction,
-    /// Matching-based ordering's scaling.
-    Matching,
-    /// Ruiz norm equilibration.
-    Ruiz,
-}
-impl SpralScaling {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Mc64 => "mc64",
-            Self::Auction => "auction",
-            Self::Matching => "matching",
-            Self::Ruiz => "ruiz",
-        }
-    }
-}
-/// SPRAL pivoting strategies.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SpralPivot {
-    /// Aggressive a posteriori pivoting.
-    Aggressive,
-    /// Block a posteriori pivoting.
-    Block,
-    /// Threshold partial pivoting; SPRAL runs it serially.
-    Threshold,
-}
-impl SpralPivot {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Aggressive => "aggressive",
-            Self::Block => "block",
-            Self::Threshold => "threshold",
-        }
-    }
-}
-/// oneMKL Pardiso orderings (Ipopt's undocumented `one` is not representable).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PardisoOrdering {
-    /// Minimum degree.
-    Amd,
-    /// METIS nested dissection.
-    Metis,
-    /// OpenMP-parallel METIS nested dissection.
-    ParallelMetis,
-}
-impl PardisoOrdering {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Amd => "amd",
-            Self::Metis => "metis",
-            Self::ParallelMetis => "pmetis",
-        }
-    }
-}
-/// oneMKL Pardiso symmetric weighted matchings (IPARM(13)).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PardisoMatching {
-    /// Complete matching.
-    Complete,
-    /// Complete matching with 2x2 pivots.
-    CompletePlus2x2,
-    /// Matching of the constraint block.
-    Constraints,
-}
-impl PardisoMatching {
-    const fn as_str(self) -> &'static str {
-        match self {
-            Self::Complete => "complete",
-            Self::CompletePlus2x2 => "complete+2x2",
-            Self::Constraints => "constraints",
-        }
-    }
-}
-/// Barrier-parameter update strategies.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MuStrategy {
-    /// Monotone Fiacco–McCormick decrease.
-    Monotone,
-    /// Adaptive (Nocedal–Wächter–Waltz) update.
-    Adaptive,
-}
-
 /// Native options the typed settings own; raw options may not set them. `hsllib` and
 /// `pardisolib` load excluded libraries (HSL, runtime Pardiso) and stay reserved.
 pub(crate) const RESERVED: [&str; 12] = [
@@ -290,15 +202,10 @@ impl Settings {
             .map(|(k, v)| (k.to_owned(), v))
             .collect();
         out.extend([
+            // Ipopt's `mu_strategy` values are the registry spellings.
             (
                 "mu_strategy".into(),
-                OptionValue::Text(
-                    match self.mu_strategy {
-                        MuStrategy::Monotone => "monotone",
-                        MuStrategy::Adaptive => "adaptive",
-                    }
-                    .into(),
-                ),
+                OptionValue::Text(self.mu_strategy.as_str().into()),
             ),
             ("bound_push".into(), OptionValue::Real(self.bound_push)),
             ("bound_frac".into(), OptionValue::Real(self.bound_frac)),
@@ -319,12 +226,12 @@ pub fn admit(settings: &Settings, threads: usize, runtime: &Runtime) -> Result<(
     settings.validate()?;
     let solver = settings.linear.solver();
     let name = solver.as_str();
-    if runtime.linked & solver.mask() == 0 {
+    if runtime.linked & mask(solver) == 0 {
         return Err(ProblemError::Unsupported(format!(
             "Ipopt linear solver {name} is not linked in this build; no other solver is substituted"
         )));
     }
-    if threads > 1 && !solver.parallel() {
+    if threads > 1 && !parallel(solver) {
         return Err(ProblemError::Unsupported(format!(
             "Ipopt linear solver {name} is sequential; {threads} threads need spral or pardisomkl"
         )));
@@ -343,7 +250,7 @@ pub fn admit(settings: &Settings, threads: usize, runtime: &Runtime) -> Result<(
                 ));
             }
         }
-        IpoptLinearSolver::PardisoMkl => {
+        IpoptLinearSolver::Pardisomkl => {
             let pinned = runtime::pinned_cbwr();
             if runtime.cbwr != pinned {
                 return Err(ProblemError::Unsupported(format!(

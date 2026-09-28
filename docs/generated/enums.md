@@ -105,6 +105,21 @@ Member names are canonical string values; declaration order is presentation only
 | `update_preimage` | `` | false |
 | `update_postimage` | `` | false |
 
+## `ClarabelMergeMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `parent_child` | `` | false |
+| `clique_graph` | `` | false |
+
+## `ClarabelMode`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `single_solve` | `` | false |
+| `reusable_data` | `` | false |
+
 ## `ClosureAssessment`
 
 | Member | IDAES name | Deprecated |
@@ -265,6 +280,22 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `warning` | `` | false |
 | `info` | `` | false |
 
+## `DiffsolLinear`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `faer_lu` | `` | false |
+| `klu` | `` | false |
+
+## `DiffsolMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `bdf` | `` | false |
+| `tr_bdf2` | `` | false |
+| `esdirk34` | `` | false |
+| `tsit45` | `` | false |
+
 ## `DualQualification`
 
 | Member | IDAES name | Deprecated |
@@ -273,6 +304,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `unavailable_or_invalid` | `` | false |
 | `unavailable` | `` | false |
 | `not_applicable_parameter` | `` | false |
+
+## `DynamicsMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `auto` | `` | false |
+| `diffsol` | `` | false |
+| `idas` | `` | false |
 
 ## `EntityKind`
 
@@ -343,12 +382,35 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `error` | `` | false |
 | `warning` | `` | false |
 
+## `HessianMode`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `exact` | `` | false |
+| `limited_memory` | `` | false |
+
+## `HighsMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `choose` | `` | false |
+| `simplex` | `` | false |
+| `ipm` | `` | false |
+| `pdlp` | `` | false |
+
 ## `IdPolicy`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `explicit` | `` | false |
 | `named` | `` | false |
+
+## `IdasInitialization`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `algebraic_and_rates` | `` | false |
+| `steady_states` | `` | false |
 
 ## `InputConsumptionKind`
 
@@ -369,6 +431,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `closure` | `` | false |
 | `acyclic` | `` | false |
 
+## `IpoptLinearSolver`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `mumps` | `` | false |
+| `spral` | `` | false |
+| `pardisomkl` | `` | false |
+
 ## `JobState`
 
 | Member | IDAES name | Deprecated |
@@ -378,6 +448,24 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `completed` | `` | false |
 | `failed` | `` | false |
 | `cancelled` | `` | false |
+
+## `KinsolOrthogonalization`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `modified_gram_schmidt` | `` | false |
+| `inverse_compact_wy` | `` | false |
+| `classical_gram_schmidt2` | `` | false |
+| `delayed_classical_gram_schmidt2` | `` | false |
+
+## `KinsolStrategy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `picard` | `` | false |
+| `newton` | `` | false |
+| `line_search` | `` | false |
+| `fixed_point` | `` | false |
 
 ## `MemberSelectionKind`
 
@@ -592,6 +680,23 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `binary` | `` | false |
 | `semicontinuous` | `` | false |
 | `semiinteger` | `` | false |
+
+## `MuStrategy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `monotone` | `` | false |
+| `adaptive` | `` | false |
+
+## `MumpsOrdering`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `amd` | `` | false |
+| `amf` | `` | false |
+| `pord` | `` | false |
+| `metis` | `` | false |
+| `qamd` | `` | false |
 
 ## `Namespace`
 
@@ -931,6 +1036,37 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `model` | `` | false |
 | `case` | `` | false |
 
+## `PardisoMatching`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `complete` | `` | false |
+| `complete_plus2x2` | `` | false |
+| `constraints` | `` | false |
+
+## `PardisoOrdering`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `amd` | `` | false |
+| `metis` | `` | false |
+| `parallel_metis` | `` | false |
+
+## `PounceMethod`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `interior_point` | `` | false |
+| `active_set_sqp` | `` | false |
+| `l1_exact_penalty` | `` | false |
+
+## `Preconditioner`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `jacobi` | `` | false |
+
 ## `PublicationKind`
 
 | Member | IDAES name | Deprecated |
@@ -1038,6 +1174,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `attempt` | `` | false |
 | `changes` | `` | false |
 
+## `ReusePolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `fresh` | `` | false |
+| `allow_rebuild` | `` | false |
+| `require_reuse` | `` | false |
+
 ## `RuntimeTermination`
 
 | Member | IDAES name | Deprecated |
@@ -1054,6 +1198,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `point` | `` | false |
 | `difference` | `` | false |
+
+## `SensitivityCorrector`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `simultaneous` | `` | false |
+| `staggered` | `` | false |
 
 ## `SettlementOutcome`
 
@@ -1078,6 +1229,31 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `derived` | `` | false |
 | `sidecar` | `` | false |
 
+## `SpralOrdering`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `metis` | `` | false |
+| `matching` | `` | false |
+
+## `SpralPivot`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `aggressive` | `` | false |
+| `block` | `` | false |
+| `threshold` | `` | false |
+
+## `SpralScaling`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `mc64` | `` | false |
+| `auction` | `` | false |
+| `matching` | `` | false |
+| `ruiz` | `` | false |
+
 ## `Stability`
 
 | Member | IDAES name | Deprecated |
@@ -1085,6 +1261,16 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `stable` | `` | false |
 | `evolving` | `` | false |
 | `internal` | `` | false |
+
+## `StateSign`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `free` | `` | false |
+| `non_negative` | `` | false |
+| `positive` | `` | false |
+| `non_positive` | `` | false |
+| `negative` | `` | false |
 
 ## `StoredSeedKind`
 
@@ -1149,6 +1335,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `event_limit` | `` | false |
 | `failed` | `` | false |
 | `panic` | `` | false |
+
+## `TrialPolicy`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `terminal` | `` | false |
+| `recoverable` | `` | false |
 
 ## `TruthValue`
 
