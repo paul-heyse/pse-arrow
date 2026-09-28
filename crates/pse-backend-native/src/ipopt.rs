@@ -513,14 +513,18 @@ pub struct Session {
     handle: Option<Handle>,
     signature: Option<Signature>,
 }
-/// Everything a retained C problem keeps: its coordinates and profile, sparsity, bounds and
-/// the set of option keys set on it. Every solve re-applies all of its option values, so equal key
-/// sets mean no option of an earlier step survives into this one (F02).
+/// Everything a retained C problem keeps: its coordinates and profile, sparsity and bounds,
+/// and the set of option keys ever set on it. The C interface cannot unset an option, but
+/// every solve re-applies all of its own option values, so a step may reuse the problem when
+/// its keys cover every retained key: no option of an earlier step survives into it (F02).
+/// A step that adds keys, such as a primal-dual restart after a cold start, reuses it.
 type Signature = (
-    (pse_ids::ContentHash, pse_ids::ContentHash),
-    Pattern,
-    Pattern,
-    Vec<u64>,
+    (
+        (pse_ids::ContentHash, pse_ids::ContentHash),
+        Pattern,
+        Pattern,
+        Vec<u64>,
+    ),
     Vec<String>,
 );
 impl std::fmt::Debug for Session {
@@ -749,22 +753,28 @@ impl Session {
                 return Err(ProblemError::Unsupported("partial NLP dual seed".into()));
             }
         }
-        let signature = (
-            (compatibility.layout, compatibility.profile),
-            jac.clone(),
-            hess.clone(),
-            xl.iter()
-                .chain(&xu)
-                .chain(&gl)
-                .chain(&gu)
-                .map(|v| v.to_bits())
-                .collect(),
+        let signature: Signature = (
+            (
+                (compatibility.layout, compatibility.profile),
+                jac.clone(),
+                hess.clone(),
+                xl.iter()
+                    .chain(&xu)
+                    .chain(&gl)
+                    .chain(&gu)
+                    .map(|v| v.to_bits())
+                    .collect(),
+            ),
             options.keys().cloned().collect(),
         );
-        let reused = self.signature.as_ref() == Some(&signature)
-            && self.handle.is_some()
+        let reused = self.signature.as_ref().is_some_and(|(retained, keys)| {
+            *retained == signature.0 && keys.iter().all(|key| options.contains_key(key))
+        }) && self.handle.is_some()
             && controls.reuse != ReusePolicy::Fresh;
-        if !reused {
+        if reused {
+            // The retained keys are a subset of this step's, which it now sets.
+            self.signature = Some(signature);
+        } else {
             if controls.reuse == ReusePolicy::RequireReuse && self.handle.is_some() {
                 return Err(ProblemError::Unsupported(
                     "Ipopt C problem bounds or layout changed and require rebuilding".into(),
@@ -1110,8 +1120,16 @@ mod tests {
         // The same option keys re-apply every value, so the problem is reused.
         let third = run(&mut session, Options::new());
         assert_eq!(third.metrics["reuse.native_model"], Metric::Bool(true));
+        // Added keys cover every retained one (a restart after a cold start), so the
+        // problem is reused; dropping them again needs a fresh problem.
         let fourth = run(&mut session, adaptive);
-        assert_eq!(fourth.metrics["reuse.native_model"], Metric::Bool(false));
+        assert_eq!(fourth.metrics["reuse.native_model"], Metric::Bool(true));
+        assert_eq!(
+            fourth.options["mu_linear_decrease_factor"],
+            OptionValue::Real(0.3)
+        );
+        let fifth = run(&mut session, Options::new());
+        assert_eq!(fifth.metrics["reuse.native_model"], Metric::Bool(false));
     }
     fn solved(report: &SolveReport) -> bool {
         report.termination.category == Termination::Success
