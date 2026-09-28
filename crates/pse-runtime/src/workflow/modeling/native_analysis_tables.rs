@@ -24,7 +24,7 @@ impl ModelingLinearDiagnostics {
                 .as_ref()
                 .and_then(|v| v.primal.as_ref())
                 .is_some_and(|v| v.len() != self.columns.len())
-            || d.ranging.values().any(|r| {
+            || d.ranging.iter().flat_map(|m| m.values()).any(|r| {
                 [
                     r.value.len(),
                     r.objective.len(),
@@ -52,7 +52,7 @@ impl ModelingLinearDiagnostics {
                     .map(|id| (Some(id), true, None))
                     .ok_or_else(|| contract("native ranging augmented coordinate extent"))
             };
-        for r in d.ranging.values() {
+        for r in d.ranging.iter().flat_map(|m| m.values()) {
             for &i in r.entering.iter().chain(&r.leaving) {
                 endpoint(i)?;
             }
@@ -144,8 +144,9 @@ impl ModelingLinearDiagnostics {
                 ranging: d
                     .ranging
                     .iter()
+                    .flat_map(|m| m.iter())
                     .flat_map(|(family, r)| {
-                        r.ids.iter().enumerate().map(|(i, id)| {
+                        r.ids.iter().enumerate().zip(std::iter::repeat(family)).map(|((i, id), family)| {
                             // All augmented coordinates were checked above; this projection is total.
                             let project = |index: i32| {
                                 let sentinel = (index < 0).then_some(i64::from(index));
@@ -176,7 +177,7 @@ impl ModelingLinearDiagnostics {
                                 sentinel,
                             };
                             RuntimeModelingLinearDiagnosticsFieldRangingItem {
-                                family: family.clone(),
+                                family: family.as_str().to_owned(),
                                 source_id: *id,
                                 value: {
                                     let (kind, value) = real_evidence(r.value[i]);

@@ -22,7 +22,7 @@ fn word(h: &mut FramedHasher, v: Option<&str>) {
     }
 }
 pub(crate) fn identity(r: &QuantityRegistry, p: &PhysicalPreconditions) -> ContentHash {
-    let mut h = FramedHasher::new("pse.math.physical-inventory.v3");
+    let mut h = FramedHasher::new(pse_ids::Frame::MathPhysicalInventoryV3);
     h.str("entity-kinds").u64(r.entity_kinds().count() as u64);
     for kind in r.entity_kinds() {
         h.id(&kind.id.as_id());

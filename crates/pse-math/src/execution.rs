@@ -8,6 +8,7 @@ use crate::{
     jets::{EvaluationLimits, JetLayout, LiftInput, ProviderLift},
     library::{self, Optimization},
 };
+use enum_map::EnumMap;
 use pse_ids::SemanticId;
 use pse_kernels::{
     DerivativeOrder, EvaluationContext, Provider, ProviderKey, ProviderRequest, ProviderSpec,
@@ -421,8 +422,9 @@ impl PreparedBody {
             coordinate_support[slot][coordinate] = true;
         }
         coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
-        let mut layouts = vec![];
-        let mut programs = vec![];
+        // One layout and program per compiled order, `Value` through `order`.
+        let mut layouts = EnumMap::<DerivativeOrder, Option<JetLayout>>::default();
+        let mut programs = EnumMap::<DerivativeOrder, Option<Vec<CompiledStage>>>::default();
         let mut used = 0usize;
         let mut retained_numeric = 0usize;
         for requested in [
@@ -431,7 +433,7 @@ impl PreparedBody {
             DerivativeOrder::Second,
         ]
         .into_iter()
-        .take(order as usize + 1)
+        .filter(|requested| *requested <= order)
         {
             let layout = JetLayout::new(coordinates.to_vec(), requested, limits)?;
             let frame = self
@@ -487,8 +489,8 @@ impl PreparedBody {
                 .and_then(|entries| used.checked_add(entries))
                 .ok_or(MathError::Limit("output derivative buffers"))?;
             limits.allocation(used)?;
-            layouts.push(layout);
-            programs.push(program);
+            layouts[requested] = Some(layout);
+            programs[requested] = Some(program);
         }
         Ok(CompiledBody {
             owner: None,
@@ -572,8 +574,8 @@ pub struct CompiledBody {
     inputs: usize,
     slots: usize,
     outputs: Arc<Vec<usize>>,
-    layouts: Arc<Vec<JetLayout>>,
-    programs: Arc<Vec<Vec<CompiledStage>>>,
+    layouts: Arc<EnumMap<DerivativeOrder, Option<JetLayout>>>,
+    programs: Arc<EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>>,
     limits: EvaluationLimits,
     support: Arc<Support>,
 }
@@ -582,7 +584,7 @@ impl std::fmt::Debug for CompiledBody {
         f.debug_struct("CompiledBody")
             .field("inputs", &self.inputs)
             .field("outputs", &self.outputs.len())
-            .field("profiles", &self.layouts.len())
+            .field("profiles", &self.layouts.values().flatten().count())
             .finish()
     }
 }
@@ -603,7 +605,12 @@ impl CompiledBody {
     }
     /// Independent mutable scratch; caller/attempt owns its provider worker map.
     pub fn worker(&self) -> Worker {
-        let width = self.layouts.last().map_or(1, JetLayout::width);
+        let width = self
+            .layouts
+            .values()
+            .flatten()
+            .last()
+            .map_or(1, JetLayout::width);
         Worker {
             body: self.clone(),
             programs: self.programs.as_ref().clone(),
@@ -616,7 +623,9 @@ impl CompiledBody {
     }
     /// Differentiation coordinates in formal input order.
     pub fn coordinates(&self) -> &[usize] {
-        self.layouts[0].coordinates()
+        self.layouts[DerivativeOrder::Value]
+            .as_ref()
+            .map_or(&[], JetLayout::coordinates)
     }
 }
 /// Atomic result, with raw derivatives in output-major row-major order.
@@ -633,7 +642,7 @@ pub struct Evaluation {
 #[derive(Clone)]
 pub struct Worker {
     body: CompiledBody,
-    programs: Vec<Vec<CompiledStage>>,
+    programs: EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>,
     frame: Vec<f64>,
 }
 impl std::fmt::Debug for Worker {
@@ -659,11 +668,11 @@ impl Worker {
                 "finite ordered formal inputs required".into(),
             ));
         }
-        let layout = self
-            .body
-            .layouts
-            .get(order as usize)
-            .ok_or_else(|| MathError::Contract("uncompiled derivative order".into()))?;
+        let (Some(layout), Some(program)) =
+            (self.body.layouts[order].as_ref(), self.programs[order].as_mut())
+        else {
+            return Err(MathError::Contract("uncompiled derivative order".into()));
+        };
         let width = layout.width();
         let n = layout.coordinates.len();
         for (slot, &value) in inputs.iter().enumerate() {
@@ -681,7 +690,7 @@ impl Worker {
             max_result_bytes: self.body.limits.scratch_bytes,
         };
         evaluate_stages(
-            &mut self.programs[order as usize],
+            program,
             &mut self.frame,
             layout,
             providers,

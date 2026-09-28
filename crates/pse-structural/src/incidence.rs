@@ -65,7 +65,7 @@ pub struct BlockId(pub pse_ids::ContentHash);
 impl BlockId {
     /// Canonicalize membership before framing; layout order is not identity.
     pub fn new(scope: &Scope, part: &Part) -> Self {
-        let mut h = pse_ids::FramedHasher::new("pse.structural.block.v1");
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::StructuralBlockV1);
         h.hash(&scope.key());
         for group in [&part.rows, &part.columns] {
             let members: BTreeSet<_> = group.iter().collect();

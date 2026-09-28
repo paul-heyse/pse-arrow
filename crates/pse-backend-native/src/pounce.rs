@@ -858,7 +858,7 @@ mod tests {
     }
     #[test]
     fn settings_identity_preserves_external_order_and_float_bits() {
-        let key = |s: &Settings| crate::identity::of("pse.test.pounce.v1", s).unwrap();
+        let key = |s: &Settings| crate::identity::of(pse_ids::Frame::BackendSettingsV3, s).unwrap();
         let a = Settings::default();
         let mut b = a.clone();
         b.linear.ordering = pounce_feral::OrderingMethod::External(vec![1, 0]);

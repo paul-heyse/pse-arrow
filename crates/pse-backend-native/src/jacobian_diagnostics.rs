@@ -111,7 +111,7 @@ impl Builder {
             &self.entries,
         )
         .map_err(|e| ProblemError::Internal(format!("diagnostic matrix: {e}")))?;
-        let mut h = FramedHasher::new("pse.jacobian-diagnostic.problem.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::JacobianDiagnosticProblemV1);
         h.id(&self.id);
         h.u64(self.variables.len() as u64)
             .u64(self.rows.len() as u64);
@@ -287,7 +287,11 @@ fn rank(
     }
     let sub = SparseColMat::try_new_from_triplets(selected.len(), matrix.ncols(), &entries)
         .map_err(|e| ProblemError::Internal(e.to_string()))?;
-    Ok(pse_math::diagnostics::analyze_matrix(
+    // Rows are the selected subset; only the rank is read.
+    Ok(pse_math::diagnostics::analyze_matrix::<
+        pse_math::index::ReducedRow,
+        pse_math::index::OriginalCol,
+    >(
         sub.as_ref(),
         &vec![1.; selected.len()],
         &vec![1.; matrix.ncols()],
@@ -305,7 +309,7 @@ fn rank(
 /// Structural identity of a diagnostic problem family: its pattern and domains, not the
 /// anchor's bounds.
 fn layout(p: &CoefficientProblem) -> pse_ids::ContentHash {
-    let mut h = FramedHasher::new("pse.jacobian-diagnostic.layout.v1");
+    let mut h = FramedHasher::new(pse_ids::Frame::JacobianDiagnosticLayoutV1);
     h.u64(p.contract.variables.len() as u64)
         .u64(p.contract.rows.len() as u64);
     for v in &p.contract.variables {

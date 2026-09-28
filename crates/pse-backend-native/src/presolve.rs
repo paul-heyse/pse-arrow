@@ -9,6 +9,7 @@ use crate::{ProblemError, quality::Tolerances};
 pub use pipeline::{Pipeline, Transport};
 use pounce_presolve::{AuxiliaryCouplingPolicy, LicqAction, PresolveOptions};
 use pse_ids::{ContentHash, FramedHasher};
+use pse_math::index::{OriginalCol, OriginalRow, PresolvedCol, PresolvedRow, TiVec};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Native library passes, independently requested and qualified.
@@ -85,6 +86,29 @@ pub struct PassReport {
     /// Why eligibility was declined, if applicable.
     pub reason: Option<String>,
 }
+/// Source and native problem dimensions of one presolve.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Dimensions {
+    /// Columns of the source problem.
+    pub original_columns: usize,
+    /// Rows of the source problem.
+    pub original_rows: usize,
+    /// Columns of the presolved problem the native solver receives.
+    pub presolved_columns: usize,
+    /// Rows of the presolved problem the native solver receives.
+    pub presolved_rows: usize,
+}
+impl Dimensions {
+    /// The dimensions of a presolve that retains every column and row.
+    pub const fn identity(columns: usize, rows: usize) -> Self {
+        Self {
+            original_columns: columns,
+            original_rows: rows,
+            presolved_columns: columns,
+            presolved_rows: rows,
+        }
+    }
+}
 /// Immutable original-to-native transformation receipt, never an executable math IR.
 #[derive(Clone, Debug)]
 pub struct Report {
@@ -99,13 +123,13 @@ pub struct Report {
     /// Actual projected bounds, rows, columns, scales and source identity.
     pub transformation: ContentHash,
     /// Source and native dimensions.
-    pub dimensions: (usize, usize, usize, usize),
+    pub dimensions: Dimensions,
     /// Native diagnostics and explicit numerical qualification limits.
     pub diagnostics: BTreeMap<String, String>,
-    /// Original indices of retained independent variables.
-    pub columns: Vec<usize>,
-    /// Original indices of retained constraint rows.
-    pub rows: Vec<usize>,
+    /// The original column of each retained independent variable, by presolved column.
+    pub columns: TiVec<PresolvedCol, OriginalCol>,
+    /// The original row of each retained constraint row, by presolved row.
+    pub rows: TiVec<PresolvedRow, OriginalRow>,
     /// Library-certified infeasibility; raw propagation crossings do not set this.
     pub proof: Option<PresolveProof>,
     /// A submitted active-set working set and whether this transformation retained it.
@@ -153,7 +177,7 @@ impl PresolveProof {
 impl Policy {
     /// Complete option identity; no Debug strings or library fingerprint alone.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.presolve.policy.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::PresolvePolicyV1);
         let (o, required) = match self {
             Self::Off => {
                 h.u64(0);
@@ -340,9 +364,9 @@ impl Policy {
         o.auxiliary = passes[&Pass::Auxiliary].applied;
         // Native margins are normalized algorithm controls. A terminal certificate
         // separately survives each original bound's own acceptance budget.
-        Ok(Report{requested:self.clone(),effective:o,passes,facts:facts.map(|f|f.key),transformation:self.key(),dimensions:(n,m,n,m),
+        Ok(Report{requested:self.clone(),effective:o,passes,facts:facts.map(|f|f.key),transformation:self.key(),dimensions:Dimensions::identity(n,m),
             diagnostics:BTreeMap::from([("native.qualification".into(),"pounce-presolve 0.12.0: equality/coefficient tolerance 1e-12; bound-dual recovery activity tolerance 1e-6; LICQ diagnostics only".into())]),
-            columns:(0..n).collect(),rows:(0..m).collect(),proof:None,working_set:None,resolution:None})
+            columns:(0..n).map(OriginalCol::new).collect(),rows:(0..m).map(OriginalRow::new).collect(),proof:None,working_set:None,resolution:None})
     }
 }
 

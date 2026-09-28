@@ -9,7 +9,7 @@ pub mod float;
 pub mod frame;
 pub mod id;
 pub mod preimage;
-pub use derive::{FramedHasher, derive_hash, derive_id, named_id};
+pub use derive::{Frame, FramedHasher, derive_hash, derive_id, named_id};
 pub use encoding::{EncodingHasher, encoding_checksum};
 pub use error::IdError;
 pub use float::{

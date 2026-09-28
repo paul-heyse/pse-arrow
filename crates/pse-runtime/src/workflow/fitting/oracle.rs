@@ -127,8 +127,8 @@ impl FitOracle {
                         point.constraints[global] = outputs[row];
                     }
                     let mapping = &p.layout.mappings[ei];
-                    for &(local, global) in &mapping.constraints {
-                        point.jacobian.add(global, j.val()[local])?;
+                    for &(source, target) in &mapping.constraints {
+                        point.jacobian.add(target, j.val()[source])?;
                     }
                     for term in &mapping.responses {
                         debug_assert!(p.measurements[term.observation].included);
@@ -1154,8 +1154,8 @@ mod tests {
         for value in [3.0, 0.0, -2.0, 4.0] {
             response.clear();
             hessian.clear();
-            response.add(0, value).unwrap();
-            response.add(0, 1.0).unwrap();
+            response.add(pse_math::index::Addend::new(0), value).unwrap();
+            response.add(pse_math::index::Addend::new(0), 1.0).unwrap();
             worker.refill(&response, &[2.0], 0.5, &mut hessian).unwrap();
             assert!((hessian.matrix().val()[0] - 2.0 * (value + 1.0).powi(2)).abs() < 1e-12);
         }

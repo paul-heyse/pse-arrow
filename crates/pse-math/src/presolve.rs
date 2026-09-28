@@ -393,7 +393,7 @@ impl CasePlan {
                 return Err(MathError::Contract("nonfinite affine projection".into()));
             }
         }
-        let mut h = FramedHasher::new("pse.math.bound-facts.v2");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathBoundFactsV2);
         h.hash(&facts.structure)
             .str("pounce-nlp-0.12.0;projection-v3;stage-dag");
         for (id, b) in &facts.values {

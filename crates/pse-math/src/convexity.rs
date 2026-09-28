@@ -331,7 +331,7 @@ impl Coefficients {
                 "convexity coordinates or matrix".into(),
             ));
         }
-        let mut h = FramedHasher::new("pse.math.convexity.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathConvexityV1);
         h.hash(&self.assumptions)
             .u64(sign.to_bits())
             .u64(objective_scale.to_bits());

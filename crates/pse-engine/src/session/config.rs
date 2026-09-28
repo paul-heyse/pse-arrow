@@ -6,7 +6,7 @@
 use super::{ExecutionSettings, ThreadBudget};
 use crate::EngineError;
 use datafusion::execution::config::SessionConfig;
-use pse_ids::{ContentHash, FramedHasher, derive::context};
+use pse_ids::{ContentHash, Frame, FramedHasher};
 use std::collections::BTreeMap;
 
 pub(crate) fn build(
@@ -215,7 +215,7 @@ pub(super) fn validate(settings: &ExecutionSettings) -> Result<(), EngineError> 
 }
 /// Identity of semantic settings only, with absence distinct from text (ADR-0070).
 pub fn settings_hash(settings: &BTreeMap<String, Option<String>>) -> ContentHash {
-    let mut hash = FramedHasher::new(context::SETTINGS);
+    let mut hash = FramedHasher::new(Frame::SettingsV1);
     hash.str(CLASSIFICATION_VERSION);
     for (key, value) in settings.iter().filter(|(key, _)| !is_resource_setting(key)) {
         hash.str(key);

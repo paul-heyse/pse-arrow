@@ -160,11 +160,11 @@ impl PreparedExperiments {
                 "all-fixed fitting evaluates directly and cannot apply required native presolve passes",
             ));
         }
-        let mut h = FramedHasher::new("pse.fit.source.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::FitSourceV1);
         h.hash(&source_identity);
         d.frame(&mut h);
         let source = h.finish_hash();
-        let mut h = FramedHasher::new("pse.fit.profile.v2");
+        let mut h = FramedHasher::new(pse_ids::Frame::FitProfileV2);
         h.hash(
             &crate::math::solves::profile_key(&profile.solver)
                 .map_err(crate::math::MathRuntimeError::from)?,
@@ -182,7 +182,7 @@ impl PreparedExperiments {
             h.id(id).str(&encoded);
         }
         let profile_key = h.finish_hash();
-        let mut h = FramedHasher::new("pse.fit.prepared.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::FitPreparedV1);
         h.hash(&source)
             .hash(&profile_key)
             .hash(&numerics.key)

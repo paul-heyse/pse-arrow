@@ -8,7 +8,7 @@ use std::{collections::HashMap, sync::Arc};
 
 #[test]
 fn v2_row_token_matches_an_independently_framed_int64_vector() {
-    let payload = pse_ids::preimage::derive_key("pse:native-value-payload:v1", br#"["i64",42]"#);
+    let payload = pse_ids::preimage::derive_key(Frame::NativeValuePayloadV1, br#"["i64",42]"#);
     let meaning = br#"{"data_type":"Int64","dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"item","nullable":false}"#;
     let mut frame = Vec::new();
     for part in [
@@ -21,7 +21,7 @@ fn v2_row_token_matches_an_independently_framed_int64_vector() {
         frame.extend_from_slice(&u64::try_from(part.len()).unwrap().to_le_bytes());
         frame.extend_from_slice(part);
     }
-    let expected = pse_ids::preimage::derive_key("pse:row-key:native-values:v2", &frame);
+    let expected = pse_ids::preimage::derive_key(Frame::RowKeyNativeValuesV2, &frame);
     assert_eq!(
         crate::ContentHash::from_bytes(expected).to_hex(),
         "811bfe61cc46de019bff708ee5f5b8534a3b4705c2effbb8a4f99352adb58ab5"

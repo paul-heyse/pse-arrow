@@ -13,7 +13,10 @@ use crate::{
     solve::{Candidate, Curvature, SecondOrder},
 };
 use faer::sparse::SparseColMatRef;
-use pse_math::normalization::Normalization;
+use pse_math::{
+    index::{Entry, OriginalCol, OriginalRow, ReducedCol, ReducedRow, TiVec, Triplet},
+    normalization::Normalization,
+};
 
 /// Hager–Higham estimate of the 1-norm condition number of the square matrix
 /// `diag(row_scales) · A · diag(column_scales)`. The estimate is a lower bound on the true
@@ -76,17 +79,40 @@ pub struct Kkt {
 }
 
 /// Factor `[H Aᵀ; A 0]` of order `n + m` with a serial FERAL LDLᵀ. `hessian` holds the
-/// lower triangle of the symmetric `n × n` block (entries above the diagonal are mirrored);
-/// `constraints` holds `(row, column, value)` of the `m × n` block `A`.
+/// lower triangle of the symmetric `n × n` block over the column space `C` (entries above
+/// the diagonal are mirrored); `constraints` holds the `m × n` block `A`, rows of `R` by
+/// columns of `C`. A Hessian triplet is `(column, column)`, so the constraint block cannot
+/// stand in for it:
+///
+/// ```
+/// use pse_backend_native::conditioning::kkt;
+/// use pse_math::index::{ReducedCol, ReducedRow, Triplet};
+///
+/// let hessian = [Triplet::new(ReducedCol::new(0), ReducedCol::new(0), 2.0)];
+/// let jacobian = [Triplet::new(ReducedRow::new(0), ReducedCol::new(0), 1.0)];
+/// assert_eq!(kkt(1, 1, &hessian, &jacobian).unwrap().inertia, (1, 1, 0));
+/// ```
+///
+/// ```compile_fail,E0308
+/// use pse_backend_native::conditioning::kkt;
+/// use pse_math::index::{ReducedCol, ReducedRow, Triplet};
+///
+/// let jacobian = [Triplet::new(ReducedRow::new(0), ReducedCol::new(0), 1.0)];
+/// let _ = kkt(1, 1, &jacobian, &jacobian);
+/// ```
 ///
 /// # Errors
 /// Indices out of range, non-finite values, or a failed factorization.
-pub fn kkt(
+pub fn kkt<R, C>(
     n: usize,
     m: usize,
-    hessian: &[(usize, usize, f64)],
-    constraints: &[(usize, usize, f64)],
-) -> Result<Kkt, ProblemError> {
+    hessian: &[Triplet<C, C>],
+    constraints: &[Triplet<R, C>],
+) -> Result<Kkt, ProblemError>
+where
+    R: Copy + Into<usize>,
+    C: Copy + Into<usize>,
+{
     let order = n + m;
     let mut rows = Vec::with_capacity(order + hessian.len() + constraints.len());
     let mut cols = Vec::with_capacity(rows.capacity());
@@ -97,7 +123,9 @@ pub fn kkt(
         cols.push(i);
         values.push(0.0);
     }
-    for &(i, j, v) in hessian {
+    // FERAL's interior speaks `usize`; the typed spaces end here.
+    for t in hessian {
+        let (i, j, v): (usize, usize, f64) = (t.row.into(), t.col.into(), t.value);
         if i >= n || j >= n {
             return Err(ProblemError::internal("KKT Hessian index"));
         }
@@ -105,7 +133,8 @@ pub fn kkt(
         cols.push(i.min(j));
         values.push(v);
     }
-    for &(r, j, v) in constraints {
+    for t in constraints {
+        let (r, j, v): (usize, usize, f64) = (t.row.into(), t.col.into(), t.value);
         if r >= m || j >= n {
             return Err(ProblemError::internal("KKT constraint index"));
         }
@@ -151,10 +180,16 @@ pub fn kkt(
     })
 }
 
-/// `(row, column)` of every stored entry, in storage order.
-fn coordinates(pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>) -> Vec<(usize, usize)> {
+/// Every stored entry of a faer pattern, in storage order, in the spaces `R` and `C`.
+fn entries<R: From<usize>, C: From<usize>>(
+    pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
+) -> Vec<Entry<R, C>> {
     (0..pattern.ncols())
-        .flat_map(|j| pattern.row_idx_of_col(j).map(move |i| (i, j)))
+        .flat_map(|j| {
+            pattern
+                .row_idx_of_col(j)
+                .map(move |i| Entry::new(R::from(i), C::from(j)))
+        })
         .collect()
 }
 
@@ -216,8 +251,8 @@ pub(crate) fn attach_second_order(
 
 /// A constraint of the local model: an active row, or an active bound on one variable.
 enum Active {
-    Row(usize),
-    Bound(usize),
+    Row(OriginalRow),
+    Bound(OriginalCol),
 }
 
 /// The second-order check at an NLP candidate, in normalized coordinates (PS-12). A
@@ -261,30 +296,33 @@ pub(crate) fn second_order(
         &normalization.rows,
         normalization.objective,
     );
-    // Normalized Lagrangian Hessian (lower triangle) and constraint Jacobian.
-    let hessian = {
+    // Normalized Lagrangian Hessian (lower triangle) and constraint Jacobian, in the
+    // oracle's original coordinates.
+    let hessian: Vec<Triplet<OriginalCol, OriginalCol>> = {
         let pattern = oracle
             .hessian_pattern()
             .ok_or_else(|| ProblemError::unsupported("the profile has no exact Hessian"))?;
-        let entries = coordinates(pattern);
+        let entries = entries::<OriginalCol, OriginalCol>(pattern);
         let mut values = vec![0.0; entries.len()];
         oracle.hessian(x, 1.0, lambda, &mut values)?;
         entries
             .into_iter()
             .zip(values)
-            .map(|((i, j), v)| (i, j, sx[i] * v * sx[j] / so))
-            .collect::<Vec<_>>()
+            .map(|(e, v)| {
+                Triplet::new(e.row, e.col, sx[e.row.get()] * v * sx[e.col.get()] / so)
+            })
+            .collect()
     };
-    let jacobian = {
+    let jacobian: Vec<Triplet<OriginalRow, OriginalCol>> = {
         let pattern = oracle.jacobian_pattern();
-        let entries = coordinates(pattern);
+        let entries = entries::<OriginalRow, OriginalCol>(pattern);
         let mut values = vec![0.0; entries.len()];
         oracle.jacobian(x, &mut values)?;
         entries
             .into_iter()
             .zip(values)
-            .map(|((r, j), v)| (r, j, v * sx[j] / sr[r]))
-            .collect::<Vec<_>>()
+            .map(|(e, v)| Triplet::new(e.row, e.col, v * sx[e.col.get()] / sr[e.row.get()]))
+            .collect()
     };
     // Activity and strength of every row and bound.
     let mut active = vec![];
@@ -296,7 +334,7 @@ pub(crate) fn second_order(
     {
         let strong = l == u || (lambda[r] * sr[r] / so).abs() > dual_budget;
         if l == u || value - l <= tolerances.rows[r] || u - value <= tolerances.rows[r] {
-            active.push((Active::Row(r), strong));
+            active.push((Active::Row(OriginalRow::new(r)), strong));
         }
     }
     for (j, v) in oracle.contract().variables.iter().enumerate() {
@@ -305,7 +343,7 @@ pub(crate) fn second_order(
         if v.lower == v.upper || at_lower || at_upper {
             let multiplier = if at_upper { zu[j] } else { zl[j] };
             let strong = v.lower == v.upper || multiplier * sx[j] / so > dual_budget;
-            active.push((Active::Bound(j), strong));
+            active.push((Active::Bound(OriginalCol::new(j)), strong));
         }
     }
     let weakly_active = active.iter().filter(|(_, strong)| !strong).count();
@@ -315,33 +353,34 @@ pub(crate) fn second_order(
             .filter(|(_, strong)| *strong || !strong_only)
             .map(|(a, _)| a)
             .collect::<Vec<_>>();
-        let mut fixed = vec![false; n];
-        let mut rows = vec![None; m];
+        // The KKT block is over the free columns and the tested active rows.
+        let mut fixed: TiVec<OriginalCol, bool> = vec![false; n].into();
+        let mut rows: TiVec<OriginalRow, Option<ReducedRow>> = vec![None; m].into();
         let mut count = 0;
         for a in &tested {
             match a {
                 Active::Bound(j) => fixed[*j] = true,
                 Active::Row(r) => {
-                    rows[*r] = Some(count);
+                    rows[*r] = Some(ReducedRow::new(count));
                     count += 1;
                 }
             }
         }
-        let mut position = vec![None; n];
+        let mut position: TiVec<OriginalCol, Option<ReducedCol>> = vec![None; n].into();
         let mut free = 0;
-        for (j, fixed) in fixed.iter().enumerate() {
+        for (j, fixed) in fixed.iter_enumerated() {
             if !fixed {
-                position[j] = Some(free);
+                position[j] = Some(ReducedCol::new(free));
                 free += 1;
             }
         }
         let h = hessian
             .iter()
-            .filter_map(|&(i, j, v)| Some((position[i]?, position[j]?, v)))
+            .filter_map(|t| Some(Triplet::new(position[t.row]?, position[t.col]?, t.value)))
             .collect::<Vec<_>>();
         let a = jacobian
             .iter()
-            .filter_map(|&(r, j, v)| Some((rows[r]?, position[j]?, v)))
+            .filter_map(|t| Some(Triplet::new(rows[t.row]?, position[t.col]?, t.value)))
             .collect::<Vec<_>>();
         if free + count + h.len() + a.len() > limit {
             return Err(ProblemError::unsupported(
@@ -470,14 +509,23 @@ mod tests {
         assert!(jacobian_condition(wide.as_ref(), &[1.0], &[1.0; 2]).is_err());
     }
 
+    type Hessian = pse_math::index::Triplet<ReducedCol, ReducedCol>;
+    type Jacobian = pse_math::index::Triplet<ReducedRow, ReducedCol>;
+    fn h(i: usize, j: usize, v: f64) -> Hessian {
+        Hessian::new(ReducedCol::new(i), ReducedCol::new(j), v)
+    }
+    fn a(r: usize, j: usize, v: f64) -> Jacobian {
+        Jacobian::new(ReducedRow::new(r), ReducedCol::new(j), v)
+    }
+
     #[test]
     fn kkt_inertia_counts_pivot_signs() {
         // H = diag(2, -1), A = [1 1]: Zᵀ H Z = (2 - 1)/2 > 0, so In(K) = (2, 1, 0).
         let k = kkt(
             2,
             1,
-            &[(0, 0, 2.0), (1, 1, -1.0)],
-            &[(0, 0, 1.0), (0, 1, 1.0)],
+            &[h(0, 0, 2.0), h(1, 1, -1.0)],
+            &[a(0, 0, 1.0), a(0, 1, 1.0)],
         )
         .unwrap();
         assert_eq!(k.inertia, (2, 1, 0));
@@ -486,8 +534,8 @@ mod tests {
         let k = kkt(
             2,
             1,
-            &[(0, 0, 1.0), (1, 1, -2.0)],
-            &[(0, 0, 1.0), (0, 1, 1.0)],
+            &[h(0, 0, 1.0), h(1, 1, -2.0)],
+            &[a(0, 0, 1.0), a(0, 1, 1.0)],
         )
         .unwrap();
         assert_eq!(k.inertia, (1, 2, 0));
@@ -495,8 +543,8 @@ mod tests {
         let k = kkt(
             2,
             2,
-            &[(0, 0, 1.0), (1, 1, 1.0)],
-            &[(0, 0, 1.0), (0, 1, 1.0), (1, 0, 2.0), (1, 1, 2.0)],
+            &[h(0, 0, 1.0), h(1, 1, 1.0)],
+            &[a(0, 0, 1.0), a(0, 1, 1.0), a(1, 0, 2.0), a(1, 1, 2.0)],
         )
         .unwrap();
         assert_eq!(k.inertia.2, 1, "{:?}", k.inertia);

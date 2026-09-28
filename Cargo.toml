@@ -229,6 +229,10 @@ pounce-feral = "=0.12.0"
 # Direct FERAL for conditioning and certified inertia (Plan 22 N4); the version pounce-feral resolves.
 feral = "=0.18.0"
 rayon = "=1.12.0"
+# Typed dense index spaces at coordinate boundaries (ADR-0115, Plan 22 B6).
+typed-index-collections = "=3.5.0"
+# Enum-indexed storage; its MSRV (1.95) is below the workspace's.
+enum-map = "=3.1.0"
 suitesparse_sys = { version = "=0.1.4", default-features = false, features = [
   "static_libraries",
   "klu",

@@ -218,7 +218,7 @@ impl ScalarUDFImpl for Codec {
                 };
                 output.append_value(
                     pse_ids::derive_id(
-                        pse_ids::derive::context::NAMED,
+                        pse_ids::Frame::NamedV1,
                         &[SemanticId::from_bytes(bytes).as_bytes(), payload],
                     )
                     .as_bytes(),

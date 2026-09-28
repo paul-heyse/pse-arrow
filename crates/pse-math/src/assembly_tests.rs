@@ -5,6 +5,7 @@ use crate::{
     binding::*,
     coefficients::GramCertificate,
     guarded::PreparedBody,
+    index::{Addend, GlobalCol, GlobalRow},
     jets::EvaluationLimits,
     library::Optimization,
     typed::{Binary, BodyBuilder, BodyLimits},
@@ -231,10 +232,11 @@ fn convexity_distinguishes_exact_numerical_indefinite_and_inconclusive() {
         negative.assessment(),
         ConvexityAssessment::Indefinite { .. }
     ));
-    let mut q =
-        crate::sparse::AssemblyMatrix::new(2, 2, &[(0, 0), (0, 1), (1, 0), (1, 1)], 10).unwrap();
+    let hessian = [(0, 0), (0, 1), (1, 0), (1, 1)]
+        .map(|(i, j)| crate::index::Entry::new(GlobalCol::new(i), GlobalCol::new(j)));
+    let mut q = crate::sparse::AssemblyMatrix::hessian(2, &hessian, 10).unwrap();
     for (i, v) in [3.0, 1.0, 1.0, 3.0].into_iter().enumerate() {
-        q.add(i, v).unwrap();
+        q.add(Addend::new(i), v).unwrap();
     }
     c.hessian = q.matrix().clone();
     assert!(negative.validate_matrix(&c.hessian, 1.0).is_err());
@@ -282,7 +284,7 @@ fn convexity_distinguishes_exact_numerical_indefinite_and_inconclusive() {
     ));
     assert_ne!(limited.key(), approx.key());
     q.clear();
-    q.add(0, 2.0).unwrap();
+    q.add(Addend::new(0), 2.0).unwrap();
     c.hessian = q.matrix().clone();
     let rank_deficient = c
         .convexity(
@@ -333,8 +335,17 @@ fn gram_evidence_is_exact_nonnegative_and_current() {
 #[test]
 fn sparse_limits_fail_before_library_allocation() {
     crate::initialize().unwrap();
-    assert!(crate::sparse::AssemblyMatrix::new(2, 2, &[(2, 0)], 100).is_err());
-    assert!(crate::sparse::AssemblyMatrix::new(usize::MAX, 1, &[], i32::MAX as usize).is_err());
+    let outside = [crate::index::Entry::new(GlobalRow::new(2), GlobalCol::new(0))];
+    assert!(crate::sparse::AssemblyMatrix::new(2, 2, &outside, 100).is_err());
+    assert!(
+        crate::sparse::AssemblyMatrix::new::<GlobalRow, GlobalCol>(
+            usize::MAX,
+            1,
+            &[],
+            i32::MAX as usize
+        )
+        .is_err()
+    );
 }
 #[test]
 fn coefficient_projection_preserves_erased_domain_obligations() {

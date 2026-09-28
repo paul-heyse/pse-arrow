@@ -41,7 +41,7 @@ pub enum Scope {
 impl Scope {
     /// Versioned semantic scope identity, independent of traversal order.
     pub fn key(&self) -> pse_ids::ContentHash {
-        let mut h = pse_ids::FramedHasher::new("pse.structural.scope.v1");
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::StructuralScopeV1);
         match self {
             Self::Whole(id) => {
                 h.u64(0).id(id);

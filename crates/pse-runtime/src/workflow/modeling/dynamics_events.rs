@@ -133,7 +133,7 @@ impl ModelingPackage {
         }
         let names = modes.iter().map(|m| m.name.clone()).collect::<Vec<_>>();
         let mut prepared = None::<ModelingSimulation>;
-        let mut identity = FramedHasher::new("pse.modeling.dynamic-modes.v1");
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingDynamicModesV1);
         for (index, mode) in modes.iter().enumerate() {
             let mut next = self
                 .prepare_simulation_mode(

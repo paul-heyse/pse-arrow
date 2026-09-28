@@ -6,11 +6,41 @@ use pounce_nlp::expression_provider::{FbbtOp as Op, FbbtTape};
 use pse_ids::{ContentHash, SemanticId};
 use pse_math::{
     binding::ObjectiveSense,
+    index::{Entry, OriginalCol, OriginalRow},
     presolve::{AffineRow, Facts},
     sparse::AssemblyMatrix,
 };
 fn id(n: u8) -> SemanticId {
     SemanticId::from_bytes([n; 16])
+}
+/// A source Jacobian over `n` original rows and columns.
+fn jacobian(n: usize, entries: &[(usize, usize)]) -> AssemblyMatrix {
+    let entries: Vec<_> = entries
+        .iter()
+        .map(|&(r, c)| Entry::new(OriginalRow::new(r), OriginalCol::new(c)))
+        .collect();
+    AssemblyMatrix::new(n, n, &entries, 100).unwrap()
+}
+/// A source lower-triangle Hessian over `n` original columns.
+fn hessian(n: usize, entries: &[(usize, usize)]) -> AssemblyMatrix {
+    let entries: Vec<_> = entries
+        .iter()
+        .map(|&(r, c)| Entry::new(OriginalCol::new(r), OriginalCol::new(c)))
+        .collect();
+    AssemblyMatrix::hessian(n, &entries, 100).unwrap()
+}
+fn dimensions(
+    original_columns: usize,
+    original_rows: usize,
+    presolved_columns: usize,
+    presolved_rows: usize,
+) -> Dimensions {
+    Dimensions {
+        original_columns,
+        original_rows,
+        presolved_columns,
+        presolved_rows,
+    }
 }
 #[derive(Debug)]
 struct Mixed {
@@ -80,8 +110,8 @@ impl Mixed {
                 objective_degree: None,
                 objective_linear: vec![false, false],
             },
-            j: AssemblyMatrix::new(2, 2, &[(0, 0), (1, 0), (0, 1), (1, 1)], 100).unwrap(),
-            h: AssemblyMatrix::new(2, 2, &[(0, 0), (1, 1)], 100).unwrap(),
+            j: jacobian(2, &[(0, 0), (1, 0), (0, 1), (1, 1)]),
+            h: hessian(2, &[(0, 0), (1, 1)]),
             bounds: vec![(7.0, 7.0), (0.0, 100.0)],
             fail: false,
             fail_domain: false,
@@ -296,9 +326,9 @@ fn native_presolve_recovers_optimum_duals_and_compatible_warm_start() {
                 assert_eq!(
                     report.preprocessing.as_ref().unwrap().dimensions,
                     if matches!(policy, Policy::Auto) {
-                        (2, 2, 1, 1)
+                        dimensions(2, 2, 1, 1)
                     } else {
-                        (2, 2, 2, 2)
+                        dimensions(2, 2, 2, 2)
                     }
                 );
                 // Library reports are serde JSON records, never Rust `Debug` text (F30).
@@ -410,7 +440,7 @@ fn shared_affine_transport_recovers_original_values_and_kkt() {
             .all(|v| v.abs() < 1e-12)
     );
     assert!(report.quality.unwrap().feasible());
-    assert_eq!(report.preprocessing.unwrap().dimensions, (2, 2, 1, 1));
+    assert_eq!(report.preprocessing.unwrap().dimensions, dimensions(2, 2, 1, 1));
 }
 #[test]
 fn qualification_declines_tiny_support_and_narrow_intervals() {
@@ -823,8 +853,8 @@ fn propagation_fixed_row() -> PropagationFixedRow {
         .collect();
     m.contract.rows = vec![id(4), id(5), id(6)];
     m.bounds = vec![(4.0, 4.0), (0.0, 0.0), (8.0, 8.0)];
-    m.j = AssemblyMatrix::new(3, 3, &[(0, 0), (1, 1), (2, 1), (1, 2), (2, 2)], 100).unwrap();
-    m.h = AssemblyMatrix::new(3, 3, &[(0, 0), (1, 1), (2, 2)], 100).unwrap();
+    m.j = jacobian(3, &[(0, 0), (1, 1), (2, 1), (1, 2), (2, 2)]);
+    m.h = hessian(3, &[(0, 0), (1, 1), (2, 2)]);
     m.facts.affine = vec![
         None,
         Some(AffineRow {
@@ -867,7 +897,7 @@ fn automatic_presolve_retains_original_when_propagation_leaves_constant_nonlinea
         1000,
     )
     .unwrap();
-    assert_eq!(pipeline.report().dimensions, (3, 3, 3, 3));
+    assert_eq!(pipeline.report().dimensions, Dimensions::identity(3, 3));
     assert!(
         pipeline
             .report()

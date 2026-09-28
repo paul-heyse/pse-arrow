@@ -119,7 +119,7 @@ impl Engine<'_, '_> {
                 for (local, node) in stencil.nodes.iter().enumerate() {
                     let index = element * stride + local;
                     if mesh.points.len() == index {
-                        let mut h = FramedHasher::new("pse.modeling.mesh-coordinate.v1");
+                        let mut h = FramedHasher::new(pse_ids::Frame::ModelingMeshCoordinateV1);
                         h.id(&id)
                             .id(policy_id)
                             .id(&self.p.resolve(*policy_id, &policy.scheme).ok_or_else(|| invalid(*policy_id, "scheme absent"))?)
@@ -308,7 +308,7 @@ impl Engine<'_, '_> {
             Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(axis))),
         ));
         let baseline = self.rewrite(instance, body, env, chain)?;
-        let mut hash=FramedHasher::new("pse.modeling.continuity.v1");
+        let mut hash=FramedHasher::new(pse_ids::Frame::ModelingContinuityV1);
         hash.id(&instance).id(&at).id(&mesh_id).str(&dsl::render_expr(body));
         for (n,v) in env {if n!=&name && let Value::Coordinate{id,..}=v {hash.str(n).id(id);}}
         let key=hash.finish_id();
@@ -376,7 +376,7 @@ impl Engine<'_, '_> {
             let value_type=value_type.resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions).map_err(|e|invalid(at,e.to_string()))?;
             let result_type=pse_quantity::scheme::Scheme::Product(Box::new(pse_quantity::scheme::Scheme::Concrete(value_type)),Box::new(pse_quantity::scheme::Scheme::Delta(Box::new(pse_quantity::scheme::Scheme::Concrete(axis.quantity)))))
                 .resolve_with_evidence(self.c.quantities, &BTreeMap::new(), self.c.preconditions).map_err(|e|invalid(at,e.to_string()))?;
-            let mut identity=FramedHasher::new("pse.modeling.definite-integral.v1");
+            let mut identity=FramedHasher::new(pse_ids::Frame::ModelingDefiniteIntegralV1);
             identity.id(&instance).id(&at).id(&axis_id).id(&result_type.as_id()).str(&dsl::render_expr(&integrand));
             let result=identity.finish_id();
             if self.model.integrals.contains_key(&result) {return Ok(symbol_expr(result));}

@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Compiler-owned interpretation; external hashes cannot select numerical behavior.
 pub fn guarded_real_policy() -> ContentHash {
     pse_ids::derive_hash(
-        "pse.math.guarded-real.v1",
+        pse_ids::Frame::MathGuardedRealV1,
         &[b"real-algebra;physical-first;lazy-domain;exact-library-derivatives"],
     )
 }
@@ -38,7 +38,7 @@ pub struct BodySpec {
 impl BodySpec {
     /// Versioned key; never hashes printed atoms or process-global library identifiers.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.math.body.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathBodyV1);
         h.hash(&self.definition)
             .hash(&self.structure)
             .hash(&self.physical)
@@ -451,7 +451,7 @@ impl CaseStructure {
     }
     /// Structural identity includes bindings, physical units, selected inventories and class declarations.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.math.case-structure.v3");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathCaseStructureV3);
         h.u64(self.variables.len() as u64);
         for v in &self.variables {
             h.id(&v.port.id)
@@ -692,7 +692,7 @@ impl PartialEq for CaseValues {
 impl CaseValues {
     /// Value binding identity, separate from structure and prepared arithmetic.
     pub fn identity(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.math.case-values.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathCaseValuesV1);
         h.u64(self.scalars.len() as u64);
         for (id, value) in &self.scalars {
             h.id(id);

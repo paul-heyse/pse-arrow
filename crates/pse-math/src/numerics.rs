@@ -53,7 +53,7 @@ pub fn project(
     source: &ResolvedNumericalPolicy,
     projections: &[TargetProjection],
 ) -> Result<ResolvedNumericalPolicy, MathError> {
-    let mut key = FramedHasher::new("pse.numerical.projection.v1");
+    let mut key = FramedHasher::new(pse_ids::Frame::NumericalProjectionV1);
     key.hash(&source.key);
     let mut ordered = projections.iter().collect::<Vec<_>>();
     ordered.sort_by_key(|p| (p.target.id, p.target.kind.as_str()));
@@ -263,7 +263,7 @@ pub fn resolve(
         }
     }
     let mut resolved = Vec::with_capacity(targets.len());
-    let mut key = FramedHasher::new("pse.numerical.resolved.v1");
+    let mut key = FramedHasher::new(pse_ids::Frame::NumericalResolvedV1);
     key.hash(&policy.key());
     let mut identity_sources = all.iter().collect::<Vec<_>>();
     identity_sources.sort_by_key(|r| r.declaration.requirement_id);

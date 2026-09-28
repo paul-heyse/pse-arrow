@@ -4,7 +4,7 @@
 //! pattern is framed, so a field added to a settings type changes identity without a
 //! hand-written field list (F09). This is identity only; it is not a wire format.
 use crate::ProblemError;
-use pse_ids::{ContentHash, FramedHasher};
+use pse_ids::{ContentHash, Frame, FramedHasher};
 use serde::ser::{self, Serialize};
 
 /// Frame `value` into `hasher`. Floats keep their exact bits, including signed zero,
@@ -25,10 +25,7 @@ pub fn frame<T: Serialize + ?Sized>(
 ///
 /// # Errors
 /// A custom serializer refused the value.
-pub fn of<T: Serialize + ?Sized>(
-    context: &'static str,
-    value: &T,
-) -> Result<ContentHash, ProblemError> {
+pub fn of<T: Serialize + ?Sized>(context: Frame, value: &T) -> Result<ContentHash, ProblemError> {
     let mut hasher = FramedHasher::new(context);
     frame(&mut hasher, value)?;
     Ok(hasher.finish_hash())
@@ -327,8 +324,8 @@ mod tests {
             items: vec![Some(1), None],
             tag: None,
         };
-        let key = of("pse.test.identity.v1", &base).unwrap();
-        assert_eq!(key, of("pse.test.identity.v1", &base).unwrap());
+        let key = of(Frame::BackendSettingsV3, &base).unwrap();
+        assert_eq!(key, of(Frame::BackendSettingsV3, &base).unwrap());
         for changed in [
             Probe {
                 value: -0.0,
@@ -347,18 +344,18 @@ mod tests {
                 ..base_clone(&base)
             },
         ] {
-            assert_ne!(key, of("pse.test.identity.v1", &changed).unwrap());
+            assert_ne!(key, of(Frame::BackendSettingsV3, &changed).unwrap());
         }
         // A sequence boundary cannot move between adjacent fields.
         let split = (vec![1_u32, 2], vec![3_u32]);
         let moved = (vec![1_u32], vec![2_u32, 3]);
         assert_ne!(
-            of("pse.test.identity.v1", &split).unwrap(),
-            of("pse.test.identity.v1", &moved).unwrap()
+            of(Frame::BackendSettingsV3, &split).unwrap(),
+            of(Frame::BackendSettingsV3, &moved).unwrap()
         );
         assert_ne!(
-            of("pse.test.identity.v1", &f64::INFINITY).unwrap(),
-            of("pse.test.identity.v1", &f64::NAN).unwrap()
+            of(Frame::BackendSettingsV3, &f64::INFINITY).unwrap(),
+            of(Frame::BackendSettingsV3, &f64::NAN).unwrap()
         );
     }
     fn base_clone(p: &Probe) -> Probe {

@@ -181,10 +181,10 @@ impl ModelingDiagnostics {
                 || m.column_norms.len() != self.columns.len()
                 || m.parallel_rows
                     .iter()
-                    .any(|(a, b, _)| *a >= self.rows.len() || *b >= self.rows.len())
-                || m.parallel_columns
-                    .iter()
-                    .any(|(a, b, _)| *a >= self.columns.len() || *b >= self.columns.len())
+                    .any(|p| p.first.get() >= self.rows.len() || p.second.get() >= self.rows.len())
+                || m.parallel_columns.iter().any(|p| {
+                    p.first.get() >= self.columns.len() || p.second.get() >= self.columns.len()
+                })
                 || m.modes.iter().any(|mode| {
                     (!mode.left.is_empty() && mode.left.len() != self.rows.len())
                         || (!mode.right.is_empty() && mode.right.len() != self.columns.len())
@@ -192,6 +192,11 @@ impl ModelingDiagnostics {
         }) {
             return Err(contract("diagnostic matrix source coordinate extent"));
         }
+        use pse_math::index::{GlobalCol, GlobalRow, TiSlice};
+        let (row_ids, column_ids): (
+            &TiSlice<GlobalRow, SemanticId>,
+            &TiSlice<GlobalCol, SemanticId>,
+        ) = (self.rows.as_slice().as_ref(), self.columns.as_slice().as_ref());
         export(&self.runtime, self._owner.size(), |columns| {
             let matrix = self
                 .matrix
@@ -224,24 +229,20 @@ impl ModelingDiagnostics {
                     parallel_rows: m
                         .parallel_rows
                         .iter()
-                        .map(
-                            |(a, b, c)| RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem {
-                                first_id: self.rows[*a],
-                                second_id: self.rows[*b],
-                                cosine: *c,
-                            },
-                        )
+                        .map(|p| RuntimeModelingDiagnosticsFieldMatrixParallelRowsItem {
+                            first_id: row_ids[p.first],
+                            second_id: row_ids[p.second],
+                            cosine: p.cosine,
+                        })
                         .collect(),
                     parallel_columns: m
                         .parallel_columns
                         .iter()
-                        .map(
-                            |(a, b, c)| RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem {
-                                first_id: self.columns[*a],
-                                second_id: self.columns[*b],
-                                cosine: *c,
-                            },
-                        )
+                        .map(|p| RuntimeModelingDiagnosticsFieldMatrixParallelColumnsItem {
+                            first_id: column_ids[p.first],
+                            second_id: column_ids[p.second],
+                            cosine: p.cosine,
+                        })
                         .collect(),
                     modes: m
                         .modes

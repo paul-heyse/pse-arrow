@@ -8,19 +8,24 @@ use faer::{
     sparse::{SparseColMat, SymbolicSparseColMat, linalg::matmul},
 };
 use native::ProblemError;
-use pse_math::sparse::AssemblyMatrix;
+use pse_math::{
+    index::{Addend, Entry, OriginalCol, OriginalRow},
+    sparse::AssemblyMatrix,
+};
 
 #[derive(Clone, Debug)]
 pub(super) struct ResponseTerm {
     pub observation: usize,
     pub local: usize,
-    pub contribution: usize,
+    pub contribution: Addend,
 }
+/// How one experiment's local derivative values refill the fit's matrices: each pair is a
+/// value position in the experiment's canonical storage and the fit matrix addend it feeds.
 #[derive(Clone, Debug, Default)]
 pub(super) struct Mapping {
     pub responses: Vec<ResponseTerm>,
-    pub constraints: Vec<(usize, usize)>,
-    pub hessian: Vec<(usize, usize)>,
+    pub constraints: Vec<(usize, Addend)>,
+    pub hessian: Vec<(usize, Addend)>,
 }
 #[derive(Clone, Debug)]
 pub(super) struct Layout {
@@ -35,7 +40,7 @@ pub(super) struct GramPlan {
     pattern: SymbolicSparseColMat<usize>,
     info: matmul::SparseMatMulInfo,
     /// Canonical Gram value index to original lower-Hessian contribution index.
-    contributions: Vec<(usize, usize)>,
+    contributions: Vec<(usize, Addend)>,
 }
 impl std::fmt::Debug for GramPlan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -44,16 +49,17 @@ impl std::fmt::Debug for GramPlan {
             .finish_non_exhaustive()
     }
 }
-fn push(
-    pairs: &mut Vec<(usize, usize)>,
-    pair: (usize, usize),
+/// Declare one entry and return the addend it becomes.
+fn push<R, C>(
+    entries: &mut Vec<Entry<R, C>>,
+    entry: Entry<R, C>,
     limit: usize,
-) -> Result<usize, ProblemError> {
-    if pairs.len() >= limit {
+) -> Result<Addend, ProblemError> {
+    if entries.len() >= limit {
         return Err(ProblemError::memory("fit sparse contribution allowance"));
     }
-    let index = pairs.len();
-    pairs.push(pair);
+    let index = Addend::new(entries.len());
+    entries.push(entry);
     Ok(index)
 }
 impl Layout {
@@ -72,14 +78,14 @@ impl Layout {
                 .map(|m| {
                     m.responses.capacity() * size_of::<ResponseTerm>()
                         + (m.constraints.capacity() + m.hessian.capacity())
-                            * size_of::<(usize, usize)>()
+                            * size_of::<(usize, Addend)>()
                 })
                 .sum::<usize>()
             + self.gram.as_ref().map_or(0, |g| {
                 size_of::<GramPlan>()
                     + size_of_val(g.pattern.col_ptr())
                     + size_of_val(g.pattern.row_idx())
-                    + g.contributions.capacity() * size_of::<(usize, usize)>()
+                    + g.contributions.capacity() * size_of::<(usize, Addend)>()
             })
     }
     #[allow(
@@ -95,9 +101,10 @@ impl Layout {
         order: DerivativeOrder,
         limit: usize,
     ) -> Result<Self, ProblemError> {
-        let mut response_pairs = Vec::new();
-        let mut constraint_pairs = Vec::new();
-        let mut hessian_pairs = Vec::new();
+        // The fit oracle's rows and columns; responses are rows of observations.
+        let mut response_pairs = Vec::<Entry<usize, OriginalCol>>::new();
+        let mut constraint_pairs = Vec::<Entry<OriginalRow, OriginalCol>>::new();
+        let mut hessian_pairs = Vec::<Entry<OriginalCol, OriginalCol>>::new();
         let mut mappings = Vec::new();
         for (ei, experiment) in experiments.iter().enumerate() {
             let mut mapping = Mapping::default();
@@ -117,13 +124,16 @@ impl Layout {
                         for k in j.col_range(local_col) {
                             let row = j.row_idx()[k];
                             if let Some(global_row) = constraints.get(&row) {
-                                let c =
-                                    push(&mut constraint_pairs, (*global_row, *global_col), limit)?;
+                                let entry = Entry::new(
+                                    OriginalRow::new(*global_row),
+                                    OriginalCol::new(*global_col),
+                                );
+                                let c = push(&mut constraint_pairs, entry, limit)?;
                                 mapping.constraints.push((k, c));
                             }
                             for &observation in observations.get(&row).into_iter().flatten() {
-                                let c =
-                                    push(&mut response_pairs, (observation, *global_col), limit)?;
+                                let entry = Entry::new(observation, OriginalCol::new(*global_col));
+                                let c = push(&mut response_pairs, entry, limit)?;
                                 mapping.responses.push(ResponseTerm {
                                     observation,
                                     local: k,
@@ -137,8 +147,11 @@ impl Layout {
                         for (local_col, (_, gc)) in s.coordinates.iter().enumerate() {
                             for k in h.col_range(local_col) {
                                 let gr = s.coordinates[h.row_idx()[k]].1;
-                                let c =
-                                    push(&mut hessian_pairs, (gr.max(*gc), gr.min(*gc)), limit)?;
+                                let entry = Entry::new(
+                                    OriginalCol::new(gr.max(*gc)),
+                                    OriginalCol::new(gr.min(*gc)),
+                                );
+                                let c = push(&mut hessian_pairs, entry, limit)?;
                                 mapping.hessian.push((k, c));
                             }
                         }
@@ -152,7 +165,8 @@ impl Layout {
                                 .enumerate()
                                 .filter(|(_, o)| o.experiment == ei && o.included)
                             {
-                                let c = push(&mut response_pairs, (observation, column), limit)?;
+                                let entry = Entry::new(observation, OriginalCol::new(column));
+                                let c = push(&mut response_pairs, entry, limit)?;
                                 mapping.responses.push(ResponseTerm {
                                     observation,
                                     local: binding.local,
@@ -195,7 +209,8 @@ impl Layout {
                 for k in pattern.col_range(col) {
                     let row = pattern.row_idx()[k];
                     if row >= col {
-                        let c = push(&mut hessian_pairs, (row, col), limit)?;
+                        let entry = Entry::new(OriginalCol::new(row), OriginalCol::new(col));
+                        let c = push(&mut hessian_pairs, entry, limit)?;
                         contributions.push((k, c));
                     }
                 }
@@ -209,12 +224,7 @@ impl Layout {
             None
         };
         let hessian = if order >= DerivativeOrder::Second {
-            Some(AssemblyMatrix::new(
-                columns,
-                columns,
-                &hessian_pairs,
-                limit,
-            )?)
+            Some(AssemblyMatrix::hessian(columns, &hessian_pairs, limit)?)
         } else {
             None
         };

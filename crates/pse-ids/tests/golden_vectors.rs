@@ -15,10 +15,9 @@
 //! `derive_key`, `u64` little-endian length prefixes, first 16 XOF bytes for an ID — with
 //! nothing from this repository but the numbers.
 
-use pse_ids::derive::context;
 use pse_ids::{
-    CANONICAL_F32_NAN_BITS, CANONICAL_F64_NAN_BITS, FramedHasher, SemanticId, canonical_f32_bits,
-    canonical_f64_bits, derive_hash, derive_id, encoding_checksum, named_id,
+    CANONICAL_F32_NAN_BITS, CANONICAL_F64_NAN_BITS, Frame, FramedHasher, SemanticId,
+    canonical_f32_bits, canonical_f64_bits, derive_hash, derive_id, encoding_checksum, named_id,
 };
 
 // ------------------------------------------------------- frozen identity vectors --
@@ -46,7 +45,7 @@ fn the_registry_package_id_is_frozen() {
 
     // `named_id` is exactly `derive_id(NAMED, [package bytes, name bytes])`.
     assert_eq!(
-        derive_id(context::NAMED, &[SemanticId::NIL.as_bytes(), b"pse.schema"]),
+        derive_id(Frame::NamedV1, &[SemanticId::NIL.as_bytes(), b"pse.schema"]),
         package
     );
 
@@ -59,13 +58,13 @@ fn the_registry_package_id_is_frozen() {
 #[test]
 fn the_registry_digest_is_frozen() {
     assert_eq!(
-        derive_hash(context::REGISTRY, &[b"a", b"bc"]).to_hex(),
+        derive_hash(Frame::RegistryV1, &[b"a", b"bc"]).to_hex(),
         REGISTRY_HASH_A_BC
     );
 
     // The framing this table depends on: a different split is a different digest.
     assert_ne!(
-        derive_hash(context::REGISTRY, &[b"ab", b"c"]).to_hex(),
+        derive_hash(Frame::RegistryV1, &[b"ab", b"c"]).to_hex(),
         REGISTRY_HASH_A_BC
     );
 }
@@ -77,7 +76,7 @@ fn a_derived_id_is_the_prefix_of_the_derived_hash_under_one_context() {
     // is a property of the algorithm, recorded so a future implementation does not "fix"
     // one of the two functions into disagreement.
     let parts: &[&[u8]] = &[b"a", b"bc"];
-    let id = derive_id(context::REGISTRY, parts);
+    let id = derive_id(Frame::RegistryV1, parts);
     assert_eq!(
         id.to_hex(),
         REGISTRY_HASH_A_BC
@@ -88,20 +87,47 @@ fn a_derived_id_is_the_prefix_of_the_derived_hash_under_one_context() {
 
 #[test]
 fn the_framed_hasher_reproduces_the_frozen_vectors() {
-    let mut hasher = FramedHasher::new(context::NAMED);
+    let mut hasher = FramedHasher::new(Frame::NamedV1);
     hasher.id(&SemanticId::NIL).str("pse.schema");
     assert_eq!(hasher.finish_id().to_hex(), REGISTRY_PACKAGE_ID);
 
-    let mut digest = FramedHasher::new(context::REGISTRY);
+    let mut digest = FramedHasher::new(Frame::RegistryV1);
     digest.part(b"a").part(b"bc");
     assert_eq!(digest.finish_hash().to_hex(), REGISTRY_HASH_A_BC);
 }
 
 #[test]
 fn the_derive_key_contexts_are_frozen() {
-    assert_eq!(context::NAMED, "pse:named:v1");
-    assert_eq!(context::REGISTRY, "pse:registry:v1");
-    assert_eq!(context::SETTINGS, "pse:settings:v1");
+    assert_eq!(Frame::NamedV1.as_str(), "pse:named:v1");
+    assert_eq!(Frame::RegistryV1.as_str(), "pse:registry:v1");
+    assert_eq!(Frame::SettingsV1.as_str(), "pse:settings:v1");
+}
+
+/// The frame spellings captured at the start of Plan 22 B3a, before the catalog existed.
+const CAPTURED_FRAME_SPELLINGS: &str = include_str!("frame_spellings.txt");
+
+#[test]
+fn frame_spellings_unchanged() {
+    // Every frame in the catalog is a spelling that was in use before it, and every
+    // spelling that was in use is in the catalog: no identity moved to a new context.
+    let captured: std::collections::BTreeSet<&str> = CAPTURED_FRAME_SPELLINGS
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .collect();
+    let cataloged: std::collections::BTreeSet<&str> =
+        Frame::ALL.iter().map(|frame| frame.as_str()).collect();
+    assert_eq!(
+        cataloged.difference(&captured).collect::<Vec<_>>(),
+        Vec::<&&str>::new(),
+        "frames that were not in use before the catalog"
+    );
+    assert_eq!(
+        captured.difference(&cataloged).collect::<Vec<_>>(),
+        Vec::<&&str>::new(),
+        "spellings in use before the catalog that it does not declare"
+    );
+    assert_eq!(cataloged.len(), Frame::ALL.len(), "a spelling is declared twice");
 }
 
 #[test]

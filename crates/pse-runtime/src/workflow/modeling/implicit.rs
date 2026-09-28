@@ -315,7 +315,7 @@ impl ModelingPackage {
                 }) {
                     return Err(contract("missing deterministic start for implicit unknown"));
                 }
-                let mut hash = pse_ids::FramedHasher::new("pse.modeling.implicit-trial-hints.v1");
+                let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingImplicitTrialHintsV1);
                 hash.hash(&inner.descriptor.spec().identity())
                     .hash(&residual.body.spec.physical)
                     .id(&residual.id)

@@ -177,9 +177,9 @@ impl RunResult {
                 },
             );
         }
-        let mut source = FramedHasher::new("pse.run.source.v1");
-        let mut algorithms = FramedHasher::new("pse.run.algorithms.v1");
-        let mut target = FramedHasher::new("pse.run.target.v1");
+        let mut source = FramedHasher::new(pse_ids::Frame::RunSourceV1);
+        let mut algorithms = FramedHasher::new(pse_ids::Frame::RunAlgorithmsV1);
+        let mut target = FramedHasher::new(pse_ids::Frame::RunTargetV1);
         match &self.request {
             super::run::RunRequest::Modeling(steps) => {
                 for p in steps {

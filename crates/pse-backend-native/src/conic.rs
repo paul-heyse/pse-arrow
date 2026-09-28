@@ -184,7 +184,7 @@ fn clarabel_cones(cones: &[Cone]) -> Result<Vec<SupportedConeT<f64>>, ProblemErr
 /// # Errors
 /// The identity serializer refused a value.
 pub fn cone_key(cones: &[Cone]) -> Result<pse_ids::ContentHash, ProblemError> {
-    crate::identity::of("pse.cone.layout.v2", cones)
+    crate::identity::of(pse_ids::Frame::ConeLayoutV2, cones)
 }
 /// Native preprocessing and mutable-data reuse are distinct execution profiles.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -1136,7 +1136,7 @@ mod tests {
         let key = cone_key(&cones).unwrap();
         assert_eq!(
             key,
-            crate::identity::of("pse.cone.layout.v2", &cones).unwrap()
+            crate::identity::of(pse_ids::Frame::ConeLayoutV2, &cones).unwrap()
         );
         assert_ne!(
             key,

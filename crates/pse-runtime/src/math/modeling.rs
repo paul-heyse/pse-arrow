@@ -551,7 +551,7 @@ impl MathService {
             pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
         reservation.try_grow(self.policy.workspace_bytes / 2)?;
         use pse_model::SemanticFrame;
-        let mut source = pse_ids::FramedHasher::new("pse.modeling.source-revision.v1");
+        let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV1);
         source.u64(rows.len() as u64);
         for row in &rows { row.frame(&mut source); }
         source.u64(names.len() as u64);

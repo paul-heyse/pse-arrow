@@ -21,7 +21,7 @@ use datafusion::execution::context::SessionContext;
 use datafusion::logical_expr::{LogicalPlan, TableSource};
 use pse_columnar::PlanOrigin;
 use pse_columnar::{CancellationToken, MemoryPool};
-use pse_ids::{ContentHash, FramedHasher, derive::context};
+use pse_ids::{ContentHash, Frame, FramedHasher};
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -132,7 +132,7 @@ fn build(
 pub(super) fn function_inventory(
     state: &datafusion::execution::session_state::SessionState,
 ) -> (ContentHash, BTreeMap<String, Vec<String>>) {
-    let mut hash = FramedHasher::new(context::SETTINGS);
+    let mut hash = FramedHasher::new(Frame::SettingsV1);
     hash.str("pse.functions.builtin.v1");
     hash.str(datafusion::DATAFUSION_VERSION);
     let mut function_names = BTreeMap::new();

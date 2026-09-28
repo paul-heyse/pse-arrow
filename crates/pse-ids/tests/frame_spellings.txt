@@ -1,0 +1,116 @@
+# Every derive_key frame context in the workspace, captured at the start of Plan 22 B3a
+# (2026-09-28), before pse_ids::Frame existed, from the literal and constant arguments of
+# FramedHasher::new, derive_id, derive_hash, preimage::PreimageHasher::new_derive_key,
+# preimage::derive_key and pse-backend-native identity::of (104 spellings).
+#
+# This is the oracle for frame_spellings_unchanged. A spelling is part of every identity
+# derived under it, so this list changes only when a frame or frame version is added or
+# retired deliberately, never to follow an edit of Frame::as_str.
+#
+# Five test-only spellings were not cataloged: pse.test.domain.a.v1, pse.test.domain.b.v1,
+# pse.test.framing.v1, pse.test.identity.v1 and pse.test.pounce.v1. Those tests key on
+# cataloged frames instead; no stored identity was derived under them.
+pse.backend.settings.v3
+pse.causal-map.v2
+pse.compiler.modeling-view.v2
+pse.completed.environment.v1
+pse.completed.request.v2
+pse.cone.layout.v2
+pse.durable.job_request.v1
+pse.durable.modeling_request.v1
+pse.dynamic.profile.v3
+pse.explicit-conic.v2
+pse.factorable.domain.v1
+pse.factorable.fixed-assignment.profile.v1
+pse.factorable.fixed-assignment.v1
+pse.fit.coordinate.v1
+pse.fit.prepared.v1
+pse.fit.profile.v2
+pse.fit.source.v1
+pse.flow.projection.v1
+pse.highs.iis-relaxation.v1
+pse.implicit.configuration.v1
+pse.implicit.fixed-configuration.v1
+pse.implicit.regime-configuration.v1
+pse.inner-solver.v1
+pse.jacobian-diagnostic.layout.v1
+pse.jacobian-diagnostic.problem.v1
+pse.math.artifact.v4
+pse.math.body.v1
+pse.math.bound-facts.v2
+pse.math.case-structure.v3
+pse.math.case-values.v1
+pse.math.coefficient-assumptions.v1
+pse.math.convexity.v1
+pse.math.environment.v1
+pse.math.factorable.v1
+pse.math.gram.v1
+pse.math.guarded-real.v1
+pse.math.local-occurrence.v2
+pse.math.normalization.v1
+pse.math.normalized-facts.v1
+pse.math.physical-inventory.v3
+pse.math.physical-pass.v1
+pse.math.typed-definition.v2
+pse.modeling.consumer-body.v1
+pse.modeling.continuity.v1
+pse.modeling.coordinate.v1
+pse.modeling.definite-integral.v1
+pse.modeling.dispatch-body.v1
+pse.modeling.dynamic-modes.v1
+pse.modeling.dynamic.v1
+pse.modeling.finite-function.v1
+pse.modeling.finite-reduction.v1
+pse.modeling.fit-execution.v1
+pse.modeling.fit-source.v1
+pse.modeling.implicit-residual.v1
+pse.modeling.implicit-trial-hints.v1
+pse.modeling.member.v1
+pse.modeling.mesh-coordinate.v1
+pse.modeling.source-revision.v1
+pse.modeling.typed-constant.v1
+pse.native.accuracy.v2
+pse.native.build.v1
+pse.native.controls.v1
+pse.native.ipopt.build.v1
+pse.native.seed.v2
+pse.native.structural-scope.v1
+pse.numerical.cone.v1
+pse.numerical.policy.v1
+pse.numerical.projection.v1
+pse.numerical.resolved.v1
+pse.presolve.policy.v1
+pse.presolve.transformation.v2
+pse.provider.v4
+pse.run.algorithms.v1
+pse.run.source.v1
+pse.run.target.v1
+pse.schema.execution-encoding.v1
+pse.schema.semantic-product.v2
+pse.schema.semantic-profile.v2
+pse.schema.semantic-relation.v2
+pse.scip.reoptimization.system.v1
+pse.solve.preparation.v1
+pse.solve.request.v1
+pse.solve.seed_preparation.v1
+pse.solver.conic-data.v1
+pse.solver.conic-layout.v3
+pse.solver.conic-session.v1
+pse.solver.coordinates.v1
+pse.solver.data.v1
+pse.solver.profile.v3
+pse.solver.session.v1
+pse.sparse.pattern.v1
+pse.structural.block.v1
+pse.structural.scope.v1
+pse.tear.decision.v1
+pse.tear.order.v1
+pse:artifact-descriptor:v1
+pse:build-inputs:v1
+pse:named:v1
+pse:native-value-payload:v1
+pse:registry:v1
+pse:row-key:native-values:v2
+pse:settings:v1
+pse:typed-facts:v1
+pse:typed-row-key:v1

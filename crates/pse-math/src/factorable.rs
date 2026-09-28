@@ -853,7 +853,7 @@ impl CasePlan {
             None => None,
         };
         let native = project_native(self, &columns, &rows, values, &mut consumed)?;
-        let mut h = FramedHasher::new("pse.math.factorable.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathFactorableV1);
         h.hash(&self.structure().key())
             .str(match request.branches {
                 BranchPolicy::Auxiliary => "branches:auxiliary",

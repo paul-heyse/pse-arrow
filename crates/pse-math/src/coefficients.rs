@@ -6,6 +6,7 @@ use crate::{
     MathError,
     assembly::CasePlan,
     binding::{CaseValues, Target},
+    index::{Addend, Entry, GlobalCol, GlobalRow},
     library,
     sparse::AssemblyMatrix,
 };
@@ -116,14 +117,14 @@ impl CasePlan {
             .columns()
             .iter()
             .enumerate()
-            .map(|(i, &id)| (id, i))
+            .map(|(i, &id)| (id, GlobalCol::new(i)))
             .collect();
-        let mut identity = FramedHasher::new("pse.math.coefficient-assumptions.v1");
+        let mut identity = FramedHasher::new(pse_ids::Frame::MathCoefficientAssumptionsV1);
         identity.hash(&self.structure().key());
         let mut objective = vec![0.0; n];
         let mut constant = 0.0;
         let mut row_constants = Vec::with_capacity(m);
-        let mut jp = vec![];
+        let mut jp = Vec::<Entry<GlobalRow, GlobalCol>>::new();
         let mut jv = vec![];
         for (row, affine) in facts.affine.iter().enumerate() {
             let affine = affine
@@ -131,14 +132,14 @@ impl CasePlan {
                 .ok_or_else(|| MathError::Contract("missing affine row".into()))?;
             row_constants.push(affine.constant);
             for (&column, &value) in &affine.entries {
-                jp.push((row, column));
+                jp.push(Entry::new(GlobalRow::new(row), GlobalCol::new(column)));
                 jv.push(value);
             }
         }
         if jp.len() > term_limit {
             return Err(MathError::Limit("affine coefficient entries"));
         }
-        let mut hp = vec![];
+        let mut hp = Vec::<Entry<GlobalCol, GlobalCol>>::new();
         let mut hv = vec![];
         for b in self.structure().instances() {
             if cancel.load(Ordering::Relaxed) {
@@ -213,11 +214,11 @@ impl CasePlan {
                         .collect();
                     match (c.target, factors.as_slice()) {
                         (Target::Objective, []) => constant += v,
-                        (Target::Objective, [i]) => objective[*i] += v,
+                        (Target::Objective, [i]) => objective[i.get()] += v,
                         (Target::Objective, [i, j]) => {
-                            hp.push((*i, *j));
+                            hp.push(Entry::new(*i, *j));
                             hv.push(v);
-                            hp.push((*j, *i));
+                            hp.push(Entry::new(*j, *i));
                             hv.push(v);
                         }
                         _ => return Err(MathError::Contract("coefficient degree mapping".into())),
@@ -235,11 +236,11 @@ impl CasePlan {
         let index_limit = term_limit.max(n).max(m);
         let mut j = AssemblyMatrix::new(m, n, &jp, index_limit)?;
         for (i, v) in jv.into_iter().enumerate() {
-            j.add(i, v)?;
+            j.add(Addend::new(i), v)?;
         }
-        let mut h = AssemblyMatrix::new(n, n, &hp, index_limit)?;
+        let mut h = AssemblyMatrix::hessian(n, &hp, index_limit)?;
         for (i, v) in hv.into_iter().enumerate() {
-            h.add(i, v)?;
+            h.add(Addend::new(i), v)?;
         }
         if !constant.is_finite()
             || objective
@@ -361,7 +362,7 @@ pub(crate) fn quadratic_identity(
     q: &faer::sparse::SparseColMat<usize, f64>,
     sign: f64,
 ) -> ContentHash {
-    let mut h = FramedHasher::new("pse.math.gram.v1");
+    let mut h = FramedHasher::new(pse_ids::Frame::MathGramV1);
     h.u64(q.nrows() as u64)
         .u64(q.ncols() as u64)
         .u64(sign.to_bits());

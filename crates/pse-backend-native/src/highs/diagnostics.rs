@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Opt-in native diagnostics preserve their scope and never replace the original solve.
 use super::*;
+use enum_map::EnumMap;
 use pse_ids::SemanticId;
 
 /// Requested native diagnostic work, bounded by the original attempt's deadline.
@@ -237,7 +238,67 @@ pub struct Iis {
     /// Whether the diagnostic concerns a continuous relaxation of a discrete model.
     pub relaxation_only: bool,
 }
-/// One native ranging family, indexed by original columns or rows as its name states.
+/// One of `HiGHS`'s six basis sensitivity ranging families.
+///
+/// Variants are declared in the order of their published spellings, which is the order in
+/// which results and metrics list them.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, enum_map::Enum)]
+pub enum RangeFamily {
+    /// How far each column's upper bound may decrease before the basis changes.
+    ColumnBoundDown,
+    /// How far each column's lower bound may increase before the basis changes.
+    ColumnBoundUp,
+    /// How far each column's cost may decrease before the basis changes.
+    ColumnCostDown,
+    /// How far each column's cost may increase before the basis changes.
+    ColumnCostUp,
+    /// How far each row's bound may decrease before the basis changes.
+    RowBoundDown,
+    /// How far each row's bound may increase before the basis changes.
+    RowBoundUp,
+}
+/// The coordinates a ranging family's entries are indexed by.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RangeSide {
+    /// One entry per original column.
+    Column,
+    /// One entry per original row.
+    Row,
+}
+impl RangeFamily {
+    /// The published spelling, as results and metrics name the family.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ColumnBoundDown => "column_bound_down",
+            Self::ColumnBoundUp => "column_bound_up",
+            Self::ColumnCostDown => "column_cost_down",
+            Self::ColumnCostUp => "column_cost_up",
+            Self::RowBoundDown => "row_bound_down",
+            Self::RowBoundUp => "row_bound_up",
+        }
+    }
+    /// The coordinates this family's entries are indexed by.
+    pub const fn side(self) -> RangeSide {
+        match self {
+            Self::ColumnBoundDown | Self::ColumnBoundUp | Self::ColumnCostDown | Self::ColumnCostUp => {
+                RangeSide::Column
+            }
+            Self::RowBoundDown | Self::RowBoundUp => RangeSide::Row,
+        }
+    }
+    /// Whether the family's values are cost coefficients, which carry objective units per
+    /// variable unit, rather than bounds.
+    pub const fn is_cost(self) -> bool {
+        matches!(self, Self::ColumnCostDown | Self::ColumnCostUp)
+    }
+}
+impl std::fmt::Display for RangeFamily {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+/// One native ranging family, indexed by original columns or rows as its family's side
+/// states.
 #[derive(Clone, Debug)]
 pub struct Range {
     /// Source variable or row coordinate.
@@ -286,8 +347,8 @@ pub struct Report {
     pub dual_ray: Option<Vec<f64>>,
     /// Native irreducible subsystem if found.
     pub iis: Option<Iis>,
-    /// Six native cost/bound range families when the basis supports them.
-    pub ranging: BTreeMap<String, Range>,
+    /// The six native cost/bound range families, when the basis supports them.
+    pub ranging: Option<EnumMap<RangeFamily, Range>>,
     /// Separate explicitly penalized relaxation attempt.
     pub relaxation: Option<Relaxation>,
     /// The fixed-commitment LP and its conditional duals.
@@ -393,7 +454,7 @@ impl Session {
                 }
             }
             relaxation.domains.fill(ModelingVariableDomain::Continuous);
-            let mut hash = pse_ids::FramedHasher::new("pse.highs.iis-relaxation.v1");
+            let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::HighsIisRelaxationV1);
             hash.hash(&p.contract.identity).hash(&p.assumptions);
             relaxation.contract.identity = hash.finish_hash();
             let mut model = upload(&relaxation)?;
@@ -420,52 +481,52 @@ impl Session {
                 );
             } else {
                 let ids: Vec<_> = p.contract.variables.iter().map(|v| v.id).collect();
-                let (mut cu, mut cd, mut bu, mut bd, mut ru, mut rd) = (
-                    Range::new(ids.clone()),
-                    Range::new(ids.clone()),
-                    Range::new(ids.clone()),
-                    Range::new(ids),
-                    Range::new(p.contract.rows.clone()),
-                    Range::new(p.contract.rows.clone()),
+                let mut ranging = EnumMap::from_fn(|family: RangeFamily| {
+                    Range::new(match family.side() {
+                        RangeSide::Column => ids.clone(),
+                        RangeSide::Row => p.contract.rows.clone(),
+                    })
+                });
+                // The native argument order names each family; the map owns each buffer.
+                let (cu, cd, bu, bd, ru, rd) = (
+                    RangeFamily::ColumnCostUp,
+                    RangeFamily::ColumnCostDown,
+                    RangeFamily::ColumnBoundUp,
+                    RangeFamily::ColumnBoundDown,
+                    RangeFamily::RowBoundUp,
+                    RangeFamily::RowBoundDown,
                 );
                 let status = unsafe {
                     ffi::Highs_getRanging(
                         ptr,
-                        cu.value.as_mut_ptr(),
-                        cu.objective.as_mut_ptr(),
-                        cu.entering.as_mut_ptr(),
-                        cu.leaving.as_mut_ptr(),
-                        cd.value.as_mut_ptr(),
-                        cd.objective.as_mut_ptr(),
-                        cd.entering.as_mut_ptr(),
-                        cd.leaving.as_mut_ptr(),
-                        bu.value.as_mut_ptr(),
-                        bu.objective.as_mut_ptr(),
-                        bu.entering.as_mut_ptr(),
-                        bu.leaving.as_mut_ptr(),
-                        bd.value.as_mut_ptr(),
-                        bd.objective.as_mut_ptr(),
-                        bd.entering.as_mut_ptr(),
-                        bd.leaving.as_mut_ptr(),
-                        ru.value.as_mut_ptr(),
-                        ru.objective.as_mut_ptr(),
-                        ru.entering.as_mut_ptr(),
-                        ru.leaving.as_mut_ptr(),
-                        rd.value.as_mut_ptr(),
-                        rd.objective.as_mut_ptr(),
-                        rd.entering.as_mut_ptr(),
-                        rd.leaving.as_mut_ptr(),
+                        ranging[cu].value.as_mut_ptr(),
+                        ranging[cu].objective.as_mut_ptr(),
+                        ranging[cu].entering.as_mut_ptr(),
+                        ranging[cu].leaving.as_mut_ptr(),
+                        ranging[cd].value.as_mut_ptr(),
+                        ranging[cd].objective.as_mut_ptr(),
+                        ranging[cd].entering.as_mut_ptr(),
+                        ranging[cd].leaving.as_mut_ptr(),
+                        ranging[bu].value.as_mut_ptr(),
+                        ranging[bu].objective.as_mut_ptr(),
+                        ranging[bu].entering.as_mut_ptr(),
+                        ranging[bu].leaving.as_mut_ptr(),
+                        ranging[bd].value.as_mut_ptr(),
+                        ranging[bd].objective.as_mut_ptr(),
+                        ranging[bd].entering.as_mut_ptr(),
+                        ranging[bd].leaving.as_mut_ptr(),
+                        ranging[ru].value.as_mut_ptr(),
+                        ranging[ru].objective.as_mut_ptr(),
+                        ranging[ru].entering.as_mut_ptr(),
+                        ranging[ru].leaving.as_mut_ptr(),
+                        ranging[rd].value.as_mut_ptr(),
+                        ranging[rd].objective.as_mut_ptr(),
+                        ranging[rd].entering.as_mut_ptr(),
+                        ranging[rd].leaving.as_mut_ptr(),
                     )
                 };
                 if status == 0 {
-                    report.ranging = BTreeMap::from([
-                        ("column_cost_up".into(), cu),
-                        ("column_cost_down".into(), cd),
-                        ("column_bound_up".into(), bu),
-                        ("column_bound_down".into(), bd),
-                        ("row_bound_up".into(), ru),
-                        ("row_bound_down".into(), rd),
-                    ]);
+                    report.ranging = Some(ranging);
                 } else {
                     report
                         .unavailable

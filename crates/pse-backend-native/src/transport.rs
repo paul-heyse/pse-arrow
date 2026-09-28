@@ -526,10 +526,14 @@ pub fn recover_diagnostics(
     if let Some(v) = r.presolved.as_mut().and_then(|p| p.postsolved.as_mut()) {
         values(v, &n.variables, false)?;
     }
-    for (name, range) in &mut r.ranging {
-        let row = name.starts_with("row_");
-        let cost = name.starts_with("column_cost_");
-        let scales = if row { &n.rows } else { &n.variables };
+    for (family, range) in r.ranging.iter_mut().flat_map(|m| m.iter_mut()) {
+        // A row family's bounds carry row scales and the rows' constants; a column family's
+        // carry variable scales. Costs are objective units per variable unit.
+        let (scales, constants) = match family.side() {
+            crate::highs::diagnostics::RangeSide::Row => (&n.rows, Some(row_constants)),
+            crate::highs::diagnostics::RangeSide::Column => (&n.variables, None),
+        };
+        let cost = family.is_cost();
         if range.value.len() != scales.len() {
             return Err(ProblemError::Internal("ranging coordinate extent".into()));
         }
@@ -540,8 +544,8 @@ pub fn recover_diagnostics(
                 } else {
                     mul(*v, scales[i])?
                 };
-                if row {
-                    *v += row_constants[i];
+                if let Some(constants) = constants {
+                    *v += constants[i];
                     if !v.is_finite() {
                         return Err(ProblemError::numerical("ranging constant overflow"));
                     }
@@ -681,6 +685,73 @@ mod tests {
         assert_eq!(dual.unwrap(), (vec![12.0], vec![16.0]));
         p.domains[0] = pse_model::generated::enums::ModelingVariableDomain::Integer;
         assert!(coefficients(&p, &n, Some(&proof)).is_err());
+    }
+    #[cfg(feature = "highs")]
+    #[test]
+    fn ranging_unscaling_uses_typed_keys() {
+        use crate::highs::diagnostics::{Range, RangeFamily, RangeSide, Report};
+        let n = Normalization {
+            variables: vec![2.0],
+            rows: vec![4.0],
+            objective: 8.0,
+        };
+        let range = |family: RangeFamily| Range {
+            ids: vec![id(match family.side() {
+                RangeSide::Column => 1,
+                RangeSide::Row => 2,
+            })],
+            value: vec![3.0],
+            objective: vec![5.0],
+            entering: vec![0],
+            leaving: vec![-1],
+        };
+        let mut report = Report {
+            ranging: Some(enum_map::EnumMap::from_fn(range)),
+            ..Report::default()
+        };
+        recover_diagnostics(&mut report, &n, &[1.0], &contract()).unwrap();
+        let ranging = report.ranging.unwrap();
+        for (family, recovered) in &ranging {
+            // Costs are objective units per variable unit; column bounds are variable
+            // units; row bounds are row units plus the row's constant.
+            let expected = match family {
+                RangeFamily::ColumnCostDown | RangeFamily::ColumnCostUp => 3.0 * 8.0 / 2.0,
+                RangeFamily::ColumnBoundDown | RangeFamily::ColumnBoundUp => 3.0 * 2.0,
+                RangeFamily::RowBoundDown | RangeFamily::RowBoundUp => 3.0 * 4.0 + 1.0,
+            };
+            assert_eq!(recovered.value, [expected], "{family}");
+            assert_eq!(recovered.objective, [5.0 * 8.0], "{family}");
+        }
+        // The published spellings are unchanged, and listed in their former order.
+        assert_eq!(
+            ranging.iter().map(|(f, _)| f.as_str()).collect::<Vec<_>>(),
+            [
+                "column_bound_down",
+                "column_bound_up",
+                "column_cost_down",
+                "column_cost_up",
+                "row_bound_down",
+                "row_bound_up",
+            ]
+        );
+        // An infinite limit stays infinite; a row family refuses a column-sized range.
+        let mut report = Report {
+            ranging: Some(enum_map::EnumMap::from_fn(|family: RangeFamily| Range {
+                value: vec![f64::INFINITY],
+                ..range(family)
+            })),
+            ..Report::default()
+        };
+        recover_diagnostics(&mut report, &n, &[1.0], &contract()).unwrap();
+        assert!(report.ranging.unwrap().values().all(|r| r.value[0] == f64::INFINITY));
+        let mut report = Report {
+            ranging: Some(enum_map::EnumMap::from_fn(|family: RangeFamily| Range {
+                value: vec![1.0; if family.side() == RangeSide::Row { 2 } else { 1 }],
+                ..range(family)
+            })),
+            ..Report::default()
+        };
+        assert!(recover_diagnostics(&mut report, &n, &[1.0], &contract()).is_err());
     }
     #[test]
     fn coordinate_transport_cone_blocks_and_underflow() {

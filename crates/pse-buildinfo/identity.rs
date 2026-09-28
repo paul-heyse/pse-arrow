@@ -3,7 +3,7 @@
 //! Stable source/configuration framing shared by the build script and isolated tests.
 pub(crate) fn digest(mut entries: Vec<(String, Vec<u8>)>) -> pse_ids::ContentHash {
     entries.sort_by(|a, b| a.0.cmp(&b.0));
-    let mut hash = pse_ids::FramedHasher::new("pse:build-inputs:v1");
+    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::BuildInputsV1);
     for (name, bytes) in entries {
         hash.str(&name).part(&bytes);
     }
