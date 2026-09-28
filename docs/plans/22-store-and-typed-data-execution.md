@@ -274,7 +274,7 @@ Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py sign
 | W0 | D2: ADR-0117 accepted, with the review addendum; this packet written | complete (2026-09-28) |
 | W1 | B1 (R); B3a → B6 (T) | complete: B3a and B6 in merge `8934a521`, B1 in merge `fa5a075c` |
 | W2 | B2 (R); B4 (V); B7 (T) | complete: B4 in merge `ba5f9676`, B7 in merge `057ade3b`, B2 in merge `c664106e` |
-| W3 | O8 (R); B5 (V) | not started |
+| W3 | O8 (R); B5 (V) | running (2026-09-28): two track agents in separate worktrees, each with its own target directory and, where Python is needed, its own venv |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | not started |
 | W5 | O9; docs step | not started |
 | W6 | Scoped qualification | not started |
