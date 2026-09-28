@@ -251,6 +251,29 @@ async fn set_study(
     Ok(())
 }
 
+/// A point status from a projected status row (the statements project the same columns).
+macro_rules! point_status {
+    ($row:expr) => {{
+        let row = $row;
+        Ok::<_, OperationsError>(PointStatus {
+            point_index: stored_index(row.point_index)?,
+            binding_hash: ContentHash::try_from_slice(&row.binding_hash).map_err(|error| {
+                OperationsError::CorruptValue {
+                    column: "study_points.binding_hash",
+                    detail: error.to_string(),
+                }
+            })?,
+            predecessor: row.predecessor.map(stored_index).transpose()?,
+            state: row.state,
+            job_id: JobId::from_id(row.job_id),
+            job_state: row.job_state,
+            attempt_id: AttemptId::from_id(row.attempt_id),
+            attempt_state: row.attempt_state,
+            last_error: row.last_error,
+        })
+    }};
+}
+
 async fn points(
     tx: &Tx<'_>,
     target: &Target,
@@ -262,24 +285,7 @@ async fn points(
         .await
         .classify(target)?
         .into_iter()
-        .map(|row| {
-            Ok(PointStatus {
-                point_index: stored_index(row.point_index)?,
-                binding_hash: ContentHash::try_from_slice(&row.binding_hash).map_err(
-                    |error| OperationsError::CorruptValue {
-                        column: "study_points.binding_hash",
-                        detail: error.to_string(),
-                    },
-                )?,
-                predecessor: row.predecessor.map(stored_index).transpose()?,
-                state: row.state,
-                job_id: JobId::from_id(row.job_id),
-                job_state: row.job_state,
-                attempt_id: AttemptId::from_id(row.attempt_id),
-                attempt_state: row.attempt_state,
-                last_error: row.last_error,
-            })
-        })
+        .map(|row| point_status!(row))
         .collect()
 }
 
@@ -741,6 +747,31 @@ impl<'s> Studies<'s> {
             finalization,
             points,
         })
+    }
+
+    /// One point of a study with its job's state and current attempt.
+    ///
+    /// # Errors
+    ///
+    /// [`OperationsError::NotFound`]; classified driver failures.
+    pub async fn point(&self, study: StudyId, point: u32) -> Result<PointStatus, OperationsError> {
+        let client = self.store.client().await?;
+        let row = statements::one_point_status()
+            .params(
+                &client,
+                &statements::OnePointStatusParams {
+                    study_id: study,
+                    point_index: index(point)?,
+                },
+            )
+            .opt()
+            .await
+            .classify(self.target())?
+            .ok_or_else(|| OperationsError::NotFound {
+                entity: "study point",
+                id: format!("{study}/{point}"),
+            })?;
+        point_status!(row)
     }
 
     /// The study whose coordinating attempt is `attempt`, if any.

@@ -123,3 +123,6 @@ pse.durable.job_request.v2
 pse.explicit-conic.v3
 pse.native.accuracy.v3
 pse.native.controls.v2
+# Plan 22 O7: a durable study's request identity and each point's binding hash.
+pse.durable.study_point_binding.v1
+pse.durable.study_request.v1

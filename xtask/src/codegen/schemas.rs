@@ -128,7 +128,8 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_backend_native::execution::BackendSettings>("backend-settings"),
         document::<pse_backend_native::dynamics::DiffsolSettings>("diffsol-settings"),
         document::<pse_backend_native::dynamics::IdasSettings>("idas-settings"),
-        document::<pse_runtime::workflow::ModelingJob>("modeling-job"),
+        document::<pse_runtime::workflow::JobPayload>("job-payload"),
+        document::<pse_runtime::workflow::StudyDefinition>("study-definition"),
         document::<pse_runtime::workflow::TerminationDetail>("termination-detail"),
         document::<pse_runtime::workflow::SourceManifest>("source-manifest"),
     ]

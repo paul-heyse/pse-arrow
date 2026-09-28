@@ -960,59 +960,6 @@
       ],
       "type": "string"
     },
-    "JobStart": {
-      "description": "How a job's solve is started.",
-      "oneOf": [
-        {
-          "additionalProperties": false,
-          "description": "From the case's authored starts.",
-          "properties": {
-            "kind": {
-              "const": "fresh",
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "From the latest incumbent in the parent attempt chain (Plan 22 G8).",
-          "properties": {
-            "kind": {
-              "const": "resume_from_parent",
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind"
-          ],
-          "type": "object"
-        },
-        {
-          "additionalProperties": false,
-          "description": "From one stored solution (Plan 22 G8).",
-          "properties": {
-            "kind": {
-              "const": "stored_solution",
-              "type": "string"
-            },
-            "solution": {
-              "description": "The stored solution.",
-              "pattern": "^[0-9a-fA-F]{32}$",
-              "type": "string"
-            }
-          },
-          "required": [
-            "kind",
-            "solution"
-          ],
-          "type": "object"
-        }
-      ]
-    },
     "KinsolEta": {
       "description": "Inexact-Newton forcing term of the Krylov routes (`KINSetEtaForm`).",
       "oneOf": [
@@ -1421,6 +1368,34 @@
       ],
       "type": "string"
     },
+    "PointOverlay": {
+      "additionalProperties": false,
+      "description": "Values a study point replaces in its authored case, composed over the original for the\npoint only.",
+      "properties": {
+        "parameters": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Declared parameters by identity.",
+          "patternProperties": {
+            "^[0-9a-fA-F]{32}$": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "values": {
+          "additionalProperties": {
+            "format": "double",
+            "type": "number"
+          },
+          "default": {},
+          "description": "Case values by path.",
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
     "PositiveCount": {
       "description": "A strictly positive count: a dimension, a thread count or an iteration budget.",
       "format": "uint",
@@ -1707,6 +1682,45 @@
       ],
       "type": "string"
     },
+    "StudyPointDefinition": {
+      "additionalProperties": false,
+      "description": "One point of a study's definition.",
+      "properties": {
+        "binding_hash": {
+          "description": "The hash of the point's value bindings.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string"
+        },
+        "case": {
+          "description": "The authored case.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string"
+        },
+        "overlay": {
+          "$ref": "#/$defs/PointOverlay",
+          "default": {
+            "parameters": {},
+            "values": {}
+          },
+          "description": "The values the point replaces in its case."
+        },
+        "predecessor": {
+          "default": null,
+          "description": "The earlier point that seeds it.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "case",
+        "binding_hash"
+      ],
+      "type": "object"
+    },
     "Tolerance": {
       "description": "A finite, strictly positive tolerance, budget or push.",
       "exclusiveMinimum": 0.0,
@@ -1755,13 +1769,8 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "Version 2 of a modeling job: one authored case of a package closure, solved once under\ntyped solve settings. Unknown fields and versions are refused.",
+  "description": "Version 1 of a study's definition: the store's `definition` document and the content of\nthe study's request identity.",
   "properties": {
-    "case": {
-      "description": "The authored case to solve.",
-      "pattern": "^[0-9a-fA-F]{32}$",
-      "type": "string"
-    },
     "modeling": {
       "description": "The source bundles of the modeling package closure, in load order.",
       "items": {
@@ -1775,24 +1784,24 @@
       "pattern": "^blake3:[0-9a-fA-F]{64}$",
       "type": "string"
     },
+    "points": {
+      "description": "The points, in index order.",
+      "items": {
+        "$ref": "#/$defs/StudyPointDefinition"
+      },
+      "type": "array"
+    },
     "route": {
       "$ref": "#/$defs/ModelingAnalysisRoute",
-      "description": "Its analysis route."
+      "description": "The analysis route of every point."
     },
     "settings": {
       "$ref": "#/$defs/SolveSettings",
-      "description": "The solve settings."
-    },
-    "start": {
-      "$ref": "#/$defs/JobStart",
-      "default": {
-        "kind": "fresh"
-      },
-      "description": "How the solve starts."
+      "description": "The solve settings of every point."
     },
     "version": {
-      "const": 2,
-      "default": 2,
+      "const": 1,
+      "default": 1,
       "description": "Document version.",
       "type": "integer"
     }
@@ -1801,10 +1810,10 @@
     "version",
     "physical",
     "modeling",
-    "case",
     "route",
-    "settings"
+    "settings",
+    "points"
   ],
-  "title": "ModelingJob",
+  "title": "StudyDefinition",
   "type": "object"
 }

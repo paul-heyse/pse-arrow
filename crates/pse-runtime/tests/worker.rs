@@ -166,13 +166,13 @@ async fn worker_runs_authored_case_end_to_end() {
         .unwrap()
         .declaration_id;
     let job = ModelingJob {
-        version: pse_model::document::Version,
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
         case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings: settings(),
         start: JobStart::Fresh,
+        study: None,
     };
     let enqueued = operations
         .enqueue(&job, "square-end-to-end", RetryPolicy::ONCE, 0)
@@ -420,13 +420,13 @@ async fn long_scip_job(
     };
     settings.controls.time_limit = time_limit;
     ModelingJob {
-        version: pse_model::document::Version,
         physical: operations.put_sources(&physical).await.unwrap(),
         modeling: vec![operations.put_sources(&modeling).await.unwrap()],
         case: case.as_id(),
         route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
         settings,
         start,
+        study: None,
     }
 }
 

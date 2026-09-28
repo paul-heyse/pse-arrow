@@ -183,7 +183,7 @@ impl PublicationAttempt {
 }
 
 /// The one admitted record a candidate execution returns.
-fn candidate_record(
+pub(super) fn candidate_record(
     completed: &pse_engine::session::CompletedComputation,
     registry: &pse_schema::Registry,
 ) -> Result<publication_manifests::Row, WorkflowError> {

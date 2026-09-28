@@ -96,6 +96,15 @@ JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id
 WHERE p.study_id = :study_id::pse_ops.study_id
 ORDER BY p.point_index;
 
+-- One point with its job's state, current attempt and that attempt's state.
+--! one_point_status : (predecessor?, last_error?)
+SELECT p.point_index, p.binding_hash, p.predecessor, p.state, p.job_id,
+       j.state AS job_state, j.attempt_id, a.state AS attempt_state, j.last_error
+FROM pse_ops.study_points AS p
+JOIN pse_ops.jobs AS j ON j.job_id = p.job_id
+JOIN pse_ops.attempts AS a ON a.attempt_id = j.attempt_id
+WHERE p.study_id = :study_id::pse_ops.study_id AND p.point_index = :point_index;
+
 -- The result members of the completed points, in point and name order.
 --! completed_members
 SELECT m FROM pse_ops.study_point_members AS m
