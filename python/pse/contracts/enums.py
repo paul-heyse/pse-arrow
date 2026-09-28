@@ -21,6 +21,28 @@ class AssertionStatus(StrEnum):
     OBSOLETE = "obsolete"
 
 
+class AttemptKind(StrEnum):
+    """The declared AttemptKind enumeration."""
+
+    MODELING = "modeling"
+    SIMULATION = "simulation"
+    FIT = "fit"
+
+
+class AttemptState(StrEnum):
+    """The declared AttemptState enumeration."""
+
+    PLANNED = "planned"
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    STALE = "stale"
+    SUPERSEDED = "superseded"
+
+
 class Authority(StrEnum):
     """The declared Authority enumeration."""
 
@@ -345,6 +367,16 @@ class InvariantKind(StrEnum):
     DOMAIN = "domain"
     CLOSURE = "closure"
     ACYCLIC = "acyclic"
+
+
+class JobState(StrEnum):
+    """The declared JobState enumeration."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class MemberSelectionKind(StrEnum):
@@ -1014,6 +1046,32 @@ class Stability(StrEnum):
     STABLE = "stable"
     EVOLVING = "evolving"
     INTERNAL = "internal"
+
+
+class StoredSeedKind(StrEnum):
+    """The declared StoredSeedKind enumeration."""
+
+    ROOT = "root"
+    NLP = "nlp"
+    HIGHS = "highs"
+
+
+class StudyPointState(StrEnum):
+    """The declared StudyPointState enumeration."""
+
+    PENDING = "pending"
+    ASSIGNED = "assigned"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class StudyState(StrEnum):
+    """The declared StudyState enumeration."""
+
+    OPEN = "open"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
 
 
 class SubjectRule(StrEnum):

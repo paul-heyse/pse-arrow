@@ -104,13 +104,28 @@ impl RunResult {
         )
     }
     /// Prepare the explicit request and recovery ticket without writes or rerunning science.
+    /// Only a durable run whose attempt is recorded may publish (ADR-0112 Outcome 16).
     /// # Errors
-    /// Invalid declarations, destinations or product obligations.
+    /// An ephemeral run, a durable run whose attempt was not recorded, or invalid
+    /// declarations, destinations or product obligations.
     pub fn prepare_publication_request(
         &self,
         request: PublicationRequest,
         cancel: &CancellationToken,
     ) -> Result<PublicationAttempt, WorkflowError> {
+        match &self.durability {
+            super::RunDurability::Ephemeral => {
+                return Err(WorkflowError::EphemeralPublication {
+                    run_id: self.run_id,
+                });
+            }
+            super::RunDurability::Durable(record) => {
+                record
+                    .attempt
+                    .as_ref()
+                    .map_err(|error| WorkflowError::Shared(error.clone()))?;
+            }
+        }
         let PublicationRequest {
             base,
             workspace_id,
@@ -167,11 +182,17 @@ impl RunResult {
         let mut target = FramedHasher::new("pse.run.target.v1");
         match &self.request {
             super::run::RunRequest::Modeling(steps) => {
-              for p in steps {
-                source.hash(&p.source.revision.identity());
-                algorithms.hash(&p.model.case.compiled().plan.structure().key()).hash(&p.model.case.compiled().presolve.key);
-                target.hash(&p.solve.request_identity().map_err(crate::math::MathRuntimeError::from)?);
-              }
+                for p in steps {
+                    source.hash(&p.source.revision.identity());
+                    algorithms
+                        .hash(&p.model.case.compiled().plan.structure().key())
+                        .hash(&p.model.case.compiled().presolve.key);
+                    target.hash(
+                        &p.solve
+                            .request_identity()
+                            .map_err(crate::math::MathRuntimeError::from)?,
+                    );
+                }
             }
             super::run::RunRequest::Fit(f) => {
                 source.hash(&f.problem.source_identity);

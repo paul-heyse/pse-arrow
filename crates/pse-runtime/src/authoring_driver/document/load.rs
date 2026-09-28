@@ -355,7 +355,9 @@ fn check_size(texts: &BTreeMap<String, String>, allowed: u64) -> Result<(), Driv
     }
 }
 
-fn package_checksum(texts: &BTreeMap<String, String>) -> ContentHash {
+/// The package content hash (blueprint §6.1) over sorted path/text pairs: the identity of an
+/// authored package, and of a source bundle stored for job execution (ADR-0112).
+pub fn package_checksum(texts: &BTreeMap<String, String>) -> ContentHash {
     // An integrity encoding: sorted path/text pairs, each prefixed by its byte length.
     let mut bytes = Vec::new();
     for (path, text) in texts {

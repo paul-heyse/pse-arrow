@@ -24,6 +24,7 @@ mod modeling_analysis;
 mod modeling_native_analysis;
 mod native_math;
 mod normalization;
+mod operations;
 mod publication;
 mod row_checks;
 pub mod s14_passes;
@@ -92,6 +93,7 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     modeling_analysis::register(builder);
     modeling_native_analysis::register(builder);
     publication::declare(builder);
+    operations::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);
     normalization::declare(builder);

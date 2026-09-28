@@ -44,9 +44,33 @@ pub(super) fn runtime() -> Runtime {
     runtime_with_workspace(16 << 20)
 }
 pub(super) fn runtime_with_workspace(workspace_bytes: usize) -> Runtime {
+    runtime_with(
+        512 << 20,
+        crate::math::MathPolicy {
+            worker_bytes: 8 << 20,
+            workspace_bytes,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    )
+}
+/// A runtime whose worker budget admits the default evaluation profile (64 MiB of scratch),
+/// which a job's declared analysis uses.
+pub(super) fn job_runtime() -> Runtime {
+    runtime_with(
+        1 << 30,
+        crate::math::MathPolicy {
+            worker_bytes: 128 << 20,
+            workspace_bytes: 128 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    )
+}
+fn runtime_with(memory: usize, math: crate::math::MathPolicy) -> Runtime {
     let n = |v| NonZeroUsize::new(v).unwrap();
     let shared = SharedRuntime::build(crate::ResourceBudget {
-        memory_limit_bytes: n(512 << 20),
+        memory_limit_bytes: n(memory),
         spill_dir: std::env::temp_dir(),
         max_temp_dir_bytes: 1 << 30,
         top_consumers: n(5),
@@ -56,12 +80,7 @@ pub(super) fn runtime_with_workspace(workspace_bytes: usize) -> Runtime {
         },
         execution: Default::default(),
         cache: crate::DeltaCacheBudget::disabled(1024),
-        math: crate::math::MathPolicy {
-            worker_bytes: 8 << 20,
-            workspace_bytes,
-            foreign_bytes: 1 << 20,
-            ..Default::default()
-        },
+        math,
         hashing_may_use_pool: false,
     })
     .unwrap();

@@ -1,0 +1,14 @@
+{
+  "invariant": "runtime.operational_source_documents:unique:pk",
+  "rows": {
+    "runtime.operational_source_documents": [
+      {
+        "bundle_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "content": "[\"text\",\"value-1\"]",
+        "content_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "path": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

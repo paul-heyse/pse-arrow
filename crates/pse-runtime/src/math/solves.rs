@@ -121,6 +121,37 @@ impl PreparedSolve {
         }
         Ok(h.finish_hash())
     }
+    /// The preparation a stored seed is keyed by (ADR-0112 Outcome 17): the compiled
+    /// structure, its artifacts and providers, and the seed coordinates and backend. Numeric
+    /// data, the start policy, native options and attempt limits are excluded, because a
+    /// seed in source coordinates stays valid across them (F24); it is `None` for a constant
+    /// evaluation, which consumes no seed.
+    pub fn seed_preparation_identity(&self) -> Option<pse_ids::ContentHash> {
+        let compatibility = self.compatibility.as_ref()?;
+        let mut h = FramedHasher::new("pse.solve.seed_preparation.v1");
+        match &self.representation {
+            Representation::Algebraic(AlgebraicCase {
+                prepared,
+                providers,
+                ..
+            }) => {
+                for provider in providers.values() {
+                    h.hash(&provider.configuration_key());
+                }
+                h.str("algebraic")
+                    .hash(&prepared.compiled().plan.structure().key());
+                for artifact in prepared.compiled().artifacts.iter() {
+                    h.hash(&artifact.key());
+                }
+            }
+            Representation::Conic { .. } => {
+                h.str("conic");
+            }
+        }
+        h.hash(&compatibility.layout)
+            .str(compatibility.backend.as_str());
+        Some(h.finish_hash())
+    }
     /// Complete selected request, including explicit seed payload and compatibility data.
     pub fn request_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
         let mut h = FramedHasher::new("pse.solve.request.v1");

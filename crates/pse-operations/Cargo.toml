@@ -16,9 +16,18 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = []
+# Isolated, migrated databases for tests in other crates; sqlx stays in this crate.
+test-support = ["dep:url"]
+
 [dependencies]
 pse-diagnostics.workspace = true
 pse-ids.workspace = true
+# The registry enumerations (attempt, job, study and seed spellings) are the one authority
+# for the stored text values (ADR-0112 Outcome 10).
+pse-model.workspace = true
+url = { workspace = true, optional = true }
 sqlx.workspace = true
 uuid.workspace = true
 chrono.workspace = true
@@ -30,6 +39,12 @@ clap.workspace = true
 # Not called directly: enables whoami's `std` feature for sqlx-postgres, whose default
 # connection user is otherwise "anonymous" (see the root manifest).
 whoami.workspace = true
+
+[dev-dependencies]
+# The migration-conformance test compares the migrated schema with the registry.
+pse-schema.workspace = true
+arrow-schema.workspace = true
+url.workspace = true
 
 [package.metadata.cargo-machete]
 ignored = ["whoami"]

@@ -31,19 +31,38 @@ fn mark(phases: &mut BTreeMap<String, f64>, name: &str, started: Instant) {
     *phases.entry(name.into()).or_default() += started.elapsed().as_secs_f64();
 }
 /// Vary instance count by composing the authored unit, without restating its equations.
-fn heater_blocks(package: &ModelingPackage, blocks: usize) -> (ModelingPackage,pse_ids::SemanticId) {
-    let mut fixture=String::new();
-    let mut children=String::new();
+fn heater_blocks(
+    package: &ModelingPackage,
+    blocks: usize,
+) -> (ModelingPackage, pse_ids::SemanticId) {
+    let mut fixture = String::new();
+    let mut children = String::new();
     for i in 0..blocks {
         fixture.push_str(&format!("fix block{i}.duty=16204.445642740735{{W}};"));
         children.push_str(&format!("child block{i}:homogeneous_units.HeaterRecycle=homogeneous_units.HeaterRecycle(selected=chem.alkanes,law=pcsaft.potential,ideal_h=vessel_fixtures.ideal_enthalpy,composition=vessel_fixtures.fraction); expect block{i}.phase.T==350{{K}} tolerance 0.00001{{K}}; expect block{i}.recycle==5{{mol/s}} tolerance 0.000001{{mol/s}};"));
     }
-    let source=format!("@id(\"b70ab2554b57594e8d2b75288e80da8e\") package homogeneous_fixtures {{test workload fixture {{dof 0; run steady; {fixture}}} {{{children}}} }}");
-    let extra=pse_authoring::language::parse(&source,pse_ids::named_id(pse_ids::SemanticId::NIL,"process-cost-heaters"),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
-    let case=extra.iter().find(|r|r.name=="workload").unwrap().declaration_id;
-    let mut rows=package.declarations().to_vec();
-    rows.extend(extra.into_iter().filter(|r|r.value.kind.as_str()!="package"));
-    (package.with_declarations(rows).unwrap(),case)
+    let source = format!(
+        "@id(\"b70ab2554b57594e8d2b75288e80da8e\") package homogeneous_fixtures {{test workload fixture {{dof 0; run steady; {fixture}}} {{{children}}} }}"
+    );
+    let extra = pse_authoring::language::parse(
+        &source,
+        pse_ids::named_id(pse_ids::SemanticId::NIL, "process-cost-heaters"),
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
+    let case = extra
+        .iter()
+        .find(|r| r.name == "workload")
+        .unwrap()
+        .declaration_id;
+    let mut rows = package.declarations().to_vec();
+    rows.extend(
+        extra
+            .into_iter()
+            .filter(|r| r.value.kind.as_str() != "package"),
+    );
+    (package.with_declarations(rows).unwrap(), case)
 }
 fn process(c: &mut Criterion) {
     use tracing_subscriber::prelude::*;
@@ -68,14 +87,39 @@ fn process(c: &mut Criterion) {
         .enable_all()
         .build()
         .unwrap();
-    let flash=pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap();
-    let retained = if reuse == "cold" { None } else {
-        let owner=WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
-        let source=executor.block_on(seed_package(&owner));
-        let (package,case)=if operation=="flash" {(source.clone(),flash)} else {heater_blocks(&source,blocks)};
-        let prepared=executor.block_on(seed_prepare(&package,case,profile(Backend::Ipopt,false),&CancelSource::new())).unwrap();
+    let flash = pse_ids::SemanticId::parse_hex("040af20814bc57abb565c3c7f680be05").unwrap();
+    // Only durable runs publish (ADR-0112 Outcome 16): publication runs are attempts in an
+    // isolated operational store; the other operations stay ephemeral.
+    let store = (operation == "publication").then(|| {
+        executor
+            .block_on(pse_operations::testing::TestDatabase::create())
+            .unwrap()
+    });
+    let seed = |owner: &WorkflowRuntime| match &store {
+        Some(database) => executor
+            .block_on(async { seed_package_on(owner, durable(owner, database.url()).await).await }),
+        None => executor.block_on(seed_package(owner)),
+    };
+    let retained = if reuse == "cold" {
+        None
+    } else {
+        let owner = WorkflowRuntime::with_threads(NonZeroUsize::new(threads).unwrap()).unwrap();
+        let source = seed(&owner);
+        let (package, case) = if operation == "flash" {
+            (source.clone(), flash)
+        } else {
+            heater_blocks(&source, blocks)
+        };
+        let prepared = executor
+            .block_on(seed_prepare(
+                &package,
+                case,
+                profile(Backend::Ipopt, false),
+                &CancelSource::new(),
+            ))
+            .unwrap();
         authored_success(&executor.block_on(prepared.start().unwrap().wait()).unwrap());
-        Some((owner,source,package,case))
+        Some((owner, source, package, case))
     };
     let mut phases = BTreeMap::new();
     compiler_phases.reset();
@@ -103,7 +147,7 @@ fn process(c: &mut Criterion) {
         let (mut package,case)=if let Some((_,source,package,case))=&retained {
             if reuse=="structure" {heater_blocks(source,blocks+(iterations as usize%2))} else {(package.clone(),*case)}
         } else {
-            let source=executor.block_on(seed_package(owner));
+            let source=seed(owner);
             if operation=="flash" {(source,flash)} else {heater_blocks(&source,blocks)}
         };
         if reuse=="specialization" {
@@ -197,8 +241,13 @@ fn process(c: &mut Criterion) {
     group.finish();
     // Warm samples deliberately retain their original revision and runtime.
     // Observe that owner's release separately from each sample's case teardown.
-    let retained_pool = retained.as_ref().map(|(owner, _, _, _)| owner.runtime.pool());
+    let retained_pool = retained
+        .as_ref()
+        .map(|(owner, _, _, _)| owner.runtime.pool());
     drop(retained);
+    if let Some(database) = store {
+        executor.block_on(database.remove()).unwrap();
+    }
     drop(executor);
     let final_retained_runtime_bytes = retained_pool.map(|pool| pool.reserved());
     for value in phases.values_mut() {

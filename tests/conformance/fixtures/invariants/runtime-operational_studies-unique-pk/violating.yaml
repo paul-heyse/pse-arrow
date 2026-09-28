@@ -1,0 +1,26 @@
+{
+  "invariant": "runtime.operational_studies:unique:pk",
+  "rows": {
+    "runtime.operational_studies": [
+      {
+        "created_at": "[\"i64\",1]",
+        "definition": "[\"text\",\"value-1\"]",
+        "state": "[\"enum\",\"open\"]",
+        "study_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "updated_at": "[\"i64\",1]"
+      },
+      {
+        "created_at": "[\"i64\",1]",
+        "definition": "[\"text\",\"value-1\"]",
+        "state": "[\"enum\",\"open\"]",
+        "study_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "updated_at": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

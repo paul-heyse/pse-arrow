@@ -21,9 +21,14 @@ mod error;
 pub mod jobs;
 pub mod lifecycle;
 pub mod solutions;
+pub mod sources;
 mod store;
 pub mod streams;
+#[cfg(any(test, feature = "test-support"))]
+pub mod testing;
 
+#[cfg(test)]
+mod conformance_tests;
 #[cfg(test)]
 mod store_tests;
 

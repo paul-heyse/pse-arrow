@@ -203,7 +203,9 @@ impl ModelingSimulation {
         &self.contract
     }
     /// Physical parameter values in the contract's declared order.
-    pub fn parameters(&self) -> &[f64] { &self.parameters }
+    pub fn parameters(&self) -> &[f64] {
+        &self.parameters
+    }
     pub fn profile(&self) -> &native::Profile {
         &self.profile
     }
@@ -230,11 +232,19 @@ impl ModelingSimulation {
         }
     }
     pub(in crate::workflow) fn submit(
-        &self, run_id: SemanticId,
-    ) -> Result<crate::math::solves::SolveHandle<((native::Report, checks::SampleChecks), Arc<pse_columnar::AllocationLease>)>, WorkflowError> {
+        &self,
+        run_id: SemanticId,
+        submission: crate::math::Submission,
+    ) -> Result<
+        crate::math::solves::SolveHandle<(
+            (native::Report, checks::SampleChecks),
+            Arc<pse_columnar::AllocationLease>,
+        )>,
+        WorkflowError,
+    > {
         let service = self.runtime.shared.math();
         let prepared = self.clone();
-        let handle = service.submit(1, self.bytes, move |flag, progress| {
+        let handle = service.submit_with(1, self.bytes, submission, move |flag, progress| {
             #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
             {
                 let started = std::time::Instant::now();
@@ -302,17 +312,22 @@ impl ModelingSimulation {
         }
     }
     /// Await one joined run. Cancellation still waits for native teardown.
-    pub async fn run(&self, cancel: &crate::CancelSource) -> Result<ModelingTrajectory, WorkflowError> {
-        let handle=self.start()?;
-        let wait=handle.wait();tokio::pin!(wait);
-        let result=tokio::select! { r=&mut wait=>r?, ()=cancel.cancelled()=>{handle.cancel();wait.await?} };
+    pub async fn run(
+        &self,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingTrajectory, WorkflowError> {
+        let handle = self.start()?;
+        let wait = handle.wait();
+        tokio::pin!(wait);
+        let result = tokio::select! { r=&mut wait=>r?, ()=cancel.cancelled()=>{handle.cancel();wait.await?} };
         match &result.report {
-            Ok(crate::workflow::RunReport::Simulation(trajectory))=>Ok(trajectory.as_ref().clone()),
-            Err(error)=>Err(WorkflowError::Shared(error.clone())),
-            _=>Err(contract("simulation report mismatch")),
+            Ok(crate::workflow::RunReport::Simulation(trajectory)) => {
+                Ok(trajectory.as_ref().clone())
+            }
+            Err(error) => Err(WorkflowError::Shared(error.clone())),
+            _ => Err(contract("simulation report mismatch")),
         }
     }
-
 }
 /// One owner for integrated state/parameter layout, shared with data-authored fixtures.
 pub(super) fn dynamic_ports(
@@ -407,7 +422,9 @@ pub(super) fn dynamic_ports(
 impl ModelingPackage {
     /// Resolve authored integration controls against the generated coordinate layout.
     pub(in crate::workflow) fn integration_profile(
-        &self, model: &ModelingPreparation, data: &pse_modeling::specialize::Fixture,
+        &self,
+        model: &ModelingPreparation,
+        data: &pse_modeling::specialize::Fixture,
         numerics: &pse_model::numerics::NumericalPolicy,
     ) -> Result<native::Profile, WorkflowError> {
         let integration = data
@@ -448,8 +465,14 @@ impl ModelingPackage {
                 .model
                 .integrals
                 .keys()
-                .map(|id| integration.quadratures.get(id).copied().ok_or_else(||contract("integral tolerance absent")))
-                .collect::<Result<_,_>>()?,
+                .map(|id| {
+                    integration
+                        .quadratures
+                        .get(id)
+                        .copied()
+                        .ok_or_else(|| contract("integral tolerance absent"))
+                })
+                .collect::<Result<_, _>>()?,
             atol: vec![integration.normalized_absolute_tolerance; states.len()],
             initial_step: integration.initial_step * time_scale,
             parameter_scales: vec![1.; parameters.len()],
@@ -477,10 +500,19 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
-        let profile=if let Some(profile)=profile {profile} else {
-            let model=self.prepare(root,root,bindings.clone(),limits,cancel).await?;
-            let fixture=model.compiled().model.fixtures.get(&root).ok_or_else(||contract("authored integration controls absent"))?;
-            self.integration_profile(&model,fixture,&Default::default())?
+        let profile = if let Some(profile) = profile {
+            profile
+        } else {
+            let model = self
+                .prepare(root, root, bindings.clone(), limits, cancel)
+                .await?;
+            let fixture = model
+                .compiled()
+                .model
+                .fixtures
+                .get(&root)
+                .ok_or_else(|| contract("authored integration controls absent"))?;
+            self.integration_profile(&model, fixture, &Default::default())?
         };
         self.prepare_simulation(
             root, root, bindings, limits, case, compiler, profile, cancel,
@@ -1503,7 +1535,9 @@ mod tests {
             },
             StartSource::Predecessor,
             StartSource::Continuation,
-            StartSource::Stored,
+            StartSource::Stored {
+                solution: SemanticId::NIL,
+            },
         ] {
             assert_eq!(start_row(&outputs, state, Some(&source)).unwrap(), None);
         }
@@ -2330,32 +2364,100 @@ mod tests {
     }
     #[tokio::test]
     async fn kernel_nonlinear_dae_initial_parameter_sensitivities_and_quadrature_agree() {
-        let runtime=super::super::super::tests::runtime();
-        let (physical,names)=physical();
-        let source="package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; var y[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==p; eq initial:x[0{s}]==offset; eq algebraic[i in t]:y[i]*y[i]==x[i]/1{s}; annotation start x(1{s}); annotation start y(1); let area:Time=integral(i in t | p); annotation check area(abs(area-2{s})<1e-5{s}); } }";
-        let rows=pse_authoring::language::parse(source,SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
-        let root=rows.iter().find(|r|r.name=="Root").unwrap().declaration_id;
-        let y_declaration=rows.iter().find(|r|r.name=="y").unwrap().declaration_id;
-        let package=runtime.modeling_package(rows,physical,names).unwrap();
-        let cancel=crate::CancelSource::new();
-        let mut methods=vec![native::Method::Diffsol];
-        #[cfg(feature="solver-idas")]
+        let runtime = super::super::super::tests::runtime();
+        let (physical, names) = physical();
+        let source = "package p { def Root { domain t:Time from 0{s} to 1{s}; discretize mesh on t using integrated(elements=1,order=1); param p:Scalar=2; param offset:Time=1{s}; var x[i in t]:Time; var y[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==p; eq initial:x[0{s}]==offset; eq algebraic[i in t]:y[i]*y[i]==x[i]/1{s}; annotation start x(1{s}); annotation start y(1); let area:Time=integral(i in t | p); annotation check area(abs(area-2{s})<1e-5{s}); } }";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|r| r.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let y_declaration = rows.iter().find(|r| r.name == "y").unwrap().declaration_id;
+        let package = runtime.modeling_package(rows, physical, names).unwrap();
+        let cancel = crate::CancelSource::new();
+        let mut methods = vec![native::Method::Diffsol];
+        #[cfg(feature = "solver-idas")]
         methods.push(native::Method::Idas);
         for method in methods {
-            let profile=native::Profile{method,end:1.,samples:vec![0.,0.5,1.],rtol:1e-8,atol:vec![1e-10;2],parameter_scales:vec![1.;2],sensitivities:true,out_rtol:Some(1e-8),out_atol:vec![1e-9],..Default::default()};
-            let prepared=package.prepare_simulation(root,root,Bindings::default(),Default::default(),Default::default(),super::super::super::tests::compiler_profile(),profile,&cancel).await.unwrap();
-            let y=prepared.model().compiled().model.symbols.values().find(|s|s.lineage.declaration==y_declaration).unwrap().id;
-            let yi=prepared.contract.states.iter().position(|id|*id==y).unwrap();
-            let parameter=|name:&str|prepared.model().compiled().model.symbols.values().find(|s|s.lineage.path.ends_with(&format!(".{name}"))).unwrap().id;
-            let pi=prepared.contract.parameters.iter().position(|id|*id==parameter("p")).unwrap();
-            let oi=prepared.contract.parameters.iter().position(|id|*id==parameter("offset")).unwrap();
-            let result=prepared.run(&cancel).await.unwrap();
-            assert!(result.accepted,"{method:?}: {:?}",result.diagnostic());
+            let profile = native::Profile {
+                method,
+                end: 1.,
+                samples: vec![0., 0.5, 1.],
+                rtol: 1e-8,
+                atol: vec![1e-10; 2],
+                parameter_scales: vec![1.; 2],
+                sensitivities: true,
+                out_rtol: Some(1e-8),
+                out_atol: vec![1e-9],
+                ..Default::default()
+            };
+            let prepared = package
+                .prepare_simulation(
+                    root,
+                    root,
+                    Bindings::default(),
+                    Default::default(),
+                    Default::default(),
+                    super::super::super::tests::compiler_profile(),
+                    profile,
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let y = prepared
+                .model()
+                .compiled()
+                .model
+                .symbols
+                .values()
+                .find(|s| s.lineage.declaration == y_declaration)
+                .unwrap()
+                .id;
+            let yi = prepared
+                .contract
+                .states
+                .iter()
+                .position(|id| *id == y)
+                .unwrap();
+            let parameter = |name: &str| {
+                prepared
+                    .model()
+                    .compiled()
+                    .model
+                    .symbols
+                    .values()
+                    .find(|s| s.lineage.path.ends_with(&format!(".{name}")))
+                    .unwrap()
+                    .id
+            };
+            let pi = prepared
+                .contract
+                .parameters
+                .iter()
+                .position(|id| *id == parameter("p"))
+                .unwrap();
+            let oi = prepared
+                .contract
+                .parameters
+                .iter()
+                .position(|id| *id == parameter("offset"))
+                .unwrap();
+            let result = prepared.run(&cancel).await.unwrap();
+            assert!(result.accepted, "{method:?}: {:?}", result.diagnostic());
             for sample in &result.report.samples {
-                let y=(1.+2.*sample.time).sqrt();
-                assert!((sample.state[yi]-y).abs()<1e-6);
-                assert!((sample.state_sensitivities[yi*2+pi]-sample.time/(2.*y)).abs()<1e-5);
-                assert!((sample.state_sensitivities[yi*2+oi]-1./(2.*y)).abs()<1e-5);
+                let y = (1. + 2. * sample.time).sqrt();
+                assert!((sample.state[yi] - y).abs() < 1e-6);
+                assert!(
+                    (sample.state_sensitivities[yi * 2 + pi] - sample.time / (2. * y)).abs() < 1e-5
+                );
+                assert!((sample.state_sensitivities[yi * 2 + oi] - 1. / (2. * y)).abs() < 1e-5);
             }
         }
     }

@@ -68,11 +68,17 @@ pse-ids.workspace = true
 datafusion-execution.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+# The operational store: durable attempts, jobs, streams and seeds (ADR-0112).
+pse-operations.workspace = true
+chrono.workspace = true
 
 [dev-dependencies]
+pse-operations = { workspace = true, features = ["test-support"] }
+tempfile.workspace = true
 pse-relations = { workspace = true, features = ["test-support"] }
 url.workspace = true
 pse-testkit.workspace = true
 pse-quantity = { workspace = true, features = ["fixtures"] }
 datafusion-common.workspace = true
 tokio.workspace = true
+

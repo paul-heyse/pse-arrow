@@ -91,6 +91,20 @@ where
         .map_err(|error: T::Err| decode_error(column, error))
 }
 
+/// A nullable text column holding a Rust enumeration's spelling.
+pub(crate) fn opt_parsed<T>(row: &PgRow, column: &str) -> Result<Option<T>, sqlx::Error>
+where
+    T: FromStr,
+    T::Err: ToString,
+{
+    let text: Option<String> = row.try_get(column)?;
+    text.map(|text| {
+        text.parse()
+            .map_err(|error: T::Err| decode_error(column, error))
+    })
+    .transpose()
+}
+
 #[cfg(test)]
 mod codec_unit {
     use super::*;

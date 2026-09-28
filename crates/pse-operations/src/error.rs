@@ -118,7 +118,7 @@ pub enum OperationsError {
         reason: String,
     },
     /// The one transition table refuses this state change (DP-03).
-    #[error("attempt {attempt}: illegal transition {from} -> {to}")]
+    #[error("attempt {attempt}: illegal transition {} -> {}", from.as_str(), to.as_str())]
     IllegalTransition {
         /// The attempt.
         attempt: SemanticId,

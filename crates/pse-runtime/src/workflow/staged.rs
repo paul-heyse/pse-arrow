@@ -125,6 +125,22 @@ impl Staged {
             progress,
         })
     }
+    /// Open a sequence for durable work: native admission queues until a job slot is free
+    /// instead of refusing (ADR-0112 Outcome 14).
+    ///
+    /// # Errors
+    /// Pool capacity, or the session thread could not start.
+    pub(in crate::workflow) async fn open_queued(
+        runtime: &Runtime,
+        progress: Option<Arc<Progress>>,
+    ) -> Result<Self, WorkflowError> {
+        Ok(Self {
+            runtime: runtime.clone(),
+            session: runtime.native().open_session_queued().await?,
+            records: Vec::new(),
+            progress,
+        })
+    }
     /// The values a step starting at `start` is seeded with, by the candidate-use rule
     /// (ADR-0106): none for the specification; an accepted result's solved values; or, for
     /// an explicit dependency, a result's or a seed-only candidate's. `None` refuses the

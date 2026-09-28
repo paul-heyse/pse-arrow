@@ -276,6 +276,27 @@ pub(super) fn observed(
                 super::WorkflowError::Authoring(error) => Some(error),
                 super::WorkflowError::Shared(error) => Some(error.as_ref()),
                 super::WorkflowError::Contract(_) => None,
+                // Retryable store failures are infrastructure; refusals of the durable
+                // contract (an illegal transition, a lost lease) are conflicts.
+                super::WorkflowError::Operations(error) => {
+                    result.class = if error.is_retryable() {
+                        Class::Infrastructure
+                    } else {
+                        Class::Conflict
+                    };
+                    result.rule = "workflow.operations".into();
+                    None
+                }
+                super::WorkflowError::EphemeralPublication { .. } => {
+                    result.class = Class::Incompatible;
+                    result.rule = "workflow.ephemeral_publication".into();
+                    None
+                }
+                super::WorkflowError::UnknownPayloadVersion { .. } => {
+                    result.class = Class::Incompatible;
+                    result.rule = "workflow.job_payload_version".into();
+                    None
+                }
             }
         } else if let Some(driver) = error.downcast_ref::<crate::authoring_driver::DriverError>() {
             use crate::authoring_driver::DriverError as E;

@@ -3,33 +3,10 @@
 
 //! The attempt lifecycle: one pure transition table, the only authority for legality
 //! (ADR-0112 Outcome 12, finding T13). Repository functions apply it inside a transaction
-//! under a row lock; SQL enforces only the value domain.
+//! under a row lock; SQL enforces only the value domain. The state spellings are the
+//! registry enumeration `AttemptState` (DP-19).
 
-use std::fmt;
-use std::str::FromStr;
-
-/// The durable lifecycle state of an attempt (DP-19).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum AttemptState {
-    /// Registered; not yet queued.
-    Planned,
-    /// Waiting for a worker.
-    Queued,
-    /// Owned by a worker under a lease.
-    Running,
-    /// Finished with a complete result.
-    Completed,
-    /// Finished with a usable but incomplete result.
-    Partial,
-    /// Finished without a usable result.
-    Failed,
-    /// Stopped on request.
-    Cancelled,
-    /// The running worker's lease expired; the attempt's outcome is unknown.
-    Stale,
-    /// A stale attempt replaced by a new attempt.
-    Superseded,
-}
+pub use pse_model::generated::enums::AttemptState;
 
 use AttemptState::{
     Cancelled, Completed, Failed, Partial, Planned, Queued, Running, Stale, Superseded,
@@ -53,73 +30,39 @@ pub const TRANSITIONS: &[(AttemptState, AttemptState)] = &[
     (Stale, Superseded),
 ];
 
-impl AttemptState {
-    /// Every state, in lifecycle order.
-    pub const ALL: [Self; 9] = [
-        Planned, Queued, Running, Completed, Partial, Failed, Cancelled, Stale, Superseded,
-    ];
+/// The state every attempt is created in.
+pub const INITIAL: AttemptState = Planned;
 
-    /// The state every attempt is created in.
-    pub const INITIAL: Self = Planned;
+/// Lifecycle rules of an attempt state, read from [`TRANSITIONS`].
+pub trait Lifecycle: Copy {
+    /// Whether `to` may follow `self`.
+    fn may_become(self, to: Self) -> bool;
+    /// The legal successors of this state.
+    fn successors(self) -> impl Iterator<Item = Self>;
+    /// No transition leaves this state.
+    fn is_final(self) -> bool;
+    /// The attempt stopped doing work: its finish time is recorded on entry.
+    fn ends_work(self) -> bool;
+}
 
-    /// The stored spelling (registry enumeration value).
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Planned => "planned",
-            Queued => "queued",
-            Running => "running",
-            Completed => "completed",
-            Partial => "partial",
-            Failed => "failed",
-            Cancelled => "cancelled",
-            Stale => "stale",
-            Superseded => "superseded",
-        }
-    }
-
-    /// Whether `to` may follow `self`, according to [`TRANSITIONS`].
-    pub fn may_become(self, to: Self) -> bool {
+impl Lifecycle for AttemptState {
+    fn may_become(self, to: Self) -> bool {
         TRANSITIONS.contains(&(self, to))
     }
 
-    /// The legal successors of this state.
-    pub fn successors(self) -> impl Iterator<Item = Self> {
+    fn successors(self) -> impl Iterator<Item = Self> {
         TRANSITIONS
             .iter()
             .filter(move |(from, _)| *from == self)
             .map(|&(_, to)| to)
     }
 
-    /// No transition leaves this state.
-    pub fn is_final(self) -> bool {
+    fn is_final(self) -> bool {
         self.successors().next().is_none()
     }
 
-    /// The attempt stopped doing work: its finish time is recorded on entry.
-    pub const fn ends_work(self) -> bool {
+    fn ends_work(self) -> bool {
         matches!(self, Completed | Partial | Failed | Cancelled | Stale)
-    }
-}
-
-impl fmt::Display for AttemptState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-/// The stored text is not an attempt state.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("unknown attempt state `{0}`")]
-pub struct UnknownState(pub String);
-
-impl FromStr for AttemptState {
-    type Err = UnknownState;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        Self::ALL
-            .into_iter()
-            .find(|state| state.as_str() == text)
-            .ok_or_else(|| UnknownState(text.to_owned()))
     }
 }
 
@@ -152,23 +95,28 @@ mod transition_unit {
             (Running, Running),
             (Running, Queued),
         ] {
-            assert!(!from.may_become(to), "{from} -> {to} must be illegal");
+            assert!(
+                !from.may_become(to),
+                "{} -> {} must be illegal",
+                from.as_str(),
+                to.as_str()
+            );
         }
     }
 
     #[test]
     fn finished_states_have_no_successors() {
         for state in [Completed, Partial, Failed, Cancelled, Superseded] {
-            assert!(state.is_final(), "{state}");
+            assert!(state.is_final(), "{}", state.as_str());
         }
         for state in [Planned, Queued, Running, Stale] {
-            assert!(!state.is_final(), "{state}");
+            assert!(!state.is_final(), "{}", state.as_str());
         }
     }
 
     #[test]
     fn every_state_is_reachable_from_the_initial_state() {
-        let mut reached = vec![AttemptState::INITIAL];
+        let mut reached = vec![INITIAL];
         let mut index = 0;
         while let Some(&state) = reached.get(index) {
             for next in state.successors() {
@@ -179,17 +127,16 @@ mod transition_unit {
             index += 1;
         }
         reached.sort();
-        assert_eq!(reached, AttemptState::ALL);
+        let mut all = AttemptState::ALL.to_vec();
+        all.sort();
+        assert_eq!(reached, all);
     }
 
     #[test]
     fn spelling_round_trips_and_rejects_unknown_text() {
         for state in AttemptState::ALL {
-            assert_eq!(state.as_str().parse::<AttemptState>(), Ok(state));
+            assert_eq!(state.as_str().parse::<AttemptState>().ok(), Some(state));
         }
-        assert_eq!(
-            "Running".parse::<AttemptState>(),
-            Err(UnknownState("Running".to_owned()))
-        );
+        assert!("Running".parse::<AttemptState>().is_err());
     }
 }

@@ -141,6 +141,28 @@ impl MathService {
             .clone()
             .try_acquire_owned()
             .map_err(|_| MathRuntimeError::Limit("native jobs"))?;
+        self.session_on(slot)
+    }
+    /// Open a native session for durable work: wait for a job slot instead of refusing
+    /// (ADR-0112 Outcome 14). The attempt stays queued while it waits.
+    ///
+    /// # Errors
+    /// Pool capacity, a closed admission, or the thread could not start.
+    pub(crate) async fn open_session_queued(
+        self: &Arc<Self>,
+    ) -> Result<NativeSession, MathRuntimeError> {
+        let slot = self
+            .jobs
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| MathRuntimeError::Limit("native job admission closed"))?;
+        self.session_on(slot)
+    }
+    fn session_on(
+        self: &Arc<Self>,
+        slot: tokio::sync::OwnedSemaphorePermit,
+    ) -> Result<NativeSession, MathRuntimeError> {
         let bytes = self
             .policy
             .stack_bytes

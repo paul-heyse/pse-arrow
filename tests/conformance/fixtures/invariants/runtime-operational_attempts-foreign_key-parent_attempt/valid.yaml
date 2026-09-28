@@ -1,0 +1,29 @@
+{
+  "invariant": "runtime.operational_attempts:foreign_key:parent_attempt",
+  "rows": {
+    "runtime.operational_attempts": [
+      {
+        "attempt_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "cancel_requested": "[\"bool\",true]",
+        "cancel_requested_at": "[\"i64\",1]",
+        "created_at": "[\"i64\",1]",
+        "finished_at": "[\"i64\",1]",
+        "heartbeat_at": "[\"i64\",1]",
+        "kind": "[\"enum\",\"modeling\"]",
+        "lease_expires_at": "[\"i64\",1]",
+        "parent_attempt": "[\"id\",\"01010101010101010101010101010101\"]",
+        "preparation_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "request_identity": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "started_at": "[\"i64\",1]",
+        "state": "[\"enum\",\"planned\"]",
+        "state_version": "[\"i64\",1]",
+        "termination": "[\"text\",\"value-1\"]",
+        "termination_detail": "[\"text\",\"value-1\"]",
+        "updated_at": "[\"i64\",1]",
+        "worker": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

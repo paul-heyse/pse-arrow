@@ -23,6 +23,7 @@ native-process = ["pse-runtime/native-solvers"]
 [dev-dependencies]
 pse-diagnostics.workspace = true
 pse-runtime.workspace = true
+pse-operations = { workspace = true, features = ["test-support"] }
 pse-modeling.workspace = true
 pse-authoring.workspace = true
 pse-rules.workspace = true
