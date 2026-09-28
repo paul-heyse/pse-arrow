@@ -1,0 +1,285 @@
+---
+title: Plan 22 store and typed-data execution packet
+status: in-progress
+date: 2026-09-28
+parent: 22-solver-capabilities.md
+adrs: [ADR-0114, ADR-0115, ADR-0116, ADR-0117]
+review_sources:
+  - ../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md
+---
+
+# Plan 22 store and typed-data execution packet
+
+This packet owns step progress, the binding execution decisions and the checkpoints for the
+store and typed-data track of [Plan 22](22-solver-capabilities.md). It covers:
+- D2;
+- B1–B7;
+- O5's missing incumbent stream, together with G8;
+- O7, O8 and O9;
+- the store documentation step;
+- the W6 scoped qualification.
+
+Packet definitions, sequencing and finding dispositions stay in the plan. The solver-scope
+packets keep their progress in the [main execution packet](22-solver-capabilities-execution.md),
+whose step E14 points here.
+
+## Maintainer decisions (2026-09-28)
+
+1. **Priority.** All remaining PostgreSQL and data-structuring scope in Plan 22 runs before the remaining solver scope. That scope is:
+   - S1–S4, Y3–Y5, C3–C5 and N5;
+   - M2 completion and M5;
+   - the G4 and G6 remainders;
+   - the solver docs pass.
+
+   Q1 runs after both.
+2. **Rules follow the design.** A repository rule that obstructs the better design is changed to fit it. New crates and dependencies are fine wherever they are the better design.
+3. **Store contents are regenerable.** There is no data migration; a schema change resets the store (ADR-0114).
+4. **Remote object stores are not a priority** for this locally run project. O8 qualifies the catalog protocol locally only, and a register row holds the remote trigger.
+5. **Scoped qualification.** One runs at W6, before solver work resumes.
+6. **Execution.** The three tracks run as parallel agents in worktrees and merge into `main` at packet boundaries.
+
+## Binding execution decisions
+
+| # | Decision | Source |
+|---|---|---|
+| X1 | **Platform vocabulary crate.** A new crate `pse-vocabulary` holds the ten `pse-schema` platform enums (Namespace, Authority, SnapshotClass, DerivationGranularity, Stability, ColumnRole, InvariantKind, Severity, Determinism, OperationEffect). `pse-schema` and `pse-model` both depend on it, and the generator re-exports these enums instead of copying them. The crate joins the `semantic` dependency-ceiling roots. The generator ceiling stays: it prevents a real bootstrap failure. Written as **ADR-0117**, which adds a crate; a short change-tier review appended to the typed-data review | maintainer 2026-09-28 |
+| X2 | **Entity identity is a registry declaration kind.** `declare_identity` defines an identity; a column references it with `with_identity` (facet `pse.domain.identity`); a foreign key inherits it; each identity has at most one owner key. Typed ids are generated into `pse-model` through the macro moved to `pse-ids`. Serde and framing are unchanged, so no identity bytes move. Unowned identities are allowed (`run`, block, member). `source_bundle` wraps `ContentHash`: a recorded deviation from ADR-0115's "over SemanticId" wording | B1 design |
+| X3 | **Logical types and facets.** JSON-document columns are the logical type `json` (jsonb). Operational timestamps are `ts_us`, microseconds. Unique keys and composite FKs are registry declarations. There is no `ON DELETE CASCADE`: deletes are explicit. A `finite` facet on float columns is rendered per target (the DataFusion validator and PostgreSQL CHECK), so the NaN and infinity guards are kept, not dropped | B1 design, refined |
+| X4 | **Typed terminations.** `TerminationClass` (native, run_state, trajectory, runtime, rule) plus typed per-class columns, with a generated one-of rule. `RuntimeTermination` is a new registry enum. `rule` becomes the `DiagnosticCode` ENUM once B4 aliases it | B1 design |
+| X5 | **Store switch and fingerprint.** B1 moves the store onto the generated DDL, adding interim casts to the sqlx statements that B2 deletes. The fingerprint is recorded as `COMMENT ON SCHEMA pse_ops` and is also a generated constant. `Store::open` creates the store or refuses it; `db-reset` is confirmed and destructive; `db-migrate` is deleted | B1 design |
+| X6 | **Cornucopia integration.** Cornucopia 1.0.1 runs as an **xtask library dependency** under the workspace lockfile, never a `$PATH` CLI. `gen_fresh` loads the freshly generated DDL and `physical.sql`. xtask renders the crate manifest itself (workspace inheritance, `[lints] workspace = true`) and a `lib.rs` with a reasoned crate-level `allow` for the generated code, and re-prints every file with prettyplease for byte stability. `--check` exits non-zero when no server is reachable | B2 design |
+| X7 | **Whole rows via composites.** Statements return table composites, and `types.mapping` maps `pse_ops.<table>` to the registry row, decoded by a generated `FromSql`. Projections carry hand-written nullability. Fallback if the B2.0 probe fails: a generated `rows.sql` of `--:` annotations, plus id wrapping at the repository boundary | B2 design |
+| X8 | **One listener task per `Store`.** It runs on a dedicated connection, reconnects with backoff, re-issues `LISTEN`, and broadcasts `Resync`. Watchers re-read the authority on a notification, on `Resync` and on lag. It replaces `PgListener` | B2 design |
+| X9 | **Publication identity and intents.** The publication attempt **is** the run's durable attempt id. A `publication_intents` table is registered before the first member write. It makes unpublished members reclaimable, and makes `ProvedNoncommit` provable before any effect | O8 design |
+| X10 | **Catalog-owned retention.** `publication_windows` gives the catalog the change-data (`changes`) reason (T16). `workspaces.maintenance_epoch` plus a pse-catalog `ReadScope` replace the file-lease `Generation`, both as a cache key and as reader protection. `.pse-retention.lock` is deleted. `RetentionReason` loses `output`; `attempt` means a live intent's prefix | O8 design |
+| X11 | **One member type.** A registry **named structure** `MemberDescriptor`, emitted once, replaces the control relation's member types in all 33 files. Member receipts go to v4, and v3 is refused as MigrationRequired | O8 design |
+| X12 | **Export manifest.** A one-row Delta relation `runtime.publication_manifests` replaces `runtime.publications`. The export is a reader lease with a TTL, and it opens offline | O8 design |
+| X13 | **Python settings are generated documents.** `SolveSettings`, `BackendSettings`, `DiffsolSettings` and `IdasSettings` become generated msgspec document types (ADR-0116 Outcome 7), not pyo3 keyword classes, so the enum types are visible to Python type checkers without pyo3 introspection workarounds | B4/B5 design |
+
+**Rule changes included in the track**, following the standing direction:
+- the `semantic` dependency-ceiling roots gain `pse-vocabulary`;
+- AGENTS.md prime directive 2, `scripts/agent-hooks.py`, the `.claude/settings.json` deny rules, `.claude/rules/generated.md` and `tests/governance` `is_generated` gain `crates/pse-operations/src/generated/`, `crates/pse-operations-queries/` and `python/pse/_native.pyi` (TD10);
+- REUSE, typos and taplo configuration cover the generated TOML;
+- the governance regeneration test keeps covering the pure languages, while the query crate's regeneration check runs in `codegen-check` with a server.
+
+## Tracks, waves and path ownership
+
+The coordinator:
+- reviews each merge;
+- runs `just codegen` after every merge that touches the registry (generated conflicts are resolved by regeneration, never by hand);
+- re-runs the packet's targeted tests on `main`;
+- records the checkpoint here.
+
+Environment:
+- `PSE_SOLVER_IMAGE` is set for native tests (the local `pse-solvers:dev-local` image, see the main packet);
+- PostgreSQL 18 runs locally for store work and query generation.
+
+| Track | Packets | Owns while active |
+|---|---|---|
+| R — registry and store | B1, B2, O8, O7, O9, docs step | `crates/pse-schema`, `crates/pse-codegen`, `xtask/src/codegen*`, `crates/pse-ids` (except `derive.rs`), `crates/pse-model` and `crates/pse-relations` generated trees (coordinated), `crates/pse-operations*`, `crates/pse-catalog`, `crates/pse-runtime/src/workflow/{durable,worker,publication,run}.rs`, `crates/pse-py/src/workflow*`, `python/pse/_runs.py`, `_workflow.py`, `_inspection.py`, store recipes, doctor, protected-path lists |
+| V — vocabularies and documents | B4, B5, then G8 with O5's incumbents | `crates/pse-vocabulary` (new), `crates/pse-diagnostics`, `crates/pse-backend-native` settings and events, `crates/pse-modeling/src/annotation.rs`, `crates/pse-math/src/numerics.rs`, `crates/pse-py/src/workflow/settings.rs`, `python/pse/contracts/documents/`, `python/pse/governance.py`; registry catalog modules for settings vocabularies (coordinated with R) |
+| T — typing in math and modeling | B3a, B6, B7, B3b | `crates/pse-ids/src/derive.rs` and the frame call sites, `crates/pse-math` (except `numerics.rs`), `crates/pse-backend-native` presolve/transport/conditioning/HiGHS diagnostics, `crates/pse-modeling`, `crates/pse-compiler` |
+
+| Wave | Track R — registry and store | Track V — vocabularies and documents | Track T — typing in math and modeling |
+|---|---|---|---|
+| W0 | D2: ADR-0117, the ceiling change, the new packet with X1–X13 | — | — |
+| W1 | **B1** | — | **B3a** frame catalog → **B6** index spaces |
+| W2 | **B2** | **B4** (after B1) | **B7** (after B1) |
+| W3 | **O8** | **B5** (after B4) | — |
+| W4 | **O7** (after O8 and B5) | **G8 + O5-incumbents** (after B2 and B5; merges after O7, which shares `worker.rs`) | **B3b** typed-id sweep (after O8) |
+| W5 | **O9**, then the **docs step** | — | — |
+| W6 | **Scoped qualification** (maintainer request, 2026-09-28), then solver scope resumes | — | — |
+
+## Packet detail
+
+Each sub-step compiles (`just check-package` / `just check`), runs its targeted tests
+(`just unit-package <pkg> <filter>`; `just db-test`; native tests with `PSE_SOLVER_IMAGE`
+set), and deletes what it replaces in the same change.
+
+### D2 — decision (W0)
+- ADR-0117 (`just adr-new`, then accepted) and a change-tier review note. Covers X1 and the ceiling change.
+- `just adr-lint`.
+
+### B1 — the registry owns the store's physical schema (W1)
+
+| Step | Work | Tests |
+|---|---|---|
+| B1.0 | Packet-start probes: the registry check SQL parses in both dialects; multi-statement DDL runs in one transaction; the B2.0 Cornucopia probes (they decide X7) | — |
+| B1.1 | Move `semantic_id_newtype!` from `pse-quantity/src/ids.rs` to `pse-ids/src/newtype.rs`, adding serde delegation and `const from_bytes`/`as_bytes`; `pse-quantity` uses it | `just unit-package pse-ids 'test(newtype)'` |
+| B1.2 | `pse-schema`: identity and document facets in `model/field.rs`; `model/identity.rs`; `unique_keys` and `foreign_keys` in `model/relation.rs`; `declare_identity` and `resolve_identities` in `builder.rs`; integrity in `builder/integrity.rs`; `ts_us`; the `finite` facet; Arrow projection; self-description (`reference.schema_identities`, `schema_columns.identity_id`) | `identity_inherited_through_foreign_keys`, `conflicting_identity_refused`, `identity_owned_once`, `json_document_is_a_logical_type`, `unique_and_composite_keys_described` |
+| B1.3 | Codegen: `rust/identities.rs` (typed ids into `pse-model`, `ArrowValue` into `pse-relations`); relation columns typed by identity; microsecond codecs; Python `NewType` ids | `identity_columns_render_typed_ids`, `microsecond_timestamps_render_codecs` |
+| B1.4 | `Language::Postgres` → `crates/pse-operations/src/generated/` (`schema.sql`, `cornucopia.toml` mapping, `mod.rs`, `fingerprint.rs`); `rust/postgres.rs` generates `ToSql`/`FromSql` for store enums and ids behind a `postgres` feature on `pse-ids`/`pse-model`; pins `postgres-types =0.2.14` and `postgres-protocol`; xtask `Target::Postgres`; `codegen-postgres-check` | `postgres_value_mapping_round_trips`, `ddl_covers_store_relations_enums_identities`; `just family-check` |
+| B1.5a | `catalog/operations.rs`: `ts_us`, `json`, identities, the seven catalog relations (`runtime.operational_*`), enums `RetentionPhase`, `SettlementOutcome` and X4's, keys and FKs, every CHECK ported and named, no `uuidv7()` defaults; typed termination in `durable.rs`; `just codegen` | `catalog_relations_registered`, `operational_timestamps_are_microseconds` |
+| B1.5b | `physical.sql`; `src/schema.rs` (`open`, `schema_status`, `reset`, `SchemaMismatch`); interim sqlx casts; `pse-ops status\|reset`; justfile `db-reset` (confirmed) replacing `db-migrate`; doctor fingerprint check; `docs/dev/operational-store.md` | `generated_schema_creates_empty_store`, `store_schema_mismatch_refused`, `registry_enums_are_postgres_enums`, `misspelled_enum_literal_fails_prepare`, `row_invariants_generated_and_enforced`, the existing store tests; `just worker-test`; one `just db-reset` of the dev store |
+| B1.6 | Protected paths (TD10) and the configuration listed under rule changes | `generated_path_edit_refused` (`just setup-test`), `just lint-agents` |
+
+**Deletes:**
+- both migrations, `MIGRATOR`, and the migrate API and error;
+- `conformance_tests.rs` with its `CATALOG` exemption, and the pse-schema and arrow-schema dev-dependencies;
+- `migrations_apply_to_empty_database`, `pse-ops migrate`, `db-migrate`, and the doctor's `_sqlx_migrations` code;
+- the old macro, and the string termination codes.
+
+### B2 — typed statements on tokio-postgres (W2)
+
+| Step | Work | Tests |
+|---|---|---|
+| B2.0 | Scratch-crate probes: domain parameters and whole-row composites through Cornucopia; `params-only`; the `gen_fresh` URL; the lint surface of the generated code; `BinaryCopyInWriter` types; the ring `CryptoProvider`; `max_connections` | — |
+| B2.1 | Pins: `tokio-postgres =0.7.18`, `deadpool-postgres =0.14.2`, `tokio-postgres-rustls =0.14.0`, `cornucopia =1.0.1` (xtask), `futures`. `Target::Queries` in `xtask/src/codegen/queries.rs` with X6 normalization. Generated crate `crates/pse-operations-queries/` registered. `queries/store.sql` | `store_queries_regenerate_identically`, `generated_query_rejects_misspelled_column_and_literal`, `normalized_manifest_passes_registration_rules` |
+| B2.2 | Generated composite `FromSql` for store rows, with helpers in `pse-model/src/postgres.rs` | `postgres_value_mapping_round_trips` (extended) |
+| B2.3 | `Store` on deadpool; `error.rs` classifies by `SqlState` constant (23514/23503 → `InvariantViolation`) and wraps driver errors; `testing.rs` rebuilt on tokio-postgres; store tests move to `#[tokio::test]` + `TestDatabase`; a nextest `store` test group | `sqlstate_classified_by_constant` |
+| B2.4 | Repositories moved one module at a time — attempts → jobs → cancellation (with the X8 listener) → streams (binary COPY) → solutions → sources → catalog — with their consumers in `pse-runtime` and `pse-py` updated in the same step | All store, durable and worker tests, including `two_workers_never_claim_same_job`, `expired_lease_requeues_as_new_attempt`, `cancel_survives_listener_reconnect`, `listener_resyncs_after_connection_loss`, `progress_stream_complete_under_volume`, `stored_seed_reused_across_processes` |
+| B2.5 | Remove sqlx entirely | `cargo tree -i sqlx` is empty; `just check`; `just family-check`; `just py-sync-native` plus the Python run units |
+
+**Deletes:**
+- the sqlx and `whoami` pins; `codec.rs`; all eight `FromRow` impls and the records that restate a row;
+- the column macros, positional binds and `UNNEST` statements;
+- string SQLSTATE matching, `#[sqlx::test]`, `PgListener`, and `Store::pool`/`from_pool`;
+- the justfile `DATABASE_URL` export and the `_sqlx_test` backup exclusion;
+- the ADR-0112 citations in the rewritten modules.
+
+### B3a — frame catalog (W1, Track T)
+- A `pse_ids::Frame` enum declares every one of the 119 spellings. `FramedHasher::new`, `derive_id`, `derive_hash` and `pse-backend-native` `identity::of` take a `Frame`.
+- Parameterized contexts (`tears.rs:23`, `fingerprint.rs:277`) become variants that render the identical string.
+- The generated `facts.rs` frames come from the generator.
+- **Tests:**
+  - `frame_spellings_unique`;
+  - `frame_spellings_unchanged`, which compares against a list captured at packet start;
+  - the golden vectors, unchanged.
+
+### B6 — typed index spaces (W1, Track T)
+- **New dependencies:** `typed-index-collections =3.5.0`, `enum-map =3.1.0`.
+- **Index types:** a `pse_math::index` module with newtypes for original and presolved rows and columns, instance-local slots, global columns, and typed `Triplet<R, C>`.
+- **Boundaries converted:**
+  - the presolve `Report` and pipeline (`presolve.rs:102-108`, `pipeline.rs:489-498, 748`);
+  - `conditioning.rs:84` (KKT);
+  - `pse-math` `sparse.rs:24`, `diagnostics.rs:49-50`, `assembly.rs:55-58, 262-270, 700-741`;
+  - fitting `sparse.rs:22-23`.
+- **Ranging key:** typed in `highs/diagnostics.rs:290, 462-467` and `transport.rs:529-531`.
+- **enum-map:** for demand groups and `execution.rs:684`.
+- **FFI and faer** convert at the adapters.
+- **Tests:**
+  - `compile_fail` doctests for cross-space indexing;
+  - `ranging_unscaling_uses_typed_keys`;
+  - the existing presolve, conditioning, assembly and HiGHS-diagnostics units (`just unit-package pse-math`, backend native units).
+
+### B4 — vocabularies (W2, Track V)
+1. **Create `pse-vocabulary`** (X1). Generalize the generator's alias rule (`rust/enums.rs:12-15`) from a name match against pse-quantity to a declared enum source (`EnumDecl::sourced`). This covers pse-quantity, pse-diagnostics (`DiagnosticCode`, `FailureClass`) and pse-vocabulary. Give `pse-diagnostics` and `pse-vocabulary` an optional `postgres` feature for any store column that uses them, and type X4's `rule` column.
+2. **Registry enums for every settings enum carried by a backend or dynamics settings document.** The inventory is taken at packet start; it includes `IpoptLinearSolver`, `MumpsOrdering`, `SpralOrdering`, Spral scaling and pivot, Pardiso ordering and matching, `MuStrategy`, `HessianMode`, `ReusePolicy` and the HiGHS, POUNCE and KINSOL methods not yet in the registry. Behaviour such as `parallel()`, `mask()` and the Ipopt integer codes moves into adapter functions in `pse-backend-native`.
+3. **Typed policy and provenance.** Add `ExtrapolationPolicy`, so `AnnotationValue::Valid { policy: ExtrapolationPolicy }` and its seven string comparisons go. Add `NumericalProvenanceField`, replacing `&'static str` in `pse-model` `numerics.rs:144` and the reads in `pse-math` `numerics.rs:110, 418, 455`.
+4. **Tests:** `extrapolation_policy_typed`, `source_owned_vocabularies_have_one_rust_type`, `provenance_field_typed`, and the existing settings projection tests.
+
+**Deletes:** the hand-written serde enums, the ten duplicate generated enums (twelve with the two pse-diagnostics ones), and the string comparisons.
+
+### B5 — typed boundary documents (W3, Track V)
+
+| Step | Work | Tests |
+|---|---|---|
+| B5.0 | Probes: nutype `derive_unchecked(schemars::JsonSchema)` with schemars 1.x; datamodel-code-generator determinism (msgspec output, `--disable-timestamp`); a schemars representation for the POUNCE `FeralConfig` projection | — |
+| B5.1 | Pin `schemars =1.2.2`. `JsonSchema` on every backend and dynamics settings type, the solve controls, the job payload, `TerminationDetail` and `SourceManifest`, with the generator adding the derive to registry enums. Versioned envelopes | `backend_settings_schema_generated` |
+| B5.2 | xtask `Target::Schemas`: JSON Schemas into `docs/generated/schema/`; Python msgspec document types into `python/pse/contracts/documents/`; `pse.governance` gains a msgspec branch | `test_documents_pass_any_lint` (py), `codegen-check` |
+| B5.3 | X13: the Python settings classes become the generated document types; native entry points decode the envelope; the pyo3 `str` and `**fields` settings parameters are deleted; stubs regenerated | `test_backend_settings_typed`, `test_solve_settings_enum_types`, `test_solve_settings_backend_projection` |
+| B5.4 | Validated scalar types (nutype, or `serde(try_from)` newtypes) for single-value setting domains; `admit_settings` keeps the cross-field rules | `invalid_tolerance_refused_at_decode` |
+| B5.5 | Job payload v2, typed: `enqueue` takes the typed payload; the request identity is framed through `identity::of`; a `start` policy field (used by G8); v1 deleted. Typed `TerminationDetail` and `SourceManifest` | `job_request_identity_independent_of_key_order`, `termination_detail_versioned_and_typed`, `unknown_payload_version_refused` |
+| B5.6 | Authoring JSON Schema through schemars on the generated document structs; delete `pse-codegen` `codegen/jsonschema.rs` if the output is at least as precise, otherwise record why it stays | `authoring_schema_equivalent_under_schemars` |
+
+### B7 — modeling and compiler typed ids (W2, Track T)
+- **Declarations:** package, case, model, declaration, root and instance on the registry columns that key them (`package_id` alone appears in 26 columns); definition, member and block as unowned identities.
+- **Consumers:** the 31 `pse-modeling`, 6 `pse-compiler` and runtime-modeling multi-id signatures.
+- **Tests:** a `compile_fail` doctest for a root/instance swap, plus the existing compiler, modeling and conformance units.
+- **Expected effect:** authored-relation fingerprints change, so cached artifacts are invalidated; they are regenerable.
+
+### O8 — the publication catalog replaces the Delta control relation (W3)
+
+| Step | Work | Key tests |
+|---|---|---|
+| O8.1 | Registry named structures (X11): `MemberDescriptor` emitted once; an ast-grep migration of the 33 files; the conversion code at `delta/publication.rs:363-383`, `artifact/descriptor.rs:129-185` and `attempt.rs:409` deleted | `structure_name_is_presentation_only`, `named_structure_conflict_rejected`, the existing admission and selection units |
+| O8.2 | Registry: member descriptor flattened into `operational_publication_members` with `PublicationMemberRole`; publication `kind`; unique `root_uri` and `maintenance_epoch`; the `conflict` settlement outcome; `publication_intents`; `publication_windows`; `RetentionReason` without `output`; `runtime.publication_manifests`. Then `just codegen` and `just db-reset` | the B1 registry tests, extended |
+| O8.3 | Catalog statements as Cornucopia queries. Commit uses one lock order and compares the complete request (`IdentityReused`); intents; settlement (committed, proved_noncommit, conflict); reader-lease renewal and lapse; retention and maintenance under the advisory lock and the epoch; `testing::FaultProxy`, which drops the connection around `COMMIT` | `concurrent_head_advance_one_winner`, `commit_is_idempotent_per_attempt_and_settles`, `catalog_protects_published_versions`, `commit_refuses_retiring_inputs_and_retained_members`, `settle_distinguishes_committed_noncommit_conflict`, `reader_lease_renews_and_lapses`, `maintenance_bumps_epoch_before_effects`, `reclaimable_intents_are_fenced` |
+| O8.4 | pse-catalog member-only API: `ReadScope`, `PublicationSelection`, `AdmitCandidate`, manifest write and open, `collect`/`remove_tables`/`remove_prefix` | `candidate_returns_admitted_record_with_actual_versions`, `manifest_round_trip`, `manifest_refuses_legacy_control_table`, `collect_keeps_protected_versions_on_memory_store`, `read_scope_is_a_cache_lookup_input` |
+| O8.5 | **Cut-over.** Receipts v4; runtime publication on the durable attempt id; workspaces, open/open_head through `ReaderLeaseGuard`, export; maintenance orchestration and a `pse-publication` binary; pse-py and Python (`_runs.py`, `_workflow.py`, `_inspection.py`) | `concurrent_publishers_one_winner_no_lost_update` (two processes), `lost_ack_settles_via_catalog`, `maintenance_waits_for_reader_leases` (`memory://`), `catalog_protects_published_versions`, `exported_publication_opens_offline`, `publication_uses_durable_attempt_identity`, `legacy_workspace_root_refused`; port `authored_publication_resource` and the three Python publication tests |
+| O8.6 | **Delete:** `publish.rs`; ticket `settle`/`observe`; `PublicationRoot`/`read_control`; `lease.rs`; the `leased.rs` leases; `retention.rs`; the control logic in `maintenance.rs`; `PublicationTarget`; the `runtime.publications` declaration and its fixture; the Python `PublicationRoot` and `pse.open(location, version)`; and the control-mechanism tests named in the O8 design. The surviving invariants are rewritten on the catalog path (`publication_each_object.rs`, `native_publication.rs`, `unified_sources.rs`, the xtask inspection fixture) | `rg "pse-retention\|runtime\.publications\|PublicationRoot\|lease::"` finds nothing |
+| O8.7 | Local crash-safety of maintenance: FaultStore is extended with delete and list, and an interrupted deletion leaves the publication expiring until a rerun completes it | `interrupted_deletion_resumes`; the O8.5 lost-acknowledgement test |
+| O8.8 | The architecture companion's store sections (§9.3, §9.5, §9.9); dispositions T02 and T16 resolved. Register rows: the automatic retention policy, and **remote object-store qualification** (S3-compatible), triggered by "a real need to publish to a remote object store". The maintainer decided on 2026-09-28 that remote stores are not a priority for this locally run project | — |
+
+### O7 — studies across workers (W4)
+- **Store.** A studies repository (`queries/studies.sql`): study, points and point transitions in the same transaction as the job and attempt. A point with a predecessor becomes claimable only once the predecessor has completed.
+- **Payload.** Payload v3 adds a typed `StudyPointBinding`: `study_id`, `point_index`, `binding_hash`, an overlay document and the predecessor.
+- **Publication.** The study registers **one publication intent** when it is created (X9).
+  - Each point attempt writes its result members under that intent's prefix.
+  - When every point is terminal, a finalization job commits one publication: the study summary relation plus every completed point's members.
+  - A failed point is isolated.
+  - A worker seeds from the predecessor's stored solution (`StartSource::Stored`).
+- **Runtime and Python.** A durable `Runtime::start_study` returning a `StudyHandle`; `ModelingPackage.study(..., runtime=…)` for durable execution, alongside the ephemeral in-process path of the `Ephemeral` class; a `Runtime.studies()` listing.
+- **Tests:** `study_parallel_workers_publish_once` (two worker processes), `failed_point_does_not_contaminate`, `predecessor_waits_and_seeds`, `study_cancel_stops_pending_points`.
+
+### G8 + O5 incumbents — durable long solves (W4)
+1. **Typed incumbent events.** A typed `IncumbentEvent` on the native `Event`: objective in original units with the export offset applied, dual bound, gap, nodes, and a throttled primal in original coordinates. SCIP's `watch_exec` (`scip.rs:359-389`) fetches the best solution; HiGHS supplies it from callback kinds 3 and 4.
+2. **Durable sink.** The `Streamer` in `durable.rs` writes a `solutions` row (NLP primal, with the step's compatibility stamp) and an `incumbents` row, using binary COPY and a throttle.
+3. **Resume.** `ClaimedJob` gains `parent_attempt`. `prepare_job` applies the payload `start` policy `ResumeFromParent`: the latest incumbent in the parent chain, passed through `with_stored_start`, then SCIP `inject` or a HiGHS sparse start.
+4. **Tests** (solver image required):
+   - `killed_worker_attempt_goes_stale_and_resumes_from_incumbent` (spawns pse-worker and kills it once an incumbent is stored);
+   - `incumbent_stream_records_offset_objective`;
+   - `highs_incumbents_streamed`;
+   - `cross_process_cancel_stops_scip`.
+
+### B3b — typed-id sweep (W4, Track T)
+Converts the remaining workflow, runtime, pse-catalog (receipts) and pse-py signatures to typed ids, plus Python `attempt_id`/`publication_id` `NewType`s. Tested with `compile_fail` doctests.
+
+### O9 — query surface (W5)
+- **Provider.** A read-only `TableProvider` per operational relation, in `pse-runtime` (the composition root). It runs generated statements with pushed-down typed filters (attempt, run, state, time range; `Inexact`) and builds batches with the `pse-relations` builders. It is bound through `EngineFactory` `with_provider` under `pse_ops`.
+- **ADBC is not adopted:** it adds a C driver manager for tables the generated builders already serve. A short decision note is recorded.
+- **Python:** `Runtime.jobs()`, `Runtime.studies()`, and `Runtime.progress(attempt, follow=True)` over the listener.
+- **Tests:** `operational_tables_join_results_in_datafusion`, `provider_pushes_attempt_filter`, `test_progress_stream_python`.
+
+### Docs step (W5)
+- A `design:` revision (`PSE_DESIGN_EDIT=1`) moving the markers from "target" to "implemented": §0.6, §3.2, §3.3, §4.1, §4.2, §5.1, §5.3, §20.x, §21.x, §23.2, and D10's store.
+- The architecture companion's "As implemented" notes for §9 and §12.
+- `docs/dev/operational-store.md` rewritten.
+- Plan 22 dispositions: TD01–TD11, T02 and T16 resolved with their tests.
+- The owed O3–O6 architecture text is folded into this revision.
+
+## Risks and packet-start checks
+- **Cornucopia domains.** Domain typing through Cornucopia (B2.0), with X7's fallback.
+- **Lint and build surface of generated code.** Cornucopia's output fails the workspace lints and `--no-default-features`. Handled by X6 normalization; clippy runs at Q1.
+- **Dependency growth.** Lock growth and feature unification from Cornucopia, checked with `just family-check` and `cargo tree -d`.
+- **Registry fingerprints.** A `FINGERPRINT` outside `runtime/operational_*`, `reference/schema_*` and the authored relations changing unexpectedly after `just codegen` is a signal to stop.
+- **Store resets.** Each schema change needs `just db-reset`, and long-lived pools need a restart after one. Python `OperationalStore` tests fail until the dev store is reset.
+- **O8 risks.** Settlement semantics change (`ProvedNoncommit` before any effect). Re-prepare reuse needs a stable `operation_id`. Lease lapse. Lock ordering between commit and maintenance. Editable DML tables lose cross-process caching (measure at Q1). `prepare_checkpoint` has no production caller, so re-home or delete it in O8.4.
+- **Test infrastructure.** New pieces: FaultProxy, a two-process publisher test, and pse-worker kill tests.
+- **Python API break.** No shim, by rule (O8.5, B5.3).
+
+## Verification
+- **Per packet:** compile checks plus the named targeted tests; `just codegen` / `codegen-check` wherever the registry or generators change (with the local PostgreSQL 18 running); `just db-test`; `just worker-test` and the native units with `PSE_SOLVER_IMAGE` set; `just py-sync-native` plus targeted `just py-test` when the Python surface changes; `just adr-lint` for D2; `just setup-test` and `just lint-agents` for B1.6; `just family-check` when a pinned dependency moves.
+- **Exit checks:**
+  - no `sqlx` in `cargo tree`;
+  - no `FromRow`, migrations, `.pse-retention.lock` or `runtime.publications`;
+  - no `FramedHasher::new("`;
+  - no `**fields: object` in `_native.pyi`;
+  - every B, O7–O9 and G8 test in the Plan 22 table passing, each reported with its command against the zero baseline.
+- **W6 scoped qualification.** The maintainer requested it, so it runs as an explicit step once W5 lands. Checks over the crates this track touched (pse-ids, pse-vocabulary, pse-schema, pse-codegen, pse-model, pse-relations, pse-operations, pse-operations-queries, pse-catalog, pse-runtime, pse-math, pse-backend-native, pse-modeling, pse-compiler, pse-py, xtask) and `python/pse`:
+  - formatting: `cargo fmt` for those crates, ruff format;
+  - lint: `just clippy`, `just quality`;
+  - generation and governance: `just codegen-check`, `just governance`, `just family-check`, `just adr-lint`;
+  - store and native: `just db-test`, `just worker-test`, the native-acceptance conformance suite (including `authored_publication_resource`, currently unverified), the runtime native units;
+  - Python: `just py-test` component and integration scopes for runs, publication, settings and studies;
+  - docs: `just docs`.
+
+  Each result is reported in the new packet with its command, conditions and failure count against the zero baseline. The full Q1 still runs after the solver scope.
+- **Remote object stores** are out of this track; the register row above holds the trigger.
+
+## Progress
+
+| Step | Packets | State |
+|---|---|---|
+| W0 | D2: ADR-0117 accepted, with the review addendum; this packet written | complete (2026-09-28) |
+| W1 | B1 (R); B3a → B6 (T) | not started |
+| W2 | B2 (R); B4 (V); B7 (T) | not started |
+| W3 | O8 (R); B5 (V) | not started |
+| W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | not started |
+| W5 | O9; docs step | not started |
+| W6 | Scoped qualification | not started |
+
+## Current checkpoint (2026-09-28)
+
+W0 is complete: ADR-0117 is accepted, and `just adr-lint` passes. W1 starts next, with B1 on
+track R and B3a then B6 on track T.

@@ -17,8 +17,10 @@ execution packets retain their original evidence.
 - a PostgreSQL 18 operational store and publication catalog;
 - since 2026-09-28, typed data contracts: a registry-generated store schema with Cornucopia-compiled
   statements on tokio-postgres, typed identities and vocabularies, and typed boundary documents
-  (ADR-0114–ADR-0116, packets B1–B7), from the
+  (ADR-0114–ADR-0117, packets B1–B7), from the
   [typed data contracts review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md).
+  That track, together with O7–O9 and G8, runs first. Its own
+  [execution packet](22-store-and-typed-data-execution.md) owns its progress.
 
 Its companion is `22-solver-capabilities-architecture.md`.
 [Plan 20](20-idaes-capability-target.md) and its companions remain capability background;

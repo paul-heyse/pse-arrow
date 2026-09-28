@@ -327,3 +327,29 @@ on the typed stack.
 - A typed-query defect that manual nullability produces escapes the store tests.
 - Binary COPY and pipelining show no measurable benefit at S14/S16 volumes, which would weaken the driver case but not the generation case.
 - Typed index spaces force conversions inside hot kernels rather than at adapters.
+
+## Addendum: change review for ADR-0117
+
+<a id="addendum-adr-0117"></a>
+
+**Scope.** A change-tier review, conformance purpose, of
+[ADR-0117](../../adr/0117-platform-vocabulary-crate.md). The ten `pse-schema` platform
+vocabularies move into a new crate, `pse-vocabulary`, beneath `pse-schema` and `pse-model`,
+so that the generator can re-export them (ADR-0115 Outcome 3, TD06). Standard Core 3.1.
+Author review, 2026-09-28.
+
+**Scenario.** A new platform vocabulary member, or a new vocabulary. It is declared once in
+`pse-vocabulary`; the registry reads its `ALL`; `pse-model`, Python and PostgreSQL follow by
+regeneration. Today the same change also produces a second Rust enum in `pse-model`, and code
+where the copies meet needs conversions.
+
+**Foundations affected.**
+- **AP-04 (satisfied by the change):** one Rust type per vocabulary.
+- **AP-01 (satisfied):** the vocabularies get an owner that is neither diagnostics nor identity.
+- **DP-17 (satisfied):** the semantic ceiling keeps arrow out, and the generator ceiling keeps generated crates out of `pse-codegen`'s closure. Both stay in force, and the new crate joins the semantic roots.
+
+**Findings.** None beyond TD06, which this change resolves for the ten vocabularies.
+
+**Decision.** Accept at the Proposed level. Evidence is settled by Plan 22 B4
+(`source_owned_vocabularies_have_one_rust_type`, `just family-check`, `every_crate_registered`).
+Disposition: [Plan 22](../../plans/22-solver-capabilities.md#finding-dispositions) TD06, owner B4.

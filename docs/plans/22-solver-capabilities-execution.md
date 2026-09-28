@@ -86,7 +86,7 @@ dispositions stay in the plan.
 | E10 | S1–S4; Y1–Y5 | Y1/Y2/Y6 merged (`754049f8`). IDAS: scheduled inputs with recoverable trials, events without sensitivities (typed refusal with them), `IDASetConstraints`, staggered sensitivities, SPGMR/SPFGMR with a preconditioner, `IDA_Y_INIT`; F12 sparse products; F09 serde dynamics identity. Diffsol: TR-BDF2, ESDIRK34, Tsit45 (mass-free), KLU. KINSOL: typed Newton, eta, preconditioner, Krylov and Anderson options; one-sided bounds shifted to signs; a per-worker session cache for nested solves. A PID test with piecewise inputs is comparable to the IDAES PETSc example. After the merge: backend 136/0, runtime 135/0, governance 87/0. Follow-ups: the Diffsol KLU singular-factorization panic should become a typed numerical failure; the KINSOL cache memory needs squaring with job budgets; authored event direction and sign constraints from authored bounds; authored scheduled inputs need a kernel fixture field | Y1, Y2, Y6 complete; S, Y3–Y5 next |
 | E11 | G1 binding through G8 | G2 (merge `49df7d0e`): `FactorableProgram`; 1,830 of 1,845 steady rows Exact, the other 15 Relaxed regime outputs; the census attribution is corrected (flattening limit). G1/G3 (merge `e781060c`): `scip.rs` FFI with build-time `SCIP_APIVERSION` 156 asserts and a run-time version check, one SCIP instance per attempt freed on unwind; the Factorable runner; reserved options read back (`misc/catchctrlc=FALSE`, foreign-allowance memory, nested Ipopt linear solver); event-handler cancellation; an exhaustive status map; `GapQualified` + `global_bound` only from a read-back-equivalent exact export; the fixed-assignment re-solve; registry `scip`, three problem classes, four assurances, `certifies`. G4–G7 (merge `42f5a83f`): implicit residuals and provider envelopes on certify; `proven_infeasible` and SCIP IIS (irreducibility flag; two SCIP 10.0.2 IIS bugs worked around); a certified infeasibility route beside the local explanation; SCIP consumes all seven native forms; solution pool (`runtime.solution_pool`); reoptimization; deterministic concurrency; exact rational MILP (`exact_certificate`); the TPD stability model. Open: `heater_optimization_certified` (SCIP memory allowance), PC-SAFT TPD instability (compiler body-slot limit), G8 | G1–G3, G5, G7 complete; G4 and G6 partial; G8 open |
 | E12 | C3–C5; O3–O9 | O3–O6 merged (`f17f20a1`, `e734d696`): registry-declared `runtime.operational_*` relations with a conformance test; durable and ephemeral runs, with publication requiring durable; `pse-worker` and the v1 job payload; progress streams to `solve_metrics`; stored seeds (`StartSource::Stored`); Python `OperationalStore` and `Runtime.runs()`. O7, O8, O9 and C3–C5 not started | O3–O6 complete; rest open |
-| E14 | D1, B1–B7: typed data contracts (amendment 2026-09-28; D22-13 to D22-15) | **D1 complete (2026-09-28).**
+| E14 | D1, D2, B1–B7, O5 incumbents, O7–O9, G8: the store and typed-data track (amendment 2026-09-28) | The [store and typed-data execution packet](22-store-and-typed-data-execution.md) owns this track's progress, waves W0–W6 and binding decisions X1–X13. D1 is complete: ADR-0114–ADR-0116, R-35, blueprint revision 66. D2 is complete: ADR-0117 | D1, D2 complete; W1 next |
 - ADR-0114 supersedes ADR-0112, ADR-0115 is new, and ADR-0116 supersedes ADR-0113. All three were accepted with the [review](../design_review/reviews/design_review_typed-data-contracts_2026-09-28.md) as their review.
 - R-35 added.
 - Blueprint revision 66: the ADR-0112/0113 markers repointed; target markers at §3.2, §3.3, §4.1, §4.2, §5.1, §5.3, §20.5, §21.1, §21.5 and §23.2.
@@ -175,14 +175,15 @@ All counts were run by the integration agent at `e734d696` with `PSE_SOLVER_IMAG
 1. **Review `82874e7d`.** The unverified suites above (native acceptance, `just db-test`,
    Python component and parity) run in Q1, after all functional packets.
 2. **Docs pass** for A5, N1–N4/C2, G4–G7 and O3–O6 (the list above).
-3. **Typed data contracts first on the store track** (D1 is done):
-   - B1: the registry owns the `pse_ops` schema, typed ids, `db-reset`;
-   - then B2: tokio-postgres, Cornucopia statements, sqlx removed;
-   - B3 follows B1;
-   - B4 → B5 and B6 can run beside the solver packets;
-   - B7 follows B3.
+3. **The store and typed-data track runs first** (maintainer, 2026-09-28). The [store and typed-data execution packet](22-store-and-typed-data-execution.md) owns it:
+   - W1: B1 ‖ B3a → B6;
+   - W2: B2 ‖ B4 ‖ B7;
+   - W3: O8 ‖ B5;
+   - W4: O7 ‖ G8 with O5's incumbents ‖ B3b;
+   - W5: O9 and the docs step;
+   - W6: scoped qualification.
 
    Each B packet repoints the code comments that cite ADR-0112 or ADR-0113 in the modules it rewrites: `pse-operations`, `Cargo.toml`, `justfile`, `scripts/doctor.py`, the Python settings tests and `_workflow.py`.
-4. **Remaining packets:** O8, then O7 and O9, on the B2 stack (the catalog replaces the Delta control table); S1–S4 (sensitivity, which needs N4, now done); Y3–Y5; C3–C5; N5; M2 completion and M5; G8.
+4. **Remaining solver packets, after W6:** S1–S4 (sensitivity, which needs N4, now done); Y3–Y5; C3–C5; N5; M2 completion and M5; the G4 and G6 remainders; the solver docs pass (A5, N1–N4/C2, G4–G7).
 5. **Q1 qualification** — formatting, lint and integrated suites — once steps 2–4 are done.
 - **Python durable runtimes.** `pse.Runtime(settings, store=pse.OperationalStore())` makes every run a durable attempt, which publication requires. `Runtime.runs()` lists attempts; `attempt_id` is on handles and results.
