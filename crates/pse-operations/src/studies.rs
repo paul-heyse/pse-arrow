@@ -749,6 +749,24 @@ impl<'s> Studies<'s> {
         })
     }
 
+    /// The study row alone, without its points.
+    ///
+    /// # Errors
+    ///
+    /// [`OperationsError::NotFound`]; classified driver failures.
+    pub async fn row(&self, study: StudyId) -> Result<RuntimeOperationalStudiesRow, OperationsError> {
+        let client = self.store.client().await?;
+        statements::study()
+            .bind(&client, &study)
+            .opt()
+            .await
+            .classify(self.target())?
+            .ok_or_else(|| OperationsError::NotFound {
+                entity: "study",
+                id: study.to_string(),
+            })
+    }
+
     /// One point of a study with its job's state and current attempt.
     ///
     /// # Errors

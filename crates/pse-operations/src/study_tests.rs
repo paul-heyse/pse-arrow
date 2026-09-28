@@ -310,7 +310,7 @@ async fn failed_predecessor_cancels_its_dependents() {
 /// stop, and concludes the study as cancelled once that try ends. Cancelling a study's
 /// own attempt cancels the study.
 #[tokio::test]
-async fn study_cancel_stops_pending_points() {
+async fn study_cancel_cancels_pending_and_stops_running_points() {
     let database = TestDatabase::create().await.unwrap();
     let store = database.store().clone();
     let space = space(&store).await;

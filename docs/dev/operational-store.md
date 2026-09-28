@@ -11,7 +11,7 @@
 > step rewrites this page once more.
 
 PostgreSQL owns what changes (attempts, jobs, leases, cancellation requests, live progress,
-incumbents, reusable solutions, study status and the publication catalog); Delta owns what
+incumbents, reusable solutions, studies and the publication catalog); Delta owns what
 is published. Durable work needs the store. Ephemeral library calls and unit tests do not.
 This page covers setting it up and operating it on a development machine.
 
@@ -201,6 +201,46 @@ just pse-publication release --receipt '<receipt json>'
 just pse-publication retire --workspace <name> --publication <hex> [--wait-seconds 60]
 just pse-publication collect --workspace <name>
 just pse-publication reclaim --workspace <name>
+```
+
+## Studies across workers
+
+A durable study (Plan 22 O7, architecture S15) is many authored-case solves run by any
+number of workers and published once. `Runtime::start_study` (Python
+`ModelingPackage.study(..., runtime=, workspace=)`) stores the package's sources and a
+typed `StudyDefinition`, then creates in one transaction (`pse_operations::studies`):
+
+- the study's own attempt (kind `study`). It coordinates and never runs: it is queued
+  while the points run and ends from queued (`lifecycle::COORDINATING`) in the
+  transaction that makes the last point terminal — completed, partial, failed, or
+  cancelled when the study was cancelled. It never holds a lease, so it never goes
+  stale, and its publication can always commit once it has ended;
+- the study's one publication intent for that attempt, registered before any point
+  writes a member under its prefix (X9);
+- one job per point with payload v3 (`JobTask::Modeling` with a `StudyPointBinding`:
+  study, point index, binding hash, typed overlay, predecessor). A point without a
+  predecessor is queued; a point with one waits (job `waiting`, attempt `planned`);
+- a waiting finalization job (attempt kind `study_finalization`).
+
+A point follows its job in the transaction that moves the job — claimed (`assigned`),
+requeued after a lost lease (`pending`), finished or cancelled. A completed point
+releases the points that name it as their predecessor, which then start from its stored
+solution (`StartSource::Stored`; the `job.start` event records `predecessor` and the
+solution, or why the point started fresh). A point that fails or is cancelled cancels
+its dependents transitively as `unattempted`, each job recording which predecessor did
+not complete. A completed try writes its result tables under
+`{prefix}points/{index}/{attempt}/` (catalog `point_{index}`, receipts naming the
+point's attempt) and records them in `study_point_members` with the completion. When the
+last point is terminal the finalization is released: it writes `runtime.study_outcomes`
+(one row per point) under `{prefix}summary/` and commits one publication of the study's
+attempt with the summary and every completed point's members; failed points contribute
+none. Point transitions of one study serialize on the study row. Cancelling a study
+(`StudyHandle::cancel`, or `request_cancel` of its attempt) cancels the points that have
+not started, asks running tries to stop, and still publishes what completed.
+
+```bash
+just worker-test study_parallel_workers_publish_once   # two pse-worker processes
+just db-test 'test(study_tests)'                       # the repository
 ```
 
 ## Tests

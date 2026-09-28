@@ -186,7 +186,7 @@ impl Operations {
                 binding.point_index, binding.study_id
             )));
         }
-        let study = studies.get(binding.study_id).await?.study;
+        let study = studies.row(binding.study_id).await?;
         let intent = self
             .store()
             .catalog()
@@ -827,7 +827,7 @@ impl StudyHandle {
     pub async fn result(&self) -> Result<Option<Published>, WorkflowError> {
         let operations = self.runtime.operations()?;
         let store = operations.store();
-        let study = store.studies().get(self.study_id).await?.study;
+        let study = store.studies().row(self.study_id).await?;
         if study.state != StudyState::Published {
             return Ok(None);
         }
@@ -857,14 +857,16 @@ impl StudyHandle {
             if let Some(published) = self.result().await? {
                 return Ok(published);
             }
-            let status = self.status().await?;
-            if matches!(status.finalization, JobState::Failed | JobState::Cancelled) {
+            let store = self.runtime.operations()?.store();
+            let study = store.studies().row(self.study_id).await?;
+            let finalization = store.jobs().get(study.finalization_job).await?;
+            if matches!(finalization.state, JobState::Failed | JobState::Cancelled) {
                 return Err(contract(format!(
                     "study {} was not published: its finalization {}{}",
                     self.study_id,
-                    status.finalization.as_str(),
-                    status
-                        .finalization_error
+                    finalization.state.as_str(),
+                    finalization
+                        .last_error
                         .map(|error| format!(" ({error})"))
                         .unwrap_or_default()
                 )));
