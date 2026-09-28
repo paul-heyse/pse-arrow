@@ -57,7 +57,7 @@ pub enum ModelingOutput {
     /// Compiled annotation expression with its source and target preserved.
     Hint {
         target: SemanticId,
-        declaration: SemanticId,
+        declaration: DeclarationId,
         kind: ModelingHint,
     },
     /// Unrelaxed residual, retained independently of auxiliary variables.
@@ -121,7 +121,7 @@ struct Projection {
     functions: BTreeMap<String, pse_modeling::Function>,
     quantities: Vec<QuantityTypeId>,
     local_quantities: BTreeMap<String, QuantityTypeId>,
-    declarations: Vec<SemanticId>,
+    declarations: Vec<DeclarationId>,
     implicit: Vec<implicit::Projection>,
 }
 #[salsa::tracked(returns(clone),lru=64,heap_size=projection_heap)]
@@ -179,7 +179,7 @@ fn projection(
                     crate::typed_math::Validity {
                         lower: lower.clone(),
                         upper: upper.clone(),
-                        source: a.lineage.declaration,
+                        source: a.lineage.declaration.into(),
                     },
                 );
             }
@@ -795,8 +795,8 @@ impl CompilerWorkspace {
     /// An invalid package, unsupported execution construct, physical error or resource limit.
     pub fn admit_modeling(
         &mut self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
     ) -> Result<Arc<AdmittedModeling>> {
@@ -861,7 +861,7 @@ fn structure(
                     edges.push(Incidence {
                         row: *id,
                         column,
-                        instance: *request.instance(db),
+                        instance: request.instance(db).as_id(),
                         output,
                     });
                 }
@@ -869,7 +869,7 @@ fn structure(
         }
     }
     let incidence = CaseIncidence::new(
-        Scope::Whole(*request.instance(db)),
+        Scope::Whole(request.instance(db).as_id()),
         rows,
         p.free.keys().copied().collect(),
         edges,
@@ -890,8 +890,8 @@ impl CompilerWorkspace {
     /// Invalid semantics, physical admission, resource limits or cancellation.
     pub fn prepare_modeling_cancellable(
         &mut self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         cancel: Arc<AtomicBool>,
@@ -975,7 +975,7 @@ fn projection_heap(value: &Result<Arc<Projection>>) -> usize {
                 .iter()
                 .map(implicit::Projection::retained_bytes)
                 .sum::<usize>()
-            + p.declarations.capacity() * size_of::<SemanticId>()
+            + p.declarations.capacity() * size_of::<DeclarationId>()
             + p.quantities.capacity() * size_of::<QuantityTypeId>()
             + p.local_quantities
                 .iter()

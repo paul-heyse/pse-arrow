@@ -19,9 +19,9 @@ use std::time::{Duration, Instant};
 #[derive(Clone, Debug)]
 pub struct ModelingAnalysis {
     /// Selected root declaration.
-    pub root: SemanticId,
-    /// Selected instance within the root.
-    pub instance: SemanticId,
+    pub root: DeclarationId,
+    /// Identity of the instance the root becomes.
+    pub instance: InstanceId,
     /// Specialization arguments, facts and demands.
     pub bindings: Bindings,
     /// Finite specialization limits.
@@ -192,7 +192,7 @@ pub struct ModelingStudyReport {
     /// Identity of this study run.
     pub run_id: SemanticId,
     pub(super) runtime: Runtime,
-    pub(super) points: Vec<(Option<SemanticId>, Option<SemanticId>, Option<usize>)>,
+    pub(super) points: Vec<(Option<DeclarationId>, Option<InstanceId>, Option<usize>)>,
     /// Attempted points in order.
     pub outcomes: Vec<Result<ModelingResult, BoundaryDiagnostic>>,
     /// Points not attempted after cancellation.
@@ -356,7 +356,7 @@ impl ModelingPackage {
             let mut error = BoundaryDiagnostic::new(
                 BoundaryClass::Conflict,
                 "modeling-study",
-                [analysis.root, analysis.instance],
+                [analysis.root.as_id(), analysis.instance.as_id()],
                 "modeling.study.predecessor",
             );
             error.observations.insert(
@@ -498,7 +498,7 @@ impl Initializer<'_> {
         self.report.failure = Some(BoundaryDiagnostic::new(
             class,
             "initialization",
-            [self.analysis.root, self.analysis.instance],
+            [self.analysis.root.as_id(), self.analysis.instance.as_id()],
             rule,
         ));
         false
@@ -737,7 +737,7 @@ mod tests {
         solver.controls.iterations = iterations;
         let analysis = ModelingAnalysis {
             root,
-            instance: root,
+            instance: pse_modeling::specialize::root_instance(root),
             bindings: Bindings::default(),
             limits: Limits::default(),
             case: ModelingCaseBindings::default(),
@@ -892,7 +892,7 @@ mod tests {
         let package = rt.modeling_package(rows, physical, names).unwrap();
         let analysis = ModelingAnalysis {
             root,
-            instance: root,
+            instance: pse_modeling::specialize::root_instance(root),
             bindings: Bindings::default(),
             limits: Limits::default(),
             case: ModelingCaseBindings {

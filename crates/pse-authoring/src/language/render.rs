@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 use super::{Declaration, Selected};
 use crate::AuthoringError;
-use pse_ids::SemanticId;
+use pse_model::generated::identities::DeclarationId;
 use std::collections::{BTreeMap, BTreeSet};
 
 fn quoted(text: &str) -> String {
@@ -51,7 +51,7 @@ pub fn render(rows: &[Declaration]) -> Result<String, AuthoringError> {
     if ids.len() != rows.len() {
         return Err(bad("duplicate declaration identity"));
     }
-    let mut children = BTreeMap::<Option<SemanticId>, Vec<&Declaration>>::new();
+    let mut children = BTreeMap::<Option<DeclarationId>, Vec<&Declaration>>::new();
     for row in rows {
         if row.parent_id.is_some_and(|id| !ids.contains(&id)) {
             return Err(bad("missing parent"));
@@ -70,9 +70,9 @@ pub fn render(rows: &[Declaration]) -> Result<String, AuthoringError> {
     Ok(out)
 }
 fn print_block(
-    parent: Option<SemanticId>,
-    children: &BTreeMap<Option<SemanticId>, Vec<&Declaration>>,
-    visited: &mut BTreeSet<SemanticId>,
+    parent: Option<DeclarationId>,
+    children: &BTreeMap<Option<DeclarationId>, Vec<&Declaration>>,
+    visited: &mut BTreeSet<DeclarationId>,
     depth: usize,
     out: &mut String,
 ) -> Result<(), AuthoringError> {

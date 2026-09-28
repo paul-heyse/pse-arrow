@@ -119,7 +119,7 @@ async fn reference_datum_subject_requires_an_actual_authored_entity() {
         (None, true),
         (Some(entity), true),
         (Some(kind), false),
-        (Some(SemanticId::from_bytes([254; 16])), false),
+        (Some(SemanticId::from_bytes([254; 16]).into()), false),
     ] {
         let mut builder = reference::reference_states::Builder::new().unwrap();
         for mut row in references.clone() {
@@ -136,7 +136,7 @@ async fn reference_datum_subject_requires_an_actual_authored_entity() {
                 inventory
                     .quantities()
                     .reference_states()
-                    .all(|row| row.subject == subject)
+                    .all(|row| row.subject == subject.map(Into::into))
             );
         }
     }
@@ -427,7 +427,7 @@ async fn normalized_unit_union_requires_complete_exact_definitions() {
                 reference_state_id: unit.reference_state_id,
                 system: unit.system.clone(),
                 doc: unit.doc.clone(),
-                package_id: SemanticId::NIL,
+                package_id: SemanticId::NIL.into(),
                 unit_set_id: SemanticId::NIL,
             })
             .unwrap();

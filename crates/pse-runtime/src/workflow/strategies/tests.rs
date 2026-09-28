@@ -101,7 +101,7 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
     let model = package
         .prepare(
             root,
-            root,
+            pse_modeling::specialize::root_instance(root),
             analysis.bindings.clone(),
             analysis.limits,
             &cancel,
@@ -175,7 +175,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     let model = package
         .prepare(
             root,
-            root,
+            pse_modeling::specialize::root_instance(root),
             analysis.bindings.clone(),
             analysis.limits,
             &cancel,
@@ -196,7 +196,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     analysis.solver.numerics.requirements.push(serde_json::from_value(serde_json::json!({"requirement_id":id(91),"model_id":root,"case_id":root,"target_id":x,"target_kind":"variable","nominal":100.0,"scaling_factor":null,"absolute_tolerance":1e-9,"relative_tolerance":1e-10,"unit_id":null,"coordinates":"physical","priority":0,"required":true,"provenance":"explicit source-coordinate acceptance"})).unwrap());
 
     let selection = pse_compiler::workspace::ModelingFlowSelection {
-        nodes: BTreeSet::from([root]),
+        nodes: BTreeSet::from([pse_modeling::specialize::root_instance(root)]),
         connections: product
             .connections
             .keys()
@@ -234,7 +234,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
     let request = RecycleRequest {
         tears: witness.decisions,
         units: vec![CausalUnitRequest {
-            node: root,
+            node: root.as_id(),
             inputs: BTreeSet::from([input]),
             outputs: BTreeSet::from([output]),
         }],
@@ -245,7 +245,7 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
         .prepare_recycle(&analysis, selection.clone(), request.clone(), &cancel)
         .await
         .unwrap();
-    assert_eq!(prepared.order().unwrap(), vec![root]);
+    assert_eq!(prepared.order().unwrap(), vec![root.as_id()]);
     assert_eq!(prepared.numerics().targets.len(), 2);
     assert!(prepared.numerics().targets.iter().all(|t| {
         t.nominal == 100.0

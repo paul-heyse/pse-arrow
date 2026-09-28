@@ -23,7 +23,7 @@ struct TrialHints {
     instance: SemanticId,
     unknowns: Vec<SemanticId>,
     rows: Vec<SemanticId>,
-    hints: Vec<(SemanticId, SemanticId, ModelingHint)>,
+    hints: Vec<(SemanticId, DeclarationId, ModelingHint)>,
     scales: Vec<pse_compiler::workspace::ImplicitScale>,
     values: BTreeMap<SemanticId, f64>,
     states: BTreeMap<SemanticId, ModelingVariableState>,
@@ -64,7 +64,7 @@ impl HintResolver for TrialHints {
         for ((target, kind), (source, value)) in &selected {
             if *kind == ModelingHint::Nominal {
                 declarations.push(super::cases::requirement(
-                    self.instance,
+                    ModelId::from(self.instance),
                     *target,
                     if self.unknowns.contains(target) {
                         NumericalTarget::Variable
@@ -83,7 +83,7 @@ impl HintResolver for TrialHints {
             for scale in &self.scales {
                 let values = terms.get(scale.terms.clone()).ok_or_else(||failure("implicit original-term range"))?;
                 let value = pse_math::numerics::term_scale(scale.scheme,values)?;
-                declarations.push(super::cases::requirement(self.instance,scale.row,NumericalTarget::Row,scale.source,NumericalSource::DerivedNominal,None,Some(value)));
+                declarations.push(super::cases::requirement(ModelId::from(self.instance),scale.row,NumericalTarget::Row,scale.source,NumericalSource::DerivedNominal,None,Some(value)));
             }
         }
         let numerics = pse_math::numerics::resolve(
@@ -394,11 +394,11 @@ mod tests {
         let physical=super::super::super::tests::physical();
         let quantity=physical.quantities.neutral_dimensionless().unwrap();
         let unit=physical.quantities.quantity_type(quantity).unwrap().canonical_unit;
-        let x=SemanticId::from_bytes([171;16]);let row=SemanticId::from_bytes([172;16]);let source=SemanticId::from_bytes([173;16]);
+        let x=SemanticId::from_bytes([171;16]);let row=SemanticId::from_bytes([172;16]);let source=SemanticId::from_bytes([173;16]);let declaration=DeclarationId::from(source);
         let mut resolver=TrialHints{
             identity:pse_ids::ContentHash::from_bytes([0;32]),quantities:physical.quantities,instance:source,
-            unknowns:vec![x],rows:vec![row],hints:vec![(x,source,ModelingHint::Nominal)],
-            scales:vec![pse_compiler::workspace::ImplicitScale{row,source,scheme:pse_model::generated::enums::ConstraintScalingScheme::InverseSum,terms:0..3}],
+            unknowns:vec![x],rows:vec![row],hints:vec![(x,declaration,ModelingHint::Nominal)],
+            scales:vec![pse_compiler::workspace::ImplicitScale{row,source:declaration,scheme:pse_model::generated::enums::ConstraintScalingScheme::InverseSum,terms:0..3}],
             values:BTreeMap::from([(x,1.)]),states:BTreeMap::new(),
             targets:vec![(x,NumericalTarget::Variable),(row,NumericalTarget::Row)].into_iter().map(|(id,kind)|pse_math::numerics::TargetSpec{id,kind,quantity,unit,integer:false,declared_tolerance:None}).collect(),
             declarations:vec![],policy:NumericalPolicy::default(),controls:Default::default(),
@@ -406,7 +406,7 @@ mod tests {
         let (_,options)=resolver.resolve(&[3.],Some(&[9.,-4.,0.])).unwrap();
         assert_eq!(options.variable_nominals,vec![3.]);
         assert!((options.residual_tolerance[0]-13e-8).abs()<1e-20);
-        resolver.declarations.push(super::super::cases::requirement(source,row,NumericalTarget::Row,pse_ids::named_id(source,"override"),NumericalSource::Model,Some(7.),None));
+        resolver.declarations.push(super::super::cases::requirement(ModelId::from(source),row,NumericalTarget::Row,DeclarationId::from(pse_ids::named_id(source,"override")),NumericalSource::Model,Some(7.),None));
         let (_,options)=resolver.resolve(&[3.],Some(&[9.,-4.,0.])).unwrap();
         assert!((options.residual_tolerance[0]-7e-8).abs()<1e-20);
         assert!(resolver.resolve(&[3.],Some(&[f64::NAN,4.,0.])).is_err());
@@ -436,7 +436,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let compiler = super::super::super::tests::compiler_profile();
         let model = package
-            .prepare(root, root, Bindings::default(), Limits::default(), &cancel)
+            .prepare(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(), &cancel)
             .await
             .unwrap();
         let product = model.compiled();
@@ -528,7 +528,7 @@ mod tests {
             let result = package
                 .prepare_solve(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -573,7 +573,7 @@ mod tests {
         let compiler = super::super::super::tests::compiler_profile();
         let cancel = crate::CancelSource::new();
         let model = package
-            .prepare(root, root, Bindings::default(), Limits::default(), &cancel)
+            .prepare(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(), &cancel)
             .await
             .unwrap();
         let product = model.compiled();
@@ -643,7 +643,7 @@ mod tests {
         let prepared = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -664,8 +664,8 @@ mod tests {
             ordered[0].descriptor.spec().id
         );
         assert_eq!(
-            product.model.instances[&ordered[0].descriptor.spec().id].parent,
-            Some(ordered[1].descriptor.spec().id)
+            product.model.instances[&InstanceId::from(ordered[0].descriptor.spec().id)].parent,
+            Some(InstanceId::from(ordered[1].descriptor.spec().id))
         );
         assert_eq!(prepared.model.case.compiled().facts.variables, 1);
         let x = product.admitted.inputs[0];
@@ -740,7 +740,7 @@ mod tests {
         let prepared = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -760,7 +760,7 @@ mod tests {
         let changed = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 case,
@@ -809,7 +809,7 @@ mod tests {
             package
                 .prepare_solve(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     case,

@@ -5,6 +5,7 @@ use pse_authoring::{
     ParseBudget,
     language::{IdentityPolicy, parse},
 };
+use pse_modeling::specialize::root_instance;
 use std::collections::BTreeSet;
 fn source(text: &str) -> Vec<Declaration> {
     parse(
@@ -21,7 +22,7 @@ fn setup(
     CompilerWorkspace,
     Vec<Declaration>,
     BTreeMap<String, QuantityTypeId>,
-    SemanticId,
+    DeclarationId,
 ) {
     let input = super::super::tests::inputs();
     let names = BTreeMap::from([(
@@ -40,11 +41,11 @@ fn setup(
         .unwrap();
     (workspace, rows, names, root)
 }
-fn admit(workspace: &mut CompilerWorkspace, root: SemanticId) -> Arc<AdmittedModeling> {
+fn admit(workspace: &mut CompilerWorkspace, root: DeclarationId) -> Arc<AdmittedModeling> {
     workspace
         .admit_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
         )
@@ -59,7 +60,7 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
     let generous = workspace
         .admit_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits {
                 body_occurrences: Some(65536),
@@ -72,7 +73,7 @@ fn kernel_body_construction_limits_are_tracked_without_changing_mathematics() {
         workspace
             .admit_modeling(
                 root,
-                SemanticId::NIL,
+                InstanceId::from_id(SemanticId::NIL),
                 Bindings::default(),
                 Limits {
                     body_occurrences: Some(1),
@@ -388,7 +389,7 @@ fn kernel_structure_follows_lazy_specialization_and_cancellation_is_transient() 
     assert!(matches!(
         workspace.prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             bindings.clone(),
             Limits::default(),
             cancel
@@ -398,7 +399,7 @@ fn kernel_structure_follows_lazy_specialization_and_cancellation_is_transient() 
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             bindings,
             Limits::default(),
             Arc::new(AtomicBool::new(false)),
@@ -458,7 +459,7 @@ fn kernel_compiled_original_terms_feed_independent_closure() {
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             flag.clone(),
@@ -532,7 +533,7 @@ fn kernel_child_contract_refinement_preserves_inherited_members() {
         let declarations = self::source(&source);
         let root = declarations.iter().find(|r|r.name=="Root").unwrap().declaration_id;
         if workspace.publish_modeling(declarations,names).is_ok() {
-            assert!(workspace.admit_modeling(root,SemanticId::NIL,Bindings::default(),Limits::default()).is_err(), "{source}");
+            assert!(workspace.admit_modeling(root,InstanceId::from_id(SemanticId::NIL),Bindings::default(),Limits::default()).is_err(), "{source}");
         }
     }
 }
@@ -548,7 +549,7 @@ fn kernel_conservation_assembles_local_derivatives() {
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             flag.clone(),
@@ -677,7 +678,7 @@ fn kernel_table_function_references_dispatch_and_share_specializations() {
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             Arc::new(AtomicBool::new(false)),
@@ -724,7 +725,7 @@ fn kernel_original_terms_survive_exact_cancellation_for_scaling() {
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             flag.clone(),
@@ -772,7 +773,7 @@ fn kernel_inline_implicit_block_has_explicit_capture_gathers() {
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             Arc::new(AtomicBool::new(false)),
@@ -960,7 +961,7 @@ fn kernel_nested_hints_reject_self_dependencies_and_select_regime_overrides() {
         let error = workspace
             .admit_modeling(
                 root,
-                SemanticId::NIL,
+                InstanceId::from_id(SemanticId::NIL),
                 Bindings::default(),
                 Limits::default(),
             )
@@ -1102,7 +1103,7 @@ fn kernel_elastic_variants_preserve_originals_and_normalize_penalties() {
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             Arc::new(AtomicBool::new(false)),
@@ -1192,7 +1193,7 @@ fn kernel_stage_variants_preserve_variables_and_restore_final_structure() {
         ..Bindings::default()
     };
     let stage = workspace
-        .admit_modeling(root, SemanticId::NIL, bindings, Limits::default())
+        .admit_modeling(root, InstanceId::from_id(SemanticId::NIL), bindings, Limits::default())
         .unwrap();
     assert_eq!(normal.inputs, stage.inputs);
     assert_ne!(normal.case.key(), stage.case.key());
@@ -1239,7 +1240,7 @@ fn kernel_piecewise_proves_boundary_jets_and_keeps_lazy_regions() {
         let prepared = workspace
             .prepare_modeling_cancellable(
                 root,
-                SemanticId::NIL,
+                InstanceId::from_id(SemanticId::NIL),
                 Bindings::default(),
                 Limits::default(),
                 cancel.clone(),
@@ -1276,7 +1277,7 @@ fn kernel_piecewise_proves_boundary_jets_and_keeps_lazy_regions() {
             workspace
                 .admit_modeling(
                     root,
-                    SemanticId::NIL,
+                    InstanceId::from_id(SemanticId::NIL),
                     Bindings::default(),
                     Limits::default()
                 )
@@ -1343,7 +1344,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     let model = w
         .specialize_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
         )
@@ -1358,7 +1359,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     let mut expected = rows
         .iter()
         .filter(|r| r.value.entity.is_some())
-        .map(|r| vec![r.declaration_id])
+        .map(|r| vec![r.declaration_id.as_id()])
         .collect::<Vec<_>>();
     expected.sort();
     assert_eq!(shape.coordinates, expected);
@@ -1504,7 +1505,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     assert!(
         w.admit_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default()
         )
@@ -1526,7 +1527,7 @@ fn kernel_external_vector_shapes_derivatives_and_revisions_are_checked() {
     assert!(
         w.admit_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default()
         )
@@ -1556,7 +1557,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
     let (model, solve, values) = w
         .prepare_modeling_case_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             bindings,
             Limits::default(),
             &case,
@@ -1592,7 +1593,7 @@ fn kernel_case_projection_excludes_observations_and_preserves_specification() {
     assert!(
         w.prepare_modeling_case_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             &invalid,
@@ -1616,7 +1617,7 @@ fn value_rebind_shares_structure_and_rebuilds_only_consumed_values() {
     let model = w
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             bindings,
             Limits::default(),
             cancel.clone(),
@@ -1862,7 +1863,7 @@ fn kernel_pure_authored_tests_use_existing_math_without_runtime_or_solver() {
     let results = workspace
         .check_modeling_expectations(
             test,
-            test,
+            root_instance(test),
             Bindings::default(),
             Limits::default(),
             &CaseValues {
@@ -1901,7 +1902,7 @@ fn kernel_expectations_combine_physical_and_relative_tolerances() {
     let run = |workspace: &mut CompilerWorkspace| {
         workspace.check_modeling_expectations(
             test,
-            test,
+            root_instance(test),
             Bindings::default(),
             Limits::default(),
             &CaseValues {
@@ -1948,7 +1949,7 @@ fn kernel_pure_expectations_apply_authored_fixture_values_without_solving() {
         .find(|r| r.name == "local")
         .unwrap()
         .declaration_id;
-    let instance = SemanticId::from_bytes([66; 16]);
+    let instance = InstanceId::from_bytes([66; 16]);
     let model = workspace
         .prepare_modeling_cancellable(
             test,
@@ -2047,7 +2048,7 @@ fn kernel_piecewise_chained_breakpoints_and_explicit_partials_keep_proved_order(
         workspace
             .admit_modeling(
                 root,
-                SemanticId::NIL,
+                InstanceId::from_id(SemanticId::NIL),
                 Bindings::default(),
                 Limits::default()
             )
@@ -2080,7 +2081,7 @@ fn kernel_authored_math_replaces_composite_native_functions() {
         let result = workspace
             .check_modeling_expectations(
                 root,
-                root,
+                root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 &pse_math::binding::CaseValues {
@@ -2130,7 +2131,7 @@ fn kernel_integrated_axis_retains_symbolic_time_and_original_derivative_lineage(
     let model = workspace
         .prepare_modeling_cancellable(
             root,
-            root,
+            root_instance(root),
             Bindings::default(),
             Limits::default(),
             cancel.clone(),
@@ -2190,7 +2191,7 @@ fn kernel_analysis_facts_are_typed_and_select_source_guards() {
         let model = workspace
             .prepare_modeling_cancellable(
                 root,
-                root,
+                root_instance(root),
                 Bindings::default().with_analysis(route),
                 Limits::default(),
                 Arc::new(AtomicBool::new(false)),
@@ -2205,7 +2206,7 @@ fn kernel_analysis_facts_are_typed_and_select_source_guards() {
         .insert("analysis.dynamic".into(), Value::Boolean(true));
     assert!(
         workspace
-            .specialize_modeling(root, root, invalid, Limits::default())
+            .specialize_modeling(root, root_instance(root), invalid, Limits::default())
             .unwrap_err()
             .to_string()
             .contains("disagrees")
@@ -2353,7 +2354,7 @@ fn kernel_child_indices_resolve_in_the_authors_import_scope() {
     let results = workspace
         .check_modeling_expectations(
             fixture,
-            fixture,
+            root_instance(fixture),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -2401,7 +2402,7 @@ fn kernel_structural_interface_parameters_bind_effective_members_before_guards()
     let checks = workspace
         .check_modeling_expectations(
             fixture,
-            fixture,
+            root_instance(fixture),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -2411,7 +2412,7 @@ fn kernel_structural_interface_parameters_bind_effective_members_before_guards()
         .unwrap();
     assert!(checks.iter().all(|check| check.passed));
     let model = workspace
-        .specialize_modeling(fixture, fixture, Bindings::default(), Limits::default())
+        .specialize_modeling(fixture, root_instance(fixture), Bindings::default(), Limits::default())
         .unwrap();
     assert_eq!(model.equations.len(), 1);
     assert!(
@@ -2463,7 +2464,7 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
     }"#;
     let (mut workspace, _, _, root) = setup(text);
     let model = workspace
-        .specialize_modeling(root, root, Bindings::default(), Limits::default())
+        .specialize_modeling(root, root_instance(root), Bindings::default(), Limits::default())
         .unwrap();
     assert_eq!(model.equations.len(), 1);
     let fixture = source(text)
@@ -2474,7 +2475,7 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
     let checks = workspace
         .check_modeling_expectations(
             fixture,
-            fixture,
+            root_instance(fixture),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -2487,7 +2488,7 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
     let (mut workspace, _, _, root) = setup(&missing);
     assert!(
         workspace
-            .specialize_modeling(root, root, Bindings::default(), Limits::default())
+            .specialize_modeling(root, root_instance(root), Bindings::default(), Limits::default())
             .unwrap_err()
             .to_string()
             .contains("missing argument selected")
@@ -2499,7 +2500,7 @@ fn kernel_definition_projection_shares_constructor_defaults_and_effective_member
     let (mut workspace, _, _, root) = setup(&recursive);
     assert!(
         workspace
-            .specialize_modeling(root, root, Bindings::default(), Limits::default())
+            .specialize_modeling(root, root_instance(root), Bindings::default(), Limits::default())
             .unwrap_err()
             .to_string()
             .contains("recursive structural definition")
@@ -2524,7 +2525,7 @@ fn kernel_fixture_paths_bind_the_selected_implementation_physical_contract() {
         .unwrap()
         .declaration_id;
     let model = workspace
-        .specialize_modeling(fixture, fixture, Bindings::default(), Limits::default())
+        .specialize_modeling(fixture, root_instance(fixture), Bindings::default(), Limits::default())
         .unwrap();
     let specifications = &model.fixtures.values().next().unwrap().specifications;
     assert_eq!(specifications["state.hidden"].value, Some(7.));
@@ -2539,7 +2540,7 @@ fn kernel_fixture_paths_bind_the_selected_implementation_physical_contract() {
         .declaration_id;
     assert!(
         workspace
-            .specialize_modeling(fixture, fixture, Bindings::default(), Limits::default())
+            .specialize_modeling(fixture, root_instance(fixture), Bindings::default(), Limits::default())
             .is_err()
     );
 }
@@ -2572,7 +2573,7 @@ fn kernel_immutable_function_data_is_visible_differentiable_and_invalidated() {
         workspace
             .check_modeling_expectations(
                 fixture,
-                fixture,
+                root_instance(fixture),
                 Bindings::default(),
                 Limits::default(),
                 &CaseValues::default(),
@@ -2635,7 +2636,7 @@ fn kernel_imported_table_paths_preserve_rows_columns_and_visibility() {
     let checks = workspace
         .check_modeling_expectations(
             fixture,
-            fixture,
+            root_instance(fixture),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -2690,7 +2691,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
     let results = workspace
         .check_modeling_expectations(
             id,
-            id,
+            root_instance(id),
             Bindings::default(),
             Limits::default(),
             &CaseValues {
@@ -2723,7 +2724,7 @@ fn kernel_explicit_primitive_functions_preserve_references_and_derivative_checks
     let results = workspace
         .check_modeling_expectations(
             id,
-            id,
+            root_instance(id),
             Bindings::default(),
             Limits::default(),
             &CaseValues {
@@ -2771,7 +2772,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
     let checks = workspace
         .check_modeling_expectations(
             test,
-            test,
+            root_instance(test),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -2802,7 +2803,7 @@ fn kernel_function_slots_select_overrides_indexed_methods_and_forward_arguments(
     let error = workspace
         .check_modeling_expectations(
             test,
-            test,
+            root_instance(test),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -2831,7 +2832,7 @@ fn kernel_shared_partials_preserve_lets_and_mixed_derivatives() {
     let model = workspace
         .specialize_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
         )
@@ -2877,7 +2878,7 @@ fn kernel_implicit_functions_read_enclosing_indexed_members() {
     let model = workspace
         .specialize_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
         )
@@ -2937,7 +2938,7 @@ fn kernel_negative_literals_keep_the_expected_physical_contract() {
     let checks = workspace
         .check_modeling_expectations(
             id,
-            id,
+            root_instance(id),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -2985,7 +2986,7 @@ fn kernel_generic_normalization_requires_the_concrete_physical_operation() {
         workspace.publish_modeling(rows, names).unwrap();
         let result = workspace.check_modeling_expectations(
             id,
-            id,
+            root_instance(id),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -3133,7 +3134,7 @@ fn kernel_finite_reductions_retain_domains_prototypes_and_derivatives() {
     let model = workspace
         .specialize_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings {
                 demand: vec!["total_static".into(), "empty_static".into()],
                 ..Bindings::default()
@@ -3175,7 +3176,7 @@ fn kernel_finite_folds_compose_source_functions_and_library_partials() {
     let run = |workspace: &mut CompilerWorkspace| {
         workspace.check_modeling_expectations(
             case,
-            case,
+            root_instance(case),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -3216,7 +3217,7 @@ fn kernel_indexed_accounting_values_are_readable_in_checks_and_ports() {
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             cancel.clone(),
@@ -3280,7 +3281,7 @@ fn kernel_qualified_enumeration_arguments_select_structure() {
     let model = workspace
         .specialize_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
         )
@@ -3317,7 +3318,7 @@ fn kernel_pure_function_names_do_not_capture_caller_members() {
     let checks = workspace
         .check_modeling_expectations(
             case,
-            case,
+            root_instance(case),
             Bindings::default(),
             Limits::default(),
             &CaseValues::default(),
@@ -3372,7 +3373,7 @@ fn kernel_objective_selection_preserves_values_derivatives_and_penalty_direction
             let prepared = workspace
                 .prepare_modeling_cancellable(
                     root,
-                    SemanticId::NIL,
+                    InstanceId::from_id(SemanticId::NIL),
                     Bindings::default(),
                     Limits::default(),
                     Arc::new(AtomicBool::new(false)),
@@ -3454,7 +3455,7 @@ fn kernel_objective_selection_preserves_values_derivatives_and_penalty_direction
             workspace
                 .admit_modeling(
                     root,
-                    SemanticId::NIL,
+                    InstanceId::from_id(SemanticId::NIL),
                     Bindings::default(),
                     Limits::default()
                 )
@@ -3493,7 +3494,7 @@ fn kernel_dimensional_objectives_require_normalization_before_elastic_combinatio
         workspace.publish_modeling(rows, names).unwrap();
         let admitted = workspace.admit_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
         );
@@ -3522,7 +3523,7 @@ fn kernel_flow_projection_preserves_ports_isolates_and_explicit_tear_policies() 
     let prepared = workspace
         .prepare_modeling_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             Arc::new(AtomicBool::new(false)),

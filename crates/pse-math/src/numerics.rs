@@ -543,7 +543,7 @@ mod tests {
             source,
             declaration: NumericalRequirement {
                 requirement_id: id(n),
-                model_id: id(90),
+                model_id: id(90).into(),
                 case_id: None,
                 target_id: id(1),
                 target_kind: NumericalTarget::Variable,

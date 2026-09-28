@@ -59,7 +59,7 @@ impl Continuation {
 impl Engine<'_, '_> {
     pub(super) fn transformation(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
         env: &Environment,
     ) -> Result<()> {
@@ -151,7 +151,7 @@ impl Engine<'_, '_> {
             self.reserve(count)?;
             let mut slacks = Vec::new();
             let mut penalty = None;
-            let zero = self.typed_zero(&ty, target)?;
+            let zero = self.typed_zero(&ty, lineage.declaration)?;
             let nominal_id = pse_ids::named_id(target, "elastic-nominal");
             let mut nominal_lineage = lineage.clone();
             nominal_lineage.path = format!("{}.elastic_nominal", original.lineage.path);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded compile-time values. This interpreter selects structure; runtime math uses pse-math.
-use crate::{CheckedPackage, Result, Type, TypeContext, invalid};
+use crate::{CheckedPackage, DeclarationId, Result, Type, TypeContext, invalid};
 use pse_authoring::{
     dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, Predicate, PredicateKind},
     language::{StaticValue, parse_static},
@@ -31,22 +31,22 @@ pub enum Value {
     /// Textual label.
     Text(String),
     /// Entity identity and kind identity.
-    Entity { id: SemanticId, kind: SemanticId },
+    Entity { id: DeclarationId, kind: DeclarationId },
     /// Value of an authored closed enumeration.
     Enum {
-        enumeration: SemanticId,
+        enumeration: DeclarationId,
         member: String,
     },
     /// Definition identity with named partial bindings.
     Definition {
-        id: SemanticId,
+        id: DeclarationId,
         bindings: BTreeMap<String, Value>,
     },
     /// A pure function declaration selected as structural data.
-    Function(SemanticId),
+    Function(DeclarationId),
     /// Typed heterogeneous table row.
     Row {
-        table: SemanticId,
+        table: DeclarationId,
         fields: BTreeMap<String, Value>,
     },
     /// Ordered finite set with no duplicates.
@@ -70,7 +70,7 @@ impl Value {
                 h.str("coordinate").id(id).u64(*bits).id(&quantity.as_id());
             }
             Self::Function(id) => {
-                h.str("function").id(id);
+                h.str("function").id(&id.as_id());
             }
             Self::Number { bits, quantity } => {
                 h.str("number").u64(*bits).id(&quantity.as_id());
@@ -79,23 +79,23 @@ impl Value {
                 h.str("text").str(v);
             }
             Self::Entity { id, kind } => {
-                h.str("entity").id(id).id(kind);
+                h.str("entity").id(&id.as_id()).id(&kind.as_id());
             }
             Self::Enum {
                 enumeration,
                 member,
             } => {
-                h.str("enum").id(enumeration).str(member);
+                h.str("enum").id(&enumeration.as_id()).str(member);
             }
             Self::Definition { id, bindings } => {
-                h.str("definition").id(id);
+                h.str("definition").id(&id.as_id());
                 for (n, v) in bindings {
                     h.str(n);
                     v.frame(h);
                 }
             }
             Self::Row { table, fields } => {
-                h.str("row").id(table);
+                h.str("row").id(&table.as_id());
                 for (n, v) in fields {
                     h.str(n);
                     v.frame(h);
@@ -119,14 +119,17 @@ impl Value {
     }
     /// Stable coordinate identity, preserving compound-key identity.
     pub fn identity(&self) -> SemanticId {
-        if let Self::Entity { id, .. } | Self::Coordinate { id, .. } = self {
+        if let Self::Entity { id, .. } = self {
+            return id.as_id();
+        }
+        if let Self::Coordinate { id, .. } = self {
             return *id;
         }
         let mut h = FramedHasher::new(pse_ids::Frame::ModelingCoordinateV1);
         self.frame(&mut h);
         h.finish_id()
     }
-    pub(crate) fn scalar(&self, at: SemanticId) -> Result<f64> {
+    pub(crate) fn scalar(&self, at: DeclarationId) -> Result<f64> {
         match self {
             Self::Number { bits, .. } | Self::Coordinate { bits, .. } => Ok(f64::from_bits(*bits)),
             Self::Integer(v) => Ok(*v as f64),
@@ -140,10 +143,10 @@ pub type Environment = BTreeMap<String, Value>;
 pub(crate) struct Evaluator<'a, 'b> {
     pub package: &'a CheckedPackage,
     pub physical: &'a TypeContext<'b>,
-    pub at: SemanticId,
+    pub at: DeclarationId,
     pub env: &'a Environment,
     pub limit: usize,
-    pub stack: Vec<SemanticId>,
+    pub stack: Vec<DeclarationId>,
 }
 impl Evaluator<'_, '_> {
     pub fn text(&mut self, text: &str, expected: Option<&Type>) -> Result<Value> {

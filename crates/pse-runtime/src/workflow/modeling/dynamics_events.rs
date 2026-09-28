@@ -56,7 +56,7 @@ impl ModelingPackage {
     /// Bind an authored case to the integrated route with declared same-layout modes.
     pub async fn declared_simulation_modes(
         &self,
-        root: SemanticId,
+        root: DeclarationId,
         compiler: Profile,
         profile: native::Profile,
         limits: Limits,
@@ -72,15 +72,23 @@ impl ModelingPackage {
             )
             .await?;
         self.prepare_simulation_modes(
-            root, root, bindings, limits, case, compiler, profile, modes, cancel,
+            root,
+            pse_modeling::specialize::root_instance(root),
+            bindings,
+            limits,
+            case,
+            compiler,
+            profile,
+            modes,
+            cancel,
         )
         .await
     }
     /// Prepare an integrated simulation of one instance under explicit bindings.
     pub async fn prepare_simulation(
         &self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         case: ModelingCaseBindings,
@@ -108,8 +116,8 @@ impl ModelingPackage {
     /// Compile all modes before native admission. Layout, units and state scaling stay fixed.
     pub async fn prepare_simulation_modes(
         &self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         case: ModelingCaseBindings,

@@ -14,7 +14,7 @@ use pse_kernels::DerivativeOrder;
 
 /// A package on a runtime whose native jobs admit a foreign allowance SCIP takes as its
 /// memory limit.
-fn package(text: &str) -> (ModelingPackage, SemanticId) {
+fn package(text: &str) -> (ModelingPackage, DeclarationId) {
     let physical = fixture::physical();
     let mut names = fixture::discrete_names();
     names.insert(
@@ -44,10 +44,10 @@ fn profile(intent: SolveIntent, selection: SolverSelection) -> SolverProfile {
     profile.selection = selection;
     profile
 }
-fn analysis(root: SemanticId, solver: SolverProfile) -> ModelingAnalysis {
+fn analysis(root: DeclarationId, solver: SolverProfile) -> ModelingAnalysis {
     ModelingAnalysis {
         root,
-        instance: root,
+        instance: pse_modeling::specialize::root_instance(root),
         bindings: Bindings::default(),
         limits: Limits::default(),
         case: ModelingCaseBindings::default(),
@@ -290,7 +290,7 @@ async fn certified_infeasibility_beside_local_explanation() {
     assert!(!certificate.proven());
     assert!(certificate.members.is_empty());
 }
-fn package_feasible() -> (ModelingPackage, SemanticId) {
+fn package_feasible() -> (ModelingPackage, DeclarationId) {
     package(&OBSTRUCTION.replace("eq hi: x*x <= 1;", ""))
 }
 

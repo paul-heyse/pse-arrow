@@ -9,6 +9,7 @@ use petgraph::{
 };
 use pse_authoring::dsl;
 use pse_ids::SemanticId;
+use pse_model::generated::identities::DeclarationId;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -26,7 +27,7 @@ pub struct Function {
     /// Claimed boundary agreement, proved by the mathematical consumer before derivative admission.
     pub continuity: Option<u8>,
     /// Declaration identity.
-    pub id: SemanticId,
+    pub id: DeclarationId,
     /// Universally quantified physical types.
     pub variables: BTreeSet<String>,
     /// Ordered explicit arguments.
@@ -52,23 +53,23 @@ pub struct CheckedPackage {
     pub(crate) quantities: Arc<pse_quantity::QuantityRegistry>,
     pub(crate) preconditions: Arc<pse_quantity::PhysicalPreconditions>,
     pub(crate) quantity_names: Arc<BTreeMap<String, pse_quantity::QuantityTypeId>>,
-    pub(crate) lowered_functions: BTreeSet<SemanticId>,
+    pub(crate) lowered_functions: BTreeSet<DeclarationId>,
     /// Registry-generated authoritative declarations.
-    pub(crate) declarations: BTreeMap<SemanticId, Declaration>,
+    pub(crate) declarations: BTreeMap<DeclarationId, Declaration>,
     /// Qualified names for public lookup.
-    pub(crate) names: BTreeMap<String, SemanticId>,
+    pub(crate) names: BTreeMap<String, DeclarationId>,
     /// Lexical child declarations.
-    pub(crate) children: BTreeMap<SemanticId, Vec<SemanticId>>,
+    pub(crate) children: BTreeMap<DeclarationId, Vec<DeclarationId>>,
     /// Checked member types.
-    pub(crate) types: BTreeMap<SemanticId, Type>,
+    pub(crate) types: BTreeMap<DeclarationId, Type>,
     /// Checked function signatures/bodies.
-    pub(crate) functions: BTreeMap<SemanticId, Function>,
+    pub(crate) functions: BTreeMap<DeclarationId, Function>,
     /// Effective members, including inherited interface defaults and overrides.
-    pub(crate) members: BTreeMap<SemanticId, BTreeMap<String, SemanticId>>,
+    pub(crate) members: BTreeMap<DeclarationId, BTreeMap<String, DeclarationId>>,
     /// Admitted immutable table values, indexed by complete typed keys.
-    pub(crate) tables: BTreeMap<SemanticId, crate::data::Table>,
+    pub(crate) tables: BTreeMap<DeclarationId, crate::data::Table>,
     /// Full interface extension/implementation closure.
-    pub(crate) interfaces: BTreeMap<SemanticId, BTreeSet<SemanticId>>,
+    pub(crate) interfaces: BTreeMap<DeclarationId, BTreeSet<DeclarationId>>,
 }
 impl CheckedPackage {
     /// The immutable physical environment used to admit this package.
@@ -80,14 +81,14 @@ impl CheckedPackage {
         }
     }
     /// Look up an entry point in the admitted inventory. Expression visibility uses `resolve`.
-    pub fn entry(&self, qualified_name: &str) -> Option<SemanticId> {
+    pub fn entry(&self, qualified_name: &str) -> Option<DeclarationId> {
         self.names.get(qualified_name).copied()
     }
     /// Read the admitted declarations without exposing mutation of checked state.
     pub fn declarations(&self) -> impl Iterator<Item = &Declaration> {
         self.declarations.values()
     }
-    fn qualified_name(&self, mut id: SemanticId) -> Option<String> {
+    fn qualified_name(&self, mut id: DeclarationId) -> Option<String> {
         let mut parts = Vec::new();
         loop {
             let row = self.declarations.get(&id)?;
@@ -100,7 +101,7 @@ impl CheckedPackage {
         parts.reverse();
         Some(parts.join("."))
     }
-    pub(crate) fn preset_definition(&self, mut id: SemanticId) -> Result<SemanticId> {
+    pub(crate) fn preset_definition(&self, mut id: DeclarationId) -> Result<DeclarationId> {
         let mut seen = BTreeSet::new();
         loop {
             if !seen.insert(id) {
@@ -140,14 +141,14 @@ impl CheckedPackage {
         }
     }
     /// A unique source member, including guarded contracts without activating them.
-    pub(crate) fn declared_member(&self, owner: SemanticId, name: &str) -> Option<SemanticId> {
+    pub(crate) fn declared_member(&self, owner: DeclarationId, name: &str) -> Option<DeclarationId> {
         if let Some(member) = self.members.get(&owner).and_then(|m| m.get(name)) {
             return Some(*member);
         }
         // Guarded declarations have a source contract even before their guard is
         // selected. Keep them out of the effective map: specialization alone owns
         // activation. Multiple possible declarations require an unambiguous contract.
-        fn visit(p: &CheckedPackage, id: SemanticId, name: &str, found: &mut BTreeSet<SemanticId>) {
+        fn visit(p: &CheckedPackage, id: DeclarationId, name: &str, found: &mut BTreeSet<DeclarationId>) {
             if p.declarations[&id].value.kind
                 != pse_model::generated::enums::ModelingDeclarationKind::When
             {
@@ -177,10 +178,11 @@ impl CheckedPackage {
     }
 
     /// Resolve lexical names, explicit imports, and names within the owning package.
-    pub fn resolve(&self, mut owner: SemanticId, name: &str) -> Option<SemanticId> {
+    pub fn resolve(&self, mut owner: DeclarationId, name: &str) -> Option<DeclarationId> {
         if let Some(id) = name
             .strip_prefix("f_")
             .and_then(|hex| SemanticId::parse_hex(hex).ok())
+            .map(DeclarationId::from)
             .filter(|id| self.lowered_functions.contains(id))
         {
             return Some(id);
@@ -235,7 +237,7 @@ impl CheckedPackage {
         }
     }
 
-    pub(crate) fn named_types(&self, owner: SemanticId) -> BTreeMap<String, Type> {
+    pub(crate) fn named_types(&self, owner: DeclarationId) -> BTreeMap<String, Type> {
         let mut names = self
             .names
             .iter()
@@ -323,7 +325,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         interfaces: BTreeMap::new(),
     };
     for row in rows {
-        if row.declaration_id == SemanticId::NIL {
+        if row.declaration_id.as_id() == SemanticId::NIL {
             return Err(invalid(row.declaration_id, "nil declaration identity"));
         }
         row.value
@@ -336,7 +338,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             return Err(invalid(row.declaration_id, "duplicate identity"));
         }
     }
-    let mut graph = DiGraph::<SemanticId, ()>::new();
+    let mut graph = DiGraph::<DeclarationId, ()>::new();
     let nodes = p
         .declarations
         .keys()
@@ -538,7 +540,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
     for values in p.children.values_mut() {
         values.sort_by_key(|id| (p.declarations[id].ordinal, *id));
     }
-    let mut full = BTreeMap::<SemanticId, String>::new();
+    let mut full = BTreeMap::<DeclarationId, String>::new();
     for node in order {
         let id = graph[node];
         let row = &p.declarations[&id];
@@ -640,7 +642,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         }
     }
     // Interface and definition dependencies are explicit graphs, never Salsa recovery.
-    let mut inheritance = DiGraph::<SemanticId, ()>::new();
+    let mut inheritance = DiGraph::<DeclarationId, ()>::new();
     let inode = p
         .declarations
         .keys()
@@ -1020,7 +1022,7 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
         p.interfaces.insert(id, contracts);
         p.members.insert(id, effective);
     }
-    let mut calls = DiGraph::<SemanticId, ()>::new();
+    let mut calls = DiGraph::<DeclarationId, ()>::new();
     let function_nodes = p
         .functions
         .keys()
@@ -1089,7 +1091,7 @@ impl CheckedPackage {
     /// Equality of this projection backdates unrelated edits in the compiler workspace.
     /// # Errors
     /// Root identity is absent.
-    pub fn select(&self, root: SemanticId) -> Result<Self> {
+    pub fn select(&self, root: DeclarationId) -> Result<Self> {
         if !self.declarations.contains_key(&root) {
             return Err(invalid(root, "selected root absent"));
         }
@@ -1313,16 +1315,16 @@ impl CheckedPackage {
     }
 }
 
-fn dependency_paths(p: &CheckedPackage, owner: SemanticId, text: &str) -> BTreeSet<SemanticId> {
+fn dependency_paths(p: &CheckedPackage, owner: DeclarationId, text: &str) -> BTreeSet<DeclarationId> {
     use pse_authoring::{
         dsl::{Equation, EquationKind, Expr, ExprKind},
         language::{StaticValue, parse_static},
     };
     fn path(
         p: &CheckedPackage,
-        owner: SemanticId,
+        owner: DeclarationId,
         path: &dsl::Path,
-        out: &mut BTreeSet<SemanticId>,
+        out: &mut BTreeSet<DeclarationId>,
     ) {
         if let Some(id) = (1..=path.segments.len()).rev().find_map(|end| {
             let prefix = path.segments[..end]
@@ -1335,13 +1337,13 @@ fn dependency_paths(p: &CheckedPackage, owner: SemanticId, text: &str) -> BTreeS
             out.insert(id);
         }
     }
-    fn expression(p: &CheckedPackage, owner: SemanticId, e: &Expr, out: &mut BTreeSet<SemanticId>) {
+    fn expression(p: &CheckedPackage, owner: DeclarationId, e: &Expr, out: &mut BTreeSet<DeclarationId>) {
         for value in e.free_paths() {
             path(p, owner, value, out);
         }
         e.walk(|node| call(p, owner, node, out));
     }
-    fn call(p: &CheckedPackage, owner: SemanticId, node: &Expr, out: &mut BTreeSet<SemanticId>) {
+    fn call(p: &CheckedPackage, owner: DeclarationId, node: &Expr, out: &mut BTreeSet<DeclarationId>) {
         let name = match &node.kind {
             ExprKind::NamedCall { name, .. } => Some(name),
             ExprKind::Partial { function, .. } => Some(function),
@@ -1360,9 +1362,9 @@ fn dependency_paths(p: &CheckedPackage, owner: SemanticId, text: &str) -> BTreeS
     }
     fn predicate(
         p: &CheckedPackage,
-        owner: SemanticId,
+        owner: DeclarationId,
         value: &dsl::Predicate,
-        out: &mut BTreeSet<SemanticId>,
+        out: &mut BTreeSet<DeclarationId>,
     ) {
         for value in value.paths() {
             path(p, owner, value, out);
@@ -1371,9 +1373,9 @@ fn dependency_paths(p: &CheckedPackage, owner: SemanticId, text: &str) -> BTreeS
     }
     fn syntax(
         p: &CheckedPackage,
-        owner: SemanticId,
+        owner: DeclarationId,
         value: &StaticValue,
-        out: &mut BTreeSet<SemanticId>,
+        out: &mut BTreeSet<DeclarationId>,
     ) {
         match value {
             StaticValue::Expression(e) => expression(p, owner, e, out),
@@ -1408,9 +1410,9 @@ fn dependency_paths(p: &CheckedPackage, owner: SemanticId, text: &str) -> BTreeS
     }
     fn equation(
         p: &CheckedPackage,
-        owner: SemanticId,
+        owner: DeclarationId,
         value: &Equation,
-        out: &mut BTreeSet<SemanticId>,
+        out: &mut BTreeSet<DeclarationId>,
     ) {
         match &value.kind {
             EquationKind::Relation { lhs, rhs, .. } => {
@@ -1441,7 +1443,7 @@ fn dependency_paths(p: &CheckedPackage, owner: SemanticId, text: &str) -> BTreeS
     }
     out
 }
-fn type_dependencies(ty: &Type, out: &mut Vec<SemanticId>) {
+fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
     match ty {
         Type::Entity(id)
         | Type::Enum(id)

@@ -46,7 +46,8 @@ pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
 use pse_authoring::language::Declaration;
 use pse_compiler::workspace::{Inputs, WorkspaceLimits};
 use pse_ids::SemanticId;
-use pse_modeling::{Bindings, Limits};
+use pse_model::generated::identities::ModelId;
+use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
 use pse_quantity::QuantityTypeId;
 use pse_relations::columnar::RelationRow;
 pub use results::{ModelingCheck, ModelingReport, ModelingResult};
@@ -449,7 +450,7 @@ impl ModelingPackage {
     /// Build an analysis from a data-authored case/test and its physical fixture.
     pub async fn declared_analysis(
         &self,
-        root: SemanticId,
+        root: DeclarationId,
         route: pse_model::generated::enums::ModelingAnalysisRoute,
         compiler: pse_compiler::workspace::Profile,
         solver: crate::math::solves::SolverProfile,
@@ -466,7 +467,7 @@ impl ModelingPackage {
             };
         Ok(ModelingAnalysis {
             root,
-            instance: root,
+            instance: pse_modeling::specialize::root_instance(root),
             bindings,
             limits,
             case,
@@ -478,20 +479,21 @@ impl ModelingPackage {
     }
     pub(in crate::workflow) async fn declared_case(
         &self,
-        root: SemanticId,
+        root: DeclarationId,
         route: pse_model::generated::enums::ModelingAnalysisRoute,
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(Bindings, pse_compiler::workspace::ModelingCaseBindings), WorkflowError> {
         let bindings = Bindings::default().with_analysis(route);
+        let instance = pse_modeling::specialize::root_instance(root);
         let prepared = self
-            .prepare(root, root, bindings.clone(), limits, cancel)
+            .prepare(root, instance, bindings.clone(), limits, cancel)
             .await?;
         let case = prepared
             .compiled()
             .model
             .fixtures
-            .get(&root)
+            .get(&instance)
             .map(pse_compiler::workspace::ModelingCaseBindings::from)
             .unwrap_or_default();
         Ok((bindings, case))
@@ -523,8 +525,8 @@ impl ModelingPackage {
     /// Resolve symbol-path specifications and prepare the existing solver pipeline's case view.
     pub async fn prepare_case(
         &self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         case: pse_compiler::workspace::ModelingCaseBindings,
@@ -586,8 +588,8 @@ impl ModelingPackage {
     /// Finite K3 admission and inspection; solver orchestration belongs to the subsequent lowering packets.
     pub async fn prepare(
         &self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
         cancel: &crate::CancelSource,
@@ -722,7 +724,7 @@ mod tests {
         let original = package
             .prepare(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 &crate::CancelSource::new(),
@@ -744,7 +746,7 @@ mod tests {
         let changed = revised
             .prepare(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 &crate::CancelSource::new(),
@@ -763,14 +765,14 @@ mod tests {
         cancel.cancel();
         assert!(
             revised
-                .prepare(root, root, Bindings::default(), Limits::default(), &cancel)
+                .prepare(root, pse_modeling::specialize::root_instance(root), Bindings::default(), Limits::default(), &cancel)
                 .await
                 .is_err()
         );
         let restored = package
             .prepare(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 &crate::CancelSource::new(),

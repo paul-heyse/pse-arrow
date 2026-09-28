@@ -16,13 +16,13 @@ fn rows(mutation: &str) -> Vec<documents::Row> {
     let source = include_str!("../../../tests/fixtures/packages/minimal_explicit/package.toml");
     let mut row = documents::Row {
         document_id: pse_ids::named_id(package, "package.toml"),
-        package_id: package,
+        package_id: package.into(),
         path: "package.toml".into(),
         source_text: source.into(),
     };
     match mutation {
         "syntax" => row.source_text = "[package\n".into(),
-        "package" => row.package_id = SemanticId::NIL,
+        "package" => row.package_id = SemanticId::NIL.into(),
         "identity" => row.document_id = SemanticId::NIL,
         _ => {}
     }

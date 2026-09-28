@@ -37,9 +37,9 @@ pub enum Equivalence {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Lowering {
     /// Authored form or disjunction declaration.
-    pub source: SemanticId,
+    pub source: DeclarationId,
     /// Owning instance.
-    pub instance: SemanticId,
+    pub instance: InstanceId,
     /// Declared (or default) realization.
     pub realization: Policy,
     /// Declared equivalence of the lowered set.
@@ -55,7 +55,7 @@ pub struct Derived {
     /// Rule computing the value.
     pub rule: DerivedRule,
     /// Authored form the value serves; refusals name it.
-    pub source: SemanticId,
+    pub source: DeclarationId,
     /// Declared realization of that form.
     pub realization: Policy,
 }
@@ -160,8 +160,8 @@ impl Engine<'_, '_> {
     /// Register a realization declaration whose target is a constraint form or disjunction.
     pub(super) fn register_form_realization(
         &mut self,
-        target: SemanticId,
-        declaration: SemanticId,
+        target: DeclarationId,
+        declaration: DeclarationId,
     ) -> Result<()> {
         let v = self.p.declarations[&declaration]
             .value
@@ -224,7 +224,7 @@ impl Engine<'_, '_> {
         }
         Ok(())
     }
-    fn realization(&self, form: Form, source: SemanticId) -> Result<Realized> {
+    fn realization(&self, form: Form, source: DeclarationId) -> Result<Realized> {
         let realized = match self.form_realizations.get(&source) {
             Some((realized, _)) => realized.clone(),
             None => form
@@ -243,10 +243,10 @@ impl Engine<'_, '_> {
         Ok(realized)
     }
     /// The unique registry quantity typing binary decisions and convex weights.
-    fn indicator_type(&self, at: SemanticId) -> Result<Type> {
+    fn indicator_type(&self, at: DeclarationId) -> Result<Type> {
         crate::indicator_type(self.c.quantities, at)
     }
-    fn quantity_of(&self, ty: &Type, at: SemanticId) -> Result<pse_quantity::QuantityTypeId> {
+    fn quantity_of(&self, ty: &Type, at: DeclarationId) -> Result<pse_quantity::QuantityTypeId> {
         let Type::Quantity(s) = ty else {
             return Err(invalid(at, "a constraint form requires physical members"));
         };
@@ -259,8 +259,8 @@ impl Engine<'_, '_> {
         lineage
     }
     /// A parameter equal to one of the indicator quantity, shared per instance.
-    fn indicator_one(&mut self, instance: SemanticId, at: SemanticId) -> Result<SemanticId> {
-        let id = pse_ids::named_id(instance, "indicator-one");
+    fn indicator_one(&mut self, instance: InstanceId, at: DeclarationId) -> Result<SemanticId> {
+        let id = pse_ids::named_id(instance.as_id(), "indicator-one");
         if self.model.symbols.contains_key(&id) {
             return Ok(id);
         }
@@ -297,9 +297,9 @@ impl Engine<'_, '_> {
     /// An indicator-typed constant; a count of indicators keeps the indicator contract.
     fn indicator_constant(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         value: f64,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<SemanticId> {
         if value == 1.0 {
             return self.indicator_one(instance, at);
@@ -316,7 +316,7 @@ impl Engine<'_, '_> {
             presets: state.presets.clone(),
         };
         self.constant_parameter(
-            pse_ids::named_id(instance, &format!("indicator-constant-{value}")),
+            pse_ids::named_id(instance.as_id(), &format!("indicator-constant-{value}")),
             ty,
             value,
             lineage,
@@ -329,7 +329,7 @@ impl Engine<'_, '_> {
         ty: Type,
         value: f64,
         lineage: Lineage,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<SemanticId> {
         if self.model.symbols.contains_key(&id) {
             return Ok(id);
@@ -359,7 +359,7 @@ impl Engine<'_, '_> {
         ty: Type,
         domain: Domain,
         lineage: Lineage,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<SemanticId> {
         let zero = self.typed_zero(&ty, at)?;
         self.reserve(1)?;
@@ -387,7 +387,7 @@ impl Engine<'_, '_> {
         id: SemanticId,
         ty: Type,
         rule: DerivedRule,
-        source: SemanticId,
+        source: DeclarationId,
         realization: Policy,
         lineage: Lineage,
     ) -> Result<SemanticId> {
@@ -440,7 +440,7 @@ impl Engine<'_, '_> {
         &self,
         expression: &Expr,
         contracts: &CheckedPackage,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<Type> {
         let types = self
             .model
@@ -453,10 +453,10 @@ impl Engine<'_, '_> {
     /// Resolve an authored member path to an existing binary variable.
     fn binary_operand(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         text: &str,
         env: &Environment,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<SemanticId> {
         let expression = dsl::parse_expr(text).map_err(|e| invalid(at, e.to_string()))?;
         let expression = self.rewrite(instance, &expression, env, &[at])?;
@@ -471,8 +471,8 @@ impl Engine<'_, '_> {
     }
     fn record(
         &mut self,
-        source: SemanticId,
-        instance: SemanticId,
+        source: DeclarationId,
+        instance: InstanceId,
         realization: Policy,
         equivalence: Equivalence,
         rows: Vec<SemanticId>,
@@ -491,7 +491,7 @@ impl Engine<'_, '_> {
     /// `eq name when y: …` — an indicator constraint (ADR-0104 §1).
     pub(super) fn indicator_equation(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
         coordinates: &[(String, Value)],
         equation: Equation,
@@ -560,8 +560,8 @@ impl Engine<'_, '_> {
     )]
     fn relaxed(
         &mut self,
-        instance: SemanticId,
-        source: SemanticId,
+        instance: InstanceId,
+        source: DeclarationId,
         id: SemanticId,
         lhs: Expr,
         sense: EquationSense,
@@ -691,8 +691,8 @@ impl Engine<'_, '_> {
     /// `disjunction name { alternative … }`, lowered inner-first (ADR-0104 §1).
     pub(super) fn disjunction(
         &mut self,
-        instance: SemanticId,
-        declaration: SemanticId,
+        instance: InstanceId,
+        declaration: DeclarationId,
         env: &Environment,
         parent: Option<SemanticId>,
     ) -> Result<()> {
@@ -845,8 +845,8 @@ impl Engine<'_, '_> {
     /// numerical hints; nested disjunctions and realizations are handled by the owner.
     fn disjunct_rows(
         &mut self,
-        instance: SemanticId,
-        alternative: SemanticId,
+        instance: InstanceId,
+        alternative: DeclarationId,
         env: &Environment,
     ) -> Result<Vec<DisjunctRow>> {
         let mut rows = Vec::new();
@@ -961,7 +961,7 @@ impl Engine<'_, '_> {
     )]
     fn hull(
         &mut self,
-        source: SemanticId,
+        source: DeclarationId,
         base: SemanticId,
         parent: Option<SemanticId>,
         indicators: &[SemanticId],
@@ -1095,7 +1095,7 @@ impl Engine<'_, '_> {
                     Class::Nonlinear => {
                         let Some(epsilon) = epsilon else {
                             return Err(ModelingError::Realization {
-                                declaration: source,
+                                declaration: source.into(),
                                 form: lineage.path.clone(),
                                 subject: r.lineage.path.clone(),
                                 realization: Policy::Hull,
@@ -1232,7 +1232,7 @@ impl Engine<'_, '_> {
         expression: &Expr,
         map: &BTreeMap<SemanticId, Expr>,
         variables: &BTreeSet<SemanticId>,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<Expr> {
         let kind = match &expression.kind {
             ExprKind::Number(_) => return Ok(expression.clone()),
@@ -1297,7 +1297,7 @@ impl Engine<'_, '_> {
     /// `sos1`/`sos2 name[i in s]: x[i] weight w[i];`
     pub(super) fn ordered_set(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
         env: &Environment,
     ) -> Result<()> {
@@ -1364,10 +1364,10 @@ impl Engine<'_, '_> {
     /// Resolve a member path to an existing independent variable.
     fn variable_operand(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         text: &str,
         env: &Environment,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> Result<SemanticId> {
         let expression = dsl::parse_expr(text).map_err(|e| invalid(at, e.to_string()))?;
         let expression = self.rewrite(instance, &expression, env, &[at])?;
@@ -1384,8 +1384,8 @@ impl Engine<'_, '_> {
     /// finite case bounds. SOS1 selects one member; SOS2 one segment of two neighbours.
     fn linear_ordered_set(
         &mut self,
-        instance: SemanticId,
-        source: SemanticId,
+        instance: InstanceId,
+        source: DeclarationId,
         base: SemanticId,
         members: &[SemanticId],
         form: NativeConstraintForm,
@@ -1443,7 +1443,7 @@ impl Engine<'_, '_> {
     /// `L·s ≤ x ≤ U·s` with derived finite case bounds of `x`.
     fn switched_bounds(
         &mut self,
-        source: SemanticId,
+        source: DeclarationId,
         base: SemanticId,
         member: SemanticId,
         switch: Expr,
@@ -1487,7 +1487,7 @@ impl Engine<'_, '_> {
     /// `atmost`/`atleast`/`exactly name[i in s]: k of y[i];`
     pub(super) fn cardinality(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
         env: &Environment,
     ) -> Result<()> {
@@ -1551,7 +1551,7 @@ impl Engine<'_, '_> {
         }
         if sense != EquationSense::Le {
             return Err(ModelingError::Unsupported {
-                declaration: at,
+                declaration: at.into(),
                 capability:
                     "a lower cardinality over nonbinary members, which needs a nonzero threshold"
                         .into(),
@@ -1617,7 +1617,7 @@ impl Engine<'_, '_> {
     )]
     pub(super) fn piecewise(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
         env: &Environment,
     ) -> Result<()> {
@@ -1843,7 +1843,7 @@ impl Engine<'_, '_> {
     /// `logic name: proposition;` over binary variables, lowered exactly.
     pub(super) fn logic(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &Declaration,
         coordinates: &[(String, Value)],
         env: &Environment,
@@ -1892,8 +1892,8 @@ impl Engine<'_, '_> {
 
 /// Exact linear (or native) lowering of one proposition by auxiliary resultants.
 struct LogicLowering {
-    instance: SemanticId,
-    at: SemanticId,
+    instance: InstanceId,
+    at: DeclarationId,
     base: SemanticId,
     env: Environment,
     lineage: Lineage,
@@ -1980,7 +1980,7 @@ impl LogicLowering {
             ),
             Proposition::Exactly(..) => {
                 return Err(ModelingError::Unsupported {
-                    declaration: self.at,
+                    declaration: self.at.into(),
                     capability: "exactly(k, ...) nested inside another proposition".into(),
                 });
             }

@@ -42,7 +42,7 @@ pub(super) fn package_on(runtime: &Runtime, source: &str) -> (ModelingPackage, M
     solver.controls.reuse = ReusePolicy::AllowRebuild;
     let analysis = ModelingAnalysis {
         root,
-        instance: root,
+        instance: pse_modeling::specialize::root_instance(root),
         bindings: Default::default(),
         limits: Default::default(),
         case: ModelingCaseBindings::default(),

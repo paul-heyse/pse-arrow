@@ -15,7 +15,7 @@ struct Case {
 impl Case {
     fn new(
         workspace: &mut CompilerWorkspace,
-        root: SemanticId,
+        root: DeclarationId,
         bounds: &[(&str, Option<f64>, Option<f64>)],
     ) -> Result<Self> {
         let case = ModelingCaseBindings {
@@ -36,7 +36,7 @@ impl Case {
         };
         let (model, prepared, values) = workspace.prepare_modeling_case_cancellable(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
             &case,
@@ -378,7 +378,7 @@ fn hull_perspective_for_nonlinear_disjuncts() {
     let error = w
         .admit_modeling(
             root,
-            SemanticId::NIL,
+            InstanceId::from_id(SemanticId::NIL),
             Bindings::default(),
             Limits::default(),
         )
@@ -515,7 +515,7 @@ fn form_realizations_are_declared_and_admitted() {
         let error = w
             .admit_modeling(
                 root,
-                SemanticId::NIL,
+                InstanceId::from_id(SemanticId::NIL),
                 Bindings::default(),
                 Limits::default(),
             )

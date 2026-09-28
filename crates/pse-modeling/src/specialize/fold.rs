@@ -6,10 +6,10 @@ use super::*;
 impl Engine<'_, '_> {
     pub(super) fn fold(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         expression: &Expr,
         env: &Environment,
-        chain: &[SemanticId],
+        chain: &[DeclarationId],
     ) -> Result<Expr> {
         let ExprKind::Fold {
             accumulator,

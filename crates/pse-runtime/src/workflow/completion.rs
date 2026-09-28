@@ -4,6 +4,7 @@
 use super::{RunReport, RunRequest, RunResult, WorkflowError};
 use crate::math::solves::Outcome;
 use pse_ids::{ContentHash, FramedHasher};
+use pse_model::generated::identities::{CaseId, ModelId};
 use pse_model::generated::{
     enums::*,
     runtime::{computation_runs, run_lineage, solve_runs},
@@ -69,9 +70,9 @@ impl RunResult {
                     product.solves.push(solve_runs::Row {
                         run_id: self.run_id,
                         step,
-                        model_id: Some(request.instance),
+                        model_id: Some(ModelId::from_id(request.instance.as_id())),
                         revision: Some(request.source.revision.identity()),
-                        case_id: Some(request.instance),
+                        case_id: Some(CaseId::from_id(request.instance.as_id())),
                         backend: native.map(|r| r.backend),
                         native_code: native.map(|r| r.termination.code),
                         native_status: native.map(|r| r.termination.name.clone()),
@@ -124,7 +125,7 @@ impl RunResult {
                 let selected = request.solve.request_identity().map_err(crate::math::MathRuntimeError::from)?;
                 let profile = crate::math::solves::profile_key(&request.profile).map_err(crate::math::MathRuntimeError::from)?;
                 let mut identity = FramedHasher::new(pse_ids::Frame::CompletedRequestV2);
-                identity.hash(&request.source.revision.identity()).id(&request.instance).hash(&preparation).hash(&selected).hash(&profile).hash(&request.solve.numerics().key);
+                identity.hash(&request.source.revision.identity()).id(&request.instance.as_id()).hash(&preparation).hash(&selected).hash(&profile).hash(&request.solve.numerics().key);
                 // A result is traceable to what seeded it and to native state it reused:
                 // the previous step's seed and the reuse of retained native state enter
                 // its lineage identity (F25).
@@ -136,7 +137,7 @@ impl RunResult {
                     for (name,value) in &native.provenance {actual_environment.str(name).str(value);}
                 }
                 product.lineage.push(run_lineage::Row {
-                    run_id:self.run_id,step,model_id:request.instance,revision:request.source.revision.identity(),case_id:request.instance,
+                    run_id:self.run_id,step,model_id:ModelId::from_id(request.instance.as_id()),revision:request.source.revision.identity(),case_id:CaseId::from_id(request.instance.as_id()),
                     request_identity:identity.finish_hash(),preparation_identity:preparation,profile_identity:profile,
                     numerical_identity:request.solve.numerics().key,physical_identity:request.source.physical.key,environment_identity:actual_environment.finish_hash(),
                 });
@@ -195,9 +196,9 @@ impl RunResult {
                 product.lineage.push(run_lineage::Row {
                     run_id: self.run_id,
                     step: 0,
-                    model_id: p.instance,
+                    model_id: ModelId::from_id(p.instance.as_id()),
                     revision: p.source.revision.identity(),
-                    case_id: p.instance,
+                    case_id: CaseId::from_id(p.instance.as_id()),
                     request_identity: p.identity(),
                     preparation_identity: p.identity(),
                     profile_identity: profile,
@@ -258,9 +259,9 @@ impl RunResult {
                 product.lineage.push(run_lineage::Row {
                     run_id: self.run_id,
                     step: 0,
-                    model_id: p.declaration.fit_id,
+                    model_id: ModelId::from(p.declaration.fit_id),
                     revision: p.source_identity,
-                    case_id: p.declaration.fit_id,
+                    case_id: CaseId::from(p.declaration.fit_id),
                     request_identity: p.key,
                     preparation_identity: p.key,
                     profile_identity: p.profile_key,

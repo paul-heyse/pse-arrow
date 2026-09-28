@@ -81,7 +81,7 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
             .unwrap();
     assert_eq!(
         entity.entity_id,
-        pse_ids::named_id(named.package.package_id, "minimal_named.probe")
+        pse_ids::named_id(named.package.package_id.as_id(), "minimal_named.probe")
     );
     assert_eq!(entity.name, "probe");
 }

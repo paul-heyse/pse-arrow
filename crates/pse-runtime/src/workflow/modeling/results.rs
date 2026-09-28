@@ -108,7 +108,7 @@ impl ModelingResult {
             self.checks
                 .iter()
                 .filter(|c| !c.satisfied)
-                .map(|c| c.source_id)
+                .map(|c| c.source_id.as_id())
                 .chain(violated),
             "modeling.qualification.rejected",
         );
@@ -233,12 +233,12 @@ impl ModelingPackage {
     }
 }
 /// Shared demand and interpretation for steady candidates and trajectory samples.
-pub(in crate::workflow) type AssessmentScope = BTreeSet<(SemanticId, SemanticId)>;
+pub(in crate::workflow) type AssessmentScope = BTreeSet<(SemanticId, DeclarationId)>;
 /// Each obligation is indivisible even when its value, bounds or tolerance depend
 /// on different inputs. Consumers may postpone a whole obligation, never one term.
 pub(in crate::workflow) fn assessment_units(
     product: &pse_compiler::workspace::PreparedModeling,
-) -> BTreeMap<(SemanticId, SemanticId), BTreeSet<SemanticId>> {
+) -> BTreeMap<(SemanticId, DeclarationId), BTreeSet<SemanticId>> {
     let mut units = BTreeMap::<_, BTreeSet<_>>::new();
     for output in &product.admitted.outputs {
         let key = match output {
@@ -611,7 +611,7 @@ mod tests {
         let prepared = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 case,

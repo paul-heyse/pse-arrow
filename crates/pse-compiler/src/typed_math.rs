@@ -5,6 +5,7 @@
 //! Source occurrences and formal bindings remain separate from Symbolica arithmetic.
 use pse_authoring::dsl::{self, BinaryOp, CompareOp, Expr, ExprKind, PredicateKind};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
+use pse_modeling::DeclarationId;
 #[cfg(test)]
 use pse_kernels::DerivativeOrder;
 use pse_math::{
@@ -337,7 +338,7 @@ struct Lower<'a, 'b> {
     physical_only: bool,
     functions: &'a BTreeMap<String, pse_modeling::Function>,
     local_quantities: &'a BTreeMap<String, QuantityTypeId>,
-    calls: Vec<SemanticId>,
+    calls: Vec<DeclarationId>,
     validity: &'a BTreeMap<String, Validity>,
     validating: Vec<String>,
 }
@@ -655,7 +656,7 @@ impl Lower<'_, '_> {
         if let Some(reduction) = &f.reduction
             && wrt.is_empty()
         {
-            self.hash.str("finite-reduction").id(&f.id);
+            self.hash.str("finite-reduction").id(&f.id.as_id());
             let value = builder.finite_reduce(
                 reduction.kind,
                 reduction.domain,
@@ -693,8 +694,8 @@ impl Lower<'_, '_> {
                 .str(&dsl::render_predicate(validity));
             let yes = dsl::parse_expr("1").map_err(|e| MathError::Contract(e.to_string()))?;
             let no = dsl::parse_expr("0").map_err(|e| MathError::Contract(e.to_string()))?;
-            let predicate = builder.domain(f.id, |builder| {
-                self.conditional(validity, &yes, &no, builder, depth + 1, f.id)
+            let predicate = builder.domain(f.id.as_id(), |builder| {
+                self.conditional(validity, &yes, &no, builder, depth + 1, f.id.as_id())
             });
             self.calls.pop();
             self.locals = saved;
@@ -832,7 +833,7 @@ impl Lower<'_, '_> {
         self.calls.push(f.id);
         self.hash
             .str("package-function")
-            .id(&f.id)
+            .id(&f.id.as_id())
             .u64(wrt.len() as u64);
         let Type::Quantity(result) = &f.result else {
             return Err(MathError::Contract(

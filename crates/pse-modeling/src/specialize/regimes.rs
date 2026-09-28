@@ -7,7 +7,7 @@ use crate::annotation::Annotation;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Regime {
     pub id: SemanticId,
-    pub declaration: SemanticId,
+    pub declaration: DeclarationId,
     pub equations: Vec<Row>,
     pub annotations: Vec<Annotation>,
     pub eligibility: dsl::Predicate,
@@ -22,9 +22,9 @@ pub struct RegimeSelection {
 impl Engine<'_, '_> {
     pub(super) fn regimes(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         scope: &Declaration,
-        members: &BTreeMap<String, SemanticId>,
+        members: &BTreeMap<String, DeclarationId>,
         env: &Environment,
     ) -> Result<()> {
         let rows = members

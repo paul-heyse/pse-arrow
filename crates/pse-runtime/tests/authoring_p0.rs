@@ -9,15 +9,16 @@
 )]
 
 use pse_columnar::CancellationToken;
-use pse_ids::{ContentHash, SemanticId};
+use pse_ids::ContentHash;
 #[path = "authoring_support/mod.rs"]
 mod support;
 use pse_relations::generated::{
     authored,
     enums::{IdPolicy, PackageKind},
+    identities::PackageId,
 };
-fn id(value: u8) -> SemanticId {
-    SemanticId::from_bytes([value; 16])
+fn id(value: u8) -> PackageId {
+    PackageId::from_bytes([value; 16])
 }
 fn package(value: u8) -> authored::packages::Row {
     authored::packages::Row {

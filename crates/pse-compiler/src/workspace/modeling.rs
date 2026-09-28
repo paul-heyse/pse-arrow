@@ -3,7 +3,9 @@
 //! Generic kernel queries in the existing compiler database.
 use super::*;
 use pse_authoring::language::Declaration;
-use pse_modeling::{Bindings, CheckedPackage, Limits, SpecializedModel, TypeContext};
+use pse_modeling::{
+    Bindings, CheckedPackage, DeclarationId, InstanceId, Limits, SpecializedModel, TypeContext,
+};
 use pse_quantity::QuantityTypeId;
 use salsa::Setter;
 
@@ -13,14 +15,14 @@ pub(super) struct Catalog {
 }
 #[salsa::input]
 struct Request {
-    root: SemanticId,
-    instance: SemanticId,
+    root: DeclarationId,
+    instance: InstanceId,
     bindings: Bindings,
     limits: Limits,
 }
 pub(super) struct State {
     pub(super) catalog: Catalog,
-    requests: BTreeMap<(SemanticId, SemanticId), Request>,
+    requests: BTreeMap<(DeclarationId, InstanceId), Request>,
     pub(super) revision: Arc<ModelingRevision>,
     pub(super) input_bytes: usize,
 }
@@ -72,7 +74,7 @@ fn revision(
 fn selected(
     db: &dyn CompilerDb,
     catalog: Catalog,
-    root: SemanticId,
+    root: DeclarationId,
 ) -> Result<Arc<CheckedPackage>> {
     checkpoint(db);
     Ok(Arc::new(catalog.checked(db).select(root)?))
@@ -111,7 +113,7 @@ impl pse_modeling::continuous::Discretizer for LibraryDiscretizer {
         &self,
         scheme: pse_modeling::continuous::Scheme<'_>,
         order: usize,
-        at: SemanticId,
+        at: DeclarationId,
     ) -> std::result::Result<pse_modeling::continuous::ElementStencil, pse_modeling::ModelingError>
     {
         use pse_modeling::continuous::{ElementStencil, FiniteDifference, Scheme};
@@ -126,7 +128,7 @@ impl pse_modeling::continuous::Discretizer for LibraryDiscretizer {
             parameters.right_endpoint,
         )
         .map_err(|e| pse_modeling::ModelingError::Contract {
-            declaration: at,
+            declaration: at.into(),
             message: e.to_string(),
         })?;
         Ok(ElementStencil {
@@ -258,8 +260,8 @@ impl CompilerWorkspace {
     /// Missing package inputs, invalid bindings, limits or cancelled compilation.
     pub fn specialize_modeling(
         &mut self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
     ) -> Result<Arc<SpecializedModel>> {
@@ -272,8 +274,8 @@ impl CompilerWorkspace {
     }
     fn modeling_request(
         &mut self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         bindings: Bindings,
         limits: Limits,
     ) -> Result<(Catalog, Request)> {

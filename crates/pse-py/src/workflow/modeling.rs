@@ -3,12 +3,18 @@
 //! Owned Python handles over the generic kernel; no numerical semantics cross the boundary.
 use super::*;
 use pse_ids::SemanticId;
+use pse_modeling::{DeclarationId, InstanceId};
 use std::collections::BTreeMap;
+
+/// A modeling declaration (a case, test or definition) named by its hex identity.
+fn declaration(py: Python<'_>, text: &str) -> PyResult<DeclarationId> {
+    id(py, text).map(DeclarationId::from)
+}
 
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct FlowSelectionDocument {
-    nodes: Vec<SemanticId>,
+    nodes: Vec<InstanceId>,
     connections: Vec<FlowConnectionDocument>,
 }
 #[derive(serde::Deserialize)]
@@ -279,7 +285,7 @@ impl NativeModelingPackage {
         maximum_attempts: usize,
         time_limit: f64,
     ) -> PyResult<NativeModelingNonlinearExplanation> {
-        let root = id(py, case_id)?;
+        let root = declaration(py, case_id)?;
         let nominals = nominals
             .into_iter()
             .map(|(key, value)| Ok((id(py, &key)?, value)))
@@ -332,7 +338,7 @@ impl NativeModelingPackage {
         maximum_samples: usize,
         time_limit: f64,
     ) -> PyResult<NativeModelingDiagnosticSamples> {
-        let root = id(py, case_id)?;
+        let root = declaration(py, case_id)?;
         let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "diagnostic time limit must be finite and positive"))?;
         let samples = samples
@@ -399,7 +405,7 @@ impl NativeModelingPackage {
         settings: &SimulationSettings,
         modes: Option<Vec<PyRef<'_, ModelingModeSettings>>>,
     ) -> PyResult<NativePreparedOperation> {
-        let root = id(py, case_id)?;
+        let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
         let modes = modes.map(|modes| modes.into_iter().map(|m| m.mode.clone()).collect());
         let inner = blocking(
@@ -455,7 +461,7 @@ impl NativeModelingPackage {
         settings: &SolveSettings,
         diagnostics: &ModelingDiagnosticSettings,
     ) -> PyResult<NativeModelingDiagnostics> {
-        let root = id(py, case_id)?;
+        let root = declaration(py, case_id)?;
         let cancel = CancelSource::new();
         let inner = blocking(
             py,
@@ -525,7 +531,7 @@ impl NativeModelingPackage {
         #[cfg(feature = "solver-highs")]
         {
             use pse_backend_native::highs::diagnostics::{Penalties, Request};
-            let root = id(py, case_id)?;
+            let root = declaration(py, case_id)?;
             let cancel = CancelSource::new();
             let inner = blocking(
                 py,
@@ -632,7 +638,7 @@ impl NativeModelingPackage {
         }
         #[cfg(feature = "solver-highs")]
         {
-            let root = id(py, case_id)?;
+            let root = declaration(py, case_id)?;
             let cancel = CancelSource::new();
             let inner = blocking(
                 py,
@@ -694,7 +700,7 @@ impl NativeModelingPackage {
         maximum_attempts: usize,
         time_limit: f64,
     ) -> PyResult<NativeModelingInitialization> {
-        let root = id(py, case_id)?;
+        let root = declaration(py, case_id)?;
         let duration = Duration::try_from_secs_f64(time_limit)
             .map_err(|_| invalid(py, "initialization time limit must be finite and positive"))?;
         let policy = native::ModelingInitialization {
@@ -764,7 +770,7 @@ impl NativeModelingPackage {
         }
         let ids = case_ids
             .iter()
-            .map(|v| id(py, v))
+            .map(|v| declaration(py, v))
             .collect::<PyResult<Vec<_>>>()?;
         let cancel = CancelSource::new();
         let inner = blocking(
@@ -800,7 +806,7 @@ impl NativeModelingPackage {
         })
     }
     fn inspect(&self, py: Python<'_>, case_id: &str, settings: &SolveSettings) -> PyResult<Vec<u8>> {
-        let root=id(py,case_id)?;
+        let root=declaration(py,case_id)?;
         let cancel=CancelSource::new();
         let model=blocking(py,&self.owner,async {
             let analysis=self.inner.declared_analysis(root,pse_model::generated::enums::ModelingAnalysisRoute::Steady,Default::default(),settings.profile.clone(),Default::default(),self.limits,&cancel).await?;
@@ -818,7 +824,7 @@ impl NativeModelingPackage {
         }).map_err(|e|invalid(py,e.to_string()))
     }
     fn prepare_flow(&self, py: Python<'_>, case_id: &str, selection: &[u8], settings: &SolveSettings) -> PyResult<NativePreparedFlow> {
-        let root=id(py,case_id)?;
+        let root=declaration(py,case_id)?;
         let selection=flow_selection(py,selection,self.owner.shared.budget().math.workspace_bytes)?;
         let cancel=CancelSource::new();
         let inner=blocking(py,&self.owner,async {
@@ -830,7 +836,7 @@ impl NativeModelingPackage {
     fn prepare_recycle(&self, py: Python<'_>, case_id: &str, selection: &[u8], request: &[u8], settings: &SolveSettings) -> PyResult<NativePreparedStrategy> {
         #[cfg(feature="native-solvers")]
         {
-            let root=id(py,case_id)?;
+            let root=declaration(py,case_id)?;
             let selection=flow_selection(py,selection,self.owner.shared.budget().math.workspace_bytes)?;
             if request.len()>self.owner.shared.budget().math.workspace_bytes/4 {return Err(invalid(py,"recycle request exceeds workspace allowance"));}
             let request=serde_json::from_slice::<strategies::AnalysisDocument<native::RecycleRequest>>(request).map_err(|e|invalid(py,e.to_string()))?.payload;
@@ -848,7 +854,7 @@ impl NativeModelingPackage {
         #[cfg(feature="native-solvers")]
         {
             // Admission of the profile and stages is native (`validate_profile`).
-            let root=id(py,case_id)?;
+            let root=declaration(py,case_id)?;
             let stages=stages.into_iter().map(|s|s.into_iter().map(|(k,v)|id(py,&k).map(|k|(k,v))).collect::<PyResult<_>>()).collect::<PyResult<_>>()?;
             let cancel=CancelSource::new();
             let inner=blocking(py,&self.owner,async {
@@ -878,7 +884,7 @@ impl NativeModelingPackage {
     ) -> PyResult<NativeModelingConformance> {
         let cancel = CancelSource::new();
         let fixture_policies = fixture_policies.unwrap_or_default().into_iter()
-            .map(|(key, policy)| Ok((id(py, &key)?, policy.borrow(py).inner.clone())))
+            .map(|(key, policy)| Ok((declaration(py, &key)?, policy.borrow(py).inner.clone())))
             .collect::<PyResult<BTreeMap<_, _>>>()?;
         let policy = native::ModelingConformancePolicy {
             fixture_policies,
@@ -905,7 +911,7 @@ impl NativeModelingPackage {
     fn prepare_solve(
         &self, py: Python<'_>, case_id: &str, settings: &SolveSettings, route: &str,
     ) -> PyResult<NativePreparedOperation> {
-        let root=id(py,case_id)?;
+        let root=declaration(py,case_id)?;
         let route=route.parse().map_err(|_|invalid(py,"unknown modeling analysis route"))?;
         let cancel=CancelSource::new();
         let inner=blocking(py,&self.owner,async {
@@ -922,7 +928,7 @@ impl NativeModelingPackage {
         settings: &SolveSettings,
         route: &str,
     ) -> PyResult<NativeModelingResult> {
-        let root = id(py, case_id)?;
+        let root = declaration(py, case_id)?;
         let route = route
             .parse()
             .map_err(|_| invalid(py, "unknown modeling analysis route"))?;
@@ -1501,7 +1507,7 @@ impl NativeModelingConformance {
     fn trajectory(&self, py: Python<'_>, fixture_id: &str) -> PyResult<NativeModelingTrajectory> {
         self.inner
             .trajectories
-            .get(&id(py, fixture_id)?)
+            .get(&declaration(py, fixture_id)?)
             .map(|value| NativeModelingTrajectory {
                 inner: Arc::new(value.clone()),
             })
@@ -1514,14 +1520,14 @@ impl NativeModelingConformance {
     ) -> PyResult<NativeModelingInitialization> {
         self.inner
             .initializations
-            .get(&id(py, fixture_id)?)
+            .get(&declaration(py, fixture_id)?)
             .map(|value| NativeModelingInitialization {
                 inner: Arc::new(value.clone()),
             })
             .ok_or_else(|| invalid(py, "fixture has no initialization report"))
     }
     fn fixtures(&self) -> Vec<String> {
-        self.inner.fixtures().iter().map(|id| id.to_hex()).collect()
+        self.inner.fixtures().iter().map(|id| id.as_id().to_hex()).collect()
     }
     fn fixture_statuses(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.fixture_statuses_table())
@@ -1529,7 +1535,7 @@ impl NativeModelingConformance {
             .map_err(|e| errors::diagnostic(py, &e))
     }
     fn result(&self, py: Python<'_>, fixture_id: &str) -> PyResult<NativeModelingResult> {
-        let identity = id(py, fixture_id)?;
+        let identity = declaration(py, fixture_id)?;
         let inner = self.inner.results.get(&identity).ok_or_else(|| {
             invalid(
                 py,

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Typed model hints are collected for their declared downstream consumer.
 use crate::specialize::{Engine, Environment, Lineage};
-use crate::{Result, Type, invalid};
+use crate::{DeclarationId, InstanceId, Result, Type, invalid};
 use pse_authoring::{
     dsl::{self, Expr, ExprKind, Predicate},
     language::{StaticValue, parse_static},
@@ -16,7 +16,7 @@ pub enum ObjectiveSense {
     /// Maximize the original physical value.
     Maximize,
 }
-pub(crate) fn objective_sense(source: &str, at: SemanticId) -> Result<ObjectiveSense> {
+pub(crate) fn objective_sense(source: &str, at: DeclarationId) -> Result<ObjectiveSense> {
     match label(source, at)?.as_str() {
         "minimize" => Ok(ObjectiveSense::Minimize),
         "maximize" => Ok(ObjectiveSense::Maximize),
@@ -57,7 +57,7 @@ pub struct Connectivity {
     /// Original annotation and owning instance.
     pub lineage: Lineage,
 }
-pub(crate) fn connectivity_limits(arguments: &[String], at: SemanticId) -> Result<(Option<usize>, Option<usize>)> {
+pub(crate) fn connectivity_limits(arguments: &[String], at: DeclarationId) -> Result<(Option<usize>, Option<usize>)> {
     let [incoming, outgoing] = arguments else { return Err(invalid(at, "connectivity requires incoming and outgoing maxima")); };
     let limit = |text: &str| {
         if text == "many" { Ok(None) } else {
@@ -76,7 +76,7 @@ pub struct Annotation {
     /// Demand and declaration provenance.
     pub lineage: Lineage,
 }
-pub(crate) fn label(source: &str, at: SemanticId) -> Result<String> {
+pub(crate) fn label(source: &str, at: DeclarationId) -> Result<String> {
     match parse_static(source).map_err(|e| invalid(at, e.to_string()))? {
         StaticValue::Text(value) => Ok(value),
         StaticValue::Expression(Expr {
@@ -111,7 +111,7 @@ impl Engine<'_, '_> {
     }
     pub(super) fn annotation(
         &mut self,
-        instance: SemanticId,
+        instance: InstanceId,
         row: &crate::Declaration,
         env: &Environment,
     ) -> Result<()> {
@@ -239,10 +239,10 @@ impl Engine<'_, '_> {
 pub(crate) fn target_declaration(
     p: &crate::CheckedPackage,
     c: &crate::TypeContext<'_>,
-    at: SemanticId,
+    at: DeclarationId,
     source: &str,
     env: &std::collections::BTreeMap<String, Type>,
-) -> Result<Option<SemanticId>> {
+) -> Result<Option<DeclarationId>> {
     let ExprKind::Path(mut path) = dsl::parse_expr(source)
         .map_err(|e| invalid(at, e.to_string()))?
         .kind
@@ -280,7 +280,7 @@ pub(crate) fn target_declaration(
 pub(crate) fn target_type(
     p: &crate::CheckedPackage,
     c: &crate::TypeContext<'_>,
-    at: SemanticId,
+    at: DeclarationId,
     source: &str,
     env: &std::collections::BTreeMap<String, Type>,
 ) -> Result<Type> {

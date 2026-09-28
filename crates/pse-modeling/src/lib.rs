@@ -19,6 +19,7 @@ pub use check::{CheckedPackage, FiniteReduction, Function, check};
 pub use pse_authoring::language::{Declaration, Selected};
 use pse_ids::SemanticId;
 pub use specialize::{Bindings, Limits, SpecializedModel, specialize};
+pub use specialize::{DeclarationId, InstanceId};
 pub use types::{Type, TypeContext};
 
 /// An attributable checking or specialization failure.
@@ -122,7 +123,7 @@ impl ModelingError {
             | Self::Realization { declaration, .. } => *declaration,
             _ => return self,
         };
-        let mut matches = rows.iter().filter(|row| row.declaration_id == id);
+        let mut matches = rows.iter().filter(|row| row.declaration_id.as_id() == id);
         let Some(row) = matches.next() else {
             return self;
         };
@@ -328,7 +329,7 @@ pub(crate) type Result<T> = std::result::Result<T, ModelingError>;
 /// The unique registry quantity typing binary decisions and convex weights (ADR-0103/0104).
 pub(crate) fn indicator_type(
     registry: &pse_quantity::QuantityRegistry,
-    at: SemanticId,
+    at: DeclarationId,
 ) -> Result<Type> {
     let mut found = registry.quantity_types().filter(|t| {
         t.key.basis.is_none()
@@ -349,9 +350,10 @@ pub(crate) fn indicator_type(
         )),
     }
 }
-pub(crate) fn invalid(id: SemanticId, message: impl Into<String>) -> ModelingError {
+/// A contract failure attributed to a declaration, or to the instance or member it names.
+pub(crate) fn invalid(id: impl Into<SemanticId>, message: impl Into<String>) -> ModelingError {
     ModelingError::Contract {
-        declaration: id,
+        declaration: id.into(),
         message: message.into(),
     }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Checked foreign-function meaning, independent of concrete runtime factories.
-use crate::{Result,invalid};
+use crate::{DeclarationId,Result,invalid};
 use pse_ids::{ContentHash,SemanticId};
 use pse_authoring::dsl::Expr;
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
@@ -27,7 +27,7 @@ pub struct ArgumentShape {
     pub start:usize,
 }
 impl External {
-    pub(crate) fn check(v:&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueFunctionExternal,at:SemanticId)->Result<Self>{
+    pub(crate) fn check(v:&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueFunctionExternal,at:DeclarationId)->Result<Self>{
         if v.implementation.is_empty() || !(0..=2).contains(&v.derivatives) || !(0..=2).contains(&v.smoothness){return Err(invalid(at,"external implementation and derivative profile required"));}
         Ok(Self{
             implementation:v.implementation.clone(),

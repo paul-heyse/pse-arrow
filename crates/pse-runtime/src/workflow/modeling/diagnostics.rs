@@ -938,7 +938,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let mut analysis = ModelingAnalysis {
             root,
-            instance: root,
+            instance: pse_modeling::specialize::root_instance(root),
             bindings: Bindings::default(),
             limits: Limits::default(),
             case: Default::default(),
@@ -1052,7 +1052,7 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let analysis = ModelingAnalysis {
             root,
-            instance: root,
+            instance: pse_modeling::specialize::root_instance(root),
             bindings: Bindings::default(),
             limits: Limits::default(),
             case: ModelingCaseBindings {
@@ -1111,12 +1111,12 @@ mod tests {
         assert_eq!(report.matrix.as_ref().unwrap().rank, 1);
         assert!(report.complete);
         let points = vec![
-            (pse_ids::named_id(root, "sample-good"), values.clone()),
+            (pse_ids::named_id(root.as_id(), "sample-good"), values.clone()),
             (
-                pse_ids::named_id(root, "sample-missing"),
+                pse_ids::named_id(root.as_id(), "sample-missing"),
                 CaseValues::default(),
             ),
-            (pse_ids::named_id(root, "sample-recovered"), values.clone()),
+            (pse_ids::named_id(root.as_id(), "sample-recovered"), values.clone()),
         ];
         let samples = package
             .diagnose_samples(
@@ -1207,7 +1207,7 @@ mod tests {
             let nested = rt.modeling_package(rows, physical, names).unwrap();
             let analysis = ModelingAnalysis {
                 root,
-                instance: root,
+                instance: pse_modeling::specialize::root_instance(root),
                 case: ModelingCaseBindings {
                     values: BTreeMap::from([("x".into(), 2.), ("unused".into(), 1.)]),
                     ..Default::default()

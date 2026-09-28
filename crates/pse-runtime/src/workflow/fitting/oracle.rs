@@ -1592,7 +1592,7 @@ mod tests {
         let prepared = package
             .prepare_solve(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Default::default(),
                 Default::default(),
                 ModelingCaseBindings::default(),

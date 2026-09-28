@@ -149,7 +149,7 @@ pub(super) fn load_reusing(
     let mut documents = Vec::with_capacity(texts.len());
     for (path, text) in texts {
         let declaration = select(registry, &path)?.clone();
-        let id = pse_ids::named_id(package.package_id, &path);
+        let id = pse_ids::named_id(package.package_id.as_id(), &path);
         let mut source_batches=Batches::new();
         let (value, spans) = if declaration.kind == DocumentKind::PackageHeader {
             header_parts
@@ -490,7 +490,7 @@ fn append_source_inventory(
     parts: &mut BTreeMap<SemanticId, Vec<FieldCheckedBatch>>,
     entities: Vec<authored::entities::Row>,
     documents: &[Document],
-    package_id: SemanticId,
+    package_id: pse_relations::generated::identities::PackageId,
     registry: &Registry,
 ) -> Result<(), DriverError> {
     let mut entity_builder = authored::entities::Builder::with_registry(registry, entities.len())?;

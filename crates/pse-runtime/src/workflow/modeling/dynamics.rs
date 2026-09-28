@@ -27,7 +27,7 @@ use std::{collections::BTreeSet, sync::Arc};
 /// Immutable generated simulation. No authored state/RHS declaration is introduced.
 #[derive(Clone, Debug)]
 pub struct ModelingSimulation {
-    pub(in crate::workflow) instance: SemanticId,
+    pub(in crate::workflow) instance: InstanceId,
     quantities: Arc<pse_quantity::QuantityRegistry>,
     modes: Vec<SimulationMode>,
     contract: native::Contract,
@@ -174,7 +174,7 @@ impl ModelingTrajectory {
             self.checks
                 .iter()
                 .filter(|c| !c.satisfied)
-                .map(|c| c.source_id),
+                .map(|c| c.source_id.as_id()),
             "modeling.trajectory.rejected",
         );
         error.observations.insert(
@@ -486,7 +486,7 @@ impl ModelingPackage {
     /// Bind an authored case directly to the integrated route and its integration controls.
     pub async fn declared_simulation(
         &self,
-        root: SemanticId,
+        root: DeclarationId,
         compiler: Profile,
         profile: Option<native::Profile>,
         limits: Limits,
@@ -500,22 +500,23 @@ impl ModelingPackage {
                 cancel,
             )
             .await?;
+        let instance = pse_modeling::specialize::root_instance(root);
         let profile = if let Some(profile) = profile {
             profile
         } else {
             let model = self
-                .prepare(root, root, bindings.clone(), limits, cancel)
+                .prepare(root, instance, bindings.clone(), limits, cancel)
                 .await?;
             let fixture = model
                 .compiled()
                 .model
                 .fixtures
-                .get(&root)
+                .get(&instance)
                 .ok_or_else(|| contract("authored integration controls absent"))?;
             self.integration_profile(&model, fixture, &Default::default())?
         };
         self.prepare_simulation(
-            root, root, bindings, limits, case, compiler, profile, cancel,
+            root, instance, bindings, limits, case, compiler, profile, cancel,
         )
         .await
     }
@@ -523,8 +524,8 @@ impl ModelingPackage {
     /// projections; all original equations, hints and source identities remain inspectable.
     async fn prepare_simulation_mode(
         &self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         mut bindings: Bindings,
         limits: Limits,
         case: ModelingCaseBindings,
@@ -870,7 +871,7 @@ impl ModelingPackage {
                 && let Some(t) = targets.iter().find(|t| t.id == *target)
             {
                 declarations.push(cases::requirement(
-                    root,
+                    ModelId::from_id(root.as_id()),
                     *target,
                     t.kind,
                     *declaration,
@@ -1141,8 +1142,8 @@ impl ModelingPackage {
             .map(|id| values.scalars[id])
             .collect::<Vec<_>>();
         let mut hash = FramedHasher::new(pse_ids::Frame::ModelingDynamicV1);
-        hash.id(&root)
-            .id(&instance)
+        hash.id(&root.as_id())
+            .id(&instance.as_id())
             .hash(&numerics.key)
             .hash(&super::super::dynamics::profile_identity(&profile));
         for p in &programs {
@@ -1403,7 +1404,7 @@ impl ModelingPackage {
                 }
             }
             checks.push(RangeCheck {
-                source: a.lineage.declaration,
+                source: a.lineage.declaration.into(),
                 target: a.target,
                 value,
                 lower,
@@ -1495,7 +1496,8 @@ mod tests {
     use pse_backend_native::dynamics::Oracle;
     #[test]
     fn start_source_drives_initial_conditions() {
-        let [state, declaration, other] = [1, 2, 3].map(|n| SemanticId::from_bytes([n; 16]));
+        let state = SemanticId::from_bytes([1; 16]);
+        let [declaration, other] = [2, 3].map(|n| DeclarationId::from_bytes([n; 16]));
         let outputs = vec![
             ModelingOutput::Hint {
                 target: state,
@@ -1702,7 +1704,7 @@ mod tests {
         let prepared = package
             .prepare_simulation_modes(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -1749,7 +1751,7 @@ mod tests {
             package
                 .prepare_simulation_modes(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -1778,7 +1780,7 @@ mod tests {
         let stopped = package
             .prepare_simulation_modes(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -1843,7 +1845,7 @@ mod tests {
             let preparation = package
                 .prepare_simulation(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -1914,7 +1916,7 @@ mod tests {
                 package
                     .prepare_simulation(
                         root,
-                        root,
+                        pse_modeling::specialize::root_instance(root),
                         Bindings::default(),
                         Limits::default(),
                         ModelingCaseBindings::default(),
@@ -1932,7 +1934,7 @@ mod tests {
             let sensitive = package
                 .prepare_simulation(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -1979,7 +1981,7 @@ mod tests {
             let prepared = package
                 .prepare_simulation(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -2067,7 +2069,7 @@ mod tests {
             let result = package
                 .prepare_simulation(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -2182,7 +2184,7 @@ mod tests {
         let simulate = |case| {
             package.prepare_simulation(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 case,
@@ -2243,7 +2245,7 @@ mod tests {
         let prepared = package
             .prepare_simulation(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -2338,7 +2340,7 @@ mod tests {
         .unwrap();
         assert_eq!(trial.termination, native::Termination::Completed);
         let checks = prepared.check_samples(
-            root,
+            root.as_id(),
             &trial,
             &trial_parameters,
             &flag,
@@ -2347,7 +2349,7 @@ mod tests {
         assert!(checks.complete && checks.error.is_none());
         assert!(checks.rows.iter().all(|c| c.satisfied));
         let wrong = prepared.check_samples(
-            root,
+            root.as_id(),
             &trial,
             &prepared.parameters,
             &flag,
@@ -2401,7 +2403,7 @@ mod tests {
             let prepared = package
                 .prepare_simulation(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Default::default(),
                     Default::default(),
@@ -2497,7 +2499,7 @@ mod tests {
         let prepared = package
             .prepare_simulation(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -2533,7 +2535,7 @@ mod tests {
             singular
                 .prepare_simulation(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -2554,7 +2556,7 @@ mod tests {
             no_initial
                 .prepare_simulation(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default(),
                     Limits::default(),
                     ModelingCaseBindings::default(),
@@ -2579,7 +2581,7 @@ mod tests {
         let prepared = guarded
             .prepare_simulation(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -2650,7 +2652,7 @@ mod tests {
         let override_bounds = bounded
             .prepare_simulation(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 case,
@@ -2694,7 +2696,7 @@ mod tests {
         let simulation = package
             .prepare_simulation(
                 root,
-                root,
+                pse_modeling::specialize::root_instance(root),
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
@@ -2727,7 +2729,7 @@ mod tests {
             let prepared = package
                 .prepare_solve(
                     root,
-                    root,
+                    pse_modeling::specialize::root_instance(root),
                     Bindings::default().with_analysis(route),
                     Limits::default(),
                     ModelingCaseBindings::default(),

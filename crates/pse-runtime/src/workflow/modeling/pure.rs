@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Standalone pure conformance shares admission and compiler semantics, without MathService.
 use super::*;
+use super::conformance::NO_FIXTURE;
 use pse_columnar::{AllocationLease, MemoryConsumer};
 use pse_model::generated::enums::{
     ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
@@ -142,10 +143,8 @@ pub async fn conform_pure_documents(
                 .filter(|r| r.value.kind == DeclarationKind::Test)
                 .collect::<Vec<_>>();
             if fixtures.is_empty() {
-                report.record(
-                    SemanticId::NIL,
-                    SemanticId::NIL,
-                    SemanticId::NIL,
+                report.record_fixture(
+                    NO_FIXTURE,
                     Kind::Coverage,
                     Status::Failed,
                     "package contains no authored tests",
@@ -163,9 +162,7 @@ pub async fn conform_pure_documents(
                     || !report.complete
                 {
                     report.complete = false;
-                    report.record(
-                        fixture,
-                        fixture,
+                    report.record_fixture(
                         fixture,
                         Kind::Preparation,
                         Status::Unattempted,
@@ -176,9 +173,7 @@ pub async fn conform_pure_documents(
                     continue;
                 }
                 if data.and_then(|f| f.execution) != Some(Execution::Pure) {
-                    report.record(
-                        fixture,
-                        fixture,
+                    report.record_fixture(
                         fixture,
                         Kind::Preparation,
                         Status::Failed,
@@ -191,7 +186,7 @@ pub async fn conform_pure_documents(
                 let bindings = Bindings::default();
                 let model = match compiler.prepare_modeling_cancellable(
                     fixture,
-                    fixture,
+                    pse_modeling::specialize::root_instance(fixture),
                     bindings.clone(),
                     limits,
                     worker_flag.clone(),
@@ -213,7 +208,7 @@ pub async fn conform_pure_documents(
                 let checked = compiler
                     .check_modeling_expectations(
                         fixture,
-                        fixture,
+                        pse_modeling::specialize::root_instance(fixture),
                         bindings,
                         limits,
                         &pse_math::binding::CaseValues {
@@ -232,8 +227,8 @@ pub async fn conform_pure_documents(
                 .filter(|r| r.value.kind == DeclarationKind::Definition)
             {
                 report.record(
-                    SemanticId::NIL,
-                    row.declaration_id,
+                    NO_FIXTURE,
+                    row.declaration_id.as_id(),
                     row.declaration_id,
                     Kind::Coverage,
                     if covered.contains(&row.declaration_id) {

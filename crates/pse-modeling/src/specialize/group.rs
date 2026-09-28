@@ -46,7 +46,7 @@ impl Engine<'_,'_>{
                 if slot<own.len() && let Some(expression)=&symbol.expression {let mut expression=expression.clone();rename(&mut expression,&names)?;body.expressions.insert(slot,expression);}
             }
             for row in &rows{let mut equation=row.equation.clone();rename_equation(&mut equation,&names)?;body.equations.push(equation);}
-            let mut h=FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV1);h.id(&state.definition).u64(body.coordinates.len() as u64);
+            let mut h=FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV1);h.id(&state.definition.as_id()).u64(body.coordinates.len() as u64);
             for (ty,role) in &body.coordinates{
                 h.str(role.as_str());
                 let Type::Quantity(scheme)=ty else{return Err(invalid(state.definition,"finite body coordinate is not physical"));};
@@ -62,7 +62,7 @@ impl Engine<'_,'_>{
             for e in body.expressions.values(){calls(e);}
             for e in &body.equations{if let EquationKind::Relation{lhs,rhs,..}=&e.kind{calls(lhs);calls(rhs);}}
             let mut visited=BTreeSet::new();
-            while let Some(name)=pending.pop_first(){if !visited.insert(name.clone()){continue;}if let Some(function)=self.model.functions.get(&name){h.id(&function.id);if let Some(expression)=&function.body{h.str(&dsl::render_expr(expression));expression.walk(|e|match &e.kind{ExprKind::NamedCall{name,..}|ExprKind::Partial{function:name,..}=>{pending.insert(name.clone());},_=>{}});}}}
+            while let Some(name)=pending.pop_first(){if !visited.insert(name.clone()){continue;}if let Some(function)=self.model.functions.get(&name){h.id(&function.id.as_id());if let Some(expression)=&function.body{h.str(&dsl::render_expr(expression));expression.walk(|e|match &e.kind{ExprKind::NamedCall{name,..}|ExprKind::Partial{function:name,..}=>{pending.insert(name.clone());},_=>{}});}}}
             let key=h.finish_hash();
             if let Some(group)=self.model.groups.get(&key) && group.body.as_ref()!=&body{return Err(invalid(state.definition,"dispatch identity collision"));}
             let instance=self.model.instances.get_mut(id).ok_or_else(||invalid(*id,"dispatch instance missing"))?;

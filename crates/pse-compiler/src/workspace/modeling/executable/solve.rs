@@ -55,8 +55,8 @@ impl CompilerWorkspace {
     /// free starts are required separately by numerical solve admission.
     pub fn prepare_modeling_case_cancellable(
         &mut self,
-        root: SemanticId,
-        instance: SemanticId,
+        root: DeclarationId,
+        instance: InstanceId,
         mut bindings: Bindings,
         limits: Limits,
         case: &ModelingCaseBindings,
@@ -207,7 +207,7 @@ impl PreparedModeling {
         }
         h.u64(self.model.derived.len() as u64);
         for (id, parameter) in &self.model.derived {
-            h.id(id).id(&parameter.source);
+            h.id(id).id(&parameter.source.as_id());
             match parameter.rule {
                 pse_modeling::specialize::DerivedRule::Bound { variable, upper } => {
                     h.str("bound").id(&variable).bool(upper);

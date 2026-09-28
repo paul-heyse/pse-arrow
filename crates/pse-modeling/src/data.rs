@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Typed immutable table admission, independent of any selected model instance.
-use crate::{CheckedPackage,Type,TypeContext,Result,invalid};
+use crate::{CheckedPackage,DeclarationId,Type,TypeContext,Result,invalid};
 use crate::specialize::value::{Evaluator,Value,Environment};
 use pse_ids::SemanticId;
 use std::collections::{BTreeMap,BTreeSet};
@@ -21,7 +21,7 @@ pub struct Table {
     /// Missing values remain explicit.
     pub optional:bool,
     /// Dataset declaration supplying each row.
-    pub origins:BTreeMap<Vec<Value>,SemanticId>,
+    pub origins:BTreeMap<Vec<Value>,DeclarationId>,
 }
 pub(crate) fn admit(p:&mut CheckedPackage,c:&TypeContext<'_>)->Result<()> {
     let env=Environment::new();
@@ -61,8 +61,8 @@ pub(crate) fn admit(p:&mut CheckedPackage,c:&TypeContext<'_>)->Result<()> {
     }
     Ok(())
 }
-fn evaluator<'a,'b>(p:&'a CheckedPackage,c:&'a TypeContext<'b>,env:&'a Environment,at:SemanticId)->Evaluator<'a,'b>{Evaluator{package:p,physical:c,at,env,limit:100_000,stack:vec![]}}
-fn table(p:&CheckedPackage,c:&TypeContext<'_>,env:&Environment,id:SemanticId)->Result<Table>{
+fn evaluator<'a,'b>(p:&'a CheckedPackage,c:&'a TypeContext<'b>,env:&'a Environment,at:DeclarationId)->Evaluator<'a,'b>{Evaluator{package:p,physical:c,at,env,limit:100_000,stack:vec![]}}
+fn table(p:&CheckedPackage,c:&TypeContext<'_>,env:&Environment,id:DeclarationId)->Result<Table>{
     let contract=p.declarations[&id].value.table.as_ref().ok_or_else(||invalid(id,"table contract"))?;
     let names=p.named_types(id);let variables=BTreeSet::new();
     let mut key_names=BTreeSet::new();
