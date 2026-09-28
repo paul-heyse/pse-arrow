@@ -288,7 +288,7 @@ The model and case semantics follow the maintainer's decision on B3b's proposal 
 | W2 | B2 (R); B4 (V); B7 (T) | complete: B4 in merge `ba5f9676`, B7 in merge `057ade3b`, B2 in merge `c664106e` |
 | W3 | O8 (R); B5 (V) | complete: B5 in merge `d26bdebe`, O8 in merge `4487adfc` |
 | W4 | O7 (R); G8 + O5 incumbents (V); B3b (T) | complete: G8 in merge `b80f8d4c`, O7 in merge `f5909d1c`, B3b in merge `3c6407ad` |
-| W5 | O9; B3c; docs step | O9 complete (merge `3a097532`); B3c and the docs step next |
+| W5 | O9; B3c; docs step | complete: O9 in merge `3a097532`, B3c in `4b9d16f7`/`3d878717`, docs step in `12321374`/`425a7b9c` (revision 67) and `0e727af5` (revision 68) |
 | W6 | Scoped qualification | not started |
 
 ## Current checkpoint (2026-09-28)
@@ -794,4 +794,43 @@ bootstrap order.
 
 The Python surface (`test_progress_stream_python` and the O9 module) passed in the worktree
 (84 passed across 11 modules); it was not rebuilt on `main`, and runs again at W6.
+
+### W5: B3c and the docs step landed
+
+**B3c** (`4b9d16f7`, `3d878717`; worked in the main checkout).
+- **Explicit owners.** `FieldContract::with_owned_identity` declares ownership on the 12 owning keys. An owner must be its relation's single-column primary key and cannot be nested; a column that only carries an identity never owns it, so the export manifest carries `publication`.
+- **Model and case** (decision 7). `model_id` is the root declaration the model specializes, and `case_id` that root when it is a case or a test; both are typed `declaration`. `instance_id` and `fit_id` are new columns. The `model` and `case` identities and `ModelId`/`CaseId` are deleted. `runtime.run_lineage` is at v2, `solve_runs` at v4 and `numerical_requirements` at v2. Producers derive the rows from `ModelingPreparation`'s `Solved` or `FitProblem`'s `Fitted` through `pse_model::lineage`.
+  - **Coordinator-accepted choices.** A `test` root counts as a case. A fit names a model and case only when all its experiments share them, so `model_id` is optional (null for a fit across definitions). The implicit stage's trial hints carry the enclosing specialization's model and case, with the block's instance.
+- **Run identity.** `run` is its own identity, not the attempt's: an ephemeral run has none, and a job's retries share its run. The `run` identity is declared on 31 `run_id` columns plus the findings table and the nested run links, and about 30 runtime signatures take `RunId`.
+- **Bug fixed.** A worker's claimed try minted a fresh run id, so its result rows never matched `operational_attempts.run_id`. The try now runs under the stored run id; `worker_runs_an_authored_job_and_stores_its_seed` asserts it.
+- **Other typed ids.** `WorkflowError` ids; the job's and study point's `case` as `DeclarationId`; `SeedOrigin::run`. On the Python side, `Runtime.progress(AttemptId)`, `Runtime.study(StudyId)`, the typed study and progress ids, and `_modeling.py` case and fixture ids as `DeclarationId`.
+- **Deleted:** `manifest::publication_of`, the no-op conversions, and both pre-existing unused-variable warnings.
+- **Bytes.** Numerics identity bytes, the registry fingerprint and the affected contract fingerprints changed. The store fingerprint is now `d12602d2…` (dev store reset). Frame spellings and golden vectors are unchanged. The invariant fixtures were regenerated, which also picked up the O7 and O9 store relations.
+
+**B3c tests on `main`** (zero baseline, `PSE_SOLVER_IMAGE` set):
+
+| Command | Result |
+|---|---|
+| `just check`; conformance with native features; `just check-native-python` | compile; five unused-`mut` warnings in `conformance.rs` and `pure.rs` predate B3c (W6) |
+| schema, codegen, model and vocabulary units | 81 passed |
+| pse-model doctests, including the `compile_fail` swap | 4 passed |
+| pse-schema tests with pse-relations | 151 passed |
+| modeling and compiler units; `just unit-package pse-catalog` | 149 and 50 passed |
+| runtime native units; backend native units | 167 and 180 passed |
+| `just db-test` / `just worker-test` / `just publication-test` | 61 / 4 / 9 passed |
+| Python unit and component tests (12 touched modules); integration `test_studies`, `test_operational_queries`, `test_modeling_run`, `test_plan14_acceptance` | 79 and 9 passed |
+
+**Docs step.**
+- **Revision 67** (`12321374`, `425a7b9c`):
+  - the typed-data markers now describe the system as built;
+  - new blueprint §20.6 "Operational store and durable execution" holds the store contract and the O3–O9 and G8 text;
+  - ADR wording deviations are recorded at their owning sections, with no ADR edited;
+  - architecture companion notes for §9, §12 and §5.3;
+  - `docs/dev/operational-store.md` rewritten;
+  - TD01–TD11, T02 and T16 resolved with their tests;
+  - register rows R-36 (automatic retention) and R-37 (remote object stores).
+- **Revision 68** (`0e727af5`) adds B3c's model, case, run and ownership meanings to §5.1, §5.2 and §20.3.
+- **Left for the solver docs pass:** stale G4–G7 claims in §3.3, §18.9 and §18.10.1.
+
+**Next:** W6 scoped qualification.
 
