@@ -117,8 +117,10 @@ start or require CI.
    When a check is run, report its actual result against the zero target; it does not
    become a commit, push or merge gate (see *Execution rhythm*).
 2. **Never edit a generated directory. Fix the generator, then `just codegen`.** The
-   generated paths are `docs/generated/`, `crates/*/src/generated/`,
-   `crates/pse-ipopt-sys/src/bindings.rs`, and `python/pse/contracts/`. `just codegen-check`
+   generated paths are `docs/generated/`, `crates/*/src/generated/` (the operational
+   store's `crates/pse-operations/src/generated/` included), `crates/pse-operations-queries/`,
+   `crates/pse-ipopt-sys/src/bindings.rs`, `python/pse/contracts/` and
+   `python/pse/_native.pyi`. `just codegen-check`
    is available to check this manually; a hand edit there is a red diff, not a fix.
 3. **One authoritative declaration per meaning.** Version pins live once in `Cargo.toml`
    (`[workspace.dependencies]`) and once in `pyproject.toml`. A schema is declared in the

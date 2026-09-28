@@ -10,3 +10,6 @@ tests/roundtrip.rs
 
 # Schema-generated reference appears when the phase-one generator exists.
 docs/generated
+
+# The generated Cornucopia query crate appears with Plan 22 B2 (ADR-0114 Outcome 24).
+crates/pse-operations-queries

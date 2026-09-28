@@ -80,9 +80,16 @@ def protected(root: Path, path: str, *, design_edit: bool = False) -> str | None
         return "VCS state, build output and reading copies are protected"
     name = relative.as_posix()
     if (
-        name.startswith(("docs/generated/", "python/pse/contracts/"))
+        name.startswith(
+            (
+                "docs/generated/",
+                "python/pse/contracts/",
+                "crates/pse-operations-queries/",
+            )
+        )
         or (parts[0] == "crates" and "generated" in parts)
-        or name == "crates/pse-ipopt-sys/src/bindings.rs"
+        or name
+        in {"crates/pse-ipopt-sys/src/bindings.rs", "python/pse/_native.pyi"}
     ):
         return "generator output is protected; fix the generator"
     if not design_edit:

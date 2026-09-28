@@ -124,7 +124,9 @@ pub(crate) fn crate_sources() -> Vec<PathBuf> {
 /// True for files a generator owns.
 pub(crate) fn is_generated(path: &Path) -> bool {
     let text = path.to_string_lossy().replace('\\', "/");
-    text.contains("/src/generated/") || text.ends_with("/bindings.rs")
+    text.contains("/src/generated/")
+        || text.contains("/crates/pse-operations-queries/")
+        || text.ends_with("/bindings.rs")
 }
 
 /// Path relative to the workspace root, for messages.
