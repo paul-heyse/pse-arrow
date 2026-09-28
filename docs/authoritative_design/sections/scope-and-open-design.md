@@ -31,13 +31,13 @@ no silent fallback, approximate substitute or compatibility route.
 
 | Area | Supported | Refused or outside the profile | Contract |
 |---|---|---|---|
-| Definitions and composition | Generic typed definitions, interfaces/defaults, finite/indexed and continuous membership, lazy demand, functions/partials, accumulators, children, cases and typed connections | Ambiguous interfaces/imports, unavailable demanded contracts, invalid physical operations, exceeded expansion limits | [§10](models-and-composition.md#section-10)–[§12](models-and-composition.md#section-12), [§22](models-and-composition.md#section-22) |
+| Definitions and composition | Generic typed definitions, interfaces/defaults, finite/indexed and continuous membership, lazy demand, functions/partials, accumulators, children, cases and typed connections; indicator, SOS, cardinality, piecewise-linear and logic declarations and nested disjunctions, lowered by declared realizations | Ambiguous interfaces/imports, unavailable demanded contracts, invalid physical operations, exceeded expansion limits; a realization whose preconditions fail (infinite bounds, an incomplete or unbounded FBBT interval, a nonlinear disjunct row under plain `hull`); complementarity until Plan 22 M5 | [§10](models-and-composition.md#section-10)–[§12](models-and-composition.md#section-12), [§22](models-and-composition.md#section-22) |
 | Physical properties | Authored ideal, PR and PC-SAFT seed potentials, DIPPR/Shomate/RPP4/Perry calorics, FTPx/FPhx, BTIdeal/BT_PR and dilute-liquid state bindings; explicit data/reference/envelope contracts | Unproved global stability or branch smoothness (a certified tangent-plane stability check is in the target: ADR-0102, Plan 22 G6, not yet implemented); undeclared extrapolation; unported property families | [§9](physical-semantics.md#section-9) |
 | Reactions | Authored saponification stoichiometry, kinetics and heat conventions composed with generic accumulators | Unported reaction knowledge; missing demanded physical contracts | [§9](physical-semantics.md#section-9) |
 | Numerical policy | One resolved policy with recorded precedence; reversible normalization; frozen absolute and relative budgets; original-space acceptance; exact Gram convexity evidence, numerical PSD evidence only on opt-in | Conflicting equal-priority sources; relaxation of hard guards | [§16](numerical-execution.md#section-16) |
-| Problem classes | NLP (Ipopt, POUNCE), square roots and declared fixed-point maps (KINSOL), LP, MILP including authored integer, binary and semi-variable domains, and certified convex QP (HiGHS), explicit cones including SDP (Clarabel) | MIQP, MINLP, disjunctive programs and global certification until Plan 22 M and G packets land (in the target: ADR-0102); free discrete variables in root, initialization, fitting, integrated-dynamics and nested implicit solves; nonconvex QP to HiGHS; arbitrary boxes on KINSOL and constrained fixed-point iteration; JIT or SIMD evaluation | [§18](numerical-execution.md#section-18) |
-| Initialization and recycles | Transactional staged initialization; finite supplied continuation; authored tears selected by HiGHS MILP with an independent acyclicity witness; causal fixed-point maps; explicit starts independent of allocation reuse | Any convergence guarantee for a strategy | [§17](numerical-execution.md#section-17) |
-| Dynamics | ODE and index-1 DAE with a fixed diag(I,0) mass matrix; consistent initialization; finite events/resets; physical time origins; smooth forward sensitivities; native quadratures; simultaneous authored FD/Radau schemes | Higher-index or general implicit DAE; variable-layout dynamics; hybrid IDAS sensitivities; unsupported residual/index structure | [§13](workflows-and-results.md#section-13) |
+| Problem classes | NLP (Ipopt, POUNCE), square roots, including one-sided bounds, and declared fixed-point maps (KINSOL), LP, MILP including authored integer, binary and semi-variable domains, and certified convex QP (HiGHS), explicit cones including SDP (Clarabel); MIQP and MINLP (SCIP, automatic) and, on the explicit `certify` intent, tolerance-qualified global certification of factorable problems over finite boxes (SCIP: `global_bound`, `proven_infeasible`, `GapQualified`); disjunctive programs through linear realizations | Native realizations of constraint forms until a linked adapter consumes the handler (Plan 22 G7); certification or global solving where an implicit block or provider output enters a nonlinear term (Plan 22 G4); semi domains on SCIP; exact rational MILP and nonlinear IIS (G5, G7); free discrete variables in root, initialization, fitting, integrated-dynamics and nested implicit solves; nonconvex QP to HiGHS; two-sided boxes on KINSOL and constrained fixed-point iteration; JIT or SIMD evaluation | [§18](numerical-execution.md#section-18) |
+| Initialization and recycles | Transactional staged initialization as one staged sequence with per-step overlays and value-only rebind; finite supplied continuation and bounded adaptive homotopy; authored tears selected by HiGHS MILP with an independent acyclicity witness; causal fixed-point maps; explicit starts independent of allocation reuse | Any convergence guarantee for a strategy | [§17](numerical-execution.md#section-17) |
+| Dynamics | ODE and index-1 DAE with a fixed diag(I,0) mass matrix; Diffsol BDF, SDIRK and (mass-free) explicit schemes with faer LU or KLU; IDAS with recoverable trials, scheduled inputs crossed by forward sensitivities, directional events without sensitivities, sign constraints, Krylov with a Jacobi preconditioner and a steady start; consistent initialization; finite events/resets; physical time origins; smooth forward sensitivities; native quadratures; simultaneous authored FD/Radau schemes | Higher-index or general implicit DAE; variable-layout dynamics; IDAS sensitivities across events; adjoint and second-order sensitivities and shooting until Plan 22 Y3–Y5 land (in the target: ADR-0110); unsupported residual/index structure | [§13](workflows-and-results.md#section-13) |
 | Fitting | Steady, transient and mixed fitting over declared sparse or dense support; candidate response derivatives; a qualified estimate requires convergence, original feasibility and response rank | Covariance, confidence intervals and uncertainty propagation until Plan 22 S3–S4 land (in the target with PS-12 validity: ADR-0107); global identifiability | [§19](workflows-and-results.md#section-19) |
 | Results and publication | Typed completion through Rust, Arrow and Python; exact publication, settlement and read-only reopening; typed migration-required refusal for unsupported historical formats | Automatic migration; multi-writer or remote object-store deployment until the catalog lands (in the target: ADR-0112, Plan 22 O8) | [§20](identity-and-publication.md#section-20), [§21](workflows-and-results.md#section-21) |
 | Python | Registry-generated declarations, blocking and async jobs, Arrow result streams, publication and settlement | Mathematics in Python; production Pyomo or NL routes | [§21](workflows-and-results.md#section-21) |
@@ -48,11 +48,12 @@ no silent fallback, approximate substitute or compatibility route.
   CI, release, wheel or distribution, and other-platform qualification are not claimed.
 - GPU support, distributing a single solve across processes or hosts, general
   higher-index DAEs and interval-rigorous global optimization are not part of the design
-  target, not merely unimplemented. MIQP, MINLP and disjunctive programs,
-  tolerance-qualified global certification ([ADR-0102](../../adr/0102-discrete-and-global-design-target.md))
-  and durable multi-process execution through the operational store
-  ([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md)) are in the target
-  and not yet implemented.
+  target, not merely unimplemented. Tolerance-qualified global certification
+  ([ADR-0102](../../adr/0102-discrete-and-global-design-target.md)) is implemented for
+  factorable problems over finite boxes whose nonlinear terms involve no implicit block or
+  provider output; the rest is Plan 22 G4. Durable multi-process execution through the
+  operational store ([ADR-0112](../../adr/0112-postgresql-operational-store-and-catalog.md))
+  is in the target and not yet implemented.
 - Declared operating envelopes and exercised reference comparisons do not certify
   empirical property accuracy. Passing analytic or reference cases does not establish
   untested formulations.
@@ -127,7 +128,7 @@ implemented** means no executable path exists. Scope is defined in
 | Control | `models/control/controller.py` | Partial | Authored filtered PID with anti-windup and integrated/simultaneous fixtures |
 | Costing | `costing_base.py`, `SSLW.py` | Partial | SSLW heat-exchanger tables, currency conversion and accounting |
 | Initialization framework | `core/initialization/*` | Implemented | Staged strategies and conditional blocks; `pse-runtime::math::initialization`, `pse-structural::initialization` |
-| Homotopy | `core/solvers/homotopy.py` | Partial | Supplied continuation and bounded authored adaptive homotopy |
+| Homotopy | `core/solvers/homotopy.py` | Partial | Supplied continuation and bounded authored adaptive homotopy as value-only staged steps |
 | Sequential modular, tears | Pyomo `SequentialDecomposition` | Implemented | `pse-backend-native::tears`, `pse-backend-native::recycle` |
 | Scaling | `core/scaling/*` | Partial | Resolved policy and reversible normalization; `pse-math::numerics`, `pse-math::normalization`; authored schemes and diagnostics |
 | Model statistics, structural diagnostics | `model_statistics.py`, incidence analysis | Implemented | Matching, DM and BTF; `pse-structural::incidence` |
@@ -135,7 +136,7 @@ implemented** means no executable path exists. Scope is defined in
 | Solver configuration | `core/solvers/*` | Implemented | Class-specific adapters; `pse-backend-native` |
 | Dynamics | `dyn_utils.py`, PETSc DAE | Partial | ODE/index-1 profile; `pse-backend-native::dynamics`, `pse-runtime::workflow::dynamics` |
 | Parameter estimation | Pyomo `parmest` usage | Implemented | `pse-runtime::workflow::fitting`; no covariance |
-| Parameter sweeps | `parameter_sweep.py` | Implemented | Finite case batches; `pse-runtime::math::solves` |
+| Parameter sweeps | `parameter_sweep.py` | Implemented | Finite studies as one staged sequence over prepared views; `pse-runtime::workflow::staged` |
 | Convergence evaluation | `convergence/*` | Partial | Finite authored studies and retained per-case outcomes |
 | Utility minimization | `utility_minimization.py` | Not implemented | — |
 | Serialization, tables, tags, units | `model_serializer.py`, `tables.py`, `tags.py`, `units_of_measurement.py` | Implemented | Registry relations, Arrow results, Delta publication; `pse-quantity`, `pse-catalog` |
@@ -183,11 +184,13 @@ Relation, enumeration and extension-type detail is generated from the registry; 
 | Publication | An exact, immutable Delta commit of selected results under an expected-parent precondition |
 | Publication ticket, settlement | The serializable attempt handle issued before effects, and the read-only determination of committed, not committed or unresolved |
 | Qualification | Original-space numerical assessment of a candidate: feasibility, stationarity, gap or rank as applicable |
+| Realization | The declared transformation that lowers an implicit block, constraint form or disjunction, with its stated equivalence |
 | Quantity type | Kind, dimension, basis, reference state, scale kind, shape and subject |
 | Reference | Shipped library data, such as units, elements and methods |
 | Retention | Preservation of the closure needed to reopen retained publications; distinct from cache retention |
 | Semantic ID | Stable 128-bit identity of an authored entity, unchanged by rename |
 | Specialization | Finite expansion of a definition for a selected instance and case into library mathematics |
+| Staged sequence | Finite steps on one native session, each an overlay over the original specification with a typed start; initialization, homotopy, studies and authored runs use it |
 | Start | The numerical start actually used by an attempt, with its origin; distinct from reused allocation |
 | Tear | A connection occurrence cut to break a recycle, selected by an authored policy |
 | Usability | The final decision whether a candidate may be used, combining qualification, closure and explicit opt-ins |

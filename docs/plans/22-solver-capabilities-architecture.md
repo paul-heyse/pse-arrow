@@ -135,6 +135,27 @@ realize route using hull;   // bigm | bigm(derived) | hull | indicator
 - Logic propositions between alternatives lower as in §2.3.
 - Nested disjunctions are admitted. Their lowering order is explicit.
 
+**As implemented (M3 and M4, `177c4ec9`).** Blueprint §6.8 (syntax, placement, vocabulary)
+and §19.7 (lowerings, derived parameters, nesting, routing) own the current contract.
+Relative to the sketch above:
+
+- A realization is named and targets its form: `realize r on route using hull;`. The
+  authored spellings are `bigm(M)`, `bigm(derived)`, `bigm(derived, margin)`, `hull`,
+  `hull(epsilon)`, `indicator`, `linear`, `native`, `sos2` and `incremental`, each admitted
+  only by the forms it applies to. An indicator constraint defaults to `bigm(derived)` with a
+  10⁻⁶ margin, sets, cardinality and logic to `linear`, a piecewise function to `sos2`; a
+  disjunction has no default.
+- Lowering happens during generic specialization in `pse-modeling`; the derived realization
+  parameters (hull bounds and derived big-Ms) are computed by the compiler per binding and
+  rebound with values (A6). A derived big-M side is the FBBT enclosure of the disjunct
+  residual, extended to include zero, widened by the margin and one ULP, and exactly zero
+  within the enclosure's rounding resolution. Plain `hull` refuses a nonlinear disjunct row.
+- Refusals are `ModelingError::Realization` (`modeling.realization`) with four reasons:
+  infinite bound, incomplete interval, unbounded interval and nonlinear row.
+- Native realizations are `CaseStructure` metadata; eligibility comes from capability
+  records (`native_forms`), and no linked record consumes a handler before G7.
+- The lowering record lives on the specialized model and is not yet published with results.
+
 ### 2.5 Complementarity and phase appearance
 
 A declaration `complements(a >= 0, b >= 0)` takes a realization. PS-06 requires each one's
@@ -216,15 +237,67 @@ eligible adapters and never grants eligibility.
 
 | Runner | Replaces | Serves |
 |---|---|---|
-| One NLP runner (pipeline → solve → finish → KKT → qualify), `execution::nlp` in `pse-backend-native` | Four copies (F28) | Solve, initialization and fitting (A2); certification when the G packets land |
+| One NLP runner (pipeline → solve → finish → KKT → qualify), `execution::nlp` in `pse-backend-native` | Four copies (F28) | Solve, initialization and fitting (A2); the factorable runner's fixed-assignment re-solve (G3) |
 | Root, coefficient and cone runners, `execution::{roots, coefficients, cone}` in `pse-backend-native` | Per-workflow transport, recovery and qualification | Every root, coefficient and cone route |
-| One staged-sequence primitive (value-only rebind, retained sessions, typed `StartSource`), in `pse-runtime` | Two initialization engines and two multi-case engines (F29) | Homotopy, studies, rolling horizons |
+| Factorable runner (export → native global solve → original re-observation → candidate rule → qualify), `execution::factorable` in `pse-backend-native` | — | SCIP optimization and certification (G3; §5.2, §5.3) |
+| One staged-sequence primitive (value-only rebind, retained sessions, typed starts), in `pse-runtime` | Two initialization engines and two multi-case engines (F29) | Stage, homotopy and block initialization, studies, authored sequences and single solves (A6); rolling horizons (Y5) |
 
 **Deviation (A2, adopted).** The shared representation runners live in `pse-backend-native`
 (`execution::{nlp, roots, coefficients, cone}`), not in `pse-runtime` as this section first
 said. A stub adapter test can then exercise the real runner. The stub is known only through
 its capability record and a table entry. `pse-runtime` keeps workflow ownership: it chooses
 a runner by representation and the adapter by table lookup, and never names a backend.
+
+**The staged-sequence primitive as built (A6, `4c9c2e43`).** It has a native half and a
+workflow half.
+
+- **`NativeSession`** (`pse-runtime/src/math/staged.rs`) is one worker thread opened by
+  `MathService::open_session`. For its whole life it holds one job slot and a pool reservation
+  for its stack, the foreign allowance and one worker share, and it keeps the sequence's
+  `Retained` native state on that thread. Each step takes CPU permits for its own admitted
+  cores only, so the driver prepares structure and rebinds values between steps without
+  holding permits for an idle session. The thread enters the scopes of the adapters its steps
+  use; a step that needs another scope or thread count ends the current one, dropping
+  retained state. `NativeSession::step` executes a step, assesses its outcome against the
+  original model on the same worker, and drops retained state unless the candidate is a
+  result. Closing the session joins the thread.
+- **`MathService::execute`** is the single step executor. It clears retained state for a
+  `Fresh` reuse policy, selects the seed the start policy names (none; the step's explicit
+  seed; or, under `PreviousAccepted`, the output seed of the previous step when that step's
+  candidate is a result), checks the seed against the step's coordinates (a refused seed
+  also clears retained state), runs the adapter's representation runner, passes the job's
+  foreign allowance as `Execution::memory`, and writes the start receipt. `MathService::solve`
+  runs one prepared step on its own one-step session.
+- **`Staged`** (`pse-runtime/src/workflow/staged.rs`) composes each step's `Overlay`
+  (specialization facts, parameter replacements, temporary fixes and relaxations, temporary
+  values) over the immutable original specification, for that step only, so nothing survives
+  a failed, refused or cancelled step (PS-08). A step starts from a typed `Start`:
+  `Specification`, `Accepted(k)` (a result) or `Seed(k)` (a result or a `seed_only`
+  candidate), decided by the candidate-use rule. Seeded values enter case resolution as
+  `StartSource::Predecessor`. Each step is bounded by its deadline and cancellation and is
+  recorded, including a step refused before it ran; a failed step seeds nothing and does not
+  stop independent steps.
+- **Value-only rebind (F29).** `PreparedModeling::bound_structure` gives the value-free
+  solver structure, and `view_key` its complete identity. `PreparedCase::rebind` shares the
+  plan, structural analysis, artifact requests and derivation rules, and rebuilds the
+  presolve projection, coefficient snapshot and facts only when a value they consumed
+  changed (`values_match`). `PreparedBlock::bind` does the same for conditional blocks, and
+  observation programs are value-free. Package views (`workflow/modeling/views.rs`) keep up
+  to 16 solver views and 16 observation programs per package, keyed by view key, so a
+  five-point value-only study prepares one view.
+
+Stage and homotopy initialization (`ModelingPackage::initialize_model`), block
+initialization (`MathService::initialize`), studies (`ModelingPackage::study`), authored
+sequences (`Runtime::start_modeling`) and single solves all run on it. `SolveSequence`,
+`run_sequence*`, `solve_assessed`, the separate block loop and `bounded_work` were deleted.
+The current contract is owned by blueprint §14.4, §17.1, §17.5, §17.6, §18.8 and
+§19.1–§19.3.
+
+**Deviations (A6, adopted).** The typed `StartSource` came with A4 and records the provenance
+of each resolved input; the primitive's own start type is `Start`. Stage, homotopy and study
+steps seed values only; a native seed is offered only between authored-sequence steps and,
+under `PreviousAccepted`, from a block's committed attempt in an earlier initialization stage.
+Rolling horizons (Y5) and durable study workers (O7) are not built yet.
 
 **Typed failures (F17, F18, F19).** `ProblemError` gains Provider, Unsupported, Numerical,
 Limit, Cancelled and Internal variants, each keeping its cause. The registry diagnostic
@@ -267,6 +340,35 @@ never replaces the evaluator.
 - An `Unavailable` objective yields no bound, and `Certify` is refused with that reason.
 - **Mixed-integer programs with relaxed rows** ([T07](../design_review/reviews/design_review_plan22-target_2026-09-27.md#t07)). SCIP's incumbent is an assignment proposal, recorded `diagnostic_only`. The candidate comes from the fixed-assignment continuous re-solve (§2.2) through the one NLP runner and is qualified in original coordinates. A gap may combine the relaxation's dual bound with that qualified candidate's objective; both sources are recorded.
 
+**As implemented (G3, `e781060c`).** The factorable runner `execution::factorable` applies
+the rule as follows; blueprint §18.10.1 owns the current contract.
+
+- **Export plan.** Selected rows with a projection, the constraints of unconditional
+  obligations, implicit residuals (`= 0`) and their bounds are exported; a row without a
+  projection is dropped, which makes the export `Relaxed`. A strict obligation bound is
+  closed with a relative margin: `x > b` exports as `x ≥ b + 10⁻⁹·max(1, |b|)`, and `x < b`
+  symmetrically. The export refuses, with every typed reason and during preparation, before
+  the step runs, an objective without a projection, a variable or auxiliary inside a nonlinear term without a
+  finite box, a semi domain and a nonfinite constant.
+- **Candidate rule.** An original-feasible incumbent of an exact export is the candidate
+  (`PrimalSource::Backend`), unless the program combines integer columns with a non-affine
+  function. Otherwise every integer column is fixed at its rounded incumbent value and the
+  continuous problem is re-solved through the one NLP runner by the automatic NLP route,
+  seeded at the incumbent; an original-feasible re-solve candidate is adopted
+  (`PrimalSource::FixedAssignment`), with multipliers conditional on the assignment. Without
+  an adopted re-solve, a relaxed export's incumbent stays an observation
+  (`PrimalSource::RelaxedIncumbent`), which candidate use makes `diagnostic_only`. The dual
+  bound's source is `ExactExport` or `RelaxedExport`.
+- **Qualification** (`quality::qualify_global`). Nothing global transfers unless the export
+  reads back equivalent. Then an infeasible stop the backend concluded grants
+  `proven_infeasible`, and a successful stop with a finite dual bound grants `global_bound`.
+  `GapQualified` additionally needs an original-feasible candidate from a result source whose
+  fresh original objective lies within the requested absolute gap of the bound, or within the
+  relative gap when both share a sign.
+- **Not yet wired (G4).** The runtime projects under the default `FactorableRequest`, without
+  implicit definitions or provider envelopes, so rows involving providers are refused inside
+  nonlinear terms rather than exported as relaxations.
+
 ### 5.3 SCIP 10.0.2 adapter (`pse-backend-native::scip`, feature `scip`)
 
 **Build** (a component of the solver image, §5.4 and ADR-0108):
@@ -307,6 +409,44 @@ The `bundled` and `from-source` scip-sys profiles are rejected (review §8.1).
 - exact rational MILP (`SCIPenableExactSolving`, which excludes reoptimization);
 - IIS on the true problem (`SCIPgenerateIIS`);
 - an incumbent and bound event stream into the operational store (§9).
+
+**As implemented (G1 binding and G3, `e781060c`).** Blueprint §18.10.1 owns the current
+contract. Relative to the text above:
+
+- **Binding.** `scip-sys` =0.1.28 with default features. SCIP has no run-time API-version
+  query, so `SCIP_APIVERSION` 156, the `SCIP_Real = f64` signatures and the 32-bit `int` are
+  asserted at build time (execution packet, binding decision 9); at run time `scip::abi`
+  checks `SCIPmajorVersion`, `SCIPminorVersion` and `SCIPtechVersion` against 10.0.2.
+- **Lifecycle.** One instance per attempt, freed on every path including unwinding; nothing
+  is retained between attempts.
+- **Reserved options with read-back.** `misc/catchctrlc`, `limits/time`, `limits/memory`,
+  `limits/gap`, `limits/absgap`, `limits/totalnodes`, `numerics/feastol`,
+  `randomization/randomseedshift`, `lp/threads`, `nlpi/ipopt/linear_solver`,
+  `nlpi/ipopt/hsllib`, `nlpi/ipopt/pardisolib` and every `parallel/` and `concurrent/`
+  option come only from typed settings and controls. Values: `catchctrlc` false; the
+  remaining deadline; the job's foreign allowance in MiB (`Execution::memory`); the resolved
+  relative and absolute gaps (the absolute one in original objective units); the resolved
+  feasibility budget clamped to [10⁻⁹, 10⁻⁶]; `scip::Settings` `seed` and `nodes`; one LP
+  thread; the typed nested-Ipopt linear solver (`mumps` by default, `spral` only with
+  `OMP_CANCELLATION=TRUE`, `pardisomkl`). Every reserved key and admitted free-form option is
+  read back in its native type, and that snapshot is the report's effective options.
+- **Concurrency.** Not admitted yet: SCIP runs serial and refuses a thread count other than
+  one (G7).
+- **Cancellation.** The event handler catches presolve rounds and node, LP, best-solution and
+  dual-bound events, polls the attempt flag, calls `SCIPinterruptSolve` once on the owning
+  thread, and pushes a `scip.bound` progress event on every new best solution or improved
+  dual bound.
+- **Status map.** Exhaustive over the 10.0.2 statuses. `OPTIMAL` and `GAPLIMIT` are success
+  with `global_bound`, the requested gap limit counting as success; `INFEASIBLE` carries
+  `proven_infeasible`; every other limit leaves the bound unestablished.
+- **Capabilities built.** Incumbent injection (`SCIPaddSolFree`, partial when auxiliaries or
+  an epigraph exist) from any compatible primal seed, and export-equivalence readback at
+  10⁻⁹ relative deviation. Not yet: native indicator, SOS and logic handlers, the solution
+  pool, reoptimization, exact rational MILP (G7), IIS (G5) and the operational-store stream
+  (G8).
+- **Registry.** `NativeBackend::scip`; the classes `nonconvex_quadratic`,
+  `mixed_integer_quadratic` and `mixed_integer_nonlinear`; the four assurances; the
+  `factorable` derivative capability; and a `certifies` column in `runtime.solver_capabilities`.
 
 ### 5.4 One solver image: Ipopt linear algebra, MKL and OpenMP
 
@@ -393,6 +533,30 @@ These amend ADR-0084 and ADR-0093.
 - `Settings::from_policy` as the single constructor (F22);
 - a per-worker session cache for nested `InnerSolver` calls;
 - solve tests for the Dense, SPGMR and Picard paths.
+
+**As implemented (Y1, Y2 and Y6, `754049f8`).** Blueprint §13.5, §13.6, §16.6 and §18.10 own
+the current contract. Relative to the text above:
+
+- **IDAS.** Everything listed is built as typed `IdasSettings` (linear solver, sensitivity
+  corrector, initialization, per-state signs) with directional events (`Crossing`). The
+  preconditioner hook is a Jacobi preconditioner from the diagonal of the compiled Newton
+  matrix, for SPGMR and SPFGMR. Sensitivities cross scheduled changes; events with sensitivities are
+  refused on IDAS.
+- **Diffsol.** `DiffsolSettings` selects BDF, `tr_bdf2`, `esdirk34` or `tsit45` (mass-free
+  only) and faer LU or KLU; directional events are refused on Diffsol.
+- **Identity.** `profile_json` and the Diffsol settings identity are the serde encoding of
+  the profile (`pse.dynamic.profile.v3`), and fit modes hash through serde
+  (`pse.fit.profile.v2`).
+- **KINSOL.** `Method` carries the Newton-step cap, the forcing term (choice 1, choice 2 or a
+  constant), a right Jacobi preconditioner, SPGMR, SPFGMR, SPBCGS and SPTFQMR, and Anderson
+  orthogonalization and delay. One-sided bounds of any value are sign constraints on shifted
+  coordinates, which is now what a capability record's `sign_bounds` means. Nested
+  `InnerSolver` calls reuse up to eight KINSOL sessions per worker thread, keyed by problem
+  layout.
+- **Follow-ups (execution packet E10).** Authored event direction and sign constraints from
+  authored bounds; a kernel fixture field for authored scheduled inputs; a typed numerical
+  failure instead of the contained panic of a singular Diffsol KLU factorization; charging the
+  KINSOL session cache to job budgets.
 
 ## 8. Coefficient and conic extensions
 
