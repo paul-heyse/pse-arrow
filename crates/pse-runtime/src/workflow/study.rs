@@ -630,6 +630,14 @@ impl Runtime {
                     return Ok(published(head));
                 }
                 Err(OperationsError::PublicationConflict { .. }) => {}
+                // A superseded try of this finalization committed the study meanwhile.
+                Err(error @ OperationsError::PublicationIdentityReused { .. }) => {
+                    let Some(existing) = catalog.publication(publication_id).await? else {
+                        return Err(error.into());
+                    };
+                    store.studies().mark_published(study).await?;
+                    return Ok(published(existing.publication.parent_publication));
+                }
                 Err(error) => return Err(error.into()),
             }
         }
