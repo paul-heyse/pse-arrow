@@ -403,7 +403,7 @@ impl Pipeline {
                 records::projection(&p.borrow().starting_point_projection_report()),
             );
         }
-        let mut h = pse_ids::FramedHasher::new("pse.presolve.transformation.v2");
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::PresolveTransformationV2);
         h.hash(&original.borrow().normalization.key());
         h.hash(&compatibility.layout)
             .hash(&policy.key())

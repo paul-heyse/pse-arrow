@@ -221,7 +221,7 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
     assert_eq!(
         ids.value(0),
         pse_ids::derive_id(
-            pse_ids::derive::context::NAMED,
+            pse_ids::Frame::NamedV1,
             &[namespace.as_bytes(), keys.value(0)]
         )
         .as_bytes()

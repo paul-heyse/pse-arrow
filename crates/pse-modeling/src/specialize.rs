@@ -1683,7 +1683,7 @@ fn member_id(
     declaration: SemanticId,
     coordinates: &[(String, Value)],
 ) -> SemanticId {
-    let mut h = FramedHasher::new("pse.modeling.member.v1");
+    let mut h = FramedHasher::new(pse_ids::Frame::ModelingMemberV1);
     h.id(&instance).id(&declaration);
     for (_, value) in coordinates {
         h.id(&value.identity());

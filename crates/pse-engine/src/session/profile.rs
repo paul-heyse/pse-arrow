@@ -7,7 +7,7 @@ use crate::EngineError;
 use datafusion::arrow::ARROW_VERSION;
 use datafusion::optimizer::{AnalyzerRule, OptimizerRule};
 use datafusion::physical_optimizer::PhysicalOptimizerRule;
-use pse_ids::{ContentHash, FramedHasher, derive::context};
+use pse_ids::{ContentHash, Frame, FramedHasher};
 use std::sync::Arc;
 
 /// Ordered rule descriptions for the exact pinned execution pipeline.
@@ -31,7 +31,7 @@ pub fn native_engine_profile() -> EngineProfile {
 impl EngineProfile {
     /// Identify the exact versioned rule lists and read-back semantic settings.
     pub fn hash(&self, settings: ContentHash) -> ContentHash {
-        let mut hash = FramedHasher::new(context::SETTINGS);
+        let mut hash = FramedHasher::new(Frame::SettingsV1);
         hash.str(&self.version);
         hash.str(datafusion::DATAFUSION_VERSION);
         hash.str(ARROW_VERSION);

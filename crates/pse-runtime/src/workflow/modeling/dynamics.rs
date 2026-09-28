@@ -1140,7 +1140,7 @@ impl ModelingPackage {
             .iter()
             .map(|id| values.scalars[id])
             .collect::<Vec<_>>();
-        let mut hash = FramedHasher::new("pse.modeling.dynamic.v1");
+        let mut hash = FramedHasher::new(pse_ids::Frame::ModelingDynamicV1);
         hash.id(&root)
             .id(&instance)
             .hash(&numerics.key)

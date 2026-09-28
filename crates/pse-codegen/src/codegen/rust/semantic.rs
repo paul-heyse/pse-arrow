@@ -289,7 +289,7 @@ pub(super) fn facts(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
                 /// Frame the complete typed sequence, including relation and empty membership.
                 /// This is a lookup identity; reuse still compares complete values.
                 pub fn semantic_identity(&self) -> pse_ids::ContentHash {
-                    let mut hash = pse_ids::FramedHasher::new("pse:typed-facts:v1");
+                    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::TypedFactsV1);
                     hash.id(&self.relation()).u64(self.len() as u64);
                     match self { #(Self::#variants(rows) => {
                         for row in rows { crate::SemanticFrame::frame(row, &mut hash); }
@@ -321,7 +321,7 @@ pub(super) fn facts(tree: &mut GeneratedTree, reg: &crate::Registry) -> Result<(
                 }
                 /// Primary-key lookup bucket. Always confirm with same_key before reuse.
                 pub fn key_bucket(&self, index: usize) -> Option<pse_ids::ContentHash> {
-                    let mut hash = pse_ids::FramedHasher::new("pse:typed-row-key:v1");
+                    let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::TypedRowKeyV1);
                     hash.id(&self.relation());
                     match self { #(Self::#variants(rows) => { let row = rows.get(index)?; #key_frames },)* }
                     Some(hash.finish_hash())

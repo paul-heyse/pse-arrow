@@ -76,7 +76,7 @@ impl Normalization {
     }
     /// Normalization has a separate identity from native algorithmic scaling.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.math.normalization.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathNormalizationV1);
         h.u64(self.objective.to_bits());
         for group in [&self.variables, &self.rows] {
             h.u64(group.len() as u64);
@@ -154,7 +154,7 @@ impl Normalization {
     ) -> Result<crate::presolve::Facts, MathError> {
         self.validate(facts.objective_linear.len(), facts.affine.len())?;
         let mut out = facts.clone();
-        let mut h = FramedHasher::new("pse.math.normalized-facts.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathNormalizedFactsV1);
         h.hash(&facts.key).hash(&self.key());
         out.key = h.finish_hash();
         for (r, row) in out.affine.iter_mut().enumerate() {

@@ -264,7 +264,7 @@ impl Request<'_> {
             self.limits,
         )?;
         let mut paths = BTreeMap::new();
-        let mut hash = FramedHasher::new("pse.math.typed-definition.v2");
+        let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV2);
         hash.u64(self.formals.len() as u64);
         for (slot, formal) in self.formals.iter().enumerate() {
             if paths.insert(formal.path.clone(), slot).is_some() {
@@ -379,7 +379,7 @@ impl Lower<'_, '_> {
         if self.occurrences.len() >= self.request.limits.occurrences {
             return Err(MathError::Limit("authored syntax occurrences"));
         }
-        let mut h = FramedHasher::new("pse.math.local-occurrence.v2");
+        let mut h = FramedHasher::new(pse_ids::Frame::MathLocalOccurrenceV2);
         h.u64(self.occurrences.len() as u64);
         let id = h.finish_id();
         self.occurrences.push(Occurrence {
@@ -1039,7 +1039,7 @@ impl Lower<'_, '_> {
             paths: self.paths.clone(),
             locals: self.locals.clone(),
             occurrences: vec![],
-            hash: FramedHasher::new("pse.math.physical-pass.v1"),
+            hash: FramedHasher::new(pse_ids::Frame::MathPhysicalPassV1),
             cancelled: self.cancelled,
             coordinates: self.coordinates.clone(),
             physical_only: true,

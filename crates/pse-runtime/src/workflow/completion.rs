@@ -123,13 +123,13 @@ impl RunResult {
                 let preparation = request.solve.preparation_identity().map_err(crate::math::MathRuntimeError::from)?;
                 let selected = request.solve.request_identity().map_err(crate::math::MathRuntimeError::from)?;
                 let profile = crate::math::solves::profile_key(&request.profile).map_err(crate::math::MathRuntimeError::from)?;
-                let mut identity = FramedHasher::new("pse.completed.request.v2");
+                let mut identity = FramedHasher::new(pse_ids::Frame::CompletedRequestV2);
                 identity.hash(&request.source.revision.identity()).id(&request.instance).hash(&preparation).hash(&selected).hash(&profile).hash(&request.solve.numerics().key);
                 // A result is traceable to what seeded it and to native state it reused:
                 // the previous step's seed and the reuse of retained native state enter
                 // its lineage identity (F25).
                 frame_start(&mut identity, native);
-                let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
+                let mut actual_environment = FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment.hash(&environment).hash(&pse_buildinfo::BUILD_IDENTITY);
                 if let Some(native) = native {
                     actual_environment.str(native.backend.as_str());
@@ -182,7 +182,7 @@ impl RunResult {
                     .error
                     .or_else(|| r.and_then(|r| r.error.as_ref().map(ToString::to_string)));
                 product.computation = Some(row);
-                let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
+                let mut actual_environment = FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
                     .hash(&pse_buildinfo::BUILD_IDENTITY);
@@ -245,7 +245,7 @@ impl RunResult {
                     .error
                     .or_else(|| r.and_then(|r| r.diagnostic.as_ref().map(ToString::to_string)));
                 product.computation = Some(row);
-                let mut actual_environment = FramedHasher::new("pse.completed.environment.v1");
+                let mut actual_environment = FramedHasher::new(pse_ids::Frame::CompletedEnvironmentV1);
                 actual_environment
                     .hash(&environment)
                     .hash(&pse_buildinfo::BUILD_IDENTITY);

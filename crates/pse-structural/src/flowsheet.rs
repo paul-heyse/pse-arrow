@@ -117,7 +117,7 @@ impl FlowGraph {
         let mut ports = BTreeMap::new();
         let mut graph = Graph::new();
         let mut nodes = BTreeMap::new();
-        let mut h = FramedHasher::new("pse.flow.projection.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::FlowProjectionV1);
         for n in &mut d.nodes {
             n.ports.sort_by_key(|p| p.id);
             nodes.insert(n.id, graph.add_node(n.id));

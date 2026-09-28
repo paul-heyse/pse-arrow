@@ -1959,7 +1959,7 @@ fn inject(
 /// exported function's affine form, sides and condition, the box, the domains and the
 /// native forms. Only the objective may change between the steps of one session.
 fn system(plan: &crate::execution::factorable::Plan<'_>) -> Result<ContentHash, ProblemError> {
-    let mut h = FramedHasher::new("pse.scip.reoptimization.system.v1");
+    let mut h = FramedHasher::new(pse_ids::Frame::ScipReoptimizationSystemV1);
     h.hash(&plan.domain);
     h.u64(plan.constraints.len() as u64);
     for c in &plan.constraints {

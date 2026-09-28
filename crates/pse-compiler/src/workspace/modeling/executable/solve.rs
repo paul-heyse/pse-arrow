@@ -191,7 +191,7 @@ impl PreparedModeling {
         profile: Profile,
         context: &ContentHash,
     ) -> ContentHash {
-        let mut h = FramedHasher::new("pse.compiler.modeling-view.v2");
+        let mut h = FramedHasher::new(pse_ids::Frame::CompilerModelingViewV2);
         h.hash(&structure.key())
             .hash(context)
             .u64(order as u64)

@@ -153,7 +153,7 @@ impl PresolveProof {
 impl Policy {
     /// Complete option identity; no Debug strings or library fingerprint alone.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.presolve.policy.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::PresolvePolicyV1);
         let (o, required) = match self {
             Self::Off => {
                 h.u64(0);

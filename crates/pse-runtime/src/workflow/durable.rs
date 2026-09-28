@@ -501,7 +501,7 @@ fn identities(
     };
     Ok(match request {
         RunRequest::Modeling(steps) => {
-            let mut h = FramedHasher::new("pse.durable.modeling_request.v1");
+            let mut h = FramedHasher::new(pse_ids::Frame::DurableModelingRequestV1);
             h.u64(steps.len() as u64);
             for step in steps {
                 h.hash(&step.solve.request_identity().map_err(math)?);

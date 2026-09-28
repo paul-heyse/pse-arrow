@@ -647,7 +647,7 @@ pub(super) fn project(
                 quantity: ports[id].quantity,
             })
             .collect::<Vec<_>>();
-        let mut h = FramedHasher::new("pse.modeling.implicit-residual.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingImplicitResidualV1);
         h.id(instance).str(&algorithm.key());
         for residual in &residuals {
             h.id(&residual.id);

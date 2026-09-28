@@ -701,7 +701,7 @@ fn artifact_requests(
     environment: &ContentHash,
 ) -> Arc<Vec<ArtifactRequest>> {
     Arc::new(p.demands().iter().map(|d|{
-        let mut h=FramedHasher::new("pse.math.artifact.v4");
+        let mut h=FramedHasher::new(pse_ids::Frame::MathArtifactV4);
         h.hash(&d.body).hash(environment).hash(&pse_buildinfo::SOURCE_IDENTITY).hash(&pse_buildinfo::BUILD_IDENTITY)
             .str("pse-math-evaluator-abi-v3;interpreted-f64;numerica-jets;real-algebra;no-jit;no-simd")
             .u64(d.order as u64).u64(d.outputs.len() as u64);

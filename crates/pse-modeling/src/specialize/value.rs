@@ -122,7 +122,7 @@ impl Value {
         if let Self::Entity { id, .. } | Self::Coordinate { id, .. } = self {
             return *id;
         }
-        let mut h = FramedHasher::new("pse.modeling.coordinate.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingCoordinateV1);
         self.frame(&mut h);
         h.finish_id()
     }

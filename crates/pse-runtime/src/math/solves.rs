@@ -110,7 +110,7 @@ pub struct PreparedSolve {
 impl PreparedSolve {
     /// Immutable compilation and normalization selected before attaching a seed.
     pub fn preparation_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
-        let mut h = FramedHasher::new("pse.solve.preparation.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::SolvePreparationV1);
         h.hash(&profile_key(&self.profile)?)
             .hash(&self.numerics.key);
         match &self.representation {
@@ -152,7 +152,7 @@ impl PreparedSolve {
     /// evaluation, which consumes no seed.
     pub fn seed_preparation_identity(&self) -> Option<pse_ids::ContentHash> {
         let compatibility = self.compatibility.as_ref()?;
-        let mut h = FramedHasher::new("pse.solve.seed_preparation.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::SolveSeedPreparationV1);
         match &self.representation {
             Representation::Algebraic(AlgebraicCase {
                 prepared,
@@ -178,7 +178,7 @@ impl PreparedSolve {
     }
     /// Complete selected request, including explicit seed payload and compatibility data.
     pub fn request_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
-        let mut h = FramedHasher::new("pse.solve.request.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::SolveRequestV1);
         h.hash(&self.preparation_identity()?)
             .hash(&self.numerics.key);
         if let Some(compatibility) = &self.compatibility {
@@ -555,7 +555,7 @@ fn compatibility(
 ) -> Result<Compatibility, ProblemError> {
     // Seed coordinates only: backend, objective sense, free variables, rows and
     // structure. Controls, settings and the numerical policy form the profile (F24).
-    let mut layout = FramedHasher::new("pse.solver.coordinates.v1");
+    let mut layout = FramedHasher::new(pse_ids::Frame::SolverCoordinatesV1);
     layout
         .str(backend.as_str())
         .u64(plan.structure().objective().map_or(0, |o| {
@@ -585,10 +585,10 @@ fn compatibility(
     for pattern in [plan.jacobian_pattern(), plan.hessian_pattern()] {
         layout.hash(&pse_math::sparse::pattern_key(pattern));
     }
-    let mut profile = FramedHasher::new("pse.solver.session.v1");
+    let mut profile = FramedHasher::new(pse_ids::Frame::SolverSessionV1);
     hash_session(&mut profile, p)?;
     profile.hash(&numerics.key);
-    let mut data = FramedHasher::new("pse.solver.data.v1");
+    let mut data = FramedHasher::new(pse_ids::Frame::SolverDataV1);
     data.hash(&plan.structure().key());
     for provider in providers.values() {
         data.hash(&provider.configuration_key());
@@ -1023,7 +1023,7 @@ impl MathService {
                     });
             }
         }
-        let mut identity = FramedHasher::new("pse.numerical.cone.v1");
+        let mut identity = FramedHasher::new(pse_ids::Frame::NumericalConeV1);
         identity.hash(&resolved.key).hash(&normalization.key());
         resolved.key = identity.finish_hash();
         let numerics = Arc::new(resolved);
@@ -1054,10 +1054,10 @@ impl MathService {
         let certificate: Arc<dyn QuadraticEvidence> = Arc::new(transported);
         // Cone coordinates are normalized at preparation, so the numerical policy belongs to
         // them; controls and settings form the profile (F24).
-        let mut h = FramedHasher::new("pse.solver.conic-layout.v3");
+        let mut h = FramedHasher::new(pse_ids::Frame::SolverConicLayoutV3);
         h.hash(&numerics.key).hash(&normalization.key());
         h.hash(&problem.contract.identity);
-        let mut session = FramedHasher::new("pse.solver.conic-session.v1");
+        let mut session = FramedHasher::new(pse_ids::Frame::SolverConicSessionV1);
         hash_session(&mut session, &profile)?;
         h.hash(&native::conic::cone_key(&problem.cones)?);
         for v in &problem.contract.variables {
@@ -1075,7 +1075,7 @@ impl MathService {
                 h.u64(*v as u64);
             }
         }
-        let mut d = FramedHasher::new("pse.solver.conic-data.v1");
+        let mut d = FramedHasher::new(pse_ids::Frame::SolverConicDataV1);
         for x in problem
             .quadratic
             .values
@@ -1624,7 +1624,7 @@ impl execution::OriginalModel for OriginalCase<'_> {
 /// named by its registry spelling, and the linked native build (library versions, image
 /// manifest and numerical contract, ADR-0108 item 14).
 pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::ContentHash, ProblemError> {
-    let mut h = FramedHasher::new("pse.solver.profile.v3");
+    let mut h = FramedHasher::new(pse_ids::Frame::SolverProfileV3);
     hash_session(&mut h, p)?;
     h.hash(&p.controls.identity()?)
         .hash(&execution::LINKED.build_identity());

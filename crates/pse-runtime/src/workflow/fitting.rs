@@ -288,7 +288,7 @@ impl PreparedFit {
     }
 }
 fn alias(experiment: SemanticId, source: SemanticId) -> SemanticId {
-    let mut h = FramedHasher::new("pse.fit.coordinate.v1");
+    let mut h = FramedHasher::new(pse_ids::Frame::FitCoordinateV1);
     h.id(&experiment).id(&source);
     h.finish_id()
 }

@@ -102,7 +102,7 @@ pub struct MathEnvironment {
 impl MathEnvironment {
     /// Environment projection used alongside build and optimization profile identities.
     pub fn identity(&self) -> pse_ids::ContentHash {
-        let mut h = pse_ids::FramedHasher::new("pse.math.environment.v1");
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::MathEnvironmentV1);
         h.str(&self.gmp)
             .str(&self.mpfr)
             .str("stable-formals-and-functions-v1;semantic-and-numerical-agreement;binary64");

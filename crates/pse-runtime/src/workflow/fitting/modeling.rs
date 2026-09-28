@@ -368,10 +368,10 @@ impl ModelingPackage {
             .checked_add(256 * 1024)
             .ok_or_else(|| contract("fit report extent"))?;
         let mut physical_cells = 0usize;
-        let mut identity = FramedHasher::new("pse.modeling.fit-source.v1");
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFitSourceV1);
         identity.hash(&self.physical.key);
         identity.hash(&self.revision.identity());
-        let mut execution_identity = FramedHasher::new("pse.modeling.fit-execution.v1");
+        let mut execution_identity = FramedHasher::new(pse_ids::Frame::ModelingFitExecutionV1);
         for row in &self.fit_data.observations {
             row.frame(&mut identity);
         }

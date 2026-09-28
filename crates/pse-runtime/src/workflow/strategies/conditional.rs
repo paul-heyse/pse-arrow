@@ -456,7 +456,7 @@ impl ModelingPackage {
             .map(|(p, v)| (*p, *v))
             .collect();
         let initial = tears.iter().map(|p| all_inputs[p]).collect();
-        let mut h = FramedHasher::new("pse.causal-map.v2");
+        let mut h = FramedHasher::new(pse_ids::Frame::CausalMapV2);
         h.hash(&self.revision.identity())
             .hash(&resolved.model.case.compiled().plan.structure().key())
             .hash(&resolved.model.values.identity())

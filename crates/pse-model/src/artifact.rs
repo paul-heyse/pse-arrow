@@ -93,7 +93,7 @@ impl ArtifactDescriptor {
     }
 }
 fn identity(row: &wire::Row) -> ContentHash {
-    let mut hash = FramedHasher::new("pse:artifact-descriptor:v1");
+    let mut hash = FramedHasher::new(pse_ids::Frame::ArtifactDescriptorV1);
     row.descriptor_version.frame(&mut hash);
     row.profile.frame(&mut hash);
     row.profile_contract.frame(&mut hash);

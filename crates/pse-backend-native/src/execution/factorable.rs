@@ -536,7 +536,7 @@ pub(crate) fn plan(
     if !refusals.is_empty() {
         return Err(refusals);
     }
-    let mut h = FramedHasher::new("pse.factorable.domain.v1");
+    let mut h = FramedHasher::new(pse_ids::Frame::FactorableDomainV1);
     h.hash(&program.key);
     for (v, (lower, upper)) in program.variables.iter().zip(&boxes) {
         h.id(&v.id)
@@ -967,14 +967,14 @@ fn fixed_assignment(
             backend.as_str()
         )));
     }
-    let mut layout = FramedHasher::new("pse.factorable.fixed-assignment.v1");
+    let mut layout = FramedHasher::new(pse_ids::Frame::FactorableFixedAssignmentV1);
     layout.hash(&step.compatibility.layout);
     for (i, v) in &assignment {
         layout.u64(*i as u64).u64(v.to_bits());
     }
     // The re-solve's native profile is its own: default settings of its NLP adapter under
     // the step's profile.
-    let mut profile = FramedHasher::new("pse.factorable.fixed-assignment.profile.v1");
+    let mut profile = FramedHasher::new(pse_ids::Frame::FactorableFixedAssignmentProfileV1);
     profile
         .hash(&step.compatibility.profile)
         .str(backend.as_str());

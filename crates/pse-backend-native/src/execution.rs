@@ -371,7 +371,7 @@ impl Table {
     }
     /// Identity of every linked adapter's native build, in table order.
     pub fn build_identity(&self) -> ContentHash {
-        let mut h = pse_ids::FramedHasher::new("pse.native.build.v1");
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NativeBuildV1);
         for adapter in self.adapters().filter(|a| a.linked()) {
             h.str(adapter.backend().as_str());
             match adapter.build() {
@@ -454,7 +454,7 @@ impl BackendSettings {
     /// # Errors
     /// A native settings serializer refused its value.
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of("pse.backend.settings.v3", self)
+        crate::identity::of(pse_ids::Frame::BackendSettingsV3, self)
     }
     /// The typed settings of `backend`, from its adapter settings type's serde fields.
     /// Absent fields take that type's defaults and unknown fields are refused, so neither

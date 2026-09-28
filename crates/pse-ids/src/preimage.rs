@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Streaming canonical preimages without exposing the hashing implementation.
-use crate::{ContentHash, FrameSink};
+use crate::{ContentHash, Frame, FrameSink};
 /// Hash owner for already framed canonical input, not a second framing contract.
 #[derive(Debug)]
 pub struct PreimageHasher(blake3::Hasher);
@@ -17,8 +17,8 @@ impl PreimageHasher {
         Self(blake3::Hasher::new())
     }
     /// Domain-separated hash for an existing declared preimage contract.
-    pub fn new_derive_key(context: &str) -> Self {
-        Self(blake3::Hasher::new_derive_key(context))
+    pub fn new_derive_key(frame: Frame) -> Self {
+        Self(blake3::Hasher::new_derive_key(frame.as_str()))
     }
     /// Append already framed bytes.
     pub fn update(&mut self, bytes: &[u8]) -> &mut Self {
@@ -40,6 +40,6 @@ pub fn hash(bytes: &[u8]) -> ContentHash {
     ContentHash::from_bytes(*blake3::hash(bytes).as_bytes())
 }
 /// Digest bytes for an existing domain-separated preimage.
-pub fn derive_key(context: &str, bytes: &[u8]) -> [u8; 32] {
-    blake3::derive_key(context, bytes)
+pub fn derive_key(frame: Frame, bytes: &[u8]) -> [u8; 32] {
+    blake3::derive_key(frame.as_str(), bytes)
 }

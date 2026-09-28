@@ -6,7 +6,7 @@ use crate::{
     Registry, SchemaError,
     model::{RelationKey, RelationSpec},
 };
-use pse_ids::{ContentHash, FramedHasher, derive::context};
+use pse_ids::{ContentHash, Frame, FramedHasher};
 
 /// Native field/value framing. There is no predecessor decoder.
 pub const FRAME_VERSION: &str = "pse.schema.fingerprint.v2";
@@ -17,7 +17,7 @@ pub const FRAME_VERSION: &str = "pse.schema.fingerprint.v2";
 pub fn registry(
     tables: &[(RelationKey, arrow_array::RecordBatch)],
 ) -> Result<ContentHash, SchemaError> {
-    let mut h = FramedHasher::new(context::REGISTRY);
+    let mut h = FramedHasher::new(Frame::RegistryV1);
     h.str(FRAME_VERSION);
     h.u64(count(tables.len())?);
     for (key, table) in tables {
@@ -169,7 +169,7 @@ pub fn semantic_description(
 /// Invalid semantic description.
 pub fn semantic_relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, SchemaError> {
     digest(
-        "pse.schema.semantic-relation.v2",
+        Frame::SchemaSemanticRelationV2,
         &semantic_description(reg, spec)?,
     )
 }
@@ -212,7 +212,7 @@ impl SemanticContract {
     /// # Errors
     /// Canonical encoding fails.
     pub fn identity(&self) -> Result<ContentHash, SchemaError> {
-        digest("pse.schema.semantic-product.v2", self)
+        digest(Frame::SchemaSemanticProductV2, self)
     }
 }
 
@@ -239,7 +239,7 @@ pub fn semantic_profile(
         .ok_or_else(|| invalid("unknown artifact profile"))?;
     let mut selected = roots.clone();
     selected.extend(required);
-    let mut h = FramedHasher::new("pse.schema.semantic-profile.v2");
+    let mut h = FramedHasher::new(Frame::SchemaSemanticProfileV2);
     h.str(profile)
         .hash(&semantic_product(reg, &selected)?)
         .u64(count(required.len())?);
@@ -271,10 +271,10 @@ pub fn encoding_fields<'a>(
         .into_iter()
         .map(|f| project(f, MetadataPurpose::ExecutionIdentity).map_err(invalid))
         .collect::<Result<Vec<_>, SchemaError>>()?;
-    digest("pse.schema.execution-encoding.v1", &fields)
+    digest(Frame::SchemaExecutionEncodingV1, &fields)
 }
-fn digest(domain: &'static str, value: &impl serde::Serialize) -> Result<ContentHash, SchemaError> {
-    let mut h = FramedHasher::new(domain);
+fn digest(frame: Frame, value: &impl serde::Serialize) -> Result<ContentHash, SchemaError> {
+    let mut h = FramedHasher::new(frame);
     h.str(&pse_columnar::native_field::canonical_json(value).map_err(invalid)?);
     Ok(h.finish_hash())
 }

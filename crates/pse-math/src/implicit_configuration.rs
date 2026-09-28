@@ -45,7 +45,7 @@ impl Configuration {
         match self {
             Self::Hints(r) => r.identity(),
             Self::Fixed(unknowns, options) => {
-                let mut h = pse_ids::FramedHasher::new("pse.implicit.fixed-configuration.v1");
+                let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitFixedConfigurationV1);
                 for u in unknowns {
                     h.id(&u.id).u64(u.lower.to_bits()).u64(u.upper.to_bits());
                 }

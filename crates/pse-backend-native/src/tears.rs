@@ -6,7 +6,7 @@ use crate::quality::Tolerances;
 #[cfg(feature = "highs")]
 use crate::solve::*;
 use crate::{CoefficientProblem, OracleContract, ProblemError, Variable};
-use pse_ids::{FramedHasher, SemanticId};
+use pse_ids::{Frame, FramedHasher, SemanticId};
 use pse_math::binding::ObjectiveSense;
 use pse_model::generated::enums::ModelingVariableDomain;
 use pse_structural::flowsheet::{FlowGraph, Policy};
@@ -19,8 +19,8 @@ pub struct TearProblem {
     /// Decision binary columns; order columns precede them.
     pub decisions: BTreeMap<SemanticId, usize>,
 }
-fn id(domain: &'static str, source: SemanticId) -> SemanticId {
-    let mut h = FramedHasher::new(domain);
+fn id(frame: Frame, source: SemanticId) -> SemanticId {
+    let mut h = FramedHasher::new(frame);
     h.id(&source);
     h.finish_id()
 }
@@ -38,7 +38,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
         .nodes
         .iter()
         .map(|v| Variable {
-            id: id("pse.tear.order.v1", v.id),
+            id: id(Frame::TearOrderV1, v.id),
             lower: 0.0,
             upper: (n - 1) as f64,
         })
@@ -50,7 +50,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
     for g in &d.decisions {
         decisions.insert(g.id, variables.len());
         variables.push(Variable {
-            id: id("pse.tear.decision.v1", g.id),
+            id: id(Frame::TearDecisionV1, g.id),
             lower: if g.policy == Policy::Mandatory {
                 1.0
             } else {

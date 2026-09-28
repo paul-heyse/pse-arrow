@@ -37,7 +37,7 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
         &self.spec
     }
     fn configuration_key(&self) -> pse_ids::ContentHash {
-        let mut hash = pse_ids::FramedHasher::new("pse.implicit.regime-configuration.v1");
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitRegimeConfigurationV1);
         hash.hash(&self.spec.identity())
             .u64(self.maximum_regimes as u64)
             .u64(self.time_limit.as_secs())

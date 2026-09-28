@@ -104,7 +104,7 @@ impl NumericalPolicy {
     }
     /// Effective request identity with canonical registry framing and source ordering.
     pub fn key(&self) -> ContentHash {
-        let mut h = FramedHasher::new("pse.numerical.policy.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::NumericalPolicyV1);
         let mut rows = self.requirements.iter().collect::<Vec<_>>();
         rows.sort_by_key(|r| r.requirement_id);
         h.u64(rows.len() as u64);

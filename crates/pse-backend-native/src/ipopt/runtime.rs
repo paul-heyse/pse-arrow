@@ -136,7 +136,7 @@ pub fn build() -> &'static Build {
             .to_owned();
         let runtime = Runtime::observe();
         let ipopt = format!("Ipopt {major}.{minor}.{release}");
-        let mut h = FramedHasher::new("pse.native.ipopt.build.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::NativeIpoptBuildV1);
         h.str(&ipopt)
             .str(&mkl)
             .u64(u64::from(runtime.linked))

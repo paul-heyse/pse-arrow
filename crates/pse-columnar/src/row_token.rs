@@ -2,10 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Durable semantic row tokens over explicit fields and direct native values.
 use crate::{CanonError, FramedHasher, SemanticId};
+use pse_ids::Frame;
 use arrow_array::{Array, ArrayRef, FixedSizeBinaryArray, builder::FixedSizeBinaryBuilder};
 use arrow_schema::FieldRef;
 /// Versioned value framing, independent of Arrow's private row sorting representation.
-pub const ENCODING: &str = "pse:row-key:native-values:v2";
+pub const ENCODING: &str = FRAME.as_str();
+/// The frame of every row token; [`ENCODING`] is its published spelling.
+const FRAME: Frame = Frame::RowKeyNativeValuesV2;
 /// Frame ordered declared key names/domains once; hash actual native values per row.
 /// Empty tuples still have the caller's explicit cardinality and relation scope.
 /// # Errors
@@ -15,7 +18,7 @@ pub fn tokens(
     columns: &[(&str, FieldRef, ArrayRef)],
     rows: usize,
 ) -> Result<FixedSizeBinaryArray, CanonError> {
-    let mut prefix = FramedHasher::new(ENCODING);
+    let mut prefix = FramedHasher::new(FRAME);
     prefix
         .id(&scope)
         .u64(u64::try_from(columns.len()).map_err(|_| invalid("column count overflow"))?);

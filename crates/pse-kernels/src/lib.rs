@@ -330,7 +330,7 @@ impl ProviderSpec {
     }
     /// Exact physical, algorithm and data identity; implementation-specific policy is framed by its owner.
     pub fn identity(&self) -> ContentHash {
-        let mut h = pse_ids::FramedHasher::new("pse.provider.v4");
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ProviderV4);
         self.shapes.frame(&mut h);
         h.str(self.derivative_source.as_str());
         h.id(&self.id).hash(&self.revision).hash(&self.data);

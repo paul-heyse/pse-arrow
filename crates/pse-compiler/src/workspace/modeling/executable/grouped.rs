@@ -352,7 +352,7 @@ pub(super) fn admit(
             &p.validity,
         )?;
         let declaration = p.declarations[index];
-        let mut h = FramedHasher::new("pse.modeling.consumer-body.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingConsumerBodyV1);
         h.id(&declaration)
             .str(&dsl::render_expr(&expression))
             .id(&p.quantities[index].as_id());

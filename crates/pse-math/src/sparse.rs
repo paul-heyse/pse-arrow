@@ -108,7 +108,7 @@ impl AssemblyMatrix {
 pub fn pattern_key(
     pattern: faer::sparse::SymbolicSparseColMatRef<'_, usize>,
 ) -> pse_ids::ContentHash {
-    let mut h = pse_ids::FramedHasher::new("pse.sparse.pattern.v1");
+    let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::SparsePatternV1);
     h.u64(pattern.nrows() as u64).u64(pattern.ncols() as u64);
     for c in 0..pattern.ncols() {
         let rows = pattern.row_idx_of_col(c);

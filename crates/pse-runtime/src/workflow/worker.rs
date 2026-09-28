@@ -285,7 +285,7 @@ impl Operations {
         retry: RetryPolicy,
         priority: i32,
     ) -> Result<Enqueued, WorkflowError> {
-        let mut identity = FramedHasher::new("pse.durable.job_request.v1");
+        let mut identity = FramedHasher::new(pse_ids::Frame::DurableJobRequestV1);
         identity
             .u64(u64::try_from(payload_version).unwrap_or(0))
             .str(&payload.to_string());

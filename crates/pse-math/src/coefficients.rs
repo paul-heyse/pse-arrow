@@ -118,7 +118,7 @@ impl CasePlan {
             .enumerate()
             .map(|(i, &id)| (id, i))
             .collect();
-        let mut identity = FramedHasher::new("pse.math.coefficient-assumptions.v1");
+        let mut identity = FramedHasher::new(pse_ids::Frame::MathCoefficientAssumptionsV1);
         identity.hash(&self.structure().key());
         let mut objective = vec![0.0; n];
         let mut constant = 0.0;
@@ -361,7 +361,7 @@ pub(crate) fn quadratic_identity(
     q: &faer::sparse::SparseColMat<usize, f64>,
     sign: f64,
 ) -> ContentHash {
-    let mut h = FramedHasher::new("pse.math.gram.v1");
+    let mut h = FramedHasher::new(pse_ids::Frame::MathGramV1);
     h.u64(q.nrows() as u64)
         .u64(q.ncols() as u64)
         .u64(sign.to_bits());

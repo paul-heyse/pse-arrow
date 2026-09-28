@@ -353,7 +353,7 @@ impl Engine<'_, '_> {
                         .map_err(|e| invalid(at, e.to_string()))?;
                     let (reduction, domain) =
                         crate::expression::finite_reduction(*kind, &element, at)?;
-                    let mut hash = FramedHasher::new("pse.modeling.finite-reduction.v1");
+                    let mut hash = FramedHasher::new(pse_ids::Frame::ModelingFiniteReductionV1);
                     hash.str(kind.as_str())
                         .id(&quantity.as_id())
                         .bool(domain.is_some())

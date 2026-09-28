@@ -7,7 +7,7 @@
 //!
 //! 1. `blake3::Hasher::new_derive_key(context)` — a *keyed* hash, not a plain one.
 //!    `derive_key` and a truncated plain hash produce different bytes, so the choice is
-//!    frozen together with the `v1` context strings in [`context`].
+//!    frozen together with the context spellings of the [`Frame`] catalog.
 //! 2. Every part is framed as its `u64` little-endian byte length followed by its bytes.
 //!    IDs, hashes and integers are parts too and carry a length like everything else, so
 //!    `["ab", "c"]` and `["a", "bc"]` cannot collide.
@@ -21,18 +21,276 @@
 
 use crate::id::{ContentHash, SemanticId};
 
-/// The frozen `derive_key` context strings (blueprint §5.1, §5.3, ADR-0050).
-///
-/// A context string is part of the identity contract: changing one changes every ID
-/// derived under it, so a new meaning gets a new string rather than a new meaning for an
-/// old one. The `v1` suffix versions the *derivation*, not the relation schema.
-pub mod context {
+/// Declares the frame catalog: one variant per `derive_key` context, its exact spelling,
+/// and the list of all of them, from a single table.
+macro_rules! frames {
+    ($( $(#[$attr:meta])* $variant:ident => $spelling:literal, )*) => {
+        /// Every `derive_key` context in the workspace (blueprint §5.1, §5.3, ADR-0050,
+        /// ADR-0115 Outcome 4).
+        ///
+        /// A context spelling is part of the identity contract: changing one changes every
+        /// identity derived under it, so a new meaning or a new derivation version is a new
+        /// variant, never a new spelling for an existing one. The version suffix of a
+        /// spelling (and of its variant) versions the *derivation*, not a relation schema.
+        ///
+        /// [`FramedHasher::new`], [`derive_id`], [`derive_hash`] and the keyed
+        /// [`crate::preimage`] entry points take a `Frame`, so every context is declared
+        /// here and nowhere else.
+        ///
+        /// ```
+        /// use pse_ids::Frame;
+        ///
+        /// assert_eq!(Frame::NamedV1.as_str(), "pse:named:v1");
+        /// assert!(Frame::ALL.contains(&Frame::RegistryV1));
+        /// ```
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        pub enum Frame {
+            $( $(#[$attr])* $variant, )*
+        }
+
+        impl Frame {
+            /// Every frame, in declaration order.
+            pub const ALL: &'static [Self] = &[$(Self::$variant,)*];
+
+            /// The exact `derive_key` context spelling of this frame.
+            #[must_use]
+            pub const fn as_str(self) -> &'static str {
+                match self {
+                    $(Self::$variant => $spelling,)*
+                }
+            }
+        }
+    };
+}
+
+frames! {
+    // ---- identity, registry and platform (pse-ids, pse-schema, pse-columnar, pse-model)
     /// Named-policy entity identity: `named_id(package_id, qualified_name)`.
-    pub const NAMED: &str = "pse:named:v1";
+    NamedV1 => "pse:named:v1",
     /// Registry identity and the registry fingerprint.
-    pub const REGISTRY: &str = "pse:registry:v1";
+    RegistryV1 => "pse:registry:v1",
     /// An engine settings or profile digest (blueprint §14.3, §23.2).
-    pub const SETTINGS: &str = "pse:settings:v1";
+    SettingsV1 => "pse:settings:v1",
+    /// The digest of the build inputs recorded as build provenance.
+    BuildInputsV1 => "pse:build-inputs:v1",
+    /// A stored artifact descriptor's identity.
+    ArtifactDescriptorV1 => "pse:artifact-descriptor:v1",
+    /// A field-directed native value payload digest.
+    NativeValuePayloadV1 => "pse:native-value-payload:v1",
+    /// Durable semantic row tokens over native values; also the published row-key encoding.
+    RowKeyNativeValuesV2 => "pse:row-key:native-values:v2",
+    /// A generated typed fact batch, including relation and empty membership.
+    TypedFactsV1 => "pse:typed-facts:v1",
+    /// A generated typed fact row's primary-key lookup bucket.
+    TypedRowKeyV1 => "pse:typed-row-key:v1",
+    /// A relation's complete local semantic description.
+    SchemaSemanticRelationV2 => "pse.schema.semantic-relation.v2",
+    /// A semantic contract over a support closure.
+    SchemaSemanticProductV2 => "pse.schema.semantic-product.v2",
+    /// A profile's requirements and requested support closure.
+    SchemaSemanticProfileV2 => "pse.schema.semantic-profile.v2",
+    /// The exact observed native field layout.
+    SchemaExecutionEncodingV1 => "pse.schema.execution-encoding.v1",
+    /// An effective numerical policy request.
+    NumericalPolicyV1 => "pse.numerical.policy.v1",
+    /// A kernel provider's physical, algorithm and data identity.
+    ProviderV4 => "pse.provider.v4",
+
+    // ---- structure (pse-structural)
+    /// A flowsheet projection over canonicalized inventories.
+    FlowProjectionV1 => "pse.flow.projection.v1",
+    /// A structural block's canonical membership.
+    StructuralBlockV1 => "pse.structural.block.v1",
+    /// A structural analysis scope, independent of traversal order.
+    StructuralScopeV1 => "pse.structural.scope.v1",
+
+    // ---- mathematics (pse-math)
+    /// An expression body key, never over printed atoms or process-global identifiers.
+    MathBodyV1 => "pse.math.body.v1",
+    /// A bound case's structure: bindings, units, inventories and class declarations.
+    MathCaseStructureV3 => "pse.math.case-structure.v3",
+    /// A bound case's values, separate from structure and prepared arithmetic.
+    MathCaseValuesV1 => "pse.math.case-values.v1",
+    /// The compiler-owned guarded-real interpretation policy.
+    MathGuardedRealV1 => "pse.math.guarded-real.v1",
+    /// Shared bound facts of a presolve analysis.
+    MathBoundFactsV2 => "pse.math.bound-facts.v2",
+    /// Coefficient extraction assumptions over shared bound facts.
+    MathCoefficientAssumptionsV1 => "pse.math.coefficient-assumptions.v1",
+    /// A quadratic Gram representation.
+    MathGramV1 => "pse.math.gram.v1",
+    /// A convexity assessment of an admitted snapshot.
+    MathConvexityV1 => "pse.math.convexity.v1",
+    /// The mathematics environment projection.
+    MathEnvironmentV1 => "pse.math.environment.v1",
+    /// A factorable decomposition.
+    MathFactorableV1 => "pse.math.factorable.v1",
+    /// A normalization, separate from native algorithmic scaling.
+    MathNormalizationV1 => "pse.math.normalization.v1",
+    /// Value and guard assumptions projected through a normalization.
+    MathNormalizedFactsV1 => "pse.math.normalized-facts.v1",
+    /// A canonical sparse pattern, excluding values.
+    SparsePatternV1 => "pse.sparse.pattern.v1",
+    /// Projected numerical magnitudes.
+    NumericalProjectionV1 => "pse.numerical.projection.v1",
+    /// Resolved numerical targets.
+    NumericalResolvedV1 => "pse.numerical.resolved.v1",
+    /// An implicit block's configuration.
+    ImplicitConfigurationV1 => "pse.implicit.configuration.v1",
+    /// An implicit block's fixed configuration.
+    ImplicitFixedConfigurationV1 => "pse.implicit.fixed-configuration.v1",
+    /// An implicit block's regime configuration.
+    ImplicitRegimeConfigurationV1 => "pse.implicit.regime-configuration.v1",
+    /// An inner solver implementation's versioned capability name.
+    InnerSolverV1 => "pse.inner-solver.v1",
+
+    // ---- compilation (pse-compiler)
+    /// A compiled mathematics artifact request.
+    MathArtifactV4 => "pse.math.artifact.v4",
+    /// A local expression occurrence.
+    MathLocalOccurrenceV2 => "pse.math.local-occurrence.v2",
+    /// A physical inventory.
+    MathPhysicalInventoryV3 => "pse.math.physical-inventory.v3",
+    /// A physical reduction pass.
+    MathPhysicalPassV1 => "pse.math.physical-pass.v1",
+    /// A typed definition's admitted outputs.
+    MathTypedDefinitionV2 => "pse.math.typed-definition.v2",
+    /// A prepared view of a compiled modeling structure.
+    CompilerModelingViewV2 => "pse.compiler.modeling-view.v2",
+    /// A grouped consumer body.
+    ModelingConsumerBodyV1 => "pse.modeling.consumer-body.v1",
+    /// An implicit residual.
+    ModelingImplicitResidualV1 => "pse.modeling.implicit-residual.v1",
+
+    // ---- modeling specialization (pse-modeling)
+    /// A continuity derivative.
+    ModelingContinuityV1 => "pse.modeling.continuity.v1",
+    /// A coordinate, preserving compound-key identity.
+    ModelingCoordinateV1 => "pse.modeling.coordinate.v1",
+    /// A definite integral.
+    ModelingDefiniteIntegralV1 => "pse.modeling.definite-integral.v1",
+    /// A dispatch group body.
+    ModelingDispatchBodyV1 => "pse.modeling.dispatch-body.v1",
+    /// A finite function instantiation.
+    ModelingFiniteFunctionV1 => "pse.modeling.finite-function.v1",
+    /// A finite reduction rewrite.
+    ModelingFiniteReductionV1 => "pse.modeling.finite-reduction.v1",
+    /// A specialized member.
+    ModelingMemberV1 => "pse.modeling.member.v1",
+    /// A realized mesh coordinate.
+    ModelingMeshCoordinateV1 => "pse.modeling.mesh-coordinate.v1",
+    /// A typed constant.
+    ModelingTypedConstantV1 => "pse.modeling.typed-constant.v1",
+
+    // ---- native solvers (pse-backend-native)
+    /// Complete backend settings, derived from serde.
+    BackendSettingsV3 => "pse.backend.settings.v3",
+    /// A cone sequence layout in the pse encoding.
+    ConeLayoutV2 => "pse.cone.layout.v2",
+    /// A factorable problem's variable domains.
+    FactorableDomainV1 => "pse.factorable.domain.v1",
+    /// The continuous problem of a fixed discrete assignment.
+    FactorableFixedAssignmentV1 => "pse.factorable.fixed-assignment.v1",
+    /// The profile of a fixed discrete assignment's continuous solve.
+    FactorableFixedAssignmentProfileV1 => "pse.factorable.fixed-assignment.profile.v1",
+    /// A HiGHS irreducible-infeasible-subsystem relaxation.
+    HighsIisRelaxationV1 => "pse.highs.iis-relaxation.v1",
+    /// A Jacobian diagnostic problem family's pattern and domains.
+    JacobianDiagnosticLayoutV1 => "pse.jacobian-diagnostic.layout.v1",
+    /// A Jacobian diagnostic problem.
+    JacobianDiagnosticProblemV1 => "pse.jacobian-diagnostic.problem.v1",
+    /// Resolved native accuracy budgets.
+    NativeAccuracyV2 => "pse.native.accuracy.v2",
+    /// Every linked adapter's native build.
+    NativeBuildV1 => "pse.native.build.v1",
+    /// Native solve controls.
+    NativeControlsV1 => "pse.native.controls.v1",
+    /// The linked Ipopt build.
+    NativeIpoptBuildV1 => "pse.native.ipopt.build.v1",
+    /// A seed's content, without its execution origin.
+    NativeSeedV2 => "pse.native.seed.v2",
+    /// A structural analysis scope over a residual Jacobian.
+    NativeStructuralScopeV1 => "pse.native.structural-scope.v1",
+    /// Presolve options.
+    PresolvePolicyV1 => "pse.presolve.policy.v1",
+    /// A presolve transformation.
+    PresolveTransformationV2 => "pse.presolve.transformation.v2",
+    /// The constraint system a SCIP reoptimization session was built for.
+    ScipReoptimizationSystemV1 => "pse.scip.reoptimization.system.v1",
+    /// A tear-selection decision column.
+    TearDecisionV1 => "pse.tear.decision.v1",
+    /// A tear-selection order column.
+    TearOrderV1 => "pse.tear.order.v1",
+
+    // ---- runtime and workflows (pse-runtime)
+    /// A conditional strategy's causal map.
+    CausalMapV2 => "pse.causal-map.v2",
+    /// The environment a completed step actually ran in.
+    CompletedEnvironmentV1 => "pse.completed.environment.v1",
+    /// A completed step's request lineage.
+    CompletedRequestV2 => "pse.completed.request.v2",
+    /// A durable job request.
+    DurableJobRequestV1 => "pse.durable.job_request.v1",
+    /// A durable modeling request.
+    DurableModelingRequestV1 => "pse.durable.modeling_request.v1",
+    /// A dynamic simulation profile.
+    DynamicProfileV3 => "pse.dynamic.profile.v3",
+    /// An explicit conic request.
+    ExplicitConicV2 => "pse.explicit-conic.v2",
+    /// A fitting coordinate alias of an experiment and source.
+    FitCoordinateV1 => "pse.fit.coordinate.v1",
+    /// A prepared fit.
+    FitPreparedV1 => "pse.fit.prepared.v1",
+    /// A fit profile.
+    FitProfileV2 => "pse.fit.profile.v2",
+    /// A fit source.
+    FitSourceV1 => "pse.fit.source.v1",
+    /// Compiled simulation modes.
+    ModelingDynamicModesV1 => "pse.modeling.dynamic-modes.v1",
+    /// A modeling dynamic simulation.
+    ModelingDynamicV1 => "pse.modeling.dynamic.v1",
+    /// A modeling fit's execution.
+    ModelingFitExecutionV1 => "pse.modeling.fit-execution.v1",
+    /// A modeling fit's source.
+    ModelingFitSourceV1 => "pse.modeling.fit-source.v1",
+    /// Implicit trial hints.
+    ModelingImplicitTrialHintsV1 => "pse.modeling.implicit-trial-hints.v1",
+    /// A modeling source revision.
+    ModelingSourceRevisionV1 => "pse.modeling.source-revision.v1",
+    /// A prepared numerical cone request.
+    NumericalConeV1 => "pse.numerical.cone.v1",
+    /// A publication request's algorithms.
+    RunAlgorithmsV1 => "pse.run.algorithms.v1",
+    /// A publication request's source.
+    RunSourceV1 => "pse.run.source.v1",
+    /// A publication request's target.
+    RunTargetV1 => "pse.run.target.v1",
+    /// A solve's compilation and normalization, before a seed is attached.
+    SolvePreparationV1 => "pse.solve.preparation.v1",
+    /// A complete selected solve request.
+    SolveRequestV1 => "pse.solve.request.v1",
+    /// The preparation a stored seed is keyed by.
+    SolveSeedPreparationV1 => "pse.solve.seed_preparation.v1",
+    /// Conic solver data.
+    SolverConicDataV1 => "pse.solver.conic-data.v1",
+    /// A conic solver layout.
+    SolverConicLayoutV3 => "pse.solver.conic-layout.v3",
+    /// A conic solver session.
+    SolverConicSessionV1 => "pse.solver.conic-session.v1",
+    /// A solver session's coordinates.
+    SolverCoordinatesV1 => "pse.solver.coordinates.v1",
+    /// A solver session's data.
+    SolverDataV1 => "pse.solver.data.v1",
+    /// A complete effective solver request profile.
+    SolverProfileV3 => "pse.solver.profile.v3",
+    /// A native solver session's compatibility.
+    SolverSessionV1 => "pse.solver.session.v1",
+}
+
+impl std::fmt::Display for Frame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 /// Frames one part into a hasher: `u64` little-endian length, then the bytes.
@@ -44,19 +302,19 @@ fn put_part(hasher: &mut blake3::Hasher, part: &[u8]) {
     crate::frame::FrameSink::put_len_prefixed(hasher, part);
 }
 
-/// Derives a 128-bit semantic ID under `context` from framed `parts` (blueprint §5.1).
+/// Derives a 128-bit semantic ID under `frame` from framed `parts` (blueprint §5.1).
 ///
 /// ```
-/// use pse_ids::{derive::context, derive_id, SemanticId};
+/// use pse_ids::{derive_id, Frame, SemanticId};
 ///
 /// // Framing is what keeps a split from being a collision.
 /// assert_ne!(
-///     derive_id(context::NAMED, &[b"ab", b"c"]),
-///     derive_id(context::NAMED, &[b"a", b"bc"]),
+///     derive_id(Frame::NamedV1, &[b"ab", b"c"]),
+///     derive_id(Frame::NamedV1, &[b"a", b"bc"]),
 /// );
 /// ```
-pub fn derive_id(context: &'static str, parts: &[&[u8]]) -> SemanticId {
-    let mut hasher = blake3::Hasher::new_derive_key(context);
+pub fn derive_id(frame: Frame, parts: &[&[u8]]) -> SemanticId {
+    let mut hasher = blake3::Hasher::new_derive_key(frame.as_str());
     for part in parts {
         put_part(&mut hasher, part);
     }
@@ -65,12 +323,12 @@ pub fn derive_id(context: &'static str, parts: &[&[u8]]) -> SemanticId {
     SemanticId::from_bytes(bytes)
 }
 
-/// Derives a 256-bit content hash under `context` from framed `parts`.
+/// Derives a 256-bit content hash under `frame` from framed `parts`.
 ///
 /// Used for registry fingerprints, stage keys, settings digests and math IR node hashes —
 /// every keyed digest that is not an entity identity.
-pub fn derive_hash(context: &'static str, parts: &[&[u8]]) -> ContentHash {
-    let mut hasher = blake3::Hasher::new_derive_key(context);
+pub fn derive_hash(frame: Frame, parts: &[&[u8]]) -> ContentHash {
+    let mut hasher = blake3::Hasher::new_derive_key(frame.as_str());
     for part in parts {
         put_part(&mut hasher, part);
     }
@@ -86,12 +344,12 @@ pub fn derive_hash(context: &'static str, parts: &[&[u8]]) -> ContentHash {
 /// equivalent to the slice form rather than a second, subtly different framing.
 ///
 /// ```
-/// use pse_ids::{derive::context, derive_hash, FramedHasher};
+/// use pse_ids::{derive_hash, Frame, FramedHasher};
 ///
-/// let mut hasher = FramedHasher::new(context::SETTINGS);
+/// let mut hasher = FramedHasher::new(Frame::SettingsV1);
 /// hasher.str("target_partitions").u64(8);
 ///
-/// let expected = derive_hash(context::SETTINGS, &[b"target_partitions", &8_u64.to_le_bytes()]);
+/// let expected = derive_hash(Frame::SettingsV1, &[b"target_partitions", &8_u64.to_le_bytes()]);
 /// assert_eq!(hasher.finish_hash(), expected);
 /// ```
 #[derive(Clone, Debug)]
@@ -100,10 +358,10 @@ pub struct FramedHasher {
 }
 
 impl FramedHasher {
-    /// Opens a hasher keyed with `context`.
-    pub fn new(context: &'static str) -> Self {
+    /// Opens a hasher keyed with `frame`.
+    pub fn new(frame: Frame) -> Self {
         Self {
-            hasher: blake3::Hasher::new_derive_key(context),
+            hasher: blake3::Hasher::new_derive_key(frame.as_str()),
         }
     }
 
@@ -177,7 +435,7 @@ impl FramedHasher {
 /// ```
 pub fn named_id(package_id: SemanticId, qualified_name: &str) -> SemanticId {
     derive_id(
-        context::NAMED,
+        Frame::NamedV1,
         &[package_id.as_bytes(), qualified_name.as_bytes()],
     )
 }
@@ -189,48 +447,62 @@ mod consolidation_unit {
     const A: SemanticId = SemanticId::from_bytes([0x01; 16]);
 
     #[test]
+    fn frame_spellings_unique() {
+        let mut seen = std::collections::BTreeMap::new();
+        for frame in Frame::ALL {
+            if let Some(previous) = seen.insert(frame.as_str(), *frame) {
+                panic!("{previous:?} and {frame:?} share the spelling {frame}");
+            }
+        }
+        assert_eq!(seen.len(), Frame::ALL.len());
+        // `ALL` lists each variant once, so its length is the variant count.
+        let variants: std::collections::BTreeSet<_> = Frame::ALL.iter().collect();
+        assert_eq!(variants.len(), Frame::ALL.len());
+    }
+
+    #[test]
     fn framing_distinguishes_a_split_that_concatenation_would_not() {
         assert_ne!(
-            derive_id(context::REGISTRY, &[b"ab", b"c"]),
-            derive_id(context::REGISTRY, &[b"a", b"bc"])
+            derive_id(Frame::RegistryV1, &[b"ab", b"c"]),
+            derive_id(Frame::RegistryV1, &[b"a", b"bc"])
         );
         assert_ne!(
-            derive_hash(context::REGISTRY, &[b"ab", b"c"]),
-            derive_hash(context::REGISTRY, &[b"a", b"bc"])
+            derive_hash(Frame::RegistryV1, &[b"ab", b"c"]),
+            derive_hash(Frame::RegistryV1, &[b"a", b"bc"])
         );
     }
 
     #[test]
     fn an_empty_part_is_not_no_part() {
         assert_ne!(
-            derive_hash(context::REGISTRY, &[b"a", b""]),
-            derive_hash(context::REGISTRY, &[b"a"])
+            derive_hash(Frame::RegistryV1, &[b"a", b""]),
+            derive_hash(Frame::RegistryV1, &[b"a"])
         );
     }
 
     #[test]
     fn a_derived_id_is_the_first_sixteen_bytes_of_the_extendable_output() {
         let parts: &[&[u8]] = &[b"pse.schema", b"relation:authored.packages@1"];
-        let mut hasher = blake3::Hasher::new_derive_key(context::NAMED);
+        let mut hasher = blake3::Hasher::new_derive_key(Frame::NamedV1.as_str());
         for part in parts {
             put_part(&mut hasher, part);
         }
         let mut expected = [0_u8; 16];
         hasher.finalize_xof().fill(&mut expected);
 
-        assert_eq!(derive_id(context::NAMED, parts).as_bytes(), &expected);
+        assert_eq!(derive_id(Frame::NamedV1, parts).as_bytes(), &expected);
     }
 
     #[test]
     fn a_changed_context_changes_every_derived_value() {
         let parts: &[&[u8]] = &[b"x"];
         assert_ne!(
-            derive_id("pse.test.domain.a.v1", parts),
-            derive_id("pse.test.domain.b.v1", parts)
+            derive_id(Frame::TearOrderV1, parts),
+            derive_id(Frame::TearDecisionV1, parts)
         );
         assert_ne!(
-            derive_hash(context::REGISTRY, parts),
-            derive_hash(context::SETTINGS, parts)
+            derive_hash(Frame::RegistryV1, parts),
+            derive_hash(Frame::SettingsV1, parts)
         );
     }
 
@@ -239,14 +511,14 @@ mod consolidation_unit {
         let mut plain = blake3::Hasher::new();
         put_part(&mut plain, b"x");
         assert_ne!(
-            derive_hash(context::REGISTRY, &[b"x"]).as_bytes(),
+            derive_hash(Frame::RegistryV1, &[b"x"]).as_bytes(),
             plain.finalize().as_bytes()
         );
     }
 
     #[test]
     fn the_framed_hasher_equals_the_slice_form_on_the_same_parts() {
-        let mut framed = FramedHasher::new("pse.test.framing.v1");
+        let mut framed = FramedHasher::new(Frame::RegistryV1);
         framed
             .str("P2")
             .u32(1)
@@ -258,7 +530,7 @@ mod consolidation_unit {
             .part(b"tail");
 
         let expected = derive_hash(
-            "pse.test.framing.v1",
+            Frame::RegistryV1,
             &[
                 b"P2",
                 &1_u32.to_le_bytes(),
@@ -275,7 +547,7 @@ mod consolidation_unit {
 
     #[test]
     fn the_framed_hasher_and_derive_id_agree_on_identity_too() {
-        let mut framed = FramedHasher::new(context::NAMED);
+        let mut framed = FramedHasher::new(Frame::NamedV1);
         framed.id(&SemanticId::NIL).str("pse.schema");
         assert_eq!(framed.finish_id(), named_id(SemanticId::NIL, "pse.schema"));
     }
@@ -283,8 +555,8 @@ mod consolidation_unit {
     #[test]
     fn a_derived_id_is_the_prefix_of_the_derived_hash_under_the_same_context() {
         let parts: &[&[u8]] = &[b"a", b"bc"];
-        let id = derive_id(context::REGISTRY, parts);
-        let hash = derive_hash(context::REGISTRY, parts);
+        let id = derive_id(Frame::RegistryV1, parts);
+        let hash = derive_hash(Frame::RegistryV1, parts);
         assert_eq!(id.as_bytes(), &hash.as_bytes()[..SemanticId::WIDTH]);
     }
 }

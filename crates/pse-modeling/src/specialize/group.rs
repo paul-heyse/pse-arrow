@@ -46,7 +46,7 @@ impl Engine<'_,'_>{
                 if slot<own.len() && let Some(expression)=&symbol.expression {let mut expression=expression.clone();rename(&mut expression,&names)?;body.expressions.insert(slot,expression);}
             }
             for row in &rows{let mut equation=row.equation.clone();rename_equation(&mut equation,&names)?;body.equations.push(equation);}
-            let mut h=FramedHasher::new("pse.modeling.dispatch-body.v1");h.id(&state.definition).u64(body.coordinates.len() as u64);
+            let mut h=FramedHasher::new(pse_ids::Frame::ModelingDispatchBodyV1);h.id(&state.definition).u64(body.coordinates.len() as u64);
             for (ty,role) in &body.coordinates{
                 h.str(role.as_str());
                 let Type::Quantity(scheme)=ty else{return Err(invalid(state.definition,"finite body coordinate is not physical"));};

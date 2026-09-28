@@ -393,7 +393,7 @@ impl Session {
                 }
             }
             relaxation.domains.fill(ModelingVariableDomain::Continuous);
-            let mut hash = pse_ids::FramedHasher::new("pse.highs.iis-relaxation.v1");
+            let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::HighsIisRelaxationV1);
             hash.hash(&p.contract.identity).hash(&p.assumptions);
             relaxation.contract.identity = hash.finish_hash();
             let mut model = upload(&relaxation)?;

@@ -148,7 +148,7 @@ pub fn oracle(
     };
     let incidence = CaseIncidence::new(
         Scope::Whole(pse_ids::derive_id(
-            "pse.native.structural-scope.v1",
+            pse_ids::Frame::NativeStructuralScopeV1,
             &[contract.identity.as_bytes()],
         )),
         rows,

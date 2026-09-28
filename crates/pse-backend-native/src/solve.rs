@@ -155,7 +155,7 @@ impl ResolvedAccuracy {
     /// # Errors
     /// The identity serializer refused a value.
     pub fn key(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of("pse.native.accuracy.v2", self)
+        crate::identity::of(pse_ids::Frame::NativeAccuracyV2, self)
     }
     /// Derive semantic native controls; physical arrays remain the final acceptance authority.
     ///
@@ -291,7 +291,7 @@ impl Controls {
     /// # Errors
     /// The identity serializer refused a value.
     pub fn identity(&self) -> Result<ContentHash, ProblemError> {
-        crate::identity::of("pse.native.controls.v1", self)
+        crate::identity::of(pse_ids::Frame::NativeControlsV1, self)
     }
     /// Conservative retained reporting allowance, separate from worker/native scratch.
     /// Native option readback, explicit strings and bounded event copies are included.
@@ -855,7 +855,7 @@ impl WarmStart {
         let mut detached = self.clone();
         detached.origin = None;
         // Version 2 frames an NLP seed's barrier and working set (DP-24).
-        let mut h = pse_ids::FramedHasher::new("pse.native.seed.v2");
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::NativeSeedV2);
         h.str(&detached.snapshot().to_string());
         h.finish_hash()
     }

@@ -145,7 +145,7 @@ impl Engine<'_, '_> {
             }),
             span: Span::default(),
         };
-        let mut h = FramedHasher::new("pse.modeling.typed-constant.v1");
+        let mut h = FramedHasher::new(pse_ids::Frame::ModelingTypedConstantV1);
         h.id(&quantity.as_id()).u64(value.to_bits());
         let id = h.finish_id();
         let name = format!("f_{}", id.to_hex());
@@ -348,7 +348,7 @@ impl Engine<'_, '_> {
         let mut indexed = BTreeMap::new();
         let mut statics = Environment::new();
         let mut selectors = BTreeMap::new();
-        let mut identity = FramedHasher::new("pse.modeling.finite-function.v1");
+        let mut identity = FramedHasher::new(pse_ids::Frame::ModelingFiniteFunctionV1);
         identity.id(&function);
         for quantity in substitution.values() {
             identity.id(&quantity.as_id());

@@ -397,7 +397,7 @@ pub trait InnerSolver: std::fmt::Debug + Send + Sync {
 
 /// Frame an implementation's explicitly versioned capability name.
 pub fn solver_identity(reference: &str) -> ContentHash {
-    let mut identity = pse_ids::FramedHasher::new("pse.inner-solver.v1");
+    let mut identity = pse_ids::FramedHasher::new(pse_ids::Frame::InnerSolverV1);
     identity.str(reference);
     identity.finish_hash()
 }
@@ -538,7 +538,7 @@ impl pse_kernels::ProviderFactory for Factory {
         &self.spec
     }
     fn configuration_key(&self) -> ContentHash {
-        let mut h = pse_ids::FramedHasher::new("pse.implicit.configuration.v1");
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ImplicitConfigurationV1);
         h.hash(&self.spec.identity()).hash(&self.solver.identity());
         for u in &self.unknowns {
             h.id(&u.id).u64(u.lower.to_bits()).u64(u.upper.to_bits());
