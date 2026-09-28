@@ -457,7 +457,7 @@ impl<'s> Catalog<'s> {
         .bind(codec::uuid(attempt))
         .bind(outcome)
         .bind(publication.map(codec::uuid))
-        .bind(codec::uuid(codec::mint_id()))
+        .bind(codec::uuid(crate::mint_id()))
         .execute(&mut *tx)
         .await
         .classify(target)?;
@@ -525,7 +525,7 @@ impl<'s> Catalog<'s> {
         .bind(codec::uuid(publication))
         .bind(holder)
         .bind(codec::interval(ttl))
-        .bind(codec::uuid(codec::mint_id()))
+        .bind(codec::uuid(crate::mint_id()))
         .fetch_one(&mut *tx)
         .await
         .classify(target)?;

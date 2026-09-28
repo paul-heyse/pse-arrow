@@ -197,7 +197,7 @@ impl NativeRuntime {
         limit: i64,
     ) -> PyResult<inspection::TableStream> {
         let filter = native::AttemptFilter {
-            run: run_id.map(|r| id(py, r)).transpose()?,
+            run: run_id.map(|r| id(py, r).map(Into::into)).transpose()?,
             states: states
                 .iter()
                 .map(|s| settings::named(py, "attempt state", s))
@@ -340,7 +340,7 @@ impl NativeRunHandle {
     /// The durable attempt of this run, minted before any effect; `None` when ephemeral.
     #[getter]
     fn attempt_id(&self) -> Option<String> {
-        self.inner.attempt_id().map(|id| id.to_hex())
+        self.inner.attempt_id().map(|id| id.to_string())
     }
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
         let (events, dropped) = self.inner.progress();
@@ -390,7 +390,7 @@ impl NativeRunResult {
     fn attempt_id(&self) -> Option<String> {
         match self.inner.durability() {
             native::RunDurability::Ephemeral => None,
-            native::RunDurability::Durable(record) => Some(record.attempt_id.to_hex()),
+            native::RunDurability::Durable(record) => Some(record.attempt_id.to_string()),
         }
     }
     fn completion(&self, py: Python<'_>) -> PyResult<Vec<u8>> {

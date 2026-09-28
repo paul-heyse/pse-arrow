@@ -139,7 +139,7 @@ pub enum Processed {
     /// A claimed job's try ended; the record says how.
     Ran {
         /// The job.
-        job: SemanticId,
+        job: pse_operations::jobs::JobId,
         /// The try's durable record.
         record: Box<DurableRecord>,
     },

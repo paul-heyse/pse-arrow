@@ -13,6 +13,7 @@ use std::sync::Arc;
 use pse_diagnostics::DiagnosticCode;
 use pse_ids::SemanticId;
 pub use pse_model::generated::enums::InvariantKind;
+use pse_model::generated::identities::AttemptId;
 use tokio_postgres::error::SqlState;
 
 use crate::lifecycle::AttemptState;
@@ -184,7 +185,7 @@ pub enum OperationsError {
     #[error("attempt {attempt}: illegal transition {} -> {}", from.as_str(), to.as_str())]
     IllegalTransition {
         /// The attempt.
-        attempt: SemanticId,
+        attempt: AttemptId,
         /// Its current state.
         from: AttemptState,
         /// The refused target state.
@@ -200,7 +201,7 @@ pub enum OperationsError {
     #[error("attempt {attempt}: worker {worker} holds no live lease")]
     LeaseLost {
         /// The attempt.
-        attempt: SemanticId,
+        attempt: AttemptId,
         /// The worker that asked.
         worker: String,
     },
@@ -583,7 +584,7 @@ mod error_unit {
     #[test]
     fn domain_refusals_are_not_retryable() {
         let error = OperationsError::IllegalTransition {
-            attempt: SemanticId::NIL,
+            attempt: AttemptId::from_id(SemanticId::NIL),
             from: AttemptState::Completed,
             to: AttemptState::Running,
         };

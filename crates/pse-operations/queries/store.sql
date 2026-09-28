@@ -15,3 +15,7 @@ WHERE nspname = 'pse_ops';
 
 --! advisory_lock
 SELECT true AS locked FROM pg_advisory_xact_lock(:key::bigint);
+
+-- Delivered to listeners when the transaction commits; the payload is an identity.
+--! notify
+SELECT true AS notified FROM pg_notify(:channel, :payload);

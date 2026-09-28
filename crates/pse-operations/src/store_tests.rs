@@ -12,12 +12,14 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use pse_ids::{ContentHash, SemanticId};
 
-use crate::attempts::{AttemptKind, NewAttempt, RuntimeTermination, TerminationCode, TransitionNote};
+use crate::attempts::{
+    AttemptId, AttemptKind, NewAttempt, TerminationCode, TransitionNote,
+};
 use crate::cancellation::CancelOutcome;
 use crate::catalog::{
     Committed, Member, ProtectedVersion, PublicationCommit, ReadTarget, Settlement, Workspace,
 };
-use crate::jobs::{Enqueued, Finished, JobOutcome, JobState, NewJob, RetryPolicy};
+use crate::jobs::{Enqueued, Finished, JobId, JobOutcome, JobState, NewJob, RetryPolicy};
 use crate::lifecycle::AttemptState;
 use crate::solutions::{SeedVectors, Solution};
 use crate::streams::{Incumbent, ProgressEvent, ProgressValue};
@@ -27,7 +29,7 @@ use crate::{InvariantKind, Opened, OperationsError, SchemaStatus, Store, mint_id
 const LEASE: Duration = Duration::from_secs(30);
 
 /// An identity as a SQL literal, for test-authored statements.
-fn lit(id: SemanticId) -> String {
+fn lit(id: impl std::fmt::Display) -> String {
     format!("'{id}'::uuid")
 }
 
@@ -76,7 +78,7 @@ fn at(seconds: i64) -> DateTime<Utc> {
 }
 
 /// Create an attempt and drive it through the lifecycle to `completed`.
-async fn finished_attempt(store: &Store) -> SemanticId {
+async fn finished_attempt(store: &Store) -> AttemptId {
     let attempts = store.attempts();
     let attempt = new_attempt();
     attempts.create(&attempt, Some("test")).await.unwrap();
@@ -106,7 +108,7 @@ async fn finished_attempt(store: &Store) -> SemanticId {
 async fn workspace(store: &Store) -> SemanticId {
     let workspace = Workspace {
         workspace_id: mint_id(),
-        name: format!("ws-{}", mint_id()),
+        name: format!("ws-{}", mint_id::<SemanticId>()),
         root_uri: "file:///tmp/pse-workspace/".to_owned(),
     };
     store
@@ -144,7 +146,7 @@ async fn publish(
     let commit = PublicationCommit {
         publication_id,
         workspace_id: workspace,
-        attempt_id: finished_attempt(store).await,
+        attempt_id: finished_attempt(store).await.as_id(),
         expected_parent: parent,
         members: members(version),
     };
@@ -446,7 +448,7 @@ async fn row_invariants_generated_and_enforced() {
             "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, preparation_identity, \
                  kind, backend, profile_stamp, data_stamp) \
              VALUES ({}, {stamp}, {stamp}, 'root', 'kinsol', {stamp}, {stamp})",
-            lit(mint_id())
+            lit(mint_id::<SemanticId>())
         ))
         .await
         .unwrap_err();
@@ -538,7 +540,7 @@ async fn sqlstate_errors_map_to_typed_variants() {
         format!(
             "INSERT INTO pse_ops.workspaces (workspace_id, name, root_uri) \
              VALUES ({}, '{name}', 'file:///x/')",
-            lit(mint_id())
+            lit(mint_id::<SemanticId>())
         )
     };
     first.execute(begin).await.unwrap();
@@ -560,7 +562,7 @@ async fn sqlstate_errors_map_to_typed_variants() {
     // 40P01: two transactions lock two rows in opposite order.
     let other = new_attempt();
     store.attempts().create(&other, None).await.unwrap();
-    let lock = |id: SemanticId| {
+    let lock = |id: AttemptId| {
         format!("SELECT 1 FROM pse_ops.attempts WHERE attempt_id = {} FOR UPDATE", lit(id))
     };
     let (left, right) = (first, second);
@@ -687,31 +689,22 @@ async fn illegal_transition_rejected() {
     assert_eq!(done.lease_expires_at, None);
     assert!(done.finished_at.is_some());
     assert_eq!(
-        done.termination.as_ref().map(|t| &t.code),
-        Some(&TerminationCode::Rule("solve.evaluation_error".to_owned()))
+        TerminationCode::of(&done).unwrap(),
+        Some(TerminationCode::Rule("solve.evaluation_error".to_owned()))
     );
-    let row = done.row();
+    let row = &done;
     assert_eq!(
         row.termination_class,
         Some(crate::attempts::TerminationClass::Rule)
     );
     assert_eq!(row.termination_rule.as_deref(), Some("solve.evaluation_error"));
-    assert_eq!(row.termination_detail.as_deref(), Some("{\"row\":3}"));
-    // A later termination replaces every termination column at once.
-    let cancelled = crate::attempts::Termination {
-        code: TerminationCode::Runtime(RuntimeTermination::Cancelled),
-        detail: None,
-    };
-    let row = crate::attempts::AttemptRecord {
-        termination: Some(cancelled),
-        ..done.clone()
-    }
-    .row();
-    assert_eq!(row.termination_rule, None);
-    assert_eq!(row.termination_runtime, Some(RuntimeTermination::Cancelled));
+    // The document is stored as jsonb and read back as its text; its value is unchanged.
+    let detail: serde_json::Value =
+        serde_json::from_str(row.termination_detail.as_deref().unwrap()).unwrap();
+    assert_eq!(detail, serde_json::json!({ "row": 3 }));
     let history = attempts.history(attempt.attempt_id).await.unwrap();
     let steps: Vec<(Option<AttemptState>, AttemptState)> =
-        history.iter().map(|t| (t.from, t.to)).collect();
+        history.iter().map(|t| (t.from_state, t.to_state)).collect();
     assert_eq!(
         steps,
         [
@@ -807,7 +800,7 @@ async fn heartbeat_extends_lease_and_returns_cancellation() {
         .await
         .unwrap();
     assert!(!ack.cancel_requested);
-    assert!(Some(ack.lease_expires_at) > started.lease_expires_at);
+    assert!(Some(ack.lease_expires_at.timestamp_micros()) > started.lease_expires_at);
     // Another worker cannot heartbeat someone else's lease.
     let foreign = attempts
         .heartbeat(attempt.attempt_id, "worker-b", LEASE)
@@ -905,7 +898,7 @@ async fn two_workers_never_claim_same_job() {
     holder.execute("ROLLBACK").await.unwrap();
     drop(holder);
 
-    async fn drain(store: &Store, worker: &str) -> Vec<SemanticId> {
+    async fn drain(store: &Store, worker: &str) -> Vec<JobId> {
         let mut claimed = Vec::new();
         while let Some(job) = store.jobs().claim(worker, LEASE).await.unwrap() {
             assert_eq!(job.try_number, 1);
@@ -915,9 +908,9 @@ async fn two_workers_never_claim_same_job() {
         claimed
     }
     let (a, b) = tokio::join!(drain(&store, "worker-a"), drain(&store, "worker-b"));
-    let mut all: Vec<SemanticId> = a.iter().chain(&b).copied().collect();
+    let mut all: Vec<JobId> = a.iter().chain(&b).copied().collect();
     all.push(skipped.job_id);
-    let unique: BTreeSet<SemanticId> = all.iter().copied().collect();
+    let unique: BTreeSet<JobId> = all.iter().copied().collect();
     assert_eq!(unique.len(), all.len(), "a job was claimed twice");
     assert_eq!(unique, enqueued);
     assert!(
@@ -979,7 +972,7 @@ async fn expired_lease_requeues_as_new_attempt() {
         .await
         .unwrap()
         .iter()
-        .map(|t| t.to)
+        .map(|t| t.to_state)
         .collect();
     assert_eq!(
         old_steps,
@@ -1399,7 +1392,7 @@ async fn progress_batch_insert_roundtrip() {
         .unwrap();
     assert_eq!(
         notification.payload(),
-        crate::codec::uuid(attempt.attempt_id).to_string()
+        attempt.attempt_id.to_string()
     );
     // A re-sent overlapping batch inserts only the new tail.
     let resent: Vec<ProgressEvent> = (495..505).map(progress_event).collect();
@@ -1562,7 +1555,7 @@ async fn incumbents_and_solutions_round_trip() {
             rows: None,
             barrier: Some(0.1 * 2.5e-9),
         },
-        created_by: Some(attempt),
+        created_by: Some(attempt.as_id()),
     };
     store.solutions().put(&solution).await.unwrap();
     let duplicate = store.solutions().put(&solution).await.unwrap_err();
@@ -1594,7 +1587,7 @@ async fn incumbents_and_solutions_round_trip() {
             "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, preparation_identity, \
                  kind, backend, profile_stamp, data_stamp) \
              VALUES ({}, {stamp}, {stamp}, 'root', 'ipopt', {stamp}, {stamp})",
-            lit(mint_id())
+            lit(mint_id::<SemanticId>())
         ))
         .await
         .unwrap_err();
@@ -1614,7 +1607,7 @@ async fn incumbents_and_solutions_round_trip() {
                      preparation_identity, kind, backend, profile_stamp, data_stamp, primal, barrier) \
                  VALUES ({}, {stamp}, {stamp}, '{kind}', 'ipopt', {stamp}, {stamp}, \
                      ARRAY[1.0]::double precision[], {barrier})",
-                lit(mint_id())
+                lit(mint_id::<SemanticId>())
             ))
             .await
             .unwrap_err();
@@ -1710,7 +1703,7 @@ async fn concurrent_head_advance_one_winner() {
             commits.push(PublicationCommit {
                 publication_id: mint_id(),
                 workspace_id: workspace,
-                attempt_id: finished_attempt(&store).await,
+                attempt_id: finished_attempt(&store).await.as_id(),
                 expected_parent: Some(base),
                 members: members(version),
             });
@@ -1775,12 +1768,12 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
     let commit = PublicationCommit {
         publication_id: mint_id(),
         workspace_id: workspace,
-        attempt_id: attempt,
+        attempt_id: attempt.as_id(),
         expected_parent: None,
         members: members(0),
     };
     assert_eq!(
-        catalog.settle(attempt).await.unwrap(),
+        catalog.settle(attempt.as_id()).await.unwrap(),
         Settlement::ProvedNoncommit
     );
     catalog.commit(&commit).await.unwrap();
@@ -1792,7 +1785,7 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
         }
     );
     assert_eq!(
-        catalog.settle(attempt).await.unwrap(),
+        catalog.settle(attempt.as_id()).await.unwrap(),
         Settlement::Committed {
             publication_id: commit.publication_id
         }
@@ -1804,7 +1797,7 @@ async fn commit_is_idempotent_per_attempt_and_settles() {
     let refused = catalog
         .commit(&PublicationCommit {
             publication_id: mint_id(),
-            attempt_id: running.attempt_id,
+            attempt_id: running.attempt_id.as_id(),
             expected_parent: Some(commit.publication_id),
             ..commit.clone()
         })

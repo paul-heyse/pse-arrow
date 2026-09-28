@@ -92,7 +92,15 @@ pub struct Store {
 struct Inner {
     pool: deadpool_postgres::Pool,
     /// The connection configuration, for connections outside the pool (sessions).
+    #[cfg_attr(
+        not(any(test, feature = "test-support")),
+        expect(dead_code, reason = "read by the listener task in the next Plan 22 B2.4 step")
+    )]
     config: tokio_postgres::Config,
+    #[cfg_attr(
+        not(any(test, feature = "test-support")),
+        expect(dead_code, reason = "read by the listener task in the next Plan 22 B2.4 step")
+    )]
     tls: MakeRustlsConnect,
     target: Target,
     /// The superseded sqlx pool of the repositories not yet on tokio-postgres (Plan 22
@@ -141,6 +149,13 @@ pub(crate) fn configure(url: &str, options: &StoreOptions) -> Result<tokio_postg
         Some(existing) if !existing.is_empty() => format!("{existing} {timeout}"),
         _ => timeout,
     };
+    // As libpq does, `PGUSER` names the role when the URL does not: a process whose OS
+    // user has no role of its own (the solver container) is peer-authenticated as it.
+    if config.get_user().is_none()
+        && let Some(user) = std::env::var("PGUSER").ok().filter(|user| !user.is_empty())
+    {
+        config.user(user);
+    }
     config
         .application_name(APPLICATION)
         .options(session)
@@ -246,11 +261,13 @@ impl Store {
     }
 
     /// The connection configuration, for connections outside the pool.
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn config(&self) -> &tokio_postgres::Config {
         &self.inner.config
     }
 
     /// The TLS connector every connection of this store uses.
+    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn tls(&self) -> &MakeRustlsConnect {
         &self.inner.tls
     }

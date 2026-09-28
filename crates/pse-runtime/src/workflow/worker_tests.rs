@@ -5,7 +5,6 @@
 use super::durable_tests::quick;
 use super::*;
 use pse_backend_native::solve::{Backend, SolveIntent};
-use pse_ids::SemanticId;
 use pse_operations::{
     jobs::{JobState, RetryPolicy},
     lifecycle::AttemptState,
@@ -185,7 +184,7 @@ async fn unknown_payload_version_refused() {
     let attempt = record.attempt.as_ref().unwrap();
     assert_eq!(attempt.state, AttemptState::Failed);
     assert_eq!(
-        attempt.termination.as_ref().map(|t| t.code.as_str()),
+        attempt.termination_rule.as_deref(),
         Some("workflow.job_payload_version")
     );
     // A refusal is not an infrastructure failure: it is not retried, whatever the policy.
@@ -224,7 +223,7 @@ async fn blocked_try(
     database: &TestDatabase,
     runtime: &Runtime,
 ) -> (
-    SemanticId,
+    pse_operations::attempts::AttemptId,
     sqlx_lock::Lock,
     tokio::task::JoinHandle<Result<Processed, WorkflowError>>,
 ) {
@@ -259,7 +258,6 @@ async fn blocked_try(
 /// A table lock held in an open transaction on its own connection, and an autocommit probe
 /// (a transaction would see one cached `pg_stat_activity` snapshot).
 mod sqlx_lock {
-    use pse_ids::SemanticId;
     use pse_operations::testing::{Session, TestDatabase};
 
     pub(super) struct Lock {
@@ -303,7 +301,7 @@ mod sqlx_lock {
         }
 
         /// Record a cancellation request without its notification.
-        pub(super) async fn set_cancel_silently(&self, attempt: SemanticId) {
+        pub(super) async fn set_cancel_silently(&self, attempt: pse_operations::attempts::AttemptId) {
             let changed = self
                 .probe
                 .execute(&format!(

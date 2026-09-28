@@ -200,7 +200,7 @@ async fn worker_runs_authored_case_end_to_end() {
     assert_eq!(attempt.state, AttemptState::Completed);
     assert_eq!(attempt.worker.as_deref(), Some("worker-child"));
     assert_eq!(
-        attempt.termination.as_ref().map(|t| &t.code),
+        TerminationCode::of(&attempt).unwrap().as_ref(),
         Some(&TerminationCode::Native(NativeTermination::Success))
     );
     let history: Vec<_> = store
@@ -209,7 +209,7 @@ async fn worker_runs_authored_case_end_to_end() {
         .await
         .unwrap()
         .iter()
-        .map(|t| t.to)
+        .map(|t| t.to_state)
         .collect();
     assert_eq!(
         history,

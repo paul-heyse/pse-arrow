@@ -24,8 +24,11 @@ deadpool = ["dep:deadpool-postgres"]
 [dependencies]
 pse-ids = { workspace = true, features = ["postgres"] }
 pse-model = { workspace = true, features = ["postgres"] }
+chrono.workspace = true
 deadpool-postgres = { workspace = true, optional = true }
 futures.workspace = true
 postgres-protocol.workspace = true
 postgres-types.workspace = true
+serde.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 tokio-postgres.workspace = true

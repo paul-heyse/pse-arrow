@@ -5912,12 +5912,15 @@ dependencies = [
 name = "pse-operations-queries"
 version = "0.0.1"
 dependencies = [
+ "chrono",
  "deadpool-postgres",
  "futures",
  "postgres-protocol",
  "postgres-types",
  "pse-ids",
  "pse-model",
+ "serde",
+ "serde_json",
  "tokio-postgres",
 ]
 

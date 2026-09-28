@@ -11,6 +11,8 @@ use std::collections::BTreeMap;
 
 use chrono::{DateTime, Utc};
 use pse_ids::SemanticId;
+
+use crate::attempts::AttemptId;
 use pse_model::generated::enums::{EvidenceUnavailableReason, NativeMetricKind};
 use sqlx::postgres::PgRow;
 use sqlx::{FromRow, Row};
@@ -210,7 +212,7 @@ impl<'s> Streams<'s> {
     /// Classified driver failures (a missing attempt is a foreign-key violation).
     pub async fn append_progress(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
         events: &[ProgressEvent],
     ) -> Result<u64, OperationsError> {
         if events.is_empty() {
@@ -225,7 +227,7 @@ impl<'s> Streams<'s> {
                          $5::float8[], $6::text[]) AS e (seq, step, at, elapsed, phase) \
              ON CONFLICT (attempt_id, seq) DO NOTHING RETURNING seq",
         )
-        .bind(codec::uuid(attempt))
+        .bind(codec::uuid(attempt.as_id()))
         .bind(events.iter().map(|e| e.seq).collect::<Vec<_>>())
         .bind(events.iter().map(|e| e.step).collect::<Vec<_>>())
         .bind(events.iter().map(|e| e.at).collect::<Vec<_>>())
@@ -251,7 +253,7 @@ impl<'s> Streams<'s> {
                              $7::boolean[], $8::text[], $9::text[]) \
                      AS v (seq, name, kind, r, i, b, t, u)",
             )
-            .bind(codec::uuid(attempt))
+            .bind(codec::uuid(attempt.as_id()))
             .bind(&columns.seq)
             .bind(&columns.name)
             .bind(&columns.kind)
@@ -277,7 +279,7 @@ impl<'s> Streams<'s> {
     /// Classified driver failures, and a decode failure for a value that violates its kind.
     pub async fn progress(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
         after: Option<i64>,
         limit: i64,
     ) -> Result<Vec<ProgressEvent>, OperationsError> {
@@ -287,7 +289,7 @@ impl<'s> Streams<'s> {
             "SELECT seq, step, at, elapsed_seconds, phase FROM pse_ops.progress_events \
              WHERE attempt_id = $1 AND seq > coalesce($2, -1) ORDER BY seq LIMIT $3",
         )
-        .bind(codec::uuid(attempt))
+        .bind(codec::uuid(attempt.as_id()))
         .bind(after)
         .bind(limit)
         .fetch_all(&mut *tx)
@@ -314,7 +316,7 @@ impl<'s> Streams<'s> {
                  FROM pse_ops.progress_values \
                  WHERE attempt_id = $1 AND seq BETWEEN $2 AND $3 ORDER BY seq, name",
             )
-            .bind(codec::uuid(attempt))
+            .bind(codec::uuid(attempt.as_id()))
             .bind(first.seq)
             .bind(last.seq)
             .fetch_all(&mut *tx)
@@ -341,7 +343,7 @@ impl<'s> Streams<'s> {
     /// As for [`Streams::progress`].
     pub async fn snapshot(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
     ) -> Result<Vec<ProgressEvent>, OperationsError> {
         const PAGE: i64 = 4096;
         let mut all = Vec::new();
@@ -408,7 +410,7 @@ impl<'s> Streams<'s> {
     /// Classified driver failures.
     pub async fn record_incumbents(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
         incumbents: &[Incumbent],
     ) -> Result<u64, OperationsError> {
         if incumbents.is_empty() {
@@ -423,7 +425,7 @@ impl<'s> Streams<'s> {
                  AS i (seq, at, objective, dual_bound, gap, solution_id) \
              ON CONFLICT (attempt_id, seq) DO NOTHING",
         )
-        .bind(codec::uuid(attempt))
+        .bind(codec::uuid(attempt.as_id()))
         .bind(incumbents.iter().map(|i| i.seq).collect::<Vec<_>>())
         .bind(incumbents.iter().map(|i| i.at).collect::<Vec<_>>())
         .bind(incumbents.iter().map(|i| i.objective).collect::<Vec<_>>())
@@ -448,13 +450,13 @@ impl<'s> Streams<'s> {
     /// Classified driver failures.
     pub async fn latest_incumbent(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
     ) -> Result<Option<Incumbent>, OperationsError> {
         sqlx::query_as(
             "SELECT seq, at, objective, dual_bound, gap, solution_id FROM pse_ops.incumbents \
              WHERE attempt_id = $1 ORDER BY seq DESC LIMIT 1",
         )
-        .bind(codec::uuid(attempt))
+        .bind(codec::uuid(attempt.as_id()))
         .fetch_optional(self.store.pool())
         .await
         .classify(self.target())
@@ -470,7 +472,7 @@ impl Store {
     /// Classified driver failures.
     pub async fn watch_progress(
         &self,
-        attempt: SemanticId,
+        attempt: AttemptId,
     ) -> Result<ProgressWatcher, OperationsError> {
         let target = self.target().clone();
         let mut listener = sqlx::postgres::PgListener::connect_with(self.pool())
@@ -482,7 +484,7 @@ impl Store {
             listener,
             store: self.clone(),
             attempt,
-            payload: codec::uuid(attempt).to_string(),
+            payload: attempt.to_string(),
         })
     }
 }
@@ -492,7 +494,7 @@ impl Store {
 pub struct ProgressWatcher {
     listener: sqlx::postgres::PgListener,
     store: Store,
-    attempt: SemanticId,
+    attempt: AttemptId,
     payload: String,
 }
 
@@ -545,11 +547,11 @@ async fn notify(
     conn: &mut sqlx::PgConnection,
     target: &Target,
     channel: &str,
-    attempt: SemanticId,
+    attempt: AttemptId,
 ) -> Result<(), OperationsError> {
     sqlx::query("SELECT pg_notify($1, $2)")
         .bind(channel)
-        .bind(codec::uuid(attempt).to_string())
+        .bind(attempt.to_string())
         .execute(&mut *conn)
         .await
         .classify(target)?;

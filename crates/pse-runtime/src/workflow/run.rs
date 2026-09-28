@@ -44,7 +44,7 @@ pub struct RunHandle {
     receiver: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>,
     progress: Arc<Progress>,
     run_id: SemanticId,
-    attempt_id: Option<SemanticId>,
+    attempt_id: Option<pse_operations::attempts::AttemptId>,
 }
 impl RunHandle {
     /// Request stop; result ownership remains live until native teardown and join.
@@ -78,7 +78,7 @@ impl RunHandle {
         self.run_id
     }
     /// The durable attempt of this run, minted before any effect; `None` when ephemeral.
-    pub const fn attempt_id(&self) -> Option<SemanticId> {
+    pub const fn attempt_id(&self) -> Option<pse_operations::attempts::AttemptId> {
         self.attempt_id
     }
 }

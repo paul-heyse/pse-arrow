@@ -15,11 +15,6 @@ use sqlx::Row;
 use sqlx::postgres::PgRow;
 use uuid::Uuid;
 
-/// Mint a new identity on the runtime's `UUIDv7` path (ADR-0114 Outcome 13).
-pub fn mint_id() -> SemanticId {
-    SemanticId::from_bytes(*Uuid::now_v7().as_bytes())
-}
-
 /// The `uuid` column value of an identity.
 pub(crate) const fn uuid(id: SemanticId) -> Uuid {
     Uuid::from_bytes(*id.as_bytes())
@@ -74,12 +69,6 @@ pub(crate) fn hash(row: &PgRow, column: &str) -> Result<ContentHash, sqlx::Error
     to_hash(column, &bytes)
 }
 
-/// A nullable content-hash column.
-pub(crate) fn opt_hash(row: &PgRow, column: &str) -> Result<Option<ContentHash>, sqlx::Error> {
-    let bytes: Option<Vec<u8>> = row.try_get(column)?;
-    bytes.map(|bytes| to_hash(column, &bytes)).transpose()
-}
-
 /// A text column holding a Rust enumeration's spelling.
 pub(crate) fn parsed<T>(row: &PgRow, column: &str) -> Result<T, sqlx::Error>
 where
@@ -108,14 +97,6 @@ where
 #[cfg(test)]
 mod codec_unit {
     use super::*;
-
-    #[test]
-    fn minted_ids_are_version_seven_and_round_trip() {
-        let id = mint_id();
-        let value = uuid(id);
-        assert_eq!(value.get_version_num(), 7);
-        assert_eq!(SemanticId::from_bytes(value.into_bytes()), id);
-    }
 
     #[test]
     fn intervals_drop_sub_microsecond_precision() {

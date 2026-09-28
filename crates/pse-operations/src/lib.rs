@@ -22,6 +22,7 @@ pub mod cancellation;
 pub mod catalog;
 mod codec;
 mod error;
+mod ids;
 /// The store's schema generated from the registry: DDL, Cornucopia mapping, fingerprint.
 #[rustfmt::skip]
 pub mod generated;
@@ -38,7 +39,7 @@ pub mod testing;
 #[cfg(test)]
 mod store_tests;
 
-pub use codec::mint_id;
+pub use ids::mint_id;
 pub use error::{DriverError, InvariantKind, OperationsError, Target};
 pub use schema::{Opened, PHYSICAL_SQL, SchemaStatus};
 pub use store::{
