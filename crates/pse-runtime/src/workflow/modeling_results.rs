@@ -178,7 +178,11 @@ impl RunResult {
                     .map_err(relation)?;
             }
 
-        if let Some(native)=native {super::results::push_native_metrics(&mut metric_rows,self.run_id,step,native)?;}
+        if let Some(native)=native {
+            let stored=self.stored_events(step)?;
+            let events=stored.as_deref().map_or(super::results::StepEvents::Retained,super::results::StepEvents::Stored);
+            super::results::push_native_metrics(&mut metric_rows,self.run_id,step,native,events)?;
+        }
         if let Some(result)=result {
             for row in &result.checks {collection.push(row.clone()).map_err(relation)?;}
             for row in &result.reports {collection.push(row.clone()).map_err(relation)?;}

@@ -234,3 +234,124 @@ async fn startup_sweep_marks_expired_leases_stale() {
     drop(operations);
     database.remove().await.unwrap();
 }
+
+/// Rosenbrock from the classic start: Ipopt reports one progress event per iteration.
+const ROSENBROCK: &str = "package p { def Root { var x: Scalar; var y: Scalar; let f: Scalar = (1-x)*(1-x) + 100*(y-x*x)*(y-x*x); annotation objective f(minimize); annotation start x(-1.2); annotation start y(1); } }";
+
+fn optimize(analysis: &mut ModelingAnalysis, history: usize) {
+    analysis.solver.intent = pse_backend_native::solve::SolveIntent::Optimize;
+    analysis.solver.selection = SolverSelection::Explicit(Backend::Ipopt);
+    analysis.solver.controls.history = history;
+}
+
+#[tokio::test]
+async fn progress_stream_complete_under_volume() {
+    let database = TestDatabase::create().await.unwrap();
+    let runtime = durable_runtime(&database, "runtime-a").await;
+    let (package, mut analysis) = package_on(&runtime, ROSENBROCK);
+    // A tiny in-memory cap: the durable stream does not share it.
+    optimize(&mut analysis, 4);
+    let cancel = crate::CancelSource::new();
+    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let steps = vec![prepared; 24];
+    let handle = runtime.start_modeling(steps, true, &cancel).await.unwrap();
+    let result = handle.wait().await.unwrap();
+    assert!(result.usable());
+    let (retained, dropped) = handle.progress();
+    let observed = retained.len() as u64 + dropped;
+    assert!(
+        observed > 256 && dropped > 0,
+        "{} retained, {dropped} dropped",
+        retained.len()
+    );
+    let stream = record(&result).progress.as_ref().unwrap();
+    // Every event reached the store, numbered without gaps, and every step is present.
+    assert_eq!(stream.len() as u64, observed);
+    assert!(stream.iter().enumerate().all(|(i, e)| e.seq == i as i64));
+    let steps: std::collections::BTreeSet<i32> = stream.iter().map(|e| e.step).collect();
+    assert_eq!(steps, (0..24).collect());
+    drop(runtime);
+    database.remove().await.unwrap();
+}
+
+#[tokio::test]
+async fn published_metrics_equal_stream_snapshot() {
+    use pse_operations::streams::ProgressValue as V;
+    use pse_relations::generated::runtime::solve_metrics;
+    let database = TestDatabase::create().await.unwrap();
+    let runtime = durable_runtime(&database, "runtime-a").await;
+    let (package, mut analysis) = package_on(&runtime, ROSENBROCK);
+    optimize(&mut analysis, 2);
+    let cancel = crate::CancelSource::new();
+    let prepared = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let result = prepared.start().unwrap().wait().await.unwrap();
+    assert!(result.usable());
+    let attempt = record(&result).attempt_id;
+    // The snapshot, read back from the store by an independent reader.
+    let Durability::Durable(operations) = runtime.durability() else {
+        panic!()
+    };
+    let snapshot = operations
+        .store()
+        .streams()
+        .snapshot(attempt)
+        .await
+        .unwrap();
+    assert!(snapshot.len() > 2, "{} events", snapshot.len());
+    let table = result.table("runtime.solve_metrics").unwrap();
+    let rows = solve_metrics::RuntimeSolveMetricsView::from_checked(&table)
+        .unwrap()
+        .rows()
+        .unwrap();
+    let mut published: Vec<_> = rows
+        .iter()
+        .filter(|r| r.namespace.starts_with("event."))
+        .map(|r| {
+            (
+                r.namespace.clone(),
+                r.name.clone(),
+                r.kind,
+                r.real.map(f64::to_bits),
+                r.integer,
+                r.boolean,
+                r.text.clone(),
+                r.unavailable,
+            )
+        })
+        .collect();
+    let mut expected = Vec::new();
+    for event in &snapshot {
+        let namespace = format!("event.{}.{}", event.seq, event.phase);
+        let mut values = vec![("elapsed_seconds".to_owned(), V::real(event.elapsed_seconds))];
+        values.extend(event.values.iter().map(|(k, v)| (k.clone(), v.clone())));
+        for (name, value) in values {
+            let (real, integer, boolean, text, unavailable) = match &value {
+                V::Real(v) => (Some(v.to_bits()), None, None, None, None),
+                V::Integer(v) => (None, Some(*v), None, None, None),
+                V::Boolean(v) => (None, None, Some(*v), None, None),
+                V::Text(v) => (None, None, None, Some(v.clone()), None),
+                V::Unavailable(r) => (None, None, None, None, Some(*r)),
+            };
+            expected.push((
+                namespace.clone(),
+                name,
+                value.kind(),
+                real,
+                integer,
+                boolean,
+                text,
+                unavailable,
+            ));
+        }
+    }
+    published.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
+    expected.sort_by(|a, b| (&a.0, &a.1).cmp(&(&b.0, &b.1)));
+    assert_eq!(published, expected);
+    let dropped = rows
+        .iter()
+        .find(|r| r.namespace == "progress" && r.name == "dropped_events")
+        .unwrap();
+    assert_eq!(dropped.integer, Some(0));
+    drop(runtime);
+    database.remove().await.unwrap();
+}
