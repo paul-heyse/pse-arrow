@@ -58,15 +58,20 @@ pub const ATTEMPTS: CopyIn = CopyIn {
 /// The binary copy into `incumbents` (runtime.operational_incumbents).
 pub const INCUMBENTS: CopyIn = CopyIn {
     table: "incumbents",
-    statement: "COPY pse_ops.\"incumbents\" (\"attempt_id\", \"seq\", \"at\", \"objective\", \"dual_bound\", \"gap\", \"solution_id\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"attempt_id\", \"seq\", \"at\", \"objective\", \"dual_bound\", \"gap\", \"solution_id\" FROM pse_ops.\"incumbents\" WHERE false",
+    statement: "COPY pse_ops.\"incumbents\" (\"attempt_id\", \"seq\", \"step\", \"at\", \"elapsed_seconds\", \"phase\", \"objective\", \"dual_bound\", \"gap\", \"nodes\", \"seconds\", \"solution_id\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"attempt_id\", \"seq\", \"step\", \"at\", \"elapsed_seconds\", \"phase\", \"objective\", \"dual_bound\", \"gap\", \"nodes\", \"seconds\", \"solution_id\" FROM pse_ops.\"incumbents\" WHERE false",
     columns: &[
         "attempt_id",
         "seq",
+        "step",
         "at",
+        "elapsed_seconds",
+        "phase",
         "objective",
         "dual_bound",
         "gap",
+        "nodes",
+        "seconds",
         "solution_id",
     ],
 };

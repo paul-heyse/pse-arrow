@@ -35,6 +35,7 @@ pub mod sources;
 mod store;
 pub mod streams;
 pub mod studies;
+pub mod tables;
 #[cfg(any(test, feature = "test-support"))]
 pub mod testing;
 
@@ -42,6 +43,8 @@ pub mod testing;
 mod store_tests;
 #[cfg(test)]
 mod study_tests;
+#[cfg(test)]
+mod tables_tests;
 
 pub use ids::mint_id;
 pub use error::{DriverError, InvariantKind, OperationsError, Target};

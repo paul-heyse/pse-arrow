@@ -1650,14 +1650,34 @@ async fn progress_watcher_follows_the_stream_until_the_attempt_ends() {
         .await
         .unwrap();
     let mut watcher = store.watch_progress(attempt.attempt_id).await.unwrap();
+    let incumbent = |seq: i64| RuntimeOperationalIncumbentsRow {
+        attempt_id: attempt.attempt_id,
+        seq,
+        step: 0,
+        at: at(seq).timestamp_micros(),
+        elapsed_seconds: 0.5,
+        phase: "scip.incumbent".into(),
+        objective: if seq == 0 { 10.0 } else { 9.0 },
+        dual_bound: Some(1.0),
+        gap: None,
+        nodes: Some(seq),
+        seconds: Some(0.5),
+        solution_id: None,
+    };
     let producer = {
         let store = store.clone();
         let id = attempt.attempt_id;
+        let incumbents: Vec<_> = (0..2).map(incumbent).collect();
         tokio::spawn(async move {
             for batch in [0..3, 3..5] {
                 tokio::time::sleep(Duration::from_millis(50)).await;
                 let events: Vec<ProgressEvent> = batch.map(progress_event).collect();
                 store.streams().append_progress(id, &events).await.unwrap();
+            }
+            // An incumbent alone wakes the watcher too.
+            for one in incumbents.chunks(1) {
+                tokio::time::sleep(Duration::from_millis(50)).await;
+                store.streams().record_incumbents(one, &[]).await.unwrap();
             }
             tokio::time::sleep(Duration::from_millis(50)).await;
             store
@@ -1667,22 +1687,33 @@ async fn progress_watcher_follows_the_stream_until_the_attempt_ends() {
                 .unwrap();
         })
     };
-    let mut seen = Vec::new();
+    let (mut seen, mut incumbents) = (Vec::new(), Vec::new());
+    let mut position = crate::streams::StreamPosition::default();
     loop {
-        let page = tokio::time::timeout(
-            Duration::from_secs(10),
-            watcher.next(seen.last().map(|e: &ProgressEvent| e.seq), 100),
-        )
-        .await
-        .expect("the watcher wakes on appends and on the attempt's end")
-        .unwrap();
+        let page = tokio::time::timeout(Duration::from_secs(10), watcher.next(position, 100))
+            .await
+            .expect("the watcher wakes on appends and on the attempt's end")
+            .unwrap();
         if page.is_empty() {
             break;
         }
-        seen.extend(page);
+        position = page.advance(position);
+        seen.extend(page.progress);
+        incumbents.extend(page.incumbents);
     }
     producer.await.unwrap();
     assert_eq!(seen, (0..5).map(progress_event).collect::<Vec<_>>());
+    assert_eq!(incumbents.len(), 2);
+    for (read, written) in incumbents.iter().zip((0..2).map(incumbent)) {
+        assert!(pse_model::SemanticEq::semantic_eq(read, &written), "{read:?}");
+    }
+    assert_eq!(
+        position,
+        crate::streams::StreamPosition {
+            progress: Some(4),
+            incumbents: Some(1)
+        }
+    );
     database.remove().await.unwrap();
 }
 
@@ -1857,19 +1888,29 @@ async fn incumbents_and_solutions_round_trip() {
         RuntimeOperationalIncumbentsRow {
             attempt_id: attempt,
             seq: 0,
+            step: 0,
             at: at(0).timestamp_micros(),
+            elapsed_seconds: 0.25,
+            phase: "scip.incumbent".into(),
             objective: 12.5,
             dual_bound: Some(3.0),
             gap: Some(0.76),
+            nodes: Some(1),
+            seconds: Some(0.2),
             solution_id: None,
         },
         RuntimeOperationalIncumbentsRow {
             attempt_id: attempt,
             seq: 1,
+            step: 0,
             at: at(5).timestamp_micros(),
+            elapsed_seconds: 5.0,
+            phase: "scip.incumbent".into(),
             objective: 10.0,
             dual_bound: None,
             gap: None,
+            nodes: None,
+            seconds: None,
             solution_id: Some(newer.solution_id.into()),
         },
     ];
@@ -1934,10 +1975,15 @@ async fn incumbent_solutions_follow_the_attempt_chain() {
         RuntimeOperationalIncumbentsRow {
             attempt_id: attempt,
             seq,
+            step: 0,
             at: at(seq).timestamp_micros(),
+            elapsed_seconds: 1.0,
+            phase: "scip.incumbent".into(),
             objective,
             dual_bound: Some(1.0),
             gap: None,
+            nodes: Some(seq),
+            seconds: Some(1.0),
             solution_id: solution.map(|s| s.solution_id.into()),
         }
     };

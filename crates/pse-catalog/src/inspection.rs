@@ -45,6 +45,29 @@ impl TableReader {
             cancel,
         })
     }
+    /// Prepare one SQL query over `session` through its effective policy and stream the
+    /// answer in batches of at most `batch_size` rows.
+    /// # Errors
+    /// Syntax, resolution, unsupported effects, policy, cancellation or resources.
+    pub async fn query(
+        session: &EngineSession,
+        sql: &str,
+        batch_size: NonZeroUsize,
+        cancel: CancellationToken,
+    ) -> Result<Self, EngineError> {
+        cancel.checkpoint()?;
+        let prepared = session.prepare_sql(sql, &cancel).await?;
+        let schema = Arc::new(prepared.optimized_plan().schema().as_arrow().clone());
+        let stream = prepared
+            .execute_stream(&cancel)
+            .await?
+            .with_batch_size(batch_size)?;
+        Ok(Self {
+            stream: Some(stream),
+            schema,
+            cancel,
+        })
+    }
     /// Exact declared schema, including recursive extension metadata.
     pub fn schema(&self) -> SchemaRef {
         Arc::clone(&self.schema)

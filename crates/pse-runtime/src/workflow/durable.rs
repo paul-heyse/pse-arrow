@@ -221,6 +221,31 @@ impl super::Runtime {
         }
         rows.finish().map_err(super::relation)
     }
+
+    /// The durable jobs of this runtime's operational store, newest first, as the registry
+    /// relation `runtime.operational_jobs`.
+    ///
+    /// # Errors
+    /// An ephemeral runtime, which enqueues no jobs; store failures; a stored value outside
+    /// the registry contract.
+    pub async fn jobs(
+        &self,
+        filter: &pse_operations::jobs::JobFilter,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        use pse_relations::generated::runtime::operational_jobs as jobs;
+        let Durability::Durable(operations) = &self.durability else {
+            return Err(super::contract(
+                "the job listing needs a durable runtime (ADR-0114 Outcome 16)",
+            ));
+        };
+        let records = operations.store.jobs().list(filter).await?;
+        let mut rows =
+            jobs::Builder::with_registry(&self.registry, records.len()).map_err(super::relation)?;
+        for row in records {
+            rows.push(row).map_err(super::relation)?;
+        }
+        rows.finish().map_err(super::relation)
+    }
 }
 
 /// How a runtime keeps its runs (ADR-0114 Outcome 16): an explicit policy.
@@ -1011,10 +1036,17 @@ impl Batch {
             self.incumbents.push(RuntimeOperationalIncumbentsRow {
                 attempt_id: attempt,
                 seq: sequences.incumbents,
+                step,
                 at: at.timestamp_micros(),
+                elapsed_seconds: event.elapsed.as_secs_f64(),
+                phase: event.phase.clone(),
                 objective: incumbent.objective,
                 dual_bound: incumbent.dual_bound,
                 gap: incumbent.gap,
+                // Only a count and a finite duration are stored; anything else is absent.
+                nodes: (incumbent.nodes >= 0).then_some(incumbent.nodes),
+                seconds: (incumbent.seconds.is_finite() && incumbent.seconds >= 0.0)
+                    .then_some(incumbent.seconds),
                 solution_id: solution.as_ref().map(|s| s.solution_id),
             });
             sequences.incumbents += 1;

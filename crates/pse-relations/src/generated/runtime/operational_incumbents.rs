@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    35u8, 148u8, 1u8, 142u8, 8u8, 66u8, 158u8, 233u8, 175u8, 101u8, 91u8, 246u8, 114u8,
-    221u8, 167u8, 250u8, 240u8, 87u8, 178u8, 154u8, 121u8, 123u8, 151u8, 166u8, 187u8,
-    70u8, 176u8, 33u8, 90u8, 167u8, 99u8, 63u8,
+    119u8, 251u8, 152u8, 15u8, 211u8, 184u8, 15u8, 13u8, 246u8, 127u8, 222u8, 61u8,
+    232u8, 172u8, 67u8, 83u8, 50u8, 197u8, 180u8, 74u8, 96u8, 178u8, 116u8, 174u8, 109u8,
+    118u8, 158u8, 247u8, 151u8, 60u8, 92u8, 31u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
     fn append(
@@ -37,19 +37,30 @@ impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
             children[0usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#seq, children[1usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#at, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#step, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#at, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#elapsed_seconds,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#phase, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#objective,
-            children[3usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#dual_bound,
-            children[4usize].as_mut(),
+            children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#gap, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#gap, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#nodes, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#seconds,
+            children[10usize].as_mut(),
+        )?;
         crate::columnar::ArrowValue::append(
             &self.r#solution_id,
-            children[6usize].as_mut(),
+            children[11usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -65,17 +76,26 @@ impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
             children[0usize].as_mut(),
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <i32 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
             f64,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <Option<
             f64,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Option<
             crate::generated::identities::SolutionId,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -94,30 +114,54 @@ impl crate::columnar::ArrowValue for RuntimeOperationalIncumbentsRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#at: <i64 as crate::columnar::ArrowValue>::read(
+            r#step: <i32 as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#objective: <f64 as crate::columnar::ArrowValue>::read(
+            r#at: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#elapsed_seconds: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#phase: <String as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#objective: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#dual_bound: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#gap: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#nodes: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#seconds: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#solution_id: <Option<
                 crate::generated::identities::SolutionId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
         })
@@ -173,19 +217,27 @@ impl crate::columnar::RelationRow for RuntimeOperationalIncumbentsRow {
             columns[0usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#seq, columns[1usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#at, columns[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#step, columns[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#at, columns[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#elapsed_seconds,
+            columns[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#phase, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#objective,
-            columns[3usize].as_mut(),
+            columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#dual_bound,
-            columns[4usize].as_mut(),
+            columns[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#gap, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#gap, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#nodes, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#seconds, columns[10usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#solution_id,
-            columns[6usize].as_mut(),
+            columns[11usize].as_mut(),
         )?;
         Ok(())
     }
@@ -221,10 +273,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalIncumbentsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        16_384_usize + size_of::<Self::Builder>()
+        26_624_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        128usize
+        208usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -239,6 +291,18 @@ impl crate::columnar::RelationRow for RuntimeOperationalIncumbentsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#phase).len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -268,6 +332,28 @@ impl crate::columnar::RelationRow for RuntimeOperationalIncumbentsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
+            if (self.r#nodes).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#seconds).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
             if (self.r#solution_id).is_some() {
                 crate::columnar::allocation_add(
                     1,
@@ -287,7 +373,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "attempt_id",
@@ -300,28 +386,53 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "at",
+        name: "step",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "objective",
+        name: "at",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "dual_bound",
+        name: "elapsed_seconds",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "gap",
+        name: "phase",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "solution_id",
+        name: "objective",
         position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "dual_bound",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "gap",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "nodes",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "seconds",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "solution_id",
+        position: 11usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -330,16 +441,26 @@ pub mod columns {
     pub const ATTEMPT_ID: crate::columnar::ColumnReference = super::COLUMNS[0usize];
     ///seq
     pub const SEQ: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    ///step
+    pub const STEP: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///at
-    pub const AT: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const AT: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///elapsed_seconds
+    pub const ELAPSED_SECONDS: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///phase
+    pub const PHASE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///objective
-    pub const OBJECTIVE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const OBJECTIVE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///dual_bound
-    pub const DUAL_BOUND: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const DUAL_BOUND: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///gap
-    pub const GAP: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const GAP: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///nodes
+    pub const NODES: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///seconds
+    pub const SECONDS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///solution_id
-    pub const SOLUTION_ID: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const SOLUTION_ID: crate::columnar::ColumnReference = super::COLUMNS[11usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -348,10 +469,15 @@ pub struct RuntimeOperationalIncumbentsView<'a> {
     batch: &'a crate::RecordBatch,
     attempt_id_column: &'a arrow_array::FixedSizeBinaryArray,
     seq_column: &'a arrow_array::Int64Array,
+    step_column: &'a arrow_array::Int32Array,
     at_column: &'a arrow_array::TimestampMicrosecondArray,
+    elapsed_seconds_column: &'a arrow_array::Float64Array,
+    phase_column: &'a arrow_array::StringArray,
     objective_column: &'a arrow_array::Float64Array,
     dual_bound_column: &'a arrow_array::Float64Array,
     gap_column: &'a arrow_array::Float64Array,
+    nodes_column: &'a arrow_array::Int64Array,
+    seconds_column: &'a arrow_array::Float64Array,
     solution_id_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> RuntimeOperationalIncumbentsView<'a> {
@@ -398,21 +524,36 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
             seq_column: crate::columnar::array::<
                 arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
+            step_column: crate::columnar::array::<
+                arrow_array::Int32Array,
+            >(batch.column(2usize).as_ref())?,
             at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(2usize).as_ref())?,
-            objective_column: crate::columnar::array::<
-                arrow_array::Float64Array,
             >(batch.column(3usize).as_ref())?,
-            dual_bound_column: crate::columnar::array::<
+            elapsed_seconds_column: crate::columnar::array::<
                 arrow_array::Float64Array,
             >(batch.column(4usize).as_ref())?,
+            phase_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(5usize).as_ref())?,
+            objective_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(6usize).as_ref())?,
+            dual_bound_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(7usize).as_ref())?,
             gap_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
+            nodes_column: crate::columnar::array::<
+                arrow_array::Int64Array,
+            >(batch.column(9usize).as_ref())?,
+            seconds_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(10usize).as_ref())?,
             solution_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -453,6 +594,18 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "step",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn step_column(&self) -> &'a arrow_array::Int32Array {
+        self.step_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "step", "`.")]
+    pub fn step_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "at",
         "`, including its offsets and validity bitmap.",
     )]
@@ -461,7 +614,31 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "at", "`.")]
     pub fn at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "elapsed_seconds",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn elapsed_seconds_column(&self) -> &'a arrow_array::Float64Array {
+        self.elapsed_seconds_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "elapsed_seconds", "`.")]
+    pub fn elapsed_seconds_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "phase",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn phase_column(&self) -> &'a arrow_array::StringArray {
+        self.phase_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "phase", "`.")]
+    pub fn phase_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -473,7 +650,7 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "objective", "`.")]
     pub fn objective_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -485,7 +662,7 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "dual_bound", "`.")]
     pub fn dual_bound_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -497,7 +674,31 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "gap", "`.")]
     pub fn gap_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "nodes",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn nodes_column(&self) -> &'a arrow_array::Int64Array {
+        self.nodes_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "nodes", "`.")]
+    pub fn nodes_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "seconds",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn seconds_column(&self) -> &'a arrow_array::Float64Array {
+        self.seconds_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "seconds", "`.")]
+    pub fn seconds_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -509,7 +710,7 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "solution_id", "`.")]
     pub fn solution_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -528,7 +729,13 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
                 index,
             )?,
             r#seq: crate::columnar::ArrowValue::read(self.seq_column, index)?,
+            r#step: crate::columnar::ArrowValue::read(self.step_column, index)?,
             r#at: crate::columnar::ArrowValue::read(self.at_column, index)?,
+            r#elapsed_seconds: crate::columnar::ArrowValue::read(
+                self.elapsed_seconds_column,
+                index,
+            )?,
+            r#phase: crate::columnar::ArrowValue::read(self.phase_column, index)?,
             r#objective: crate::columnar::ArrowValue::read(
                 self.objective_column,
                 index,
@@ -538,6 +745,8 @@ impl<'a> RuntimeOperationalIncumbentsView<'a> {
                 index,
             )?,
             r#gap: crate::columnar::ArrowValue::read(self.gap_column, index)?,
+            r#nodes: crate::columnar::ArrowValue::read(self.nodes_column, index)?,
+            r#seconds: crate::columnar::ArrowValue::read(self.seconds_column, index)?,
             r#solution_id: crate::columnar::ArrowValue::read(
                 self.solution_id_column,
                 index,

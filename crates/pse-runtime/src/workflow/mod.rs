@@ -10,6 +10,11 @@ pub use durable::{
     TerminationDetail,
 };
 pub use pse_operations::attempts::AttemptFilter;
+pub use pse_operations::jobs::JobFilter;
+mod operational_tables;
+pub use operational_tables::OPERATIONAL_SCHEMA;
+mod progress;
+pub use progress::{ProgressStream, StreamRecord};
 /// The operational store a process connects to: `PSE_DATABASE_URL`, else the development
 /// default (ADR-0114 Outcome 21).
 pub use pse_operations::database_url_from_env;

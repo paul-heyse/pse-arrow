@@ -261,6 +261,100 @@ impl NativeRuntime {
         let batch = blocking(py, &self.owner, self.inner.studies(&filter), || {})?;
         Ok(inspection::TableStream::from_batch(batch))
     }
+    /// The store's durable jobs, newest first, as `runtime.operational_jobs`: optionally
+    /// those in the given registry `JobState` names.
+    #[pyo3(signature = (*, states=Vec::new(), limit=100))]
+    fn jobs(
+        &self,
+        py: Python<'_>,
+        states: Vec<String>,
+        limit: i64,
+    ) -> PyResult<inspection::TableStream> {
+        let filter = native::JobFilter {
+            states: states
+                .iter()
+                .map(|s| settings::named(py, "job state", s))
+                .collect::<PyResult<_>>()?,
+            limit,
+        };
+        let batch = blocking(py, &self.owner, self.inner.jobs(&filter), || {})?;
+        Ok(inspection::TableStream::from_batch(batch))
+    }
+    /// Run one SQL query over this runtime's query session: the operational relations
+    /// under `pse_ops` when durable, a run's retained results under `workspace`, and an
+    /// open publication's members. The answer streams in batches of the deployment's
+    /// batch size.
+    #[pyo3(signature = (sql, *, result=None, publication=None))]
+    fn query(
+        &self,
+        py: Python<'_>,
+        sql: &str,
+        result: Option<&NativeRunResult>,
+        publication: Option<&inspection::Publication>,
+    ) -> PyResult<inspection::TableStream> {
+        let (base, cancel) = match publication {
+            Some(publication) => {
+                let (session, cancel) = publication
+                    .query_base()
+                    .map_err(|e| errors::diagnostic(py, &e))?;
+                (Some(session), cancel)
+            }
+            None => (None, pse_columnar::CancellationToken::new()),
+        };
+        let batch_size = std::num::NonZeroUsize::new(self.owner.shared.budget().execution.batch_size)
+            .ok_or_else(|| invalid(py, "batch size must be positive"))?;
+        let reader = blocking(
+            py,
+            &self.owner,
+            async {
+                let session = self.inner.query_session(
+                    base.as_ref(),
+                    result.map(|result| result.inner.as_ref()),
+                    &cancel,
+                )?;
+                Ok::<_, native::WorkflowError>(
+                    pse_catalog::inspection::TableReader::query(
+                        &session,
+                        sql,
+                        batch_size,
+                        cancel.clone(),
+                    )
+                    .await?,
+                )
+            },
+            || cancel.cancel(),
+        )?;
+        Ok(inspection::TableStream::new(reader, self.owner.clone()))
+    }
+    /// A durable attempt's stored progress events and incumbents in observation order,
+    /// `page` of each stream at a time; with `follow`, until the attempt ends.
+    #[pyo3(signature = (attempt_id, *, follow=true, page=256))]
+    fn progress(
+        &self,
+        py: Python<'_>,
+        attempt_id: &str,
+        follow: bool,
+        page: usize,
+    ) -> PyResult<NativeProgressStream> {
+        let attempt = id(py, attempt_id)?;
+        let cancel = pse_columnar::CancellationToken::new();
+        let stream = blocking(
+            py,
+            &self.owner,
+            self.inner
+                .progress(attempt.into(), follow, page, cancel.clone()),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeProgressStream {
+            owner: self.owner.clone(),
+            attempt_id: attempt.to_hex(),
+            cancel,
+            slot: Mutex::new(ProgressSlot::Idle(Box::new(ProgressState {
+                stream,
+                buffered: std::collections::VecDeque::new(),
+            }))),
+        })
+    }
     /// Serve the durable job queue in this process until no job is available (or `jobs`
     /// jobs ran), as `pse-worker --until-idle` does; the number of jobs processed.
     #[pyo3(signature = (*, jobs=None))]
@@ -471,7 +565,7 @@ impl NativeRunHandle {
     }
     fn progress(&self) -> (Vec<ProgressEvent>, u64) {
         let (events, dropped) = self.inner.progress();
-        (events.into_iter().map(ProgressEvent).collect(), dropped)
+        (events.into_iter().map(ProgressEvent::native).collect(), dropped)
     }
     #[getter]
     fn progress_count(&self) -> (usize, u64) {
@@ -719,25 +813,167 @@ impl NativePhysicalContext {
     }
 }
 
-/// One bounded, owned native progress event. No native thread enters Python.
+/// A new incumbent of a branch-and-bound search: its objective in original units under
+/// the post-solve convention, the search's bounds then, and, for a stored incumbent whose
+/// solution was kept for resumption, that solution's identity.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Incumbent {
+    objective: f64,
+    dual_bound: Option<f64>,
+    gap: Option<f64>,
+    nodes: Option<i64>,
+    seconds: Option<f64>,
+    solution_id: Option<String>,
+}
+impl Incumbent {
+    fn native(incumbent: &pse_backend_native::solve::IncumbentEvent) -> Self {
+        Self {
+            objective: incumbent.objective,
+            dual_bound: incumbent.dual_bound,
+            gap: incumbent.gap,
+            nodes: Some(incumbent.nodes),
+            seconds: Some(incumbent.seconds),
+            solution_id: None,
+        }
+    }
+}
+#[pymethods]
+impl Incumbent {
+    /// The incumbent's objective value.
+    #[getter]
+    fn objective(&self) -> f64 {
+        self.objective
+    }
+    /// The global dual bound in the objective's units; `None` while none is finite.
+    #[getter]
+    fn dual_bound(&self) -> Option<f64> {
+        self.dual_bound
+    }
+    /// The relative gap; `None` while it is not finite.
+    #[getter]
+    fn gap(&self) -> Option<f64> {
+        self.gap
+    }
+    /// Branch-and-bound nodes explored by then.
+    #[getter]
+    fn nodes(&self) -> Option<i64> {
+        self.nodes
+    }
+    /// The search's native running time then, in seconds.
+    #[getter]
+    fn seconds(&self) -> Option<f64> {
+        self.seconds
+    }
+    /// The stored solution it captured (32 hexadecimal digits), if one was kept.
+    #[getter]
+    fn solution_id(&self) -> Option<String> {
+        self.solution_id.clone()
+    }
+    fn __repr__(&self) -> String {
+        format!(
+            "Incumbent(objective={}, dual_bound={:?}, gap={:?}, nodes={:?})",
+            self.objective, self.dual_bound, self.gap, self.nodes
+        )
+    }
+}
+
+/// Where a stored event sits in its attempt's streams.
+#[derive(Clone, Copy, Debug)]
+struct Stored {
+    step: i32,
+    sequence: i64,
+    at: i64,
+}
+
+/// One bounded, owned progress event: observed in memory, or read back from the
+/// operational store with its step, stream sequence and observation time. An incumbent
+/// of a branch-and-bound search carries it typed. No native thread enters Python.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
-pub(crate) struct ProgressEvent(pse_backend_native::solve::Event);
+pub(crate) struct ProgressEvent {
+    phase: String,
+    elapsed_seconds: f64,
+    values: std::collections::BTreeMap<String, pse_backend_native::solve::Metric>,
+    incumbent: Option<Incumbent>,
+    stored: Option<Stored>,
+}
+impl ProgressEvent {
+    /// An event observed in memory.
+    pub(crate) fn native(event: pse_backend_native::solve::Event) -> Self {
+        Self {
+            incumbent: event.incumbent.as_ref().map(Incumbent::native),
+            phase: event.phase,
+            elapsed_seconds: event.elapsed.as_secs_f64(),
+            values: event.values,
+            stored: None,
+        }
+    }
+    /// A record read back from the operational store.
+    fn stored(record: &native::StreamRecord) -> Self {
+        let incumbent = match record {
+            native::StreamRecord::Incumbent(row) => Some(Incumbent {
+                objective: row.objective,
+                dual_bound: row.dual_bound,
+                gap: row.gap,
+                nodes: row.nodes,
+                seconds: row.seconds,
+                solution_id: row
+                    .solution_id
+                    .map(|id| pse_ids::SemanticId::from(id).to_hex()),
+            }),
+            native::StreamRecord::Progress(_) => None,
+        };
+        Self {
+            phase: record.phase().to_owned(),
+            elapsed_seconds: record.elapsed_seconds(),
+            values: record.values(),
+            incumbent,
+            stored: Some(Stored {
+                step: record.step(),
+                sequence: record.sequence(),
+                at: record.at(),
+            }),
+        }
+    }
+}
 #[pymethods]
 impl ProgressEvent {
     #[getter]
     fn phase(&self) -> &str {
-        &self.0.phase
+        &self.phase
     }
     #[getter]
     fn elapsed_seconds(&self) -> f64 {
-        self.0.elapsed.as_secs_f64()
+        self.elapsed_seconds
+    }
+    /// The typed incumbent this event reports, if it reports one.
+    #[getter]
+    fn incumbent(&self) -> Option<Incumbent> {
+        self.incumbent.clone()
+    }
+    /// The step of the run that produced a stored event; `None` in memory.
+    #[getter]
+    fn step(&self) -> Option<i32> {
+        self.stored.map(|stored| stored.step)
+    }
+    /// A stored event's sequence number in its stream (progress events and incumbents
+    /// are numbered separately); `None` in memory.
+    #[getter]
+    fn sequence(&self) -> Option<i64> {
+        self.stored.map(|stored| stored.sequence)
+    }
+    /// When a stored event was observed, in microseconds since the Unix epoch; `None`
+    /// in memory.
+    #[getter]
+    fn at(&self) -> Option<i64> {
+        self.stored.map(|stored| stored.at)
     }
     #[pyo3(signature=() -> "dict[str, bool | int | float | str | dict[str, str]]")]
     fn values<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
         use pse_backend_native::solve::Metric;
         let dict = pyo3::types::PyDict::new(py);
-        for (k, v) in &self.0.values {
+        for (k, v) in &self.values {
             match v {
                 Metric::Real(v) => dict.set_item(k, v)?,
                 Metric::Integer(v) => dict.set_item(k, v)?,
@@ -752,6 +988,108 @@ impl ProgressEvent {
             }
         }
         Ok(dict)
+    }
+}
+
+/// An open stored stream and the events of its last page not yet returned.
+#[derive(Debug)]
+struct ProgressState {
+    stream: native::ProgressStream,
+    buffered: std::collections::VecDeque<ProgressEvent>,
+}
+
+/// Where a [`NativeProgressStream`] is. The lock is never held while a page is read, so a
+/// reader waiting without the GIL never blocks a thread that holds it.
+#[derive(Debug)]
+enum ProgressSlot {
+    Idle(Box<ProgressState>),
+    /// A thread is reading the next page.
+    Reading,
+    Closed,
+}
+
+/// A durable attempt's stored progress events and incumbents, one bounded page held at a
+/// time. Closing it ends a read that is waiting.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Debug)]
+pub(crate) struct NativeProgressStream {
+    owner: Arc<runtime::Runtime>,
+    attempt_id: String,
+    cancel: pse_columnar::CancellationToken,
+    slot: Mutex<ProgressSlot>,
+}
+impl NativeProgressStream {
+    fn slot(&self, py: Python<'_>) -> PyResult<std::sync::MutexGuard<'_, ProgressSlot>> {
+        self.slot
+            .lock()
+            .map_err(|_| invalid(py, "progress stream lock poisoned"))
+    }
+    /// Release a closed stream's store resources on the runtime that owns them.
+    fn release(&self, state: Box<ProgressState>) {
+        let _enter = self.owner.executor.enter();
+        drop(state);
+    }
+}
+#[pymethods]
+impl NativeProgressStream {
+    /// The attempt whose streams these are (32 hexadecimal digits).
+    #[getter]
+    fn attempt_id(&self) -> &str {
+        &self.attempt_id
+    }
+    /// The next event in observation order; `None` once the stream ended or was closed.
+    /// Reads the next page from the store (waiting for it when following) only when the
+    /// last one is exhausted.
+    fn next_event(&self, py: Python<'_>) -> PyResult<Option<ProgressEvent>> {
+        let mut state = {
+            let mut slot = self.slot(py)?;
+            match std::mem::replace(&mut *slot, ProgressSlot::Reading) {
+                ProgressSlot::Idle(mut state) => {
+                    if let Some(event) = state.buffered.pop_front() {
+                        *slot = ProgressSlot::Idle(state);
+                        return Ok(Some(event));
+                    }
+                    state
+                }
+                ProgressSlot::Reading => {
+                    *slot = ProgressSlot::Reading;
+                    return Err(invalid(py, "another thread is reading this progress stream"));
+                }
+                ProgressSlot::Closed => {
+                    *slot = ProgressSlot::Closed;
+                    return Ok(None);
+                }
+            }
+        };
+        let cancel = self.cancel.clone();
+        let page = blocking(py, &self.owner, state.stream.next_page(), || cancel.cancel());
+        let mut slot = self.slot(py)?;
+        match page {
+            Ok(Some(records)) if !matches!(*slot, ProgressSlot::Closed) => {
+                state
+                    .buffered
+                    .extend(records.iter().map(ProgressEvent::stored));
+                let event = state.buffered.pop_front();
+                *slot = ProgressSlot::Idle(state);
+                Ok(event)
+            }
+            ended => {
+                // Ended, failed or closed while reading: the reader releases what it holds.
+                *slot = ProgressSlot::Closed;
+                drop(slot);
+                self.release(state);
+                ended.map(|_| None)
+            }
+        }
+    }
+    /// Stop reading: a waiting read ends and later reads return nothing.
+    fn close(&self, py: Python<'_>) -> PyResult<()> {
+        self.cancel.cancel();
+        let previous = std::mem::replace(&mut *self.slot(py)?, ProgressSlot::Closed);
+        if let ProgressSlot::Idle(state) = previous {
+            self.release(state);
+        }
+        Ok(())
     }
 }
 

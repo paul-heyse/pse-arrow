@@ -444,16 +444,49 @@ impl<'s> Streams<'s> {
             rows.push(vec![
                 id,
                 &incumbent.seq,
+                &incumbent.step,
                 at,
+                &incumbent.elapsed_seconds,
+                &incumbent.phase,
                 &incumbent.objective,
                 &incumbent.dual_bound,
                 &incumbent.gap,
+                &incumbent.nodes,
+                &incumbent.seconds,
                 &incumbent.solution_id,
             ]);
         }
         let inserted = copy_in(&tx, target, &copy::INCUMBENTS, &rows).await?;
+        // A stream watcher follows incumbents with the progress events.
+        attempts::notify(&tx, target, PROGRESS_CHANNEL, &attempt.to_string()).await?;
         tx.commit().await.classify(target)?;
         Ok(inserted)
+    }
+
+    /// Incumbents after `after` (exclusive), in sequence order, at most `limit`.
+    ///
+    /// # Errors
+    ///
+    /// Classified driver failures.
+    pub async fn incumbents(
+        &self,
+        attempt: AttemptId,
+        after: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<RuntimeOperationalIncumbentsRow>, OperationsError> {
+        let client = self.store.client().await?;
+        statements::incumbent_page()
+            .params(
+                &client,
+                &statements::IncumbentPageParams {
+                    attempt_id: attempt,
+                    after,
+                    limit,
+                },
+            )
+            .all()
+            .await
+            .classify(self.target())
     }
 
     /// The latest incumbent of an attempt, if any.
@@ -474,10 +507,69 @@ impl<'s> Streams<'s> {
     }
 }
 
+/// A position in an attempt's two streams: the sequence number of the last progress event
+/// and of the last incumbent already read; none before the first.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct StreamPosition {
+    /// The last progress event read.
+    pub progress: Option<i64>,
+    /// The last incumbent read.
+    pub incumbents: Option<i64>,
+}
+
+/// One page of an attempt's streams: progress events and incumbents after a
+/// [`StreamPosition`], each in sequence order.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StreamPage {
+    /// Progress events, with their values.
+    pub progress: Vec<ProgressEvent>,
+    /// Incumbents of a branch-and-bound search.
+    pub incumbents: Vec<RuntimeOperationalIncumbentsRow>,
+}
+
+impl StreamPage {
+    /// Whether the page holds nothing.
+    pub fn is_empty(&self) -> bool {
+        self.progress.is_empty() && self.incumbents.is_empty()
+    }
+
+    /// The position after this page, read from `after`.
+    pub fn advance(&self, after: StreamPosition) -> StreamPosition {
+        StreamPosition {
+            progress: self.progress.last().map(|e| e.seq).or(after.progress),
+            incumbents: self
+                .incumbents
+                .last()
+                .map(|i| i.seq)
+                .or(after.incumbents),
+        }
+    }
+}
+
+impl Streams<'_> {
+    /// Both streams of an attempt after `after`: at most `limit` progress events and at
+    /// most `limit` incumbents.
+    ///
+    /// # Errors
+    ///
+    /// As for [`Streams::progress`].
+    pub async fn page(
+        &self,
+        attempt: AttemptId,
+        after: StreamPosition,
+        limit: i64,
+    ) -> Result<StreamPage, OperationsError> {
+        Ok(StreamPage {
+            progress: self.progress(attempt, after.progress, limit).await?,
+            incumbents: self.incumbents(attempt, after.incumbents, limit).await?,
+        })
+    }
+}
+
 impl Store {
-    /// Watch one attempt's progress stream. The watcher subscribes to the store's listener
-    /// and returns once `LISTEN` is in effect; notifications only wake it, and it always
-    /// reads the stored events.
+    /// Watch one attempt's streams, its progress events and its incumbents. The watcher
+    /// subscribes to the store's listener and returns once `LISTEN` is in effect;
+    /// notifications only wake it, and it always reads the stored rows.
     ///
     /// # Errors
     ///
@@ -494,7 +586,8 @@ impl Store {
     }
 }
 
-/// Follows one attempt's progress stream as it is written (ADR-0114 Outcome 17).
+/// Follows one attempt's progress and incumbent streams as they are written (ADR-0114
+/// Outcome 17).
 #[derive(Debug)]
 pub struct ProgressWatcher {
     events: Subscription,
@@ -503,10 +596,10 @@ pub struct ProgressWatcher {
 }
 
 impl ProgressWatcher {
-    /// The next stored events after `after`, at most `limit`, waiting until some exist.
-    /// Returns an empty page once the attempt has stopped working and every stored event
-    /// was returned. A notification lost while the listener reconnects only delays the
-    /// read: the watcher reads again on every resynchronization.
+    /// The next stored rows after `after`, at most `limit` of each stream, waiting until
+    /// some exist. Returns an empty page once the attempt has stopped working and every
+    /// stored row was returned. A notification lost while the listener reconnects only
+    /// delays the read: the watcher reads again on every resynchronization.
     ///
     /// # Errors
     ///
@@ -514,27 +607,19 @@ impl ProgressWatcher {
     /// [`OperationsError::Unavailable`] once the store's listener stopped.
     pub async fn next(
         &mut self,
-        after: Option<i64>,
+        after: StreamPosition,
         limit: i64,
-    ) -> Result<Vec<ProgressEvent>, OperationsError> {
+    ) -> Result<StreamPage, OperationsError> {
         use crate::lifecycle::Lifecycle;
         loop {
-            let page = self
-                .store
-                .streams()
-                .progress(self.attempt, after, limit)
-                .await?;
+            let page = self.store.streams().page(self.attempt, after, limit).await?;
             if !page.is_empty() {
                 return Ok(page);
             }
             let state = self.store.attempts().get(self.attempt).await?.state;
             if state.ends_work() || state.is_final() {
-                // Events committed before the terminal transition are already visible.
-                return self
-                    .store
-                    .streams()
-                    .progress(self.attempt, after, limit)
-                    .await;
+                // Rows committed before the terminal transition are already visible.
+                return self.store.streams().page(self.attempt, after, limit).await;
             }
             loop {
                 match self.events.next().await? {

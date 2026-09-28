@@ -46,6 +46,13 @@ WHERE i.attempt_id = a.attempt_id
 SELECT seq FROM pse_ops.incumbents
 WHERE attempt_id = :attempt_id::pse_ops.attempt_id AND seq = ANY(:seqs::bigint[]);
 
+--! incumbent_page (after?)
+SELECT i FROM pse_ops.incumbents AS i
+WHERE i.attempt_id = :attempt_id::pse_ops.attempt_id
+  AND i.seq > coalesce(:after::bigint, -1)
+ORDER BY i.seq
+LIMIT :limit;
+
 --! latest_incumbent
 SELECT i FROM pse_ops.incumbents AS i
 WHERE i.attempt_id = :attempt_id::pse_ops.attempt_id

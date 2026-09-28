@@ -156,17 +156,29 @@ CREATE TABLE pse_ops."attempts" (
 CREATE TABLE pse_ops."incumbents" (
     "attempt_id" pse_ops.attempt_id NOT NULL,
     "seq" bigint NOT NULL,
+    "step" integer NOT NULL,
     "at" timestamptz NOT NULL,
+    "elapsed_seconds" double precision NOT NULL,
+    "phase" text NOT NULL,
     "objective" double precision NOT NULL,
     "dual_bound" double precision,
     "gap" double precision,
+    "nodes" bigint,
+    "seconds" double precision,
     "solution_id" pse_ops.solution_id,
     CONSTRAINT incumbents_pkey PRIMARY KEY ("attempt_id", "seq"),
     CONSTRAINT incumbents_dual_bound_finite CHECK ("dual_bound" > '-Infinity'::double precision AND "dual_bound" < 'Infinity'::double precision),
+    CONSTRAINT incumbents_elapsed_nonnegative_check CHECK ("elapsed_seconds" >= 0),
+    CONSTRAINT incumbents_elapsed_seconds_finite CHECK ("elapsed_seconds" > '-Infinity'::double precision AND "elapsed_seconds" < 'Infinity'::double precision),
     CONSTRAINT incumbents_gap_finite CHECK ("gap" > '-Infinity'::double precision AND "gap" < 'Infinity'::double precision),
     CONSTRAINT incumbents_gap_nonnegative_check CHECK ("gap" IS NULL OR "gap" >= 0),
+    CONSTRAINT incumbents_nodes_nonnegative_check CHECK ("nodes" IS NULL OR "nodes" >= 0),
     CONSTRAINT incumbents_objective_finite CHECK ("objective" > '-Infinity'::double precision AND "objective" < 'Infinity'::double precision),
-    CONSTRAINT incumbents_seq_nonnegative_check CHECK ("seq" >= 0)
+    CONSTRAINT incumbents_phase_nonempty_check CHECK ("phase" <> ''),
+    CONSTRAINT incumbents_seconds_finite CHECK ("seconds" > '-Infinity'::double precision AND "seconds" < 'Infinity'::double precision),
+    CONSTRAINT incumbents_seconds_nonnegative_check CHECK ("seconds" IS NULL OR "seconds" >= 0),
+    CONSTRAINT incumbents_seq_nonnegative_check CHECK ("seq" >= 0),
+    CONSTRAINT incumbents_step_nonnegative_check CHECK ("step" >= 0)
 );
 
 -- runtime.operational_jobs

@@ -117,6 +117,25 @@ pub struct NewJob {
     pub retry: RetryPolicy,
 }
 
+/// Which jobs [`Jobs::list`] returns.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JobFilter {
+    /// Only jobs in these states; every state when empty.
+    pub states: Vec<JobState>,
+    /// At most this many, newest first.
+    pub limit: i64,
+}
+
+impl JobFilter {
+    /// The newest `limit` jobs of every state.
+    pub const fn newest(limit: i64) -> Self {
+        Self {
+            states: Vec::new(),
+            limit,
+        }
+    }
+}
+
 /// The result of an enqueue.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Enqueued {
@@ -479,6 +498,36 @@ impl<'s> Jobs<'s> {
                 entity: "job",
                 id: job.to_string(),
             })
+    }
+
+    /// Jobs newest first: all of them or those in the given states, at most
+    /// `filter.limit`.
+    ///
+    /// # Errors
+    ///
+    /// [`OperationsError::InvalidRequest`] for a non-positive limit; classified driver
+    /// failures.
+    pub async fn list(
+        &self,
+        filter: &JobFilter,
+    ) -> Result<Vec<RuntimeOperationalJobsRow>, OperationsError> {
+        if filter.limit <= 0 {
+            return Err(OperationsError::InvalidRequest {
+                reason: format!("job listing limit {} is not positive", filter.limit),
+            });
+        }
+        let client = self.store.client().await?;
+        statements::list_jobs()
+            .params(
+                &client,
+                &statements::ListJobsParams {
+                    states: filter.states.as_slice(),
+                    limit: filter.limit,
+                },
+            )
+            .all()
+            .await
+            .classify(self.target())
     }
 
     /// Claim the next available job for `worker`: the highest priority, then the oldest

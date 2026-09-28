@@ -79,6 +79,8 @@ NativeEligibility = _native.NativeEligibility
 NativeIneligible = _native.NativeIneligible
 NativeStrategyAttempt = _native.NativeStrategyAttempt
 ProgressEvent = _native.ProgressEvent
+Incumbent = _native.Incumbent
+_NativeProgressStream = _native.NativeProgressStream
 
 
 def _open_export(location: str, settings: EngineSettings) -> _NativePublication:

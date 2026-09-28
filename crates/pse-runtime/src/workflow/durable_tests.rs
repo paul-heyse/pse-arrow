@@ -578,6 +578,33 @@ async fn incumbents_stored_as_seeds(
     // One representation: incumbents are not also progress events.
     let progress = record.progress.as_ref().unwrap();
     assert!(!progress.iter().any(|e| e.phase.ends_with(".incumbent")));
+    // The attempt's stored stream carries each incumbent with the progress context of
+    // the event that reported it (Plan 22 O9).
+    let mut stream = runtime
+        .progress(
+            record.attempt_id,
+            false,
+            64,
+            pse_columnar::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    let mut streamed = Vec::new();
+    while let Some(page) = stream.next_page().await.unwrap() {
+        streamed.extend(page.into_iter().filter_map(|record| match record {
+            super::StreamRecord::Incumbent(incumbent) => Some(incumbent),
+            super::StreamRecord::Progress(_) => None,
+        }));
+    }
+    assert_eq!(streamed.len(), incumbents.len());
+    for incumbent in &streamed {
+        assert_eq!(incumbent.step, 0);
+        assert!(incumbent.phase.ends_with(".incumbent"), "{incumbent:?}");
+        assert!(
+            incumbent.nodes.is_some() && incumbent.seconds.is_some(),
+            "{incumbent:?}"
+        );
+    }
     drop(runtime);
     database.remove().await.unwrap();
     incumbents
