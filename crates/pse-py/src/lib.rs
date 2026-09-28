@@ -81,9 +81,9 @@ mod _native {
             NativeModelingStudy, NativeModelingTrajectory, NativePhysicalContext,
             NativePreparedFlow, NativePreparedOperation, NativePreparedStrategy,
             NativePublicationAttempt, NativeRoute, NativeRunHandle, NativeRunResult, NativeRuntime,
-            NativeStart, NativeStrategyAttempt, NativeStrategyResult, NativeStudyHandle,
-            OperationalStore,
-            ProgressEvent, SimulationSettings,
+            Incumbent, NativeProgressStream, NativeStart, NativeStrategyAttempt,
+            NativeStrategyResult, NativeStudyHandle, OperationalStore, ProgressEvent,
+            SimulationSettings,
         },
     };
 

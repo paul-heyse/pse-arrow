@@ -3,13 +3,15 @@
 """Source-independent joined computation and publication handles."""
 from collections.abc import Mapping
 from datetime import timedelta
-from typing import TypeAlias
+from types import TracebackType
+from typing import Self, TypeAlias
 import attrs
 import msgspec
 from pse import codec
 from pse._build import (DiagnosticReport, NativeEligibility, NativeRoute,
-    ProgressEvent, _NativePreparedOperation, _NativePublicationAttempt,
-    _NativeRunHandle, _NativeRunResult, _NativeStart, _NativeStudyHandle)
+    ProgressEvent, _NativePreparedOperation, _NativeProgressStream,
+    _NativePublicationAttempt, _NativeRunHandle, _NativeRunResult, _NativeStart,
+    _NativeStudyHandle)
 from pse._inspection import TableStream
 from pse.contracts import runtime as result_contracts
 from pse.contracts.enums import AttemptState, JobState, StudyPointState, StudyState
@@ -283,6 +285,50 @@ class RunHandle:
     def progress_count(self) -> tuple[int, int]:
         """Retained native events and dropped-event count."""
         return self._handle.progress_count
+
+
+@attrs.frozen
+class ProgressStream:
+    """A durable attempt's stored progress events and incumbents, in observation order.
+
+    Events are read from the operational store a bounded page at a time. A followed
+    stream waits for new events until the attempt stops working; otherwise it ends
+    after the events stored when it reads them. Each event carries its ``step``,
+    stream ``sequence`` and observation time ``at``; an incumbent of a
+    branch-and-bound search is an event whose ``incumbent`` is set. ``close`` ends
+    the stream, including a read that is waiting.
+    """
+
+    _handle: _NativeProgressStream
+
+    @property
+    def attempt_id(self) -> SemanticId:
+        """The attempt whose streams these are."""
+        return SemanticId.from_hex(self._handle.attempt_id)
+
+    def __iter__(self) -> Self:
+        return self
+
+    def __next__(self) -> ProgressEvent:
+        event = self._handle.next_event()
+        if event is None:
+            raise StopIteration
+        return event
+
+    def close(self) -> None:
+        """Stop reading; a waiting read ends and later reads find nothing."""
+        self._handle.close()
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc_value: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> None:
+        self.close()
 
 
 class StudyPointStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True):

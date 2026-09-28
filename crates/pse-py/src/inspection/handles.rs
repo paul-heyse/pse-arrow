@@ -59,6 +59,22 @@ impl Publication {
             .map(|selected| (selected.publication.clone(), selected.lease.clone()))
             .ok_or_else(errors::closed)
     }
+    /// The publication's session for a query, and the cancellation its reads observe: a
+    /// lapsed catalog lease cancels them. The session retains the selection's owners.
+    pub(crate) fn query_base(
+        &self,
+    ) -> Result<(pse_engine::session::EngineSession, CancellationToken), EngineError> {
+        let (publication, lease) = self.selected()?;
+        if let Some(lease) = &lease {
+            lease
+                .check()
+                .map_err(|error| errors::invalid(&error.to_string()))?;
+        }
+        let cancel = lease.map_or_else(CancellationToken::new, |lease| {
+            lease.cancellation().clone()
+        });
+        Ok((publication.session().clone(), cancel))
+    }
     fn record<T>(
         &self,
         py: Python<'_>,

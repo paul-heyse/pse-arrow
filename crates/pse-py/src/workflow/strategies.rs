@@ -330,13 +330,13 @@ impl NativeAttempt {
                 .events
                 .iter()
                 .cloned()
-                .map(ProgressEvent)
+                .map(ProgressEvent::native)
                 .collect(),
             self.inner.dropped_events,
         )
     }
     fn metrics(&self) -> ProgressEvent {
-        ProgressEvent(pse_backend_native::solve::Event {
+        ProgressEvent::native(pse_backend_native::solve::Event {
             phase: "final".into(),
             elapsed: Duration::ZERO,
             values: self.inner.metrics.clone(),

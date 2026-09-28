@@ -25,15 +25,17 @@ from pse._runs import (
     PublicationCommitted, PublicationNoncommit, PublicationConflict,
     PublicationUnresolved, PublicationSettlement, PublicationAttempt, Published,
     Workspace, ExportReceipt, StudyHandle, StudyStatus, StudyPointStatus, StudyCancel,
+    ProgressStream,
 )
 
 from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import SolveSettings
-from pse.contracts.enums import AttemptState, StudyState
+from pse.contracts.enums import AttemptState, JobState, StudyState
 from pse.contracts.values import ContentHash, SemanticId
 
 SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
 OperationalAttempt = result_contracts.RuntimeOperationalAttemptsRow
+OperationalJob = result_contracts.RuntimeOperationalJobsRow
 OperationalStudy = result_contracts.RuntimeOperationalStudiesRow
 
 @attrs.frozen(init=False)
@@ -110,6 +112,79 @@ class Runtime:
         )
         return tuple(
             codec.structure_rows(pa.table(stream).to_pylist(), OperationalStudy)
+        )
+
+    def jobs(
+        self,
+        *,
+        states: Sequence[JobState] = (),
+        limit: int = 100,
+    ) -> tuple[OperationalJob, ...]:
+        """List the store's durable jobs, newest first.
+
+        Args:
+            states: Only jobs in these states; every state when empty.
+            limit: At most this many jobs.
+
+        Returns:
+            One registry ``runtime.operational_jobs`` row per job.
+        """
+        stream = TableStream(
+            self._handle.jobs(
+                states=[JobState(state).value for state in states], limit=limit
+            )
+        )
+        return tuple(codec.structure_rows(pa.table(stream).to_pylist(), OperationalJob))
+
+    def query(
+        self,
+        sql: str,
+        *,
+        result: RunResult | None = None,
+        publication: Publication | None = None,
+    ) -> TableStream:
+        """Run SQL over the operational store and, optionally, results.
+
+        A durable runtime's query sees the operational relations as read-only
+        tables under ``pse_ops`` (``pse_ops.attempts``, ``pse_ops.jobs``,
+        ``pse_ops.progress_events``, ``pse_ops.incumbents``, ``pse_ops.studies``,
+        ...), read from the store as the query runs; typed filters on their
+        identities, states and times are applied by the store.
+
+        Args:
+            sql: One query.
+            result: A run whose retained result relations the query may read, as
+                ``workspace.<namespace>.<name>`` (``workspace.runtime.solve_runs``).
+            publication: An open publication whose members the query may read by
+                their catalog, schema and table names.
+
+        Returns:
+            The answer as a one-consumption Arrow stream.
+        """
+        return TableStream(
+            self._handle.query(
+                sql,
+                result=None if result is None else result._handle,  # noqa: SLF001 - same native boundary
+                publication=None if publication is None else publication._handle,  # noqa: SLF001 - same native boundary
+            )
+        )
+
+    def progress(
+        self, attempt_id: SemanticId, *, follow: bool = True, page: int = 256
+    ) -> ProgressStream:
+        """Stream a durable attempt's stored progress events and incumbents.
+
+        Args:
+            attempt_id: The attempt.
+            follow: Wait for new events until the attempt stops working; otherwise
+                end after the events stored now.
+            page: At most this many events of each stream are read and held at once.
+
+        Returns:
+            An iterator of events in observation order; close it to stop.
+        """
+        return ProgressStream(
+            self._handle.progress(attempt_id.to_hex(), follow=follow, page=page)
         )
 
     def study(self, study_id: SemanticId) -> StudyHandle:
