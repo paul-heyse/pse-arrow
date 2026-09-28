@@ -37,6 +37,8 @@ whose step E14 points here.
 4. **Remote object stores are not a priority** for this locally run project. O8 qualifies the catalog protocol locally only, and a register row holds the remote trigger.
 5. **Scoped qualification.** One runs at W6, before solver work resumes.
 6. **Execution.** The three tracks run as parallel agents in worktrees and merge into `main` at packet boundaries.
+7. **Model and case name declarations** (B3b's proposal). `model_id` names the model's specialized definition and `case_id` the case declaration, both typed `declaration`. The instance and the fit get their own columns, and the unused `model` and `case` identities go. No accepted ADR or architecture section defines these columns; the registry column documentation owns their meaning, so B3c implements the decision without a new record. Numerics identity bytes change, and cached results regenerate.
+8. **Lean verification mid-track.** Merges are checked by compile checks and targeted units; use-case and journey suites wait for W6. From W5 on, single agents work in the main checkout to reuse the warm build.
 
 ## Binding execution decisions
 
