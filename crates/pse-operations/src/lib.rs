@@ -28,6 +28,7 @@ mod ids;
 pub mod generated;
 pub mod jobs;
 pub mod lifecycle;
+mod listener;
 mod schema;
 pub mod solutions;
 pub mod sources;
@@ -41,6 +42,7 @@ mod store_tests;
 
 pub use ids::mint_id;
 pub use error::{DriverError, InvariantKind, OperationsError, Target};
+pub use listener::LISTENER_APPLICATION;
 pub use schema::{Opened, PHYSICAL_SQL, SchemaStatus};
 pub use store::{
     DATABASE_URL_ENV, DEFAULT_DATABASE_URL, MINIMUM_SERVER_VERSION, ServerInfo, Store,

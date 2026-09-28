@@ -5,16 +5,16 @@
 //!
 //! `pse_ops.attempts.cancel_requested` is the authority; heartbeats return it. `NOTIFY` only
 //! shortens latency: notifications are lost while a listener is disconnected, so the
-//! watcher re-reads the column after `LISTEN` commits, after every notification for its
-//! attempt, and after every reported connection loss.
+//! watcher re-reads the column once `LISTEN` is in effect, after every notification for its
+//! attempt, and after every resynchronization of the store's listener (Plan 22 X8).
 
 use pse_operations_queries::queries::{cancellation as statements, jobs as job_statements};
-use sqlx::postgres::PgListener;
 
 use crate::attempts::{self, AttemptId, TransitionNote};
-use crate::error::{Classify, OperationsError, Target};
+use crate::error::{Classify, OperationsError};
 use crate::jobs::JobState;
 use crate::lifecycle::{AttemptState, Lifecycle};
+use crate::listener::{Channel, Event, Subscription};
 use crate::store::Store;
 
 /// The notification channel; the payload is the attempt identity.
@@ -78,28 +78,21 @@ impl Store {
         Ok(outcome)
     }
 
-    /// Start watching one attempt for cancellation. The watcher holds one pooled
-    /// connection for `LISTEN`.
+    /// Start watching one attempt for cancellation. The watcher subscribes to the store's
+    /// listener and returns once `LISTEN` is in effect, so its first read of the durable
+    /// flag already sees every later request.
     ///
     /// # Errors
     ///
-    /// Classified driver failures.
+    /// [`OperationsError::Unavailable`] when `LISTEN` does not take effect.
     pub async fn watch_cancellation(
         &self,
         attempt: AttemptId,
     ) -> Result<CancellationWatcher, OperationsError> {
-        let target = self.target().clone();
-        let mut listener = PgListener::connect_with(self.pool())
-            .await
-            .classify(&target)?;
-        // Autocommit: LISTEN is in effect once this returns, before the first re-read.
-        listener.listen(CANCEL_CHANNEL).await.classify(&target)?;
         Ok(CancellationWatcher {
-            listener,
+            events: self.subscribe().await?,
             store: self.clone(),
             attempt,
-            payload: attempt.to_string(),
-            target,
         })
     }
 }
@@ -107,11 +100,9 @@ impl Store {
 /// Waits for cancellation of one attempt, reading the durable flag as the authority.
 #[derive(Debug)]
 pub struct CancellationWatcher {
-    listener: PgListener,
+    events: Subscription,
     store: Store,
     attempt: AttemptId,
-    payload: String,
-    target: Target,
 }
 
 impl CancellationWatcher {
@@ -131,7 +122,7 @@ impl CancellationWatcher {
             .bind(&client, &self.attempt)
             .opt()
             .await
-            .classify(&self.target)?
+            .classify(self.store.target())?
             .ok_or_else(|| OperationsError::NotFound {
                 entity: "attempt",
                 id: self.attempt.to_string(),
@@ -140,22 +131,26 @@ impl CancellationWatcher {
 
     /// Resolve once cancellation has been requested. Re-reads the flag first (the
     /// listen-then-inspect rule), after each notification naming this attempt, and after
-    /// each connection loss, when notifications sent meanwhile are gone.
+    /// each resynchronization: a reconnected listener or a watcher that fell behind may
+    /// have missed a notification.
     ///
     /// # Errors
     ///
-    /// Classified driver failures.
+    /// Classified driver failures; [`OperationsError::Unavailable`] once the store's
+    /// listener stopped.
     pub async fn requested(&mut self) -> Result<(), OperationsError> {
         loop {
             if self.is_requested().await? {
                 return Ok(());
             }
             loop {
-                match self.listener.try_recv().await.classify(&self.target)? {
-                    Some(notification) if notification.payload() == self.payload => break,
-                    Some(_) => {}
-                    // The connection was lost and re-established: re-read the authority.
-                    None => break,
+                match self.events.next().await? {
+                    Event::Notification {
+                        channel: Channel::Cancel,
+                        attempt,
+                    } if attempt == self.attempt => break,
+                    Event::Resync => break,
+                    Event::Notification { .. } => {}
                 }
             }
         }

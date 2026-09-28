@@ -12,6 +12,7 @@ use pse_operations_queries::queries::store as statements;
 use tokio_postgres_rustls::MakeRustlsConnect;
 
 use crate::error::{Classify, OperationsError, Target};
+use crate::listener::{Listener, Subscription};
 
 /// The environment variable naming the operational store (ADR-0114 Outcome 21).
 pub const DATABASE_URL_ENV: &str = "PSE_DATABASE_URL";
@@ -91,18 +92,15 @@ pub struct Store {
 
 struct Inner {
     pool: deadpool_postgres::Pool,
-    /// The connection configuration, for connections outside the pool (sessions).
-    #[cfg_attr(
-        not(any(test, feature = "test-support")),
-        expect(dead_code, reason = "read by the listener task in the next Plan 22 B2.4 step")
-    )]
+    /// The connection configuration, for connections outside the pool: the listener's
+    /// and test sessions.
     config: tokio_postgres::Config,
-    #[cfg_attr(
-        not(any(test, feature = "test-support")),
-        expect(dead_code, reason = "read by the listener task in the next Plan 22 B2.4 step")
-    )]
     tls: MakeRustlsConnect,
     target: Target,
+    /// How long to wait for a connection, and for `LISTEN` to take effect.
+    connect_timeout: Duration,
+    /// The one `LISTEN` connection of this store, started by the first watcher (X8).
+    listener: tokio::sync::OnceCell<Listener>,
     /// The superseded sqlx pool of the repositories not yet on tokio-postgres (Plan 22
     /// B2.4); deleted with sqlx in B2.5.
     sqlx: sqlx::PgPool,
@@ -223,6 +221,8 @@ impl Store {
                 config,
                 tls,
                 target,
+                connect_timeout: options.acquire_timeout,
+                listener: tokio::sync::OnceCell::new(),
                 sqlx,
             }),
         };
@@ -260,6 +260,29 @@ impl Store {
         &self.inner.sqlx
     }
 
+    /// Every notification from now on, once the store's listener has `LISTEN` in effect
+    /// (Plan 22 X8). The first subscription starts the listener.
+    ///
+    /// # Errors
+    ///
+    /// [`OperationsError::Unavailable`] when `LISTEN` does not take effect in time.
+    pub(crate) async fn subscribe(&self) -> Result<Subscription, OperationsError> {
+        let listener = self
+            .inner
+            .listener
+            .get_or_init(|| async { Listener::spawn(&self.inner.config, &self.inner.tls) })
+            .await;
+        listener
+            .subscribe(&self.inner.target, self.inner.connect_timeout)
+            .await
+    }
+
+    /// The store's listener, once a watcher started it.
+    #[cfg(test)]
+    pub(crate) fn listener(&self) -> Option<&Listener> {
+        self.inner.listener.get()
+    }
+
     /// The connection configuration, for connections outside the pool.
     #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn config(&self) -> &tokio_postgres::Config {
@@ -281,6 +304,9 @@ impl Store {
     /// Close the pool: waiting and later acquisitions fail as unavailable, and
     /// connections are closed as they are returned.
     pub async fn close(&self) {
+        if let Some(listener) = self.inner.listener.get() {
+            listener.stop();
+        }
         self.inner.pool.close();
         // The superseded pool waits for connections a listener still holds; bounded.
         let _ = tokio::time::timeout(Duration::from_millis(200), self.inner.sqlx.close()).await;

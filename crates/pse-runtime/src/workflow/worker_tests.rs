@@ -224,7 +224,7 @@ async fn blocked_try(
     runtime: &Runtime,
 ) -> (
     pse_operations::attempts::AttemptId,
-    sqlx_lock::Lock,
+    store_lock::Lock,
     tokio::task::JoinHandle<Result<Processed, WorkflowError>>,
 ) {
     let job = authored_job(runtime, SQUARE, ipopt()).await;
@@ -232,7 +232,7 @@ async fn blocked_try(
         .enqueue_modeling(&job, "blocked", retry(), 0)
         .await
         .unwrap();
-    let lock = sqlx_lock::Lock::source_bundles(database).await;
+    let lock = store_lock::Lock::source_bundles(database).await;
     let worker = runtime.clone();
     let task = tokio::spawn(async move { worker.work_once().await });
     // Running under the worker's lease, with its cancellation watcher listening.
@@ -257,7 +257,7 @@ async fn blocked_try(
 
 /// A table lock held in an open transaction on its own connection, and an autocommit probe
 /// (a transaction would see one cached `pg_stat_activity` snapshot).
-mod sqlx_lock {
+mod store_lock {
     use pse_operations::testing::{Session, TestDatabase};
 
     pub(super) struct Lock {
@@ -265,8 +265,14 @@ mod sqlx_lock {
         probe: Session,
     }
 
-    const LISTENERS: &str = "FROM pg_stat_activity \
-        WHERE datname = current_database() AND query LIKE 'LISTEN%pse_ops_cancel%'";
+    /// The store's listener connection, by its application name (Plan 22 X8).
+    fn listeners() -> String {
+        format!(
+            "FROM pg_stat_activity WHERE datname = current_database() \
+             AND application_name = '{}'",
+            pse_operations::LISTENER_APPLICATION
+        )
+    }
 
     impl Lock {
         pub(super) async fn source_bundles(database: &TestDatabase) -> Self {
@@ -283,17 +289,18 @@ mod sqlx_lock {
 
         pub(super) async fn listeners(&self) -> i64 {
             self.probe
-                .count(&format!("SELECT count(*) {LISTENERS}"))
+                .count(&format!("SELECT count(*) {}", listeners()))
                 .await
                 .unwrap()
         }
 
-        /// Drop every cancellation listener's connection; the listeners reconnect.
+        /// Drop the store listener's connection; the listener reconnects.
         pub(super) async fn terminate_listeners(&self) {
             let terminated = self
                 .probe
                 .count(&format!(
-                    "SELECT count(*) FILTER (WHERE pg_terminate_backend(pid)) {LISTENERS}"
+                    "SELECT count(*) FILTER (WHERE pg_terminate_backend(pid)) {}",
+                    listeners()
                 ))
                 .await
                 .unwrap();

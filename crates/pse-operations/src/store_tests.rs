@@ -1276,17 +1276,93 @@ async fn cancel_observed_after_listener_reconnect() {
             ))
             .await
             .unwrap();
-        let terminated = session
-            .count(
-                "SELECT count(*) FILTER (WHERE pg_terminate_backend(pid)) FROM pg_stat_activity \
-                 WHERE datname = current_database() AND pid <> pg_backend_pid() \
-                   AND query LIKE 'LISTEN%'",
-            )
-            .await
-            .unwrap();
-        assert_eq!(terminated, 1);
+        assert_eq!(terminate_listener(&session).await, 1);
     };
     tokio::join!(waiting, disrupt);
+    drop(session);
+    database.remove().await.unwrap();
+}
+
+/// Terminate the store listener's connection; returns how many backends were terminated.
+async fn terminate_listener(session: &crate::testing::Session) -> i64 {
+    session
+        .count(&format!(
+            "SELECT count(*) FILTER (WHERE pg_terminate_backend(pid)) FROM pg_stat_activity \
+             WHERE datname = current_database() AND application_name = '{}'",
+            crate::LISTENER_APPLICATION
+        ))
+        .await
+        .unwrap()
+}
+
+/// The next cancellation notification, skipping resynchronizations and other channels.
+async fn next_cancel(events: &mut crate::listener::Subscription) -> AttemptId {
+    use crate::listener::{Channel, Event};
+    loop {
+        let event = tokio::time::timeout(Duration::from_secs(10), events.next())
+            .await
+            .expect("a notification arrives")
+            .unwrap();
+        if let Event::Notification {
+            channel: Channel::Cancel,
+            attempt,
+        } = event
+        {
+            return attempt;
+        }
+    }
+}
+
+#[tokio::test]
+async fn listener_resyncs_after_connection_loss() {
+    use crate::listener::Event;
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let session = database.session().await.unwrap();
+    let mut events = store.subscribe().await.unwrap();
+    // One LISTEN has taken effect, on one dedicated, named connection.
+    assert_eq!(store.listener().unwrap().generation(), 1);
+    let first = new_attempt();
+    store.attempts().create(&first, None).await.unwrap();
+    store.request_cancel(first.attempt_id, "user").await.unwrap();
+    assert_eq!(next_cancel(&mut events).await, first.attempt_id);
+
+    // The connection is lost: the listener reconnects, LISTENs again and tells every
+    // subscriber to resynchronize, since notifications sent meanwhile are gone.
+    assert_eq!(terminate_listener(&session).await, 1);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            if events.next().await.unwrap() == Event::Resync {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("a resynchronization follows the reconnection");
+    assert_eq!(store.listener().unwrap().generation(), 2);
+    // Notifications flow again, on the new connection.
+    let second = new_attempt();
+    store.attempts().create(&second, None).await.unwrap();
+    store.request_cancel(second.attempt_id, "user").await.unwrap();
+    assert_eq!(next_cancel(&mut events).await, second.attempt_id);
+
+    // A stopped listener is reported as unavailable, never as silence.
+    store.listener().unwrap().stop();
+    let stopped = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            match events.next().await {
+                Ok(_) => {}
+                Err(error) => break error,
+            }
+        }
+    })
+    .await
+    .expect("the subscription ends with the listener");
+    assert!(
+        matches!(stopped, OperationsError::Unavailable { .. }),
+        "{stopped:?}"
+    );
+    drop(session);
     database.remove().await.unwrap();
 }
 
