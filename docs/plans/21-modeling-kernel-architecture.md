@@ -2,18 +2,18 @@
 title: Modeling kernel — knowledge-agnostic architecture
 status: draft
 date: 2026-09-26
-parent: docs/plans/21-modeling-kernel.md
+parent: docs/plans/23-thermodynamic-domain-and-campaign.md
 review_sources: [docs/design_review/reviews/design_review_idaes-capability-target_2026-09-26.md]
 ---
 
 # Modeling kernel — knowledge-agnostic architecture
 
 **Evidence level: Proposed.** This is the architecture of the modeling kernel that
-[Plan 21](21-modeling-kernel.md) implements before any scientific model is ported. It refines
+[Plan 21](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/plans/21-modeling-kernel.md) implements before any scientific model is ported. It refines
 [Plan 20](20-idaes-capability-target.md): Plan 20's decisions A1–A10 were agreed by the
 maintainer on 2026-09-26, and this document states how A3–A6 and A8–A9 are realized. Where it
 differs from the Plan 20 companion documents, this document governs (see
-[Plan 21 *Decisions*](21-modeling-kernel.md#decisions)).
+[Plan 21 *Decisions*](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/plans/21-modeling-kernel.md#decisions)).
 
 ## 1. The principle: mechanisms in code, knowledge in data
 

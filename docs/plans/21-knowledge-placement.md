@@ -2,7 +2,7 @@
 title: Knowledge placement and porting guide
 status: draft
 date: 2026-09-26
-parent: docs/plans/21-modeling-kernel.md
+parent: docs/plans/23-thermodynamic-domain-and-campaign.md
 ---
 
 # Knowledge placement and porting guide

@@ -31,8 +31,8 @@ provider contracts in `pse-kernels`. The qualification basis for these statement
 > ADR-0107.
 
 The Supported column describes implemented contracts and the exercised K8 seed.
-The earlier local Linux qualification in §24.2 predates this replacement; the current
-assessment is owned by [Plan 21](../../plans/21-modeling-kernel.md). The refused column is enforced: an unsupported request fails with
+The local Linux qualification in §24.2 (Plan 22 Q1) covers this replacement; the integrated
+kernel campaign is owned by [Plan 23](../../plans/23-thermodynamic-domain-and-campaign.md). The refused column is enforced: an unsupported request fails with
 a source-attributed diagnostic ([§23](operations-and-validation.md#section-23)). There is
 no silent fallback, approximate substitute or compatibility route.
 

@@ -7,14 +7,14 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-02, AP-03, AP-04, AP-05, AP-06, DP-13, PS-01]
 blueprint: [§5.3, §6.15.1, §11.3]
-review: docs/design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md
+review: git:0e725de269f18dd08331158a07b38a7d92ea0b5e:docs/design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md
 evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A scientific port needs model-specific Rust or a synthetic kernel contract fails.
 verification: Parse/render/parse, generated contract validation, explicit-ID rename and generic kind controls.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/21-modeling-kernel.md]
+scenarios: [docs/design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#s01]
 ---
 
 # ADR-0099: Author generic models through registry-defined language contracts
@@ -84,8 +84,8 @@ registry and physical-type migration costs are larger than adding another specia
 
 ## More information
 
-[Plan 21](../plans/21-modeling-kernel.md) and its companion documents own implementation
-sequencing. [Target review](../design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md).
+[Plan 21](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/plans/21-modeling-kernel.md) and its companion documents own implementation
+sequencing. [Target review](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md).
 [ADR-0123](0123-typed-package-schema.md) refines the durable IR shape decided here into
 structured syntax: typed type arenas, data cells, enums and path references in place of
 re-parsed text.

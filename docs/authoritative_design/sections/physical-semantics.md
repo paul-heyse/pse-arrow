@@ -327,7 +327,7 @@ C² directional-valve function replaces the Rust provider. Independent frozen te
 and caloric oracle inputs remain in tests, with source and convention notes in each bundle.
 The source packages contain no general multiparameter Helmholtz or CoolProp implementation.
 Focused executed evidence and its limits are recorded by the owning execution packet;
-this inventory does not claim the excluded K9 campaign.
+this inventory does not claim the integrated campaign that Plan 23 owns.
 
 ### 9.9 Electrolytes and inherent reactions
 

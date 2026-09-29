@@ -8,7 +8,7 @@ review_sources: [docs/design_review/reviews/design_review_idaes-capability-targe
 
 # Target design — initialization, scaling, diagnostics, solving and studies
 
-> **Superseded in part by [Plan 21](21-modeling-kernel.md) (2026-09-26).** Wherever this
+> **Superseded in part by [Plan 21](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/plans/21-modeling-kernel.md) (2026-09-26).** Wherever this
 > document assigns scientific concepts to code, the
 > [modeling kernel architecture](21-modeling-kernel-architecture.md) governs. Those concepts
 > are:

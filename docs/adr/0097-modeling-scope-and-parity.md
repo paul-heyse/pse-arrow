@@ -7,14 +7,14 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-01, AP-02, AP-03, AP-04, AP-05, AP-06, DP-13, PS-01]
 blueprint: [§3.1, §24.1]
-review: docs/design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md
+review: git:0e725de269f18dd08331158a07b38a7d92ea0b5e:docs/design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md
 evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A scientific port needs model-specific Rust or a synthetic kernel contract fails.
 verification: Parity version preflight and authored compatibility-name checks; K8 shared conformance compares the selected scientific seed with explicitly attributed oracle inputs and tolerances. K9 campaign parity remains separate.
 standard: core-3.0/process-simulator-1.1
-scenarios: [docs/plans/21-modeling-kernel.md]
+scenarios: [docs/design_review/reviews/design_review_idaes-capability-target_2026-09-26.md#s01]
 ---
 
 # ADR-0097: Target full modeling scope against IDAES 2.13
@@ -66,8 +66,8 @@ registry and physical-type migration costs are larger than adding another specia
 
 ## More information
 
-[Plan 21](../plans/21-modeling-kernel.md) and its companion documents own implementation
-sequencing. [Target review](../design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md).
+[Plan 21](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/plans/21-modeling-kernel.md) and its companion documents own implementation
+sequencing. [Target review](https://github.com/paul-heyse/pse-arrow/blob/0e725de269f18dd08331158a07b38a7d92ea0b5e/docs/design_review/reviews/design_review_modeling-kernel-k0-k3_2026-09-26.md).
 
 ## Status history
 
