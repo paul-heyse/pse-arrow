@@ -76,7 +76,9 @@ def identity(n: int) -> SemanticId:
     return SemanticId(bytes([n]) * 16)
 
 
-def pse_estimate(runtime: pse.Runtime) -> tuple[dict[str, float], dict[tuple[str, str], float]]:
+def pse_estimate(
+    runtime: pse.Runtime,
+) -> tuple[dict[str, float], dict[tuple[str, str], float]]:
     """pse's fitted parameters and published covariance."""
     authored, declarations = support.package(runtime, LINE)
     case = declarations["Line"]

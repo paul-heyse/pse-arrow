@@ -341,20 +341,16 @@ fn measure_large_kkt_linear_solvers() {
         .chain([0, routes.len() - 1].map(|k| (&routes[k], false)));
     for ((name, backend, settings, threads), analysed) in runs {
         // A route runs inside its adapter's admitted thread scope, as the runtime enters it.
-        let (seconds, report) = execution::scoped(
-            &[LINKED.get(*backend).unwrap()],
-            *threads,
-            64 << 20,
-            || {
+        let (seconds, report) =
+            execution::scoped(&[LINKED.get(*backend).unwrap()], *threads, 64 << 20, || {
                 let analysis = if analysed {
                     execution::Analysis::for_intent(SolveIntent::Optimize)
                 } else {
                     execution::Analysis::NONE
                 };
                 Ok::<_, ProblemError>(nlp(*backend, settings, *threads, analysis))
-            },
-        )
-        .unwrap();
+            })
+            .unwrap();
         let objective = report.candidate.as_ref().and_then(|c| c.objective);
         eprintln!(
             "measure n_kkt={} {name}{}: {seconds:.3} s, {} iterations, {:?}, objective {objective:?}",

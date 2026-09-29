@@ -399,11 +399,8 @@ impl MathService {
             + size_of_val(targets.as_slice());
         let foreign = self.policy.foreign_bytes;
         let control = FlightCancellation::default();
-        let operation = self.job_retained(
-            1,
-            super::WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
                 let compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
@@ -420,8 +417,7 @@ impl MathService {
                     )
                     .ok_or(MathRuntimeError::Limit("initialization product extent"))?;
                 Ok((products, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (products, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.own_initialization(products, lease, quantities, targets, numerical.declarations)

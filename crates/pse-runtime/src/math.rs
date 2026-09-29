@@ -348,24 +348,19 @@ impl MathService {
     ) -> Result<Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
-                let _workspace_lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                let prepared =
-                    compiler.prepare_cancellable(id, order, profile, coefficients, flag)?;
-                let bytes = prepared
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("prepared product extent"))?;
-                Ok((prepared, bytes))
-            },
-        );
+        let operation = self.job_retained(1, WITHIN_WORKSPACE, control.clone(), move |flag| {
+            let _workspace_lease = workspace.lease;
+            let mut compiler = workspace
+                .compiler
+                .lock()
+                .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
+            let prepared = compiler.prepare_cancellable(id, order, profile, coefficients, flag)?;
+            let bytes = prepared
+                .retained_bytes()
+                .checked_add(foreign)
+                .ok_or(MathRuntimeError::Limit("prepared product extent"))?;
+            Ok((prepared, bytes))
+        });
         tokio::pin!(operation);
         tokio::select! {result=&mut operation=>self.own_preparation(result?),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
     }
@@ -382,30 +377,25 @@ impl MathService {
     ) -> Result<Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
-                let _lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                compiler.publish(inputs)?;
-                let prepared =
-                    compiler.prepare_cancellable(id, order, profile, false, flag.clone())?;
-                let prepared = if prepared.presolve.coefficient_eligible() {
-                    compiler.prepare_cancellable(id, order, profile, true, flag)?
-                } else {
-                    prepared
-                };
-                let bytes = prepared
-                    .retained_bytes()
-                    .checked_add(foreign)
-                    .ok_or(MathRuntimeError::Limit("prepared product extent"))?;
-                Ok((prepared, bytes))
-            },
-        );
+        let operation = self.job_retained(1, WITHIN_WORKSPACE, control.clone(), move |flag| {
+            let _lease = workspace.lease;
+            let mut compiler = workspace
+                .compiler
+                .lock()
+                .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
+            compiler.publish(inputs)?;
+            let prepared = compiler.prepare_cancellable(id, order, profile, false, flag.clone())?;
+            let prepared = if prepared.presolve.coefficient_eligible() {
+                compiler.prepare_cancellable(id, order, profile, true, flag)?
+            } else {
+                prepared
+            };
+            let bytes = prepared
+                .retained_bytes()
+                .checked_add(foreign)
+                .ok_or(MathRuntimeError::Limit("prepared product extent"))?;
+            Ok((prepared, bytes))
+        });
         tokio::pin!(operation);
         tokio::select! {result=&mut operation=>self.own_preparation(result?),()=driver.cancelled()=>{control.cancel();Err(MathRuntimeError::Cancelled)}}
     }

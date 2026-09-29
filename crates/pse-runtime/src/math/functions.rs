@@ -26,11 +26,8 @@ impl MathService {
     ) -> Result<Arc<ExecutableCase>, MathRuntimeError> {
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            super::WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
                 let mut compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
@@ -44,8 +41,7 @@ impl MathService {
                     .checked_add(foreign)
                     .ok_or(MathRuntimeError::Limit("function product extent"))?;
                 Ok((prepared, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (prepared, lease) = tokio::select! { result = &mut operation => result?, ()=driver.cancelled()=>{
             control.cancel();return Err(MathRuntimeError::Cancelled);

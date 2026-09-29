@@ -129,29 +129,25 @@ impl MathService {
         driver: &crate::CancelSource,
     ) -> Result<Vec<pse_compiler::workspace::ModelingExpectationResult>, MathRuntimeError> {
         let control = FlightCancellation::default();
-        let operation = self.job(
-            1,
-            super::WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
-                let _lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                compiler.publish_modeling_revision(revision.admitted.clone())?;
-                Ok(compiler.check_modeling_expectations(
-                    root,
-                    pse_modeling::specialize::root_instance(root),
-                    bindings,
-                    limits,
-                    &pse_math::binding::CaseValues {
-                        scalars: BTreeMap::new(),
-                    },
-                    profile,
-                    flag,
-                )?)
-            },
-        );
+        let operation = self.job(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
+            let _lease = workspace.lease;
+            let mut compiler = workspace
+                .compiler
+                .lock()
+                .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
+            compiler.publish_modeling_revision(revision.admitted.clone())?;
+            Ok(compiler.check_modeling_expectations(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                bindings,
+                limits,
+                &pse_math::binding::CaseValues {
+                    scalars: BTreeMap::new(),
+                },
+                profile,
+                flag,
+            )?)
+        });
         tokio::pin!(operation);
         tokio::select! { result = &mut operation => result, () = driver.cancelled() => {
             control.cancel(); let _ = operation.await; Err(MathRuntimeError::Cancelled)
@@ -359,11 +355,8 @@ impl MathService {
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            super::WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
                 let compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
@@ -382,8 +375,7 @@ impl MathService {
                     .checked_add(foreign)
                     .ok_or(MathRuntimeError::Limit("modeling function extent"))?;
                 Ok((prepared, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.assemble_functions(prepared, lease, driver).await
@@ -401,11 +393,8 @@ impl MathService {
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            super::WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
                 let compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
@@ -422,8 +411,7 @@ impl MathService {
                     .checked_add(foreign)
                     .ok_or(MathRuntimeError::Limit("parametric program extent"))?;
                 Ok((prepared, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (prepared, lease) = tokio::select! {r=&mut operation=>r?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.assemble_functions(prepared, lease, driver).await
@@ -440,11 +428,8 @@ impl MathService {
     ) -> Result<Arc<super::ExecutableCase>, MathRuntimeError> {
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            super::WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
                 let compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
@@ -461,8 +446,7 @@ impl MathService {
                     .checked_add(foreign)
                     .ok_or(MathRuntimeError::Limit("observation extent"))?;
                 Ok((product, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.preparations
@@ -488,11 +472,8 @@ impl MathService {
     ) -> Result<super::Preparation, MathRuntimeError> {
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            super::WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _lease = workspace.lease;
                 let compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
@@ -510,8 +491,7 @@ impl MathService {
                     .checked_add(foreign)
                     .ok_or(MathRuntimeError::Limit("bound case extent"))?;
                 Ok((product, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let owned = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         self.preparations
@@ -638,11 +618,8 @@ impl MathService {
         let lineage = revision.clone();
         let control = FlightCancellation::default();
         let foreign = self.policy.foreign_bytes;
-        let operation = self.job_retained(
-            1,
-            super::WITHIN_WORKSPACE,
-            control.clone(),
-            move |flag| {
+        let operation =
+            self.job_retained(1, super::WITHIN_WORKSPACE, control.clone(), move |flag| {
                 let _workspace_lease = workspace.lease;
                 let mut compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
@@ -658,8 +635,7 @@ impl MathService {
                     .checked_add(foreign)
                     .ok_or(MathRuntimeError::Limit("modeling product extent"))?;
                 Ok((product, bytes))
-            },
-        );
+            });
         tokio::pin!(operation);
         let (product, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
         let solved = lineage.solved(root, instance)?;
