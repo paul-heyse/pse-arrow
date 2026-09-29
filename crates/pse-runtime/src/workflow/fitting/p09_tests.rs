@@ -30,9 +30,18 @@ fn source_case(
         SemanticId::parse_hex("e2ccf6d0a394403db967f4f35b83cb7c").unwrap(),
     );
     let body = "{ domain t: Time from 160{s} to 161{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[160{s}] == 10{s}; let y[i in t]: Time = x[i]+i-100{s}; let hit[i in t]: Time = x[i]-11{s}; let jump[i in t]: Time = 20{s}; annotation report y(\"measurement\"); annotation check x(x[i] >= 10{s}); }";
-    let integrate = "integrate samples(160{s},161{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-5{s});";
-    let text = format!("package p {{ test Dynamic source \"analytic time integral\" revision \"1\" fixture {{dof 0; run integrated; {integrate}}} {body} test DynamicReset fixture {{dof 0; run integrated; {integrate} mode before; event hit[160{{s}}] direction(either) tolerance(1e-8{{s}}) reset(x[160{{s}}] = jump[160{{s}}]) next(after); mode after;}} {body} def Steady {{ param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); }} }}");
-    let rows=pse_authoring::language::parse(&text,id(20),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+    let integrate =
+        "integrate samples(160{s},161{s}) relative(1e-8) normalized_absolute(1e-8) step(1e-5{s});";
+    let text = format!(
+        "package p {{ test Dynamic source \"analytic time integral\" revision \"1\" fixture {{dof 0; run integrated; {integrate}}} {body} test DynamicReset fixture {{dof 0; run integrated; {integrate} mode before; event hit[160{{s}}] direction(either) tolerance(1e-8{{s}}) reset(x[160{{s}}] = jump[160{{s}}]) next(after); mode after;}} {body} def Steady {{ param p: Scalar = 2; let y: Scalar = p; annotation check p(p > 0); }} }}"
+    );
+    let rows = pse_authoring::language::parse(
+        &text,
+        id(20),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
     let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
     let mut data = FitData::default();
     data.datasets.push(serde_json::from_value(serde_json::json!({"dataset_id":id(70),"name":"mixed","source":"analytic","content_hash":ContentHash::from_bytes([1;32])})).unwrap());
@@ -213,10 +222,7 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
     let mut methods = vec![native::dynamics::Method::Diffsol];
     #[cfg(feature = "solver-idas")]
     methods.push(native::dynamics::Method::Idas);
-    for (method, scheduled) in methods
-        .into_iter()
-        .flat_map(|m| [(m, false), (m, true)])
-    {
+    for (method, scheduled) in methods.into_iter().flat_map(|m| [(m, false), (m, true)]) {
         let (package, mut profile) = source(true, 73.);
         profile
             .simulations
@@ -587,9 +593,15 @@ async fn gauss_newton_covariance_labelled() {
         let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
             panic!("missing fit")
         };
-        assert!((report.candidate.as_ref().unwrap()[0] - 2.).abs() < 1e-5, "{report:?}");
+        assert!(
+            (report.candidate.as_ref().unwrap()[0] - 2.).abs() < 1e-5,
+            "{report:?}"
+        );
         let covariance = report.covariance.as_ref().unwrap();
-        assert_eq!(covariance.approximation, CovarianceApproximation::GaussNewton);
+        assert_eq!(
+            covariance.approximation,
+            CovarianceApproximation::GaussNewton
+        );
         let values = covariance.values.as_ref().unwrap();
         assert!((values[0] - 1.).abs() < 1e-6, "{hessian:?} {values:?}");
         let rows = parameter_covariances::Row::rows(
@@ -612,7 +624,9 @@ async fn gauss_newton_covariance_labelled() {
 /// `x(0) = a`, observed through x at four times and z at one, with data from `k = 1.3`,
 /// `a = 1.8` (`x = a/(1 + a·k·t)`, t in seconds).
 #[cfg(feature = "solver-idas")]
-fn curved_source(method: native::dynamics::Method) -> (crate::workflow::ModelingPackage, FitProfile) {
+fn curved_source(
+    method: native::dynamics::Method,
+) -> (crate::workflow::ModelingPackage, FitProfile) {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -631,8 +645,17 @@ fn curved_source(method: native::dynamics::Method) -> (crate::workflow::Modeling
         pse_authoring::ParseBudget::default(),
     )
     .unwrap();
-    let root = rows.iter().find(|r| r.name == "Decay").unwrap().declaration_id;
-    let unit = physical.quantities.quantity_type(scalar).unwrap().canonical_unit.as_id();
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Decay")
+        .unwrap()
+        .declaration_id;
+    let unit = physical
+        .quantities
+        .quantity_type(scalar)
+        .unwrap()
+        .canonical_unit
+        .as_id();
     let exact = |t: f64| 1.8 / (1. + 1.8 * 1.3 * t);
     let observed = [
         (91, "x", 0.5, exact(0.5)),
@@ -708,19 +731,33 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
     let cancel = crate::CancelSource::new();
     let (package, profile) = curved_source(native::dynamics::Method::Diffsol);
     let refused = package
-        .prepare_fit_problem(FitId::from(id(80)), profile, compiler_profile(), Default::default(), &cancel)
+        .prepare_fit_problem(
+            FitId::from(id(80)),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
         .await
         .unwrap_err();
     assert!(
         matches!(
             refused,
-            WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Unsupported(_)))
+            WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                ProblemError::Unsupported(_)
+            ))
         ),
         "{refused:?}"
     );
     let (package, profile) = curved_source(native::dynamics::Method::Idas);
     let (problem, _) = package
-        .prepare_fit_problem(FitId::from(id(80)), profile.clone(), compiler_profile(), Default::default(), &cancel)
+        .prepare_fit_problem(
+            FitId::from(id(80)),
+            profile.clone(),
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
         .await
         .unwrap();
     let Experiment::Transient(s) = &problem.experiments[0] else {
@@ -764,7 +801,13 @@ async fn exact_transient_fit_hessian_matches_finite_difference() {
     #[cfg(feature = "solver-ipopt")]
     {
         let prepared = package
-            .prepare_fit(FitId::from(id(80)), profile, compiler_profile(), Default::default(), &cancel)
+            .prepare_fit(
+                FitId::from(id(80)),
+                profile,
+                compiler_profile(),
+                Default::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         let result = prepared.start().unwrap().wait().await.unwrap();

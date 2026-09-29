@@ -192,15 +192,15 @@ fn clarabel_cones(cones: &[Cone]) -> Result<Vec<SupportedConeT<f64>>, ProblemErr
 pub fn cone_key(cones: &[Cone]) -> Result<pse_ids::ContentHash, ProblemError> {
     crate::identity::of(pse_ids::Frame::ConeLayoutV3, cones)
 }
+/// The KKT direct solver: Clarabel's serial QDLDL, or oneMKL Pardiso from the process's one
+/// linked oneMKL (ADR-0108), which admits more than one thread (blueprint §18.8). A
+/// registry vocabulary (ADR-0115 Outcome 3).
+pub use pse_model::generated::enums::ClarabelDirect as Direct;
 /// Native preprocessing and mutable-data reuse are distinct execution profiles
 /// (`ReusableData` disables native presolve, input zero-dropping and chordal decomposition
 /// whatever [`Settings`] request), and the clique merging of the chordal decomposition:
 /// registry vocabularies (ADR-0115 Outcome 3).
 pub use pse_model::generated::enums::{ClarabelMergeMethod as MergeMethod, ClarabelMode as Mode};
-/// The KKT direct solver: Clarabel's serial QDLDL, or oneMKL Pardiso from the process's one
-/// linked oneMKL (ADR-0108), which admits more than one thread (blueprint §18.8). A
-/// registry vocabulary (ADR-0115 Outcome 3).
-pub use pse_model::generated::enums::ClarabelDirect as Direct;
 /// Clarabel's native `chordal_decomposition_merge_method` value.
 #[cfg_attr(
     not(feature = "sdp"),
@@ -678,8 +678,7 @@ impl Session {
             report.termination.category = stop;
             report.termination.assurance = Assurance::None;
         }
-        if let Some(certificate) = self.certificate(p, solution.status, &solution.x, &solution.z)
-        {
+        if let Some(certificate) = self.certificate(p, solution.status, &solution.x, &solution.z) {
             report.certificate = Some(certificate);
         } else if solution.status != SolverStatus::Unsolved
             && solution.x.iter().all(|v| v.is_finite())
@@ -744,9 +743,10 @@ impl Session {
             SolverStatus::DualInfeasible => {
                 (CertificateKind::DualInfeasible, CertificateAccuracy::Full)
             }
-            SolverStatus::AlmostDualInfeasible => {
-                (CertificateKind::DualInfeasible, CertificateAccuracy::Reduced)
-            }
+            SolverStatus::AlmostDualInfeasible => (
+                CertificateKind::DualInfeasible,
+                CertificateAccuracy::Reduced,
+            ),
             _ => return None,
         };
         let variables = &p.contract.variables;
@@ -858,15 +858,11 @@ pub fn termination(status: SolverStatus) -> NativeTermination {
         SolverStatus::PrimalInfeasible | SolverStatus::AlmostPrimalInfeasible => {
             Termination::Infeasible
         }
-        SolverStatus::DualInfeasible | SolverStatus::AlmostDualInfeasible => {
-            Termination::Unbounded
-        }
+        SolverStatus::DualInfeasible | SolverStatus::AlmostDualInfeasible => Termination::Unbounded,
         SolverStatus::MaxIterations => Termination::IterationLimit,
         SolverStatus::MaxTime => Termination::TimeLimit,
         SolverStatus::CallbackTerminated => Termination::Cancelled,
-        SolverStatus::NumericalError | SolverStatus::InsufficientProgress => {
-            Termination::Numerical
-        }
+        SolverStatus::NumericalError | SolverStatus::InsufficientProgress => Termination::Numerical,
         SolverStatus::Unsolved => Termination::Invalid,
     };
     NativeTermination {

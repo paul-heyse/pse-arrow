@@ -526,11 +526,13 @@ impl ModelingPackage {
         // ADR-0103 item 6: resolved once, before any attempt, so every stage and homotopy
         // step fixes the same assignment.
         let discrete = &policy.discrete;
-        let (assignment, interruption) =
-            bounded("initialization", Some(deadline), cancel, |child| async move {
-                self.discrete_assignment(analysis, discrete, &child).await
-            })
-            .await;
+        let (assignment, interruption) = bounded(
+            "initialization",
+            Some(deadline),
+            cancel,
+            |child| async move { self.discrete_assignment(analysis, discrete, &child).await },
+        )
+        .await;
         if let Some(error) = interruption {
             return Err(error.into());
         }
@@ -1220,7 +1222,10 @@ mod discrete_tests {
         assert!(report.completed, "{:?}", report.failure);
         let (last, steps) = report.attempts.split_last().unwrap();
         assert_eq!(last.step, ModelingInitializationStep::Original);
-        assert!(matches!(steps[0].step, ModelingInitializationStep::Stage(_)));
+        assert!(matches!(
+            steps[0].step,
+            ModelingInitializationStep::Stage(_)
+        ));
         assert!(
             steps
                 .iter()
@@ -1345,7 +1350,10 @@ mod discrete_tests {
             .await
             .unwrap();
         assert!(report.completed, "{:?}", report.failure);
-        assert_eq!(report.discrete_assignment.values().collect::<Vec<_>>(), [&2.]);
+        assert_eq!(
+            report.discrete_assignment.values().collect::<Vec<_>>(),
+            [&2.]
+        );
     }
 }
 

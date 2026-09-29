@@ -31,11 +31,15 @@ use pse_math::{
     normalization::Normalization,
     numerics::{SourcedRequirement, TargetSpec},
 };
+/// Registry vocabulary of a fit's derivative source (ADR-0110 item 3): the response
+/// Jacobian from forward sensitivities, or the objective gradient alone from adjoint
+/// sensitivities of the transient experiments.
+pub use pse_model::generated::enums::FitDerivatives;
+use pse_model::generated::identities::{FitId, InstanceId};
 use pse_model::{
     SemanticFrame, scalar,
     scalars::{Fraction, PositiveCount},
 };
-use pse_model::generated::identities::{FitId, InstanceId};
 use pse_model::{
     generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget},
     numerics::{NumericalRequirement, ResolvedNumericalPolicy},
@@ -45,10 +49,6 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
-/// Registry vocabulary of a fit's derivative source (ADR-0110 item 3): the response
-/// Jacobian from forward sensitivities, or the objective gradient alone from adjoint
-/// sensitivities of the transient experiments.
-pub use pse_model::generated::enums::FitDerivatives;
 /// Controls for the ordinary NLP and explicit dynamic experiment profiles.
 #[derive(Clone, Debug)]
 pub struct FitProfile {

@@ -148,7 +148,9 @@ impl BackendExecution for Highs {
                         |candidate| fixed.price(candidate, input.accuracy),
                     );
                     if let Err(reason) = priced {
-                        diagnostics.unavailable.insert("fixed_lp.candidate".into(), reason);
+                        diagnostics
+                            .unavailable
+                            .insert("fixed_lp.candidate".into(), reason);
                     }
                 }
                 // An exported ray is the typed certificate of an infeasible or unbounded LP,

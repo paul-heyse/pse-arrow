@@ -89,8 +89,12 @@ impl IntegratedExperiment {
             .count();
         let profile = self.profile.window(start, end, samples);
         let mut columns = vec![None; profile.integration_width(np + anchors)];
-        let times = std::iter::once(start)
-            .chain(profile.schedule.iter().flat_map(|s| s.times.iter().copied()));
+        let times = std::iter::once(start).chain(
+            profile
+                .schedule
+                .iter()
+                .flat_map(|s| s.times.iter().copied()),
+        );
         for t in times {
             let local = profile.columns_at(np + anchors, t);
             let global = self.profile.columns_at(np, t);
@@ -126,7 +130,10 @@ impl IntegratedExperiment {
                 WindowColumn::Integration(g) => integration.get(*g),
                 WindowColumn::Anchor(a) => anchors.get(*a),
             })
-            .map(|v| v.copied().ok_or_else(|| ProblemError::internal("shooting window value")))
+            .map(|v| {
+                v.copied()
+                    .ok_or_else(|| ProblemError::internal("shooting window value"))
+            })
             .collect()
     }
 }
@@ -203,7 +210,9 @@ impl IntegratedExperiment {
         cotangent: native::dynamics::Cotangent<'_>,
     ) -> Result<(native::dynamics::Report, Vec<(usize, f64)>), ProblemError> {
         let memory = execution.memory.ok_or_else(|| {
-            ProblemError::Contract("adjoint gradients need the worker's admitted foreign allowance".into())
+            ProblemError::Contract(
+                "adjoint gradients need the worker's admitted foreign allowance".into(),
+            )
         })?;
         let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
         let mut worker = self.program.worker(execution.cancel.clone())?;
@@ -218,8 +227,8 @@ impl IntegratedExperiment {
             memory,
         )?;
         let report = completed(report)?;
-        let gradient =
-            gradient.ok_or_else(|| ProblemError::internal("completed adjoint without a gradient"))?;
+        let gradient = gradient
+            .ok_or_else(|| ProblemError::internal("completed adjoint without a gradient"))?;
         let contributions = self
             .bindings
             .iter()
@@ -331,10 +340,8 @@ impl IntegratedExperiment {
                 "an adjoint product is a gradient, not an integration",
             ));
         }
-        let mut oracle = native::dynamics::Anchored::new(
-            self.program.worker(execution.cancel.clone())?,
-            false,
-        )?;
+        let mut oracle =
+            native::dynamics::Anchored::new(self.program.worker(execution.cancel.clone())?, false)?;
         let profile = oracle.profile(&attempt(&window.profile, execution, sensitivity));
         let report = native::dynamics::integrate(
             &mut oracle,
@@ -361,12 +368,13 @@ impl IntegratedExperiment {
                 "adjoint gradients need the worker's admitted foreign allowance".into(),
             )
         })?;
-        let mut oracle = native::dynamics::Anchored::new(
-            self.program.worker(execution.cancel.clone())?,
-            true,
-        )?;
-        let profile =
-            oracle.profile(&attempt(&window.profile, execution, DynamicSensitivity::Adjoint));
+        let mut oracle =
+            native::dynamics::Anchored::new(self.program.worker(execution.cancel.clone())?, true)?;
+        let profile = oracle.profile(&attempt(
+            &window.profile,
+            execution,
+            DynamicSensitivity::Adjoint,
+        ));
         let native::dynamics::Gradient {
             report, gradient, ..
         } = native::dynamics::gradient(
@@ -378,17 +386,15 @@ impl IntegratedExperiment {
             memory,
         )?;
         let report = completed(report)?;
-        let gradient =
-            gradient.ok_or_else(|| ProblemError::internal("completed adjoint without a gradient"))?;
+        let gradient = gradient
+            .ok_or_else(|| ProblemError::internal("completed adjoint without a gradient"))?;
         Ok((report, gradient))
     }
 }
 
 /// A stopped integration keeps its stop; it is never an evaluation failure.
 #[cfg(feature = "solver-diffsol")]
-fn completed(
-    report: native::dynamics::Report,
-) -> Result<native::dynamics::Report, ProblemError> {
+fn completed(report: native::dynamics::Report) -> Result<native::dynamics::Report, ProblemError> {
     use native::dynamics::Termination;
     match report.termination {
         Termination::Completed => Ok(report),

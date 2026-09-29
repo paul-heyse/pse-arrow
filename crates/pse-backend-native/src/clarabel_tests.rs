@@ -2,11 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 //! Clarabel on coefficient programs, its KKT solvers and chordal decomposition, and typed
 //! certificates verified in original coordinates (Plan 22 C4, I10–I11).
-#[cfg(feature = "sdp")]
-use crate::{
-    ConicProblem,
-    conic::{Cone, SparseMatrix},
-};
 use crate::{
     CoefficientProblem, OracleContract, ProblemError, Variable,
     conic::{self, Direct},
@@ -14,6 +9,11 @@ use crate::{
     quality::{self, Tolerances},
     solve::*,
     solver_tests::stamp,
+};
+#[cfg(feature = "sdp")]
+use crate::{
+    ConicProblem,
+    conic::{Cone, SparseMatrix},
 };
 use faer::sparse::{SparseColMat, Triplet};
 use pse_ids::{ContentHash, SemanticId};
@@ -272,7 +272,10 @@ fn clarabel_qp_farkas_certificate() {
     assert_eq!(c.accuracy, CertificateAccuracy::Full);
     // The lowered row's lower side, then both variables' lower and upper bounds.
     assert_eq!(
-        c.ray.iter().map(|e| (e.coordinate, e.id)).collect::<Vec<_>>(),
+        c.ray
+            .iter()
+            .map(|e| (e.coordinate, e.id))
+            .collect::<Vec<_>>(),
         [
             (RayCoordinate::RowLower, id(100)),
             (RayCoordinate::VariableLower, id(1)),
@@ -335,16 +338,7 @@ fn farkas_certificate_verified_in_original_coordinates() {
         (residual, objective)
     };
     for (backend, settings) in settings {
-        let r = run(
-            &p,
-            None,
-            backend,
-            &settings,
-            &Controls::default(),
-            &n,
-            &t,
-        )
-        .unwrap();
+        let r = run(&p, None, backend, &settings, &Controls::default(), &n, &t).unwrap();
         assert_eq!(r.termination.category, Termination::Infeasible, "{r:?}");
         let c = r.certificate.as_ref().unwrap_or_else(|| panic!("{r:?}"));
         assert_eq!(c.kind, CertificateKind::PrimalInfeasible);
@@ -356,14 +350,23 @@ fn farkas_certificate_verified_in_original_coordinates() {
         }
         assert!(objective < -1e-3 * scale, "{backend:?} {objective}");
         assert!(c.certified(), "{backend:?} {c:?}");
-        assert_eq!(r.termination.assurance, Assurance::Certificate, "{backend:?}");
+        assert_eq!(
+            r.termination.assurance,
+            Assurance::Certificate,
+            "{backend:?}"
+        );
         // The same values read as native coordinates break the original equations.
         let native: Vec<f64> = c
             .ray
             .iter()
             .map(|e| match e.coordinate {
                 RayCoordinate::VariableLower | RayCoordinate::VariableUpper => {
-                    let j = p.contract.variables.iter().position(|v| v.id == e.id).unwrap();
+                    let j = p
+                        .contract
+                        .variables
+                        .iter()
+                        .position(|v| v.id == e.id)
+                        .unwrap();
                     e.value * n.variables[j]
                 }
                 _ => {
@@ -404,7 +407,10 @@ fn almost_infeasible_is_not_certified() {
     )
     .unwrap();
     assert_ne!(r.termination.assurance, Assurance::Certificate, "{r:?}");
-    assert!(r.certificate.as_ref().is_none_or(|c| !c.certified()), "{r:?}");
+    assert!(
+        r.certificate.as_ref().is_none_or(|c| !c.certified()),
+        "{r:?}"
+    );
     // The Farkas ray (1, 1) over the two rows: bᵀy = -1e-9, within the budgets 2e-7.
     let (cone, _) = conic::lowering::data(&p).unwrap();
     let farkas = |rows: [f64; 2]| {

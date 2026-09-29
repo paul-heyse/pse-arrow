@@ -253,7 +253,10 @@ async fn nmpc_closed_loop_on_antiwindup() {
     .await;
     assert!(result.usable(), "{:?}", result.assessments());
     let report = result.horizon().unwrap();
-    assert_eq!((report.outputs[0], report.inputs.as_slice()), (x, &[actuator][..]));
+    assert_eq!(
+        (report.outputs[0], report.inputs.as_slice()),
+        (x, &[actuator][..])
+    );
     assert_eq!(report.steps.len(), STEPS);
     assert_eq!(modeling(&result).len(), STEPS);
     for (k, step) in report.steps.iter().enumerate() {
@@ -269,12 +272,23 @@ async fn nmpc_closed_loop_on_antiwindup() {
     let applied = |k: usize| report.steps[k].applied[0];
     let reached = |k: usize| report.steps[k].reached[0];
     // Saturated while rising from rest and after the setpoint drop.
-    assert!(applied(0) > 1. - 1e-6 && applied(1) > 1. - 1e-6, "{report:?}");
+    assert!(
+        applied(0) > 1. - 1e-6 && applied(1) > 1. - 1e-6,
+        "{report:?}"
+    );
     assert!(applied(12) < 1e-6, "{report:?}");
     // Settled on each setpoint.
     assert!((reached(11) - 1.).abs() < 1e-3, "{}", reached(11));
-    assert!((reached(STEPS - 1) - 0.6).abs() < 1e-3, "{}", reached(STEPS - 1));
-    assert!((applied(STEPS - 1) - 0.3).abs() < 1e-3, "{}", applied(STEPS - 1));
+    assert!(
+        (reached(STEPS - 1) - 0.6).abs() < 1e-3,
+        "{}",
+        reached(STEPS - 1)
+    );
+    assert!(
+        (applied(STEPS - 1) - 0.3).abs() < 1e-3,
+        "{}",
+        applied(STEPS - 1)
+    );
 }
 
 /// A horizon prepares each stage's structure once: every step rebinds values on the one
@@ -325,7 +339,11 @@ async fn horizon_reuses_prepared_view() {
         let result = handle.wait().await.unwrap();
         let after = runtime.native().preparations();
         assert!(result.usable(), "{backend:?}: {:?}", result.assessments());
-        assert_eq!(after.views - before.views, 1, "{backend:?}: one prepared view");
+        assert_eq!(
+            after.views - before.views,
+            1,
+            "{backend:?}: one prepared view"
+        );
         assert!(after.rebuilt - before.rebuilt >= STEPS - 1, "{backend:?}");
         let steps = modeling(&result);
         assert_eq!(steps.len(), STEPS);
@@ -343,7 +361,10 @@ async fn horizon_reuses_prepared_view() {
                 assert!(native.evidence.reused_native_state, "{backend:?} {k}");
                 assert_eq!(receipt.previous_attempt, Some(k - 1), "{backend:?} {k}");
                 assert!(receipt.submitted, "{backend:?} {k}");
-                assert_eq!(native.evidence.working_set_submitted, sqp, "{backend:?} {k}");
+                assert_eq!(
+                    native.evidence.working_set_submitted, sqp,
+                    "{backend:?} {k}"
+                );
                 assert_eq!(step.prepared.starts[&u], StartSource::Predecessor, "{k}");
             }
         }
@@ -366,11 +387,7 @@ async fn horizon_reuses_prepared_view() {
 
 /// The estimator of a horizon over an open-loop plant from `x0 = 0.8`, with the prior of
 /// its first window at 0.
-fn estimation(
-    package: &ModelingPackage,
-    root: DeclarationId,
-    x: SemanticId,
-) -> HorizonEstimator {
+fn estimation(package: &ModelingPackage, root: DeclarationId, x: SemanticId) -> HorizonEstimator {
     let paths = |name: &str| {
         WINDOW
             .iter()
@@ -378,11 +395,17 @@ fn estimation(
             .collect::<Vec<_>>()
     };
     let measured = paths("y");
-    let mut values = measured.iter().map(|p| (p.as_str(), 0.)).collect::<Vec<_>>();
+    let mut values = measured
+        .iter()
+        .map(|p| (p.as_str(), 0.))
+        .collect::<Vec<_>>();
     values.extend([("prior", 0.), ("u", 0.5)]);
     let mut specification = analysis(
         root,
-        fixed(&values, &measured.iter().map(String::as_str).collect::<Vec<_>>()),
+        fixed(
+            &values,
+            &measured.iter().map(String::as_str).collect::<Vec<_>>(),
+        ),
     );
     specification.bindings.demand = vec!["x[0{s}]".into(), "x[1{s}]".into()];
     HorizonEstimator {
@@ -432,7 +455,10 @@ async fn mhe_recovers_initial_state() {
     for (k, sample) in report.steps.iter().enumerate() {
         assert_eq!(sample.decision, HorizonDecision::OpenLoop);
         assert_eq!(sample.applied, vec![0.5]);
-        assert!((sample.measured[0] - truth(sample.time)).abs() < 1e-8, "{k}");
+        assert!(
+            (sample.measured[0] - truth(sample.time)).abs() < 1e-8,
+            "{k}"
+        );
         let Some(index) = sample.estimator else {
             assert!(k < 4, "{k}");
             continue;
@@ -444,8 +470,16 @@ async fn mhe_recovers_initial_state() {
         let at = |path: &str| step.values.scalars[&paths[path]];
         let (start, now) = (truth(sample.time - 1.), truth(sample.time));
         let tolerance = if index == 0 { 1e-3 } else { 1e-5 };
-        assert!((at("x[0{s}]") - start).abs() < tolerance, "{k}: {} vs {start}", at("x[0{s}]"));
-        assert!((at("x[1{s}]") - now).abs() < tolerance, "{k}: {} vs {now}", at("x[1{s}]"));
+        assert!(
+            (at("x[0{s}]") - start).abs() < tolerance,
+            "{k}: {} vs {start}",
+            at("x[0{s}]")
+        );
+        assert!(
+            (at("x[1{s}]") - now).abs() < tolerance,
+            "{k}: {} vs {now}",
+            at("x[1{s}]")
+        );
     }
     // The first window's estimate is biased towards its prior of 0, never onto it.
     let first = &steps[0];
@@ -502,7 +536,11 @@ async fn horizon_records_one_durable_attempt() {
     assert_eq!(stored.state, AttemptState::Completed);
     assert_eq!(stored.kind, AttemptKind::Modeling);
     assert_eq!(
-        record.solutions.iter().map(|(step, _)| *step).collect::<Vec<_>>(),
+        record
+            .solutions
+            .iter()
+            .map(|(step, _)| *step)
+            .collect::<Vec<_>>(),
         (0..STEPS).collect::<Vec<_>>()
     );
     let samples = record
@@ -561,8 +599,14 @@ async fn horizon_refuses_inconsistent_loops() {
     unmeasured.bindings[0].1 = HorizonSignal::Measured(actuator);
     for (horizon, message) in [
         (horizon(unbound, 4, actuator), "binds only case values"),
-        (horizon(estimated, 4, actuator), "estimate without an estimator"),
-        (horizon(unmeasured, 4, actuator), "is an output of the plant's contract"),
+        (
+            horizon(estimated, 4, actuator),
+            "estimate without an estimator",
+        ),
+        (
+            horizon(unmeasured, 4, actuator),
+            "is an output of the plant's contract",
+        ),
         (
             horizon(controller(&package, root, x, vec![1.; 4]), 4, x),
             "is a parameter of the plant's contract",
@@ -625,7 +669,11 @@ fn matches_full_resolve(
     for (k, (a, f)) in advanced.steps.iter().zip(&full.steps).enumerate() {
         assert_eq!(f.decision, HorizonDecision::Solved, "{k}");
         let (u, v) = (a.applied[0], f.applied[0]);
-        assert!((u - v).abs() < tolerance, "{k}: applied {u} vs {v} ({:?})", a.decision);
+        assert!(
+            (u - v).abs() < tolerance,
+            "{k}: applied {u} vs {v} ({:?})",
+            a.decision
+        );
         let (x, y) = (a.reached[0], f.reached[0]);
         assert!((x - y).abs() < tolerance, "{k}: reached {x} vs {y}");
     }
@@ -670,7 +718,10 @@ async fn advanced_step_matches_full_resolve() {
             panic!("{:?}", steps[background].outcome)
         };
         let parametric = native.evidence.sensitivity.as_ref().unwrap();
-        assert!(parametric.retained.is_some_and(|b| b > 0), "{k}: {parametric:?}");
+        assert!(
+            parametric.retained.is_some_and(|b| b > 0),
+            "{k}: {parametric:?}"
+        );
     }
 }
 
@@ -698,5 +749,8 @@ async fn advanced_step_falls_back_on_active_set_change() {
         )),
         "{fallbacks:?}"
     );
-    assert!(decisions.contains(&HorizonDecision::Predicted), "{decisions:?}");
+    assert!(
+        decisions.contains(&HorizonDecision::Predicted),
+        "{decisions:?}"
+    );
 }

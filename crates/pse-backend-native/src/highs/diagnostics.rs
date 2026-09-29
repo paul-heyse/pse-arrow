@@ -43,7 +43,9 @@ impl FixedLp {
             ));
         }
         let (Some(lp), Some(mip)) = (self.objective, candidate.objective) else {
-            return Err("an objective of the fixed-commitment LP or the candidate is unavailable".into());
+            return Err(
+                "an objective of the fixed-commitment LP or the candidate is unavailable".into(),
+            );
         };
         if (lp - mip).abs() > accuracy.gap_absolute.max(accuracy.gap_relative * mip.abs()) {
             return Err(format!(

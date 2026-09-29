@@ -1216,7 +1216,10 @@ mod tests {
         let mut oracle = crate::solver_tests::Polynomial::new();
         let adaptive = Options::from([
             ("mu_linear_decrease_factor".into(), OptionValue::Real(0.3)),
-            ("mu_superlinear_decrease_power".into(), OptionValue::Real(1.4)),
+            (
+                "mu_superlinear_decrease_power".into(),
+                OptionValue::Real(1.4),
+            ),
         ]);
         solve_under(
             &mut session,

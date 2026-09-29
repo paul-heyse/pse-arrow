@@ -148,9 +148,7 @@ fn case_with(
     order: DerivativeOrder,
     native: Vec<NativeConstraint>,
 ) -> Case {
-    case_of(
-        registry, body, columns, &[], rows, objective, order, native,
-    )
+    case_of(registry, body, columns, &[], rows, objective, order, native)
 }
 /// As [`case_with`], with case parameters `id(80 + j)` bound after the columns: body input
 /// `columns.len() + j` takes the value `parameters[j]`.
@@ -906,10 +904,19 @@ fn fixed_assignment_resolve_keeps_local_analysis() {
         Some(Ok(point)) => point,
         other => panic!("{other:?}"),
     };
-    assert_eq!(point.rows[OriginalRow::new(0)], Activity::Strong(Side::Lower));
+    assert_eq!(
+        point.rows[OriginalRow::new(0)],
+        Activity::Strong(Side::Lower)
+    );
     assert_eq!(point.bounds[OriginalCol::new(0)], Activity::Inactive);
-    assert_eq!(point.bounds[OriginalCol::new(1)], Activity::Strong(Side::Lower));
-    assert_eq!(point.bounds[OriginalCol::new(2)], Activity::Strong(Side::Equal));
+    assert_eq!(
+        point.bounds[OriginalCol::new(1)],
+        Activity::Strong(Side::Lower)
+    );
+    assert_eq!(
+        point.bounds[OriginalCol::new(2)],
+        Activity::Strong(Side::Equal)
+    );
     assert_eq!(point.licq, Licq::Independent);
     assert_eq!(point.curvature, Curvature::Sufficient);
     assert_eq!((point.inertia, point.reduced), ((3, 3, 0), (0, 0, 0)));
@@ -2285,7 +2292,10 @@ fn semi_indicator_lowering_matches_highs_native() {
         assert_eq!(highs.backend, Backend::Highs);
         let y = &highs.candidate.as_ref().unwrap().primal;
         let native = highs.observation.as_ref().unwrap().objective.unwrap();
-        assert!((native - objective).abs() < 1e-6, "{demand}: {native} {objective}");
+        assert!(
+            (native - objective).abs() < 1e-6,
+            "{demand}: {native} {objective}"
+        );
         assert!((y[0] - x[0]).abs() < 1e-6, "{demand}: {y:?} {x:?}");
     }
 }
@@ -2381,7 +2391,11 @@ fn semi_minlp_fixed_assignment_resolve() {
         assert!((x[0] - supply).abs() < 1e-6, "{weight}: {x:?}");
         let objective = report.observation.as_ref().unwrap().objective.unwrap();
         assert!((objective - expected).abs() < 1e-5, "{weight}: {objective}");
-        assert_eq!(report.qualification, Qualification::GapQualified, "{weight}");
+        assert_eq!(
+            report.qualification,
+            Qualification::GapQualified,
+            "{weight}"
+        );
         // The re-solve committed the branch: z = 1 keeps s in [2, 5], where the lower end
         // binds (a relaxed [0, 5] would reach s = 2/w); z = 0 pins s at zero.
         let point = match &report.evidence.local {
@@ -2423,7 +2437,10 @@ fn semi_transformation_recorded() {
     let program = case.program(&FactorableRequest::default());
     // The projection keeps the zero branch in the box and the active interval beside it.
     assert_eq!(
-        (program.variables[0].lower, program.variables[0].active_lower),
+        (
+            program.variables[0].lower,
+            program.variables[0].active_lower
+        ),
         (0.0, Some(2.0))
     );
     let plan = execution::factorable::plan(&program, SolveIntent::Optimize).unwrap();
@@ -2789,7 +2806,10 @@ fn scip_concurrent_streams_incumbents() {
     distinct.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
     assert!(distinct.len() >= 3, "{incumbents:?}");
     for pair in incumbents.windows(2) {
-        assert!(pair[1].objective >= pair[0].objective - 1e-6, "{incumbents:?}");
+        assert!(
+            pair[1].objective >= pair[0].objective - 1e-6,
+            "{incumbents:?}"
+        );
     }
     assert!(incumbents[0].primal.is_some());
     for incumbent in &incumbents {

@@ -42,7 +42,10 @@ pub(in crate::workflow) fn analytic() -> ([f64; 4], [f64; 2]) {
 
 /// The regression package: one steady experiment observing `y₁…y₄`, with `sigma` and
 /// `importance` per observation.
-pub(in crate::workflow) fn package(sigma: [Option<f64>; 4], importance: [f64; 4]) -> crate::workflow::ModelingPackage {
+pub(in crate::workflow) fn package(
+    sigma: [Option<f64>; 4],
+    importance: [f64; 4],
+) -> crate::workflow::ModelingPackage {
     package_with(false, sigma, importance)
 }
 /// With `offset`, a third parameter `d` enters every output only through `a + d`, so the
@@ -116,7 +119,10 @@ pub(in crate::workflow) fn package_with(
 pub(in crate::workflow) fn declared() -> [Option<f64>; 4] {
     SIGMA.map(Some)
 }
-pub(in crate::workflow) fn profile(hessian: HessianMode, uncertainty: Option<FitUncertainty>) -> FitProfile {
+pub(in crate::workflow) fn profile(
+    hessian: HessianMode,
+    uncertainty: Option<FitUncertainty>,
+) -> FitProfile {
     FitProfile {
         solver: SolverProfile {
             presolve: Default::default(),
@@ -138,7 +144,10 @@ pub(in crate::workflow) fn profile(hessian: HessianMode, uncertainty: Option<Fit
         uncertainty,
     }
 }
-pub(in crate::workflow) async fn fit(package: &crate::workflow::ModelingPackage, profile: FitProfile) -> Arc<RunResult> {
+pub(in crate::workflow) async fn fit(
+    package: &crate::workflow::ModelingPackage,
+    profile: FitProfile,
+) -> Arc<RunResult> {
     package
         .prepare_fit(
             id(32).into(),

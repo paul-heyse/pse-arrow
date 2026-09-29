@@ -78,7 +78,10 @@ async fn pounce_convex_batched_study() {
             panic!("{:?}", reference.outcome)
         };
         assert_eq!(highs.backend, Backend::Highs, "{k}");
-        assert!((x - rx).abs() < 1e-6 && (y - ry).abs() < 1e-6, "{k}: ({x}, {y}) vs ({rx}, {ry})");
+        assert!(
+            (x - rx).abs() < 1e-6 && (y - ry).abs() < 1e-6,
+            "{k}: ({x}, {y}) vs ({rx}, {ry})"
+        );
     }
 }
 
@@ -91,7 +94,10 @@ async fn pounce_convex_batched_study() {
 async fn qp_sensitivity_through_kkt_analysis() {
     let (package, root) = package(QUADRATIC);
     let plain = package
-        .prepare_analysis(&analysis(root, SolverSelection::Auto), &crate::CancelSource::new())
+        .prepare_analysis(
+            &analysis(root, SolverSelection::Auto),
+            &crate::CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(plain.solve.backend(), Some(Backend::Highs));
@@ -143,14 +149,21 @@ async fn sos_bound_labelled_nonrigorous() {
             .sos_bound(&analysis(root, SolverSelection::Auto), None, &cancel)
             .await
             .unwrap();
-        assert_eq!(bound.assurance, NativeAssurance::SosBoundNonrigorous, "{bound:?}");
+        assert_eq!(
+            bound.assurance,
+            NativeAssurance::SosBoundNonrigorous,
+            "{bound:?}"
+        );
         assert_eq!(bound.order, 2);
         let gap = if sense == "minimize" {
             expected - bound.bound
         } else {
             bound.bound - expected
         };
-        assert!((-1e-7..1e-4).contains(&gap), "{sense}: {bound:?} against {expected}");
+        assert!(
+            (-1e-7..1e-4).contains(&gap),
+            "{sense}: {bound:?} against {expected}"
+        );
     }
     let (package, root) = package(
         "package p { def Root { var x: Scalar;

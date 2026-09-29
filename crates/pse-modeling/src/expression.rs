@@ -1771,7 +1771,11 @@ fn objective_members(
     };
     let difference = Type::Quantity(Scheme::Concrete(
         Scheme::Delta(Box::new(scheme.clone()))
-            .resolve_with_evidence(context.quantities, &Substitution::new(), context.preconditions)
+            .resolve_with_evidence(
+                context.quantities,
+                &Substitution::new(),
+                context.preconditions,
+            )
             .map_err(|e| invalid(id, e.to_string()))?,
     ));
     for (source, expected) in [

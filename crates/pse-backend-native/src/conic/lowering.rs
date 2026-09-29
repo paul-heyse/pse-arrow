@@ -158,8 +158,7 @@ fn lower(
     quadratic: SparseMatrix,
 ) -> Result<(ConicProblem, Vec<LoweredRow>), ProblemError> {
     p.validate()?;
-    if p
-        .domains
+    if p.domains
         .iter()
         .any(|d| *d != ModelingVariableDomain::Continuous)
     {
@@ -241,7 +240,9 @@ fn lower(
 ///
 /// # Errors
 /// A discrete column or a malformed problem.
-pub(crate) fn data(p: &CoefficientProblem) -> Result<(ConicProblem, Vec<LoweredRow>), ProblemError> {
+pub(crate) fn data(
+    p: &CoefficientProblem,
+) -> Result<(ConicProblem, Vec<LoweredRow>), ProblemError> {
     let n = p.contract.variables.len();
     let quadratic = match &p.hessian {
         Some(q) => upper(q, p.sense.sign()),
@@ -293,13 +294,8 @@ impl Lowered {
                 c.row_dual = Some(y);
             }
             if let Some((lower, upper)) = c.bound_dual.take() {
-                c.reduced_costs = Some(
-                    lower
-                        .iter()
-                        .zip(&upper)
-                        .map(|(l, u)| s * (l - u))
-                        .collect(),
-                );
+                c.reduced_costs =
+                    Some(lower.iter().zip(&upper).map(|(l, u)| s * (l - u)).collect());
             }
             c.slacks = None;
             let primal = c.primal.clone();

@@ -307,7 +307,11 @@ pub(crate) fn farkas_from_rows(p: &CoefficientProblem, y: &[f64]) -> Option<Vec<
         .collect();
     let dot = |z: &[f64]| z.iter().zip(&b).map(|(z, b)| z * b).sum::<f64>();
     let (plus, minus) = (orient(1.0), orient(-1.0));
-    let z = if dot(&minus) < dot(&plus) { minus } else { plus };
+    let z = if dot(&minus) < dot(&plus) {
+        minus
+    } else {
+        plus
+    };
     let coordinates = rows
         .iter()
         .map(|r| (r.side.coordinate(), p.contract.rows[r.row]))

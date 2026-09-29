@@ -192,19 +192,24 @@ impl Engine<'_, '_> {
             let env = &env;
             if let Some(members) = &a.objective {
                 if a.annotation_type != "objective" || !a.arguments.is_empty() {
-                    return Err(invalid(at, "objective members belong to an objective annotation"));
+                    return Err(invalid(
+                        at,
+                        "objective members belong to an objective annotation",
+                    ));
                 }
                 if !self.model.symbols.contains_key(&target) {
                     return Err(invalid(at, "objective requires a scalar value member"));
                 }
-                if self.model.annotations.iter().any(|a| {
-                    a.target == target && matches!(a.value, AnnotationValue::Objective(_))
-                }) {
+                if self
+                    .model
+                    .annotations
+                    .iter()
+                    .any(|a| a.target == target && matches!(a.value, AnnotationValue::Objective(_)))
+                {
                     return Err(invalid(at, "a member is one objective at most"));
                 }
-                let value = AnnotationValue::Objective(self.objective_declaration(
-                    members, &ty, env, at,
-                )?);
+                let value =
+                    AnnotationValue::Objective(self.objective_declaration(members, &ty, env, at)?);
                 self.reserve(1)?;
                 self.model.annotations.push(Annotation {
                     target,
@@ -320,17 +325,21 @@ impl Engine<'_, '_> {
                 .neutral_dimensionless()
                 .ok_or_else(|| invalid(at, "objective members need a neutral scalar type"))?,
         ));
-        let number = |text: &Option<String>, ty: &Type| -> Result<Option<(crate::specialize::Value, f64)>> {
-            text.as_deref()
-                .map(|text| {
-                    let value = self.eval(at, env, text, Some(ty))?;
-                    let scalar = value.scalar(at)?;
-                    Ok((value, scalar))
-                })
-                .transpose()
-        };
+        let number =
+            |text: &Option<String>, ty: &Type| -> Result<Option<(crate::specialize::Value, f64)>> {
+                text.as_deref()
+                    .map(|text| {
+                        let value = self.eval(at, env, text, Some(ty))?;
+                        let scalar = value.scalar(at)?;
+                        Ok((value, scalar))
+                    })
+                    .transpose()
+            };
         let weight = number(&members.weight, &scalar)?;
-        if weight.as_ref().is_some_and(|(_, w)| !(w.is_finite() && *w > 0.0)) {
+        if weight
+            .as_ref()
+            .is_some_and(|(_, w)| !(w.is_finite() && *w > 0.0))
+        {
             return Err(refuse(Refusal::InvalidWeight));
         }
         let normalization = number(&members.normalization, ty)?;

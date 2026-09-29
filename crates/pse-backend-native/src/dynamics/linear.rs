@@ -103,7 +103,10 @@ impl LinearSolver<M> for FaerLu {
         };
     }
     fn solve_in_place(&self, x: &mut V) -> Result<(), LaError> {
-        let lu = self.numeric.as_ref().map_err(|e| LaError::from(e.clone()))?;
+        let lu = self
+            .numeric
+            .as_ref()
+            .map_err(|e| LaError::from(e.clone()))?;
         let n = x.len();
         lu.solve_in_place(faer::MatMut::from_column_major_slice_mut(
             x.as_mut_slice(),
@@ -163,8 +166,16 @@ impl Klu {
             i64::try_from(*v).map_err(|_| LinearSolverError::Other("KLU index overflow".into()))
         };
         let pattern = matrix.inner().symbolic();
-        self.columns = pattern.col_ptr().iter().map(index).collect::<Result<_, _>>()?;
-        self.rows = pattern.row_idx().iter().map(index).collect::<Result<_, _>>()?;
+        self.columns = pattern
+            .col_ptr()
+            .iter()
+            .map(index)
+            .collect::<Result<_, _>>()?;
+        self.rows = pattern
+            .row_idx()
+            .iter()
+            .map(index)
+            .collect::<Result<_, _>>()?;
         let n = index(&matrix.nrows())?;
         // SAFETY: the column pointers (n + 1) and row indices describe the n × n pattern
         // and outlive the symbolic object; KLU only reads them.

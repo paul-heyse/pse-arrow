@@ -50,41 +50,40 @@ pub use strategies::{
 )]
 mod dynamics;
 mod fitting;
-mod integrated;
 mod horizon;
+mod integrated;
 pub use horizon::{
     AdvancedStep, Arrival, Horizon, HorizonController, HorizonDecision, HorizonEstimator,
     HorizonInput, HorizonReport, HorizonSignal, HorizonStep, WindowInput,
 };
 #[cfg(feature = "solver-diffsol")]
 mod shooting;
-#[cfg(feature = "solver-diffsol")]
-pub use shooting::{
-    PathBound, ShootingControl, ShootingMethod, ShootingObjective, ShootingProblem,
-    ShootingProfile, ShootingReport,
-};
 pub use dynamics::SimulationProfile;
 pub use fitting::{
     Covariance, FitData, FitDeclaration, FitDerivatives, FitDiagnostic, FitProfile, FitReport,
     FitRule, FitUncertainty, FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain,
     ProfileControls, ProfilePoint,
 };
+#[cfg(feature = "solver-diffsol")]
+pub use shooting::{
+    PathBound, ShootingControl, ShootingMethod, ShootingObjective, ShootingProblem,
+    ShootingProfile, ShootingReport,
+};
 mod physical;
 pub use physical::PhysicalContext;
-pub mod uncertainty;
 mod modeling;
+pub mod uncertainty;
 pub use modeling::ModelingNativeAnalysis;
 pub use modeling::{
-    DiagnosticSampleStop, DiscreteInitialization, ElasticObservation, ModelingAnalysis, ModelingCheck,
-    ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
+    DiagnosticSampleStop, DiscreteInitialization, ElasticObservation, ModelingAnalysis,
+    ModelingCheck, ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
     ModelingDiagnosticPolicy, ModelingDiagnosticPreparation, ModelingDiagnosticSamples,
-    ModelingDiagnostics, ModelingElasticAttempt,
-    ModelingFixturePolicy, ModelingInfeasibilityCertificate, ModelingInitialization,
-    ModelingInitializationAttempt, ModelingInitializationReport, ModelingInitializationStep,
-    ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
-    ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
-    ModelingStudyPoint, ModelingStudyReport, ModelingTrajectory, StartSource,
-    conform_pure_documents,
+    ModelingDiagnostics, ModelingElasticAttempt, ModelingFixturePolicy,
+    ModelingInfeasibilityCertificate, ModelingInitialization, ModelingInitializationAttempt,
+    ModelingInitializationReport, ModelingInitializationStep, ModelingNonlinearExplanation,
+    ModelingNonlinearPolicy, ModelingObservations, ModelingPackage, ModelingReport, ModelingResult,
+    ModelingSimulation, ModelingSolvePreparation, ModelingStudyPoint, ModelingStudyReport,
+    ModelingTrajectory, StartSource, conform_pure_documents,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};

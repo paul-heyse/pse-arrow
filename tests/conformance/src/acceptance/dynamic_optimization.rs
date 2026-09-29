@@ -188,8 +188,14 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
     near(tracking(half), half_tracking(), 1e-3);
     near(half.values.scalars[&holdups[2]], 0.5, 1e-3);
     let inputs = values(half, "u");
-    assert!(inputs.iter().any(|(_, u)| (u - 0.5).abs() < 1e-3), "{inputs:?}");
-    assert!(inputs.iter().any(|(_, u)| (u - 1.0).abs() < 1e-3), "{inputs:?}");
+    assert!(
+        inputs.iter().any(|(_, u)| (u - 0.5).abs() < 1e-3),
+        "{inputs:?}"
+    );
+    assert!(
+        inputs.iter().any(|(_, u)| (u - 1.0).abs() < 1e-3),
+        "{inputs:?}"
+    );
 
     // Integrated, with the input scheduled in two intervals at its saturated optimum.
     let cancel = CancelSource::new();
@@ -206,12 +212,20 @@ async fn simultaneous_dynamic_optimization_matches_analytic() {
         .position(|id| symbols[id].lineage.path.contains(".u"))
         .unwrap();
     let mut schedule = declared.profile().clone();
-    schedule.schedule.push(pse_backend_native::dynamics::ScheduledInput {
-        parameter: input,
-        times: vec![std::f64::consts::LN_2],
-    });
+    schedule
+        .schedule
+        .push(pse_backend_native::dynamics::ScheduledInput {
+            parameter: input,
+            times: vec![std::f64::consts::LN_2],
+        });
     let simulation = package
-        .declared_simulation(integrated, compiler(), Some(schedule), seed_limits(), &cancel)
+        .declared_simulation(
+            integrated,
+            compiler(),
+            Some(schedule),
+            seed_limits(),
+            &cancel,
+        )
         .await
         .unwrap();
     let trajectory = simulation.run(&cancel).await.unwrap();

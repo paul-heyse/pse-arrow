@@ -3,8 +3,8 @@
 //! The horizon driver: admission before any effect, the durable attempt, and the loop over
 //! one staged sequence (Plan 22 Y5c1).
 use super::{
-    Horizon, HorizonController, HorizonDecision, HorizonEstimator, HorizonReport,
-    HorizonSignal, HorizonStep, WindowInput,
+    Horizon, HorizonController, HorizonDecision, HorizonEstimator, HorizonReport, HorizonSignal,
+    HorizonStep, WindowInput,
 };
 use crate::math::MathRuntimeError;
 use crate::workflow::{
@@ -67,25 +67,32 @@ impl Runtime {
         let stream = progress.clone();
         tokio::spawn(async move {
             let mut durable = durable;
-            let staged =
-                match admit(&mut durable, run_id, &admitted, opened, &runtime, &stream, &cancel)
-                    .await
-                {
-                    Ok(staged) => staged,
-                    Err(error) => {
-                        let refused = RunResult::joined(
-                            run_id,
-                            runtime,
-                            RunRequest::Modeling(Vec::new()),
-                            None,
-                            Err(Arc::new(error)),
-                        )
-                        .refused(durable)
-                        .await;
-                        sender.send_replace(Some(Arc::new(refused)));
-                        return;
-                    }
-                };
+            let staged = match admit(
+                &mut durable,
+                run_id,
+                &admitted,
+                opened,
+                &runtime,
+                &stream,
+                &cancel,
+            )
+            .await
+            {
+                Ok(staged) => staged,
+                Err(error) => {
+                    let refused = RunResult::joined(
+                        run_id,
+                        runtime,
+                        RunRequest::Modeling(Vec::new()),
+                        None,
+                        Err(Arc::new(error)),
+                    )
+                    .refused(durable)
+                    .await;
+                    sender.send_replace(Some(Arc::new(refused)));
+                    return;
+                }
+            };
             let mut run = Loop::new(admitted, staged, run_id, cancel.clone(), stream, durable);
             let outcome = run.run().await;
             let Loop {
@@ -101,8 +108,13 @@ impl Runtime {
             let report = outcome
                 .map(|()| RunReport::Modeling(results))
                 .map_err(Arc::new);
-            let mut result =
-                RunResult::joined(run_id, runtime, RunRequest::Modeling(requests), None, report);
+            let mut result = RunResult::joined(
+                run_id,
+                runtime,
+                RunRequest::Modeling(requests),
+                None,
+                report,
+            );
             result.horizon = Some(Arc::new(HorizonReport {
                 outputs: admitted.outputs.clone(),
                 inputs: admitted.inputs.clone(),
@@ -113,11 +125,7 @@ impl Runtime {
             sender.send_replace(Some(Arc::new(result)));
         });
         Ok(RunHandle::staged(
-            checks,
-            receiver,
-            progress,
-            run_id,
-            attempt_id,
+            checks, receiver, progress, run_id, attempt_id,
         ))
     }
 }
@@ -427,7 +435,9 @@ impl Admitted {
                 .parameters
                 .iter()
                 .position(|p| *p == input.parameter)
-                .ok_or_else(|| contract("a horizon input is a parameter of the plant's contract"))?;
+                .ok_or_else(|| {
+                    contract("a horizon input is a parameter of the plant's contract")
+                })?;
             if profile.schedule.iter().any(|s| s.parameter == parameter)
                 || inputs[..k].iter().any(|i| i.parameter == input.parameter)
                 || !input.initial.is_finite()
@@ -439,10 +449,9 @@ impl Admitted {
             columns.push(profile.columns_at(np, profile.start)[parameter]);
         }
         let output = |id: &SemanticId| {
-            c.outputs
-                .iter()
-                .position(|o| o == id)
-                .ok_or_else(|| contract("a horizon measurement is an output of the plant's contract"))
+            c.outputs.iter().position(|o| o == id).ok_or_else(|| {
+                contract("a horizon measurement is an output of the plant's contract")
+            })
         };
         let input = |i: usize| {
             (i < inputs.len())
@@ -460,7 +469,9 @@ impl Admitted {
                     }
                     HorizonSignal::Estimated(path) if estimator.is_some() => estimated.push(path),
                     HorizonSignal::Estimated(_) => {
-                        return Err(contract("a controller binds an estimate without an estimator"));
+                        return Err(contract(
+                            "a controller binds an estimate without an estimator",
+                        ));
                     }
                     HorizonSignal::Applied(i) => {
                         input(*i)?;
@@ -482,11 +493,15 @@ impl Admitted {
             }
         }
         let estimator = match &estimator {
-            Some(e) => Some(Self::estimator(runtime, e, steps, &output, &input, &estimated, cancel).await?),
+            Some(e) => {
+                Some(Self::estimator(runtime, e, steps, &output, &input, &estimated, cancel).await?)
+            }
             None => None,
         };
         let controller = match &controller {
-            Some(c) => Some(Self::controller(runtime, c, &output, estimator.as_ref(), cancel).await?),
+            Some(c) => {
+                Some(Self::controller(runtime, c, &output, estimator.as_ref(), cancel).await?)
+            }
             None => None,
         };
         // The plant runs on the controller's threads, or the estimator's without one.
@@ -618,7 +633,10 @@ impl Admitted {
             .bindings
             .iter()
             .filter(|(_, signal)| {
-                matches!(signal, HorizonSignal::Measured(_) | HorizonSignal::Estimated(_))
+                matches!(
+                    signal,
+                    HorizonSignal::Measured(_) | HorizonSignal::Estimated(_)
+                )
             })
             .map(|(path, _)| path)
             .collect::<Vec<_>>();
@@ -680,7 +698,9 @@ impl Admitted {
                     HorizonSignal::Estimated(p) => Signal::Estimated(
                         estimator
                             .and_then(|e| e.stage.read.get(p).copied())
-                            .ok_or_else(|| contract("a controller binds an estimate without an estimator"))?,
+                            .ok_or_else(|| {
+                                contract("a controller binds an estimate without an estimator")
+                            })?,
                     ),
                     HorizonSignal::Applied(i) => Signal::Applied(*i),
                     HorizonSignal::Trajectory(values) => Signal::Trajectory(values.clone()),
@@ -963,9 +983,7 @@ impl Loop {
     /// Plant work on the session thread beside the solves' retained native state.
     async fn plant<T: Send + 'static>(
         &self,
-        work: impl FnOnce(&Plant, &native::solve::Execution) -> Result<T, ProblemError>
-        + Send
-        + 'static,
+        work: impl FnOnce(&Plant, &native::solve::Execution) -> Result<T, ProblemError> + Send + 'static,
     ) -> Result<T, WorkflowError> {
         let plant = self.admitted.plant.clone();
         Ok(self

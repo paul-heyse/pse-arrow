@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Covariance, Wald and profile-likelihood units (Plan 22 S3) on a weighted linear
 //! regression `yᵢ = a + b·xᵢ`, whose covariance is `(XᵀWX)⁻¹` exactly.
+use super::super::regression::*;
 use super::*;
 use crate::workflow::tests::{compiler_profile, id};
-use super::super::regression::*;
 use pse_model::{
     scalar,
     scalars::{Fraction, PositiveCount},
@@ -13,7 +13,9 @@ use pse_relations::{
     columnar::RelationRow,
     generated::{
         enums::{IntervalEnd, IntervalMethod, IntervalOutcome},
-        runtime::{parameter_covariances, parameter_intervals, profile_points, response_directions},
+        runtime::{
+            parameter_covariances, parameter_intervals, profile_points, response_directions,
+        },
     },
 };
 
@@ -26,14 +28,23 @@ async fn linear_regression_covariance_analytic() {
     let package = package(declared(), [1.0; 4]);
     for (hessian, approximation) in [
         (HessianMode::Exact, CovarianceApproximation::Exact),
-        (HessianMode::LimitedMemory, CovarianceApproximation::GaussNewton),
-        (HessianMode::GaussNewton, CovarianceApproximation::GaussNewton),
+        (
+            HessianMode::LimitedMemory,
+            CovarianceApproximation::GaussNewton,
+        ),
+        (
+            HessianMode::GaussNewton,
+            CovarianceApproximation::GaussNewton,
+        ),
     ] {
         let result = fit(&package, profile(hessian, None)).await;
         let report = report(&result);
         let candidate = report.candidate.as_ref().unwrap();
         for k in 0..2 {
-            assert!(close(candidate[k], estimate[k], 1e-6), "{hessian:?} {candidate:?}");
+            assert!(
+                close(candidate[k], estimate[k], 1e-6),
+                "{hessian:?} {candidate:?}"
+            );
         }
         let covariance = report.covariance.as_ref().unwrap();
         assert_eq!(covariance.approximation, approximation);
@@ -62,10 +73,9 @@ async fn linear_regression_covariance_analytic() {
             (hessian == HessianMode::Exact).then_some(true)
         );
         // Every direction is identifiable, over both parameters.
-        let directions = response_directions::Row::rows(
-            &result.table("runtime.response_directions").unwrap(),
-        )
-        .unwrap();
+        let directions =
+            response_directions::Row::rows(&result.table("runtime.response_directions").unwrap())
+                .unwrap();
         assert_eq!(directions.len(), 4);
         assert!(directions.iter().all(|d| d.identifiable));
     }
@@ -117,7 +127,9 @@ async fn covariance_withheld_with_nonunit_importance() {
     // The Wald intervals it would have given are withheld upstream.
     assert!(matches!(
         report.wald,
-        Some(Err(FitWithheld::Upstream(DerivedQuantity::ParameterCovariance)))
+        Some(Err(FitWithheld::Upstream(
+            DerivedQuantity::ParameterCovariance
+        )))
     ));
     let reasons: Vec<_> = validity(&result)
         .iter()
@@ -217,8 +229,9 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
             assert!(chain.points.len() <= 3, "{chain:?}");
         }
     }
-    let rows = parameter_intervals::Row::rows(&result.table("runtime.parameter_intervals").unwrap())
-        .unwrap();
+    let rows =
+        parameter_intervals::Row::rows(&result.table("runtime.parameter_intervals").unwrap())
+            .unwrap();
     assert_eq!(rows.len(), 8);
     assert!(rows.iter().all(|r| r.level == 0.9 && r.value.is_some()));
     assert_eq!(
@@ -228,7 +241,10 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
         4
     );
     let validity = validity(&result);
-    assert!(validity.iter().all(|r| r.validity.certified), "{validity:?}");
+    assert!(
+        validity.iter().all(|r| r.validity.certified),
+        "{validity:?}"
+    );
     assert_eq!(validity.len(), 3);
 }
 
@@ -279,7 +295,10 @@ async fn profile_chain_seeds_from_predecessor() {
     // The unidentifiable direction is a − d: orthogonal to the identifiable a + d.
     let directions = report.directions.as_ref().unwrap();
     let unidentifiable = directions.col(2);
-    assert!((unidentifiable[0] + unidentifiable[2]).abs() < 1e-6, "{directions:?}");
+    assert!(
+        (unidentifiable[0] + unidentifiable[2]).abs() < 1e-6,
+        "{directions:?}"
+    );
     assert!(unidentifiable[1].abs() < 1e-6, "{directions:?}");
     let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
     assert_eq!(chains.len(), 6);
@@ -364,9 +383,13 @@ async fn fit_uncertainty_admission() {
         }
     };
     // Single-value domains refuse at decoding; the level must also lie below one.
-    assert!(serde_json::from_str::<FitUncertainty>(r#"{"level": 0.95, "profile": {"points": 0}}"#).is_err());
+    assert!(
+        serde_json::from_str::<FitUncertainty>(r#"{"level": 0.95, "profile": {"points": 0}}"#)
+            .is_err()
+    );
     assert!(serde_json::from_str::<FitUncertainty>(r#"{"level": 0}"#).is_err());
-    let decoded: FitUncertainty = serde_json::from_str(r#"{"level": 0.95, "profile": {}}"#).unwrap();
+    let decoded: FitUncertainty =
+        serde_json::from_str(r#"{"level": 0.95, "profile": {}}"#).unwrap();
     assert_eq!(decoded.profile, Some(ProfileControls::default()));
     assert!(
         prepare(profile(

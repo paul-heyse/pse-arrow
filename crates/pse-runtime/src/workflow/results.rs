@@ -238,11 +238,13 @@ pub(super) fn certificate_row(
         ray: c
             .ray
             .iter()
-            .map(|e| certificates::RuntimeInfeasibilityCertificatesFieldRayItem {
-                coordinate: e.coordinate,
-                source_id: e.id,
-                value: e.value,
-            })
+            .map(
+                |e| certificates::RuntimeInfeasibilityCertificatesFieldRayItem {
+                    coordinate: e.coordinate,
+                    source_id: e.id,
+                    value: e.value,
+                },
+            )
             .collect(),
         verification: c.verification.map(|v| {
             certificates::RuntimeInfeasibilityCertificatesFieldVerification {

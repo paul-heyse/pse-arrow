@@ -135,8 +135,7 @@ fn pounce_convex_batch_matches_single_solves() {
     let settings = pounce_convex();
     let programs: Vec<_> = [1.2, 1.6, 2.0, 2.4].into_iter().map(qp).collect();
     let budgets: Vec<Tolerances> = programs.iter().map(|(p, _)| budgets(p, 1e-7)).collect();
-    let normalizations: Vec<Normalization> =
-        programs.iter().map(|(p, _)| scaled(p)).collect();
+    let normalizations: Vec<Normalization> = programs.iter().map(|(p, _)| scaled(p)).collect();
     let constants = vec![0.0; 2];
     let singles: Vec<SolveReport> = programs
         .iter()

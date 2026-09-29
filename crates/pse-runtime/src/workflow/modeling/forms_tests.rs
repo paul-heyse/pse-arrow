@@ -780,12 +780,18 @@ async fn authored_l1_realization_selects_route() {
         .await
         .err()
         .unwrap();
-    assert!(native_refusal(&error).contains("l1_exact_penalty"), "{error}");
+    assert!(
+        native_refusal(&error).contains("l1_exact_penalty"),
+        "{error}"
+    );
     let mut interior = profile(SolverSelection::Explicit(Backend::Pounce));
     interior.backend = BackendSettings::Pounce(Settings {
         method: Method::InteriorPoint,
         ..Settings::default()
     });
     let error = second(interior).await.err().unwrap();
-    assert!(native_refusal(&error).contains("l1_exact_penalty"), "{error}");
+    assert!(
+        native_refusal(&error).contains("l1_exact_penalty"),
+        "{error}"
+    );
 }

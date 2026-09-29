@@ -99,8 +99,7 @@ impl Rows {
     pub(super) fn new(registry: &pse_schema::Registry) -> Result<Self, WorkflowError> {
         Ok(Self {
             validity: validity::Builder::with_registry(registry, 0).map_err(relation)?,
-            sensitivities: sensitivities::Builder::with_registry(registry, 0)
-                .map_err(relation)?,
+            sensitivities: sensitivities::Builder::with_registry(registry, 0).map_err(relation)?,
             hessians: hessians::Builder::with_registry(registry, 0).map_err(relation)?,
             propagated: propagated::Builder::with_registry(registry, 0).map_err(relation)?,
         })
@@ -320,16 +319,20 @@ impl Rows {
         Ok(())
     }
     /// The finished relations.
-    pub(super) fn finish(
-        self,
-    ) -> Result<[(SemanticId, FieldCheckedBatch); 4], WorkflowError> {
+    pub(super) fn finish(self) -> Result<[(SemanticId, FieldCheckedBatch); 4], WorkflowError> {
         Ok([
-            (validity::RELATION_ID, self.validity.finish().map_err(relation)?),
+            (
+                validity::RELATION_ID,
+                self.validity.finish().map_err(relation)?,
+            ),
             (
                 sensitivities::RELATION_ID,
                 self.sensitivities.finish().map_err(relation)?,
             ),
-            (hessians::RELATION_ID, self.hessians.finish().map_err(relation)?),
+            (
+                hessians::RELATION_ID,
+                self.hessians.finish().map_err(relation)?,
+            ),
             (
                 propagated::RELATION_ID,
                 self.propagated.finish().map_err(relation)?,
@@ -353,7 +356,9 @@ fn jacobian(
                 .variables
                 .iter()
                 .position(|v| v == id)
-                .ok_or_else(|| contract(format!("propagation output {id} is not a solved variable")))
+                .ok_or_else(|| {
+                    contract(format!("propagation output {id} is not a solved variable"))
+                })
         })
         .collect::<Result<Vec<_>, _>>()?;
     let n = parametric.parameters.len();
@@ -401,7 +406,10 @@ impl<'a> Units<'a> {
     fn parameter(&self, id: SemanticId) -> Result<SemanticId, WorkflowError> {
         self.variable(id)
     }
-    fn canonical(&self, quantity: pse_quantity::QuantityTypeId) -> Result<SemanticId, WorkflowError> {
+    fn canonical(
+        &self,
+        quantity: pse_quantity::QuantityTypeId,
+    ) -> Result<SemanticId, WorkflowError> {
         Ok(self
             .quantities
             .quantity_type(quantity)

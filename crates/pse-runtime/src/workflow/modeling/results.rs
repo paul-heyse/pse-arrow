@@ -776,10 +776,7 @@ mod tests {
     }
     /// A native step with the given assurance and, when present, a global dual bound on a
     /// minimized objective: a synthetic stand-in for a certifying solve.
-    fn step(
-        assurance: pse_backend_native::solve::Assurance,
-        dual_bound: Option<f64>,
-    ) -> Outcome {
+    fn step(assurance: pse_backend_native::solve::Assurance, dual_bound: Option<f64>) -> Outcome {
         use pse_backend_native::{self as native, solve::*};
         let id = SemanticId::from_bytes([1; 16]);
         let contract = native::OracleContract {

@@ -884,7 +884,8 @@ impl Cursor<'_> {
                     let mut integration = None;
                     let mut schedules = Vec::new();
                     let mut shooting = None;
-                    let mut modes = Vec::<AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem>::new();
+                    let mut modes =
+                        Vec::<AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem>::new();
                     let mut initialization = None;
                     let mut expected_failure = None;
                     while !self.eat("}") {
@@ -916,11 +917,13 @@ impl Cursor<'_> {
                                 }
                             }
                             self.expect(";")?;
-                            modes.push(AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
-                                name,
-                                facts,
-                                events: Vec::new(),
-                            });
+                            modes.push(
+                                AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+                                    name,
+                                    facts,
+                                    events: Vec::new(),
+                                },
+                            );
                             continue;
                         }
                         // `event <guard> direction(<d>) tolerance(<x>) [reset(<state> = <member>, ...)]
@@ -1031,10 +1034,11 @@ impl Cursor<'_> {
                                 Vec::new()
                             };
                             self.expect(";")?;
-                            shooting = Some(AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
-                                method,
-                                nodes,
-                            });
+                            shooting =
+                                Some(AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+                                    method,
+                                    nodes,
+                                });
                             continue;
                         }
                         if self.eat("run") {

@@ -346,8 +346,8 @@ impl KktFactor {
         let factor = self.solver.work_estimate().map_or(0, |w| w.factor_bytes);
         let matrix = self.matrix.values.len() * (size_of::<f64>() + size_of::<usize>())
             + self.matrix.col_ptr.len() * size_of::<usize>();
-        let layout = (self.layout.rows.len() + self.layout.bounds.len())
-            * size_of::<(usize, Side)>();
+        let layout =
+            (self.layout.rows.len() + self.layout.bounds.len()) * size_of::<(usize, Side)>();
         factor
             .saturating_add(matrix)
             .saturating_add(layout)
@@ -601,15 +601,20 @@ pub(crate) fn analyse(
         .iter()
         .enumerate()
         .map(|(j, v)| {
-            let side = side(x[j], (v.lower, v.upper), tolerances.variables[j], zu[j] > zl[j])
-                .or_else(|| {
-                    dominant(
-                        x[j] / sx[j],
-                        (v.lower / sx[j], v.upper / sx[j]),
-                        (zl[j] * sx[j] / sf, zu[j] * sx[j] / sf),
-                        budget.dual,
-                    )
-                });
+            let side = side(
+                x[j],
+                (v.lower, v.upper),
+                tolerances.variables[j],
+                zu[j] > zl[j],
+            )
+            .or_else(|| {
+                dominant(
+                    x[j] / sx[j],
+                    (v.lower / sx[j], v.upper / sx[j]),
+                    (zl[j] * sx[j] / sf, zu[j] * sx[j] / sf),
+                    budget.dual,
+                )
+            });
             let multiplier = match side {
                 Some(Side::Upper) => zu[j],
                 Some(Side::Lower) => zl[j],
@@ -635,9 +640,8 @@ pub(crate) fn analyse(
     for (k, (r, _)) in layout.rows.iter().enumerate() {
         position[*r] = Some(n + k);
     }
-    let hessian = entries::<OriginalCol, OriginalCol>(
-        oracle.hessian_pattern().ok_or(Unavailable::Hessian)?,
-    );
+    let hessian =
+        entries::<OriginalCol, OriginalCol>(oracle.hessian_pattern().ok_or(Unavailable::Hessian)?);
     let jacobian = entries::<OriginalRow, OriginalCol>(oracle.jacobian_pattern());
     let coupled = jacobian
         .iter()
@@ -725,8 +729,7 @@ pub(crate) fn analyse(
             }
             released.values[n + k] = -1.0;
         }
-        let inertia =
-            crate::conditioning::factor_into(&mut diagnostic, &released.matrix(order)?)?;
+        let inertia = crate::conditioning::factor_into(&mut diagnostic, &released.matrix(order)?)?;
         // The strongly active gradients are independent, a subset of an independent set.
         let strong = active - weak.len();
         match less(inertia, (strong, strong + weak.len(), 0)) {
@@ -823,7 +826,11 @@ fn backward_error(solver: &feral::Solver, matrix: &feral::CscMatrix) -> Option<f
     let norm = infinity(&symmetric_product(matrix, &ones, true));
     let residual = infinity(&b.iter().zip(&r).map(|(b, r)| b - r).collect::<Vec<_>>());
     let scale = norm * infinity(&w) + infinity(&b);
-    let error = if scale > 0.0 { residual / scale } else { residual };
+    let error = if scale > 0.0 {
+        residual / scale
+    } else {
+        residual
+    };
     error.is_finite().then_some(error)
 }
 

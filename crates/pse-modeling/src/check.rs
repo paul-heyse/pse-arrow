@@ -489,12 +489,11 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         "a shooting fixture declares its method, the inner nodes of multiple shooting and schedules held free as its controls; only a shooting fixture holds a schedule free, with bounds",
                     ));
                 }
-                for expression in fixture
-                    .shooting
-                    .iter()
-                    .flat_map(|s| &s.nodes)
-                    .chain(schedules.iter().flat_map(|s| s.lower.iter().chain(&s.upper)))
-                {
+                for expression in fixture.shooting.iter().flat_map(|s| &s.nodes).chain(
+                    schedules
+                        .iter()
+                        .flat_map(|s| s.lower.iter().chain(&s.upper)),
+                ) {
                     dsl::parse_expr(expression)
                         .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
                 }

@@ -227,7 +227,9 @@ pub fn minimization_form(
     }
     // Four units in the last place bound the congruence's rounding of either partner.
     let rounding = 4.0 * f64::EPSILON;
-    let unsymmetric = upper.keys().any(|&(r, c)| r != c && !lower.contains_key(&(r, c)))
+    let unsymmetric = upper
+        .keys()
+        .any(|&(r, c)| r != c && !lower.contains_key(&(r, c)))
         || lower.iter().any(|(position, &v)| {
             upper
                 .get(position)
@@ -575,9 +577,7 @@ pub struct GramFactors {
 impl GramFactors {
     /// The squared terms: each positive weight with its row, in pivot order.
     pub fn terms(&self) -> impl Iterator<Item = (&Rational, &[(usize, Rational)])> {
-        self.weights
-            .iter()
-            .zip(self.rows.iter().map(Vec::as_slice))
+        self.weights.iter().zip(self.rows.iter().map(Vec::as_slice))
     }
     /// The number of squares: the rank of the certified matrix.
     pub fn rank(&self) -> usize {
@@ -723,10 +723,7 @@ pub(crate) fn ldlt(
         }
         let row = std::mem::take(&mut a[p]);
         let d = row[&p].clone();
-        let neighbors: Vec<(usize, Rational)> = row
-            .into_iter()
-            .filter(|(j, _)| *j != p)
-            .collect();
+        let neighbors: Vec<(usize, Rational)> = row.into_iter().filter(|(j, _)| *j != p).collect();
         let k = neighbors.len();
         let cost = (k.saturating_mul(k + 1) / 2).saturating_add(k).max(1);
         if cost > *budget {
@@ -764,12 +761,7 @@ pub(crate) fn ldlt(
             }
         }
         let mut gram = vec![(p, Rational::one())];
-        gram.extend(
-            neighbors
-                .iter()
-                .map(|(i, _)| *i)
-                .zip(multipliers),
-        );
+        gram.extend(neighbors.iter().map(|(i, _)| *i).zip(multipliers));
         gram.sort_by_key(|(i, _)| *i);
         factors.rows.push(gram);
         factors.weights.push(d);
@@ -1014,7 +1006,12 @@ mod tests {
             };
             proof.validate(&q, 1.0).unwrap();
             assert!(proof.validate(&q, -1.0).is_err());
-            assert!(proof.factors().terms().all(|(w, _)| !w.is_negative() && !w.is_zero()));
+            assert!(
+                proof
+                    .factors()
+                    .terms()
+                    .all(|(w, _)| !w.is_negative() && !w.is_zero())
+            );
             let exact = reconstruct(n, proof.factors());
             let dense = q.to_dense();
             for i in 0..n {
@@ -1053,11 +1050,21 @@ mod tests {
         }
         // The concave quadratic of a maximization is certified in the minimization sense.
         let concave = square(2, &[(0, 0, -3.0), (0, 1, -1.0), (1, 0, -1.0), (1, 1, -3.0)]);
-        assert!(matches!(certify(&concave, 1.0, 1000), Definiteness::Indefinite));
-        assert!(matches!(certify(&concave, -1.0, 1000), Definiteness::Psd(_)));
+        assert!(matches!(
+            certify(&concave, 1.0, 1000),
+            Definiteness::Indefinite
+        ));
+        assert!(matches!(
+            certify(&concave, -1.0, 1000),
+            Definiteness::Psd(_)
+        ));
         // An exhausted allowance is inconclusive, never convex.
         assert!(matches!(
-            certify(&square(2, &[(0, 0, 3.0), (0, 1, 1.0), (1, 0, 1.0), (1, 1, 3.0)]), 1.0, 1),
+            certify(
+                &square(2, &[(0, 0, 3.0), (0, 1, 1.0), (1, 0, 1.0), (1, 1, 3.0)]),
+                1.0,
+                1
+            ),
             Definiteness::Inconclusive
         ));
         // An unsymmetric matrix is a contract error, not a decision.

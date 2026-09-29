@@ -396,9 +396,10 @@ fn problem(error: &pse_backend_native::ProblemError, result: &mut BoundaryDiagno
                 .insert("backend".into(), Observation::Text(backend.as_str().into()));
             let reason = match refusal {
                 pse_backend_native::ReuseRefusal::Foreign(held) => {
-                    result
-                        .observations
-                        .insert("held_backend".into(), Observation::Text(held.as_str().into()));
+                    result.observations.insert(
+                        "held_backend".into(),
+                        Observation::Text(held.as_str().into()),
+                    );
                     "foreign"
                 }
                 pse_backend_native::ReuseRefusal::Structure => "structure",

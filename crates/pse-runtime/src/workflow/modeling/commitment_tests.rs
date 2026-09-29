@@ -46,7 +46,10 @@ const MILP: &str = "package p {
 /// case, with λ = 2(b − a)/3 on the coupling row and dx/d(a, b) = (2/3, 1/3).
 fn quadratic(build: bool) -> String {
     let (declaration, term) = if build {
-        ("var build: Indicator in binary; annotation start build(1{1});", " + fee*build")
+        (
+            "var build: Indicator in binary; annotation start build(1{1});",
+            " + fee*build",
+        )
     } else {
         ("", "")
     };
@@ -147,7 +150,11 @@ fn run(result: &crate::workflow::RunResult) -> solve_runs::Row {
 }
 fn backend(result: &crate::workflow::RunResult) -> NativeBackend {
     let run = run(result);
-    assert_ne!(run.qualification, NativeQualification::Unqualified, "{run:?}");
+    assert_ne!(
+        run.qualification,
+        NativeQualification::Unqualified,
+        "{run:?}"
+    );
     run.backend.unwrap()
 }
 /// The step's commitment as `(column, value)` pairs; every committed box here is a
@@ -199,11 +206,18 @@ async fn duals_conditional_on_assignment() {
     assert_eq!(commitment(&result), Some(vec![(y, 3.0)]));
     // Under y = 3 the row x ≤ 0.4 W binds and x + y ≤ 3.5 W does not.
     let (d_total, d_cap) = (dual(&result, total).unwrap(), dual(&result, cap).unwrap());
-    assert!(d_total.abs() < 1e-9 && (d_cap.abs() - 1.0).abs() < 1e-9, "{d_total} {d_cap}");
+    assert!(
+        d_total.abs() < 1e-9 && (d_cap.abs() - 1.0).abs() < 1e-9,
+        "{d_total} {d_cap}"
+    );
     // Without the fixed-commitment LP the MIP candidate has neither.
     let (plain, _) = solve(
         &package,
-        &analysis(root, profile(explicit, BackendSettings::Default), &paths[..1]),
+        &analysis(
+            root,
+            profile(explicit, BackendSettings::Default),
+            &paths[..1],
+        ),
         &paths,
     )
     .await;
@@ -229,7 +243,10 @@ async fn duals_conditional_on_assignment() {
     assert_eq!(commitment(&continuous), None);
     let reference = dual(&continuous, ids[0]).unwrap();
     assert!((reference.abs() - 2.0 / 3.0).abs() < 1e-6, "{reference}");
-    assert!((conditional - reference).abs() < 1e-6, "{conditional} {reference}");
+    assert!(
+        (conditional - reference).abs() < 1e-6,
+        "{conditional} {reference}"
+    );
 }
 
 /// Sensitivities read at the SCIP re-solve's candidate equal those of the continuous
@@ -286,7 +303,11 @@ async fn sensitivity_conditional_on_assignment() {
     assert_eq!(backend(&continuous), NativeBackend::Ipopt);
     assert_eq!(commitment(&continuous), None);
     let validity: Vec<local_validity::Row> = rows(&continuous, "runtime.local_validity");
-    assert!(validity.iter().all(|r| r.validity.certified && !r.validity.conditional));
+    assert!(
+        validity
+            .iter()
+            .all(|r| r.validity.certified && !r.validity.conditional)
+    );
     // dx/da = 2/3 and dx/db = 1/3 on both routes.
     let find = |rows: &[parametric_sensitivities::Row], ids: &[SemanticId], k: usize| {
         rows.iter()
@@ -303,6 +324,9 @@ async fn sensitivity_conditional_on_assignment() {
             find(&conditional, &ids, k),
             find(&reference, &unconditional, k),
         );
-        assert!((a - expected).abs() < 1e-6 && (a - b).abs() < 1e-6, "{a} {b}");
+        assert!(
+            (a - expected).abs() < 1e-6 && (a - b).abs() < 1e-6,
+            "{a} {b}"
+        );
     }
 }

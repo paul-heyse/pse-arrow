@@ -116,11 +116,22 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
         // requirement of its case structure, which selects POUNCE's l1 method: the
         // author's selection (ADR-0104 §5, Plan 22 M5b).
         let penalty_case = cases[&format!("complementarity_{feed}_penalty")];
-        let prepared = seed_prepare(&package, penalty_case, feasible(Backend::Pounce), &CancelSource::new())
-            .await
-            .unwrap();
+        let prepared = seed_prepare(
+            &package,
+            penalty_case,
+            feasible(Backend::Pounce),
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap();
         assert_eq!(
-            prepared.model.case.compiled().plan.structure().requirements(),
+            prepared
+                .model
+                .case
+                .compiled()
+                .plan
+                .structure()
+                .requirements(),
             [Requirement::L1ExactPenalty]
         );
         let penalty = solve(&package, penalty_case, feasible(Backend::Pounce)).await;
@@ -138,9 +149,14 @@ async fn flash_phase_disappearance_agrees_across_realizations() {
         );
         // Another backend cannot honour the requirement.
         assert!(
-            seed_prepare(&package, penalty_case, feasible(Backend::Ipopt), &CancelSource::new())
-                .await
-                .is_err()
+            seed_prepare(
+                &package,
+                penalty_case,
+                feasible(Backend::Ipopt),
+                &CancelSource::new()
+            )
+            .await
+            .is_err()
         );
     }
 }

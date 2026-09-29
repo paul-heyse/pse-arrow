@@ -332,7 +332,9 @@ mod tests {
         // least one output; it enters the request identity.
         let x = pse_ids::SemanticId::from_bytes([3; 16]);
         let run = pse_ids::SemanticId::from_bytes([4; 16]);
-        let propagating = |parameters: serde_json::Value, values: serde_json::Value, outputs: serde_json::Value| {
+        let propagating = |parameters: serde_json::Value,
+                           values: serde_json::Value,
+                           outputs: serde_json::Value| {
             serde_json::from_value::<SolveSettings>(json!({
                 "version": 1,
                 "sensitivity": {"parameters": [a, b], "propagation": {
@@ -354,7 +356,10 @@ mod tests {
             (json!([a]), json!([-1.0]), json!([x])),
             (json!([a]), json!([1.0]), json!([])),
         ] {
-            assert!(propagating(parameters.clone(), values, outputs).is_err(), "{parameters}");
+            assert!(
+                propagating(parameters.clone(), values, outputs).is_err(),
+                "{parameters}"
+            );
         }
     }
 

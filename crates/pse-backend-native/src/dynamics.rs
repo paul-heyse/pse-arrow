@@ -29,8 +29,8 @@ mod linear;
 /// normalized state keeps (`IDASetConstraints`) and the guard crossings that trigger an
 /// event (`IDASetRootDirection`).
 pub use pse_model::generated::enums::{
-    DiffsolLinear, DiffsolMethod, DynamicSensitivity, DynamicsMethod as Method,
-    EventDirection, IdasInitialization, SensitivityCorrector, StateSign, TrialPolicy,
+    DiffsolLinear, DiffsolMethod, DynamicSensitivity, DynamicsMethod as Method, EventDirection,
+    IdasInitialization, SensitivityCorrector, StateSign, TrialPolicy,
 };
 /// Typed Diffsol-only method controls, a versioned boundary document (ADR-0116 Outcome 6):
 /// the version is required, and absent fields take these defaults.
@@ -457,11 +457,11 @@ pub(crate) fn eliminate(
             .map_err(|e| ProblemError::memory(format!("adjoint jump constraint block: {e:?}")))?;
         let symbolic = faer::sparse::linalg::solvers::SymbolicLu::try_new(transposed.symbolic())
             .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
-        let lu = faer::sparse::linalg::solvers::Lu::try_new_with_symbolic(
-            symbolic,
-            transposed.as_ref(),
-        )
-        .map_err(|e| ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}")))?;
+        let lu =
+            faer::sparse::linalg::solvers::Lu::try_new_with_symbolic(symbolic, transposed.as_ref())
+                .map_err(|e| {
+                    ProblemError::numerical(format!("adjoint jump constraint LU: {e:?}"))
+                })?;
         let mut w = algebraic.iter().map(|i| jump[*i]).collect::<Vec<_>>();
         lu.solve_in_place(faer::MatMut::from_column_major_slice_mut(&mut w, na, 1));
         if w.iter().any(|v| !v.is_finite()) {
@@ -1121,7 +1121,11 @@ impl Profile {
         }
         let m = c.outputs.len();
         let np = self.integration_width(c.parameters.len());
-        let scheduled = self.schedule.iter().map(|s| s.parameter).collect::<BTreeSet<_>>();
+        let scheduled = self
+            .schedule
+            .iter()
+            .map(|s| s.parameter)
+            .collect::<BTreeSet<_>>();
         if scheduled.len() != self.schedule.len()
             || scheduled.iter().any(|k| *k >= c.parameters.len())
             || self.schedule.iter().any(|s| {

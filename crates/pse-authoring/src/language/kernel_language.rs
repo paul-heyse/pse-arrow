@@ -486,7 +486,10 @@ fn objective_members_parse_and_render() {
     assert_eq!(yield_.weight, None);
     // Other annotations keep positional arguments and carry no objective members.
     let start = annotation(&rows, "start", "co2");
-    assert_eq!((start.arguments, start.objective), (vec!["1{t}".into()], None));
+    assert_eq!(
+        (start.arguments, start.objective),
+        (vec!["1{t}".into()], None)
+    );
     // The canonical rendering lists the sense, then the members in declared order, and
     // parses back to the same declarations.
     let printed = render(&rows).unwrap();

@@ -317,7 +317,12 @@ fn diffsol_singular_factorization_is_typed_numerical() {
             ..Default::default()
         };
         let r = integrate(&mut Degenerate::new(), &p, &[], Arc::default()).unwrap();
-        assert_eq!(r.termination, Termination::Failed, "{linear:?}: {:?}", r.error);
+        assert_eq!(
+            r.termination,
+            Termination::Failed,
+            "{linear:?}: {:?}",
+            r.error
+        );
         // Diffsol's own step recovery ends it, not a nonfinite value reaching the oracle.
         assert!(
             matches!(&r.error, Some(ProblemError::Numerical { detail, .. })

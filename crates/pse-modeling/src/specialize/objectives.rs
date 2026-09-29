@@ -197,10 +197,7 @@ impl Engine<'_, '_> {
         let first_member = objectives.members.len();
         for (target, declaration, lineage) in members {
             if several && declaration.weight.is_none() {
-                return Err(refuse(
-                    lineage.declaration.as_id(),
-                    Refusal::MissingWeight,
-                ));
+                return Err(refuse(lineage.declaration.as_id(), Refusal::MissingWeight));
             }
             let (normalization, term) = match &declaration.normalization {
                 Some(value) => {
@@ -211,10 +208,7 @@ impl Engine<'_, '_> {
             };
             let term_quantity = self.objective_quantity(term, lineage.declaration)?;
             if several && term_quantity != neutral {
-                return Err(refuse(
-                    lineage.declaration.as_id(),
-                    Refusal::DimensionalSum,
-                ));
+                return Err(refuse(lineage.declaration.as_id(), Refusal::DimensionalSum));
             }
             if !several {
                 quantity = term_quantity;

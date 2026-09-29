@@ -61,9 +61,7 @@ fn unstable_case(package: &ModelingPackage, header: &str) -> (ModelingPackage, S
 /// The authored stability check `tpd > -tolerance` of the phase-stability model.
 const TPD_CHECK: &str = "cf7deebc57f244f8a52ec8e924140225";
 /// The solved tangent-plane distance and the authored stability check.
-fn tpd(
-    result: &pse_runtime::workflow::RunResult,
-) -> (f64, &pse_runtime::workflow::ModelingCheck) {
+fn tpd(result: &pse_runtime::workflow::RunResult) -> (f64, &pse_runtime::workflow::ModelingCheck) {
     let RunReport::Modeling(reports) = result.report().unwrap() else {
         panic!("expected a modeling report");
     };
@@ -138,7 +136,10 @@ async fn tpd_detects_known_instability() {
     let teqp = reference["teqp"]["tpd"].as_f64().unwrap();
     let authored = &reference["authored"];
     let expected = authored["tpd"].as_f64().unwrap();
-    assert!(expected < -0.1 && (expected - teqp).abs() < 1e-3, "{expected} {teqp}");
+    assert!(
+        expected < -0.1 && (expected - teqp).abs() < 1e-3,
+        "{expected} {teqp}"
+    );
     let owner = WorkflowRuntime::new().unwrap();
     let source = seed_package(&owner).await;
     let (package, case) = unstable_case(&source, "");
@@ -364,8 +365,7 @@ async fn heater_optimization_certified() {
 async fn pcsaft_tpd(
     package: &ModelingPackage,
     limits: pse_modeling::Limits,
-) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError>
-{
+) -> Result<pse_runtime::workflow::ModelingSolvePreparation, pse_runtime::workflow::WorkflowError> {
     let name = "tpd_pcsaft";
     let source = format!(
         "@id(\"{PHASE_STABILITY_FIXTURES}\") package phase_stability_fixtures {{ use pcsaft @\"1.0.0\"; test {name} fixture {{dof 2; run steady;}} {{ child root:phase_stability.TangentPlaneStability=phase_stability.TangentPlaneStability(selected=chem.alkanes,law=pcsaft.potential,feed=vessel_fixtures.fraction); }} }}"

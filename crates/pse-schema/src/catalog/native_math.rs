@@ -1130,7 +1130,10 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
     b.declare_enum(EnumDecl::platform(
         "IntervalMethod",
         vec![
-            EnumMember::new("wald", "A Wald interval from the covariance and a quantile."),
+            EnumMember::new(
+                "wald",
+                "A Wald interval from the covariance and a quantile.",
+            ),
             EnumMember::new(
                 "profile_likelihood",
                 "A profile-likelihood interval from adaptive pin chains.",
@@ -1324,11 +1327,7 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
             column("method", T::enumeration("IntervalMethod")),
             column("end", T::enumeration("IntervalEnd")),
             column("unit_id", T::id()),
-            documented(
-                "level",
-                real(),
-                "The confidence level in (0, 1).",
-            ),
+            documented("level", real(), "The confidence level in (0, 1)."),
             column("estimate", real()),
             documented(
                 "value",
@@ -1471,4 +1470,3 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
         "A parameter covariance propagated to outputs, Σ_y = J·Σ_θ·Jᵀ (ADR-0118 items 1 and 11; the counterpart of IDAES sens.py): J is a modeling step's parametric sensitivities over the covariance's parameters, matched by identity, or a fit's response derivatives. A first-order statement valid while both its inputs are; its validity, the conjunction of theirs, is in local_validity.",
     );
 }
-

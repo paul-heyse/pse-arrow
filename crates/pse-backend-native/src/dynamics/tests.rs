@@ -916,9 +916,9 @@ fn idas_conv_fail_is_numerical() {
     assert_eq!(idas::termination(status.code as i32).category, T::Numerical);
 }
 
+#[path = "adjoint_tests.rs"]
+mod adjoint;
 #[path = "extension_tests.rs"]
 mod extension;
 #[path = "process_tests.rs"]
 mod process;
-#[path = "adjoint_tests.rs"]
-mod adjoint;

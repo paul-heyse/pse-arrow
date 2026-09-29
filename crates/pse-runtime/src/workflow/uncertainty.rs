@@ -87,7 +87,9 @@ pub fn propagate(
         .map_err(|e| contract(format!("propagated covariance: {e}")))?;
     let (m, n) = (jacobian.outputs.len(), jacobian.parameters.len());
     if jacobian.values.len() != m * n {
-        return Err(contract("a Jacobian's values match its outputs and parameters"));
+        return Err(contract(
+            "a Jacobian's values match its outputs and parameters",
+        ));
     }
     let p = covariance.parameters.len();
     let columns = covariance

@@ -370,26 +370,26 @@ fn grid() -> Vec<ProblemFacts> {
                                 ),
                             },
                         ] {
-                        out.push(ProblemFacts {
-                            variables: 1,
-                            rows,
-                            objective,
-                            objectives: usize::from(objective),
-                            equalities,
-                            domains: vec![domain],
-                            derivatives,
-                            prepared_derivatives: derivatives,
-                            bounds: vec![bounds],
-                            guarded: false,
-                            coefficients,
-                            affine_rows: vec![coefficients; rows],
-                            objective_degree: Some(if quadratic { 2 } else { 1 }),
-                            bound_assumptions: ContentHash::from_bytes([0; 32]),
-                            quadratic,
-                            native: native.clone(),
-                            requirements: vec![],
-                            convexity,
-                        });
+                            out.push(ProblemFacts {
+                                variables: 1,
+                                rows,
+                                objective,
+                                objectives: usize::from(objective),
+                                equalities,
+                                domains: vec![domain],
+                                derivatives,
+                                prepared_derivatives: derivatives,
+                                bounds: vec![bounds],
+                                guarded: false,
+                                coefficients,
+                                affine_rows: vec![coefficients; rows],
+                                objective_degree: Some(if quadratic { 2 } else { 1 }),
+                                bound_assumptions: ContentHash::from_bytes([0; 32]),
+                                quadratic,
+                                native: native.clone(),
+                                requirements: vec![],
+                                convexity,
+                            });
                         }
                     }
                 }

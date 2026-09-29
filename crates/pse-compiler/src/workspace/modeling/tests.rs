@@ -1674,11 +1674,18 @@ fn convexity_fact_rebinds_with_values() {
             .unwrap()
         };
         let first = prepare(&mut w, 1.0);
-        assert!(convex(&first.facts.convexity.class), "{text}: {:?}", first.facts.convexity);
+        assert!(
+            convex(&first.facts.convexity.class),
+            "{text}: {:?}",
+            first.facts.convexity
+        );
         let rebound = first.rebind(&values(-1.0), &cancel).unwrap();
         assert_eq!(rebound.facts.convexity.class, nonconvex, "{text}");
         assert_ne!(rebound.facts.convexity.key, first.facts.convexity.key);
-        assert_eq!(rebound.facts.convexity, prepare(&mut w, -1.0).facts.convexity);
+        assert_eq!(
+            rebound.facts.convexity,
+            prepare(&mut w, -1.0).facts.convexity
+        );
         // Back to the first values: the fact is re-established with the first key.
         let restored = rebound.rebind(&values(1.0), &cancel).unwrap();
         assert_eq!(restored.facts.convexity, first.facts.convexity);

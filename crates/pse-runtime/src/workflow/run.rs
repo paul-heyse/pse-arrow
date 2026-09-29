@@ -399,25 +399,23 @@ impl super::PreparedFit {
             .bytes
             .checked_mul(workers)
             .ok_or(MathRuntimeError::Limit("fit profile extent"))?;
-        let handle = runtime.native().submit_with(
-            cores,
-            bytes,
-            submission,
-            move |flag, progress| {
-                let allowance = prepared
-                    .problem
-                    .profile
-                    .solver
-                    .controls
-                    .report_allowance()?;
-                let report = prepared.execute(run_id, flag, progress, workers)?;
-                let retained = report
-                    .numeric_bytes()
-                    .checked_add(allowance)
-                    .ok_or(MathRuntimeError::Limit("fit result extent"))?;
-                Ok((RunReport::Fit(Box::new(report)), retained))
-            },
-        )?;
+        let handle =
+            runtime
+                .native()
+                .submit_with(cores, bytes, submission, move |flag, progress| {
+                    let allowance = prepared
+                        .problem
+                        .profile
+                        .solver
+                        .controls
+                        .report_allowance()?;
+                    let report = prepared.execute(run_id, flag, progress, workers)?;
+                    let retained = report
+                        .numeric_bytes()
+                        .checked_add(allowance)
+                        .ok_or(MathRuntimeError::Limit("fit result extent"))?;
+                    Ok((RunReport::Fit(Box::new(report)), retained))
+                })?;
         let lease = Arc::new(Lease(cancel.clone(), None));
         let attempt_id = durable.as_ref().map(DurableAttempt::attempt_id);
         let (sender, receiver) = tokio::sync::watch::channel(None);
@@ -724,11 +722,7 @@ impl Runtime {
             sender.send_replace(Some(Arc::new(result)));
         });
         Ok(RunHandle::staged(
-            checks,
-            receiver,
-            progress,
-            run_id,
-            attempt_id,
+            checks, receiver, progress, run_id, attempt_id,
         ))
     }
 }

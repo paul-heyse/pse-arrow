@@ -107,7 +107,10 @@ async fn unidentifiable_fit_withholds_covariance() {
     };
     let covariance = report.covariance.as_ref().unwrap();
     // A quasi-Newton fit's covariance is Gauss–Newton.
-    assert_eq!(covariance.approximation, CovarianceApproximation::GaussNewton);
+    assert_eq!(
+        covariance.approximation,
+        CovarianceApproximation::GaussNewton
+    );
     assert!(
         matches!(
             covariance.values,
@@ -144,8 +147,10 @@ async fn unidentifiable_fit_withholds_covariance() {
             .unwrap();
     assert_eq!(published.len(), 4);
     assert_eq!(published.iter().filter(|r| r.identifiable).count(), 2);
-    assert!(published
-        .iter()
-        .filter(|r| !r.identifiable)
-        .all(|r| r.direction == 1));
+    assert!(
+        published
+            .iter()
+            .filter(|r| !r.identifiable)
+            .all(|r| r.direction == 1)
+    );
 }

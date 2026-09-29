@@ -6,7 +6,8 @@ use super::*;
 use crate::{
     math::settings::Propagation,
     workflow::{
-        FitUncertainty, fitting::regression as fixture,
+        FitUncertainty,
+        fitting::regression as fixture,
         modeling::sensitivity_tests::{LINEAR, QUADRATIC, solve_propagating},
     },
 };
@@ -41,7 +42,10 @@ fn sandwich(j: &[[f64; 2]], sigma: [[f64; 2]; 2]) -> Vec<f64> {
 fn close(actual: &[f64], expected: &[f64]) {
     assert_eq!(actual.len(), expected.len());
     for (a, e) in actual.iter().zip(expected) {
-        assert!((a - e).abs() <= 1e-6 * (1.0 + e.abs()), "{actual:?} vs {expected:?}");
+        assert!(
+            (a - e).abs() <= 1e-6 * (1.0 + e.abs()),
+            "{actual:?} vs {expected:?}"
+        );
     }
 }
 fn validity(result: &RunResult) -> local_validity::Row {
@@ -196,7 +200,10 @@ async fn propagation_withheld_when_upstream_withheld() {
     // A covariance that is not square, symmetric and nonnegative on its diagonal is refused.
     let skew = ParameterCovariance {
         run_id: run,
-        parameters: vec![SemanticId::from_bytes([1; 16]), SemanticId::from_bytes([2; 16])],
+        parameters: vec![
+            SemanticId::from_bytes([1; 16]),
+            SemanticId::from_bytes([2; 16]),
+        ],
         values: bound(&[1.0, 0.5, -0.5, 1.0]),
     };
     assert!(skew.admit().is_err());

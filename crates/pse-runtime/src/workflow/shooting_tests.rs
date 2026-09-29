@@ -31,7 +31,11 @@ async fn tracking(method: Method) -> crate::workflow::ModelingSimulation {
         pse_authoring::ParseBudget::default(),
     )
     .unwrap();
-    let root = rows.iter().find(|r| r.name == "Tracking").unwrap().declaration_id;
+    let root = rows
+        .iter()
+        .find(|r| r.name == "Tracking")
+        .unwrap()
+        .declaration_id;
     let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
         .modeling_package(
             rows,
@@ -174,14 +178,29 @@ async fn shooting_matches_simultaneous_optimum() {
             assert_eq!(problem.contract().variables.len(), 2 + nodes.len());
             let report = solve(problem, None);
             let solve = report.solve.as_ref().unwrap();
-            assert_eq!(solve.termination.category, native::solve::Termination::Success, "{case}: {:?}", solve.termination);
+            assert_eq!(
+                solve.termination.category,
+                native::solve::Termination::Success,
+                "{case}: {:?}",
+                solve.termination
+            );
             let controls = &report.controls[&simulation.contract().parameters[0]];
             for (u, expected) in controls.iter().zip(optimum) {
-                assert!((u - expected).abs() < 1e-5, "{case}: {controls:?} vs {optimum:?}");
+                assert!(
+                    (u - expected).abs() < 1e-5,
+                    "{case}: {controls:?} vs {optimum:?}"
+                );
             }
             let objective = report.objective.unwrap();
-            assert!((objective - value).abs() <= 1e-6 * value, "{case}: {objective} vs {value}");
-            assert!(report.continuity.unwrap() < 1e-8, "{case}: {:?}", report.continuity);
+            assert!(
+                (objective - value).abs() <= 1e-6 * value,
+                "{case}: {objective} vs {value}"
+            );
+            assert!(
+                report.continuity.unwrap() < 1e-8,
+                "{case}: {:?}",
+                report.continuity
+            );
             assert_eq!(report.nodes.len(), 1 + nodes.len());
             // The model's own checks hold on the stitched trajectory.
             assert!(
@@ -207,7 +226,12 @@ async fn multiple_shooting_continuity_closes() {
             let case = format!("{method:?} controlled={controlled}");
             let problem = Arc::new(
                 simulation
-                    .shooting(request(&simulation, ShootingMethod::Multiple, vec![0.5, 1., 1.5], controlled))
+                    .shooting(request(
+                        &simulation,
+                        ShootingMethod::Multiple,
+                        vec![0.5, 1., 1.5],
+                        controlled,
+                    ))
                     .unwrap(),
             );
             let execution = Execution::new(Arc::new(AtomicBool::new(false)), &solver().controls);
@@ -225,8 +249,17 @@ async fn multiple_shooting_continuity_closes() {
                 )
                 .unwrap();
             let solve = report.solve.as_ref().unwrap();
-            assert_eq!(solve.termination.category, native::solve::Termination::Success, "{case}: {:?}", solve.termination);
-            assert!(report.continuity.unwrap() < 1e-9, "{case}: {:?}", report.continuity);
+            assert_eq!(
+                solve.termination.category,
+                native::solve::Termination::Success,
+                "{case}: {:?}",
+                solve.termination
+            );
+            assert!(
+                report.continuity.unwrap() < 1e-9,
+                "{case}: {:?}",
+                report.continuity
+            );
             // One integration of the horizon at the candidate's controls.
             let mut profile = simulation.profile().clone();
             profile.sensitivity = DynamicSensitivity::None;
@@ -242,14 +275,27 @@ async fn multiple_shooting_continuity_closes() {
             assert_eq!(stitched.samples.len(), horizon.samples.len());
             for (a, b) in stitched.samples.iter().zip(&horizon.samples) {
                 assert_eq!(a.time, b.time);
-                for (x, y) in a.outputs.iter().chain(&a.integrals).zip(b.outputs.iter().chain(&b.integrals)) {
+                for (x, y) in a
+                    .outputs
+                    .iter()
+                    .chain(&a.integrals)
+                    .zip(b.outputs.iter().chain(&b.integrals))
+                {
                     assert!((x - y).abs() < 1e-7, "{case}: t={} {x} vs {y}", a.time);
                 }
             }
-            let x = simulation.contract().differential.iter().position(|d| *d).unwrap();
+            let x = simulation
+                .contract()
+                .differential
+                .iter()
+                .position(|d| *d)
+                .unwrap();
             for (node, t) in report.nodes.iter().skip(1).zip([0.5, 1., 1.5]) {
                 let sample = horizon.samples.iter().find(|s| s.time == t).unwrap();
-                assert!((node[0] - sample.state[x]).abs() < 1e-7, "{case}: node at {t}");
+                assert!(
+                    (node[0] - sample.state[x]).abs() < 1e-7,
+                    "{case}: node at {t}"
+                );
             }
         }
     }
@@ -257,12 +303,28 @@ async fn multiple_shooting_continuity_closes() {
     let c = simulation.contract().clone();
     let base = request(&simulation, ShootingMethod::Multiple, vec![0.5], true);
     for invalid in [
-        ShootingProfile { nodes: vec![], ..base.clone() },
-        ShootingProfile { nodes: vec![2.], ..base.clone() },
-        ShootingProfile { nodes: vec![1., 0.5], ..base.clone() },
-        ShootingProfile { method: ShootingMethod::Single, ..base.clone() },
         ShootingProfile {
-            controls: vec![ShootingControl { input: c.states[0], lower: None, upper: None }],
+            nodes: vec![],
+            ..base.clone()
+        },
+        ShootingProfile {
+            nodes: vec![2.],
+            ..base.clone()
+        },
+        ShootingProfile {
+            nodes: vec![1., 0.5],
+            ..base.clone()
+        },
+        ShootingProfile {
+            method: ShootingMethod::Single,
+            ..base.clone()
+        },
+        ShootingProfile {
+            controls: vec![ShootingControl {
+                input: c.states[0],
+                lower: None,
+                upper: None,
+            }],
             ..base.clone()
         },
         ShootingProfile {
@@ -283,7 +345,10 @@ async fn multiple_shooting_continuity_closes() {
             ..base.clone()
         },
     ] {
-        assert!(matches!(simulation.shooting(invalid), Err(WorkflowError::Contract(_))));
+        assert!(matches!(
+            simulation.shooting(invalid),
+            Err(WorkflowError::Contract(_))
+        ));
     }
 }
 
@@ -308,8 +373,16 @@ async fn shooting_path_bounds_hold_at_samples() {
         }];
         let report = solve(simulation.shooting(profile).unwrap(), None);
         let trajectory = report.trajectory.as_ref().unwrap();
-        assert!(trajectory.samples.iter().all(|s| s.outputs[x] <= 0.9 + 1e-7));
-        assert!(trajectory.samples.iter().any(|s| s.outputs[x] > 0.9 - 1e-6), "the bound is active");
+        assert!(
+            trajectory
+                .samples
+                .iter()
+                .all(|s| s.outputs[x] <= 0.9 + 1e-7)
+        );
+        assert!(
+            trajectory.samples.iter().any(|s| s.outputs[x] > 0.9 - 1e-6),
+            "the bound is active"
+        );
         reports.push(report);
     }
     let (single, multiple) = (&reports[0].controls, &reports[1].controls);
@@ -331,7 +404,10 @@ fn physical() -> (
     physical.key =
         pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
     let names = BTreeMap::from([
-        ("Scalar".into(), physical.quantities.neutral_dimensionless().unwrap()),
+        (
+            "Scalar".into(),
+            physical.quantities.neutral_dimensionless().unwrap(),
+        ),
         (
             "Time".into(),
             pse_quantity::QuantityTypeId::from_id(
@@ -341,7 +417,9 @@ fn physical() -> (
     ]);
     (physical, names)
 }
-fn parse(text: &str) -> Result<Vec<pse_authoring::language::Declaration>, pse_authoring::AuthoringError> {
+fn parse(
+    text: &str,
+) -> Result<Vec<pse_authoring::language::Declaration>, pse_authoring::AuthoringError> {
     pse_authoring::language::parse(
         text,
         SemanticId::NIL,
@@ -357,7 +435,8 @@ async fn shooting_fixture_needs_authored_controls() {
     let (physical, names) = physical();
     let runtime = crate::workflow::tests::runtime();
     let def = "def Root {domain t:Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); param u:Scalar=1; var x[i in t]:Scalar; eq rate[i in t]:d(x[i])/di==(u-x[i])/1{s}; eq initial:x[0{s}]==0;}";
-    let integrate = "integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});";
+    let integrate =
+        "integrate samples(0{s},1{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-4{s});";
     let free = "schedule root.u at(0.5{s}) values(1, 1) free lower(0) upper(2);";
     let fixed = "schedule root.u at(0.5{s}) values(1, 1);";
     for (fixture, refusal) in [
@@ -435,7 +514,11 @@ async fn authored_shooting_fixture_solves() {
     );
     assert_eq!(
         rows.iter().map(|r| &r.value).collect::<Vec<_>>(),
-        parse(&rendered).unwrap().iter().map(|r| &r.value).collect::<Vec<_>>()
+        parse(&rendered)
+            .unwrap()
+            .iter()
+            .map(|r| &r.value)
+            .collect::<Vec<_>>()
     );
     let root = |name| rows.iter().find(|r| r.name == name).unwrap().declaration_id;
     let fixtures = [root("single"), root("multiple")];
@@ -460,13 +543,21 @@ async fn authored_shooting_fixture_solves() {
         assert_eq!(problem.contract().variables.len(), 2 + nodes);
         let report = solve(problem, None);
         let solve = report.solve.as_ref().unwrap();
-        assert_eq!(solve.termination.category, native::solve::Termination::Success, "{:?}", solve.termination);
+        assert_eq!(
+            solve.termination.category,
+            native::solve::Termination::Success,
+            "{:?}",
+            solve.termination
+        );
         let controls = report.controls.values().next().unwrap();
         for (u, expected) in controls.iter().zip(optimum) {
             assert!((u - expected).abs() < 1e-5, "{controls:?} vs {optimum:?}");
         }
         let objective = report.objective.unwrap();
-        assert!((objective - value).abs() <= 1e-6 * value, "{objective} vs {value}");
+        assert!(
+            (objective - value).abs() <= 1e-6 * value,
+            "{objective} vs {value}"
+        );
         assert!(report.checks_complete && report.checks.iter().all(|c| c.satisfied));
     }
     let policy = crate::workflow::ModelingConformancePolicy {

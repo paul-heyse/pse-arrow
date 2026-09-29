@@ -550,7 +550,11 @@ async fn captured_solutions_pruned_with_streams() {
     store.attempts().create(&retry, None).await.unwrap();
     store
         .attempts()
-        .transition(retry.attempt_id, AttemptState::Queued, &TransitionNote::by("q"))
+        .transition(
+            retry.attempt_id,
+            AttemptState::Queued,
+            &TransitionNote::by("q"),
+        )
         .await
         .unwrap();
     // A completed study point whose successor still waits for its seed.
@@ -616,14 +620,26 @@ async fn captured_solutions_pruned_with_streams() {
     }
     let incumbents = |attempt: AttemptId| {
         let store = store.clone();
-        async move { store.streams().incumbent_snapshot(attempt).await.unwrap().len() }
+        async move {
+            store
+                .streams()
+                .incumbent_snapshot(attempt)
+                .await
+                .unwrap()
+                .len()
+        }
     };
     assert_eq!(incumbents(done).await, 0);
     assert_eq!(incumbents(superseded).await, 1);
     assert_eq!(incumbents(named_by).await, 0);
     assert_eq!(incumbents(claimed.attempt_id).await, 0);
     // Once the job and the successor have run, the captures follow their streams.
-    let claim = store.jobs().claim("worker-a", LEASE).await.unwrap().unwrap();
+    let claim = store
+        .jobs()
+        .claim("worker-a", LEASE)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(claim.job_id, resume);
     store
         .jobs()

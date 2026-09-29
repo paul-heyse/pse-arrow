@@ -33,8 +33,8 @@ mod kinsol;
 mod pounce;
 mod pounce_convex;
 mod runner;
-pub mod sos;
 mod scip;
+pub mod sos;
 pub use factorable::{
     Factorable, Refusal, RelaxedOracle, Resolve, ResolveSensitivity, admit_program, factorable,
 };
@@ -589,7 +589,10 @@ impl std::fmt::Debug for Retained {
             .field("backend", &self.session.as_ref().map(|s| s.0))
             .field(
                 "advance",
-                &self.advance.as_ref().map(|(a, charge)| (a.bytes(), charge.is_some())),
+                &self
+                    .advance
+                    .as_ref()
+                    .map(|(a, charge)| (a.bytes(), charge.is_some())),
             )
             .finish_non_exhaustive()
     }

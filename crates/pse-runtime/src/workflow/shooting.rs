@@ -174,8 +174,8 @@ impl super::ModelingPackage {
         let simulation = self
             .declared_simulation(root, compiler, profile, limits, cancel)
             .await?;
-        let request = simulation
-            .authored_shooting(pse_modeling::specialize::root_instance(root), solver)?;
+        let request =
+            simulation.authored_shooting(pse_modeling::specialize::root_instance(root), solver)?;
         simulation.shooting(request)
     }
 }
@@ -190,7 +190,10 @@ impl super::ModelingSimulation {
 }
 
 impl ShootingProblem {
-    fn new(simulation: &super::ModelingSimulation, request: ShootingProfile) -> Result<Self, WorkflowError> {
+    fn new(
+        simulation: &super::ModelingSimulation,
+        request: ShootingProfile,
+    ) -> Result<Self, WorkflowError> {
         let profile = simulation.profile();
         let c = simulation.contract();
         if request.solver.controls.hessian != HessianMode::LimitedMemory {
@@ -249,9 +252,13 @@ impl ShootingProblem {
                 control.lower.unwrap_or(f64::NEG_INFINITY),
                 control.upper.unwrap_or(f64::INFINITY),
             );
-            if lower.is_nan() || upper.is_nan() || lower > upper || controls.iter().any(|c: &Control| {
-                profile.columns_at(np, profile.start)[parameter] == c.column
-            }) {
+            if lower.is_nan()
+                || upper.is_nan()
+                || lower > upper
+                || controls
+                    .iter()
+                    .any(|c: &Control| profile.columns_at(np, profile.start)[parameter] == c.column)
+            {
                 return Err(contract("shooting control bounds or duplicate control"));
             }
             let port = parameter_ports
@@ -264,7 +271,10 @@ impl ShootingProblem {
                     input: control.input,
                     column: profile.columns_at(np, t)[parameter],
                     variable: Variable {
-                        id: pse_ids::named_id(control.input, &format!("shooting.control.{interval}")),
+                        id: pse_ids::named_id(
+                            control.input,
+                            &format!("shooting.control.{interval}"),
+                        ),
                         lower,
                         upper,
                     },
@@ -441,11 +451,16 @@ impl ShootingProblem {
                 row_ports.push((port.quantity, port.unit));
             }
         }
-        let mut variables = controls.iter().map(|c| c.variable.clone()).collect::<Vec<_>>();
+        let mut variables = controls
+            .iter()
+            .map(|c| c.variable.clone())
+            .collect::<Vec<_>>();
         let mut targets = controls
             .iter()
             .zip(&ports)
-            .map(|(c, (quantity, unit))| target(c.variable.id, NumericalTarget::Variable, *quantity, *unit))
+            .map(|(c, (quantity, unit))| {
+                target(c.variable.id, NumericalTarget::Variable, *quantity, *unit)
+            })
             .collect::<Vec<_>>();
         for window in 1..windows.len() {
             for state in &differential {
@@ -464,7 +479,12 @@ impl ShootingProblem {
                 .zip(&row_ports)
                 .map(|(id, (quantity, unit))| target(*id, NumericalTarget::Row, *quantity, *unit)),
         );
-        targets.push(target(SemanticId::NIL, NumericalTarget::Objective, neutral, neutral_unit));
+        targets.push(target(
+            SemanticId::NIL,
+            NumericalTarget::Objective,
+            neutral,
+            neutral_unit,
+        ));
         let numerics = pse_math::numerics::resolve(
             &simulation.source.quantities,
             &targets,
@@ -473,7 +493,8 @@ impl ShootingProblem {
         )
         .map_err(math)?;
         let columns = variables.iter().map(|v| v.id).collect::<Vec<_>>();
-        let normalization = Normalization::from_policy(&numerics, &columns, &row_ids).map_err(math)?;
+        let normalization =
+            Normalization::from_policy(&numerics, &columns, &row_ids).map_err(math)?;
         let tolerances = native::quality::Tolerances::from_policy(&numerics, &columns, &row_ids)
             .map_err(crate::math::MathRuntimeError::from)?;
         let accuracy =
@@ -606,7 +627,10 @@ impl ShootingProblem {
                 observed,
             )
         };
-        let (plain, observed) = (worker(false).map_err(problem)?, worker(true).map_err(problem)?);
+        let (plain, observed) = (
+            worker(false).map_err(problem)?,
+            worker(true).map_err(problem)?,
+        );
         let integration = self.experiment.parameters.clone();
         for window in &self.windows {
             let parameters = IntegratedExperiment::window_parameters(
@@ -869,9 +893,15 @@ impl ShootingOracle {
             }
         }
         if !objective.is_finite()
-            || constraints.iter().chain(&jacobian).chain(&gradient).any(|v| !v.is_finite())
+            || constraints
+                .iter()
+                .chain(&jacobian)
+                .chain(&gradient)
+                .any(|v| !v.is_finite())
         {
-            return Err(ProblemError::numerical("nonfinite shooting row or objective"));
+            return Err(ProblemError::numerical(
+                "nonfinite shooting row or objective",
+            ));
         }
         self.execution.progress.push(native::solve::Event {
             phase: "shooting.evaluation".into(),
@@ -986,7 +1016,9 @@ impl NlpOracle for ShootingOracle {
         Ok(())
     }
     fn hessian(&mut self, _: &[f64], _: f64, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> {
-        Err(ProblemError::internal("limited-memory shooting Hessian demand"))
+        Err(ProblemError::internal(
+            "limited-memory shooting Hessian demand",
+        ))
     }
 }
 
@@ -1116,7 +1148,11 @@ impl ShootingProblem {
             );
             let integration = self.integration(&x);
             for (control, value) in self.controls.iter().zip(&x) {
-                report.controls.entry(control.input).or_default().push(*value);
+                report
+                    .controls
+                    .entry(control.input)
+                    .or_default()
+                    .push(*value);
             }
             report.nodes = (0..self.windows.len())
                 .map(|k| self.anchors(k, &x).to_vec())
@@ -1127,8 +1163,16 @@ impl ShootingProblem {
                 requested_initial: point.reports[0].requested_initial.clone(),
                 consistent_initial: point.reports[0].consistent_initial.clone(),
                 samples: Vec::with_capacity(self.samples.len()),
-                events: point.reports.iter().flat_map(|r| r.events.clone()).collect(),
-                statistics: point.reports.iter().flat_map(|r| r.statistics.clone()).collect(),
+                events: point
+                    .reports
+                    .iter()
+                    .flat_map(|r| r.events.clone())
+                    .collect(),
+                statistics: point
+                    .reports
+                    .iter()
+                    .flat_map(|r| r.statistics.clone())
+                    .collect(),
                 error: None,
                 progress: Vec::new(),
                 dropped_progress: 0,
@@ -1136,12 +1180,17 @@ impl ShootingProblem {
             // Each window integrates its quadratures from its own start.
             let mut before = vec![vec![0.; self.experiment.program.contract.quadratures.len()]];
             for window in &point.reports {
-                let end = window
-                    .samples
-                    .last()
-                    .ok_or_else(|| ProblemError::internal("shooting window without its end sample"))?;
+                let end = window.samples.last().ok_or_else(|| {
+                    ProblemError::internal("shooting window without its end sample")
+                })?;
                 let previous = before.last().cloned().unwrap_or_default();
-                before.push(previous.iter().zip(&end.integrals).map(|(a, b)| a + b).collect());
+                before.push(
+                    previous
+                        .iter()
+                        .zip(&end.integrals)
+                        .map(|(a, b)| a + b)
+                        .collect(),
+                );
             }
             for (k, local) in &self.samples {
                 let mut sample = point.reports[*k].samples[*local].clone();
@@ -1152,9 +1201,9 @@ impl ShootingProblem {
                 }
                 stitched.samples.push(sample);
             }
-            let checks = self
-                .simulation
-                .check_samples(run_id, &stitched, &integration, &flag, started);
+            let checks =
+                self.simulation
+                    .check_samples(run_id, &stitched, &integration, &flag, started);
             report.checks_complete = checks.complete && checks.error.is_none();
             report.checks = checks.rows;
             report.validation_error = checks.error;

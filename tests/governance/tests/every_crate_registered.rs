@@ -222,7 +222,10 @@ fn workspace_hack_features(manifest: &Value, out: &mut Vec<(String, String)>) {
                     .into_iter()
                     .flatten()
                 {
-                    out.push((dependency.clone(), feature.as_str().unwrap_or_default().to_owned()));
+                    out.push((
+                        dependency.clone(),
+                        feature.as_str().unwrap_or_default().to_owned(),
+                    ));
                 }
             }
         } else {

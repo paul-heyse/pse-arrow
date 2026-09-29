@@ -106,7 +106,10 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
         }
         let self_reference = occurrence.reference.relation == invariant.relation;
         if !self_reference {
-            valid.insert(occurrence.reference.relation.clone(), vec![target_row.clone()]);
+            valid.insert(
+                occurrence.reference.relation.clone(),
+                vec![target_row.clone()],
+            );
         }
         invalid = valid.clone();
         // As for a declared reference: a self-reference replaces a value that is not

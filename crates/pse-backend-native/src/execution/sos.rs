@@ -217,7 +217,10 @@ pub fn polynomial(program: &FactorableProgram) -> Result<Polynomial, ProblemErro
         let mut x = vec![0; n];
         x[j] = 1;
         if v.lower.is_finite() {
-            inequalities.push(listed(Terms::from([(x.clone(), 1.0), (vec![0; n], -v.lower)])));
+            inequalities.push(listed(Terms::from([
+                (x.clone(), 1.0),
+                (vec![0; n], -v.lower),
+            ])));
         }
         if v.upper.is_finite() {
             inequalities.push(listed(Terms::from([(x, -1.0), (vec![0; n], v.upper)])));

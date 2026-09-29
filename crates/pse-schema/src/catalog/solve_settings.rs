@@ -506,8 +506,14 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
         "EventDirection",
         &[
             ("either", "Every sign change of the guard."),
-            ("rising", "Only the guard increasing through zero; needs IDAS."),
-            ("falling", "Only the guard decreasing through zero; needs IDAS."),
+            (
+                "rising",
+                "Only the guard increasing through zero; needs IDAS.",
+            ),
+            (
+                "falling",
+                "Only the guard decreasing through zero; needs IDAS.",
+            ),
         ],
     );
 }

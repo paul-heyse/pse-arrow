@@ -272,7 +272,9 @@ impl SpecializedModel {
                                 * size_of::<crate::specialize::ScheduleFixture>()
                             + i.schedules
                                 .iter()
-                                .map(|s| (s.times.capacity() + s.values.capacity()) * size_of::<f64>())
+                                .map(|s| {
+                                    (s.times.capacity() + s.values.capacity()) * size_of::<f64>()
+                                })
                                 .sum::<usize>()
                     })
                     + f.shooting
@@ -284,8 +286,7 @@ impl SpecializedModel {
                         .map(|m| {
                             m.name.capacity()
                                 + map(&m.facts, |n, _| n.capacity())
-                                + m.events.capacity()
-                                    * size_of::<crate::specialize::FixtureEvent>()
+                                + m.events.capacity() * size_of::<crate::specialize::FixtureEvent>()
                                 + m.events
                                     .iter()
                                     .map(|e| map(&e.reset, |_, _| 0))
@@ -382,8 +383,7 @@ impl SpecializedModel {
             + map(&self.connections, |_, v| lineage(&v.lineage))
             + map(&self.connectivity, |_, v| lineage(&v.lineage))
             + map(&self.functions, |n, v| n.capacity() + function(v))
-            + self.objectives.members.capacity()
-                * size_of::<crate::specialize::ObjectiveMember>()
+            + self.objectives.members.capacity() * size_of::<crate::specialize::ObjectiveMember>()
             + self
                 .objectives
                 .members

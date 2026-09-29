@@ -204,7 +204,11 @@ impl Chains<'_> {
     fn run(&self, task: Task) -> ProfileChain {
         let p = self.problem;
         let column = task.column.get();
-        let direction = if task.end == IntervalEnd::Lower { -1.0 } else { 1.0 };
+        let direction = if task.end == IntervalEnd::Lower {
+            -1.0
+        } else {
+            1.0
+        };
         let estimate = self.estimate[column];
         let variable = &p.contract.variables[column];
         let limit = if task.end == IntervalEnd::Lower {
@@ -247,8 +251,8 @@ impl Chains<'_> {
             let value = match over {
                 // The secant root in r between the bracket's points.
                 Some((beyond, above)) => {
-                    let fraction = ((self.threshold - statistic) / (above - statistic))
-                        .clamp(0.01, 0.99);
+                    let fraction =
+                        ((self.threshold - statistic) / (above - statistic)).clamp(0.01, 0.99);
                     at + fraction * (beyond - at)
                 }
                 None => {

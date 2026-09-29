@@ -832,7 +832,6 @@ impl MathService {
         let tolerances = Tolerances::from_policy(&numerics, plan.columns(), &rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
 
-
         let mut certificate: Option<Arc<dyn QuadraticEvidence>> = f
             .convexity
             .convex_quadratic()
@@ -1562,7 +1561,9 @@ impl MathService {
         order: Option<usize>,
     ) -> Result<execution::sos::SosBound, MathRuntimeError> {
         let Representation::Algebraic(case) = &step.representation else {
-            return Err(ProblemError::Contract("an SOS bound needs an algebraic case".into()).into());
+            return Err(
+                ProblemError::Contract("an SOS bound needs an algebraic case".into()).into(),
+            );
         };
         let plan = case.prepared.prepared.plan.clone();
         let values = case.values.clone();
@@ -1586,7 +1587,9 @@ impl MathService {
                         other => ProblemError::Unsupported(other.to_string()),
                     })?;
                 let problem = execution::sos::polynomial(&program)?;
-                Ok(execution::sos::bound(&problem, order, tolerance, time_limit)?)
+                Ok(execution::sos::bound(
+                    &problem, order, tolerance, time_limit,
+                )?)
             },
         )
         .await
@@ -1642,7 +1645,10 @@ impl MathService {
                 let (Representation::Algebraic(case), Route::Native(backend)) =
                     (representation, route)
                 else {
-                    return Err(ProblemError::Internal("a batch member is a native coefficient step".into()).into());
+                    return Err(ProblemError::Internal(
+                        "a batch member is a native coefficient step".into(),
+                    )
+                    .into());
                 };
                 let coefficients = case
                     .prepared
@@ -1827,7 +1833,9 @@ impl MathService {
                 .into());
             }
         };
-        if authored.contains(&pse_model::generated::enums::ModelingStructuralRequirement::L1ExactPenalty) {
+        if authored
+            .contains(&pse_model::generated::enums::ModelingStructuralRequirement::L1ExactPenalty)
+        {
             report.provenance.insert(
                 "method.selection".into(),
                 "the authored penalty(l1) realization selects POUNCE's l1 exact penalty-barrier (ADR-0104 §5): the author's selection, not an automatic one".into(),
@@ -2061,9 +2069,13 @@ impl MathService {
                 budget,
             )
             .map_err(MathRuntimeError::into_problem)
-            .and_then(|ExecutionWorker { worker, _case, _charge }| {
-                Ok((program.request(worker, &values)?, (_case, _charge)))
-            })
+            .and_then(
+                |ExecutionWorker {
+                     worker,
+                     _case,
+                     _charge,
+                 }| { Ok((program.request(worker, &values)?, (_case, _charge))) },
+            )
         });
         let ExecutionWorker {
             worker,

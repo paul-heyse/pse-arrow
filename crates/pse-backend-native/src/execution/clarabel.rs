@@ -8,8 +8,7 @@ use super::{BackendExecution, BackendSettings, Capability, Input, Representation
 use crate::{
     ProblemError, conic,
     solve::{
-        Backend, Controls, DerivativeCapability, Metric, ProblemClass, SolveReport,
-        WarmCapability,
+        Backend, Controls, DerivativeCapability, Metric, ProblemClass, SolveReport, WarmCapability,
     },
 };
 

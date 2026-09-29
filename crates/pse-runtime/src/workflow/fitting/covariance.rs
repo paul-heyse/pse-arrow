@@ -81,7 +81,11 @@ impl std::fmt::Display for FitWithheld {
         match self {
             Self::Local(withheld) => write!(f, "{withheld}"),
             Self::NonunitImportance(o) => {
-                write!(f, "observations with an importance other than one: {}", ids(o))
+                write!(
+                    f,
+                    "observations with an importance other than one: {}",
+                    ids(o)
+                )
             }
             Self::Responses(Some(d)) => write!(f, "local responses unavailable: {d}"),
             Self::Responses(None) => f.write_str("local responses unavailable"),
@@ -331,13 +335,8 @@ impl FitProblem {
         let level = uncertainty.level.into_inner();
         report.wald = Some(self.wald(report, level));
         if let Some(controls) = &uncertainty.profile {
-            report.profiles = Some(self.profiles(
-                report,
-                level,
-                controls,
-                (route, workers),
-                execution,
-            ));
+            report.profiles =
+                Some(self.profiles(report, level, controls, (route, workers), execution));
         }
     }
 }

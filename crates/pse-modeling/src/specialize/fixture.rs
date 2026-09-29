@@ -209,7 +209,11 @@ impl Engine<'_, '_> {
             self.reserve(1 + events.len())?;
             modes.push(FixtureMode {
                 name: mode.name.clone(),
-                facts: mode.facts.iter().map(|f| (f.name.clone(), f.value)).collect(),
+                facts: mode
+                    .facts
+                    .iter()
+                    .map(|f| (f.name.clone(), f.value))
+                    .collect(),
                 events,
             });
         }
@@ -303,7 +307,10 @@ impl Engine<'_, '_> {
                         "a scheduled input must be an independent physical variable or parameter",
                     ));
                 }
-                if schedules.iter().any(|s: &ScheduleFixture| s.target == *target) {
+                if schedules
+                    .iter()
+                    .any(|s: &ScheduleFixture| s.target == *target)
+                {
                     return Err(invalid(at, "one schedule per input"));
                 }
                 let times = entry
@@ -318,7 +325,9 @@ impl Engine<'_, '_> {
                     .collect::<Result<Vec<_>>>()?;
                 if times.is_empty()
                     || values.len() != times.len() + 1
-                    || times.iter().any(|t| !t.is_finite() || *t <= lower || *t > end)
+                    || times
+                        .iter()
+                        .any(|t| !t.is_finite() || *t <= lower || *t > end)
                     || times.windows(2).any(|w| w[0] >= w[1])
                     || values.iter().any(|v| !v.is_finite())
                 {
@@ -370,7 +379,9 @@ impl Engine<'_, '_> {
                 .map(|t| self.eval(at, env, t, Some(&ty))?.scalar(at))
                 .collect::<Result<Vec<_>>>()?;
             if nodes.windows(2).any(|w| w[0] >= w[1])
-                || nodes.iter().any(|t| !t.is_finite() || *t <= lower || *t >= end)
+                || nodes
+                    .iter()
+                    .any(|t| !t.is_finite() || *t <= lower || *t >= end)
             {
                 return Err(invalid(
                     at,

@@ -37,10 +37,9 @@ fn dated_nightly(channel: &str) -> bool {
     channel.strip_prefix("nightly-").is_some_and(|date| {
         let fields: Vec<&str> = date.split('-').collect();
         fields.len() == 3
-            && [4, 2, 2]
-                .iter()
-                .zip(&fields)
-                .all(|(len, field)| field.len() == *len && field.bytes().all(|b| b.is_ascii_digit()))
+            && [4, 2, 2].iter().zip(&fields).all(|(len, field)| {
+                field.len() == *len && field.bytes().all(|b| b.is_ascii_digit())
+            })
     })
 }
 
@@ -88,7 +87,13 @@ fn toolchain_is_a_dated_nightly_at_or_above_the_language_floor() {
 #[test]
 fn channel_and_release_parsing_controls() {
     assert!(dated_nightly("nightly-2026-09-29"));
-    for undated in ["nightly", "stable", "1.98.1", "nightly-2026-9-29", "beta-2026-09-29"] {
+    for undated in [
+        "nightly",
+        "stable",
+        "1.98.1",
+        "nightly-2026-9-29",
+        "beta-2026-09-29",
+    ] {
         assert!(!dated_nightly(undated), "{undated}");
     }
     assert_eq!(release("1.101.0-nightly"), semver::Version::new(1, 101, 0));

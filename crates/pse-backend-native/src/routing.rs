@@ -136,7 +136,6 @@ impl std::fmt::Display for Ineligible {
                 }
                 f.write_str(" are not optimized lexicographically by this adapter")
             }
-
         }
     }
 }
@@ -156,7 +155,6 @@ impl Ineligible {
             Self::LeastSquares => NativeIneligibility::LeastSquares,
             Self::Method { .. } => NativeIneligibility::Method,
             Self::Lexicographic { .. } => NativeIneligibility::Lexicographic,
-
         }
     }
 }
@@ -1201,7 +1199,10 @@ mod tests {
             requirements: vec![ModelingStructuralRequirement::L1ExactPenalty],
         };
         assert_eq!(requirement.code(), NativeIneligibility::Method);
-        assert!(requirement.to_string().contains("l1_exact_penalty"), "{requirement}");
+        assert!(
+            requirement.to_string().contains("l1_exact_penalty"),
+            "{requirement}"
+        );
         let interior = BackendSettings::Pounce(Settings::default());
         let l1 = BackendSettings::Pounce(Settings {
             method: Method::L1ExactPenalty,
@@ -1227,7 +1228,9 @@ mod tests {
         if adapter(Backend::Pounce).linked() {
             for settings in [&BackendSettings::Default, &l1] {
                 assert_eq!(
-                    requirements(settings).select(SolverSelection::Auto).unwrap(),
+                    requirements(settings)
+                        .select(SolverSelection::Auto)
+                        .unwrap(),
                     Route::Native(Backend::Pounce)
                 );
             }
@@ -1247,7 +1250,10 @@ mod tests {
         let effective = BackendSettings::Default.for_requirements(Backend::Pounce, &f.requirements);
         assert!(matches!(
             effective,
-            BackendSettings::Pounce(Settings { method: Method::L1ExactPenalty, .. })
+            BackendSettings::Pounce(Settings {
+                method: Method::L1ExactPenalty,
+                ..
+            })
         ));
         assert!(matches!(
             BackendSettings::Default.for_requirements(Backend::Pounce, &[]),
@@ -1265,7 +1271,12 @@ mod tests {
             ..requirements(&BackendSettings::Default)
         };
         for e in unrequired.eligibility() {
-            assert!(!e.reasons.iter().any(|r| matches!(r, Ineligible::Method { .. })), "{e}");
+            assert!(
+                !e.reasons
+                    .iter()
+                    .any(|r| matches!(r, Ineligible::Method { .. })),
+                "{e}"
+            );
         }
     }
     #[test]
@@ -1291,7 +1302,12 @@ mod tests {
                     assert_eq!(e.backend, Backend::Scip);
                 }
             }
-            let route = select(&f, SolveIntent::Optimize, SolverSelection::Auto, numerical_psd);
+            let route = select(
+                &f,
+                SolveIntent::Optimize,
+                SolverSelection::Auto,
+                numerical_psd,
+            );
             if adapter(Backend::Scip).linked() {
                 assert_eq!(route.unwrap(), Route::Native(Backend::Scip));
             } else {

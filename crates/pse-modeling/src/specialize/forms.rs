@@ -1921,7 +1921,12 @@ impl Engine<'_, '_> {
         let (second, second_ty) = member(self, &v.second)?;
         let mut rows = Vec::new();
         let mut variables = Vec::new();
-        let nonnegative = |engine: &mut Self, rows: &mut Vec<SemanticId>, name: &str, value: &Expr, ty: &Type| -> Result<()> {
+        let nonnegative = |engine: &mut Self,
+                           rows: &mut Vec<SemanticId>,
+                           name: &str,
+                           value: &Expr,
+                           ty: &Type|
+         -> Result<()> {
             let zero = engine.typed_zero(ty, at)?;
             rows.push(engine.push_row(
                 pse_ids::named_id(base, name),
@@ -1985,7 +1990,13 @@ impl Engine<'_, '_> {
             }
             Realized::Other(Policy::PenaltyL1) => {
                 nonnegative(self, &mut rows, "complementarity-first", &first, &first_ty)?;
-                nonnegative(self, &mut rows, "complementarity-second", &second, &second_ty)?;
+                nonnegative(
+                    self,
+                    &mut rows,
+                    "complementarity-second",
+                    &second,
+                    &second_ty,
+                )?;
                 let product = bin(BinaryOp::Mul, first, second);
                 let contracts = self.model.function_contracts(self.p);
                 let ty = self.type_of(&product, &contracts, at)?;

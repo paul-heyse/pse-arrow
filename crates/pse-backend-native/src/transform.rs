@@ -81,7 +81,9 @@ impl Pinned {
                 .variables
                 .get_mut(column)
                 .filter(|_| seen.insert(column))
-                .ok_or_else(|| ProblemError::Contract("pinned column out of range or repeated".into()))?;
+                .ok_or_else(|| {
+                    ProblemError::Contract("pinned column out of range or repeated".into())
+                })?;
             if !value.is_finite() || value < variable.lower || value > variable.upper {
                 return Err(ProblemError::Contract(format!(
                     "pin of {} at {value} lies outside its box [{}, {}]",

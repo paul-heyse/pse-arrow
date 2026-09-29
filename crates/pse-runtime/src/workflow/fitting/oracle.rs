@@ -262,9 +262,8 @@ impl FitOracle {
     /// fixed.
     #[cfg(feature = "solver-diffsol")]
     fn value(p: &FitProblem, x: &[f64], parameter: usize) -> f64 {
-        p.parameter_columns[parameter].map_or(p.declaration.parameters[parameter].value, |c| {
-            x[c.get()]
-        })
+        p.parameter_columns[parameter]
+            .map_or(p.declaration.parameters[parameter].value, |c| x[c.get()])
     }
     /// The transient experiments' part of the objective gradient by adjoint sensitivities
     /// (ADR-0110 item 3), once per trial point.
@@ -396,9 +395,15 @@ impl FitOracle {
         free: &[usize],
     ) -> Result<Vec<f64>, ProblemError> {
         let outputs = s.program.contract.outputs.len();
-        let mut cotangent = |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
-        s.hessian(&|k| Self::value(p, x, k), &self.execution, free, &mut cotangent)
-            .map(|(_, _, curvature)| curvature)
+        let mut cotangent =
+            |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
+        s.hessian(
+            &|k| Self::value(p, x, k),
+            &self.execution,
+            free,
+            &mut cotangent,
+        )
+        .map(|(_, _, curvature)| curvature)
     }
     #[cfg(not(feature = "solver-idas"))]
     fn transient_curvature(
@@ -854,8 +859,7 @@ fn decompose(
         Default::default(),
     )
     .map_err(|e| ProblemError::numerical(format!("{e:?}")))?;
-    if v
-        .as_ref()
+    if v.as_ref()
         .is_some_and(|v| v.col_iter().any(|c| c.iter().any(|x| !x.is_finite())))
     {
         return Err(ProblemError::numerical("nonfinite right singular vectors"));
@@ -1397,8 +1401,14 @@ mod tests {
             // The exact Hessian adds σ·r·w·∇²y = σ·2 at the state's diagonal.
             let full = dense_hessian(&mut exact, &x, sigma, &[0.5]);
             let residual = &full - &constrained;
-            assert!((residual.norm_max() - 2.0 * sigma).abs() < 1e-12, "{residual:?}");
-            assert!((residual.norm_l1() - 2.0 * sigma).abs() < 1e-12, "{residual:?}");
+            assert!(
+                (residual.norm_max() - 2.0 * sigma).abs() < 1e-12,
+                "{residual:?}"
+            );
+            assert!(
+                (residual.norm_l1() - 2.0 * sigma).abs() < 1e-12,
+                "{residual:?}"
+            );
         }
     }
     #[tokio::test]

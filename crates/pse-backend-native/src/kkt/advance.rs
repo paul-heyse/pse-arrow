@@ -250,7 +250,11 @@ pub fn predict(
     let mut entering = (0..n)
         .filter(|j| {
             !active_bounds[*j]
-                && outside(primal[*j], advance.bounds[*j], advance.tolerances.variables[*j])
+                && outside(
+                    primal[*j],
+                    advance.bounds[*j],
+                    advance.tolerances.variables[*j],
+                )
         })
         .count();
     // Inactive rows on their linearization through the variable and parameter steps.
@@ -268,7 +272,12 @@ pub fn predict(
     }
     entering += (0..m)
         .filter(|r| {
-            !active_rows[*r] && outside(values[*r], advance.row_bounds[*r], advance.tolerances.rows[*r])
+            !active_rows[*r]
+                && outside(
+                    values[*r],
+                    advance.row_bounds[*r],
+                    advance.tolerances.rows[*r],
+                )
         })
         .count();
     if leaving + entering > 0 {
@@ -281,4 +290,3 @@ pub fn predict(
         step: delta,
     })
 }
-

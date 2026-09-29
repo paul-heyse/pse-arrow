@@ -208,10 +208,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             column("failure", text()).optional(),
             column("failure_ordinal", count()).optional(),
             column("committed", coordinates()).optional(),
-            column(
-                "discrete",
-                T::enumeration("ModelingDiscreteInitialization"),
-            ),
+            column("discrete", T::enumeration("ModelingDiscreteInitialization")),
             column("discrete_assignment", coordinates()),
             column(
                 "attempts",

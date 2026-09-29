@@ -367,12 +367,14 @@ impl CoefficientProblem {
             .chain(coefficients.lexicographic.iter().cloned())
             .zip(structure.objectives())
             .enumerate()
-            .map(|(k, ((coefficients, constant), objective))| crate::LinearObjective {
-                coefficients,
-                constant,
-                sense: objective.sense,
-                degradation: structure.degradations().get(k).copied(),
-            })
+            .map(
+                |(k, ((coefficients, constant), objective))| crate::LinearObjective {
+                    coefficients,
+                    constant,
+                    sense: objective.sense,
+                    degradation: structure.degradations().get(k).copied(),
+                },
+            )
             .collect()
         } else {
             Vec::new()

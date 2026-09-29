@@ -219,7 +219,11 @@ fn envelope_in_provider_key() {
         envelope: None,
         outputs: vec![0.0, 0.0],
     };
-    let key = |envelope| register(envelope, vec![0.0, 0.0]).unwrap().configuration_key();
+    let key = |envelope| {
+        register(envelope, vec![0.0, 0.0])
+            .unwrap()
+            .configuration_key()
+    };
     // A provider without an envelope keeps its factory's key.
     assert_eq!(key(None), factory.configuration_key());
     assert_eq!(

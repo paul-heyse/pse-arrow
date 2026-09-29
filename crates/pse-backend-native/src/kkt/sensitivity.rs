@@ -147,10 +147,16 @@ impl std::fmt::Display for Withheld {
             Self::Unqualified(q) => write!(f, "the candidate is qualified only as {}", q.as_str()),
             Self::Analysis(cause) => write!(f, "no KKT point: {cause}"),
             Self::Licq { deficiency } => {
-                write!(f, "the active gradients are dependent (deficiency {deficiency})")
+                write!(
+                    f,
+                    "the active gradients are dependent (deficiency {deficiency})"
+                )
             }
             Self::WeaklyActive { count } => {
-                write!(f, "{count} weakly active constraints: strict complementarity fails")
+                write!(
+                    f,
+                    "{count} weakly active constraints: strict complementarity fails"
+                )
             }
             Self::SecondOrder(curvature) => {
                 write!(f, "second-order sufficiency fails: {curvature:?}")
@@ -260,7 +266,13 @@ pub(crate) fn derive(
     let (point, result, advance) = match analysed(report, request, tolerances, budget) {
         Ok(analysed) => {
             let result = certify(&analysed.point).and_then(|()| {
-                compute(report, &analysed.factor, &analysed.multipliers, reduced, sense)
+                compute(
+                    report,
+                    &analysed.factor,
+                    &analysed.multipliers,
+                    reduced,
+                    sense,
+                )
             });
             let advance = (retain && result.is_ok())
                 .then(|| super::Advance::new(report, &analysed, values, tolerances))
@@ -335,7 +347,9 @@ fn analysed(
 ) -> Result<Analysed, Withheld> {
     let (candidate, observation) = qualified(report)?;
     let failed = |message: &str| {
-        Withheld::Analysis(Unavailable::from(ProblemError::internal(message.to_owned())))
+        Withheld::Analysis(Unavailable::from(ProblemError::internal(
+            message.to_owned(),
+        )))
     };
     let (n, np) = (report.variables.len(), request.parameters.len());
     let contract = request.oracle.contract();
@@ -468,7 +482,9 @@ fn inverse(
 ) -> Result<InverseReducedHessian, Withheld> {
     qualified(report)?;
     let failed = |message: &str| {
-        Withheld::Analysis(Unavailable::from(ProblemError::internal(message.to_owned())))
+        Withheld::Analysis(Unavailable::from(ProblemError::internal(
+            message.to_owned(),
+        )))
     };
     let point = match &report.evidence.local {
         Some(Ok(point)) => point,
@@ -484,8 +500,7 @@ fn inverse(
         .map(|c| (c.get() < n).then(|| i32::try_from(c.get()).ok()).flatten())
         .collect::<Option<Vec<i32>>>()
         .ok_or_else(|| failed("a selected column is not a column of the KKT system"))?;
-    let selector =
-        IndexSchurData::from_parts(rows, vec![1; k]).map_err(|_| Withheld::Backsolve)?;
+    let selector = IndexSchurData::from_parts(rows, vec![1; k]).map_err(|_| Withheld::Backsolve)?;
     let mut app = SensApplication::new(
         selector,
         factor.normalized(),
@@ -567,9 +582,8 @@ fn compute(
             "a pin is not a row of the KKT system",
         )))
     })?;
-    let selector = || {
-        IndexSchurData::from_parts(pins.clone(), vec![-1; np]).map_err(|_| Withheld::Backsolve)
-    };
+    let selector =
+        || IndexSchurData::from_parts(pins.clone(), vec![-1; np]).map_err(|_| Withheld::Backsolve);
     let sign = sense.sign();
     let steps = SensApplication::new(
         selector()?,
@@ -672,7 +686,6 @@ fn reduced_hessian(
         objective_scale,
     })
 }
-
 
 #[cfg(test)]
 mod tests;

@@ -556,7 +556,13 @@ fn complementarity_lowerings_keep_members_nonnegative() {
     assert_eq!(lowering.rows.len(), 1);
     assert!(smooth.prepared.plan.structure().requirements().is_empty());
     // The width stays a parameter: continuing it rebinds a value, not the structure.
-    assert!(smooth.model.admitted.inputs.contains(&smooth.symbol(".eps")));
+    assert!(
+        smooth
+            .model
+            .admitted
+            .inputs
+            .contains(&smooth.symbol(".eps"))
+    );
     // disjunctive: nonnegative slack columns equal to the members, one native SOS1.
     let (disjunctive, lowering) = lowered("realize r on c using disjunctive;");
     assert_eq!(
@@ -623,10 +629,7 @@ fn complementarity_lowerings_keep_members_nonnegative() {
             "realize r on c using hull;",
             "hull realization does not apply to this form",
         ),
-        (
-            "realize r on c using smooth(smooth_min, 0.1{W});",
-            "",
-        ),
+        ("realize r on c using smooth(smooth_min, 0.1{W});", ""),
     ] {
         let (mut w, root) = setup(&complementarity(realization));
         let error = Case::new(&mut w, root, &[]).err().unwrap();
@@ -648,7 +651,10 @@ fn smooth_complementarity_row_vanishes_on_eps_sq_over_4() {
         case.values.scalars.insert(width, eps);
         for a in [eps / 2.0, 0.3, 2.0] {
             let b = eps * eps / (4.0 * a);
-            assert!(case.feasible(&[("Root.a", a), ("Root.b", b)]), "eps={eps} a={a}");
+            assert!(
+                case.feasible(&[("Root.a", a), ("Root.b", b)]),
+                "eps={eps} a={a}"
+            );
             assert!(
                 !case.feasible(&[("Root.a", a), ("Root.b", 2.0 * b)]),
                 "eps={eps} a={a}"

@@ -365,7 +365,11 @@ pub(super) fn admit(
             .iter()
             .enumerate()
             .map(|(position, level)| {
-                let degradation = match (position < last, level.absolute_tolerance, level.relative_tolerance) {
+                let degradation = match (
+                    position < last,
+                    level.absolute_tolerance,
+                    level.relative_tolerance,
+                ) {
                     (false, _, _) => None,
                     (true, Some(absolute), Some(relative)) => {
                         Some(pse_math::binding::Degradation { absolute, relative })
@@ -595,7 +599,7 @@ pub(super) fn admit(
     };
     let case = Arc::new(
         case.with_native(p.native.clone())?
-        .with_requirements(p.requirements.iter().copied()),
+            .with_requirements(p.requirements.iter().copied()),
     );
     Ok(Arc::new(AdmittedModeling {
         inputs: p.inputs.clone(),

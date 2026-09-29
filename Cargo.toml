@@ -239,7 +239,9 @@ sundials-sys = { version = "=0.6.2", default-features = false, features = [
 diffsol = { version = "=0.16.2", default-features = false, features = ["faer"] }
 # The linear-solver trait Diffsol re-exports only through its time-aware extension; the
 # pse-owned Newton factorizations implement it directly (Plan 22 I9). Diffsol's own version.
-diffsol-la = { version = "=0.1.1", default-features = false, features = ["faer"] }
+diffsol-la = { version = "=0.1.1", default-features = false, features = [
+  "faer",
+] }
 pounce-presolve = "=0.12.0"
 pounce-nlp = "=0.12.0"
 pounce-common = "=0.12.0"

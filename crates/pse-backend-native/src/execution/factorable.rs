@@ -25,9 +25,8 @@ use crate::{
     quality::{self, Observation, Quality, Violation},
     routing::{self, Requirements, Route},
     solve::{
-        BoundSource, Candidate, Compatibility, Controls, ExportTransformation, Metric,
-        Options, PrimalSource, SolveIntent, SolveReport, SolverSelection, WarmPayload,
-        WarmStart,
+        BoundSource, Candidate, Compatibility, Controls, ExportTransformation, Metric, Options,
+        PrimalSource, SolveIntent, SolveReport, SolverSelection, WarmPayload, WarmStart,
     },
     transform::{Commitment, Pinned, Relaxed},
 };
@@ -247,7 +246,10 @@ impl Plan<'_> {
     /// A column has a discrete domain (integer, binary or semi), or a native form makes
     /// the program combinatorial.
     pub(crate) fn discrete(&self) -> bool {
-        self.program.variables.iter().any(|v| v.domain.is_discrete())
+        self.program
+            .variables
+            .iter()
+            .any(|v| v.domain.is_discrete())
             || !self.program.native.is_empty()
     }
     /// The affine form of an exported function, when it has one.
@@ -882,7 +884,14 @@ pub fn factorable(
             let objective = plan.objective.is_some();
             match fixed_assignment(&step, &report, &plan, resolve, objective) {
                 Ok((resolved, commitment)) => {
-                    if adopt(&mut report, resolved, commitment, &plan, run.original, &step) {
+                    if adopt(
+                        &mut report,
+                        resolved,
+                        commitment,
+                        &plan,
+                        run.original,
+                        &step,
+                    ) {
                         global.primal = PrimalSource::FixedAssignment;
                     }
                 }

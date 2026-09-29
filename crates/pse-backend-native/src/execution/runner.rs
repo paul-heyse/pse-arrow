@@ -345,11 +345,7 @@ pub fn coefficients_batch(
     {
         return steps
             .iter()
-            .map(|_| {
-                Err(ProblemError::Contract(
-                    "a batch runs on one adapter".into(),
-                ))
-            })
+            .map(|_| Err(ProblemError::Contract("a batch runs on one adapter".into())))
             .collect();
     }
     let transported: Vec<Result<Transported, ProblemError>> = steps
@@ -359,9 +355,7 @@ pub fn coefficients_batch(
     let inputs: Vec<Input<'_>> = transported
         .iter()
         .zip(&steps)
-        .filter_map(|(t, (step, run))| {
-            t.as_ref().ok().map(|t| t.input(step, run.row_constants))
-        })
+        .filter_map(|(t, (step, run))| t.as_ref().ok().map(|t| t.input(step, run.row_constants)))
         .collect();
     let mut reports = adapter.execute_batch(retained, inputs).into_iter();
     transported
@@ -369,9 +363,9 @@ pub fn coefficients_batch(
         .zip(&mut steps)
         .map(|(t, (step, run))| {
             let t = t?;
-            let report = reports.next().unwrap_or_else(|| {
-                Err(ProblemError::Internal("batch report missing".into()))
-            })?;
+            let report = reports
+                .next()
+                .unwrap_or_else(|| Err(ProblemError::Internal("batch report missing".into())))?;
             t.finish(step, run, report)
         })
         .collect()

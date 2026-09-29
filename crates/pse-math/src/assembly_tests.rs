@@ -860,7 +860,10 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
     assert_eq!(targets.len(), 1);
     assert_eq!(
         (targets[0].id, targets[0].kind),
-        (id(2), pse_model::generated::enums::NumericalTarget::Variable)
+        (
+            id(2),
+            pse_model::generated::enums::NumericalTarget::Variable
+        )
     );
     assert!(
         parametric
@@ -872,7 +875,11 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
     // f = x·p and g = x + p at (x, p) = (2, 3): ∇f = (p, x), ∂²f/∂x∂p = 1, ∇g = (1, 1).
     let assembly = Arc::new(
         parametric
-            .compile(Optimization::default(), EvaluationLimits::default(), &cancel)
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
             .unwrap(),
     );
     let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());
@@ -881,10 +888,7 @@ fn parametric_plan_keeps_objective_and_differentiates_parameters() {
     };
     assert_eq!(worker.objective(&values).unwrap(), 6.0);
     assert_eq!(worker.gradient(&values).unwrap(), vec![3.0, 2.0]);
-    assert_eq!(
-        worker.jacobian(&values).unwrap().to_dense()[(0, 1)],
-        1.0
-    );
+    assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 1)], 1.0);
     let hessian = worker.hessian(&values, 1.0, &[0.0]).unwrap().to_dense();
     assert_eq!(hessian[(1, 0)], 1.0);
 }
@@ -1036,7 +1040,11 @@ fn lexicographic_structure_projects_every_level() {
     // Every evaluation reads the primary objective: −(a + b) in minimization orientation.
     let assembly = Arc::new(
         Arc::new(linear.clone())
-            .compile(Optimization::default(), EvaluationLimits::default(), &cancel)
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
             .unwrap(),
     );
     let mut worker = assembly.worker(BTreeMap::new(), cancel.clone());

@@ -196,9 +196,7 @@ mod pardiso {
                 ));
             }
             None if std::env::var_os(VARIABLE).is_some() => {
-                return Err(format!(
-                    "{VARIABLE} names no directory holding {LIBRARY}"
-                ));
+                return Err(format!("{VARIABLE} names no directory holding {LIBRARY}"));
             }
             None => {
                 let directory = std::env::temp_dir()

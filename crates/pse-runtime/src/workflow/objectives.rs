@@ -96,8 +96,8 @@ impl ModelingLevelsReport {
     /// A level that does not fit the relation.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::objective_levels as rows;
-        let mut builder =
-            rows::Builder::with_registry(&self.runtime.registry, self.levels.len()).map_err(relation)?;
+        let mut builder = rows::Builder::with_registry(&self.runtime.registry, self.levels.len())
+            .map_err(relation)?;
         for level in &self.levels {
             builder
                 .push(rows::Row {
@@ -289,9 +289,10 @@ impl ModelingPackage {
     ) -> Result<ModelingLevelsReport, WorkflowError> {
         let last = levels.levels.len() - 1;
         // A declared zero degradation is certainly zero at every optimum.
-        if let Some(level) = levels.levels[..last].iter().position(|l| {
-            l.absolute_tolerance == Some(0.0) && l.relative_tolerance == Some(0.0)
-        }) {
+        if let Some(level) = levels.levels[..last]
+            .iter()
+            .position(|l| l.absolute_tolerance == Some(0.0) && l.relative_tolerance == Some(0.0))
+        {
             return Err(levels.zero_tolerance(level));
         }
         // The bound parameter β of every earlier level, as `objective_bounds` generated it
@@ -566,7 +567,12 @@ mod tests {
                 assert!((actual - expected).abs() < 1e-9, "{absolute}: {actual}");
             }
             // The native route states no per-level optimum or bound of its own.
-            assert!(report.levels.iter().all(|l| l.optimum.is_none() && l.bound.is_none()));
+            assert!(
+                report
+                    .levels
+                    .iter()
+                    .all(|l| l.optimum.is_none() && l.bound.is_none())
+            );
             let rows = pse_relations::generated::runtime::objective_levels::Row::rows(
                 &report.table().unwrap(),
             )
@@ -604,7 +610,10 @@ mod tests {
         assert_eq!(report.steps.len(), 2);
         let result = report.result().unwrap();
         let (x, y) = (value(result, "x"), value(result, "y"));
-        assert!((x - 4.0 / 3.0).abs() < 2e-3 && (y - 2.0 / 3.0).abs() < 2e-3, "{x} {y}");
+        assert!(
+            (x - 4.0 / 3.0).abs() < 2e-3 && (y - 2.0 / 3.0).abs() < 2e-3,
+            "{x} {y}"
+        );
         // A single weighted objective with a large weight on the first level agrees.
         let weighted = "package p { def Root {
             var x: Scalar; var y: Scalar;
@@ -636,8 +645,14 @@ mod tests {
             assert!((level.optimum.unwrap() - optimum).abs() < 1e-6, "{level:?}");
             assert!((level.bound.unwrap() - bound).abs() < 1e-6, "{level:?}");
             let value = level.value.unwrap();
-            assert!(value <= bound + 1e-6 && value >= bound - 1e-4, "{value} {bound}");
-            assert_eq!((report.levels[1].bound, report.levels[1].attempt), (None, 1));
+            assert!(
+                value <= bound + 1e-6 && value >= bound - 1e-4,
+                "{value} {bound}"
+            );
+            assert_eq!(
+                (report.levels[1].bound, report.levels[1].attempt),
+                (None, 1)
+            );
         }
     }
 
@@ -658,7 +673,12 @@ mod tests {
         let cancel = crate::CancelSource::new();
         for (absolute, relative) in [("0", "0"), ("0", "0.1")] {
             let (package, analysis) = package(&nlp(MISS, absolute, relative));
-            refused(package.optimize_levels(&analysis, &cancel).await.unwrap_err());
+            refused(
+                package
+                    .optimize_levels(&analysis, &cancel)
+                    .await
+                    .unwrap_err(),
+            );
         }
         // The native route admits a zero degradation (lexicographic_milp_native).
     }
@@ -668,7 +688,9 @@ mod tests {
     #[tokio::test]
     async fn objective_levels_prepare_once_per_level() {
         let (package, mut analysis) = package(
-            &nlp(MISS, "0.01", "0").replace("let miss", "param target: Scalar = 2; let miss").replace("(x + y - 2)", "(x + y - target)"),
+            &nlp(MISS, "0.01", "0")
+                .replace("let miss", "param target: Scalar = 2; let miss")
+                .replace("(x + y - 2)", "(x + y - target)"),
         );
         analysis.bindings.demand = vec!["target".into()];
         let native = package.runtime.native();
@@ -676,11 +698,25 @@ mod tests {
         let first = solve(&package, &analysis).await;
         let after_first = native.preparations();
         // The two level structures and the lexicographic probe.
-        assert!(after_first.views - before.views <= 3, "{:?}", after_first.views - before.views);
+        assert!(
+            after_first.views - before.views <= 3,
+            "{:?}",
+            after_first.views - before.views
+        );
         let keys = first
             .steps
             .iter()
-            .map(|s| s.as_ref().unwrap().prepared.model.case.compiled().plan.structure().key())
+            .map(|s| {
+                s.as_ref()
+                    .unwrap()
+                    .prepared
+                    .model
+                    .case
+                    .compiled()
+                    .plan
+                    .structure()
+                    .key()
+            })
             .collect::<BTreeSet<_>>();
         assert_eq!(keys.len(), 2);
         analysis.case.values.insert("target".into(), 3.0);

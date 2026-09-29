@@ -121,8 +121,13 @@ fn idas_scheduled_inputs_with_recoverable_trials() {
         let mut diffsol = p.clone();
         diffsol.method = Method::Diffsol;
         diffsol.trial_failures = TrialPolicy::Terminal;
-        let reference =
-            integrate(&mut Toy::new(dae, false), &diffsol, &[2.0, 3.0], Arc::default()).unwrap();
+        let reference = integrate(
+            &mut Toy::new(dae, false),
+            &diffsol,
+            &[2.0, 3.0],
+            Arc::default(),
+        )
+        .unwrap();
         assert_eq!(reference.termination, Termination::Completed);
         for (a, b) in r.samples.iter().zip(&reference.samples) {
             assert!((a.state[0] - b.state[0]).abs() < 1e-6);

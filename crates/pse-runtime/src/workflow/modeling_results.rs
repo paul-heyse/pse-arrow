@@ -11,8 +11,8 @@ use pse_relations::{
         runtime::{
             incumbents, infeasibility_certificates as certificates, modeling_checks,
             modeling_findings, modeling_reports, solution_pool as pool,
-            solve_constraints as constraints,
-            solve_metrics as metrics, solve_runs as runs, solve_variables as variables,
+            solve_constraints as constraints, solve_metrics as metrics, solve_runs as runs,
+            solve_variables as variables,
         },
     },
 };

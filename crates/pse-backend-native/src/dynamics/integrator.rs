@@ -516,7 +516,11 @@ impl LinearOp for Mass<'_> {
     fn gemv_inplace(&self, x: &V, _t: f64, beta: f64, y: &mut V) {
         for (i, d) in self.0.contract.differential.iter().enumerate() {
             let mass = if *d { x[i] } else { 0.0 };
-            y[i] = if beta == 0.0 { mass } else { mass + beta * y[i] };
+            y[i] = if beta == 0.0 {
+                mass
+            } else {
+                mass + beta * y[i]
+            };
         }
     }
     fn sparsity(&self) -> Option<Pattern> {
@@ -715,11 +719,7 @@ impl<'o> Shared<'o> {
     /// The boundary exits Diffsol's infallible operator callbacks with the recorded typed
     /// failure (`Shared::abort`) and contains any other library panic. A failed Newton
     /// factorization never reaches it: the linear solvers return it as an error.
-    fn contain(
-        &self,
-        result: std::thread::Result<Result<(), ProblemError>>,
-        report: &mut Report,
-    ) {
+    fn contain(&self, result: std::thread::Result<Result<(), ProblemError>>, report: &mut Report) {
         match result {
             Ok(Ok(())) => {}
             Ok(Err(e)) => {

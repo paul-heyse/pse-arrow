@@ -751,7 +751,8 @@ impl ModelingPackage {
                 {
                     Ok(shooting) => {
                         let solved = shooting.solve.as_ref().is_some_and(|s| {
-                            s.termination.category == pse_backend_native::solve::Termination::Success
+                            s.termination.category
+                                == pse_backend_native::solve::Termination::Success
                         });
                         report.record_fixture(
                             fixture,
@@ -1364,7 +1365,13 @@ impl ModelingPackage {
         let data = data.ok_or_else(|| contract("shooting fixture data absent"))?;
         let profile = self.integration_profile(model, data, &policy.solver.numerics)?;
         let simulation = self
-            .declared_simulation(fixture, policy.compiler, Some(profile), policy.limits, cancel)
+            .declared_simulation(
+                fixture,
+                policy.compiler,
+                Some(profile),
+                policy.limits,
+                cancel,
+            )
             .await?;
         let request = simulation.authored_shooting(
             pse_modeling::specialize::root_instance(fixture),
@@ -1860,7 +1867,13 @@ mod tests {
         for (id, expected) in [(certified, Some(Intent::Certify)), (open, None)] {
             let instance = pse_modeling::specialize::root_instance(id);
             let model = p
-                .prepare(id, instance, Bindings::default(), Limits::default(), &cancel)
+                .prepare(
+                    id,
+                    instance,
+                    Bindings::default(),
+                    Limits::default(),
+                    &cancel,
+                )
                 .await
                 .unwrap();
             assert_eq!(model.compiled().model.fixtures[&instance].intent, expected);
@@ -1875,7 +1888,10 @@ mod tests {
             fixture_solver(certified, authored, local, &run).map(|s| s.intent)
         };
         // The declared intent replaces the run's; a runtime fixture policy may repeat it.
-        assert_eq!(intent(Some(Intent::Certify), None).unwrap(), Intent::Certify);
+        assert_eq!(
+            intent(Some(Intent::Certify), None).unwrap(),
+            Intent::Certify
+        );
         assert_eq!(
             intent(Some(Intent::Certify), Some(&with(Intent::Certify))).unwrap(),
             Intent::Certify

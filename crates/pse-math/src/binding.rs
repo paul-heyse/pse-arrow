@@ -350,9 +350,13 @@ impl CaseStructure {
         levels: Vec<(Objective, Option<Degradation>)>,
         limits: CaseLimits,
     ) -> Result<Self, MathError> {
-        let last = levels.len().checked_sub(1).filter(|last| *last > 0).ok_or_else(|| {
-            MathError::Contract("a lexicographic structure needs several objectives".into())
-        })?;
+        let last = levels
+            .len()
+            .checked_sub(1)
+            .filter(|last| *last > 0)
+            .ok_or_else(|| {
+                MathError::Contract("a lexicographic structure needs several objectives".into())
+            })?;
         let mut objectives = Vec::with_capacity(levels.len());
         let mut degradations = Vec::with_capacity(last);
         for (position, (objective, degradation)) in levels.into_iter().enumerate() {
@@ -573,7 +577,9 @@ impl CaseStructure {
     /// adapter whose record and settings honour each of them.
     pub fn with_requirements(
         mut self,
-        requirements: impl IntoIterator<Item = pse_model::generated::enums::ModelingStructuralRequirement>,
+        requirements: impl IntoIterator<
+            Item = pse_model::generated::enums::ModelingStructuralRequirement,
+        >,
     ) -> Self {
         let mut requirements = requirements.into_iter().collect::<Vec<_>>();
         requirements.sort_by_key(|r| r.as_str());

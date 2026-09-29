@@ -277,9 +277,11 @@ impl<O: Oracle> Oracle for Anchored<O> {
             }
             Function::Reset(e) => {
                 let mut entries = self.inner_support(mode, Function::Reset(e), 0);
-                entries.extend((0..quadratures).map(|q| {
-                    SupportEntry::new(OriginalRow::new(n + q), OriginalCol::new(n + q))
-                }));
+                entries.extend(
+                    (0..quadratures).map(|q| {
+                        SupportEntry::new(OriginalRow::new(n + q), OriginalCol::new(n + q))
+                    }),
+                );
                 entries
             }
             Function::QuadratureFlux | Function::Roots => self.inner_support(mode, function, 0),
@@ -301,7 +303,8 @@ impl<O: Oracle> Oracle for Anchored<O> {
         let mut triplets = Vec::new();
         let (values, rows) = match function {
             Function::Rhs => {
-                let f = self.evaluate_inner(mode, Function::Rhs, time, state, parameters, derivatives)?;
+                let f =
+                    self.evaluate_inner(mode, Function::Rhs, time, state, parameters, derivatives)?;
                 let mut values = f.values;
                 if derivatives {
                     self.append(&mut triplets, f.jacobian.as_ref(), 0, |_| true)?;
@@ -349,7 +352,14 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 (values, n + quadratures)
             }
             Function::Output => {
-                let y = self.evaluate_inner(mode, Function::Output, time, state, parameters, derivatives)?;
+                let y = self.evaluate_inner(
+                    mode,
+                    Function::Output,
+                    time,
+                    state,
+                    parameters,
+                    derivatives,
+                )?;
                 let mut values = y.values;
                 values.extend_from_slice(&state[n..]);
                 if derivatives {
@@ -361,7 +371,14 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 (values, self.m + quadratures)
             }
             Function::Reset(e) => {
-                let r = self.evaluate_inner(mode, Function::Reset(e), time, state, parameters, derivatives)?;
+                let r = self.evaluate_inner(
+                    mode,
+                    Function::Reset(e),
+                    time,
+                    state,
+                    parameters,
+                    derivatives,
+                )?;
                 let mut values = r.values;
                 values.extend_from_slice(&state[n..]);
                 if derivatives {
@@ -373,7 +390,8 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 (values, n + quadratures)
             }
             Function::QuadratureFlux | Function::Roots => {
-                let v = self.evaluate_inner(mode, function, time, state, parameters, derivatives)?;
+                let v =
+                    self.evaluate_inner(mode, function, time, state, parameters, derivatives)?;
                 if derivatives {
                     self.append(&mut triplets, v.jacobian.as_ref(), 0, |_| true)?;
                 }

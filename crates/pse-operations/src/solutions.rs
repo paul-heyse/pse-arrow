@@ -218,7 +218,13 @@ impl<'s> Solutions<'s> {
         solution: &NewSolution,
     ) -> Result<RuntimeOperationalSolutionsRow, OperationsError> {
         let client = self.store.client().await?;
-        insert(&client, self.target(), solution, StoredSolutionOrigin::Output).await
+        insert(
+            &client,
+            self.target(),
+            solution,
+            StoredSolutionOrigin::Output,
+        )
+        .await
     }
 
     /// The newest solution compatible with `stamp` under `preparation` for `backend` that

@@ -245,19 +245,42 @@ fn adjoint_equals_forward_and_differences(method: Method) {
             let mut p = reactor_profile(method, scheme, dae, scheduled);
             let parameters = reactor_parameters(scheduled);
             let g = adjoint(&mut Reactor::new(dae), &p, &parameters);
-            assert_eq!(g.report.termination, Termination::Completed, "{case}: {:?}", g.report.error);
+            assert_eq!(
+                g.report.termination,
+                Termination::Completed,
+                "{case}: {:?}",
+                g.report.error
+            );
             let adjoint = g.gradient.unwrap();
             assert_eq!(adjoint.len(), parameters.len());
             assert_eq!(g.report.samples.len(), p.samples.len(), "{case}");
-            assert!(g.report.samples.iter().all(|s| s.output_sensitivities.is_empty()));
+            assert!(
+                g.report
+                    .samples
+                    .iter()
+                    .all(|s| s.output_sensitivities.is_empty())
+            );
             // Diffsol holds every segment's checkpoints, IDAS one segment's at a time.
-            let held = if method == Method::Idas { 1 } else { 2 * p.segments() };
+            let held = if method == Method::Idas {
+                1
+            } else {
+                2 * p.segments()
+            };
             assert!(g.checkpoints >= held, "{case}: {}", g.checkpoints);
-            assert_eq!(g.reserved_bytes, p.checkpoint_bytes(&Reactor::new(dae).c).unwrap());
+            assert_eq!(
+                g.reserved_bytes,
+                p.checkpoint_bytes(&Reactor::new(dae).c).unwrap()
+            );
             // Forward sensitivities of the same samples.
             p.sensitivity = DynamicSensitivity::Forward;
-            let forward = integrate(&mut Reactor::new(dae), &p, &parameters, Arc::default()).unwrap();
-            assert_eq!(forward.termination, Termination::Completed, "{case}: {:?}", forward.error);
+            let forward =
+                integrate(&mut Reactor::new(dae), &p, &parameters, Arc::default()).unwrap();
+            assert_eq!(
+                forward.termination,
+                Termination::Completed,
+                "{case}: {:?}",
+                forward.error
+            );
             let w = weights(forward.samples.len());
             let np = parameters.len();
             let contracted = (0..np)
@@ -328,7 +351,12 @@ fn diffsol_adjoint_starts_at_a_nearly_steady_stop() {
     for (scheme, _) in cases(Method::Diffsol).into_iter().filter(|(_, dae)| !dae) {
         let mut p = reactor_profile(Method::Diffsol, scheme, false, true);
         let g = adjoint(&mut Reactor::new(false), &p, &parameters);
-        assert_eq!(g.report.termination, Termination::Completed, "{scheme:?}: {:?}", g.report.error);
+        assert_eq!(
+            g.report.termination,
+            Termination::Completed,
+            "{scheme:?}: {:?}",
+            g.report.error
+        );
         let adjoint = g.gradient.unwrap();
         p.sensitivity = DynamicSensitivity::Forward;
         let forward = integrate(&mut Reactor::new(false), &p, &parameters, Arc::default()).unwrap();
@@ -343,7 +371,8 @@ fn diffsol_adjoint_starts_at_a_nearly_steady_stop() {
                 .map(|(i, o, s)| w[i * 2 + o] * s.output_sensitivities[o * np + j])
                 .sum::<f64>();
             assert!(
-                (value - contracted).abs() <= tolerance(Method::Diffsol).1 * (1.0 + contracted.abs()),
+                (value - contracted).abs()
+                    <= tolerance(Method::Diffsol).1 * (1.0 + contracted.abs()),
                 "{scheme:?}: column {j}: adjoint {value} forward {contracted}"
             );
         }
@@ -364,11 +393,29 @@ fn checkpoints_bounded(method: Method) {
     let reference = adjoint(&mut Reactor::new(dae), &p, &parameters);
     p.adjoint.steps_between_checkpoints = PositiveCount::try_new(3).unwrap();
     let frequent = adjoint(&mut Reactor::new(dae), &p, &parameters);
-    assert_eq!(frequent.report.termination, Termination::Completed, "{:?}", frequent.report.error);
-    assert!(frequent.checkpoints > reference.checkpoints, "{} vs {}", frequent.checkpoints, reference.checkpoints);
+    assert_eq!(
+        frequent.report.termination,
+        Termination::Completed,
+        "{:?}",
+        frequent.report.error
+    );
+    assert!(
+        frequent.checkpoints > reference.checkpoints,
+        "{} vs {}",
+        frequent.checkpoints,
+        reference.checkpoints
+    );
     assert!(frequent.checkpoints <= p.adjoint.max_checkpoints.into_inner());
-    for (a, b) in frequent.gradient.unwrap().iter().zip(&reference.gradient.unwrap()) {
-        assert!((a - b).abs() <= tolerance(method).1 * (1.0 + b.abs()), "{a} vs {b}");
+    for (a, b) in frequent
+        .gradient
+        .unwrap()
+        .iter()
+        .zip(&reference.gradient.unwrap())
+    {
+        assert!(
+            (a - b).abs() <= tolerance(method).1 * (1.0 + b.abs()),
+            "{a} vs {b}"
+        );
     }
     // The forward pass stops with a typed memory limit when it needs more checkpoints
     // than the maximum; it returns no gradient.
@@ -411,7 +458,13 @@ fn checkpoints_bounded(method: Method) {
     )
     .unwrap_err();
     assert!(
-        matches!(refused, ProblemError::Limit { kind: crate::LimitKind::Memory, .. }),
+        matches!(
+            refused,
+            ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                ..
+            }
+        ),
         "{refused:?}"
     );
     assert_eq!(oracle.evaluations.get(), 0);
@@ -445,15 +498,13 @@ fn adjoint_profile_limits_are_typed_refusals() {
     let p = reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, false, false);
     let parameters = reactor_parameters(false);
     let mut evented = Reactor::new(false);
-    evented.c.events = vec![
-        vec![Event {
-            id: id(70),
-            terminal: false,
-            next_mode: 0,
-            tolerance: 1e-8,
-            direction: EventDirection::Either,
-        }],
-    ];
+    evented.c.events = vec![vec![Event {
+        id: id(70),
+        terminal: false,
+        next_mode: 0,
+        tolerance: 1e-8,
+        direction: EventDirection::Either,
+    }]];
     assert!(matches!(
         p.validate(&evented.c, &parameters),
         Err(ProblemError::Unsupported(_))
@@ -481,7 +532,14 @@ fn adjoint_profile_limits_are_typed_refusals() {
     forward.sensitivity = DynamicSensitivity::Forward;
     let mut oracle = Reactor::new(false);
     assert!(matches!(
-        gradient(&mut oracle, &forward, &parameters, &mut |_: &Report| Ok(vec![]), Arc::default(), 1 << 30),
+        gradient(
+            &mut oracle,
+            &forward,
+            &parameters,
+            &mut |_: &Report| Ok(vec![]),
+            Arc::default(),
+            1 << 30
+        ),
         Err(ProblemError::Contract(_))
     ));
     let short = gradient(
@@ -527,10 +585,17 @@ fn second_order_adjoint_matches_finite_difference() {
                 .unwrap()
             };
             let result = second(&all);
-            assert_eq!(result.report.termination, Termination::Completed, "{case}: {:?}", result.report.error);
+            assert_eq!(
+                result.report.termination,
+                Termination::Completed,
+                "{case}: {:?}",
+                result.report.error
+            );
             let h = result.hessian.unwrap();
             let g = result.gradient.unwrap();
-            let adjoint = adjoint(&mut Reactor::new(dae), &p, &parameters).gradient.unwrap();
+            let adjoint = adjoint(&mut Reactor::new(dae), &p, &parameters)
+                .gradient
+                .unwrap();
             for j in 0..np {
                 assert!(
                     (g[j] - adjoint[j]).abs() <= 1e-6 * (1.0 + adjoint[j].abs()),
@@ -540,23 +605,38 @@ fn second_order_adjoint_matches_finite_difference() {
                 );
             }
             // The forward pass integrated the state sensitivities its tangents need.
-            assert!(result.report.samples.iter().all(|s| s.state_sensitivities.len() == np * p.atol.len()));
+            assert!(
+                result
+                    .report
+                    .samples
+                    .iter()
+                    .all(|s| s.state_sensitivities.len() == np * p.atol.len())
+            );
             let statistics = result
                 .report
                 .statistics
                 .iter()
                 .find_map(|s| s.get("adjoint"))
                 .unwrap();
-            assert!(statistics["hessian_asymmetry"].as_f64().unwrap() < 1e-5, "{case}: {statistics}");
+            assert!(
+                statistics["hessian_asymmetry"].as_f64().unwrap() < 1e-5,
+                "{case}: {statistics}"
+            );
             let backward = statistics["backward"].as_array().unwrap();
             assert_eq!(backward.len(), np, "{case}");
             eprintln!("{case}: backward Newton counters {backward:?}");
             // Central differences of the forward-sensitivity gradient.
-            let mut reference = reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, dae, scheduled);
+            let mut reference =
+                reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, dae, scheduled);
             reference.sensitivity = DynamicSensitivity::Forward;
             let contracted = |q: &[f64]| -> Vec<f64> {
                 let r = integrate(&mut Reactor::new(dae), &reference, q, Arc::default()).unwrap();
-                assert_eq!(r.termination, Termination::Completed, "{case}: {:?}", r.error);
+                assert_eq!(
+                    r.termination,
+                    Termination::Completed,
+                    "{case}: {:?}",
+                    r.error
+                );
                 let w = weights(r.samples.len());
                 (0..np)
                     .map(|j| {
@@ -622,20 +702,41 @@ fn second_order_route_limits_are_typed_refusals() {
     let idas = reactor_profile(Method::Idas, DiffsolMethod::Bdf, true, true);
     let diffsol = reactor_profile(Method::Diffsol, DiffsolMethod::Bdf, true, true);
     let mut oracle = Reactor::new(true);
-    assert!(matches!(run(&mut oracle, &diffsol, &[0], 1 << 30), Err(ProblemError::Unsupported(_))));
+    assert!(matches!(
+        run(&mut oracle, &diffsol, &[0], 1 << 30),
+        Err(ProblemError::Unsupported(_))
+    ));
     let mut first = Reactor::new(true);
     first.c.derivatives = pse_kernels::DerivativeOrder::First;
-    assert!(matches!(run(&mut first, &idas, &[0], 1 << 30), Err(ProblemError::Unsupported(_))));
+    assert!(matches!(
+        run(&mut first, &idas, &[0], 1 << 30),
+        Err(ProblemError::Unsupported(_))
+    ));
     for directions in [&[][..], &[0, 0], &[4]] {
-        assert!(matches!(run(&mut oracle, &idas, directions, 1 << 30), Err(ProblemError::Contract(_))));
+        assert!(matches!(
+            run(&mut oracle, &idas, directions, 1 << 30),
+            Err(ProblemError::Contract(_))
+        ));
     }
     let mut forward = idas.clone();
     forward.sensitivity = DynamicSensitivity::Forward;
-    assert!(matches!(run(&mut oracle, &forward, &[0], 1 << 30), Err(ProblemError::Contract(_))));
+    assert!(matches!(
+        run(&mut oracle, &forward, &[0], 1 << 30),
+        Err(ProblemError::Contract(_))
+    ));
     let bytes = idas.admit_second_order(&oracle.c, &[0, 1]).unwrap();
     assert!(bytes > idas.checkpoint_bytes(&oracle.c).unwrap());
     let refused = run(&mut oracle, &idas, &[0, 1], bytes - 1).unwrap_err();
-    assert!(matches!(refused, ProblemError::Limit { kind: crate::LimitKind::Memory, .. }), "{refused:?}");
+    assert!(
+        matches!(
+            refused,
+            ProblemError::Limit {
+                kind: crate::LimitKind::Memory,
+                ..
+            }
+        ),
+        "{refused:?}"
+    );
     assert_eq!(oracle.evaluations.get(), 0);
     let admitted = run(&mut oracle, &idas, &[0, 1], bytes).unwrap();
     assert!(admitted.hessian.is_some());

@@ -52,7 +52,9 @@ class PengRobinson:
         a = float(np.sqrt(np.outer(self.a, self.a)) @ x @ x)
         b = float(self.b @ x)
         rt = GAS_CONSTANT * TEMPERATURE
-        return rt * rho / (1 - b * rho) - a * rho**2 / (1 + 2 * b * rho - (b * rho) ** 2)
+        return rt * rho / (1 - b * rho) - a * rho**2 / (
+            1 + 2 * b * rho - (b * rho) ** 2
+        )
 
     def ln_phi(self, x: NDArray[np.float64], rho: float) -> NDArray[np.float64]:
         rt = GAS_CONSTANT * TEMPERATURE
@@ -179,7 +181,9 @@ def main() -> None:
         )
         + "\n"
     )
-    print(f"Wrote the Peng-Robinson stability reference to {destination.relative_to(root)}")
+    print(
+        f"Wrote the Peng-Robinson stability reference to {destination.relative_to(root)}"
+    )
 
 
 if __name__ == "__main__":

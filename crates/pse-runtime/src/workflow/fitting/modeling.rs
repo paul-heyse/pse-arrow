@@ -506,9 +506,10 @@ impl ModelingPackage {
                 // A fit parameter binds the integration column in effect at the start: a
                 // scheduled input's first interval, whose later intervals keep their
                 // scheduled values (I6).
-                let start = simulation
-                    .profile()
-                    .columns_at(simulation.contract().parameters.len(), simulation.profile().start);
+                let start = simulation.profile().columns_at(
+                    simulation.contract().parameters.len(),
+                    simulation.profile().start,
+                );
                 let bindings = local
                     .iter()
                     .map(|(parameter, id)| {

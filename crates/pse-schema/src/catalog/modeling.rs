@@ -124,8 +124,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     // without a successor mode is terminal.
                     T::list(T::structure(vec![
                         text("name"),
-                        T::list(T::structure(vec![text("name"), flag("value")]))
-                            .with_name("facts"),
+                        T::list(T::structure(vec![text("name"), flag("value")])).with_name("facts"),
                         T::list(T::structure(vec![
                             text("guard"),
                             T::enumeration("EventDirection").with_name("direction"),

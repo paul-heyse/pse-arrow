@@ -71,7 +71,10 @@ pub(in crate::workflow) fn package(text: &str) -> (ModelingPackage, DeclarationI
         .unwrap();
     (package, root)
 }
-pub(in crate::workflow) fn analysis(root: DeclarationId, selection: SolverSelection) -> ModelingAnalysis {
+pub(in crate::workflow) fn analysis(
+    root: DeclarationId,
+    selection: SolverSelection,
+) -> ModelingAnalysis {
     let mut solver: SolverProfile = fixture::profile();
     solver.intent = SolveIntent::Optimize;
     solver.selection = selection;
@@ -129,7 +132,10 @@ pub(in crate::workflow) async fn solve_propagating(
     let result = prepared.start().unwrap().wait().await.unwrap();
     (result, ids)
 }
-pub(in crate::workflow) fn rows<R: RelationRow>(result: &crate::workflow::RunResult, name: &str) -> Vec<R> {
+pub(in crate::workflow) fn rows<R: RelationRow>(
+    result: &crate::workflow::RunResult,
+    name: &str,
+) -> Vec<R> {
     R::rows(&result.table(name).unwrap()).unwrap()
 }
 
@@ -149,7 +155,12 @@ async fn sensitivities_published_with_local_validity() {
         assert!(v.certified && v.reason.is_none(), "{v:?}");
         assert!(!v.conditional);
         assert_eq!(
-            (v.licq, v.strict_complementarity, v.second_order, v.weakly_active),
+            (
+                v.licq,
+                v.strict_complementarity,
+                v.second_order,
+                v.weakly_active
+            ),
             (Some(true), Some(true), Some(true), Some(0))
         );
         assert!(v.residual.is_some_and(|r| r < 1e-10), "{v:?}");
@@ -163,11 +174,16 @@ async fn sensitivities_published_with_local_validity() {
             .find(|r| r.parameter_id == parameter && r.target_kind == kind && r.target_id == target)
             .unwrap()
     };
-    let close = |actual: Option<f64>, expected: f64| {
-        actual.is_some_and(|v| (v - expected).abs() < 1e-6)
-    };
-    assert!(close(find(a, NumericalTarget::Variable, x).primal, 2.0 / 3.0));
-    assert!(close(find(b, NumericalTarget::Variable, x).primal, 1.0 / 3.0));
+    let close =
+        |actual: Option<f64>, expected: f64| actual.is_some_and(|v| (v - expected).abs() < 1e-6);
+    assert!(close(
+        find(a, NumericalTarget::Variable, x).primal,
+        2.0 / 3.0
+    ));
+    assert!(close(
+        find(b, NumericalTarget::Variable, x).primal,
+        1.0 / 3.0
+    ));
     let objective = find(a, NumericalTarget::Objective, SemanticId::NIL);
     assert!(close(objective.primal, -2.0 / 3.0) && objective.dual.is_none());
     assert!(close(
@@ -179,14 +195,18 @@ async fn sensitivities_published_with_local_validity() {
         .iter()
         .find(|r| r.parameter_id == a && r.target_kind == NumericalTarget::Row)
         .unwrap();
-    assert!(row.primal.is_none() && close(row.dual, -2.0 / 3.0), "{row:?}");
+    assert!(
+        row.primal.is_none() && close(row.dual, -2.0 / 3.0),
+        "{row:?}"
+    );
     let hessians: Vec<reduced_hessians::Row> = rows(&result, "runtime.reduced_hessians");
     assert_eq!(hessians.len(), 1);
     assert_eq!(hessians[0].parameters, vec![a, b]);
-    for (actual, expected) in hessians[0]
-        .values
-        .iter()
-        .zip([2.0 / 3.0, -2.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0])
+    for (actual, expected) in
+        hessians[0]
+            .values
+            .iter()
+            .zip([2.0 / 3.0, -2.0 / 3.0, -2.0 / 3.0, -1.0 / 3.0])
     {
         assert!((actual - expected).abs() < 1e-6, "{:?}", hessians[0]);
     }

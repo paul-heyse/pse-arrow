@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Compiler-established mathematical facts, independent of any solver library.
-use crate::{
-    MathError, assembly::CasePlan, coefficients::Coefficients, convexity::Convexity,
-};
-use std::sync::atomic::AtomicBool;
+use crate::{MathError, assembly::CasePlan, coefficients::Coefficients, convexity::Convexity};
 use pse_model::generated::enums::ModelingVariableDomain;
+use std::sync::atomic::AtomicBool;
 /// Admitted interval shape; values remain owned by the original case structure.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BoundShape {

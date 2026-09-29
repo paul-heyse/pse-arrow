@@ -10,9 +10,9 @@ use pse_relations::{
         identities::RunId,
         runtime::{
             computation_runs, fit_constraints, fit_observations, fit_parameters, fit_variables,
-            infeasibility_certificates, local_validity, parameter_covariances,
-            parameter_intervals, profile_points, propagated_covariances, response_directions,
-            response_sensitivities, solve_metrics,
+            infeasibility_certificates, local_validity, parameter_covariances, parameter_intervals,
+            profile_points, propagated_covariances, response_directions, response_sensitivities,
+            solve_metrics,
         },
     },
 };
@@ -393,7 +393,11 @@ fn uncertainty(
         response_directions::Builder::with_registry(registry, 0).map_err(relation)?;
     let mut propagated =
         propagated_covariances::Builder::with_registry(registry, 0).map_err(relation)?;
-    let predictions = p.profile.uncertainty.as_ref().is_some_and(|u| u.predictions);
+    let predictions = p
+        .profile
+        .uncertainty
+        .as_ref()
+        .is_some_and(|u| u.predictions);
     let free: Vec<(usize, SemanticId)> = p
         .free()
         .map(|(k, _)| (k, p.declaration.parameters[k].symbol_id))
@@ -411,7 +415,9 @@ fn uncertainty(
                 step: 0,
                 quantity,
                 validity: crate::workflow::local_analysis::record(
-                    outcome.map(|()| &()).map_err(|w| (w.reason(), w.to_string())),
+                    outcome
+                        .map(|()| &())
+                        .map_err(|w| (w.reason(), w.to_string())),
                     point,
                     false,
                 ),
@@ -507,8 +513,19 @@ fn uncertainty(
             None,
         )?;
         for i in wald.iter().flatten() {
-            for (end, bound) in [(IntervalEnd::Lower, &i.lower), (IntervalEnd::Upper, &i.upper)] {
-                interval(i.parameter, IntervalMethod::Wald, end, i.estimate, bound, 0, None)?;
+            for (end, bound) in [
+                (IntervalEnd::Lower, &i.lower),
+                (IntervalEnd::Upper, &i.upper),
+            ] {
+                interval(
+                    i.parameter,
+                    IntervalMethod::Wald,
+                    end,
+                    i.estimate,
+                    bound,
+                    0,
+                    None,
+                )?;
             }
         }
     }
@@ -557,14 +574,17 @@ fn uncertainty(
             .enumerate()
             .filter(|(_, o)| o.included)
             .collect();
-        let jacobian = report.responses.as_ref().map(|r| crate::workflow::uncertainty::Jacobian {
-            outputs: included.iter().map(|(_, o)| o.id).collect(),
-            parameters: covariance.parameters.clone(),
-            values: included
-                .iter()
-                .flat_map(|(i, _)| (0..r.ncols()).map(move |j| r[(*i, j)]))
-                .collect(),
-        });
+        let jacobian = report
+            .responses
+            .as_ref()
+            .map(|r| crate::workflow::uncertainty::Jacobian {
+                outputs: included.iter().map(|(_, o)| o.id).collect(),
+                parameters: covariance.parameters.clone(),
+                values: included
+                    .iter()
+                    .flat_map(|(i, _)| (0..r.ncols()).map(move |j| r[(*i, j)]))
+                    .collect(),
+            });
         let jacobian = jacobian.ok_or_else(|| crate::workflow::uncertainty::Upstream {
             quantity: DerivedQuantity::ParameterCovariance,
             reason: pse_relations::generated::enums::WithheldReason::ResponsesUnavailable,
@@ -644,7 +664,10 @@ fn finish(
             propagated_covariances::RELATION_ID,
             propagated.finish().map_err(relation)?,
         ),
-        (local_validity::RELATION_ID, validity.finish().map_err(relation)?),
+        (
+            local_validity::RELATION_ID,
+            validity.finish().map_err(relation)?,
+        ),
         (
             parameter_covariances::RELATION_ID,
             covariances.finish().map_err(relation)?,
@@ -653,7 +676,10 @@ fn finish(
             parameter_intervals::RELATION_ID,
             intervals.finish().map_err(relation)?,
         ),
-        (profile_points::RELATION_ID, points.finish().map_err(relation)?),
+        (
+            profile_points::RELATION_ID,
+            points.finish().map_err(relation)?,
+        ),
         (
             response_directions::RELATION_ID,
             directions.finish().map_err(relation)?,

@@ -20,9 +20,9 @@ pub mod implicit;
 pub mod ipopt;
 #[cfg(feature = "highs")]
 pub mod jacobian_diagnostics;
-pub mod kkt;
 #[cfg(feature = "kinsol")]
 pub mod kinsol;
+pub mod kkt;
 #[cfg(any(feature = "ipopt", feature = "clarabel-pardiso"))]
 mod mkl;
 mod nlp_pattern;
@@ -899,10 +899,10 @@ mod restart_tests;
 
 #[cfg(test)]
 mod clarabel_tests;
-#[cfg(test)]
-mod pounce_convex_tests;
 #[cfg(all(test, feature = "pounce"))]
 mod l1_tests;
+#[cfg(test)]
+mod pounce_convex_tests;
 
 #[cfg(all(test, feature = "scip"))]
 mod scip_tests;

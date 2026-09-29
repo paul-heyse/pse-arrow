@@ -108,11 +108,7 @@ async fn clarabel_serves_explicit_linear_program() {
 /// original coordinates, with the certificate assurance, and no string-keyed metrics.
 #[tokio::test]
 async fn infeasibility_certificate_published() {
-    let result = run(
-        &covering("3"),
-        SolverSelection::Explicit(Backend::Clarabel),
-    )
-    .await;
+    let result = run(&covering("3"), SolverSelection::Explicit(Backend::Clarabel)).await;
     let runs = solve_runs::Row::rows(&result.table("runtime.solve_runs").unwrap()).unwrap();
     assert_eq!(runs[0].assurance, Assurance::Certificate, "{runs:?}");
     let rows = infeasibility_certificates::Row::rows(
@@ -125,7 +121,10 @@ async fn infeasibility_certificate_published() {
     assert_eq!(row.kind, CertificateKind::PrimalInfeasible);
     assert_eq!(row.accuracy, CertificateAccuracy::Full);
     let verification = row.verification.as_ref().unwrap();
-    assert!(verification.verified && verification.margin > 0.0, "{row:?}");
+    assert!(
+        verification.verified && verification.margin > 0.0,
+        "{row:?}"
+    );
     // The covering row's lower side, then both variables' bounds.
     assert_eq!(
         row.ray.iter().map(|e| e.coordinate).collect::<Vec<_>>(),

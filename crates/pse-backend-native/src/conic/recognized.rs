@@ -16,7 +16,7 @@ use crate::{
 use pse_ids::{FramedHasher, SemanticId};
 use pse_kernels::DerivativeOrder;
 use pse_math::{
-    convexity::{ConvexityClass, Convexity, EXACT_OPERATIONS},
+    convexity::{Convexity, ConvexityClass, EXACT_OPERATIONS},
     curvature::{self, ConeConstraint, Epigraph, Linear, Recognition, Side},
     factorable::FactorableProgram,
     normalization::Normalization,
@@ -272,8 +272,7 @@ impl Recognized {
             + (p.objective.capacity() + p.rhs.capacity()) * size_of::<f64>()
             + (p.contract.variables.capacity() + self.original.variables.capacity())
                 * size_of::<Variable>()
-            + (p.contract.rows.capacity() + self.original.rows.capacity())
-                * size_of::<SemanticId>()
+            + (p.contract.rows.capacity() + self.original.rows.capacity()) * size_of::<SemanticId>()
             + p.cones.capacity() * size_of::<Cone>()
             + self.rows.capacity() * size_of::<Option<(usize, Side)>>()
             + self.bounds.capacity() * size_of::<(f64, f64)>()

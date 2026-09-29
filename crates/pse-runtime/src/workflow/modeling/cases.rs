@@ -257,7 +257,9 @@ impl ModelingPackage {
         }
         for (&id, &value) in &overrides.fixes {
             if !value.is_finite() || !is_variable(&id) {
-                return Err(contract("a temporary fix must name a variable at a finite value"));
+                return Err(contract(
+                    "a temporary fix must name a variable at a finite value",
+                ));
             }
             values.scalars.insert(id, value);
             starts.insert(id, StartSource::Fixed);
@@ -652,10 +654,7 @@ impl ModelingPackage {
                 // A propagation's outputs are columns the step solves (Plan 22 S4).
                 let columns = prepared.case.compiled().plan.columns();
                 if let Some(propagation) = &request.propagation
-                    && let Some(output) = propagation
-                        .outputs
-                        .iter()
-                        .find(|o| !columns.contains(o))
+                    && let Some(output) = propagation.outputs.iter().find(|o| !columns.contains(o))
                 {
                     return Err(contract(format!(
                         "propagation output {output} is not a variable the case solves"

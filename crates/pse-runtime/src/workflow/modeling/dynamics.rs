@@ -269,8 +269,7 @@ impl ModelingSimulation {
             .fixtures
             .get(&instance)
             .ok_or_else(|| contract("shooting fixture absent"))?;
-        let (Some(shooting), Some(integration)) = (&fixture.shooting, &fixture.integration)
-        else {
+        let (Some(shooting), Some(integration)) = (&fixture.shooting, &fixture.integration) else {
             return Err(contract("the fixture declares no shooting"));
         };
         let controls = integration
@@ -289,8 +288,7 @@ impl ModelingSimulation {
         match objectives.levels.as_slice() {
             [] => {}
             [level] => {
-                let sign = if level.sense == pse_modeling::annotation::ObjectiveSense::Maximize
-                {
+                let sign = if level.sense == pse_modeling::annotation::ObjectiveSense::Maximize {
                     -1.
                 } else {
                     1.
@@ -651,7 +649,16 @@ impl ModelingPackage {
             self.integration_profile(&model, fixture, &Default::default())?
         };
         self.prepare_simulation(
-            root, instance, bindings, limits, case, compiler, profile, DerivativeOrder::First, cancel)
+            root,
+            instance,
+            bindings,
+            limits,
+            case,
+            compiler,
+            profile,
+            DerivativeOrder::First,
+            cancel,
+        )
         .await
     }
     /// Prepare integrated dynamics from one specialized definition. Rates are compiler
@@ -797,14 +804,7 @@ impl ModelingPackage {
             .collect::<BTreeSet<_>>();
         let states = state.iter().map(|p| p.id).collect::<Vec<_>>();
         let (mut values, starts) = self
-            .resolve_starts(
-                &model,
-                &case,
-                &Default::default(),
-                compiler,
-                false,
-                cancel,
-            )
+            .resolve_starts(&model, &case, &Default::default(), compiler, false, cancel)
             .await?;
         // Terminal placeholders are excluded from every trial program below. Their
         // real values are supplied only by completed native whole-domain quadrature.
@@ -1247,7 +1247,9 @@ impl ModelingPackage {
             .prepare_dynamic_guards(&model, &case, &terminal_targets, compiler, cancel)
             .await?;
         let signs = self
-            .state_signs(&model, &case, &states, &values, &providers, compiler, cancel)
+            .state_signs(
+                &model, &case, &states, &values, &providers, compiler, cancel,
+            )
             .await?;
         let units = results::assessment_units(product);
         let sample_scope = (!integral_ids.is_empty()).then(|| {
@@ -1976,7 +1978,10 @@ mod tests {
         )
         .unwrap();
         let rendered = pse_authoring::language::render(&rows).unwrap();
-        assert!(rendered.contains("schedule root.u at(0.5{s}) values(2, -1);"), "{rendered}");
+        assert!(
+            rendered.contains("schedule root.u at(0.5{s}) values(2, -1);"),
+            "{rendered}"
+        );
         let reparsed = pse_authoring::language::parse(
             &rendered,
             SemanticId::NIL,
@@ -2010,7 +2015,13 @@ mod tests {
         let mut profile = prepared.profile().clone();
         profile.sensitivity = native::DynamicSensitivity::Forward;
         let sensitive = package
-            .declared_simulation(scheduled, compiler, Some(profile.clone()), Limits::default(), &cancel)
+            .declared_simulation(
+                scheduled,
+                compiler,
+                Some(profile.clone()),
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap();
         assert_ne!(sensitive.identity(), prepared.identity());
@@ -2033,7 +2044,13 @@ mod tests {
         // input differently is refused.
         profile.schedule[0].times = vec![0.25];
         let error = package
-            .declared_simulation(scheduled, compiler, Some(profile), Limits::default(), &cancel)
+            .declared_simulation(
+                scheduled,
+                compiler,
+                Some(profile),
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap_err();
         assert!(error.to_string().contains("authored schedule"), "{error}");
@@ -2042,7 +2059,10 @@ mod tests {
             .declared_simulation(on_state, compiler, None, Limits::default(), &cancel)
             .await
             .unwrap_err();
-        assert!(error.to_string().contains("integration parameter"), "{error}");
+        assert!(
+            error.to_string().contains("integration parameter"),
+            "{error}"
+        );
     }
     /// ADR-0119 Outcome 3: the case's fixture declares the modes (the facts selecting
     /// each) and the events with their resets and successors; the simulation reads them,
@@ -2211,7 +2231,13 @@ mod tests {
             .clone();
         diffsol.method = native::Method::Diffsol;
         let error = package
-            .declared_simulation(tests[2], compiler, Some(diffsol), Limits::default(), &cancel)
+            .declared_simulation(
+                tests[2],
+                compiler,
+                Some(diffsol),
+                Limits::default(),
+                &cancel,
+            )
             .await
             .unwrap_err();
         assert!(error.to_string().contains("needs IDAS"), "{error}");
@@ -2320,7 +2346,8 @@ mod tests {
         let runtime = super::super::super::tests::runtime();
         let (physical, names) = physical();
         let def = "def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == 2; eq initial: x[0{s}] == 1{s}; let hit[i in t]: Time = x[i]-2{s}; }";
-        let events = "mode run; event root.hit[0{s}] direction(rising) tolerance(1e-8{s}) terminal;";
+        let events =
+            "mode run; event root.hit[0{s}] direction(rising) tolerance(1e-8{s}) terminal;";
         let parse = |text: &str| {
             pse_authoring::language::parse(
                 text,
@@ -2333,7 +2360,11 @@ mod tests {
         let rows = parse(&format!(
             "package p {{ {def} test evented fixture {{ dof 0; run integrated; integrate samples(0{{s}}, 1{{s}}) relative(1e-8) normalized_absolute(1e-8) step(1e-4{{s}}); {events} }} {{ child root: Root = Root(); }} }}"
         ));
-        let evented = rows.iter().find(|r| r.name == "evented").unwrap().declaration_id;
+        let evented = rows
+            .iter()
+            .find(|r| r.name == "evented")
+            .unwrap()
+            .declaration_id;
         let package = runtime
             .modeling_package(rows, physical.clone(), names.clone())
             .unwrap();
@@ -2349,7 +2380,9 @@ mod tests {
             .await
             .unwrap_err();
         assert!(
-            error.to_string().contains("the simultaneous route refuses them"),
+            error
+                .to_string()
+                .contains("the simultaneous route refuses them"),
             "{error}"
         );
         // The integrated route admits the same case.
@@ -2366,9 +2399,7 @@ mod tests {
         let rows = parse(&format!(
             "package p {{ {def} test declared fixture {{ dof 0; run simultaneous; {events} }} {{ child root: Root = Root(); }} }}"
         ));
-        let error = runtime
-            .modeling_package(rows, physical, names)
-            .unwrap_err();
+        let error = runtime.modeling_package(rows, physical, names).unwrap_err();
         assert!(error.to_string().contains("integrated route"), "{error}");
     }
     #[tokio::test]
@@ -2424,7 +2455,8 @@ mod tests {
                     compiler,
                     profile.clone(),
                     DerivativeOrder::First,
-                    &cancel)
+                    &cancel,
+                )
                 .await;
             if noncausal {
                 let error = preparation.unwrap_err().to_string();
@@ -2514,7 +2546,8 @@ mod tests {
                     compiler,
                     derivatives,
                     DerivativeOrder::First,
-                    &cancel)
+                    &cancel,
+                )
                 .await
                 .unwrap();
             let sensitive = sensitive.run(&cancel).await.unwrap();
@@ -2565,7 +2598,8 @@ mod tests {
                         ..Default::default()
                     },
                     DerivativeOrder::First,
-                    &cancel)
+                    &cancel,
+                )
                 .await
                 .unwrap();
             let result = prepared.run(&cancel).await.unwrap();
@@ -2656,7 +2690,8 @@ mod tests {
                         ..Default::default()
                     },
                     DerivativeOrder::First,
-                    &cancel)
+                    &cancel,
+                )
                 .await;
             if nonlinear {
                 let error = result.unwrap_err().to_string();
@@ -2764,7 +2799,8 @@ mod tests {
                 super::super::super::tests::compiler_profile(),
                 profile.clone(),
                 DerivativeOrder::First,
-                &cancel)
+                &cancel,
+            )
         };
         let error = simulate(ModelingCaseBindings::default())
             .await
@@ -2825,7 +2861,8 @@ mod tests {
                 compiler,
                 profile,
                 DerivativeOrder::First,
-                &cancel)
+                &cancel,
+            )
             .await
             .unwrap();
         assert_eq!(prepared.contract.states.len(), 1);
@@ -2984,7 +3021,8 @@ mod tests {
                     super::super::super::tests::compiler_profile(),
                     profile,
                     DerivativeOrder::First,
-                    &cancel)
+                    &cancel,
+                )
                 .await
                 .unwrap();
             let y = prepared
@@ -3080,7 +3118,8 @@ mod tests {
                 compiler,
                 profile.clone(),
                 DerivativeOrder::First,
-                &cancel)
+                &cancel,
+            )
             .await
             .unwrap();
         let xi = prepared
@@ -3164,7 +3203,8 @@ mod tests {
                 compiler,
                 profile,
                 DerivativeOrder::First,
-                &cancel)
+                &cancel,
+            )
             .await
             .unwrap();
         let mut worker = prepared
@@ -3235,7 +3275,8 @@ mod tests {
                 compiler,
                 profile,
                 DerivativeOrder::First,
-                &cancel)
+                &cancel,
+            )
             .await
             .unwrap();
         let result = override_bounds.run(&cancel).await.unwrap();
@@ -3282,7 +3323,8 @@ mod tests {
                     ..Default::default()
                 },
                 DerivativeOrder::First,
-                &cancel)
+                &cancel,
+            )
             .await
             .unwrap();
         let trajectory = simulation.run(&cancel).await.unwrap();

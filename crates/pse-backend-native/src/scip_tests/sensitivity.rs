@@ -97,12 +97,18 @@ fn parameterized(
         &cancel,
     )
     .unwrap();
-    let ids: Vec<SemanticId> = (0..parameters.len()).map(|k| parameter_port(k).id).collect();
+    let ids: Vec<SemanticId> = (0..parameters.len())
+        .map(|k| parameter_port(k).id)
+        .collect();
     let parametric = plan.parametric(&ids, registry, &cancel).unwrap();
     let compile = |plan: CasePlan| {
         Arc::new(
             Arc::new(plan)
-                .compile(Optimization::default(), EvaluationLimits::default(), &cancel)
+                .compile(
+                    Optimization::default(),
+                    EvaluationLimits::default(),
+                    &cancel,
+                )
                 .unwrap(),
         )
     };
@@ -112,7 +118,12 @@ fn parameterized(
         values: CaseValues {
             scalars: ports
                 .iter()
-                .zip(columns.iter().map(|c| c.3).chain(parameters.iter().copied()))
+                .zip(
+                    columns
+                        .iter()
+                        .map(|c| c.3)
+                        .chain(parameters.iter().copied()),
+                )
                 .map(|(p, v)| (p.id, v))
                 .collect(),
         },
@@ -145,9 +156,11 @@ impl Parameterized {
             ))?;
         if facts {
             let cancel = Arc::new(AtomicBool::new(false));
-            oracle = oracle.with_presolve_facts(Arc::new(
-                assembly.presolve_facts(&self.values, 100_000, &cancel)?,
-            ))?;
+            oracle = oracle.with_presolve_facts(Arc::new(assembly.presolve_facts(
+                &self.values,
+                100_000,
+                &cancel,
+            )?))?;
         }
         Ok(Box::new(oracle))
     }
@@ -308,7 +321,10 @@ fn agree(a: &Parametric, b: &Parametric, tolerance: f64) {
         .chain(sa.objective.iter().zip(&sb.objective))
         .chain(ha.values.iter().zip(&hb.values));
     for (x, y) in pairs {
-        assert!((x - y).abs() <= tolerance * (1.0 + y.abs()), "{sa:?} {sb:?} {ha:?} {hb:?}");
+        assert!(
+            (x - y).abs() <= tolerance * (1.0 + y.abs()),
+            "{sa:?} {sb:?} {ha:?} {hb:?}"
+        );
     }
 }
 
@@ -332,8 +348,18 @@ fn quadratic(registry: &QuantityRegistry, committed: bool) -> Parameterized {
     let objective = b.op(Binary::Add, &first, &second);
     let mut objective = b.op(Binary::Sub, &objective, &linear);
     let mut columns = vec![
-        (ModelingVariableDomain::Continuous, Some(-10.0), Some(10.0), 0.5),
-        (ModelingVariableDomain::Continuous, Some(-10.0), Some(10.0), 0.5),
+        (
+            ModelingVariableDomain::Continuous,
+            Some(-10.0),
+            Some(10.0),
+            0.5,
+        ),
+        (
+            ModelingVariableDomain::Continuous,
+            Some(-10.0),
+            Some(10.0),
+            0.5,
+        ),
     ];
     if committed {
         let three = b.c(3.0);
@@ -357,7 +383,12 @@ fn analytic(parametric: &Parametric) {
         }
         assert!((s.objective[k] - DF[k]).abs() < 1e-6, "{s:?}");
     }
-    let h = parametric.reduced_hessian.as_ref().unwrap().as_ref().unwrap();
+    let h = parametric
+        .reduced_hessian
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .unwrap();
     for (actual, expected) in h.values.iter().zip(H) {
         assert!((actual - expected).abs() < 1e-6, "{h:?}");
     }
@@ -381,7 +412,11 @@ fn sensitivity_backend_independent() {
     let case = quadratic(&registry, false);
     for backend in [Backend::Ipopt, Backend::Pounce] {
         let report = nlp(&case, backend, &Policy::Off);
-        assert_eq!(report.qualification, Qualification::Stationary, "{backend:?}");
+        assert_eq!(
+            report.qualification,
+            Qualification::Stationary,
+            "{backend:?}"
+        );
         analytic(certified(&report));
     }
 }
@@ -402,7 +437,11 @@ fn sensitivity_survives_presolve() {
             "{backend:?} {dimensions:?}"
         );
         for report in [&off, &auto] {
-            assert_eq!(report.qualification, Qualification::Stationary, "{backend:?}");
+            assert_eq!(
+                report.qualification,
+                Qualification::Stationary,
+                "{backend:?}"
+            );
             analytic(certified(report));
         }
         agree(certified(&auto), certified(&off), 1e-6);
@@ -437,9 +476,24 @@ fn singleton(registry: &QuantityRegistry) -> Parameterized {
         registry,
         body,
         &[
-            (ModelingVariableDomain::Continuous, Some(-10.0), Some(10.0), 0.5),
-            (ModelingVariableDomain::Continuous, Some(-10.0), Some(10.0), 0.5),
-            (ModelingVariableDomain::Continuous, Some(-10.0), Some(10.0), 0.5),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(-10.0),
+                Some(10.0),
+                0.5,
+            ),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(-10.0),
+                Some(10.0),
+                0.5,
+            ),
+            (
+                ModelingVariableDomain::Continuous,
+                Some(-10.0),
+                Some(10.0),
+                0.5,
+            ),
         ],
         &[1.0, 2.0],
         &[(0.0, 0.0), (0.0, 0.0)],
@@ -460,20 +514,42 @@ fn presolve_lost_multiplier_withholds_sensitivity() {
     let off = nlp(&case, Backend::Ipopt, &Policy::Off);
     let certified = certified(&off);
     let s = certified.sensitivities.as_ref().unwrap();
-    assert!((s.primal[0][2] - 1.0).abs() < 1e-6 && s.primal[1][2].abs() < 1e-6, "{s:?}");
-    assert!(s.rows[0][1].abs() < 1e-6 && (s.rows[1][1] + 1.0).abs() < 1e-6, "{s:?}");
+    assert!(
+        (s.primal[0][2] - 1.0).abs() < 1e-6 && s.primal[1][2].abs() < 1e-6,
+        "{s:?}"
+    );
+    assert!(
+        s.rows[0][1].abs() < 1e-6 && (s.rows[1][1] + 1.0).abs() < 1e-6,
+        "{s:?}"
+    );
     assert!((s.objective[0] - 4.0 / 3.0).abs() < 1e-6, "{s:?}");
     assert!((s.objective[1] + 1.0 / 3.0).abs() < 1e-6, "{s:?}");
-    let h = certified.reduced_hessian.as_ref().unwrap().as_ref().unwrap();
-    for (actual, expected) in h.values.iter().zip([2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, -1.0 / 3.0]) {
+    let h = certified
+        .reduced_hessian
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .unwrap();
+    for (actual, expected) in h
+        .values
+        .iter()
+        .zip([2.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, -1.0 / 3.0])
+    {
         assert!((actual - expected).abs() < 1e-6, "{h:?}");
     }
     let auto = nlp(&case, Backend::Ipopt, &Policy::Auto);
     assert_eq!(
-        auto.preprocessing.as_ref().unwrap().dimensions.presolved_rows,
+        auto.preprocessing
+            .as_ref()
+            .unwrap()
+            .dimensions
+            .presolved_rows,
         0
     );
-    assert_eq!(auto.candidate.as_ref().unwrap().row_dual.as_ref().unwrap()[1], 0.0);
+    assert_eq!(
+        auto.candidate.as_ref().unwrap().row_dual.as_ref().unwrap()[1],
+        0.0
+    );
     assert_eq!(auto.evidence.kkt.unwrap().stationarity, Some(false));
     let withheld = auto.evidence.sensitivity.as_ref().unwrap();
     assert!(matches!(

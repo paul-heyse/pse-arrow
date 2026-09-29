@@ -310,7 +310,10 @@ fn integer_bounds_tightened_inward_and_recorded() {
     let ((domain, lower, upper), tightenings) =
         prepare_recorded(&mut w, root, &bounded(Some(0.5), Some(5.5))).unwrap();
     // Exactly the ceiling of the lower bound and the floor of the upper.
-    assert_eq!((domain, lower, upper), (Domain::Integer, Some(1.0), Some(5.0)));
+    assert_eq!(
+        (domain, lower, upper),
+        (Domain::Integer, Some(1.0), Some(5.0))
+    );
     let [tightening] = tightenings.as_slice() else {
         panic!("one tightening expected, got {tightenings:?}");
     };

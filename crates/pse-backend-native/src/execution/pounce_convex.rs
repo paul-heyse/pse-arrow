@@ -330,9 +330,10 @@ mod native {
             return Err(super::super::representation(Backend::PounceConvex));
         };
         problem.validate(certificate)?;
-        input
-            .tolerances
-            .validate(problem.contract.variables.len(), problem.contract.rows.len())?;
+        input.tolerances.validate(
+            problem.contract.variables.len(),
+            problem.contract.rows.len(),
+        )?;
         input.controls.validate()?;
         let settings = match input.settings {
             BackendSettings::Default => Settings::default(),
@@ -425,7 +426,9 @@ mod native {
                 return (0..count)
                     .map(|i| {
                         results[i].take().unwrap_or_else(|| {
-                            Err(ProblemError::Internal(format!("POUNCE-convex session: {error}")))
+                            Err(ProblemError::Internal(format!(
+                                "POUNCE-convex session: {error}"
+                            )))
                         })
                     })
                     .collect();
@@ -475,7 +478,9 @@ mod native {
             .into_iter()
             .map(|r| {
                 r.unwrap_or_else(|| {
-                    Err(ProblemError::Internal("POUNCE-convex batch member unsolved".into()))
+                    Err(ProblemError::Internal(
+                        "POUNCE-convex batch member unsolved".into(),
+                    ))
                 })
             })
             .collect()
@@ -671,14 +676,10 @@ mod native {
         if solution.x.len() != n
             || solution.z_lb.len() != n
             || solution.z_ub.len() != n
-            || member
-                .form
-                .rows
-                .iter()
-                .any(|t| match t {
-                    Target::Equality(k) => *k >= solution.y.len(),
-                    Target::Inequality(k) => *k >= solution.z.len(),
-                })
+            || member.form.rows.iter().any(|t| match t {
+                Target::Equality(k) => *k >= solution.y.len(),
+                Target::Inequality(k) => *k >= solution.z.len(),
+            })
         {
             report.termination.assurance = Assurance::None;
             return Ok(report);
@@ -820,49 +821,50 @@ mod native {
         row_dual: &[f64],
     ) -> Option<InfeasibilityCertificate> {
         let variables = &p.contract.variables;
-        let (kind, ray) = match solution.status {
-            QpStatus::PrimalInfeasible => (
-                CertificateKind::PrimalInfeasible,
-                p.contract
-                    .rows
-                    .iter()
-                    .zip(row_dual)
-                    .map(|(id, value)| RayEntry {
-                        coordinate: RayCoordinate::Row,
-                        id: *id,
-                        value: *value,
-                    })
-                    .chain(conic::bound_rows(variables).into_iter().map(|(i, lower)| {
-                        RayEntry {
-                            coordinate: if lower {
-                                RayCoordinate::VariableLower
-                            } else {
-                                RayCoordinate::VariableUpper
-                            },
-                            id: variables[i].id,
-                            value: if lower {
-                                solution.z_lb[i]
-                            } else {
-                                solution.z_ub[i]
-                            },
-                        }
-                    }))
-                    .collect(),
-            ),
-            QpStatus::DualInfeasible => (
-                CertificateKind::DualInfeasible,
-                variables
-                    .iter()
-                    .zip(&solution.x)
-                    .map(|(v, value)| RayEntry {
-                        coordinate: RayCoordinate::Variable,
-                        id: v.id,
-                        value: *value,
-                    })
-                    .collect(),
-            ),
-            _ => return None,
-        };
+        let (kind, ray) =
+            match solution.status {
+                QpStatus::PrimalInfeasible => (
+                    CertificateKind::PrimalInfeasible,
+                    p.contract
+                        .rows
+                        .iter()
+                        .zip(row_dual)
+                        .map(|(id, value)| RayEntry {
+                            coordinate: RayCoordinate::Row,
+                            id: *id,
+                            value: *value,
+                        })
+                        .chain(conic::bound_rows(variables).into_iter().map(|(i, lower)| {
+                            RayEntry {
+                                coordinate: if lower {
+                                    RayCoordinate::VariableLower
+                                } else {
+                                    RayCoordinate::VariableUpper
+                                },
+                                id: variables[i].id,
+                                value: if lower {
+                                    solution.z_lb[i]
+                                } else {
+                                    solution.z_ub[i]
+                                },
+                            }
+                        }))
+                        .collect(),
+                ),
+                QpStatus::DualInfeasible => (
+                    CertificateKind::DualInfeasible,
+                    variables
+                        .iter()
+                        .zip(&solution.x)
+                        .map(|(v, value)| RayEntry {
+                            coordinate: RayCoordinate::Variable,
+                            id: v.id,
+                            value: *value,
+                        })
+                        .collect(),
+                ),
+                _ => return None,
+            };
         Some(InfeasibilityCertificate {
             kind,
             accuracy: CertificateAccuracy::Full,

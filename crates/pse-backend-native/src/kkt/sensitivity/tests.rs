@@ -112,10 +112,17 @@ impl Analytic {
     }
 }
 /// A CSC pattern and its values in storage order.
-fn csc(rows: usize, cols: usize, entries: &[(usize, usize, f64)]) -> (SparseColMat<usize, f64>, Vec<f64>) {
+fn csc(
+    rows: usize,
+    cols: usize,
+    entries: &[(usize, usize, f64)],
+) -> (SparseColMat<usize, f64>, Vec<f64>) {
     let mut sorted = entries.to_vec();
     sorted.sort_by_key(|&(i, j, _)| (j, i));
-    let triplets: Vec<_> = sorted.iter().map(|&(i, j, v)| Triplet::new(i, j, v)).collect();
+    let triplets: Vec<_> = sorted
+        .iter()
+        .map(|&(i, j, v)| Triplet::new(i, j, v))
+        .collect();
     let matrix = SparseColMat::try_new_from_triplets(rows, cols, &triplets).unwrap();
     (matrix, sorted.iter().map(|&(_, _, v)| v).collect())
 }
@@ -256,7 +263,12 @@ fn retaining(
         ..tolerances(n, m)
     };
     let normalization = solve.normalization.clone();
-    quality::attach_nlp(&mut report, &mut solve, &tolerances, ObjectiveSense::Minimize);
+    quality::attach_nlp(
+        &mut report,
+        &mut solve,
+        &tolerances,
+        ObjectiveSense::Minimize,
+    );
     quality::record_kkt(&mut report, &normalization, &accuracy);
     quality::qualify(&mut report, &accuracy);
     let advance = derive(
@@ -300,11 +312,19 @@ fn exact_candidate_sensitivities_match_the_analytic_nlp() {
         for j in 0..3 {
             assert!(close(s.primal[k][j], DX[k][j]), "{s:?}");
         }
-        assert!(close(s.rows[k][0], DLAMBDA[k]) && s.rows[k][1] == 0.0, "{s:?}");
+        assert!(
+            close(s.rows[k][0], DLAMBDA[k]) && s.rows[k][1] == 0.0,
+            "{s:?}"
+        );
         assert!(close(s.bounds[k][2], DZ[k]), "{s:?}");
         assert!(close(s.objective[k], DF[k]), "{s:?}");
     }
-    let hessian = parametric.reduced_hessian.as_ref().unwrap().as_ref().unwrap();
+    let hessian = parametric
+        .reduced_hessian
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .unwrap();
     for (actual, expected) in hessian.values.iter().zip(H) {
         assert!(close(*actual, expected), "{hessian:?}");
     }
@@ -326,7 +346,14 @@ fn sensitivity_withheld_when_sosc_fails() {
         withheld(&report),
         Withheld::SecondOrder(Curvature::Negative)
     ));
-    let point = report.evidence.sensitivity.as_ref().unwrap().point.as_ref().unwrap();
+    let point = report
+        .evidence
+        .sensitivity
+        .as_ref()
+        .unwrap()
+        .point
+        .as_ref()
+        .unwrap();
     assert_eq!(point.curvature, Curvature::Negative);
 }
 
@@ -383,17 +410,31 @@ fn sensitivity_withheld_when_multiplier_fails_complementarity() {
     );
     assert!(report.quality.as_ref().unwrap().feasible());
     let kkt = report.evidence.kkt.unwrap();
-    assert_eq!((kkt.stationarity, kkt.complementarity), (Some(true), Some(false)));
+    assert_eq!(
+        (kkt.stationarity, kkt.complementarity),
+        (Some(true), Some(false))
+    );
     assert_eq!(report.qualification, Qualification::Feasible);
     assert!(matches!(withheld(&report), Withheld::Complementarity));
-    assert!(report.evidence.sensitivity.as_ref().unwrap().point.is_none());
+    assert!(
+        report
+            .evidence
+            .sensitivity
+            .as_ref()
+            .unwrap()
+            .point
+            .is_none()
+    );
 }
 
 #[test]
 fn pinned_columns_keep_their_coordinates() {
     use crate::transform::Pinned;
-    let pinned = Pinned::new(Box::new(Analytic::new(P, 2.0, false, true)), &[(3, 1.0), (4, 2.0)])
-        .unwrap();
+    let pinned = Pinned::new(
+        Box::new(Analytic::new(P, 2.0, false, true)),
+        &[(3, 1.0), (4, 2.0)],
+    )
+    .unwrap();
     let variables = &pinned.contract().variables;
     assert_eq!(variables.len(), 5);
     assert_eq!((variables[3].lower, variables[3].upper), (1.0, 1.0));
@@ -467,13 +508,17 @@ fn pinned_discrete_commits_integer_columns() {
 #[test]
 fn sensitivity_request_admission() {
     let solve = Analytic::new(P, 2.0, false, false);
-    assert!(request(Analytic::new(P, 2.0, false, true), false)
-        .admit(&solve.contract)
-        .is_ok());
+    assert!(
+        request(Analytic::new(P, 2.0, false, true), false)
+            .admit(&solve.contract)
+            .is_ok()
+    );
     // The parametric view must extend the solve's columns over the same rows.
-    assert!(request(Analytic::new(P, 2.0, true, true), false)
-        .admit(&solve.contract)
-        .is_err());
+    assert!(
+        request(Analytic::new(P, 2.0, true, true), false)
+            .admit(&solve.contract)
+            .is_err()
+    );
     let mut repeated = request(Analytic::new(P, 2.0, false, true), false);
     repeated.parameters[1].0 = id(50);
     assert!(repeated.admit(&solve.contract).is_err());
@@ -580,8 +625,12 @@ mod solved {
         let z = [1.0, -1.0, 0.0];
         for i in 0..3 {
             for j in 0..3 {
-                assert!(close(block.values[3 * i + j], z[i] * z[j] / 3.0), "{block:?}");
-                let normalized = block.values[3 * i + j] * OBJECTIVE_SCALE / (SCALES[i] * SCALES[j]);
+                assert!(
+                    close(block.values[3 * i + j], z[i] * z[j] / 3.0),
+                    "{block:?}"
+                );
+                let normalized =
+                    block.values[3 * i + j] * OBJECTIVE_SCALE / (SCALES[i] * SCALES[j]);
                 assert!(close(block.normalized[3 * i + j], normalized), "{block:?}");
             }
         }
@@ -608,7 +657,11 @@ mod solved {
                 continue;
             }
             let report = solve(backend, P, ObjectiveSense::Minimize);
-            assert_eq!(report.qualification, Qualification::Stationary, "{backend:?}");
+            assert_eq!(
+                report.qualification,
+                Qualification::Stationary,
+                "{backend:?}"
+            );
             let parametric = report.evidence.sensitivity.as_ref().unwrap();
             assert_eq!(parametric.parameters, vec![id(50), id(51)]);
             let s = parametric.sensitivities.as_ref().unwrap();
@@ -629,14 +682,22 @@ mod solved {
             );
             assert_eq!((point.inertia, point.reduced), ((5, 4, 0), (1, 0, 0)));
             // A first-order step predicts the solution at a perturbed parameter.
-            let moved = solve(backend, [P[0] + 1e-3, P[1] - 2e-3], ObjectiveSense::Minimize);
+            let moved = solve(
+                backend,
+                [P[0] + 1e-3, P[1] - 2e-3],
+                ObjectiveSense::Minimize,
+            );
             let (x0, x1) = (
                 &report.candidate.as_ref().unwrap().primal,
                 &moved.candidate.as_ref().unwrap().primal,
             );
             for j in 0..3 {
                 let predicted = x0[j] + 1e-3 * s.primal[0][j] - 2e-3 * s.primal[1][j];
-                assert!((predicted - x1[j]).abs() < 1e-7, "{backend:?} {predicted} {}", x1[j]);
+                assert!(
+                    (predicted - x1[j]).abs() < 1e-7,
+                    "{backend:?} {predicted} {}",
+                    x1[j]
+                );
             }
         }
     }
@@ -648,7 +709,12 @@ mod solved {
         // from H⁻¹ = [[1/2, −1], [−1, −1]] entry by entry, so a sign or inversion slip fails.
         let report = solve(Backend::Ipopt, P, ObjectiveSense::Minimize);
         let parametric = report.evidence.sensitivity.as_ref().unwrap();
-        let hessian = parametric.reduced_hessian.as_ref().unwrap().as_ref().unwrap();
+        let hessian = parametric
+            .reduced_hessian
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .unwrap();
         for (actual, expected) in hessian.values.iter().zip(H) {
             assert!(close(*actual, expected), "{hessian:?}");
         }
@@ -658,7 +724,10 @@ mod solved {
         for i in 0..2 {
             for j in 0..2 {
                 let expected = s[i] * H[2 * i + j] * s[j] / OBJECTIVE_SCALE;
-                assert!(close(hessian.normalized[2 * i + j], expected), "{hessian:?}");
+                assert!(
+                    close(hessian.normalized[2 * i + j], expected),
+                    "{hessian:?}"
+                );
             }
         }
         assert!(hessian.eigenvalues[0] < 0.0 && hessian.eigenvalues[0] < hessian.eigenvalues[1]);
@@ -666,7 +735,10 @@ mod solved {
             let v = &hessian.eigenvectors[2 * k..2 * k + 2];
             for i in 0..2 {
                 let product: f64 = (0..2).map(|j| hessian.normalized[2 * i + j] * v[j]).sum();
-                assert!((product - hessian.eigenvalues[k] * v[i]).abs() < 1e-9, "{hessian:?}");
+                assert!(
+                    (product - hessian.eigenvalues[k] * v[i]).abs() < 1e-9,
+                    "{hessian:?}"
+                );
             }
         }
         // The same minimizer reported as a maximization of −f: every derived quantity is
@@ -710,7 +782,12 @@ fn advanced_step_predicts_within_the_active_set() {
     let expected = [11.0 / 6.0, -1.0 / 3.0, 0.0];
     for (j, x) in expected.iter().enumerate() {
         assert!(close(prediction.primal[j], *x), "{prediction:?}");
-        assert!(close(prediction.value(&id(40 + u8::try_from(j).unwrap())).unwrap(), *x));
+        assert!(close(
+            prediction
+                .value(&id(40 + u8::try_from(j).unwrap()))
+                .unwrap(),
+            *x
+        ));
     }
     assert!(close(prediction.row_dual[0], 2.0 / 3.0), "{prediction:?}");
     assert_eq!(prediction.step, vec![0.5, 0.5]);

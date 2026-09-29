@@ -132,10 +132,8 @@ impl CasePlan {
         identity.hash(&self.structure().key());
         let mut objective = vec![0.0; n];
         let mut constant = 0.0;
-        let mut lexicographic = vec![
-            (vec![0.0; n], 0.0);
-            self.structure().objectives().len().saturating_sub(1)
-        ];
+        let mut lexicographic =
+            vec![(vec![0.0; n], 0.0); self.structure().objectives().len().saturating_sub(1)];
         let mut row_constants = Vec::with_capacity(m);
         let mut jp = Vec::<Entry<GlobalRow, GlobalCol>>::new();
         let mut jv = vec![];

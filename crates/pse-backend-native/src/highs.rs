@@ -106,8 +106,7 @@ fn admit(
         // HiGHS refuses a non-trivial lexicographic QP.
         if quadratic {
             return Err(ProblemError::Unsupported(
-                "HiGHS optimizes several objectives lexicographically only for LP and MILP"
-                    .into(),
+                "HiGHS optimizes several objectives lexicographically only for LP and MILP".into(),
             ));
         }
         lexicographic_tolerances(p)?;
@@ -1075,9 +1074,10 @@ impl Session {
             report.termination.assurance = Assurance::None
         }
         if lexicographic {
-            report
-                .metrics
-                .insert("lexicographic.objectives".into(), Metric::Integer(p.objectives.len() as i64));
+            report.metrics.insert(
+                "lexicographic.objectives".into(),
+                Metric::Integer(p.objectives.len() as i64),
+            );
             restore_objective(ptr, p)?;
         }
         Ok(report)
@@ -1710,8 +1710,7 @@ mod tests {
         use faer::sparse::{SparseColMat, Triplet};
         let (mut p, _) = quadratic();
         // min (x − 1)² − 2y over y ≤ 1 − x: only x is quadratic.
-        let hessian =
-            SparseColMat::try_new_from_triplets(2, 2, &[Triplet::new(0, 0, 2.)]).unwrap();
+        let hessian = SparseColMat::try_new_from_triplets(2, 2, &[Triplet::new(0, 0, 2.)]).unwrap();
         let certificate = crate::solver_tests::certify(&hessian, 1.0);
         p.hessian = Some(hessian);
         p.objective = vec![-2., -2.];

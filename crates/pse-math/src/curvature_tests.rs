@@ -107,7 +107,12 @@ fn bounded(
 fn recognize(program: &FactorableProgram) -> Recognition {
     curvature::recognize(program, EXACT_OPERATIONS, &AtomicBool::new(false)).unwrap()
 }
-fn power(b: &mut BodyBuilder<'_>, base: &TypedValue, numerator: i32, denominator: i32) -> TypedValue {
+fn power(
+    b: &mut BodyBuilder<'_>,
+    base: &TypedValue,
+    numerator: i32,
+    denominator: i32,
+) -> TypedValue {
     let exponent = number(Atom::num(i64::from(numerator)) / Atom::num(i64::from(denominator)));
     b.binary(
         Binary::Pow,
@@ -143,7 +148,11 @@ fn holds(cone: &ConeConstraint, z: &[f64], tolerance: f64) -> bool {
         }
         ConeConstraint::SecondOrder(members) => {
             let head = at(&members[0]);
-            let norm = members[1..].iter().map(|m| at(m).powi(2)).sum::<f64>().sqrt();
+            let norm = members[1..]
+                .iter()
+                .map(|m| at(m).powi(2))
+                .sum::<f64>()
+                .sqrt();
             head >= norm - tolerance * head.abs().max(1.0)
         }
     }

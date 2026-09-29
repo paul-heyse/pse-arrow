@@ -109,8 +109,19 @@ const PARAMETERS: [f64; 2] = [0.8, 1.2];
 #[test]
 fn anchored_window_continues_the_horizon() {
     for method in methods() {
-        let plain = integrate(&mut Tank::new(), &horizon(method), &PARAMETERS, Arc::default()).unwrap();
-        assert_eq!(plain.termination, Termination::Completed, "{method:?}: {:?}", plain.error);
+        let plain = integrate(
+            &mut Tank::new(),
+            &horizon(method),
+            &PARAMETERS,
+            Arc::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            plain.termination,
+            Termination::Completed,
+            "{method:?}: {:?}",
+            plain.error
+        );
         let middle = &plain.samples[1];
         let mut window = Anchored::new(Tank::new(), false).unwrap();
         assert_eq!(window.anchors(), &[0]);
@@ -118,14 +129,25 @@ fn anchored_window_continues_the_horizon() {
         profile.sensitivity = DynamicSensitivity::Forward;
         let parameters = [PARAMETERS[0], PARAMETERS[1], middle.state[0]];
         let continued = integrate(&mut window, &profile, &parameters, Arc::default()).unwrap();
-        assert_eq!(continued.termination, Termination::Completed, "{method:?}: {:?}", continued.error);
-        let (end, reference) = (continued.samples.last().unwrap(), plain.samples.last().unwrap());
+        assert_eq!(
+            continued.termination,
+            Termination::Completed,
+            "{method:?}: {:?}",
+            continued.error
+        );
+        let (end, reference) = (
+            continued.samples.last().unwrap(),
+            plain.samples.last().unwrap(),
+        );
         for (a, b) in end.outputs.iter().zip(&reference.outputs) {
             assert!((a - b).abs() < 1e-7, "{method:?}: {a} vs {b}");
         }
         let window_integral = end.integrals[0];
         let difference = reference.integrals[0] - middle.integrals[0];
-        assert!((window_integral - difference).abs() < 1e-7, "{method:?}: {window_integral} vs {difference}");
+        assert!(
+            (window_integral - difference).abs() < 1e-7,
+            "{method:?}: {window_integral} vs {difference}"
+        );
         // The anchor's column follows the unscheduled contract parameters.
         let step = 1e-5;
         let shifted = |delta: f64| {
@@ -133,14 +155,23 @@ fn anchored_window_continues_the_horizon() {
             q[2] += delta;
             let mut p = profile.clone();
             p.sensitivity = DynamicSensitivity::None;
-            let r = integrate(&mut Anchored::new(Tank::new(), false).unwrap(), &p, &q, Arc::default()).unwrap();
+            let r = integrate(
+                &mut Anchored::new(Tank::new(), false).unwrap(),
+                &p,
+                &q,
+                Arc::default(),
+            )
+            .unwrap();
             r.samples.last().unwrap().outputs.clone()
         };
         let (plus, minus) = (shifted(step), shifted(-step));
         for o in 0..2 {
             let d = (plus[o] - minus[o]) / (2.0 * step);
             let s = end.output_sensitivities[o * 3 + 2];
-            assert!((s - d).abs() <= 1e-5 * (1.0 + d.abs()), "{method:?}: output {o}: {s} vs {d}");
+            assert!(
+                (s - d).abs() <= 1e-5 * (1.0 + d.abs()),
+                "{method:?}: output {o}: {s} vs {d}"
+            );
         }
     }
 }
@@ -151,7 +182,13 @@ fn anchored_window_continues_the_horizon() {
 #[test]
 fn observed_quadrature_adjoint_matches_differences() {
     for method in methods() {
-        let native = integrate(&mut Tank::new(), &horizon(method), &PARAMETERS, Arc::default()).unwrap();
+        let native = integrate(
+            &mut Tank::new(),
+            &horizon(method),
+            &PARAMETERS,
+            Arc::default(),
+        )
+        .unwrap();
         let mut window = Anchored::new(Tank::new(), true).unwrap();
         assert!(window.contract().quadratures.is_empty());
         assert_eq!(window.contract().states.len(), 3);
@@ -172,10 +209,18 @@ fn observed_quadrature_adjoint_matches_differences() {
             256 << 20,
         )
         .unwrap();
-        assert_eq!(g.report.termination, Termination::Completed, "{method:?}: {:?}", g.report.error);
+        assert_eq!(
+            g.report.termination,
+            Termination::Completed,
+            "{method:?}: {:?}",
+            g.report.error
+        );
         let observed = g.report.samples.last().unwrap().outputs[2];
         let integral = native.samples.last().unwrap().integrals[0];
-        assert!((observed - integral).abs() < 1e-7, "{method:?}: {observed} vs {integral}");
+        assert!(
+            (observed - integral).abs() < 1e-7,
+            "{method:?}: {observed} vs {integral}"
+        );
         let gradient = g.gradient.unwrap();
         profile.sensitivity = DynamicSensitivity::None;
         for (j, value) in gradient.iter().enumerate() {
@@ -183,11 +228,20 @@ fn observed_quadrature_adjoint_matches_differences() {
             let at = |delta: f64| {
                 let mut q = parameters;
                 q[j] += delta;
-                let r = integrate(&mut Anchored::new(Tank::new(), true).unwrap(), &profile, &q, Arc::default()).unwrap();
+                let r = integrate(
+                    &mut Anchored::new(Tank::new(), true).unwrap(),
+                    &profile,
+                    &q,
+                    Arc::default(),
+                )
+                .unwrap();
                 r.samples.last().unwrap().outputs[2]
             };
             let d = (at(step) - at(-step)) / (2.0 * step);
-            assert!((value - d).abs() <= 1e-5 * (1.0 + d.abs()), "{method:?}: column {j}: {value} vs {d}");
+            assert!(
+                (value - d).abs() <= 1e-5 * (1.0 + d.abs()),
+                "{method:?}: column {j}: {value} vs {d}"
+            );
         }
     }
 }
@@ -204,7 +258,10 @@ fn anchored_contract_limits() {
         tolerance: 1e-8,
         impulses: Default::default(),
     }];
-    assert!(matches!(Anchored::new(balanced, true), Err(ProblemError::Contract(_))));
+    assert!(matches!(
+        Anchored::new(balanced, true),
+        Err(ProblemError::Contract(_))
+    ));
     let mut window = Anchored::new(Tank::new(), false).unwrap();
     assert!(matches!(
         window.evaluate(0, Function::Rhs, 0.0, &[1.0, 1.0], &[0.8, 1.2], false),

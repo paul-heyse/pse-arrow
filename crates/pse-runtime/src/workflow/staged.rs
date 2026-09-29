@@ -170,10 +170,12 @@ impl Staged {
     /// controller, Plan 22 Y5c).
     pub(in crate::workflow) fn predecessor_at(&self, attempt: usize) -> Option<Predecessor> {
         let record = self.records.get(attempt)?;
-        record
-            .decision
-            .permits_use()
-            .then(|| record.warm.clone().map(|seed| Predecessor { attempt, seed }))?
+        record.decision.permits_use().then(|| {
+            record
+                .warm
+                .clone()
+                .map(|seed| Predecessor { attempt, seed })
+        })?
     }
     /// Record a step that ended before a native attempt. It seeds nothing.
     pub(in crate::workflow) fn refuse(&mut self) -> usize {
@@ -383,7 +385,8 @@ impl Staged {
                     .source
                     .assessment(&prepared, obligations, cancel)
                     .await?;
-                let owner = service.reserve("math:solve-results", prepared.solve.result_bytes()?)?;
+                let owner =
+                    service.reserve("math:solve-results", prepared.solve.result_bytes()?)?;
                 let point_owner = service.reserve(
                     "modeling:qualified-result",
                     super::modeling::results::result_bytes(&prepared)?,
@@ -414,8 +417,11 @@ impl Staged {
             .unwrap_or_else(|| Arc::new(Progress::new(history)));
         let solved = self
             .session
-            .batch(members, progress, cancel, move |i, outcome, flag, budget| {
-                match states.get_mut(i).and_then(Option::take) {
+            .batch(
+                members,
+                progress,
+                cancel,
+                move |i, outcome, flag, budget| match states.get_mut(i).and_then(Option::take) {
                     Some((prepared, run_id, assessment, point_owner)) => {
                         let point = assessment.assess(
                             &prepared,
@@ -430,8 +436,8 @@ impl Staged {
                         (Some(point), accepted)
                     }
                     None => (None, false),
-                }
-            })
+                },
+            )
             .await;
         let mut solved = match solved {
             Ok(solved) => solved.into_iter().map(Some).collect::<Vec<_>>(),

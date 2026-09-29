@@ -1511,10 +1511,7 @@ pub(crate) fn curvature(
     program: &FactorableProgram,
     roots: &[pse_math::factorable::NodeId],
 ) -> Result<Vec<ScipCurvature>, ProblemError> {
-    let execution = Execution::new(
-        Arc::new(AtomicBool::new(false)),
-        &Controls::default(),
-    );
+    let execution = Execution::new(Arc::new(AtomicBool::new(false)), &Controls::default());
     let mut instance = Instance::new(&execution, Modes::default())?;
     let coordinates = program
         .variables
@@ -2513,11 +2510,7 @@ struct Session {
 }
 impl Session {
     /// Install the step's objective in the retained problem (`SCIPchgReoptObjective`).
-    fn reoptimize(
-        &mut self,
-        plan: &Plan<'_>,
-        execution: &Execution,
-    ) -> Result<(), ProblemError> {
+    fn reoptimize(&mut self, plan: &Plan<'_>, execution: &Execution) -> Result<(), ProblemError> {
         let s = self.instance.ptr();
         native!("SCIPfreeReoptSolve", ffi::SCIPfreeReoptSolve(s))?;
         let (sense, form) = match plan.objective {
@@ -2564,11 +2557,7 @@ impl Session {
     }
 }
 /// Build an instance, configure it and export the plan.
-fn build(
-    r: &Request<'_>,
-    plan: &Plan<'_>,
-    gap_absolute: f64,
-) -> Result<Session, ProblemError> {
+fn build(r: &Request<'_>, plan: &Plan<'_>, gap_absolute: f64) -> Result<Session, ProblemError> {
     let mut instance = Instance::new(
         r.execution,
         Modes {
@@ -2805,7 +2794,13 @@ pub(crate) fn solve(
         .iter()
         .map(|b| clamp(0.5 * (b.0 + b.1), *b))
         .collect();
-    let deviation = readback(&session.instance, &session.export, &plan, &start, &auxiliary)?;
+    let deviation = readback(
+        &session.instance,
+        &session.export,
+        &plan,
+        &start,
+        &auxiliary,
+    )?;
     let submitted = match r.warm {
         // Exact solving certifies its own solutions; a floating-point seed is not given.
         Some(_) if r.settings.exact => None,

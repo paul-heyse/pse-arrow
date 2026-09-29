@@ -576,9 +576,17 @@ mod tests {
         assert!(count == 1 && one <= both / 2 + both / 4, "{count} {one}");
         let before = sessions::created();
         solve(&second).unwrap();
-        assert_eq!(sessions::created() - before, 0, "the recent session was kept");
+        assert_eq!(
+            sessions::created() - before,
+            0,
+            "the recent session was kept"
+        );
         solve(&first).unwrap();
-        assert_eq!(sessions::created() - before, 1, "the released session is rebuilt");
+        assert_eq!(
+            sessions::created() - before,
+            1,
+            "the released session is rebuilt"
+        );
         assert_eq!(sessions::retained().0, 1);
         // A session larger than the whole budget is never kept.
         budget_sessions(one / 2);

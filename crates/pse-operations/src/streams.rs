@@ -473,8 +473,7 @@ impl<'s> Streams<'s> {
                 .iter()
                 .find(|solution| incumbent.solution_id == Some(solution.solution_id))
             {
-                solutions::insert(&tx, target, solution, StoredSolutionOrigin::Incumbent)
-                    .await?;
+                solutions::insert(&tx, target, solution, StoredSolutionOrigin::Incumbent).await?;
             }
         }
         let mut rows: Vec<Cells<'_>> = Vec::with_capacity(fresh.len());

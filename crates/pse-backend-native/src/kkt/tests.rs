@@ -86,7 +86,13 @@ impl NlpOracle for Dense {
         Ok(self
             .q
             .iter()
-            .map(|&(i, j, v)| if i == j { 0.5 * v * x[i] * x[i] } else { v * x[i] * x[j] })
+            .map(|&(i, j, v)| {
+                if i == j {
+                    0.5 * v * x[i] * x[i]
+                } else {
+                    v * x[i] * x[j]
+                }
+            })
             .sum())
     }
     fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
@@ -208,7 +214,10 @@ fn second_order_verdicts_follow_the_inertia() {
     let weak = at_origin([2.0, 2.0], [(-1.0, 1.0), (0.0, 1.0)]);
     assert_eq!(weak.curvature, Curvature::Sufficient);
     assert_eq!(weak.weakly_active(), 1);
-    assert_eq!(weak.bounds[OriginalCol::new(1)], Activity::Weak(Side::Lower));
+    assert_eq!(
+        weak.bounds[OriginalCol::new(1)],
+        Activity::Weak(Side::Lower)
+    );
     // The bound stays a row of the KKT: In(K) = In(ZᵀHZ) + (1, 1, 0).
     assert_eq!((weak.inertia, weak.reduced), ((2, 1, 0), (1, 0, 0)));
     // A weakly active bound with negative curvature along it: neither test decides.
@@ -218,7 +227,10 @@ fn second_order_verdicts_follow_the_inertia() {
     let fixed = at_origin([2.0, -2.0], [(-1.0, 1.0), (0.0, 0.0)]);
     assert_eq!(fixed.curvature, Curvature::Sufficient);
     assert_eq!(fixed.active(), 1);
-    assert_eq!(fixed.bounds[OriginalCol::new(1)], Activity::Strong(Side::Equal));
+    assert_eq!(
+        fixed.bounds[OriginalCol::new(1)],
+        Activity::Strong(Side::Equal)
+    );
     assert_eq!(fixed.licq, Licq::Independent);
 }
 
@@ -270,7 +282,13 @@ fn kkt_factor_backsolve_matches_dense_reference() {
     // Q is positive definite; row 0 is active at its lower limit and x₂ at its lower bound;
     // row 1 is inactive. Nonunit scales exercise the normalization back-map.
     let q = [(0, 0, 4.0), (1, 0, 1.0), (1, 1, 3.0), (2, 2, 2.0)];
-    let a = [(0, 0, 1.0), (0, 1, 2.0), (0, 2, -1.0), (1, 1, 1.0), (1, 2, 1.0)];
+    let a = [
+        (0, 0, 1.0),
+        (0, 1, 2.0),
+        (0, 2, -1.0),
+        (1, 1, 1.0),
+        (1, 2, 1.0),
+    ];
     let mut oracle = Dense::new(
         &[(-5.0, 5.0), (-5.0, 5.0), (0.0, 5.0)],
         &q,
@@ -290,12 +308,25 @@ fn kkt_factor_backsolve_matches_dense_reference() {
         &normalization,
     )
     .unwrap();
-    assert_eq!(point.rows[OriginalRow::new(0)], Activity::Strong(Side::Lower));
+    assert_eq!(
+        point.rows[OriginalRow::new(0)],
+        Activity::Strong(Side::Lower)
+    );
     assert_eq!(point.rows[OriginalRow::new(1)], Activity::Inactive);
-    assert_eq!(point.bounds[OriginalCol::new(2)], Activity::Strong(Side::Lower));
-    assert_eq!((point.licq, point.curvature), (Licq::Independent, Curvature::Sufficient));
+    assert_eq!(
+        point.bounds[OriginalCol::new(2)],
+        Activity::Strong(Side::Lower)
+    );
+    assert_eq!(
+        (point.licq, point.curvature),
+        (Licq::Independent, Curvature::Sufficient)
+    );
     assert_eq!(point.inertia, (3, 2, 0));
-    assert!(point.residual.is_some_and(|r| r < 1e-12), "{:?}", point.residual);
+    assert!(
+        point.residual.is_some_and(|r| r < 1e-12),
+        "{:?}",
+        point.residual
+    );
     assert!(point.condition_1norm.is_some_and(|c| c >= 1.0));
     // Layout [x; row 0; bound on x₂], and the bound row names its variable and side.
     let layout = factor.layout();
@@ -336,7 +367,10 @@ fn kkt_factor_backsolve_matches_dense_reference() {
         assert!(dense.solve(&rhs, &mut expected));
         assert!(factor.solve(&rhs, &mut actual));
         for (e, a) in expected.iter().zip(&actual) {
-            assert!((e - a).abs() <= 1e-10 * (1.0 + e.abs()), "{expected:?} {actual:?}");
+            assert!(
+                (e - a).abs() <= 1e-10 * (1.0 + e.abs()),
+                "{expected:?} {actual:?}"
+            );
         }
     }
     // Clones share the factor, as the sensitivity machinery requires.
@@ -349,7 +383,12 @@ fn kkt_factor_backsolve_matches_dense_reference() {
 
 #[test]
 fn local_analysis_unavailable_is_typed() {
-    let mut oracle = Dense::new(&[(-1.0, 1.0); 2], &[(0, 0, 1.0), (1, 1, 1.0)], &[(0, 0, 1.0)], &[(0.0, 0.0)]);
+    let mut oracle = Dense::new(
+        &[(-1.0, 1.0); 2],
+        &[(0, 0, 1.0), (1, 1, 1.0)],
+        &[(0, 0, 1.0)],
+        &[(0.0, 0.0)],
+    );
     let (mut candidate, observation) = at(&oracle, &[0.0; 2], &[0.0], (&[0.0; 2], &[0.0; 2]));
     let normalization = Normalization::identity(2, 1);
     let tolerances = tolerances(2, 1);
@@ -359,7 +398,14 @@ fn local_analysis_unavailable_is_typed() {
         limit: 5,
     };
     assert!(matches!(
-        analyse(&mut oracle, &candidate, &observation, &normalization, &tolerances, limited),
+        analyse(
+            &mut oracle,
+            &candidate,
+            &observation,
+            &normalization,
+            &tolerances,
+            limited
+        ),
         Err(Unavailable::Limit {
             entries: 6,
             limit: 5
@@ -367,13 +413,27 @@ fn local_analysis_unavailable_is_typed() {
     ));
     candidate.row_dual = None;
     assert!(matches!(
-        analyse(&mut oracle, &candidate, &observation, &normalization, &tolerances, BUDGET),
+        analyse(
+            &mut oracle,
+            &candidate,
+            &observation,
+            &normalization,
+            &tolerances,
+            BUDGET
+        ),
         Err(Unavailable::Multipliers)
     ));
     candidate.row_dual = Some(vec![0.0]);
     oracle.hessian = None;
     assert!(matches!(
-        analyse(&mut oracle, &candidate, &observation, &normalization, &tolerances, BUDGET),
+        analyse(
+            &mut oracle,
+            &candidate,
+            &observation,
+            &normalization,
+            &tolerances,
+            BUDGET
+        ),
         Err(Unavailable::Hessian)
     ));
 }
@@ -408,8 +468,15 @@ fn kkt_inertia_certifies_second_order() {
         };
         assert_eq!(point.curvature, Curvature::Sufficient, "{backend:?}");
         assert_eq!(point.licq, Licq::Independent, "{backend:?}");
-        assert_eq!((point.active(), point.weakly_active()), (4, 0), "{backend:?}");
-        assert_eq!(point.rows[OriginalRow::new(0)], Activity::Strong(Side::Equal));
+        assert_eq!(
+            (point.active(), point.weakly_active()),
+            (4, 0),
+            "{backend:?}"
+        );
+        assert_eq!(
+            point.rows[OriginalRow::new(0)],
+            Activity::Strong(Side::Equal)
+        );
         assert_eq!(
             point
                 .bounds
@@ -422,7 +489,11 @@ fn kkt_inertia_certifies_second_order() {
         assert_eq!(point.inertia, (6, 4, 0), "{backend:?}");
         assert_eq!(point.reduced, (2, 0, 0), "{backend:?}");
         assert!(point.condition_1norm.is_some_and(|c| c >= 1.0));
-        assert!(point.residual.is_some_and(|r| r < 1e-12), "{:?}", point.residual);
+        assert!(
+            point.residual.is_some_and(|r| r < 1e-12),
+            "{:?}",
+            point.residual
+        );
     }
 }
 

@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Multi-objective authoring, levels and generated objective bounds (ADR-0111, I15).
 use super::domain_tests::{power, setup};
-use std::collections::BTreeSet;
 use super::*;
 use pse_math::jets::EvaluationLimits;
 use pse_modeling::{ModelingError, ObjectiveRefusal, annotation::ObjectiveSense as Sense};
+use std::collections::BTreeSet;
 
 fn prepare(
     workspace: &mut CompilerWorkspace,
@@ -155,7 +155,13 @@ fn objective_bounds_rows_generated_per_level() {
             }
         ]
     );
-    assert!(all.model.objectives.levels.iter().all(|l| l.bound.is_none()));
+    assert!(
+        all.model
+            .objectives
+            .levels
+            .iter()
+            .all(|l| l.bound.is_none())
+    );
     // Each level's members contribute to that level's objective.
     let targets = case
         .instances()
@@ -168,7 +174,11 @@ fn objective_bounds_rows_generated_per_level() {
         .collect::<BTreeSet<_>>();
     assert_eq!(
         targets.into_iter().collect::<Vec<_>>(),
-        vec![(0, 1.0f64.to_bits()), (1, 2.0f64.to_bits()), (2, 1.0f64.to_bits())]
+        vec![
+            (0, 1.0f64.to_bits()),
+            (1, 2.0f64.to_bits()),
+            (2, 1.0f64.to_bits())
+        ]
     );
     let mut keys = BTreeSet::from([case.key()]);
     for level in 0..3 {
@@ -218,10 +228,7 @@ fn objective_bounds_rows_generated_per_level() {
         assert_eq!(
             (objective.quantity, objective.sense),
             if level == 2 {
-                (
-                    power(),
-                    pse_math::binding::ObjectiveSense::Maximize,
-                )
+                (power(), pse_math::binding::ObjectiveSense::Maximize)
             } else {
                 (
                     workspace.inputs.quantities.neutral_dimensionless().unwrap(),
@@ -243,7 +250,10 @@ fn objective_bounds_rows_generated_per_level() {
                 (bounds[1].parameter, 5.0),
             ];
             let (objective, rows) = evaluate(&workspace, &model, &point);
-            assert!((objective + 3.0).abs() < 1e-12, "maximized power: {objective}");
+            assert!(
+                (objective + 3.0).abs() < 1e-12,
+                "maximized power: {objective}"
+            );
             let row = |id| rows.iter().find(|(r, _)| *r == id).unwrap().1;
             // cost − β₀ = 3 − 4, and 2·risk − β₁ = 2 − 5.
             assert!((row(bounds[0].row) + 1.0).abs() < 1e-12);
@@ -303,8 +313,16 @@ fn competing_objectives_without_priority_refused() {
     };
     for (a, b, reason) in [
         ("", "", ObjectiveRefusal::CompetingWithoutPriority),
-        (", priority = 1", "", ObjectiveRefusal::CompetingWithoutPriority),
-        (", weight = 1", "", ObjectiveRefusal::CompetingWithoutPriority),
+        (
+            ", priority = 1",
+            "",
+            ObjectiveRefusal::CompetingWithoutPriority,
+        ),
+        (
+            ", weight = 1",
+            "",
+            ObjectiveRefusal::CompetingWithoutPriority,
+        ),
         (
             ", priority = 0, weight = 1",
             ", priority = 0",
@@ -316,7 +334,11 @@ fn competing_objectives_without_priority_refused() {
     // Every member with a priority, or one shared level with weights, is admitted.
     for (a, b, levels) in [
         (", weight = 1", ", weight = 3", 1),
-        (", priority = 4, weight = 1", ", priority = 4, weight = 3", 1),
+        (
+            ", priority = 4, weight = 1",
+            ", priority = 4, weight = 3",
+            1,
+        ),
     ] {
         let (mut workspace, root) = setup(&source(a, b));
         let model = prepare(&mut workspace, root, None).unwrap();
@@ -392,7 +414,10 @@ fn dimensional_weighted_sum_refused() {
     assert!((evaluate(&workspace, &model, &point).0 - (1.0 - 1.5)).abs() < 1e-12);
     // Invalid weights and normalizations are refused.
     assert_eq!(
-        refused(&source("c(maximize, weight = 0.5, normalization = 0)"), None),
+        refused(
+            &source("c(maximize, weight = 0.5, normalization = 0)"),
+            None
+        ),
         ObjectiveRefusal::InvalidNormalization
     );
     assert_eq!(

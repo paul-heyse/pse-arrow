@@ -162,8 +162,12 @@ fn schemes<LS: LinearSolver<M>>(
             out,
             Scheme::new(
                 |problem| problem.bdf::<LS>(),
-                |problem, adjoint| adjoint_start::<LS, diffsol::BdfState<V>, _>(problem, adjoint, true),
-                |problem, state, adjoint| problem.bdf_solver_adjoint_from_state::<LS, _>(state, adjoint),
+                |problem, adjoint| {
+                    adjoint_start::<LS, diffsol::BdfState<V>, _>(problem, adjoint, true)
+                },
+                |problem, state, adjoint| {
+                    problem.bdf_solver_adjoint_from_state::<LS, _>(state, adjoint)
+                },
             ),
         ),
         DiffsolMethod::TrBdf2 => passes.run(
@@ -173,7 +177,9 @@ fn schemes<LS: LinearSolver<M>>(
             out,
             Scheme::new(
                 |problem| problem.tr_bdf2::<LS>(),
-                |problem, adjoint| adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, true),
+                |problem, adjoint| {
+                    adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, true)
+                },
                 |problem, state, adjoint| {
                     problem.tr_bdf2_solver_adjoint_from_state::<LS, _>(state, adjoint)
                 },
@@ -186,7 +192,9 @@ fn schemes<LS: LinearSolver<M>>(
             out,
             Scheme::new(
                 |problem| problem.esdirk34::<LS>(),
-                |problem, adjoint| adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, true),
+                |problem, adjoint| {
+                    adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, true)
+                },
                 |problem, state, adjoint| {
                     problem.esdirk34_solver_adjoint_from_state::<LS, _>(state, adjoint)
                 },
@@ -199,7 +207,9 @@ fn schemes<LS: LinearSolver<M>>(
             out,
             Scheme::new(
                 |problem| problem.tsit45(),
-                |problem, adjoint| adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, false),
+                |problem, adjoint| {
+                    adjoint_start::<LS, diffsol::RkState<V>, _>(problem, adjoint, false)
+                },
                 |problem, state, adjoint| problem.tsit45_solver_adjoint_from_state(state, adjoint),
             ),
         ),
@@ -317,7 +327,10 @@ impl<'o> Passes<'_, 'o> {
         }
         r.termination = Termination::Completed;
         let weights = cotangent(r)?;
-        if weights.len() != r.samples.len().saturating_mul(shared.contract.outputs.len())
+        if weights.len()
+            != r.samples
+                .len()
+                .saturating_mul(shared.contract.outputs.len())
             || weights.iter().any(|w| !w.is_finite())
         {
             return Err(contract("adjoint cotangent extent or value"));
@@ -423,7 +436,13 @@ impl<'o> Passes<'_, 'o> {
     }
     /// Add the jump at sample `i` ([`sample_jump`]) to the adjoint and to the gradient, in
     /// the segment's integration columns. The forward state is the sample's own.
-    fn jump(&self, r: &Report, i: usize, weights: &[f64], state: &mut Common) -> Result<(), ProblemError> {
+    fn jump(
+        &self,
+        r: &Report,
+        i: usize,
+        weights: &[f64],
+        state: &mut Common,
+    ) -> Result<(), ProblemError> {
         let shared = self.shared;
         let sample = &r.samples[i];
         let m = shared.contract.outputs.len();

@@ -33,129 +33,278 @@ fn real_pow(body: &mut Body<'_>, base: &TypedValue, exponent: f64) -> TypedValue
 fn positive() -> Vec<(&'static str, Build, Curvature)> {
     use Curvature::{Concave, Convex, Unknown};
     vec![
-        ("exp(x)", |b| { let x = b.x[0].clone(); b.f(Function::Exp, &x) }, Convex),
-        ("exp(x + 2y)", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let two = b.c(2.0);
-            let t = b.op(Binary::Mul, &two, &y);
-            let s = b.op(Binary::Add, &x, &t);
-            b.f(Function::Exp, &s)
-        }, Convex),
-        ("log(x)", |b| { let x = b.x[0].clone(); b.f(Function::Log, &x) }, Concave),
-        ("log(x) + log(y)", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let (lx, ly) = (b.f(Function::Log, &x), b.f(Function::Log, &y));
-            b.op(Binary::Add, &lx, &ly)
-        }, Concave),
-        ("x·log(x)", |b| {
-            let x = b.x[0].clone();
-            let l = b.f(Function::Log, &x);
-            b.op(Binary::Mul, &x, &l)
-        }, Convex),
-        ("x·log(x/y)", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let r = b.op(Binary::Div, &x, &y);
-            let l = b.f(Function::Log, &r);
-            b.op(Binary::Mul, &x, &l)
-        }, Convex),
-        ("x^2.5", |b| { let x = b.x[0].clone(); real_pow(b, &x, 2.5) }, Convex),
-        ("sqrt(x)", |b| { let x = b.x[0].clone(); b.f(Function::Sqrt, &x) }, Concave),
-        ("1/x", |b| {
-            let x = b.x[0].clone();
-            let one = b.c(1.0);
-            b.op(Binary::Div, &one, &x)
-        }, Convex),
-        ("x^-2", |b| { let x = b.x[0].clone(); pow(b, &x, -2) }, Convex),
-        ("sqrt(x² + y²)", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
-            let s = b.op(Binary::Add, &x2, &y2);
-            b.f(Function::Sqrt, &s)
-        }, Convex),
-        ("x² + xy + y²", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
-            let xy = b.op(Binary::Mul, &x, &y);
-            let s = b.op(Binary::Add, &x2, &xy);
-            b.op(Binary::Add, &s, &y2)
-        }, Convex),
-        ("xy − x² − y²", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
-            let xy = b.op(Binary::Mul, &x, &y);
-            let s = b.op(Binary::Sub, &xy, &x2);
-            b.op(Binary::Sub, &s, &y2)
-        }, Concave),
-        ("exp(x² + y²)", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
-            let s = b.op(Binary::Add, &x2, &y2);
-            b.f(Function::Exp, &s)
-        }, Convex),
-        ("log(sqrt(x) + y)", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let r = b.f(Function::Sqrt, &x);
-            let s = b.op(Binary::Add, &r, &y);
-            b.f(Function::Log, &s)
-        }, Concave),
-        ("|x − y|", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let d = b.op(Binary::Sub, &x, &y);
-            b.f(Function::Abs, &d)
-        }, Convex),
-        ("3·exp(x) − 2·log(y)", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let (three, two) = (b.c(3.0), b.c(2.0));
-            let e = b.f(Function::Exp, &x);
-            let l = b.f(Function::Log, &y);
-            let (e3, l2) = (b.op(Binary::Mul, &three, &e), b.op(Binary::Mul, &two, &l));
-            b.op(Binary::Sub, &e3, &l2)
-        }, Convex),
-        ("(x + y)²", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let s = b.op(Binary::Add, &x, &y);
-            pow(b, &s, 2)
-        }, Convex),
-        ("−exp(x)", |b| {
-            let x = b.x[0].clone();
-            let e = b.f(Function::Exp, &x);
-            let zero = b.c(0.0);
-            b.op(Binary::Sub, &zero, &e)
-        }, Concave),
-        ("x·y", |b| { let (x, y) = (b.x[0].clone(), b.x[1].clone()); b.op(Binary::Mul, &x, &y) }, Unknown),
-        ("sin(x)", |b| { let x = b.x[0].clone(); b.f(Function::Sin, &x) }, Unknown),
-        ("x² − y²", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
-            b.op(Binary::Sub, &x2, &y2)
-        }, Unknown),
-        ("exp(x)·log(y)", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let e = b.f(Function::Exp, &x);
-            let l = b.f(Function::Log, &y);
-            b.op(Binary::Mul, &e, &l)
-        }, Unknown),
+        (
+            "exp(x)",
+            |b| {
+                let x = b.x[0].clone();
+                b.f(Function::Exp, &x)
+            },
+            Convex,
+        ),
+        (
+            "exp(x + 2y)",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let two = b.c(2.0);
+                let t = b.op(Binary::Mul, &two, &y);
+                let s = b.op(Binary::Add, &x, &t);
+                b.f(Function::Exp, &s)
+            },
+            Convex,
+        ),
+        (
+            "log(x)",
+            |b| {
+                let x = b.x[0].clone();
+                b.f(Function::Log, &x)
+            },
+            Concave,
+        ),
+        (
+            "log(x) + log(y)",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let (lx, ly) = (b.f(Function::Log, &x), b.f(Function::Log, &y));
+                b.op(Binary::Add, &lx, &ly)
+            },
+            Concave,
+        ),
+        (
+            "x·log(x)",
+            |b| {
+                let x = b.x[0].clone();
+                let l = b.f(Function::Log, &x);
+                b.op(Binary::Mul, &x, &l)
+            },
+            Convex,
+        ),
+        (
+            "x·log(x/y)",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let r = b.op(Binary::Div, &x, &y);
+                let l = b.f(Function::Log, &r);
+                b.op(Binary::Mul, &x, &l)
+            },
+            Convex,
+        ),
+        (
+            "x^2.5",
+            |b| {
+                let x = b.x[0].clone();
+                real_pow(b, &x, 2.5)
+            },
+            Convex,
+        ),
+        (
+            "sqrt(x)",
+            |b| {
+                let x = b.x[0].clone();
+                b.f(Function::Sqrt, &x)
+            },
+            Concave,
+        ),
+        (
+            "1/x",
+            |b| {
+                let x = b.x[0].clone();
+                let one = b.c(1.0);
+                b.op(Binary::Div, &one, &x)
+            },
+            Convex,
+        ),
+        (
+            "x^-2",
+            |b| {
+                let x = b.x[0].clone();
+                pow(b, &x, -2)
+            },
+            Convex,
+        ),
+        (
+            "sqrt(x² + y²)",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
+                let s = b.op(Binary::Add, &x2, &y2);
+                b.f(Function::Sqrt, &s)
+            },
+            Convex,
+        ),
+        (
+            "x² + xy + y²",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
+                let xy = b.op(Binary::Mul, &x, &y);
+                let s = b.op(Binary::Add, &x2, &xy);
+                b.op(Binary::Add, &s, &y2)
+            },
+            Convex,
+        ),
+        (
+            "xy − x² − y²",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
+                let xy = b.op(Binary::Mul, &x, &y);
+                let s = b.op(Binary::Sub, &xy, &x2);
+                b.op(Binary::Sub, &s, &y2)
+            },
+            Concave,
+        ),
+        (
+            "exp(x² + y²)",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
+                let s = b.op(Binary::Add, &x2, &y2);
+                b.f(Function::Exp, &s)
+            },
+            Convex,
+        ),
+        (
+            "log(sqrt(x) + y)",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let r = b.f(Function::Sqrt, &x);
+                let s = b.op(Binary::Add, &r, &y);
+                b.f(Function::Log, &s)
+            },
+            Concave,
+        ),
+        (
+            "|x − y|",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let d = b.op(Binary::Sub, &x, &y);
+                b.f(Function::Abs, &d)
+            },
+            Convex,
+        ),
+        (
+            "3·exp(x) − 2·log(y)",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let (three, two) = (b.c(3.0), b.c(2.0));
+                let e = b.f(Function::Exp, &x);
+                let l = b.f(Function::Log, &y);
+                let (e3, l2) = (b.op(Binary::Mul, &three, &e), b.op(Binary::Mul, &two, &l));
+                b.op(Binary::Sub, &e3, &l2)
+            },
+            Convex,
+        ),
+        (
+            "(x + y)²",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let s = b.op(Binary::Add, &x, &y);
+                pow(b, &s, 2)
+            },
+            Convex,
+        ),
+        (
+            "−exp(x)",
+            |b| {
+                let x = b.x[0].clone();
+                let e = b.f(Function::Exp, &x);
+                let zero = b.c(0.0);
+                b.op(Binary::Sub, &zero, &e)
+            },
+            Concave,
+        ),
+        (
+            "x·y",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                b.op(Binary::Mul, &x, &y)
+            },
+            Unknown,
+        ),
+        (
+            "sin(x)",
+            |b| {
+                let x = b.x[0].clone();
+                b.f(Function::Sin, &x)
+            },
+            Unknown,
+        ),
+        (
+            "x² − y²",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let (x2, y2) = (pow(b, &x, 2), pow(b, &y, 2));
+                b.op(Binary::Sub, &x2, &y2)
+            },
+            Unknown,
+        ),
+        (
+            "exp(x)·log(y)",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let e = b.f(Function::Exp, &x);
+                let l = b.f(Function::Log, &y);
+                b.op(Binary::Mul, &e, &l)
+            },
+            Unknown,
+        ),
     ]
 }
 /// The corpus over a box across zero, `x, y ∈ [−1, 2]`.
 fn signed() -> Vec<(&'static str, Build, Curvature)> {
     use Curvature::{Convex, Unknown};
     vec![
-        ("x²", |b| { let x = b.x[0].clone(); pow(b, &x, 2) }, Convex),
-        ("x³", |b| { let x = b.x[0].clone(); pow(b, &x, 3) }, Unknown),
-        ("|x|", |b| { let x = b.x[0].clone(); b.f(Function::Abs, &x) }, Convex),
-        ("exp(−x)", |b| {
-            let x = b.x[0].clone();
-            let zero = b.c(0.0);
-            let n = b.op(Binary::Sub, &zero, &x);
-            b.f(Function::Exp, &n)
-        }, Convex),
-        ("(x − y)⁴", |b| {
-            let (x, y) = (b.x[0].clone(), b.x[1].clone());
-            let d = b.op(Binary::Sub, &x, &y);
-            pow(b, &d, 4)
-        }, Convex),
-        ("x·y", |b| { let (x, y) = (b.x[0].clone(), b.x[1].clone()); b.op(Binary::Mul, &x, &y) }, Unknown),
+        (
+            "x²",
+            |b| {
+                let x = b.x[0].clone();
+                pow(b, &x, 2)
+            },
+            Convex,
+        ),
+        (
+            "x³",
+            |b| {
+                let x = b.x[0].clone();
+                pow(b, &x, 3)
+            },
+            Unknown,
+        ),
+        (
+            "|x|",
+            |b| {
+                let x = b.x[0].clone();
+                b.f(Function::Abs, &x)
+            },
+            Convex,
+        ),
+        (
+            "exp(−x)",
+            |b| {
+                let x = b.x[0].clone();
+                let zero = b.c(0.0);
+                let n = b.op(Binary::Sub, &zero, &x);
+                b.f(Function::Exp, &n)
+            },
+            Convex,
+        ),
+        (
+            "(x − y)⁴",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                let d = b.op(Binary::Sub, &x, &y);
+                pow(b, &d, 4)
+            },
+            Convex,
+        ),
+        (
+            "x·y",
+            |b| {
+                let (x, y) = (b.x[0].clone(), b.x[1].clone());
+                b.op(Binary::Mul, &x, &y)
+            },
+            Unknown,
+        ),
     ]
 }
 /// Midpoint convexity (or concavity) of a node at sampled pairs of the box: the numerical
@@ -198,9 +347,17 @@ fn curvature_sound_against_scip_oracle() {
     let mut undecided = Vec::new();
     for (corpus, (lo, hi)) in [(positive(), (0.5, 2.0)), (signed(), (-1.0, 2.0))] {
         let mut body = Body::new(&registry, 2);
-        let outputs: Vec<TypedValue> = corpus.iter().map(|(_, build, _)| build(&mut body)).collect();
+        let outputs: Vec<TypedValue> = corpus
+            .iter()
+            .map(|(_, build, _)| build(&mut body))
+            .collect();
         let prepared = body.b.prepare(&outputs).unwrap();
-        let column = (ModelingVariableDomain::Continuous, Some(lo), Some(hi), (lo + hi) / 2.0);
+        let column = (
+            ModelingVariableDomain::Continuous,
+            Some(lo),
+            Some(hi),
+            (lo + hi) / 2.0,
+        );
         let rows = vec![(f64::NEG_INFINITY, f64::INFINITY); outputs.len()];
         let case = case(
             &registry,
@@ -211,11 +368,7 @@ fn curvature_sound_against_scip_oracle() {
             DerivativeOrder::Value,
         );
         let program = case.program(&FactorableRequest::default());
-        let roots: Vec<usize> = program
-            .rows
-            .iter()
-            .map(|r| r.expression.unwrap())
-            .collect();
+        let roots: Vec<usize> = program.rows.iter().map(|r| r.expression.unwrap()).collect();
         let scip = scip::curvature(&program, &roots).unwrap();
         let never = AtomicBool::new(false);
         for (((name, _, expected), root), oracle) in corpus.iter().zip(&roots).zip(&scip) {
@@ -240,6 +393,9 @@ fn curvature_sound_against_scip_oracle() {
             }
         }
     }
-    assert!(confirmed >= 12, "SCIP confirmed {confirmed}; undecided {undecided:?}");
+    assert!(
+        confirmed >= 12,
+        "SCIP confirmed {confirmed}; undecided {undecided:?}"
+    );
     eprintln!("SCIP confirmed {confirmed} claims; undecided by SCIP: {undecided:?}");
 }

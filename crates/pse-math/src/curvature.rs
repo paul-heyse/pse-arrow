@@ -261,9 +261,7 @@ pub fn fact(
         Recognition::Inconclusive => ConvexityClass::Inconclusive,
     };
     let mut h = FramedHasher::new(pse_ids::Frame::MathConvexityFactV1);
-    h.hash(&program.key)
-        .str("curvature-v1")
-        .u64(limit as u64);
+    h.hash(&program.key).str("curvature-v1").u64(limit as u64);
     class.hash_into(&mut h);
     Ok(Convexity {
         key: h.finish_hash(),
@@ -428,7 +426,7 @@ impl<'a> Pass<'a> {
                     Err(Failure::No) => {
                         return unrecognized(&self, Unrecognized::Curvature { row: None });
                     }
-                        Err(Failure::Math(e)) => return Err(e),
+                    Err(Failure::Math(e)) => return Err(e),
                 }
             }
         };
@@ -603,9 +601,9 @@ impl<'a> Pass<'a> {
             Node::Aux(_) => unknown(interval),
             Node::Const(c) => constant(interval, c.value()),
             Node::Sum(children) => {
-                let curvature = children
-                    .iter()
-                    .fold(Curvature::Constant, |acc, c| acc.add(self.get(*c).curvature));
+                let curvature = children.iter().fold(Curvature::Constant, |acc, c| {
+                    acc.add(self.get(*c).curvature)
+                });
                 Info {
                     interval,
                     curvature,
@@ -614,16 +612,15 @@ impl<'a> Pass<'a> {
                 }
             }
             Node::Product(children) => {
-                let (constants, factors): (Vec<NodeId>, Vec<NodeId>) = children
-                    .iter()
-                    .partition(|c| self.get(**c).value.is_some());
+                let (constants, factors): (Vec<NodeId>, Vec<NodeId>) =
+                    children.iter().partition(|c| self.get(**c).value.is_some());
                 let factor: f64 = constants
                     .iter()
                     .map(|c| self.get(*c).value.unwrap_or(f64::NAN))
                     .product();
-                let range = constants
-                    .iter()
-                    .fold(Interval::point(1.0), |acc, c| acc.mul(self.get(*c).interval));
+                let range = constants.iter().fold(Interval::point(1.0), |acc, c| {
+                    acc.mul(self.get(*c).interval)
+                });
                 // The sign of the constant factor must be certain.
                 let sign = if range.lo > 0.0 {
                     1.0
@@ -833,7 +830,8 @@ impl<'a> Pass<'a> {
         let square = |n: NodeId| -> Option<NodeId> {
             match &nodes[n] {
                 Node::Pow { base, exponent }
-                    if exponent.value() == 2.0 && self.get(*base).curvature == Curvature::Affine =>
+                    if exponent.value() == 2.0
+                        && self.get(*base).curvature == Curvature::Affine =>
                 {
                     Some(*base)
                 }
@@ -1086,8 +1084,10 @@ impl<'a> Pass<'a> {
         let mut out = Polynomial::new();
         for ((i, j), u) in a {
             for ((k, l), v) in b {
-                let mut factors: Vec<usize> =
-                    [*i, *j, *k, *l].into_iter().filter(|f| *f != NONE).collect();
+                let mut factors: Vec<usize> = [*i, *j, *k, *l]
+                    .into_iter()
+                    .filter(|f| *f != NONE)
+                    .collect();
                 if factors.len() > 2 {
                     return None;
                 }

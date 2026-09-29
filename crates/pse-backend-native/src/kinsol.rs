@@ -612,8 +612,7 @@ impl Session {
                 }
             }
             let (mut r, mut i) = (0, 0);
-            if !self.mem.is_null() && ffi::KINGetWorkSpace(self.mem, &raw mut r, &raw mut i) >= 0
-            {
+            if !self.mem.is_null() && ffi::KINGetWorkSpace(self.mem, &raw mut r, &raw mut i) >= 0 {
                 bytes = bytes.saturating_add(words(r.into(), i.into()));
             }
             if !self.linear.is_null()

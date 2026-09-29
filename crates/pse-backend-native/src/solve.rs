@@ -1142,8 +1142,7 @@ pub struct InfeasibilityCertificate {
 impl InfeasibilityCertificate {
     /// Only a verified ray found at full accuracy certifies its conclusion.
     pub fn certified(&self) -> bool {
-        self.accuracy == CertificateAccuracy::Full
-            && self.verification.is_some_and(|v| v.verified)
+        self.accuracy == CertificateAccuracy::Full && self.verification.is_some_and(|v| v.verified)
     }
 }
 /// Native solution status as reported by the library, never inferred from values.

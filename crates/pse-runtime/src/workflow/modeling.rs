@@ -13,22 +13,6 @@ pub(super) mod dynamics;
 pub use dynamics::{ModelingSimulation, ModelingTrajectory};
 #[cfg(test)]
 mod certificate_tests;
-#[cfg(all(test, feature = "solver-highs"))]
-mod convexity_tests;
-mod diagnostics;
-#[cfg(all(test, feature = "solver-highs"))]
-mod forms_tests;
-#[cfg(all(test, feature = "solver-scip", feature = "solver-ipopt"))]
-mod global_tests;
-#[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
-pub(in crate::workflow) mod sensitivity_tests;
-#[cfg(all(
-    test,
-    feature = "solver-ipopt",
-    feature = "solver-highs",
-    feature = "solver-pounce"
-))]
-mod pounce_convex_tests;
 #[cfg(all(
     test,
     feature = "solver-scip",
@@ -36,7 +20,23 @@ mod pounce_convex_tests;
     feature = "solver-highs"
 ))]
 mod commitment_tests;
+#[cfg(all(test, feature = "solver-highs"))]
+mod convexity_tests;
+mod diagnostics;
+#[cfg(all(test, feature = "solver-highs"))]
+mod forms_tests;
+#[cfg(all(test, feature = "solver-scip", feature = "solver-ipopt"))]
+mod global_tests;
 mod implicit;
+#[cfg(all(
+    test,
+    feature = "solver-ipopt",
+    feature = "solver-highs",
+    feature = "solver-pounce"
+))]
+mod pounce_convex_tests;
+#[cfg(all(test, feature = "solver-ipopt", feature = "solver-highs"))]
+pub(in crate::workflow) mod sensitivity_tests;
 pub use diagnostics::{
     DiagnosticSampleStop, ElasticObservation, ModelingDiagnosticPolicy,
     ModelingDiagnosticPreparation, ModelingDiagnosticSamples, ModelingDiagnostics,
@@ -47,9 +47,9 @@ pub use diagnostics::{
 pub use diagnostics::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
 mod engines;
 pub use engines::{
-    DiscreteInitialization, ModelingAnalysis, ModelingInitialization, ModelingInitializationAttempt,
-    ModelingInitializationReport, ModelingInitializationStep, ModelingStudyPoint,
-    ModelingStudyReport,
+    DiscreteInitialization, ModelingAnalysis, ModelingInitialization,
+    ModelingInitializationAttempt, ModelingInitializationReport, ModelingInitializationStep,
+    ModelingStudyPoint, ModelingStudyReport,
 };
 pub(super) mod analysis_tables;
 pub(super) mod assessment;
