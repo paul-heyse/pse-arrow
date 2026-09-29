@@ -73,17 +73,17 @@ pub(crate) fn new_job(key: &str, retry: RetryPolicy) -> NewJob {
     }
 }
 
-fn at(seconds: i64) -> DateTime<Utc> {
+pub(crate) fn at(seconds: i64) -> DateTime<Utc> {
     DateTime::from_timestamp(1_790_000_000 + seconds, 0).unwrap()
 }
 
 /// Create an attempt and drive it through the lifecycle to `completed`.
-async fn finished_attempt(store: &Store) -> AttemptId {
+pub(crate) async fn finished_attempt(store: &Store) -> AttemptId {
     finished_try(store, None).await
 }
 
 /// [`finished_attempt`], as the retry of `parent` when one is given.
-async fn finished_try(store: &Store, parent: Option<AttemptId>) -> AttemptId {
+pub(crate) async fn finished_try(store: &Store, parent: Option<AttemptId>) -> AttemptId {
     let attempts = store.attempts();
     let attempt = NewAttempt {
         parent_attempt: parent,
@@ -540,8 +540,8 @@ async fn row_invariants_generated_and_enforced() {
     let error = session
         .execute(&format!(
             "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, preparation_identity, \
-                 kind, backend, profile_stamp, data_stamp) \
-             VALUES ({}, {stamp}, {stamp}, 'root', 'kinsol', {stamp}, {stamp})",
+                 kind, origin, backend, profile_stamp, data_stamp) \
+             VALUES ({}, {stamp}, {stamp}, 'root', 'output', 'kinsol', {stamp}, {stamp})",
             lit(mint_id::<SemanticId>())
         ))
         .await
@@ -1847,8 +1847,8 @@ async fn incumbents_and_solutions_round_trip() {
     let malformed = session
         .execute(&format!(
             "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, preparation_identity, \
-                 kind, backend, profile_stamp, data_stamp) \
-             VALUES ({}, {stamp}, {stamp}, 'root', 'ipopt', {stamp}, {stamp})",
+                 kind, origin, backend, profile_stamp, data_stamp) \
+             VALUES ({}, {stamp}, {stamp}, 'root', 'output', 'ipopt', {stamp}, {stamp})",
             lit(mint_id::<SemanticId>())
         ))
         .await
@@ -1871,8 +1871,9 @@ async fn incumbents_and_solutions_round_trip() {
         let refused = session
             .execute(&format!(
                 "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, \
-                     preparation_identity, kind, backend, profile_stamp, data_stamp, primal, barrier) \
-                 VALUES ({}, {stamp}, {stamp}, '{kind}', 'ipopt', {stamp}, {stamp}, \
+                     preparation_identity, kind, origin, backend, profile_stamp, data_stamp, \
+                     primal, barrier) \
+                 VALUES ({}, {stamp}, {stamp}, '{kind}', 'output', 'ipopt', {stamp}, {stamp}, \
                      ARRAY[1.0]::double precision[], {barrier})",
                 lit(mint_id::<SemanticId>())
             ))
@@ -1883,6 +1884,26 @@ async fn incumbents_and_solutions_round_trip() {
             "{kind} {barrier}: {refused:?}"
         );
     }
+    // A capture belongs to an attempt.
+    let orphan = session
+        .execute(&format!(
+            "INSERT INTO pse_ops.solutions (solution_id, compatibility_stamp, \
+                 preparation_identity, kind, origin, backend, profile_stamp, data_stamp, primal) \
+             VALUES ({}, {stamp}, {stamp}, 'root', 'incumbent', 'ipopt', {stamp}, {stamp}, \
+                 ARRAY[1.0]::double precision[])",
+            lit(mint_id::<SemanticId>())
+        ))
+        .await
+        .unwrap_err();
+    assert!(
+        violates(
+            &orphan,
+            Some("solutions"),
+            "capture_has_attempt",
+            InvariantKind::Check
+        ),
+        "{orphan:?}"
+    );
     drop(session);
 
     for stored in [&solution, &newer, &highs] {
@@ -1979,8 +2000,7 @@ async fn incumbents_and_solutions_round_trip() {
 
 /// An incumbent's captured solution is stored in the incumbent's transaction; a re-sent
 /// batch stores neither again. A resumed try finds the newest compatible captured
-/// solution of its attempt chain, the nearest attempt first, and retention keeps the
-/// incumbents that reference solutions (Plan 22 G8).
+/// solution of its attempt chain, the nearest attempt first (Plan 22 G8).
 #[tokio::test]
 async fn incumbent_solutions_follow_the_attempt_chain() {
     use pse_model::generated::enums::NativeBackend;
@@ -2087,25 +2107,89 @@ async fn incumbent_solutions_follow_the_attempt_chain() {
             .unwrap()
             .is_none()
     );
+    database.remove().await.unwrap();
+}
 
-    // Retention removes incumbents without a solution and keeps those that reference one.
-    streams
-        .apply_retention(crate::streams::Retention {
-            finished_for: Duration::ZERO,
-        })
+/// A captured incumbent is not a result: the newest-compatible lookup behind
+/// `StoredStart::Latest` returns the newest output seed and skips a newer capture of the
+/// same coordinates, while the attempt's own lookup still finds the capture (Plan 22 I13).
+#[tokio::test]
+async fn latest_start_skips_incumbent_captures() {
+    use crate::solutions::StoredSolutionOrigin;
+    use pse_model::generated::enums::NativeBackend;
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let attempt = finished_attempt(&store).await;
+    let seed = |value: f64| NewSolution {
+        solution_id: mint_id(),
+        compatibility_stamp: hash(5),
+        preparation_identity: hash(6),
+        backend: NativeBackend::Scip,
+        profile_stamp: hash(3),
+        data_stamp: hash(4),
+        vectors: SeedVectors::Nlp {
+            primal: vec![value],
+            bounds: None,
+            rows: None,
+            barrier: None,
+        },
+        created_by: Some(attempt),
+    };
+    let solutions = store.solutions();
+    let latest = || async {
+        solutions
+            .latest_compatible(&hash(5), &hash(6), NativeBackend::Scip)
+            .await
+            .unwrap()
+            .map(|row| row.solution_id)
+    };
+    // A capture alone: nothing to start from.
+    let (first, capture) = (seed(1.0), seed(2.0));
+    let incumbent = |seq, solution: &NewSolution| RuntimeOperationalIncumbentsRow {
+        attempt_id: attempt,
+        seq,
+        step: 0,
+        at: at(seq).timestamp_micros(),
+        elapsed_seconds: 1.0,
+        phase: "scip.incumbent".into(),
+        objective: 1.0,
+        dual_bound: None,
+        gap: None,
+        nodes: Some(seq),
+        seconds: Some(1.0),
+        solution_id: Some(solution.solution_id),
+    };
+    store
+        .streams()
+        .record_incumbents(&[incumbent(0, &capture)], std::slice::from_ref(&capture))
         .await
         .unwrap();
-    let session = database.session().await.unwrap();
-    let kept = session
-        .count(&format!(
-            "SELECT count(*) FROM pse_ops.incumbents WHERE attempt_id = {}",
-            lit(first)
-        ))
+    assert_eq!(latest().await, None);
+    // An output seed stored before a newer capture is still the start.
+    solutions.put(&first).await.unwrap();
+    let newer = seed(3.0);
+    store
+        .streams()
+        .record_incumbents(&[incumbent(1, &newer)], std::slice::from_ref(&newer))
         .await
         .unwrap();
-    assert_eq!(kept, 2);
-    assert_eq!(resume(third, 5).await, Some(late.solution_id));
-    drop(session);
+    assert_eq!(latest().await, Some(first.solution_id));
+    // The origin follows from how each was stored.
+    for (solution, origin) in [
+        (&first, StoredSolutionOrigin::Output),
+        (&capture, StoredSolutionOrigin::Incumbent),
+        (&newer, StoredSolutionOrigin::Incumbent),
+    ] {
+        let row = solutions.get(solution.solution_id).await.unwrap().unwrap();
+        assert_eq!(row.origin, origin);
+    }
+    // The attempt's own lookup (a study successor's seed) still sees its newest capture.
+    let own = solutions
+        .latest_of_attempt(attempt, &hash(5), &hash(6), NativeBackend::Scip)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(own.solution_id, newer.solution_id);
     database.remove().await.unwrap();
 }
 

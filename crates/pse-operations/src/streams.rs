@@ -21,7 +21,7 @@ use crate::bulk::{Cells, copy_in};
 use crate::error::{Classify, OperationsError, Target};
 use crate::generated::copy;
 use crate::listener::{Channel, Event, Subscription};
-use crate::solutions::{self, NewSolution};
+use crate::solutions::{self, NewSolution, StoredSolutionOrigin};
 use crate::store::Store;
 pub use pse_model::generated::runtime::operational_incumbents::RuntimeOperationalIncumbentsRow;
 use pse_model::generated::runtime::operational_progress_events::RuntimeOperationalProgressEventsRow;
@@ -338,9 +338,37 @@ impl<'s> Streams<'s> {
         }
     }
 
-    /// Remove the streams (progress events, their values and incumbents without a kept
-    /// solution) of attempts that finished longer ago than the policy allows. Running,
-    /// queued and planned attempts are never touched. Returns the events removed.
+    /// Every stored incumbent of an attempt, in sequence order: the snapshot a publication
+    /// derives `runtime.incumbents` from (Plan 22 I13).
+    ///
+    /// # Errors
+    ///
+    /// As for [`Streams::incumbents`].
+    pub async fn incumbent_snapshot(
+        &self,
+        attempt: AttemptId,
+    ) -> Result<Vec<RuntimeOperationalIncumbentsRow>, OperationsError> {
+        const PAGE: i64 = 4096;
+        let mut all = Vec::new();
+        let mut after = None;
+        loop {
+            let page = self.incumbents(attempt, after, PAGE).await?;
+            let full = i64::try_from(page.len()).unwrap_or(i64::MAX) == PAGE;
+            after = page.last().map(|i| i.seq).or(after);
+            all.extend(page);
+            if !full {
+                return Ok(all);
+            }
+        }
+    }
+
+    /// Remove the streams (progress events, their values and incumbents) of attempts that
+    /// finished longer ago than the policy allows, and the solutions captured from
+    /// incumbent streams that nothing still names (Plan 22 I13). Running, queued and
+    /// planned attempts are never touched, nor are the incumbents of the attempt chain
+    /// above one (a resumed try may start from them), captures an unfinished job's stored
+    /// start or a waiting study point's predecessor names, or output seeds. Returns the
+    /// events removed.
     ///
     /// # Errors
     ///
@@ -362,14 +390,18 @@ impl<'s> Streams<'s> {
             .bind(&tx, &age)
             .await
             .classify(target)?;
+        statements::delete_unreferenced_captures()
+            .bind(&tx)
+            .await
+            .classify(target)?;
         tx.commit().await.classify(target)?;
         Ok(removed)
     }
 
     /// Insert a batch of incumbents of one attempt together with the solutions they
     /// capture, in one transaction: each of `solutions` is referenced by exactly one
-    /// incumbent of the batch and is stored with it (generated statements), then the
-    /// incumbents are copied. Incumbents whose sequence number is already stored are
+    /// incumbent of the batch and is stored with it as a capture (origin `incumbent`,
+    /// generated statements), then the incumbents are copied. Incumbents whose sequence number is already stored are
     /// skipped with their solutions, so a re-sent batch is idempotent. An incumbent may
     /// also reference a solution stored earlier. Returns the incumbents inserted.
     ///
@@ -441,7 +473,8 @@ impl<'s> Streams<'s> {
                 .iter()
                 .find(|solution| incumbent.solution_id == Some(solution.solution_id))
             {
-                solutions::insert(&tx, target, solution).await?;
+                solutions::insert(&tx, target, solution, StoredSolutionOrigin::Incumbent)
+                    .await?;
             }
         }
         let mut rows: Vec<Cells<'_>> = Vec::with_capacity(fresh.len());

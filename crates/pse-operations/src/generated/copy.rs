@@ -226,13 +226,14 @@ pub const SETTLEMENTS: CopyIn = CopyIn {
 /// The binary copy into `solutions` (runtime.operational_solutions).
 pub const SOLUTIONS: CopyIn = CopyIn {
     table: "solutions",
-    statement: "COPY pse_ops.\"solutions\" (\"solution_id\", \"compatibility_stamp\", \"preparation_identity\", \"kind\", \"backend\", \"profile_stamp\", \"data_stamp\", \"primal\", \"lower_bound_duals\", \"upper_bound_duals\", \"column_duals\", \"row_duals\", \"barrier\", \"basis_columns\", \"basis_rows\", \"created_by\", \"created_at\") FROM STDIN (FORMAT binary)",
-    probe: "SELECT \"solution_id\", \"compatibility_stamp\", \"preparation_identity\", \"kind\", \"backend\", \"profile_stamp\", \"data_stamp\", \"primal\", \"lower_bound_duals\", \"upper_bound_duals\", \"column_duals\", \"row_duals\", \"barrier\", \"basis_columns\", \"basis_rows\", \"created_by\", \"created_at\" FROM pse_ops.\"solutions\" WHERE false",
+    statement: "COPY pse_ops.\"solutions\" (\"solution_id\", \"compatibility_stamp\", \"preparation_identity\", \"kind\", \"origin\", \"backend\", \"profile_stamp\", \"data_stamp\", \"primal\", \"lower_bound_duals\", \"upper_bound_duals\", \"column_duals\", \"row_duals\", \"barrier\", \"basis_columns\", \"basis_rows\", \"created_by\", \"created_at\") FROM STDIN (FORMAT binary)",
+    probe: "SELECT \"solution_id\", \"compatibility_stamp\", \"preparation_identity\", \"kind\", \"origin\", \"backend\", \"profile_stamp\", \"data_stamp\", \"primal\", \"lower_bound_duals\", \"upper_bound_duals\", \"column_duals\", \"row_duals\", \"barrier\", \"basis_columns\", \"basis_rows\", \"created_by\", \"created_at\" FROM pse_ops.\"solutions\" WHERE false",
     columns: &[
         "solution_id",
         "compatibility_stamp",
         "preparation_identity",
         "kind",
+        "origin",
         "backend",
         "profile_stamp",
         "data_stamp",

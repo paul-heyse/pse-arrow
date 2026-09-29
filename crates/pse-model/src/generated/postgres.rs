@@ -392,6 +392,24 @@ impl<'a> FromSql<'a> for crate::generated::enums::StoredSeedKind {
         <Self as ToSql>::accepts(ty)
     }
 }
+impl ToSql for crate::generated::enums::StoredSolutionOrigin {
+    fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
+        out.extend_from_slice(self.as_str().as_bytes());
+        Ok(IsNull::No)
+    }
+    fn accepts(ty: &Type) -> bool {
+        enum_type(ty, "stored_solution_origin", &["output", "incumbent"])
+    }
+    postgres_types::to_sql_checked!();
+}
+impl<'a> FromSql<'a> for crate::generated::enums::StoredSolutionOrigin {
+    fn from_sql(_: &Type, raw: &'a [u8]) -> Result<Self, BoxError> {
+        Ok(postgres_protocol::types::text_from_sql(raw)?.parse()?)
+    }
+    fn accepts(ty: &Type) -> bool {
+        <Self as ToSql>::accepts(ty)
+    }
+}
 impl ToSql for crate::generated::enums::StudyPointState {
     fn to_sql(&self, _: &Type, out: &mut BytesMut) -> Result<IsNull, BoxError> {
         out.extend_from_slice(self.as_str().as_bytes());
@@ -1241,6 +1259,7 @@ for crate::generated::r#runtime::r#operational_solutions::RuntimeOperationalSolu
                 "compatibility_stamp",
                 "preparation_identity",
                 "kind",
+                "origin",
                 "backend",
                 "profile_stamp",
                 "data_stamp",
@@ -1261,6 +1280,7 @@ for crate::generated::r#runtime::r#operational_solutions::RuntimeOperationalSolu
             r#compatibility_stamp: record.value()?,
             r#preparation_identity: record.value()?,
             r#kind: record.value()?,
+            r#origin: record.value()?,
             r#backend: record.value()?,
             r#profile_stamp: record.value()?,
             r#data_stamp: record.value()?,

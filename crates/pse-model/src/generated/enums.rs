@@ -12559,6 +12559,97 @@ impl core::str::FromStr for StoredSeedKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum StoredSolutionOrigin {
+    ///output
+    #[serde(rename = "output")]
+    Output,
+    ///incumbent
+    #[serde(rename = "incumbent")]
+    Incumbent,
+}
+impl crate::SemanticEq for StoredSolutionOrigin {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StoredSolutionOrigin {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Output, Self::Incumbent];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Output => "output",
+            Self::Incumbent => "incumbent",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Output => 0usize,
+            Self::Incumbent => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Output => None,
+            Self::Incumbent => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StoredSolutionOrigin {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StoredSolutionOrigin))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(StoredSolutionOrigin)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["output", "incumbent"] })
+    }
+}
+impl core::str::FromStr for StoredSolutionOrigin {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "output" => Ok(Self::Output),
+            "incumbent" => Ok(Self::Incumbent),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StoredSolutionOrigin).to_owned(),
+                    enumeration: stringify!(StoredSolutionOrigin).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum StudyPointState {
     ///pending
     #[serde(rename = "pending")]
@@ -14468,6 +14559,16 @@ impl crate::HeapUsage for StoredSeedKind {
     }
 }
 impl crate::SemanticFrame for StoredSeedKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StoredSolutionOrigin {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StoredSolutionOrigin {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

@@ -482,3 +482,178 @@ async fn study_point_requeue_and_direct_cancel() {
     }
     database.remove().await.unwrap();
 }
+
+/// Captured incumbent solutions expire with their streams (Plan 22 I13): once a finished
+/// attempt's incumbents expire, its captures go too, while output seeds stay. A capture
+/// survives while something may still start from it: the incumbents above an unfinished
+/// retry (its resumed try), an unfinished job whose stored start names it, or a waiting
+/// study point whose predecessor's attempt captured it.
+#[tokio::test]
+async fn captured_solutions_pruned_with_streams() {
+    use crate::attempts::AttemptId;
+    use crate::solutions::{NewSolution, SeedVectors, SolutionId};
+    use crate::store_tests::{at, finished_attempt, finished_try};
+    use crate::streams::{Retention, RuntimeOperationalIncumbentsRow};
+    use pse_model::generated::enums::NativeBackend;
+    let database = TestDatabase::create().await.unwrap();
+    let store = database.store().clone();
+    let seed = |attempt: AttemptId| NewSolution {
+        solution_id: mint_id(),
+        compatibility_stamp: hash(5),
+        preparation_identity: hash(6),
+        backend: NativeBackend::Scip,
+        profile_stamp: hash(3),
+        data_stamp: hash(4),
+        vectors: SeedVectors::Root { primal: vec![1.0] },
+        created_by: Some(attempt),
+    };
+    // Each attempt streams one incumbent with its captured point.
+    let capture = |attempt: AttemptId| {
+        let store = store.clone();
+        async move {
+            let solution = seed(attempt);
+            let incumbent = RuntimeOperationalIncumbentsRow {
+                attempt_id: attempt,
+                seq: 0,
+                step: 0,
+                at: at(0).timestamp_micros(),
+                elapsed_seconds: 1.0,
+                phase: "scip.incumbent".into(),
+                objective: 1.0,
+                dual_bound: None,
+                gap: None,
+                nodes: Some(1),
+                seconds: Some(1.0),
+                solution_id: Some(solution.solution_id),
+            };
+            store
+                .streams()
+                .record_incumbents(&[incumbent], std::slice::from_ref(&solution))
+                .await
+                .unwrap();
+            solution.solution_id
+        }
+    };
+    // A finished attempt with nothing waiting on it: its capture expires, its output
+    // seed stays.
+    let done = finished_attempt(&store).await;
+    let expired = capture(done).await;
+    let output = seed(done);
+    store.solutions().put(&output).await.unwrap();
+    // A finished try whose retry is still queued: a resumed try may start from it.
+    let superseded = finished_attempt(&store).await;
+    let resumable = capture(superseded).await;
+    let retry = NewAttempt {
+        parent_attempt: Some(superseded),
+        ..new_attempt()
+    };
+    store.attempts().create(&retry, None).await.unwrap();
+    store
+        .attempts()
+        .transition(retry.attempt_id, AttemptState::Queued, &TransitionNote::by("q"))
+        .await
+        .unwrap();
+    // A completed study point whose successor still waits for its seed.
+    let space = space(&store).await;
+    let study = new_study(&space, &[None, Some(0)], 1);
+    store.studies().create(&study).await.unwrap();
+    let (point, claimed) = claimed_point(&store, "worker-a").await.unwrap();
+    assert_eq!(point, 0);
+    let predecessor = capture(claimed.attempt_id).await;
+    store
+        .jobs()
+        .finish(
+            claimed.job_id,
+            "worker-a",
+            &ended(AttemptState::Completed, point_members(&study, 0)),
+        )
+        .await
+        .unwrap();
+    // A finished attempt whose capture a queued job's stored start names; the job runs
+    // before the study's remaining point.
+    let named_by = finished_try(&store, None).await;
+    let started = capture(named_by).await;
+    let job = NewJob {
+        payload_version: 3,
+        payload: serde_json::json!({
+            "version": 3,
+            "task": {
+                "kind": "modeling",
+                "start": { "kind": "stored_solution", "solution": started.to_string() }
+            }
+        }),
+        priority: 1,
+        ..new_job("resume-from-capture", RetryPolicy::ONCE)
+    };
+    let resume = store.jobs().enqueue(&job).await.unwrap().job_id();
+
+    let solution = |id: SolutionId| {
+        let store = store.clone();
+        async move { store.solutions().get(id).await.unwrap().is_some() }
+    };
+    // Nothing is old enough under a long retention.
+    store
+        .streams()
+        .apply_retention(Retention {
+            finished_for: Duration::from_secs(3600),
+        })
+        .await
+        .unwrap();
+    for id in [expired, resumable, started, predecessor] {
+        assert!(solution(id).await, "{id}");
+    }
+    store
+        .streams()
+        .apply_retention(Retention {
+            finished_for: Duration::ZERO,
+        })
+        .await
+        .unwrap();
+    assert!(!solution(expired).await);
+    assert!(solution(output.solution_id).await);
+    for id in [resumable, started, predecessor] {
+        assert!(solution(id).await, "{id}");
+    }
+    let incumbents = |attempt: AttemptId| {
+        let store = store.clone();
+        async move { store.streams().incumbent_snapshot(attempt).await.unwrap().len() }
+    };
+    assert_eq!(incumbents(done).await, 0);
+    assert_eq!(incumbents(superseded).await, 1);
+    assert_eq!(incumbents(named_by).await, 0);
+    assert_eq!(incumbents(claimed.attempt_id).await, 0);
+    // Once the job and the successor have run, the captures follow their streams.
+    let claim = store.jobs().claim("worker-a", LEASE).await.unwrap().unwrap();
+    assert_eq!(claim.job_id, resume);
+    store
+        .jobs()
+        .finish(
+            claim.job_id,
+            "worker-a",
+            &ended(AttemptState::Completed, Vec::new()),
+        )
+        .await
+        .unwrap();
+    let (point, successor) = claimed_point(&store, "worker-a").await.unwrap();
+    assert_eq!(point, 1);
+    store
+        .jobs()
+        .finish(
+            successor.job_id,
+            "worker-a",
+            &ended(AttemptState::Completed, point_members(&study, 1)),
+        )
+        .await
+        .unwrap();
+    store
+        .streams()
+        .apply_retention(Retention {
+            finished_for: Duration::ZERO,
+        })
+        .await
+        .unwrap();
+    assert!(!solution(started).await);
+    assert!(!solution(predecessor).await);
+    assert!(solution(resumable).await);
+    database.remove().await.unwrap();
+}

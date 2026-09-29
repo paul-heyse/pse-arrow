@@ -1387,6 +1387,13 @@ class StoredSeedKind(StrEnum):
     HIGHS = "highs"
 
 
+class StoredSolutionOrigin(StrEnum):
+    """The declared StoredSolutionOrigin enumeration."""
+
+    OUTPUT = "output"
+    INCUMBENT = "incumbent"
+
+
 class StudyPointState(StrEnum):
     """The declared StudyPointState enumeration."""
 
