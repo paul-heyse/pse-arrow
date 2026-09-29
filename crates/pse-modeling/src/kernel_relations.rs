@@ -414,6 +414,15 @@ fn lookup_outside_completeness_set_refused_before_evaluation() {
     .unwrap();
     assert!(p.tables[&p.names["p.w"]].optional());
     assert_eq!(number(&p, "p.w", &[entity(&p, "p.c", "p.item")]), 3.);
+    // An optional row's missing case is guarded before its members are read.
+    let optional = format!(
+        r#"package p {{ {ITEMS}
+ table o[j: item]: {{v: Scalar}} missing optional;
+ dataset d: o source "s" {{ [a] = [1.0]; }}
+ def Root {{ require o[a].v == 1 : "unguarded"; }}
+}}"#
+    );
+    assert!(refusal(&optional).contains("optional value must be guarded"));
 }
 
 /// A keyed-row reference cell names a keyed kind's row by its key cells, resolved at
