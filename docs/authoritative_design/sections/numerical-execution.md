@@ -103,17 +103,19 @@ reason; it is never zero or a fabricated NaN.
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — parametric
 > sensitivity, reduced Hessian, covariance and uncertainty propagation with PS-12 validity,
 > through one KKT-point analysis at the qualified candidate, in original coordinates (a
-> FERAL factor with inertia and `pounce-sens-core`), for every NLP and QP route (Plan 22
-> S0–S4; not yet implemented). ADR-0118 supersedes ADR-0107, whose two-route mechanism
-> (POUNCE `SensSolve` and an Ipopt barrier replica) and presolve restriction no longer
-> apply.
+> FERAL factor with inertia and `pounce-sens-core`), for every NLP and QP route. Implemented
+> for the NLP routes (Ipopt, POUNCE and SCIP's fixed-assignment re-solve): the analysis
+> (Plan 22 S0), parametric sensitivity and the reduced Hessian (S1,
+> [§15.5.1](#section-15-5-1)), covariance and intervals (S3,
+> [§19.4](workflows-and-results.md#section-19-4)) and propagation (S4,
+> [§19.8](workflows-and-results.md#section-19-8)). The QP routes (HiGHS, Clarabel and
+> POUNCE-convex, Plan 22 N5) are not yet served. ADR-0118 supersedes ADR-0107, whose
+> two-route mechanism (POUNCE `SensSolve` and an Ipopt barrier replica) and presolve
+> restriction no longer apply.
 >
 > Decision: [ADR-0109](../../adr/0109-pounce-l1-and-convex-methods.md) — whole-model
 > infeasibility explanation through the explicit POUNCE ℓ1 route (Plan 22 N3,
 > implemented, [§18.3](#section-18-3)).
-
-None of the ADR-0118 analyses is built yet: there is no parametric sensitivity, reduced
-Hessian, covariance or uncertainty result. What exists today is listed below.
 
 Each analysis is opt-in or bounded, and none replaces the original candidate:
 
@@ -122,13 +124,16 @@ Each analysis is opt-in or bounded, and none replaces the original candidate:
 | Infeasibility rays, IIS, basis ranging, feasibility relaxation; fixed-commitment LP duals, basis-inverse rows, the presolved LP and the root cut pool | HiGHS native diagnostics (`highs::diagnostics`) on copied models ([§18.10](#section-18-10)), restored to original coordinates except the basis-inverse and presolve views, which stay in the native normalized model | Diagnostic data only; a relaxed point is never a primal solution. MIP IIS concerns the LP relaxation, and fixed-commitment duals are conditional on the MIP's discrete solution. Penalties are explicit physical declarations, never inferred from units |
 | Presolve rank diagnostics | pounce-presolve equality-rank pass | No objective-changing remedy |
 | Numerical PSD qualification | Resource-bounded faer eigenanalysis with residual qualification | Explicit opt-in; never repairs the matrix (§18.10) |
-| Post-solve curvature | For an original-feasible optimizing NLP candidate with valid multipliers (both NLP adapters, through the one NLP runner): FERAL LDLᵀ of the normalized KKT matrix over the free variables and the active constraints, with certified inertia and a Hager–Higham 1-norm condition estimate; the reduced Hessian is tested on the null space of the strongly active constraints, then, with weakly active ones, of all active ones (`conditioning`, `Evidence::second_order`) | A local verdict (`sufficient`, `negative_curvature`, `singular`, `undecided`); a check that cannot run leaves its reason in the metrics; no sensitivity or covariance claim |
+| KKT-point analysis | For an optimizing NLP candidate, through the one NLP runner (Ipopt, POUNCE and SCIP's fixed-assignment re-solve): one active-set KKT system in original coordinates, factored by FERAL with certified inertia and a Hager–Higham condition estimate (`kkt`, `Evidence::local`, [§15.5.1](#section-15-5-1)) | A local verdict on activity, LICQ and curvature (`sufficient`, `negative_curvature`, `singular`, `undecided`); an analysis that cannot run is a typed `Unavailable`; coefficient, cone and root routes have none |
+| Parametric sensitivity and reduced Hessian | On request (`SolveSettings.sensitivity`), read from the same analysis over the model's parametric program with the parameters pinned ([§15.5.1](#section-15-5-1)) | Local and first-order, valid while the active set holds; each quantity is certified or withheld with its reason (`runtime.local_validity`) |
+| Verified infeasibility certificates | Clarabel's rays, and HiGHS's when its diagnostics request them, recovered to original coordinates and verified against the original data (`runtime.infeasibility_certificates`, [§18.10](#section-18-10)) | Only a verified ray at full native accuracy carries the `certificate` assurance; a ray is never a candidate |
 | Jacobian conditioning | FERAL sparse LU of a square Jacobian in a stated scaling, with a Hager–Higham 1-norm estimate (`conditioning::jacobian_condition`), reported as the `jacobian.condition_estimate` modeling finding | An estimate and a lower bound; none when the LU is singular |
-| Fit response rank and conditioning | faer pivoted LU for implicit response, bounded SVD for scaled observation rank | Rank does not imply covariance, estimator sensitivity or global identifiability |
+| Fit response rank and conditioning | faer pivoted LU for implicit response, bounded SVD for scaled observation rank; the right singular vectors in `runtime.response_directions` | Rank alone implies no covariance, which has its own rule ([§19.4](workflows-and-results.md#section-19-4)); global identifiability is not claimed |
 
-The curvature and conditioning rows are Plan 22 N4 (*Tested* by
-`kkt_inertia_certifies_second_order`, `second_order_verdicts_follow_the_inertia` and
-`jacobian_condition_estimate_matches_dense_reference`, native backend units).
+The Jacobian conditioning row is Plan 22 N4 (*Tested* by
+`jacobian_condition_estimate_matches_dense_reference`, native backend units). The KKT-point
+analysis (Plan 22 S0) replaced N4's post-solve curvature check, its two-pass assembly and
+its `second_order.unavailable` metric.
 
 Authored diagnostic profiles also drive bounded faer Jacobian SVD, selected linear and
 Jacobian optimization analyses, and nonlinear elastic/deletion explanations. The nonlinear
@@ -143,6 +148,114 @@ inconclusive limits and unattempted work; a deletion heuristic is not a proof of
 infeasible subsystem. Finite studies retain per-case outcomes and explicit predecessor
 dependence. The generic profile/knowledge contract is proposed
 [ADR-0101](../../adr/0101-modeling-analysis-knowledge.md).
+
+#### 15.5.1 KKT-point analysis and parametric sensitivity
+
+> Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — one KKT-point analysis
+> in original coordinates (Plan 22 S0 and S1, implemented for the NLP routes; the QP routes,
+> N5, are not yet served).
+
+**The analysis** (Plan 22 S0, `pse-backend-native::kkt`). The one NLP runner
+([§18.7](#section-18-7)) analyses the candidate against the original model when the step's
+`kkt::Analysis` asks for it. `Analysis::for_intent` asks under the `optimize` intent only,
+and an analysis requested under another intent is a contract error. A report without a
+candidate or an original observation gets no analysis; a candidate whose multipliers could
+not be recovered, or that is infeasible in original coordinates, gets a typed `Unavailable`
+(`Multipliers`, `Infeasible`). Otherwise one active-set KKT system is assembled
+from the original model's derivative programs at the recovered candidate, in the layout
+`[x; active rows; active bound rows]`: every variable keeps its row, and an active bound,
+including an `l = u` pin, is a row of its own (`−eⱼ` for a lower bound, `+eⱼ` for an upper
+one), so each bound multiplier names its variable. The derivatives, the candidate and its
+recovered multipliers are original values. FERAL factors the normalized congruence
+`K̃ = P·K·P/S_f`, with `P` built from the declared normalization of variables, rows and
+objective: pivoting, zero-pivot detection and the condition estimate are scale dependent and
+use the matrix the numerical policy declares well scaled, while inertia is invariant under
+the congruence, so every verdict is coordinate free. `KktFactor` answers in original
+coordinates through the explicit back-map and implements `pounce-sens-core`'s
+`SensBacksolver`.
+
+- *Activity.* An active constraint is strongly active when its normalized multiplier
+  exceeds the resolved stationarity budget and weakly active otherwise; equalities and pins
+  are always strongly active.
+- *LICQ* is read from the inertia of `[I Aᵀ; A 0]` over the active gradients `A`
+  (`Licq::Independent`, or `Dependent` with its deficiency), so a dependent active set and a
+  singular reduced Hessian are distinct verdicts.
+- *Curvature* (`Curvature`) is the reduced Hessian's inertia: the KKT inertia less that of
+  the constraint block. `negative_curvature` along a direction satisfying every active
+  constraint refutes a local minimizer; `singular` is a zero eigenvalue on the null space
+  of the active gradients; `sufficient` is positive definiteness on the null space of the
+  strongly active constraints, which is second-order sufficiency; `undecided` means weakly
+  active constraints exist and neither test decides. With weakly active constraints the
+  same assembly with their rows released tests the null space of the strongly active ones.
+- *Result.* `Evidence::local` holds a `KktPoint` (the activities, LICQ, curvature, inertia,
+  the Hager–Higham 1-norm condition estimate and the normwise backward error of a refined
+  backsolve) or a typed `Unavailable` (`Multipliers`, `Infeasible`, `Hessian`, `Limit` or
+  `Failed`). It is typed evidence, never a metric.
+
+SCIP's fixed-assignment re-solve ([§18.10.1](#section-18-10-1)) runs through the same
+runner, so an adopted candidate keeps its analysis, conditional on the assignment. The
+coefficient, cone and root runners have no local analysis. *Tested* by
+`kkt_inertia_certifies_second_order` (Ipopt and POUNCE),
+`second_order_verdicts_follow_the_inertia`, `licq_failure_distinct_from_singular_curvature`,
+`kkt_factor_backsolve_matches_dense_reference`, `local_analysis_unavailable_is_typed` and
+`fixed_assignment_resolve_keeps_local_analysis` (native backend units).
+
+**Parametric sensitivity** (Plan 22 S1). `SolveSettings.sensitivity` requests it as a
+`SensitivityRequest`: declared parameters of the solved case by identity (at least one, none
+repeated), whether to add the reduced Hessian, and an optional propagation
+([§19.8](workflows-and-results.md#section-19-8)). It is admitted under the `optimize` intent
+only and enters the solver profile identity. The solve keeps the parameters fixed; they are
+pinned only in the analysis. Preparation builds the view's parametric program once
+(`CasePlan::parametric`: the plan's columns followed by the parameters, at second order,
+cached with the view; `pse.compiler.modeling-parametric.v1`), and after qualification the
+analysis pins the parameter columns at their values (`transform::Pinned`, sIPOPT's pin
+formulation). A pin's multiplier is not read from any solver: it is computed as the
+original stationarity of the parameter column, `∂f/∂p + (∂g/∂p)ᵀλ`, which by the envelope
+theorem is also `df*/dp`. `pounce-sens-core` then reads the parametric step over the pin rows
+from the factor: `dx/dp`, the derivatives of the row and bound multipliers and `df*/dp`, in
+original physical units per parameter unit whatever presolve removed, and on request the
+reduced Hessian `H_R = d²f*/dp²` with its eigen-decomposition. Over the pin rows the Schur
+reduction returns `−H_R`, and the analysis negates it. The eigen-decomposition is taken on the
+normalized factor, where the dimensionless `S_p·H_R·S_p/S_f` does not depend on the choice
+of units; both the physical and the normalized matrix are published. `df*/dp` and the
+reduced Hessian follow the authored objective sense. A request whose parametric callbacks
+cannot be built withholds its quantities and never refuses the solve.
+
+The quantities are certified only at a candidate qualified `Stationary` or better, with a
+recovered multiplier for every original row and bound that passes original-coordinate
+complementarity (presolve is never switched off to recover one), and only when the pinned
+parametric KKT point has independent active gradients, no weakly active constraint and
+second-order sufficiency. Otherwise each requested quantity is withheld.
+`runtime.local_validity` publishes one `LocalValidity` row per requested quantity: whether
+it is certified or the `WithheldReason` (`no_candidate`; `no_local_analysis` on a
+coefficient, cone or root route; `multipliers_unrecovered`, `complementarity_failed`,
+`not_stationary`, `analysis_unavailable`, `licq_failed`, `weakly_active`,
+`second_order_failed` or `backsolve_failed`; the fitting and propagation reasons of
+[§19.4](workflows-and-results.md#section-19-4) and
+[§19.8](workflows-and-results.md#section-19-8)) with its typed detail, whether the quantity
+is conditional on a discrete assignment, and the LICQ, strict-complementarity and
+second-order verdicts, the weakly active count, the condition estimate and the backsolve
+residual of the point it was read from. Certified data are in
+`runtime.parametric_sensitivities` and `runtime.reduced_hessians`; a withheld quantity has
+no data rows. The duals of a step whose sensitivities are certified are
+`sensitivity_certified` (`DualQualification`); otherwise they stay
+`evaluated_kkt_not_sensitivity_certified`. Ipopt, POUNCE and the SCIP re-solve give the same
+quantities.
+
+One limit is a withholding, not a repair: pounce-presolve's postsolve can return zero for a
+removed row's multiplier, the candidate then fails original stationarity and qualifies only
+`Feasible`, and its sensitivities are withheld as `not_stationary`. *Tested* by
+`sensitivity_matches_analytic_nlp` (Ipopt and POUNCE, including the first-order prediction
+of a re-solve at a perturbed parameter), `reduced_hessian_sign_pinned`,
+`sensitivity_withheld_when_sosc_fails`, `sensitivity_withheld_when_weakly_active`,
+`sensitivity_withheld_when_licq_fails`,
+`sensitivity_withheld_when_multiplier_fails_complementarity`,
+`sensitivity_backend_independent`, `sensitivity_survives_presolve` and
+`presolve_lost_multiplier_withholds_sensitivity` (native backend units), and
+`sensitivities_published_with_local_validity` and
+`sensitivity_withheld_without_local_analysis` (runtime units). The comparison against
+Ipopt's sIPOPT in the parity container that ADR-0118 names
+(`sensitivity_agrees_with_ipopt_sens`) is not built.
 
 ### 15.6 Reports
 
@@ -272,9 +385,11 @@ normalized native stopping budgets: feasibility is the minimum of the comparable
 variable/row budgets; stationarity, complementarity, integrality and gaps come from the
 policy. Neither the raw maximum nor the raw minimum of differently dimensioned
 tolerances is ever used. `ResolvedAccuracy` is not a user control. The caller's `Controls`
-choose time and iteration limits, threads, history, the Hessian mode, reuse, the start
-policy and native options, and carry no accuracy, so nothing a caller supplies can stand in
-for the resolved value. Preparation resolves it once (`PreparedSolve::accuracy`; per block
+choose time and iteration limits, threads, history, the Hessian mode (`HessianMode`:
+`exact`, `limited_memory`, or `gauss_newton` for a least-squares fit objective only,
+[§19.4](workflows-and-results.md#section-19-4)), reuse, the start policy and native
+options, and carry no accuracy, so nothing a caller supplies can stand in for the resolved
+value. Preparation resolves it once (`PreparedSolve::accuracy`; per block
 for initialization; from the map's own policy for a causal map), and every adapter, runner
 and qualification receives that value. A nested library solve resolves its own from its
 budgets (`ResolvedAccuracy::from_policy`). Derived library options:
@@ -624,7 +739,7 @@ The compiler's immutable case products are projected into class-specific views
 | `NleOracle` | Square residuals with an assembled Jacobian or Jacobian-vector product | KINSOL |
 | KINSOL `Function` | Residual equations, explicit Picard splitting `F(x) = Lx - N(x)` with a declared constant `L`, or a declared causal map with an original residual validator | KINSOL |
 | `CoefficientProblem` | Sparse LP/MILP/QP coefficients with objective sense and constant, the declared registry variable domains (`ModelingVariableDomain`, including `semicontinuous` and `semiinteger`) and consumed parameter assumptions | HiGHS |
-| `ConicProblem` | Explicit data in Clarabel's own matrix and cone types | Clarabel |
+| `ConicProblem` | Cone data in pse-owned sparse-matrix and cone types (`conic::SparseMatrix`, `conic::Cone`): declared by an explicit cone request, or lowered from a `CoefficientProblem` when a linear or convex quadratic program is routed to Clarabel (`ConicProblem::from_coefficients`, [§18.10](#section-18-10)) | Clarabel |
 | `FactorableProgram` | Library-neutral factorable DAG over original case columns with per-row fidelity, projected under the step's values only for a factorable route ([§7.5](mathematics-and-compilation.md#section-7-5)) | SCIP |
 
 Coefficient views are derived only through admitted affine/degree-two proofs, and cones
@@ -640,9 +755,8 @@ converts it. A free discrete column removes `smooth_nlp` and `square_root`; it m
 coefficient-eligible model `mixed_linear`, or `mixed_integer_quadratic` with a quadratic
 objective, and any other model `mixed_integer_nonlinear` ([§18.7](#section-18-7)). An
 authored MILP therefore routes to HiGHS under an optimization intent, while MIQP and MINLP
-route to SCIP ([§18.10.1](#section-18-10-1)), whose export refuses semicontinuous and
-semiinteger columns until they have a declared lowering. Integrality is never relaxed to
-reach a route.
+route to SCIP ([§18.10.1](#section-18-10-1)), whose export lowers semicontinuous and
+semiinteger columns by `semi(indicator)`. Integrality is never relaxed to reach a route.
 
 Constraint forms and disjunctions ([§19.7](workflows-and-results.md#section-19-7)) reach
 every representation as the ordinary rows and variables of their lowering. A form realized
@@ -778,9 +892,11 @@ retained C problem is reused only when its coordinate and profile stamps
 every key ever set on the problem; every solve re-applies all of its own option values,
 and the retained key set becomes the step's. A step that adds keys, such as a primal-dual
 restart after a cold start, therefore reuses the problem, and a step that drops one
-rebuilds it (or is refused under `RequireReuse`). *Tested* by
-`reused_session_does_not_inherit_options` for both adapters (native backend units; the
-Ipopt rule since `82874e7d`). POUNCE's hidden second solves, `mu_strategy_fallback` and
+rebuilds it, or under `RequireReuse` is refused with `ReuseRefusal::DroppedOptions` naming
+the keys ([§18.7](#section-18-7)). *Tested* by `reused_session_does_not_inherit_options` for
+both adapters, and by `reused_problem_reapplies_changed_values` and
+`required_reuse_names_its_refusal` for Ipopt (native backend units). POUNCE's hidden second
+solves, `mu_strategy_fallback` and
 `dual_divergence_retry`, are pinned off, as is its automatic ℓ1 retry after restoration
 failure (`l1_fallback_on_restoration_failure`); the exact-penalty switch
 (`l1_exact_penalty_barrier`) is set only by the typed ℓ1 method. A result therefore never
@@ -815,7 +931,10 @@ feasible, not stationary. HiGHS's QP regularization is derived from the requeste
 >
 > Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — one typed
 > `InfeasibilityCertificate`, verified in original coordinates for Clarabel and HiGHS rays
-> alike, replaces the string-keyed certificate metrics (Plan 22 C4; not yet implemented).
+> alike, replaces the string-keyed certificate metrics (Plan 22 C4, implemented).
+>
+> Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — the KKT-point analysis
+> is typed evidence of the step (Plan 22 S0, implemented, [§15.5.1](#section-15-5-1)).
 
 `pse-backend-native::solve::SolveReport` is one envelope per attempt, including attempts
 without a usable candidate. Its facts are independent:
@@ -826,15 +945,16 @@ without a usable candidate. Its facts are independent:
 | Candidate kind | `FinalIterate`, `BestIterate`, `FeasiblePoint` or `ConstantEvaluation`: what the API actually supplied |
 | Feasibility | Original-space `Quality` (§15.4) |
 | Stationarity / optimum / gap | `Qualification`: `Unqualified` < `Feasible` < `Stationary`, `OptimalWithinTolerance`, `GapQualified` |
-| Certificates | Native infeasibility/unboundedness certificates, never exposed as primal solutions |
+| Certificates | One typed `InfeasibilityCertificate`: a primal-infeasible (Farkas) or dual-infeasible (recession) ray at `full` or `reduced` native accuracy, recovered to original coordinates with its verification ([§18.10](#section-18-10)); never exposed as a primal solution |
+| Local analysis | `Evidence::local`: the KKT point of an optimizing NLP candidate, or why it is unavailable ([§15.5.1](#section-15-5-1)); requested sensitivities and their validity beside it |
 | Completeness | Unattempted sequence steps are counted; partial trajectories and dropped events are explicit |
 | Evidence gaps | `EvidenceUnavailableReason` on metrics and observations; absent means unavailable, never zero |
 
 `quality::qualify` grants only what original observations support. A validation error,
 missing candidate or infeasible quality yields `Unqualified`. Feasibility yields
 `Feasible`. Beyond that, the kind of typed evidence the adapter recorded selects the rule,
-and every rule but the global one needs a success or acceptable native stop. No backend is
-named, so a new adapter qualifies through the evidence it produces:
+and every rule but the global and certificate ones needs a success or acceptable native
+stop. No backend is named, so a new adapter qualifies through the evidence it produces:
 
 - `GlobalEvidence`, recorded by a certifying adapter over a factorable export, is read first
   and follows its own rule ([§18.10.1](#section-18-10-1)): an original-feasible candidate is
@@ -847,6 +967,11 @@ named, so a new adapter qualifies through the evidence it produces:
   reports the solve exact and the dual bound's source is `ExactExport`) grants
   `exact_certificate` instead, the only rigorous assurance, and a gap closed that way
   qualifies as `OptimalWithinTolerance` rather than `GapQualified`;
+- otherwise an infeasibility certificate decides alone: a ray is never a candidate, so the
+  report stays `Unqualified`, and it carries the `certificate` assurance only when the ray is
+  at full native accuracy and verified against the original data
+  (`InfeasibilityCertificate::certified`); a reduced-accuracy or unverified ray, or one whose
+  original data could not be evaluated, grants no assurance;
 - otherwise `CoefficientEvidence` needs a verified upload-equivalence readback plus either a MIP gap
   within budget (`GapQualified`, or `OptimalWithinTolerance` at a zero gap) or LP/QP dual
   feasibility and primal-dual error within budget (`OptimalWithinTolerance`);
@@ -865,8 +990,9 @@ terminal failure latched), whether a start was submitted through the native API,
 the attempt reused retained native state, the interior-point restart applied to a
 primal-dual seed and whether an active-set working set reached the solver
 ([§18.3](#section-18-3)), original-coordinate KKT acceptance (`KktEvidence`, recorded by
-`quality::record_kkt`), the post-solve second-order check of an optimizing NLP candidate
-(`SecondOrder`, [§15.5](#section-15-5)), HiGHS coefficient-model evidence
+`quality::record_kkt`), the KKT-point analysis of an optimizing NLP candidate
+(`Evidence::local`, [§15.5.1](#section-15-5-1)) with any requested sensitivities, HiGHS
+coefficient-model evidence
 (`CoefficientEvidence`: upload equivalence, discreteness, objective, MIP gap and dual
 bound, primal and dual solution status, dual infeasibility and primal-dual objective error),
 Clarabel conic residuals (`ConicEvidence`) and a certifying adapter's `GlobalEvidence`
@@ -903,12 +1029,14 @@ use (§16.6) combines these facts with physical closure.
 > [ADR-0116](../../adr/0116-typed-boundary-documents.md) — typed routes, eligibility rows
 > and registry reason codes across the Python boundary (Plan 22 A5, implemented);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — lexicographic and weighted
-> multi-objective routes (Plan 22 C3; not yet implemented).
+> multi-objective routes (Plan 22 C3: the authored members and levels are implemented,
+> [§6.8](schema-and-relations.md#section-6-8); the native lexicographic and staged
+> routes, the C3 engine, are not yet implemented).
 >
 > Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — automatic ownership per
-> class (`Capability.automatic_classes`), convexity classes from the compiler fact, and a
-> numerical PSD qualification only for the request whose explicit policy asks for it (Plan
-> 22 C4 and C5; not yet implemented).
+> class (`Capability.automatic_classes`, Plan 22 C4, implemented); convexity classes from
+> the compiler fact, and a numerical PSD qualification only for the request whose explicit
+> policy asks for it (Plan 22 C5; not yet implemented).
 
 Capability is five distinct facts:
 
@@ -926,7 +1054,8 @@ to its adapter through an exhaustive match, so a new registry value cannot compi
 one; there is no string lookup. Each adapter declares one representation (`Nlp`, `Roots`,
 `Coefficients`, `Cone`, `Factorable` or `Trajectory`); the algebraic router assesses every
 adapter except the trajectory ones. Each adapter owns its pse-owned settings type, one
-`Capability` record (classes, derivative representation, warm-start support, general bounds,
+`Capability` record (classes, the subset of them it serves automatically
+(`automatic_classes`), derivative representation, warm-start support, general bounds,
 one-sided bounds as shifted sign constraints (`sign_bounds`), parallelism, whether it
 certifies global bounds (`certifies`), the native constraint handlers it consumes
 (`native_forms`), reuse, cancellation and diagnostics), admission of its settings
@@ -939,8 +1068,14 @@ and enters the request identity and the native profile stamp ([§17.6](#section-
 Native state retained between the finite steps of a sequence is an opaque, worker-owned
 `execution::Retained`: an adapter reuses only its own session, when the coordinate and
 profile stamps match (`Compatibility::same_session`) and `ReusePolicy` allows, and
-otherwise tears it down before building a replacement; `RequireReuse` refuses instead. A
-reused session never inherits an earlier step's native options ([§18.3](#section-18-3)).
+otherwise tears it down before building a replacement. `RequireReuse` refuses instead, with
+a typed `ReuseRefusal`: `Foreign` when another backend holds the retained state,
+`Structure` when coordinates, profile, sparsity, bounds or settings differ, and
+`DroppedOptions` naming the options a retained Ipopt problem holds that the step does not
+set ([§18.3](#section-18-3)); the boundary rule is `native.reuse`, class `incompatible`
+([§23.2](operations-and-validation.md#section-23-2)). A reused session never inherits an
+earlier step's native options ([§18.3](#section-18-3)). *Tested* by
+`stub_backend_routes_through_adapter_table` (native backend units).
 The retained state lives on the native session of a staged sequence
 ([§18.8](#section-18-8)), and a step whose candidate is not a result drops it.
 
@@ -963,16 +1098,25 @@ problem adds `linear` or `mixed_linear` when it is affine, and when it is quadra
 `convex_quadratic` with convexity evidence, `nonconvex_quadratic` without it, or
 `mixed_integer_quadratic` with a discrete column; a discrete problem that is not
 coefficient-eligible is `mixed_integer_nonlinear`. Explicit cones and trajectories are never
-inferred from algebraic facts. Automatic selection takes the eligible adapter with the
-lowest automatic rank: KINSOL, HiGHS, Ipopt, POUNCE, Clarabel, then SCIP. A rank orders a
-choice and never grants eligibility; Diffsol and IDAS are trajectory adapters that the
-algebraic router never assesses. Roots and initialization therefore reach KINSOL, then
-Ipopt, then POUNCE: one-sided bounds stay with KINSOL ([§18.10](#section-18-10)), and roots
-with two-sided boxes route to a constrained NLP adapter rather than dropping bounds.
-Optimization reaches HiGHS for admitted coefficient classes, then Ipopt, then POUNCE, and
-SCIP only for mixed-integer quadratic and nonlinear programs, which no other adapter
-represents; a continuous nonconvex QP therefore stays with the local NLP adapters unless
-certification is requested. Clarabel is reached only through an explicit cone request.
+inferred from algebraic facts. The classes are ordered most specific first: `square_root`,
+then the coefficient or discrete class, then `smooth_nlp`. Automatic selection walks them in
+that order and, for the first class that has one, takes the eligible adapter whose record
+lists that class among its `automatic_classes` with the lowest automatic rank (KINSOL,
+HiGHS, Ipopt, POUNCE, Clarabel, then SCIP). A rank orders the owners of one class and never
+grants eligibility; Diffsol and IDAS are trajectory adapters that the algebraic router never
+assesses. Roots and initialization therefore reach KINSOL, then Ipopt, then POUNCE:
+one-sided bounds stay with KINSOL ([§18.10](#section-18-10)), and roots with two-sided boxes
+route to a constrained NLP adapter rather than dropping bounds. Optimization reaches HiGHS
+for admitted linear, mixed-linear and convex quadratic programs, then Ipopt, then POUNCE.
+SCIP is automatic for mixed-linear, mixed-integer quadratic and nonlinear programs and
+smooth NLP, behind HiGHS, Ipopt and POUNCE, so it is selected automatically for MIQP and
+MINLP, which no other adapter represents, and wherever the others are ineligible, as for
+native constraint forms; a continuous nonconvex QP stays with the local NLP adapters unless
+certification is requested. Clarabel serves `linear`, `convex_quadratic` and
+`continuous_cone` but is automatic only for cones, so an LP or convex QP reaches it only by
+explicit selection, and a cone only through an explicit cone request, since cones are never
+inferred. *Tested* by `problem_classes_follow_facts_and_intent`,
+`explicit_only_classes_never_automatic` and `miqp_routes_to_scip` (native backend units).
 
 An explicit selection is never substituted. An unlinked choice fails with `Unavailable`,
 whose alternatives are the other linked adapters that the capability rule finds eligible
@@ -999,9 +1143,12 @@ assessment by registry spelling.
 (`Constant` or `Native(backend)`) and one `routing::Eligibility` row per assessed adapter:
 the backend and every applicable `Ineligible` reason, empty when eligible. Each reason has
 one registry code, `NativeIneligibility` (`not_linked`, `serial`, `not_square_root`,
-`no_objective`, `certification`, `class`, `derivatives`, `bounds`, `native_forms`;
-`Ineligible::code`), and keeps its typed detail: the problem's classes, the required
-derivative order, whether sign bounds were representable, or the missing handlers. The
+`no_objective`, `certification`, `class`, `derivatives`, `bounds`, `native_forms`,
+`least_squares`; `Ineligible::code`), and keeps its typed detail: the problem's classes, the
+required derivative order, whether sign bounds were representable, or the missing handlers.
+`least_squares` marks a Gauss–Newton Hessian requested for anything but a least-squares fit
+objective, which only fitting declares ([§19.4](workflows-and-results.md#section-19-4)); every
+adapter refuses it before native work (`gauss_newton_requires_least_squares_objective`). The
 Python boundary exposes them as `NativeRoute`, `NativeEligibility` and `NativeIneligible`
 values in registry spellings, never as Rust `Debug` text. No runtime relation publishes
 them. *Tested* by `test_route_and_eligibility_are_typed` (Python unit test).
@@ -1064,7 +1211,10 @@ native stack, live jobs and flights.
   event handler, integrator step boundaries). HiGHS' QP solver and PDLP never poll the interrupt
   callback, so they stop only at their native time limit. A long native factorization
   completes before teardown.
-- KINSOL and Clarabel profiles are serial; Ipopt, POUNCE, HiGHS and SCIP may use admitted
+- KINSOL is serial. Clarabel is serial with QDLDL and runs its MKL Pardiso KKT solver on
+  admitted MKL threads (`conic::admit_threads`), so its record is `parallel` only in a build
+  with `clarabel-pardiso`; the owning worker's MKL-local thread count is set for the solve
+  and restored afterwards (`mkl::Threads`). Ipopt, POUNCE, HiGHS and SCIP may use admitted
   threads. A count that a record cannot use is ineligible (`Ineligible::Serial`), and one
   its settings cannot use is refused when the settings are admitted
   (`BackendExecution::admit_settings`), both during preparation. FERAL factorizes on its own
@@ -1087,14 +1237,15 @@ native stack, live jobs and flights.
 - SCIP solves concurrently when more than one thread is admitted: `SCIPsolveConcurrent` in
   deterministic mode (`parallel/mode` 1) with exactly the admitted count
   (`parallel/minnthreads` and `parallel/maxnthreads`), its LP solver kept at one thread
-  (`lp/threads`). The record says `parallel`, and `scip::Settings::admit` refuses more than
-  one thread only together with exact solving or reoptimization. Copies of the event handler
-  in the concurrent solvers poll for cancellation only ([§18.10.1](#section-18-10-1)). The
-  admitted count is recorded as `scip.threads`. *Tested* by
-  `concurrent_mode_under_admitted_permits`, a two-thread solve that checks the native options
-  and a gap-qualified result; incumbent streaming and cancellation under concurrency are not
-  yet tested (`scip_concurrent_streams_incumbents` is scheduled in the
-  [solver scope packet](../../plans/22-solver-scope-execution.md)).
+  (`lp/threads`) and presolve left to the concurrent solvers (`concurrent/presolvebefore`
+  false). The record says `parallel`, and `scip::Settings::admit` refuses more than one
+  thread only together with exact solving or reoptimization. Copies of the event handler in
+  the concurrent solvers poll for cancellation and stream their improving solutions as
+  incumbents ([§18.10.1](#section-18-10-1)). The admitted count is recorded as
+  `scip.threads`. *Tested* by `concurrent_mode_under_admitted_permits`, a two-thread solve
+  that checks the native options and a gap-qualified result, and
+  `scip_concurrent_streams_incumbents` (native backend units); cancellation under
+  concurrency is not yet tested.
 - Each attempt evaluator is built by one path, `MathService::worker`. Its provider workers
   are scoped to the attempt's cooperative cancel flag, so a nested native provider, such as
   an implicit inner solve, polls that same flag. Its numeric storage is charged to a
@@ -1117,18 +1268,21 @@ qualification matters ([§24.2](operations-and-validation.md#section-24-2)).
 > [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — the target adds SCIP,
 > POUNCE-convex and extended dynamics; rows change only as Plan 22 packets land. Since
 > Plan 22 A2 (implemented) each row is published from its adapter's capability record.
-> Implemented: SCIP (G1, G3–G7, with G4 and G6 partial as stated in
+> Implemented: SCIP (G1, G3–G7 and the semi lowering, with G4 and G6 partial as stated in
 > [§18.10.1](#section-18-10-1)), the Ipopt linear solvers and their threads (N1), the IDAS
-> and Diffsol extensions (Y1, Y2) and the KINSOL extensions (Y6); not yet implemented:
-> POUNCE-convex (N5) and Y3–Y5.
+> and Diffsol extensions (Y1, Y2), scheduled inputs (Y0c), adjoint sensitivities (Y3),
+> Gauss–Newton and exact transient Hessians (Y4), shooting (Y5b) and the KINSOL extensions
+> (Y6, with the byte-bounded session cache); not yet implemented: POUNCE-convex (N5).
 >
 > Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — the records publish
 > `automatic_classes`; Clarabel serves `linear`, `convex_quadratic` and `continuous_cone`,
-> automatically only for cones (Plan 22 C4 and C5; not yet implemented).
+> automatically only for cones (Plan 22 C4, implemented; cone recognition from compiler
+> facts, C5, is not yet implemented).
 
 The linked inventory is the static adapter table `execution::LINKED`
-(`pse-backend-native/src/execution.rs`). `runtime.solver_capabilities` publishes one row
-per linked adapter from the capability record routing reads ([§18.7](#section-18-7)); the
+(`pse-backend-native/src/execution.rs`). `runtime.solver_capabilities` (version 2, which adds
+`automatic_classes`) publishes one row per linked adapter from the capability record
+routing reads ([§18.7](#section-18-7)); the
 test `published_capabilities_equal_routing_rules` rebuilds each adapter from its published
 row alone and checks that routing assesses it identically. Feature
 `pse-runtime/native-solvers` links the full profile, and Clarabel's non-SDP route is always
@@ -1142,10 +1296,10 @@ the algebraic router never assesses them.
 | POUNCE | Smooth NLP | General | Exact Hessian or limited memory | Primal/dual with a typed restart; working set | Admitted pool |
 | KINSOL | Square root, declared fixed point | One-sided, as shifted signs | Jacobian or JVP | Primal | Serial |
 | HiGHS | LP, MILP, convex QP | General, semi domains | Coefficients | Primal/dual, basis, partial MIP start; QP hot start | Admitted |
-| Clarabel | Explicit cones (SDP with `solver-sdp`, on oneMKL) | General | Coefficients | None | Serial |
-| SCIP | LP, MILP, convex and nonconvex QP, MIQP, MINLP, smooth NLP; certifies; all seven native constraint forms | General; finite boxes inside nonlinear terms | Factorable | Primal incumbent | Admitted: deterministic concurrent mode, except with exact solving or reoptimization |
-| Diffsol | ODE, semi-explicit index-1 | None | First, smooth sensitivities | None | Serial |
-| IDAS | ODE, semi-explicit index-1 | None | First, smooth sensitivities | None | Serial |
+| Clarabel | Explicit cones, automatic (SDP with `solver-sdp`, on oneMKL); LP and convex QP by explicit selection, lowered to cone form | General | Coefficients | None | QDLDL serial; MKL Pardiso on admitted MKL threads (`clarabel-pardiso`) |
+| SCIP | LP, MILP, convex and nonconvex QP, MIQP, MINLP, smooth NLP; certifies; all seven native constraint forms | General, semi domains through `semi(indicator)`; finite boxes inside nonlinear terms | Factorable | Primal incumbent | Admitted: deterministic concurrent mode, except with exact solving or reoptimization |
+| Diffsol | ODE, semi-explicit index-1 | None | Forward or adjoint first-order sensitivities | None | Serial |
+| IDAS | ODE, semi-explicit index-1 | None | Forward or adjoint first-order sensitivities; second order by forward-over-adjoint | None | Serial |
 
 HiGHS is linked at 1.15. Its record states that simplex, IPM and MIP honour the interrupt
 callback while its QP solver and PDLP stop only at the native time limit
@@ -1155,17 +1309,20 @@ part of `native-solvers`); its record is the only one that `certifies` and the o
 lists native constraint handlers ([§18.10.1](#section-18-10-1)). The published row carries the
 `certifies` and `native_forms` columns. `sign_bounds` means one-sided bounds of any value,
 represented as sign constraints on shifted coordinates (KINSOL, [§18.10](#section-18-10)).
+The Diffsol and IDAS records still publish the derivative capability
+`first_with_smooth_sensitivities`: the adjoint and second-order routes of
+[§13.6](workflows-and-results.md#section-13-6) are profile choices the records do not yet
+distinguish.
 
-Outside the matrix today: semicontinuous and semiinteger columns on SCIP; global solving
-where a provider output without a declared envelope enters a nonlinear term (no production
-provider declares one yet); exact rational solving of anything but a linear program without
-native forms; native handlers on any adapter but SCIP; automatic cone recognition;
-parametric sensitivity, reduced Hessian and covariance; adjoint and second-order
-sensitivities; general or higher-index DAE; finite-difference derivatives; GPU and
-distributed execution. Of these, the `semi(indicator)` lowering for SCIP (ADR-0103), cone
-recognition from compiler facts (Plan 22 C4, C5; ADR-0121), the KKT-point analyses (Plan 22
-S0–S4; ADR-0118) and adjoint and second-order sensitivities (Plan 22 Y3, Y4) are in the
-design target and not yet implemented. Durable multi-process execution through the
+Outside the matrix today: global solving where a provider output without a declared
+envelope enters a nonlinear term (no production provider declares one yet); exact rational
+solving of anything but a linear program without native forms, conditional rows or
+auxiliaries; native handlers on any adapter but SCIP; automatic cone recognition; a local
+analysis, sensitivities or covariance on the QP and cone routes; exact transient Hessians on
+Diffsol; general or higher-index DAE; finite-difference derivatives; GPU and distributed
+execution. Of these, cone recognition from compiler facts (Plan 22 C5; ADR-0121) and the
+KKT-point analysis of the QP routes (Plan 22 N5; ADR-0118) are in the design target and not
+yet implemented. Durable multi-process execution through the
 operational store ([ADR-0114](../../adr/0114-typed-operational-store.md),
 [§20.6](identity-and-publication.md#section-20-6)) is implemented: jobs across worker
 processes, studies, durable incumbents and resumption from them. General or higher-index
@@ -1184,9 +1341,11 @@ the target.
 > node budget, incumbents, fixed-commitment duals, the presolve and basis views and the
 > gap-derived QP regularization.
 >
-> Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — Clarabel's direct
-> solver is QDLDL or MKL Pardiso, with `faer-sparse` excluded, and HiGHS's convex-QP
-> admission reads the compiler's convexity fact (Plan 22 C4 and C5; not yet implemented).
+> Decision: [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — Clarabel serves LP and
+> convex QP besides cones, its direct solver is QDLDL or MKL Pardiso with `faer-sparse`
+> excluded, and its and HiGHS's rays become one verified certificate (Plan 22 C4,
+> implemented); HiGHS's convex-QP admission reads the compiler's convexity fact (Plan 22 C5;
+> not yet implemented).
 
 **KINSOL** (`kinsol`) owns Newton, line search, Picard and fixed-point iteration with
 Anderson acceleration. Callers choose only the typed `kinsol::Method`, the adapter's
@@ -1213,14 +1372,19 @@ refreshes the others, and never carries an earlier step's Newton-step, forcing-t
 Anderson controls.
 
 A nested implicit solve (`implicit.rs`) reuses KINSOL sessions through a per-worker-thread
-cache of up to eight sessions keyed by problem layout. The solve takes a compatible session
+cache keyed by problem identity and bounded in bytes. The solve takes a compatible session
 out of the cache, so a solve nested inside it cannot alias it; refreshes it with the call's
 function and parameters, keeping the SUNDIALS context, vectors and KLU analysis; and returns
-it afterwards, least recently used first out. The trial problem is lent to the session for
-one solve only. An inner unknown's one-sided bound is represented exactly, while a
+it afterwards, counted at its retained bytes (`kinsol::Session::retained_bytes`). The
+cache's budget is `MathPolicy.inner_session_bytes` (16 MiB by default), reserved in the job
+or native session lease ([§18.8](#section-18-8)) and handed to the owning thread
+(`implicit::budget_sessions`); sessions beyond it are released least recently used first, a
+session larger than the whole budget is not kept, and a thread that received no budget
+keeps none, so no cache outlives an admitted job. The trial problem is lent to the session
+for one solve only. An inner unknown's one-sided bound is represented exactly, while a
 two-sided interval keeps only its sign information and is rechecked afterwards
-(`Problem::verify`). The cached sessions are not yet charged to the job's worker budget (a
-recorded Plan 22 follow-up).
+(`Problem::verify`). *Tested* by `inner_session_cache_bounded_by_bytes` (native backend
+units).
 
 **HiGHS** (`highs`, HiGHS 1.15) receives a checked native upload whose full readback must
 match the coefficient view before any bound or optimality claim transfers. It supports LP
@@ -1262,8 +1426,10 @@ refused for a model without discrete columns, without a feasible solution or wit
 non-integral commitment. The other three are rows of the basis inverse of an optimal
 continuous LP, the native presolved LP of a copied model with its postsolved solution, and
 the pool of cuts after root cut generation. A view that cannot run records its reason.
-The runtime publishes the rays, IIS, ranging and relaxation as metrics; the four views are
-returned on the report only. The Jacobian degeneracy analysis (`jacobian_diagnostics`) runs
+The runtime publishes the rays, IIS, ranging and relaxation as metrics, and the rays of a
+continuous LP also become the typed, verified certificate described with Clarabel below; the
+four views are returned on the report only. The Jacobian degeneracy analysis
+(`jacobian_diagnostics`) runs
 its LP certificates and minimum-support MILPs with one HiGHS session per problem family,
 updated from anchor to anchor. *Tested* by `mip_node_budget_independent`,
 `highs_incumbents_streamed`, `qp_regularization_within_gap_budget`,
@@ -1274,20 +1440,65 @@ units).
 **Clarabel** (`conic`) receives explicit cones through a pse-owned boundary vocabulary:
 `conic::SparseMatrix` (CSC with its dimensions), `conic::Cone` (zero, nonnegative,
 second-order, exponential, power, generalized power and PSD triangle, tagged by `kind`) and
-`conic::Settings`, the mode plus every admitted native control; iteration and time
-budgets, stopping tolerances, equilibration, threads and the direct KKT method belong to
-the shared controls and the resolved accuracy. These types are the Python wire format and
+`conic::Settings`, the mode, the KKT direct solver and every admitted native control;
+iteration and time budgets, stopping tolerances, equilibration and threads belong to the
+shared controls and the resolved accuracy. These types are the Python wire format and
 the request identity (`pse.cone.layout.v3`) and map to Clarabel's own types only inside the
 adapter, so a Clarabel upgrade cannot change a Python contract or an identity; Clarabel's
 spellings are refused. Matrix, dimension and parameter checks precede the mapping. SDP uses
 packed PSD-triangle cones under the backend feature `sdp` (`pse-runtime/solver-sdp`), whose
 BLAS/LAPACK calls resolve into the image's one oneMKL provider (LP64, GNU threading)
 through Clarabel's provider-less `blas-src` and `lapack-src`; a build without it refuses a
-PSD cone. The adapter runs
-Clarabel serially (`max_threads` 1). `SingleSolve` permits native presolve/chordal
+PSD cone. `SingleSolve` permits native presolve/chordal
 preprocessing; `ReusableData` disables them to use native data updates. Results are
 post-processed into source space. *Tested* by `clarabel_boundary_types_are_pse_owned`
 (native backend units).
+
+The KKT direct solver is the registry vocabulary `ClarabelDirect`: `qdldl` (the default,
+serial) or `mkl_pardiso`, oneMKL Pardiso under the `clarabel-pardiso` profile, which admits
+more than one thread; a build without the profile refuses it, and QDLDL refuses more than
+one thread (`conic::admit_threads`). Clarabel's Pardiso loader opens a file named
+`libmkl_rt.so`, which the solver image does not ship; the adapter therefore checks once per
+process that `pardiso_` resolves into the linked LP64 interface library, publishes a
+`libmkl_rt.so` alias of that library in a private temporary directory through the loader's
+own `MKL_PARDISO_PATH` (the process's one environment write for it, made before the loader
+first reads it), and verifies that loading the alias returned the object already in the
+process and mapped no second oneMKL or Intel OpenMP runtime (`mkl::pardiso`); a loader that
+would find another `libmkl_rt` is refused. Moving the alias into the solver image is a
+recorded Plan 22 follow-up. `clarabel/faer-sparse` is not used: it would bring a second faer
+beside the pinned one.
+
+A linear or convex quadratic program explicitly routed to Clarabel is lowered to cone form
+(`ConicProblem::from_coefficients`): equality rows form one zero cone, each finite side of
+the other rows one nonnegative-cone row (upper before lower; a lower side's row takes its own
+identity under `pse.cone.lowered-row.v1`), a maximization is negated, the quadratic keeps
+only its upper triangle with evidence for exactly that matrix, and discrete columns are
+refused. Variable bounds stay on the contract and are appended as cone rows by the adapter.
+The coefficient runner lowers, solves and restates the result on the coefficient rows
+(authored-sense row duals, reduced costs and certificate coordinates) before the original
+model re-check.
+
+**Infeasibility certificates.** A primal-infeasible (Farkas) ray or a dual-infeasible
+(recession) direction from Clarabel, or from HiGHS when its diagnostics request rays
+(`diagnostics.rays`; fetching them on every infeasible LP is a recorded follow-up), becomes
+one typed `InfeasibilityCertificate` with its native accuracy (`full`, or `reduced` for
+Clarabel's almost-infeasible statuses). `transport::recover_certificate` restores it to
+original coordinates, and `certificate::verify` recomputes it against the original data
+with the feasibility budget as tolerance: for a Farkas ray the residual `|Aᵀy|` bounded over
+each finite box, the dual-cone violation and the margin by which `−bᵀy` exceeds the rows' and
+bounds' acceptance budgets weighted by `|y|`, which must be positive, so a problem
+infeasible by less than its budgets is never certified; for a recession direction an
+objective `qᵀx` below minus the tolerance relative to the direction's magnitude, with the
+worst residual and the cone violation within tolerance.
+`runtime.infeasibility_certificates` publishes the ray over rows and finite variable bounds
+with its verification, and only a verified ray at full accuracy carries the `certificate`
+assurance ([§18.6](#section-18-6)). The string-keyed `certificate.*` metrics are removed.
+*Tested* by `clarabel_lp_matches_highs`, `clarabel_qp_farkas_certificate`,
+`farkas_certificate_verified_in_original_coordinates`,
+`almost_infeasible_is_not_certified`, `clarabel_mkl_pardiso_matches_qdldl` (a feasible LP
+and a convex QP) and `clarabel_mkl_pardiso_refused_without_profile` (native backend units),
+and `clarabel_serves_explicit_linear_program` and `infeasibility_certificate_published`
+(runtime units).
 
 Every normalized-coordinate adapter recovers candidates, duals and certificates to original
 coordinates through `transport` before quality is assessed; the factorable adapter works in
@@ -1298,9 +1509,13 @@ original case columns ([§18.10.1](#section-18-10-1)).
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — SCIP 10.0.2 through the
 > factorable projection and a pse-owned `scip-sys` binding (Plan 22 G1 and G3, implemented;
 > implicit definitions and provider envelopes in the export, G4, implemented, with no
-> production provider declaring an envelope yet; IIS, G5; native handlers, solution pool,
-> reoptimization, concurrent and exact modes, G7; G4–G7 merged in `42f5a83f`; the certified
-> tangent-plane stability model, G6, partial; durable incumbents, G8, implemented);
+> production provider declaring an envelope yet, and the certified heater, G4r; IIS, G5;
+> native handlers, solution pool, reoptimization, concurrent and exact modes, G7, with
+> concurrent incumbent streaming since `518c3108`; the certified tangent-plane stability
+> model, G6, partial, with the fixture intent and the stability tests of G6r; durable
+> incumbents, G8, and their origin and pruning, G8f, implemented);
+> [ADR-0103](../../adr/0103-variable-domain-facet.md) — semi domains lowered by
+> `semi(indicator)` for SCIP (implemented);
 > [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) — `global_bound`,
 > `proven_infeasible`, `exact_certificate` and `GapQualified` with their conditions;
 > [ADR-0120](../../adr/0120-provider-envelope-contract.md) — the provider envelope contract.
@@ -1337,8 +1552,9 @@ envelope of every registered provider that has one
 (`execution::admit_program`), before the step reaches a native session, refusing with every
 typed reason: an objective without a projection under an optimization or `certify` intent;
 a variable or auxiliary inside a nonlinear term without a finite box, which spatial
-branching needs; a semicontinuous or semiinteger column, which has no declared lowering
-yet; or a nonfinite constant or exponent. The export plan collects the selected rows that
+branching needs; a semi column whose active interval is not `0 < l ≤ u < ∞`
+(`SemiInterval`); or a nonfinite constant or exponent. The export plan collects the selected
+rows that
 have a projection, the constraints of unconditional obligations, implicit residuals (`= 0`)
 and their declared bounds. A strict obligation bound is closed with a relative margin:
 `x > b` exports as `x ≥ b + 10⁻⁹·max(1, |b|)`, and `x < b` symmetrically. A row without a
@@ -1346,6 +1562,17 @@ projection is dropped, which keeps the export a relaxation and makes it `Relaxed
 column's box is `[0, 1]` intersected with its declaration. Affine functions become SCIP
 linear constraints and every other function a nonlinear constraint; an affine objective
 becomes variable objective coefficients and a nonlinear one an epigraph variable.
+
+**Semi domains.** SCIP 10.0.2 has no semicontinuous variable type, so the export lowers every
+semicontinuous or semiinteger column by `semi(indicator)`, the one semi lowering of
+ADR-0104 (HiGHS takes semi domains natively): a binary indicator `z` per column, the links
+`x − u·z ≤ 0` and `x − l·z ≥ 0`, and the column's box `[0, u]`, integer for a semiinteger
+column. The lowering is exact. Each is recorded on the report
+(`ExportTransformation::SemiIndicator`, metric `export.lowered.semi_indicator`) while the
+declared box stays the global domain, and an IIS maps the links back to the column's
+declared bounds. *Tested* by `semi_indicator_lowering_matches_highs_native`,
+`semiinteger_lowering_keeps_integrality`, `semi_transformation_recorded` and
+`exact_mode_accepts_semi_lowering` (native backend units in the solver image).
 
 **Native constraint forms.** The export consumes every form the structure leaves to a
 native handler ([§7.5](mathematics-and-compilation.md#section-7-5)), each constraint named
@@ -1393,14 +1620,22 @@ node, LP, best-solution and dual-bound events. On each it polls the attempt's ca
 and calls `SCIPinterruptSolve` once, on the owning thread; on every new best solution or
 improved dual bound it pushes a `scip.bound` progress event with both bounds. Between the
 INITSOLVE and SOLVED stages, a new best solution also becomes a typed `IncumbentEvent`: the
-objective in post-solve convention with the export offset applied, dual bound, gap, nodes,
-native seconds and, throttled to one capture per second (the first and the last always
-kept), SCIP's best solution over the export's program columns. A durable attempt streams
-and stores it, and a resumed job injects it
-([§20.6](identity-and-publication.md#section-20-6)). An objective with an epigraph variable
-reports the epigraph value. A panic in the handler is contained as a SCIP error. The
-handler is copied into sub-SCIPs, concurrent solvers and the IIS sub-problem, where it
-only polls for cancellation, since a copy's bounds are not the attempt's.
+objective's value, dual bound, gap, nodes, native seconds and, throttled to one capture per
+second (the first and the last always kept), SCIP's best solution over the export's program
+columns. A durable attempt streams and stores it, and a resumed job injects it
+([§20.6](identity-and-publication.md#section-20-6)). The reported objective is always the
+objective function's value, never SCIP's epigraph variable: an affine objective is SCIP's
+original objective with the export offset applied, and a nonlinear one is the objective
+expression evaluated at the solution (`scip::objective_value`), for incumbents, the
+candidate and pooled solutions alike (`epigraph_incumbent_reports_function_value`). A panic
+in the handler is contained as a SCIP error. The handler is copied into sub-SCIPs, the
+concurrent solvers and the IIS sub-problem. A copy polls for cancellation, and its bounds
+are not the attempt's. A concurrent solver also reports its new best solution when it
+improves on every incumbent reported so far, whichever solver found it, so the stream stays
+monotone: concurrent solving starts without central presolving, each solver's transformed
+variables keep the export's names, and its solution maps back to the program's columns by
+name, where the neutral program evaluates the objective; such an incumbent carries no dual
+bound or gap (`scip_concurrent_streams_incumbents`).
 
 **Status map.** `scip::termination` maps every raw `SCIPgetStatus` value of the 10.0.2 ABI
 without a wildcard: `OPTIMAL` and `GAPLIMIT` are success with the native assurance
@@ -1418,9 +1653,10 @@ submitted through `SCIPaddSolFree`, as a partial solution when auxiliaries or an
 exist, and the report records whether SCIP stored it; exact solving certifies its own
 solutions and is given no floating-point seed. SCIP's best solution in program columns is
 the reported candidate and the output seed. With `pool` greater than zero, up to that many
-stored solutions are reported beside it in SCIP's order, best first, each with its
-objective, and the factorable runner re-qualifies each in original coordinates like the
-candidate. `runtime.solution_pool` publishes them, one row per rank and free variable, with
+stored solutions are reported beside it in SCIP's order, best first (for an epigraph
+export, the epigraph variable's order), each with its objective's value, and the factorable
+runner re-qualifies each in original coordinates like the candidate. `runtime.solution_pool`
+publishes them, one row per rank and free variable, with
 the objective and the original feasibility, absent when the point could not be evaluated.
 A pooled solution is an observation: only the qualified candidate is a result or a seed.
 *Tested* by `solution_pool_ranked` (native backend units) and `solution_pool_published`
@@ -1429,20 +1665,25 @@ A pooled solution is an observation: only the qualified candidate is a result or
 **Reoptimization.** With `reoptimize`, a finite MIP sequence keeps one SCIP instance and its
 search tree in the sequence's retained native state ([§18.7](#section-18-7)). A later step
 reuses it only when its constraint system is unchanged: the identity
-`pse.scip.reoptimization.system.v1` frames every exported function's affine form, sides and
-condition, the box, the domains and the native forms, so only the linear objective,
-including its sense, may change. The step frees the previous reoptimization solve, changes
+`pse.scip.reoptimization.system.v1` frames the program's structure, each column's identity,
+domain and box with the auxiliary and indicator boxes, each exported constraint's affine
+form, sides and condition, and the native forms with their operands and weights, and no
+value key, so only the linear objective, including its sense, may change. The step frees the
+previous reoptimization solve, changes
 the objective (`SCIPchgReoptObjective`) and refreshes the time limit. Constraints and
 objective must be linear. A different system tears the instance down and builds another, or
 is refused under `RequireReuse`; without `reoptimize` nothing is retained. The report
 records the reuse (`reused_native_state`, `scip.reoptimized`). *Tested* by
-`reoptimized_sequence_matches_cold_solves` (native backend units).
+`reoptimized_sequence_matches_cold_solves` and
+`reoptimization_session_follows_the_constraint_system` (native backend units).
 
 **Exact rational MILP.** With `exact`, SCIP solves in rational arithmetic
 (`SCIPenableExactSolving`, set before the problem exists). Variables and linear constraints
 receive exact data; every finite binary64 value is an exact dyadic rational, so the
 conversion is exact. The export must be a linear program without native forms, conditional
-rows or auxiliaries, and anything else is refused. A solve counts as exact only when SCIP
+rows or auxiliaries, and anything else is refused; the `semi(indicator)` lowering adds only
+binaries and linear rows and is admitted (`exact_mode_accepts_semi_lowering`). A solve
+counts as exact only when SCIP
 reports it exact and its status is optimal or infeasible; qualification then grants
 `exact_certificate` ([§18.6](#section-18-6)), and the report keeps SCIP's exact rational
 objective as text. *Tested* by `exact_mode_on_delicate_milp` (native backend units), which
@@ -1484,14 +1725,18 @@ integrality ([§15.4](#section-15-4)), then decides where the candidate comes fr
 - an original-feasible incumbent of an exact export is the candidate
   (`PrimalSource::Backend`), unless the program combines integer columns with a non-affine
   function (MIQP and MINLP);
-- otherwise the incumbent is an assignment proposal. Every integer column is fixed at its
-  rounded incumbent value (`AlgebraicOracle::with_fixed_assignment`), and the continuous
-  problem is re-solved through the one NLP runner by the automatic NLP route, seeded at the
-  incumbent, with its adapter's default settings and a coordinate and profile stamp of its
-  own (`pse.factorable.fixed-assignment.v1`). An original-feasible re-solve candidate is
-  adopted (`PrimalSource::FixedAssignment`) with its KKT evidence, its multipliers are
-  conditional on the assignment, and it replaces the incumbent as the output seed; the
-  incumbent's objective stays a metric;
+- otherwise the incumbent is an assignment proposal, committed as closed boxes
+  (`AlgebraicOracle::with_fixed_assignment`): every integer column is fixed at its rounded
+  incumbent value; a semi column on its zero branch is fixed at zero, a semicontinuous one
+  on its active branch keeps its declared `[l, u]`, and a semiinteger one is fixed at its
+  rounded value within it. The continuous problem is re-solved through the one NLP runner by
+  the automatic NLP route, seeded at the incumbent, with its adapter's default settings and a
+  coordinate and profile stamp of its own that frames both ends of every committed box
+  (`pse.factorable.fixed-assignment.v1`). An original-feasible re-solve candidate is adopted
+  (`PrimalSource::FixedAssignment`) with its KKT evidence and its local analysis and any
+  requested sensitivities ([§15.5.1](#section-15-5-1)), all conditional on the assignment,
+  and it replaces the incumbent as the output seed; the incumbent's objective stays a metric
+  (`semi_minlp_fixed_assignment_resolve`, `fixed_assignment_resolve_keeps_local_analysis`);
 - without an adopted re-solve, the incumbent of a relaxed export remains an observation
   (`PrimalSource::RelaxedIncumbent`), which candidate use makes `diagnostic_only`
   ([§16.6](#section-16-6)).
@@ -1528,15 +1773,47 @@ yet, so outside tests such a term is still refused. *Tested* by
 `certify_exports_implicit_residuals_exactly` (runtime units) and `relaxed_export_bound_only`
 (native backend units).
 
+**Certified heater** (Plan 22 G4r). `heater_optimization_certified` (native acceptance
+conformance) certifies the authored PC-SAFT heater optimization, declared `intent certify;`
+over a vapor-branch box, with SCIP's optimal status, `GapQualified` and `global_bound` and a
+read-back-equivalent export. The search needs a declared foreign allowance of 2 GiB
+(`MathPolicy.foreign_bytes`, the runtime's `math_foreign_bytes`, which becomes SCIP's
+`limits/memory`): measured on 2026-09-28, 512 MiB and 1 GiB stop at the memory limit before
+the first node, and 2 GiB proves optimality in 91 nodes, the whole run taking 18 s. The
+default allowance is 64 MiB. The allowance is one number charged to every native job and
+retained program, so the test also raises the shared memory ceiling to 256 GiB of
+accounting; an allowance scoped to the search that needs it is an open resource-accounting
+follow-up (DP-20).
+
 **Phase stability** (Plan 22 G6, partial). The authored tangent-plane-distance model
 (`TangentPlaneStability` in the reference thermodynamics package) minimizes the
-tangent-plane distance of a trial phase on the `certify` route, and its authored check reads
-the result. `tpd_certifies_stable_feed` (native acceptance conformance) certifies an ideal
-mixture stable: automatic selection reaches SCIP, the result is `GapQualified` with
-`global_bound`, and the dual bound and the distance are zero within tolerance. No other
-stability case is built yet: a test that detects a known instability (Peng–Robinson, against teqp), the
-PC-SAFT model and selecting the `certify` intent from a fixture are scheduled in the
-[solver scope packet](../../plans/22-solver-scope-execution.md).
+tangent-plane distance of a trial phase, and its authored check reads the result; an
+objective-bound check reads the certified dual bound when the step carries one
+([§19.2](workflows-and-results.md#section-19-2)). A fixture selects the `certify` intent by
+declaring it (`intent certify;`, [§6.10](schema-and-relations.md#section-6-10)). Native
+acceptance conformance covers four cases:
+
+- `tpd_certifies_stable_feed` certifies an ideal mixture stable: automatic selection reaches
+  SCIP, the result is `GapQualified` with `global_bound`, the dual bound and the distance are
+  zero within tolerance, and the check's basis is `global_bound`;
+- `fixture_intent_selects_certify` runs the same fixture under an automatic `optimize`
+  policy: the declared intent takes it to SCIP with a `global_bound` check basis, while the
+  control without the intent stays on a local route with a `point` basis;
+- `tpd_detects_known_instability` finds the known Peng–Robinson instability of an
+  equimolar benzene–toluene feed at 368 K and 101,325 Pa on a local Ipopt route: the
+  authored distance lies below −0.1,
+  agrees with teqp 0.23.1's `canonical_PR` reference within 10⁻³ and with the authored
+  reference within 10⁻⁸, and the stability check fails with a `point` basis;
+- `pcsaft_tpd_fits_the_formal_pool` prepares the three-component PC-SAFT distance, which
+  needs 5,510 of the 8,192 formal symbol slots (`pse_modeling::Limits::body_slots`, default
+  the pool's size, and
+  a smaller limit refuses it with a typed limit), and solves it locally with Ipopt.
+
+Certification is established for the ideal feed only. SCIP does not close the gap of the
+Peng–Robinson instability case in bounded time (after 10 minutes and 42,413 nodes its dual
+bound was −2.05 beside an incumbent at −0.1104), and the PC-SAFT distance is solved locally,
+not certified. Detecting an instability is therefore a local result, and certified
+stability beyond the ideal feed remains open.
 
 ## Additional and retired section identities
 

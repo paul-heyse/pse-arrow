@@ -524,19 +524,20 @@ pub fn diagnostic_request(
     }
     Ok(out)
 }
-/// Committed column values in original coordinates.
+/// Committed column boxes in original coordinates.
 fn commitment_values(
     commitment: &mut crate::transform::Commitment,
     n: &Normalization,
     contract: &OracleContract,
 ) -> Result<(), ProblemError> {
-    for (id, value) in &mut commitment.columns {
+    for (id, (lower, upper)) in &mut commitment.columns {
         let j = contract
             .variables
             .iter()
             .position(|v| v.id == *id)
             .ok_or_else(|| ProblemError::Internal("commitment column absent".into()))?;
-        *value = mul(*value, n.variables[j])?;
+        *lower = mul(*lower, n.variables[j])?;
+        *upper = mul(*upper, n.variables[j])?;
     }
     Ok(())
 }

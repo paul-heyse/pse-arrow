@@ -281,13 +281,18 @@ async fn simultaneous_dynamic_optimization_with_discrete_decision() {
         .as_ref()
         .expect("a mixed-integer candidate states its commitment");
     assert_eq!(commitment.columns.len(), 8);
-    assert!(commitment.columns.iter().all(|(_, v)| *v == 0.0 || *v == 1.0));
-    assert!(commitment.columns.iter().any(|(_, v)| *v == 0.0));
-    assert!(commitment.columns.iter().any(|(_, v)| *v == 1.0));
+    assert!(
+        commitment
+            .columns
+            .iter()
+            .all(|(_, (l, u))| l == u && (*l == 0.0 || *l == 1.0))
+    );
+    assert!(commitment.columns.iter().any(|(_, (v, _))| *v == 0.0));
+    assert!(commitment.columns.iter().any(|(_, (v, _))| *v == 1.0));
     let on = values(result, "on");
     // Every switch but the one fixed at the start is committed at its solved value.
     assert_eq!(on.len(), 9);
-    for (id, committed) in &commitment.columns {
+    for (id, (committed, _)) in &commitment.columns {
         let solved = on.iter().find(|(o, _)| o == id).unwrap().1;
         near(solved, *committed, 1e-9);
     }

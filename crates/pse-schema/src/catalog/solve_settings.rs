@@ -431,6 +431,22 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
             ),
         ],
     );
+    // ADR-0110 Outcome 5: shooting routes over the integrated experiment; the scheduled
+    // inputs held free are the controls.
+    vocabulary(
+        builder,
+        "ShootingMethod",
+        &[
+            (
+                "single",
+                "One window over the horizon: the controls are the only variables.",
+            ),
+            (
+                "multiple",
+                "One window per node interval: the differential states at the inner nodes are variables, closed by continuity rows.",
+            ),
+        ],
+    );
     vocabulary(
         builder,
         "FitDerivatives",
@@ -482,6 +498,16 @@ fn declare_dynamics(builder: &mut RegistryBuilder) {
             ("positive", "x > 0."),
             ("non_positive", "x <= 0."),
             ("negative", "x < 0."),
+        ],
+    );
+    // ADR-0119 Outcome 3: an authored event's guard crossing (`IDASetRootDirection`).
+    vocabulary(
+        builder,
+        "EventDirection",
+        &[
+            ("either", "Every sign change of the guard."),
+            ("rising", "Only the guard increasing through zero; needs IDAS."),
+            ("falling", "Only the guard decreasing through zero; needs IDAS."),
         ],
     );
 }

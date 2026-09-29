@@ -15,7 +15,6 @@ from pse._build import (
     ModelingDiagnosticSettings,
     ModelingFixturePolicy,
     ModelingLimits,
-    ModelingModeSettings,
     NativeAttempt,
     SimulationSettings,
     _NativeModelingConformance,
@@ -502,7 +501,6 @@ class ModelingPackage:
         settings: SolveSettings,
         simulations: Mapping[InstanceId, SimulationSettings] | None = None,
         *,
-        modes: Mapping[InstanceId, Sequence[ModelingModeSettings]] | None = None,
         rank_tolerance: float = 1e-8,
         max_cells: int = 1000000,
         derivatives: FitDerivatives = FitDerivatives.RESPONSES,
@@ -511,7 +509,8 @@ class ModelingPackage:
         """Compile shared parameters over authored algebraic or integrated experiments.
 
         Experiment settings are keyed by the experiment's instance, its
-        ``experiment_id``. ``derivatives`` selects the response Jacobian or, with the
+        ``experiment_id``; an experiment's modes and events are those its authored case
+        declares. ``derivatives`` selects the response Jacobian or, with the
         limited-memory Hessian, the adjoint gradient alone. Every fit with free
         parameters derives their covariance; ``uncertainty`` also requests Wald and,
         optionally, profile-likelihood intervals.
@@ -522,10 +521,6 @@ class ModelingPackage:
                 fit_id.to_hex(),
                 codec.encode_json(settings),
                 profiles,
-                modes=[
-                    (key.to_hex(), list(values))
-                    for key, values in (modes or {}).items()
-                ],
                 rank_tolerance=rank_tolerance,
                 max_cells=max_cells,
                 derivatives=derivatives.value,
@@ -590,32 +585,21 @@ class ModelingPackage:
         )
 
     def prepare_simulation(
-        self,
-        case_id: DeclarationId,
-        settings: SimulationSettings,
-        *,
-        modes: tuple[ModelingModeSettings, ...] | None = None,
+        self, case_id: DeclarationId, settings: SimulationSettings
     ) -> PreparedOperation:
-        """Prepare an authored trajectory for cancellable execution and publication."""
+        """Prepare an authored trajectory for cancellable execution and publication.
+
+        The case's fixture declares its modes, events and scheduled inputs.
+        """
         return PreparedOperation(
-            self._handle.prepare_simulation(
-                case_id.to_hex(), settings, None if modes is None else list(modes)
-            )
+            self._handle.prepare_simulation(case_id.to_hex(), settings)
         )
 
     def simulate(
-        self,
-        case_id: DeclarationId,
-        settings: SimulationSettings,
-        *,
-        modes: tuple[ModelingModeSettings, ...] | None = None,
+        self, case_id: DeclarationId, settings: SimulationSettings
     ) -> ModelingTrajectory:
         """Integrate the authored case with the existing native dynamics engine."""
-        return ModelingTrajectory(
-            self._handle.simulate(
-                case_id.to_hex(), settings, None if modes is None else list(modes)
-            )
-        )
+        return ModelingTrajectory(self._handle.simulate(case_id.to_hex(), settings))
 
     def diagnose(
         self,

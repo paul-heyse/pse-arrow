@@ -178,8 +178,8 @@ fn push_events(
                 for (key, value) in &event.values {
                     push_metric(builder, run_id, step, &ns, key, value)?;
                 }
-                // A retained incumbent's typed values; a durable run keeps its incumbents
-                // in the store's incumbent stream instead.
+                // A retained incumbent's typed values; a durable run publishes its stored
+                // incumbent stream as runtime.incumbents instead.
                 if let Some(incumbent) = &event.incumbent {
                     let real = |v: Option<f64>| {
                         v.map_or(

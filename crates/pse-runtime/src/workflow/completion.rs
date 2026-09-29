@@ -126,9 +126,12 @@ impl RunResult {
                         commitment: candidate.and_then(|c| c.commitment.as_ref()).map(|c| {
                             c.columns
                                 .iter()
-                                .map(|(id, value)| solve_runs::RuntimeSolveRunsFieldCommitmentItem {
-                                    source_id: *id,
-                                    value: *value,
+                                .map(|(id, (lower, upper))| {
+                                    solve_runs::RuntimeSolveRunsFieldCommitmentItem {
+                                        source_id: *id,
+                                        lower: *lower,
+                                        upper: *upper,
+                                    }
                                 })
                                 .collect()
                         }),

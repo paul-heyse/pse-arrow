@@ -2720,6 +2720,104 @@ impl core::str::FromStr for EntityKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum EventDirection {
+    ///Every sign change of the guard.
+    #[serde(rename = "either")]
+    Either,
+    ///Only the guard increasing through zero; needs IDAS.
+    #[serde(rename = "rising")]
+    Rising,
+    ///Only the guard decreasing through zero; needs IDAS.
+    #[serde(rename = "falling")]
+    Falling,
+}
+impl crate::SemanticEq for EventDirection {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl EventDirection {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Either, Self::Rising, Self::Falling];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Either => "either",
+            Self::Rising => "rising",
+            Self::Falling => "falling",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Either => 0usize,
+            Self::Rising => 1usize,
+            Self::Falling => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Either => None,
+            Self::Rising => None,
+            Self::Falling => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for EventDirection {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(EventDirection))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(EventDirection)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["either", "rising", "falling"] }
+        )
+    }
+}
+impl core::str::FromStr for EventDirection {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "either" => Ok(Self::Either),
+            "rising" => Ok(Self::Rising),
+            "falling" => Ok(Self::Falling),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(EventDirection).to_owned(),
+                    enumeration: stringify!(EventDirection).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum EvidenceUnavailableReason {
     ///not_requested
     #[serde(rename = "not_requested")]
@@ -6717,6 +6815,9 @@ pub enum ModelingFixtureExecution {
     ///simultaneous
     #[serde(rename = "simultaneous")]
     Simultaneous,
+    ///shooting
+    #[serde(rename = "shooting")]
+    Shooting,
 }
 impl crate::SemanticEq for ModelingFixtureExecution {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -6725,12 +6826,13 @@ impl crate::SemanticEq for ModelingFixtureExecution {
 }
 impl ModelingFixtureExecution {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
+    pub const ALL: [Self; 6usize] = [
         Self::Pure,
         Self::Steady,
         Self::Initialized,
         Self::Integrated,
         Self::Simultaneous,
+        Self::Shooting,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
@@ -6740,6 +6842,7 @@ impl ModelingFixtureExecution {
             Self::Initialized => "initialized",
             Self::Integrated => "integrated",
             Self::Simultaneous => "simultaneous",
+            Self::Shooting => "shooting",
         }
     }
     /// The presentation ordinal, never a semantic identity.
@@ -6750,6 +6853,7 @@ impl ModelingFixtureExecution {
             Self::Initialized => 2usize,
             Self::Integrated => 3usize,
             Self::Simultaneous => 4usize,
+            Self::Shooting => 5usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -6765,6 +6869,7 @@ impl ModelingFixtureExecution {
             Self::Initialized => None,
             Self::Integrated => None,
             Self::Simultaneous => None,
+            Self::Shooting => None,
         }
     }
 }
@@ -6782,7 +6887,7 @@ impl schemars::JsonSchema for ModelingFixtureExecution {
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["pure", "steady", "initialized", "integrated",
-            "simultaneous"] }
+            "simultaneous", "shooting"] }
         )
     }
 }
@@ -6795,6 +6900,7 @@ impl core::str::FromStr for ModelingFixtureExecution {
             "initialized" => Ok(Self::Initialized),
             "integrated" => Ok(Self::Integrated),
             "simultaneous" => Ok(Self::Simultaneous),
+            "shooting" => Ok(Self::Shooting),
             _ => {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(ModelingFixtureExecution).to_owned(),
@@ -12997,6 +13103,95 @@ impl crate::SemanticFrame for Severity {
         hash.str(self.as_str());
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ShootingMethod {
+    ///One window over the horizon: the controls are the only variables.
+    #[serde(rename = "single")]
+    Single,
+    ///One window per node interval: the differential states at the inner nodes are variables, closed by continuity rows.
+    #[serde(rename = "multiple")]
+    Multiple,
+}
+impl crate::SemanticEq for ShootingMethod {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ShootingMethod {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Single, Self::Multiple];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Single => "single",
+            Self::Multiple => "multiple",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Single => 0usize,
+            Self::Multiple => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Single => None,
+            Self::Multiple => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ShootingMethod {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ShootingMethod))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ShootingMethod)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["single", "multiple"] })
+    }
+}
+impl core::str::FromStr for ShootingMethod {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "single" => Ok(Self::Single),
+            "multiple" => Ok(Self::Multiple),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ShootingMethod).to_owned(),
+                    enumeration: stringify!(ShootingMethod).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
 /// A vocabulary owned by its source type; the registry declares its members.
 pub type SnapshotClass = pse_vocabulary::SnapshotClass;
 impl crate::SemanticEq for SnapshotClass {
@@ -13546,6 +13741,97 @@ impl core::str::FromStr for StoredSeedKind {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(StoredSeedKind).to_owned(),
                     enumeration: stringify!(StoredSeedKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum StoredSolutionOrigin {
+    ///output
+    #[serde(rename = "output")]
+    Output,
+    ///incumbent
+    #[serde(rename = "incumbent")]
+    Incumbent,
+}
+impl crate::SemanticEq for StoredSolutionOrigin {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl StoredSolutionOrigin {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Output, Self::Incumbent];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Output => "output",
+            Self::Incumbent => "incumbent",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Output => 0usize,
+            Self::Incumbent => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Output => None,
+            Self::Incumbent => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for StoredSolutionOrigin {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(StoredSolutionOrigin))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(StoredSolutionOrigin)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["output", "incumbent"] })
+    }
+}
+impl core::str::FromStr for StoredSolutionOrigin {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "output" => Ok(Self::Output),
+            "incumbent" => Ok(Self::Incumbent),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(StoredSolutionOrigin).to_owned(),
+                    enumeration: stringify!(StoredSolutionOrigin).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -14895,6 +15181,16 @@ impl crate::SemanticFrame for EntityKind {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for EventDirection {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for EventDirection {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for EvidenceUnavailableReason {
     fn heap_bytes(&self) -> usize {
         0
@@ -15735,6 +16031,16 @@ impl crate::SemanticFrame for SettlementOutcome {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ShootingMethod {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ShootingMethod {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for SpralOrdering {
     fn heap_bytes(&self) -> usize {
         0
@@ -15781,6 +16087,16 @@ impl crate::HeapUsage for StoredSeedKind {
     }
 }
 impl crate::SemanticFrame for StoredSeedKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for StoredSolutionOrigin {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for StoredSolutionOrigin {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

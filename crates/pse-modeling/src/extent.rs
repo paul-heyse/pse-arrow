@@ -266,8 +266,32 @@ impl SpecializedModel {
                     .map(|s| s.capacity() + size_of::<String>())
                     .sum::<usize>()
                     + f.integration.as_ref().map_or(0, |i| {
-                        i.samples.capacity() * size_of::<f64>() + map(&i.quadratures, |_, _| 0)
+                        i.samples.capacity() * size_of::<f64>()
+                            + map(&i.quadratures, |_, _| 0)
+                            + i.schedules.capacity()
+                                * size_of::<crate::specialize::ScheduleFixture>()
+                            + i.schedules
+                                .iter()
+                                .map(|s| (s.times.capacity() + s.values.capacity()) * size_of::<f64>())
+                                .sum::<usize>()
                     })
+                    + f.shooting
+                        .as_ref()
+                        .map_or(0, |s| s.nodes.capacity() * size_of::<f64>())
+                    + f.modes.capacity() * size_of::<crate::specialize::FixtureMode>()
+                    + f.modes
+                        .iter()
+                        .map(|m| {
+                            m.name.capacity()
+                                + map(&m.facts, |n, _| n.capacity())
+                                + m.events.capacity()
+                                    * size_of::<crate::specialize::FixtureEvent>()
+                                + m.events
+                                    .iter()
+                                    .map(|e| map(&e.reset, |_, _| 0))
+                                    .sum::<usize>()
+                        })
+                        .sum::<usize>()
                     + f.expected_failure.as_ref().map_or(0, HeapUsage::heap_bytes)
                     + map(&f.specifications, |p, _| p.capacity())
                     + f.oracle.as_ref().map_or(0, HeapUsage::heap_bytes)

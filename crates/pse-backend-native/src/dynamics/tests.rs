@@ -14,6 +14,7 @@ struct Toy {
 impl Toy {
     fn new(dae: bool, event: bool) -> Self {
         let mut c = Contract {
+            derivatives: pse_kernels::DerivativeOrder::First,
             quadratures: vec![],
             balances: vec![],
             identity: ContentHash::from_bytes([2; 32]),
@@ -22,6 +23,7 @@ impl Toy {
             parameters: vec![id(3)],
             outputs: vec![id(4)],
             events: vec![vec![]],
+            signs: vec![],
         };
         if dae {
             c.states.push(id(2));
@@ -34,7 +36,7 @@ impl Toy {
                     terminal: false,
                     next_mode: 1,
                     tolerance: 1e-8,
-                    direction: Crossing::Either,
+                    direction: EventDirection::Either,
                 }],
                 vec![],
             ];
@@ -328,7 +330,6 @@ fn dynamics_identity_covers_every_option_field() {
         parameter: 0,
         times: vec![0.5],
     }];
-    base.idas.constraints = vec![StateSign::NonNegative, StateSign::Free];
     let encoded = serde_json::to_value(&base).unwrap();
     let diffsol_only = ["initialization", "native", "diffsol"];
     let common = [

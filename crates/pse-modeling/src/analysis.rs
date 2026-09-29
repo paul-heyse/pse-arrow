@@ -120,12 +120,15 @@ impl Bindings {
     }
     /// Read and validate the selected mode, defaulting to steady analysis.
     pub fn analysis_route(&self) -> Result<Route> {
-        let facts = facts(&self.facts)?;
-        let Value::Enum { member, .. } = &facts["analysis.route"] else {
-            return Err(invalid(SemanticId::NIL, "analysis route missing"));
-        };
-        member
-            .parse()
-            .map_err(|_| invalid(SemanticId::NIL, "analysis route missing"))
+        route(&facts(&self.facts)?)
     }
+}
+/// The route of validated facts ([`facts`] always records one).
+pub(crate) fn route(facts: &Environment) -> Result<Route> {
+    let Some(Value::Enum { member, .. }) = facts.get("analysis.route") else {
+        return Err(invalid(SemanticId::NIL, "analysis route missing"));
+    };
+    member
+        .parse()
+        .map_err(|_| invalid(SemanticId::NIL, "analysis route missing"))
 }

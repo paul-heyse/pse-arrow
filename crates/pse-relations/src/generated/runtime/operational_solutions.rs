@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    18u8, 146u8, 53u8, 210u8, 210u8, 190u8, 21u8, 195u8, 29u8, 108u8, 50u8, 218u8, 151u8,
-    103u8, 130u8, 179u8, 75u8, 135u8, 121u8, 250u8, 3u8, 6u8, 255u8, 187u8, 231u8, 32u8,
-    222u8, 2u8, 241u8, 119u8, 146u8, 42u8,
+    62u8, 82u8, 174u8, 31u8, 139u8, 47u8, 97u8, 35u8, 152u8, 239u8, 123u8, 145u8, 111u8,
+    58u8, 163u8, 151u8, 61u8, 194u8, 139u8, 101u8, 154u8, 158u8, 204u8, 78u8, 233u8,
+    205u8, 29u8, 27u8, 225u8, 254u8, 102u8, 125u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
     fn append(
@@ -45,51 +45,52 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
             children[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#kind, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#backend, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#origin, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#backend, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#profile_stamp,
-            children[5usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#data_stamp,
-            children[6usize].as_mut(),
+            children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#primal, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#primal, children[8usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#lower_bound_duals,
-            children[8usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#upper_bound_duals,
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#column_duals,
+            &self.r#upper_bound_duals,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#row_duals,
+            &self.r#column_duals,
             children[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#barrier,
+            &self.r#row_duals,
             children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#basis_columns,
+            &self.r#barrier,
             children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#basis_rows,
+            &self.r#basis_columns,
             children[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#created_by,
+            &self.r#basis_rows,
             children[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#created_at,
+            &self.r#created_by,
             children[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#created_at,
+            children[17usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -113,18 +114,18 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
         <crate::generated::enums::StoredSeedKind as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
-        <crate::generated::enums::NativeBackend as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::enums::StoredSolutionOrigin as crate::columnar::ArrowValue>::append_null(
             children[4usize].as_mut(),
         )?;
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+        <crate::generated::enums::NativeBackend as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
         )?;
         <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[6usize].as_mut(),
         )?;
-        <Option<
-            Vec<f64>,
-        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
         <Option<
             Vec<f64>,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
@@ -138,18 +139,21 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
             Vec<f64>,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Option<
-            f64,
+            Vec<f64>,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
-            Vec<i32>,
+            f64,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Option<
             Vec<i32>,
         > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         <Option<
-            crate::generated::identities::AttemptId,
+            Vec<i32>,
         > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
-        <i64 as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <Option<
+            crate::generated::identities::AttemptId,
+        > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -176,74 +180,78 @@ impl crate::columnar::ArrowValue for RuntimeOperationalSolutionsRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#backend: <crate::generated::enums::NativeBackend as crate::columnar::ArrowValue>::read(
+            r#origin: <crate::generated::enums::StoredSolutionOrigin as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#profile_stamp: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#backend: <crate::generated::enums::NativeBackend as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#data_stamp: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#profile_stamp: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#data_stamp: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#primal: <Option<
                 Vec<f64>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#lower_bound_duals: <Option<
                 Vec<f64>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#upper_bound_duals: <Option<
                 Vec<f64>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
             r#column_duals: <Option<
                 Vec<f64>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#row_duals: <Option<
                 Vec<f64>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#barrier: <Option<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#basis_columns: <Option<
                 Vec<i32>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
             r#basis_rows: <Option<
                 Vec<i32>,
             > as crate::columnar::ArrowValue>::read(
-                input.column(14usize).as_ref(),
+                input.column(15usize).as_ref(),
                 index,
             )?,
             r#created_by: <Option<
                 crate::generated::identities::AttemptId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(15usize).as_ref(),
+                input.column(16usize).as_ref(),
                 index,
             )?,
             r#created_at: <i64 as crate::columnar::ArrowValue>::read(
-                input.column(16usize).as_ref(),
+                input.column(17usize).as_ref(),
                 index,
             )?,
         })
@@ -307,48 +315,49 @@ impl crate::columnar::RelationRow for RuntimeOperationalSolutionsRow {
             columns[2usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#kind, columns[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#backend, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#origin, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#backend, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#profile_stamp,
-            columns[5usize].as_mut(),
+            columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#data_stamp,
-            columns[6usize].as_mut(),
+            columns[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#primal, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#primal, columns[8usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#lower_bound_duals,
-            columns[8usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#upper_bound_duals,
             columns[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#column_duals,
+            &self.r#upper_bound_duals,
             columns[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#row_duals,
+            &self.r#column_duals,
             columns[11usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#barrier, columns[12usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#row_duals,
+            columns[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#barrier, columns[13usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#basis_columns,
-            columns[13usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#basis_rows,
             columns[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#created_by,
+            &self.r#basis_rows,
             columns[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#created_at,
+            &self.r#created_by,
             columns[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#created_at,
+            columns[17usize].as_mut(),
         )?;
         Ok(())
     }
@@ -384,10 +393,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalSolutionsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        56_320_usize + size_of::<Self::Builder>()
+        58_368_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        440usize
+        456usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -406,6 +415,10 @@ impl crate::columnar::RelationRow for RuntimeOperationalSolutionsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             crate::columnar::allocation_add(8, (self.r#kind).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#origin).as_str().len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -588,7 +601,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 17usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 18usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "solution_id",
@@ -611,68 +624,73 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 17usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "backend",
+        name: "origin",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "profile_stamp",
+        name: "backend",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "data_stamp",
+        name: "profile_stamp",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "primal",
+        name: "data_stamp",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "lower_bound_duals",
+        name: "primal",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "upper_bound_duals",
+        name: "lower_bound_duals",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "column_duals",
+        name: "upper_bound_duals",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "row_duals",
+        name: "column_duals",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "barrier",
+        name: "row_duals",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "basis_columns",
+        name: "barrier",
         position: 13usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "basis_rows",
+        name: "basis_columns",
         position: 14usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "created_by",
+        name: "basis_rows",
         position: 15usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "created_at",
+        name: "created_by",
         position: 16usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "created_at",
+        position: 17usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -685,32 +703,34 @@ pub mod columns {
     pub const PREPARATION_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///kind
     pub const KIND: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///origin
+    pub const ORIGIN: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///backend
-    pub const BACKEND: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const BACKEND: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///profile_stamp
-    pub const PROFILE_STAMP: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const PROFILE_STAMP: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///data_stamp
-    pub const DATA_STAMP: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const DATA_STAMP: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///primal
-    pub const PRIMAL: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const PRIMAL: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///lower_bound_duals
-    pub const LOWER_BOUND_DUALS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const LOWER_BOUND_DUALS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///upper_bound_duals
-    pub const UPPER_BOUND_DUALS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const UPPER_BOUND_DUALS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///column_duals
-    pub const COLUMN_DUALS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const COLUMN_DUALS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///row_duals
-    pub const ROW_DUALS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const ROW_DUALS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///barrier
-    pub const BARRIER: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const BARRIER: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///basis_columns
-    pub const BASIS_COLUMNS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const BASIS_COLUMNS: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///basis_rows
-    pub const BASIS_ROWS: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const BASIS_ROWS: crate::columnar::ColumnReference = super::COLUMNS[15usize];
     ///created_by
-    pub const CREATED_BY: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    pub const CREATED_BY: crate::columnar::ColumnReference = super::COLUMNS[16usize];
     ///created_at
-    pub const CREATED_AT: crate::columnar::ColumnReference = super::COLUMNS[16usize];
+    pub const CREATED_AT: crate::columnar::ColumnReference = super::COLUMNS[17usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -721,6 +741,7 @@ pub struct RuntimeOperationalSolutionsView<'a> {
     compatibility_stamp_column: &'a arrow_array::FixedSizeBinaryArray,
     preparation_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     kind_column: &'a arrow_array::StringArray,
+    origin_column: &'a arrow_array::StringArray,
     backend_column: &'a arrow_array::StringArray,
     profile_stamp_column: &'a arrow_array::FixedSizeBinaryArray,
     data_stamp_column: &'a arrow_array::FixedSizeBinaryArray,
@@ -785,45 +806,48 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
             kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(3usize).as_ref())?,
-            backend_column: crate::columnar::array::<
+            origin_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(4usize).as_ref())?,
+            backend_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(5usize).as_ref())?,
             profile_stamp_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             data_stamp_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             primal_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             lower_bound_duals_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             upper_bound_duals_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             column_duals_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             row_duals_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             barrier_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             basis_columns_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
             basis_rows_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
             created_by_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(15usize).as_ref())?,
+            >(batch.column(16usize).as_ref())?,
             created_at_column: crate::columnar::array::<
                 arrow_array::TimestampMicrosecondArray,
-            >(batch.column(16usize).as_ref())?,
+            >(batch.column(17usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -900,6 +924,18 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "origin",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn origin_column(&self) -> &'a arrow_array::StringArray {
+        self.origin_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "origin", "`.")]
+    pub fn origin_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "backend",
         "`, including its offsets and validity bitmap.",
     )]
@@ -908,7 +944,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "backend", "`.")]
     pub fn backend_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -920,7 +956,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "profile_stamp", "`.")]
     pub fn profile_stamp_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -932,7 +968,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "data_stamp", "`.")]
     pub fn data_stamp_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -944,7 +980,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "primal", "`.")]
     pub fn primal_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -956,7 +992,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "lower_bound_duals", "`.")]
     pub fn lower_bound_duals_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -968,7 +1004,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "upper_bound_duals", "`.")]
     pub fn upper_bound_duals_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -980,7 +1016,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "column_duals", "`.")]
     pub fn column_duals_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -992,7 +1028,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "row_duals", "`.")]
     pub fn row_duals_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1004,7 +1040,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "barrier", "`.")]
     pub fn barrier_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1016,7 +1052,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "basis_columns", "`.")]
     pub fn basis_columns_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1028,7 +1064,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "basis_rows", "`.")]
     pub fn basis_rows_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1040,7 +1076,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "created_by", "`.")]
     pub fn created_by_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[16usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1052,7 +1088,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "created_at", "`.")]
     pub fn created_at_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[16usize]
+        &self.batch.schema_ref().fields()[17usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1079,6 +1115,7 @@ impl<'a> RuntimeOperationalSolutionsView<'a> {
                 index,
             )?,
             r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
+            r#origin: crate::columnar::ArrowValue::read(self.origin_column, index)?,
             r#backend: crate::columnar::ArrowValue::read(self.backend_column, index)?,
             r#profile_stamp: crate::columnar::ArrowValue::read(
                 self.profile_stamp_column,

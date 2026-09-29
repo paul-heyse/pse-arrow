@@ -17,6 +17,8 @@ pub struct RuntimeOperationalSolutionsRow {
     pub r#preparation_identity: pse_ids::ContentHash,
     ///kind
     pub r#kind: crate::generated::enums::StoredSeedKind,
+    ///origin
+    pub r#origin: crate::generated::enums::StoredSolutionOrigin,
     ///backend
     pub r#backend: crate::generated::enums::NativeBackend,
     ///profile_stamp
@@ -55,6 +57,7 @@ impl crate::SemanticEq for RuntimeOperationalSolutionsRow {
                 &self.r#preparation_identity,
                 &other.r#preparation_identity,
             ) && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
+            && crate::SemanticEq::semantic_eq(&self.r#origin, &other.r#origin)
             && crate::SemanticEq::semantic_eq(&self.r#backend, &other.r#backend)
             && crate::SemanticEq::semantic_eq(
                 &self.r#profile_stamp,
@@ -99,6 +102,8 @@ impl crate::SemanticFrame for RuntimeOperationalSolutionsRow {
         crate::SemanticFrame::frame(&self.r#preparation_identity, hash);
         hash.str(stringify!(r#kind));
         crate::SemanticFrame::frame(&self.r#kind, hash);
+        hash.str(stringify!(r#origin));
+        crate::SemanticFrame::frame(&self.r#origin, hash);
         hash.str(stringify!(r#backend));
         crate::SemanticFrame::frame(&self.r#backend, hash);
         hash.str(stringify!(r#profile_stamp));
@@ -134,6 +139,7 @@ impl crate::HeapUsage for RuntimeOperationalSolutionsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#compatibility_stamp))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#preparation_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#origin))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#profile_stamp))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#data_stamp))

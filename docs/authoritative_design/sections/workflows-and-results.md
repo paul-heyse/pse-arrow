@@ -78,10 +78,11 @@ meshes explicitly; a small successful fixture does not qualify all mesh sizes.
 
 ### 13.5 Dynamic operations over immutable revisions
 
-> Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — authored schedules,
-> whose interval values stay live parameters of the sensitivities, replace profile
-> `changes`; authored events and modes replace the runtime- and Python-only mode and event
-> inputs (Plan 22 Y0c and Y0d; not yet implemented).
+> Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — schedules, whose
+> interval values stay live parameters of the sensitivities, replace profile `changes`
+> (Plan 22 Y0c backend, implemented; the authored fixture clause, the Y0c kernel, is not yet
+> implemented); authored events and modes replace the runtime- and Python-only mode and
+> event inputs (Plan 22 Y0d; not yet implemented).
 
 Operations that IDAES performs by mutating a model are either new immutable revisions or
 declared parts of the prepared profile:
@@ -89,7 +90,7 @@ declared parts of the prepared profile:
 | Need | Current operation |
 |---|---|
 | Change parameter values or horizon | `PreparedSimulation::rebind` prepares new immutable case bindings; unaffected bodies and artifacts are shared by semantic identity |
-| Piecewise-constant inputs | Profile `changes`: fixed-time replacement of the complete selected parameter vector on either integrator; carried-state sensitivities continue, and IDAS restarts in place ([§13.6](#section-13-6)) |
+| Piecewise-constant inputs | Scheduled inputs (`Profile.schedule`: per input, its contract parameter and strictly increasing change times after the start, a change at the end observed by the final sample only). Each interval's value is its own integration parameter, so forward and adjoint sensitivities are taken with respect to every interval, across every change, on both integrators; IDAS restarts in place at each change ([§13.6](#section-13-6)). Schedules are a Rust profile field; no fixture clause declares one yet |
 | Mode switches and state jumps | Declared events: guard row, complete reset rows, `terminal`, `next_mode` and a guard tolerance, all within one state/parameter layout; on IDAS only without forward sensitivities |
 | Different initial state | Initial rows evaluated from time and parameters; change the parameters or declaration, not a stored trajectory |
 
@@ -102,18 +103,21 @@ between time points or deactivating a model at selected points have no counterpa
 
 > Decision: [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — IDAS scheduled
 > inputs with recoverable trials, events without sensitivities, constraints and Krylov;
-> Diffsol SDIRK, `tsit45` and KLU (Plan 22 Y1 and Y2, implemented); adjoint and
-> second-order sensitivities and shooting routes (Plan 22 Y3–Y5; not yet implemented).
+> Diffsol SDIRK, `tsit45` and KLU (Plan 22 Y1 and Y2, implemented); pse-owned Diffsol
+> linear solvers (Y0a), adjoint sensitivities on both integrators (Y3a, Y3b), exact
+> transient Hessians on IDAS (Y4b) and single and multiple shooting (Y5b), implemented;
+> simultaneous dynamic optimization (Y5a) and NMPC and MHE (Y5c) are not yet implemented.
 >
 > Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — IDAS sign
 > constraints derive only from constant-zero bound annotations, and authored schedules and
-> directional events reach both integrators (Plan 22 Y0c and Y0d; not yet implemented). The
-> recorded follow-ups below close when they land.
+> directional events reach both integrators (Plan 22 Y0c kernel and Y0d; not yet
+> implemented; the Y0c backend is implemented). The recorded follow-ups below close when
+> they land.
 
 | Route | Admitted profile | Owner |
 |---|---|---|
-| Diffsol (default) | Fixed `diag(I,0)` ODE/index-1 by BDF (default), SDIRK `tr_bdf2` or `esdirk34`, or explicit `tsit45` for mass-free ODEs only; faer sparse LU or SuiteSparse KLU for the implicit schemes' Newton matrices; events on every guard sign change, resets, input changes, smooth forward sensitivities and library-owned reset sensitivities | `dynamics/integrator.rs` |
-| IDAS residual BDF | Fixed-mass ODE/index-1 with recoverable trial failures; consistent initialization of the algebraic states and rates, or a steady start (`IDA_Y_INIT`: every rate zero, every state computed, the requested values only a guess); scheduled input changes, across which forward sensitivities continue; events and resets without sensitivities, each with a crossing direction (either, rising or falling); per-state sign constraints (`IDASetConstraints`); KLU, or matrix-free SPGMR or SPFGMR with an optional Jacobi preconditioner from the diagonal of the compiled Newton matrix; simultaneous or staggered sensitivity correction | `dynamics/idas.rs` |
+| Diffsol (default) | Fixed `diag(I,0)` ODE/index-1 by BDF (default), SDIRK `tr_bdf2` or `esdirk34`, or explicit `tsit45` for mass-free ODEs only; pse-owned faer sparse LU or SuiteSparse KLU linear solvers for the implicit schemes' Newton matrices (`dynamics/linear.rs`); events on every guard sign change, resets, scheduled inputs, smooth forward sensitivities and library-owned reset sensitivities; adjoint gradients with checkpointing | `dynamics/integrator.rs`, `dynamics/integrator/adjoint.rs` |
+| IDAS residual BDF | Fixed-mass ODE/index-1 with recoverable trial failures; consistent initialization of the algebraic states and rates, or a steady start (`IDA_Y_INIT`: every rate zero, every state computed, the requested values only a guess); scheduled inputs, across which sensitivities continue; events and resets without sensitivities, each with a crossing direction (either, rising or falling); per-state sign constraints (`IDASetConstraints`); KLU, or matrix-free SPGMR or SPFGMR with an optional Jacobi preconditioner from the diagonal of the compiled Newton matrix; simultaneous or staggered sensitivity correction; adjoint gradients with checkpointing and forward-over-adjoint second-order sensitivities | `dynamics/idas.rs` |
 
 The methods are typed profile fields: `Profile::diffsol` (`DiffsolSettings`: the scheme and
 the Newton linear solver) and `Profile::idas` (`IdasSettings`: the linear solver, the
@@ -135,16 +139,84 @@ not a second compiler.
 Profile identity comes from serde, never from a hand-written field list. `profile_json` is
 the complete encoding of the profile plus the resolved method; Diffsol's native option types
 enter through remote serde definitions, so a new field in a pinned option type fails to
-compile rather than escaping identity. `pse.dynamic.profile.v3` frames that encoding with the
-numerical policy key. Fitting's `pse.fit.profile.v2` frames the solver profile key, the rank
-tolerance, the cell cap, each simulation's dynamic profile identity and each experiment's
-declared modes by their serde encoding.
+compile rather than escaping identity. `pse.dynamic.profile.v5` frames that encoding, which
+includes the scheduled inputs and the typed sensitivity, with the numerical policy key. A
+modeling dynamic simulation's preparation (`pse.modeling.dynamic.v2`) also frames the
+derivative order its functions were prepared at. Fitting's `pse.fit.profile.v3` frames the
+solver profile key, the rank tolerance, the cell cap, the derivative source, each
+simulation's dynamic profile identity and each experiment's declared modes by their serde
+encoding, and the uncertainty request when one is present
+([§19.4](#section-19-4)).
 
 Authored workflows do not yet reach every native control: authored events detect crossings
 in either direction, IDAS sign constraints come from the profile rather than from authored
 bounds, and authored scheduled inputs have no kernel fixture field (recorded Plan 22
-follow-ups). A singular KLU factorization inside Diffsol ends the trajectory with a contained
-`panic` termination rather than a typed numerical failure (also a recorded follow-up).
+follow-ups, ADR-0119).
+
+**Failing linear solves** (Plan 22 Y0a). Diffsol's Newton matrices are factored by
+pse-owned linear solvers over faer LU and KLU (`dynamics/linear.rs`, selected by
+`DiffsolSettings.linear`). A failed or singular factorization, or a nonfinite solution, is
+returned to Diffsol as an error, so Diffsol reduces its step; a final failure ends the
+trajectory `Failed` with a typed numerical error (`ProblemError::Numerical`), never a
+contained panic. *Tested* by `singular_newton_matrix_fails_the_solve` and
+`diffsol_singular_factorization_is_typed_numerical` (native backend units).
+
+**Sensitivities** (`DynamicSensitivity`: `none`, `forward` or `adjoint`). Forward
+sensitivities integrate the state sensitivities with the trajectory. The adjoint route (Plan
+22 Y3a, Y3b, `dynamics::gradient`) computes the gradient of a scalar functional of the
+sampled outputs with respect to the parameters, including every interval of a scheduled
+input, by one forward pass and one backward pass. Diffsol's adjoint takes its
+operator adjoints from the one compiled CSC Jacobian, keeps its own checkpoints, at least two
+per segment, and runs the backward pass segment by segment with a consistent restart at every
+sample, starting from the forward pass's last step. IDAS runs `IDAAdjInit` with `IDASolveF`
+per scheduled segment, then the backward problem (`IDACreateB` through `IDASolveB`, with
+quadratures for the parameter gradient). `AdjointSettings` bounds the checkpoints (250 steps
+between checkpoints and at most 400 by default). Before any native work the adjoint route
+refuses events and resets, declared quadratures and a steady start (`Unsupported`), a
+scheduled change at the end or fewer checkpoints than two per segment (`Contract`), and a
+checkpoint estimate above the job's foreign allowance (`Limit`, memory); a forward pass that
+would exceed the checkpoint bound stops as a memory limit. *Tested* by
+`scheduled_input_sensitivities_cross_changes`,
+`final_scheduled_change_is_reinitialized_and_observed`,
+`idas_scheduled_inputs_with_recoverable_trials`,
+`diffsol_adjoint_gradient_equals_forward_and_differences`,
+`idas_adjoint_gradient_equals_forward_and_differences`,
+`diffsol_adjoint_starts_at_a_nearly_steady_stop`, `checkpoint_memory_bounded`,
+`idas_checkpoint_memory_bounded` and `adjoint_profile_limits_are_typed_refusals` (native
+backend units).
+
+**Second order** (Plan 22 Y4b). On IDAS, the exact Hessian of an adjoint objective comes from
+forward-over-adjoint second-order sensitivities (`IDAInitBS`, `IDAQuadInitBS`), one backward
+problem per direction over the exact block lower-triangular Newton matrix factored by KLU; a
+dynamic program is prepared at second order on request. Diffsol has no second-order adjoint
+and is refused with a typed `Unsupported`; a program without second derivatives is refused
+the same way, and an estimate above the allowance is a memory limit. The oracle surface is
+`Oracle::weighted_hessian`. *Tested* by `second_order_adjoint_matches_finite_difference` and
+`second_order_route_limits_are_typed_refusals` (native backend units).
+
+**The integrated experiment and shooting.** `IntegratedExperiment`
+(`pse-runtime::workflow::integrated`) is the one integration that fitting and shooting share:
+it binds a consumer's parameter values into the integration vector, integrates once, and
+maps output sensitivities, an adjoint gradient or an exact Hessian back to those parameters.
+Shooting (Plan 22 Y5b, `workflow/shooting.rs`, `ModelingSimulation::shooting`) optimizes a
+dynamic simulation through the one NLP runner ([§18.7](numerical-execution.md#section-18-7)):
+a `ShootingProfile` names the method (`ShootingMethod`: `single` or `multiple`), the nodes,
+the controls (scheduled inputs held free, each interval value an NLP variable within the
+control's bounds), path bounds on outputs, which become rows at every sample, and a terminal
+or integral objective over declared quadratures, which each window observes as outputs.
+Single shooting integrates one window over the horizon; multiple
+shooting integrates one window per node interval, each anchored at its start state
+(`dynamics::Anchored`), with the differential states at the inner nodes as variables closed
+by continuity rows. A terminal objective takes its gradient from the forward sensitivities
+the rows need anyway, and an integral one from the adjoint. The shooting NLP supplies first
+derivatives only, so it requires the limited-memory Hessian and refuses any other mode. A
+`ShootingReport` returns the solve, controls, node states, objective, continuity residual,
+trajectory and checks. The route is Rust-only: a conformance fixture that selects it
+(`ModelingFixtureExecution::shooting`) is refused until fixtures declare schedules. *Tested*
+by `shooting_matches_simultaneous_optimum` (against an analytic optimum),
+`multiple_shooting_continuity_closes`, `shooting_path_bounds_hold_at_samples` and
+`shooting_fixture_needs_authored_controls` (runtime units) and
+`anchored_window_continues_the_horizon` (native backend units).
 
 The integrator computes the consistent initial state from requested values and guesses;
 the report keeps both. Sensitivities cover initial and direct output parameter terms.
@@ -163,10 +235,11 @@ last completed time and sample count in `runtime.computation_runs`. Integration 
 fitting runs inline under the outer job's admission, without nested executor permits.
 
 **Limits.** Higher-index or general implicit DAEs, variable-layout modes, IDAS
-sensitivities across events (hybrid IDAS sensitivities), adjoint and second-order
-sensitivities and shooting routes are not supported by native integration (adjoint and
-second-order sensitivities and shooting are in the target, ADR-0110, Plan 22 Y3–Y5; not yet
-implemented); declarations outside the admitted profile are refused before native work. The
+sensitivities across events (hybrid IDAS sensitivities), adjoints across events or resets or
+over declared quadratures, second-order sensitivities on Diffsol, and simultaneous dynamic
+optimization, NMPC and MHE (Plan 22 Y5a and Y5c, in the target, ADR-0110; not yet
+implemented) are not supported by native integration; declarations outside the admitted
+profile are refused before native work. The
 qualification basis for the admitted profiles is
 [§24.2](operations-and-validation.md#section-24-2).
 
@@ -222,7 +295,7 @@ mutates package declarations.
 > Decision: [ADR-0119](../../adr/0119-fixture-analysis-selections.md) — an objective-bound
 > `annotation check` reads the step's certified dual bound when the step carries one, and
 > `runtime.modeling_checks.basis` records `point` or `global_bound`; a check never starts a
-> solve (Plan 22 G6r; not yet implemented).
+> solve (Plan 22 G6r, implemented).
 
 `RunResult` retains the authored outcome and the typed report, the original request (including unattempted steps)
 and a `Completion` computed once at join: candidate assessments, source-attributed
@@ -264,10 +337,24 @@ candidate, and the result says so ([ADR-0093](../../adr/0093-qualified-native-st
 [§18](numerical-execution.md#section-18)). Missing observations use typed unavailable
 reasons, never invented NaN values.
 
+**Objective-bound checks** (Plan 22 G6r). The compiler classifies an authored
+`annotation check` that bounds the objective. Such a check reads the step's certified dual
+bound instead of its point value when the step carries one: an assurance of `global_bound`
+or `exact_certificate` with a finite dual bound, and only when that bound bounds the checked
+side (a lower-bound check under minimization, an upper-bound check under maximization).
+`runtime.modeling_checks` (version 2) records each check's `basis`, `point` or
+`global_bound`; a point result states no global property, and a check never starts a solve.
+*Tested* by `objective_bound_check_classified` (compiler units),
+`objective_bound_check_uses_certified_bound` (runtime units) and `tpd_certifies_stable_feed`
+(native acceptance conformance).
+
 Results are registry-generated `runtime.*` relations (solve runs/variables/constraints/
 metrics, computation runs, simulation samples/events, fit parameters/variables/
 constraints/observations, response sensitivities, physical checks, candidate
-assessments, resolved numerics, run lineage); see the
+assessments, resolved numerics, run lineage; local validity, parametric sensitivities,
+reduced Hessians, infeasibility certificates, the solution pool and, for durable runs,
+incumbents; parameter covariances and intervals, profile points, response directions and
+propagated covariances); see the
 [generated runtime reference](../../generated/relations/runtime.md). Tables are encoded
 once, reserve their buffers before construction and remain valid after the result, run
 handle and revision are dropped. Identity framing and reuse equality use canonical float
@@ -339,13 +426,10 @@ package changed in memory (`with_declarations`, `with_fit_data`, `with_limits`) 
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — covariance and
 > confidence intervals by one rule: exact from the fit's KKT analysis when the fit used the
 > exact Hessian, otherwise Gauss–Newton from the response SVD; profile-likelihood intervals
-> as adaptive pin chains; one `LocalValidity` relation (Plan 22 S3; not yet implemented).
-> ADR-0118 supersedes ADR-0107 and its transient-only Gauss–Newton rule;
-> [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — Gauss–Newton and exact
-> transient Hessians (Plan 22 Y4; not yet implemented).
-
-No covariance or confidence interval is computed today; a fit reports the response rank and
-conditioning below, which are not statistical claims.
+> as adaptive pin chains; one `LocalValidity` relation (Plan 22 S3, implemented). ADR-0118
+> supersedes ADR-0107 and its transient-only Gauss–Newton rule;
+> [ADR-0110](../../adr/0110-dynamics-profile-extensions.md) — adjoint gradients (Plan 22
+> Y3), Gauss–Newton Hessians (Y4a) and exact transient Hessians on IDAS (Y4b), implemented.
 
 A fit (`authored.fit_cases`) declares shared parameters (fixed or free, value, optional
 bounds, positive scale), experiments (an authored case with an optional integrated analysis) and
@@ -359,7 +443,7 @@ their identity without entering the loss.
 | Experiment kind | Treatment |
 |---|---|
 | Steady | Experiment-specific unknowns join the NLP after the shared parameters; original constraints remain physical constraints; exact Hessians include the residual second-derivative term |
-| Transient | Integrated inline with forward sensitivities under the outer job; limited-memory Hessians are required |
+| Transient | Integrated inline under the outer job through the shared `IntegratedExperiment` ([§13.6](#section-13-6)): forward sensitivities give the response Jacobian, or in the gradient-only mode adjoint sensitivities give the objective gradient alone; the Hessian is limited memory, Gauss–Newton, or exact from forward-over-adjoint second-order sensitivities on IDAS |
 | Mixed | Both kinds in one simultaneous NLP |
 | All fixed | Direct evaluation with truthful physical quality; no native passes |
 
@@ -370,10 +454,28 @@ dense support stays dense only where declared. Prepared fit metadata and sparse 
 share one admitted immutable product. Seeds for fitting are refused; declared parameter
 values are the start. A discrete variable that an experiment's case leaves free is refused
 (`modeling.domain`, analysis `fitting`; [§6.8](schema-and-relations.md#section-6-8)). The
-IDAS route refuses hybrid fitting sensitivities. Owners: `workflow/fitting.rs`,
+IDAS route refuses hybrid fitting sensitivities, and a fit refuses a solve-level sensitivity
+request ([§15.5.1](numerical-execution.md#section-15-5-1)). Owners: `workflow/fitting.rs`,
 `fitting/{modeling,preparation,oracle,sparse,results}.rs`. Source paths bind shared
 parameters and outputs through the same checked package; original checks, fixed values
 and bounds are retained. Integration controls are scoped to their experiment instance.
+
+**Hessians and derivative sources.** The Hessian mode is a solver control
+([§16.6](numerical-execution.md#section-16-6)). `exact` includes the residual
+second-derivative term; `gauss_newton` (Plan 22 Y4a) is `JᵀWJ` plus the constraint-multiplier
+Hessians, without residual curvature, defined only for the least-squares fit objective, so
+fitting is the one request that declares it and every other request is refused before
+native work (`least_squares`, [§18.7](numerical-execution.md#section-18-7)); a transient
+experiment contributes only its Gram term. A transient experiment's exact Hessian (Plan 22
+Y4b) comes from IDAS forward-over-adjoint second-order sensitivities, prepared at second
+order on request; Diffsol refuses it. `FitProfile.derivatives` (`FitDerivatives`) selects
+the derivative source: `responses`, the response Jacobian from forward sensitivities, or
+`gradient`, the objective gradient alone from adjoint sensitivities of the transient
+experiments, which requires the limited-memory Hessian and reruns the forward sensitivities
+once at the final assessment for the response rank. *Tested* by
+`gauss_newton_hessian_matches_jtwj`, `gauss_newton_fit_admits_transient`,
+`adjoint_gradient_equals_forward_on_transient_fit` and
+`exact_transient_fit_hessian_matches_finite_difference` (runtime units).
 
 Response derivatives at the candidate are local physical partials
 (`runtime.response_sensitivities`). A steady response needs a feasible, regular square
@@ -383,10 +485,62 @@ diagnostics (faer SVD of the importance/uncertainty-weighted, parameter-scaled r
 have their own cell cap and reservation; refusal preserves the sparse candidate. An
 estimate is qualified only with a stationary or optimal qualification, original
 feasibility and full response rank; a rank-deficient response yields an unqualified
-estimate with its rank and condition reported. No covariance, confidence interval or
-global identifiability follows from convergence or local rank. Data reconciliation and
-multi-scenario stacking have no separate templates; the shared-parameter experiment set
-is the multi-experiment form.
+estimate with its rank and condition reported. Convergence and local rank establish no
+covariance or interval by themselves; the rule below states both with their validity, and
+global identifiability is not claimed. Data reconciliation and multi-scenario stacking have
+no separate templates; the shared-parameter experiment set is the multi-experiment form.
+
+**Covariance** (Plan 22 S3, `workflow/fitting/covariance.rs`). Every fit with a free
+parameter derives one covariance of its free parameters, published in
+`runtime.parameter_covariances` with its approximation (`CovarianceApproximation`). A fit
+whose requested Hessian mode is `exact` reads the inverse reduced Hessian over its parameter
+columns, `B·K⁻¹·Bᵀ`, from the KKT factor of its own solve
+(`kkt::Analysis::inverse_reduced_hessian`, [§15.5.1](numerical-execution.md#section-15-5-1)),
+certified by the same LICQ, strict-complementarity and second-order verdicts; it is labelled
+`exact`. Under a limited-memory or Gauss–Newton Hessian the covariance is
+`Σ = S·V·diag(s⁻²)·Vᵀ·S` from the singular values `s` and right singular vectors `V` of the
+weighted, parameter-scaled response `R·S·√importance/σ`, with `S` the declared parameter
+scales, never forming `JᵀWJ`; it is labelled `gauss_newton`. The label follows the requested
+Hessian mode. The declared standard deviations are taken as absolute, so no residual
+variance rescales the covariance. Admission keeps the declared-deviation rule: every
+included observation needs a finite value, a positive standard deviation and positive
+importance.
+
+The covariance is withheld, with its reason in `runtime.local_validity`, for no candidate or
+an estimate that is not stationary; an included observation whose importance is not one
+(`nonunit_importance`), since the weighted loss is then not a likelihood; unavailable
+responses (`responses_unavailable`); a response rank below the number of free parameters
+(`rank_deficient`), the rank counting singular values above `rank_tolerance` times the
+largest; a free parameter within its acceptance budget of a declared bound
+(`parameter_at_bound`); or, for the exact covariance, a failed verdict or backsolve.
+`runtime.response_directions` publishes the right singular vectors whenever the responses
+exist, whatever the covariance's outcome: the first `rank` span the locally identifiable
+subspace, and the others are the parameter combinations the observations do not determine.
+
+**Intervals.** `FitProfile.uncertainty` (`FitUncertainty`: a confidence `level` below one,
+optional `ProfileControls`, and whether to propagate to the predictions,
+[§19.8](#section-19-8)) requests intervals, published in `runtime.parameter_intervals`. A
+Wald end is `θ̂ ± z·√Σₖₖ`, with `z` the standard-normal quantile of `(1 + level)/2`. A
+profile-likelihood end is the pinned value at which `√(2(f − f*))` reaches `√χ²₁(level)`:
+two chains per free parameter, one per end, each point pinning the parameter on the fit
+prepared once (`transform::Pinned`) and re-solved through the one NLP runner without a local
+analysis, seeded from its chain's latest accepted point. A chain steps by a secant predictor
+limited to doubling, halves its step on failure, and ends with a secant root once the end is
+bracketed (at most 40 points and a relative tolerance of 10⁻³ by default). Every point is
+published in `runtime.profile_points` with its seed, qualification, objective, statistic and
+acceptance, and an end reached at a bound or stopped by its point budget says so
+(`IntervalOutcome`). A profile needs a valid estimate, not full rank. With absolute
+deviations both methods use the same quantile, so they agree on a linear model.
+
+*Tested* by `linear_regression_covariance_analytic` (exact, limited-memory and Gauss–Newton
+against `(XᵀWX)⁻¹`), `gauss_newton_covariance_labelled`,
+`covariance_withheld_with_nonunit_importance`, `covariance_withheld_without_declared_sigma`,
+`fit_uncertainty_admission`, `profile_likelihood_matches_wald_on_linear_model` and
+`profile_chain_seeds_from_predecessor` (runtime units),
+`inverse_reduced_hessian_over_solve_columns` (native backend units) and
+`unidentifiable_fit_withholds_covariance` (conformance acceptance). No test yet exercises the
+`parameter_at_bound` or `responses_unavailable` withholding, or the exact covariance of a
+transient fit, which the exact transient Hessian now permits.
 
 ### 19.5 Costing
 
@@ -408,9 +562,11 @@ exists.
 > domains, disjunctions and indicator, SOS, cardinality, piecewise and logic declarations
 > enter the design target (Plan 22 M1–M5);
 > [ADR-0103](../../adr/0103-variable-domain-facet.md) — the declared domain facet (Plan 22
-> M1, implemented). Plan 22 M3 and M4 (implemented) lower the constraint forms and
-> disjunctions; the M2 fixed-assignment initialization stage and M5 (complementarity and
-> discrete phase modes) are not yet implemented.
+> M1, implemented) and its inward bound tightening (M2a, implemented). Plan 22 M3 and M4
+> (implemented) lower the constraint forms and disjunctions, and M5a (implemented) lowers
+> complementarity; the M2 fixed-assignment initialization stage (M2b), results conditional
+> on an assignment (M2c), the penalty route and discrete phase modes (M5b) are not yet
+> implemented.
 
 Authored discrete domains are implemented: a variable declares `integer`, `binary`,
 `semicontinuous` or `semiinteger` ([§6.8](schema-and-relations.md#section-6-8)), and a
@@ -471,6 +627,36 @@ disjunction let its copies vanish and its variables keep their own box when the 
 selected: `L·(1 − y_owner) ≤ x − Σ v_k ≤ U·(1 − y_owner)`. Lowering records follow the same
 order.
 
+**Complementarity** (Plan 22 M5a). A declaration
+`complements name[i in s]: (a >= 0, b >= 0);` ([§6.8](schema-and-relations.md#section-6-8))
+states `0 ≤ a ⊥ b ≥ 0` and has no default realization. Every lowering keeps both members
+nonnegative:
+
+| Realization | Lowering | Declared equivalence |
+|---|---|---|
+| `smooth(f, width)` | One row `f(a, b, width) == 0` with the package's smoothing function, called as authored; with `math.smooth_min`, the CHKS function `(a + b − √((a − b)² + width²))/2`, the row holds exactly where `a·b = width²/4` with both members positive, so no inequality row is added and a square system stays square | `Smoothed` |
+| `disjunctive` | Nonnegative slack columns equal to each member and one native SOS1 set over them (weights 1 and 2) | `Native` |
+| `penalty(l1)` | The rows `a ≥ 0`, `b ≥ 0` and `a·b ≤ 0`, and the structural requirement `l1_exact_penalty` in the case structure (`pse.math.case-structure.v4`) | `ExactPenalty` |
+
+The smoothing choice belongs to the author: the realization names the function and its
+width, which may reference a parameter, so continuing the width rebinds values without a
+new structure ([§14.4](mathematics-and-compilation.md#section-14-4)). The disjunctive
+realization's SOS1 set is a native form, so it routes to SCIP and is refused on HiGHS. The
+`l1_exact_penalty` requirement enters the structure's identity, but no route reads it yet:
+executing the penalty realization on the ℓ1 route is Plan 22 M5b. The reference
+thermodynamics package declares `ComplementarityVLE` (`equilibrium.pse`), phase
+disappearance by temperature slacks complementary to the liquid fraction and to the vapor
+fraction, with smooth, disjunctive and penalty definitions and nine flash fixtures, three
+feeds in each form. *Tested* by `complements_parses_and_renders` (authoring units),
+`complementarity_lowerings_keep_members_nonnegative` and
+`smooth_complementarity_row_vanishes_on_eps_sq_over_4` (compiler units),
+`smooth_complementarity_product_equals_eps_sq_over_4` and
+`disjunctive_complementarity_refused_on_highs` (runtime units), and
+`flash_phase_disappearance_agrees_across_realizations` (native acceptance conformance: on
+every feed the smooth form on Ipopt leaves the equilibrium temperature within O(width²) of
+the disjunctive form on SCIP; the penalty fixtures are prepared and carry the requirement
+but are not solved).
+
 **Routing.** Linear realizations produce ordinary rows over binary variables, which HiGHS
 solves when they are linear and SCIP when a quadratic objective or nonlinear row remains. The
 linear lowering of an indicator on HiGHS 1.15 matches an enumerated oracle, including a charge
@@ -484,20 +670,37 @@ enumerated one at every tested demand (`gdp_indicator_matches_hull`). The seed G
 ([§6.10](schema-and-relations.md#section-6-10)) reaches its enumerated optimum through the
 hull realization.
 
-Not yet implemented: complementarity declarations and discrete phase-appearance modes (Plan
-22 M5), a lowering of semi domains for backends without native semi variables, and the M2
-fixed-assignment initialization stage.
+Semi domains reach SCIP, which has no native semi variable, through the `semi(indicator)`
+lowering of its export ([§18.10.1](numerical-execution.md#section-18-10-1)). Not yet
+implemented: executing the penalty realization and discrete phase-appearance modes (Plan 22
+M5b), the M2 fixed-assignment initialization stage (M2b) and duals and sensitivities stated
+conditional on a fixed assignment through one commitment (M2c).
 
 ### 19.8 Uncertainty
 
 > Decision: [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — uncertainty propagation
 > Σ_y = J·Σ_θ·Jᵀ and covariance with PS-12 validity, valid only where every upstream
-> validity row holds (Plan 22 S3–S4; not yet implemented). ADR-0118 supersedes ADR-0107.
+> validity row holds (Plan 22 S3–S4, implemented). ADR-0118 supersedes ADR-0107.
 
-Not yet implemented: no uncertainty propagation or covariance estimate; both are in
-the design target ([ADR-0118](../../adr/0118-one-kkt-point-analysis.md)). Robust
-optimization is not implemented. Local response sensitivities, rank and condition from fitting
-([§19.4](#section-19-4)) are the only related results and are not statistical claims.
+A parameter covariance ([§19.4](#section-19-4)) propagates to outputs as `Σ_y = J·Σ_θ·Jᵀ`
+(Plan 22 S4, `workflow/uncertainty.rs`), published in `runtime.propagated_covariances`. `J`
+is one of two first-order maps:
+
+- a modeling step's parametric sensitivities
+  ([§15.5.1](numerical-execution.md#section-15-5-1)), requested through
+  `SensitivityRequest.propagation`: the covariance as a fit run published it
+  (`ParameterCovariance`, which `RunResult::parameter_covariance` hands on) and the solved
+  variables to propagate to. Parameters are matched by identity, and a sensitivity
+  parameter the covariance does not name is held fixed;
+- a fit's own responses over its included observations, requested by
+  `FitUncertainty.predictions` (admitted when the square output covariance fits the fit's
+  cell cap).
+
+The result is valid while both its inputs are: its `LocalValidity` is their conjunction, and
+a withheld input withholds it as `upstream_withheld`, naming that input and its reason.
+*Tested* by `uncertainty_propagation_linear_exact` and
+`propagation_withheld_when_upstream_withheld` (runtime units). Propagation is first-order
+only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
@@ -541,8 +744,15 @@ initialization, flow/recycle and block strategies, studies, diagnostics and conf
 exposes its selected route (`NativeRoute`) and one typed eligibility row per assessed
 adapter (`NativeEligibility`, whose reasons carry registry `NativeIneligibility` codes and
 typed detail), and a strategy result its ordered attempts (`NativeStrategyAttempt`), all in
-registry spellings ([§18.7](numerical-execution.md#section-18-7)). Owners are
-`crates/pse-py/src/workflow/`, `python/pse/_modeling.py`, `_runs.py` and `_strategies.py`.
+registry spellings ([§18.7](numerical-execution.md#section-18-7)). A sensitivity request
+travels in the typed `SolveSettings` document (`SensitivityRequest`, with an optional
+`Propagation`; [§15.5.1](numerical-execution.md#section-15-5-1)), and `prepare_fit` takes the
+derivative source (`FitDerivatives`) and the uncertainty request (`FitUncertainty`)
+([§19.4](#section-19-4)); their results are ordinary result tables. `SimulationSettings`
+takes the dynamic sensitivity (`DynamicSensitivity`) and the adjoint checkpoint settings
+(`AdjointSettings`); scheduled inputs and shooting are Rust-only today
+([§13.6](#section-13-6)). Owners are `crates/pse-py/src/workflow/`,
+`python/pse/_modeling.py`, `_runs.py` and `_strategies.py`.
 The removed model builders have no compatibility facade.
 
 `RunHandle.wait()` releases the interpreter while waiting and checks signals; an

@@ -1162,7 +1162,7 @@
         },
         "exact": {
           "default": false,
-          "description": "Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs\nwithout native forms, and never with reoptimization or concurrency.",
+          "description": "Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs\nwithout native forms, and never with reoptimization, IIS generation (SCIP's IIS\nfinders do not support exact solving) or concurrency.",
           "type": "boolean"
         },
         "iis": {

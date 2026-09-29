@@ -12,13 +12,16 @@
 pub struct RuntimeSolveRunsFieldCommitmentItem {
     ///source_id
     pub r#source_id: pse_ids::SemanticId,
-    ///value
-    pub r#value: f64,
+    ///lower
+    pub r#lower: f64,
+    ///upper
+    pub r#upper: f64,
 }
 impl crate::SemanticEq for RuntimeSolveRunsFieldCommitmentItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#source_id, &other.r#source_id)
-            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+            && crate::SemanticEq::semantic_eq(&self.r#lower, &other.r#lower)
+            && crate::SemanticEq::semantic_eq(&self.r#upper, &other.r#upper)
     }
 }
 impl PartialEq for RuntimeSolveRunsFieldCommitmentItem {
@@ -133,15 +136,18 @@ impl crate::SemanticFrame for RuntimeSolveRunsFieldCommitmentItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#source_id));
         crate::SemanticFrame::frame(&self.r#source_id, hash);
-        hash.str(stringify!(r#value));
-        crate::SemanticFrame::frame(&self.r#value, hash);
+        hash.str(stringify!(r#lower));
+        crate::SemanticFrame::frame(&self.r#lower, hash);
+        hash.str(stringify!(r#upper));
+        crate::SemanticFrame::frame(&self.r#upper, hash);
     }
 }
 impl crate::HeapUsage for RuntimeSolveRunsFieldCommitmentItem {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source_id))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lower))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#upper))
     }
 }
 impl crate::SemanticFrame for RuntimeSolveRunsRow {

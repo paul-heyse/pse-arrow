@@ -308,6 +308,55 @@ pub(crate) struct DynamicWorker {
     functions: BTreeMap<(usize, Function), FunctionWorker>,
     cancel: Arc<AtomicBool>,
 }
+impl DynamicWorker {
+    /// Bind one trial point into the mode's physical values: check the dimensions, set the
+    /// time, state and parameter coordinates, and validate the mode's range obligations
+    /// for every role but the initial values.
+    fn bind(
+        &mut self,
+        mode: usize,
+        role: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+    ) -> Result<(), ProblemError> {
+        if self.cancel.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(pse_math::MathError::Cancelled.into());
+        }
+        let d = &self.coordinates;
+        if state.len() != d.state.len()
+            || parameters.len() != d.parameters.len()
+            || !time.is_finite()
+            || state.iter().chain(parameters).any(|v| !v.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "dynamic binding dimensions or values".into(),
+            ));
+        }
+        let context = self
+            .modes
+            .get_mut(mode)
+            .ok_or_else(|| ProblemError::Internal("dynamic mode absent".into()))?;
+        context
+            .values
+            .scalars
+            .insert(d.time, (time - d.time_origin) / d.time_scale);
+        for (c, x) in d
+            .state
+            .iter()
+            .zip(state)
+            .chain(d.parameters.iter().zip(parameters))
+        {
+            context.values.scalars.insert(c.id, x * c.scale + c.offset);
+        }
+        if role != Function::Initial
+            && let Some(guard) = &mut context.guard
+        {
+            guard.validate(&context.values)?;
+        }
+        Ok(())
+    }
+}
 impl Oracle for DynamicWorker {
     fn contract(&self) -> &native::Contract {
         &self.contract
@@ -329,19 +378,8 @@ impl Oracle for DynamicWorker {
         if self.cancel.load(std::sync::atomic::Ordering::Acquire) {
             return Err(pse_math::MathError::Cancelled.into());
         }
-        let d = &self.coordinates;
-        let n = d.state.len();
-        if state.len() != n
-            || parameters.len() != d.parameters.len()
-            || !time.is_finite()
-            || state.iter().chain(parameters).any(|v| !v.is_finite())
-        {
-            return Err(ProblemError::Contract(
-                "dynamic binding dimensions or values".into(),
-            ));
-        }
         let role = function;
-        let Some(function) = self.functions.get_mut(&(mode, function)) else {
+        let Some(function) = self.functions.get(&(mode, function)) else {
             if function == Function::Roots && mode < self.contract.events.len() {
                 return Ok(native::Evaluation {
                     values: vec![],
@@ -366,32 +404,17 @@ impl Oracle for DynamicWorker {
             }
             return Ok(result);
         }
+        self.bind(mode, role, time, state, parameters)?;
+        let function = self
+            .functions
+            .get_mut(&(mode, role))
+            .ok_or_else(|| ProblemError::Internal("missing compiled dynamic function".into()))?;
         function.cache = None;
         #[cfg(test)]
         {
             function.evaluations += 1;
         }
-        let context = self
-            .modes
-            .get_mut(mode)
-            .ok_or_else(|| ProblemError::Internal("dynamic mode absent".into()))?;
-        context
-            .values
-            .scalars
-            .insert(d.time, (time - d.time_origin) / d.time_scale);
-        for (c, x) in d
-            .state
-            .iter()
-            .zip(state)
-            .chain(d.parameters.iter().zip(parameters))
-        {
-            context.values.scalars.insert(c.id, x * c.scale + c.offset);
-        }
-        if role != Function::Initial
-            && let Some(guard) = &mut context.guard
-        {
-            guard.validate(&context.values)?;
-        }
+        let context = &self.modes[mode];
         let p = &function.program;
         let rows = function.worker.constraints(&context.values)?;
         let values = p
@@ -422,10 +445,74 @@ impl Oracle for DynamicWorker {
         function.cache = Some((bits.collect(), result.clone()));
         Ok(result)
     }
+    /// The compiled case's exact Lagrangian Hessian with the function rows' weights as
+    /// multipliers (ADR-0110 item 4): a row's weight carries its value scale, constant
+    /// rows carry no curvature, and each entry takes both coordinates' scales, as the
+    /// first-order partials do.
+    fn weighted_hessian(
+        &mut self,
+        mode: usize,
+        function: Function,
+        time: f64,
+        state: &[f64],
+        parameters: &[f64],
+        weights: &[f64],
+    ) -> Result<faer::sparse::SparseColMat<usize, f64>, ProblemError> {
+        if self.contract.derivatives < pse_kernels::DerivativeOrder::Second {
+            return Err(ProblemError::unsupported(
+                "the dynamic functions were prepared without second derivatives",
+            ));
+        }
+        self.bind(mode, function, time, state, parameters)?;
+        let chain = self
+            .coordinates
+            .state
+            .iter()
+            .chain(&self.coordinates.parameters)
+            .map(|c| c.scale)
+            .collect::<Vec<_>>();
+        let worker = self
+            .functions
+            .get_mut(&(mode, function))
+            .ok_or_else(|| ProblemError::Internal("missing compiled dynamic function".into()))?;
+        let p = &worker.program;
+        if weights.len() != p.rows.len() || weights.iter().any(|w| !w.is_finite()) {
+            return Err(ProblemError::Contract(
+                "dynamic Hessian weight extent or value".into(),
+            ));
+        }
+        let mut multipliers = vec![0.0; worker.worker.assembly().structure().rows().len()];
+        for (i, &row) in p.rows.iter().enumerate() {
+            if !p.constants.contains_key(&i) {
+                multipliers[row] += weights[i] * p.scales[i];
+            }
+        }
+        let h = worker
+            .worker
+            .hessian(&self.modes[mode].values, 0.0, &multipliers)?;
+        if h.ncols() != chain.len() || h.nrows() != chain.len() {
+            return Err(ProblemError::Internal(
+                "dynamic Hessian coordinate extent".into(),
+            ));
+        }
+        let mut triplets = Vec::with_capacity(h.val().len());
+        for col in 0..h.ncols() {
+            for k in h.col_range(col) {
+                let row = h.row_idx()[k];
+                triplets.push(faer::sparse::Triplet::new(
+                    row.max(col),
+                    row.min(col),
+                    h.val()[k] * chain[row] * chain[col],
+                ));
+            }
+        }
+        faer::sparse::SparseColMat::try_new_from_triplets(chain.len(), chain.len(), &triplets)
+            .map_err(|e| ProblemError::memory(format!("dynamic Hessian assembly: {e:?}")))
+    }
 }
 
 pub(crate) fn profile_identity(p: &SimulationProfile) -> ContentHash {
-    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV5);
+    let mut h = FramedHasher::new(pse_ids::Frame::DynamicProfileV6);
     h.str(&native::profile_json(p).to_string())
         .hash(&p.numerics.key());
     h.finish_hash()

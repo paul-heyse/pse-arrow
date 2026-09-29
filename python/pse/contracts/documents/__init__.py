@@ -279,12 +279,12 @@ class IdasLinearSpgmr(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
 class IdasSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Typed IDAS-only method controls (ADR-0110 item 1), a versioned boundary document
     (ADR-0116 Outcome 6): the version is required, and absent fields take these defaults.
+    Version 2 removes the per-state sign constraints: they derive from the authored bounds
+    ([`Contract::signs`], ADR-0119 Outcome 4).
     """
 
     #: Document version.
-    version: Literal[1] = 1
-    #: Empty, or one declared sign per state in state order.
-    constraints: tuple[enums.StateSign, ...] = msgspec.field(default_factory=tuple)
+    version: Literal[2] = 2
     #: Consistent initialization at the start of the horizon; scheduled changes and resets
     #: always keep their differential states.
     initialization: enums.IdasInitialization = enums.IdasInitialization.ALGEBRAIC_AND_RATES
@@ -594,7 +594,8 @@ class ScipSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     """SCIP's nested Ipopt linear solver, seed and node budget."""
 
     #: Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs
-    #: without native forms, and never with reoptimization or concurrency.
+    #: without native forms, and never with reoptimization, IIS generation (SCIP's IIS
+    #: finders do not support exact solving) or concurrency.
     exact: bool = False
     #: After a proof of infeasibility, compute an irreducible infeasible subsystem of the
     #: true exported program (`SCIPgenerateIIS`).

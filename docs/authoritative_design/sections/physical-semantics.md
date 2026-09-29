@@ -238,9 +238,9 @@ common conformance runner executes the formulas through the production mathemati
 
 > Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider factory
 > may declare one closed output interval per output that every successful evaluation lies
-> in; the host checks the declaration against the contract (Plan 22 G4, implemented), and
-> will enforce it at evaluation and frame it into the provider's configuration identity (not
-> yet implemented).
+> in; the host checks the declaration against the contract (Plan 22 G4, implemented),
+> enforces it at every evaluation and frames it into the provider's configuration identity
+> (Plan 22 ENV, implemented).
 
 `pse-kernels` is the generic external-function host. `ProviderSpec` binds implementation
 identity and revision, parameter-data identity, ordered typed ports, logical array shapes,
@@ -254,19 +254,41 @@ shape and be finite within the admitted domain. Typed trial, contract, resource,
 cancellation and terminal failures survive into native callbacks and diagnostic results.
 Derivative availability and smoothness are separate contracts.
 
+**Output envelopes** (`pse-kernels`). A provider factory may declare an output envelope
+(`ProviderFactory::envelope`): one closed interval per output that every successful
+evaluation lies in. Registration (`Registration::new` and `Registration::bind`) checks it:
+one interval per output, neither end NaN, the lower end at most the upper, and each
+interval containing a real number, so `(+∞, +∞)` and `(−∞, −∞)` are refused as a contract
+error. Every evaluation is then checked against it (`Enveloped`): a finite output outside its
+interval is a typed contract error naming the provider, the output and the interval, while a
+nonfinite output stays a recoverable trial rejection. The envelope enters the provider's
+configuration key (`Registration::configuration_key`, frame
+`pse.provider.configuration.v1`, over the factory key and the exact bits of each bound); a
+provider without one keeps its factory key. The factorable export bounds a provider output by
+this envelope ([§7.5](mathematics-and-compilation.md#section-7-5)). *Tested* by
+`provider_envelope_is_checked_against_the_contract`, `envelope_rejects_empty_interval`,
+`envelope_violation_is_typed_contract_error` and `envelope_in_provider_key` (`pse-kernels`
+units).
+
 ### 9.5 Phase equilibrium
 
 > Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md) — a certified
 > tangent-plane-distance stability check over the global certification route enters the
 > design target (Plan 22 G6, partial: the authored tangent-plane model certifies an ideal
-> feed stable on the `certify` route,
-> [§18.10.1](numerical-execution.md#section-18-10-1); detecting a known instability and the
-> PC-SAFT model are scheduled, not built).
+> feed stable on the `certify` route; a known Peng–Robinson instability is detected on a
+> local route, whose global certification SCIP does not finish in bounded time, and the
+> PC-SAFT distance is prepared and solved locally, not certified;
+> [§18.10.1](numerical-execution.md#section-18-10-1)).
 
 Authored equilibrium knowledge includes ideal bubble/dew equations, Rachford–Rice starts,
 SmoothVLE and log-fugacity equality. The seed binds BTIdeal, FPhx and BT_PR comparisons.
 Implicit closures can be inline, nested through the registered KINSOL capability or
 accelerated through the registered cubic-root capability where the declared contract fits.
+
+Phase disappearance can also be authored as complementarity: the reference
+`ComplementarityVLE` states temperature slacks complementary to the liquid and vapor
+fractions, realized smoothly, disjunctively or by an exact penalty
+([§19.7](workflows-and-results.md#section-19-7)).
 
 Nested-flash selection compares explicitly eligible regimes under an authored criterion.
 Ties, singular derivatives, failed alternatives and unproved branch crossings refuse.

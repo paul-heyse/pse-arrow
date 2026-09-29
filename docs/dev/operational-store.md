@@ -270,15 +270,21 @@ queue the same way.
   typed incumbents: objective with the export offset applied, dual bound, gap, nodes,
   native seconds and a throttled primal (the first at once, then at most one a second, the
   last always kept). Each captured primal is stored as a seed of its step in
-  `solutions`, in the same transaction as its `incumbents` row, which keeps the step, phase
-  and elapsed time of the reporting event.
+  `solutions` with origin `incumbent`, in the same transaction as its `incumbents` row,
+  which keeps the step, phase and elapsed time of the reporting event. A durable run
+  publishes its incumbent stream as `runtime.incumbents`, read back when the attempt ends.
 - **Stored solutions** are keyed by the coordinate-compatibility stamp and the preparation
-  identity. `with_stored_start` starts a step from the newest compatible seed or a named
-  one (`StartSource::Stored`). A job with `JobStart::ResumeFromParent` starts from the
-  latest incumbent in its parent attempt chain, so a killed worker's successor resumes the
-  search; the try's `job.start` event records the start it used.
-- **Retention.** Streams of finished attempts are removed after seven days. Captured
-  solutions are never pruned; register R-36 holds the trigger for an automatic policy.
+  identity; `origin` is `output` for a step's accepted seed and `incumbent` for a capture.
+  `with_stored_start` starts a step from the newest compatible output seed
+  (`StoredStart::Latest` skips captures) or a named one (`StartSource::Stored`). A job with
+  `JobStart::ResumeFromParent` starts from the latest incumbent in its parent attempt
+  chain, so a killed worker's successor resumes the search; the try's `job.start` event
+  records the start it used.
+- **Retention.** Streams of finished attempts, their incumbents included, are removed
+  after seven days, except the incumbents of the attempt chain above an unfinished retry.
+  Captured solutions go with them unless an unfinished job's stored start or a waiting
+  study point's predecessor names them. Output seeds are never pruned; register R-36 holds
+  the trigger for an automatic policy for them and for publications.
 
 ## Publication catalog
 

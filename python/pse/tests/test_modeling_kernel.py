@@ -116,6 +116,13 @@ def test_modeling_expansion_limits_are_explicit_and_isolated(
     )
     with pytest.raises(pse.InspectionError, match="positive"):
         pse.ModelingLimits(body_occurrences=0)
+    assert limits.body_slots is None
+    with pytest.raises(pse.InspectionError, match="slots"):
+        package.with_limits(pse.ModelingLimits(body_slots=1)).solve_case(
+            case, pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+        )
+    with pytest.raises(pse.InspectionError, match="positive"):
+        pse.ModelingLimits(body_slots=0)
     with pytest.raises(pse.InspectionError, match="positive"):
         pse.ModelingLimits(members=0)
 
@@ -144,7 +151,16 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
   annotation check area(area>3{s});
   annotation check x(x[i]<=4.01{s});
  }
- case run { child root:D=D(); }
+ case run fixture {
+  dof 0;
+  run integrated;
+  integrate samples(0{s}, 0.25{s}, 0.75{s}, 2{s}) relative(1e-8) normalized_absolute(1e-8)
+   step(1e-4{s}) quadrature_relative(1e-8) quadrature_absolute(root.area=1e-9{s});
+  mode rise;
+  event root.hit[0{s}] direction(either) tolerance(1e-8{s})
+   reset(root.x[0{s}] = root.jump[0{s}]) next(coast);
+  mode coast facts(stage.coast = true);
+ } { child root:D=D(); }
 }"""
     manifest = (
         (root / "tests/fixtures/packages/minimal_explicit/package.toml")
@@ -156,21 +172,8 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
         [{"package.toml": manifest, "models/dynamic.pse": source}],
         physical(runtime),
     )
+    # The case's fixture declares the modes and the event (ADR-0119).
     case = next(d.declaration_id for d in package.declarations() if d.name == "run")
-    modes = (
-        pse.ModelingModeSettings(
-            name="rise",
-            events=[
-                pse.ModelingEventSettings(
-                    guard="root.hit[0{s}]",
-                    tolerance=1e-8,
-                    next_mode="coast",
-                    reset={"root.x[0{s}]": "root.jump[0{s}]"},
-                )
-            ],
-        ),
-        pse.ModelingModeSettings(name="coast", facts={"stage.coast": True}),
-    )
     trajectory = package.simulate(
         case,
         pse.SimulationSettings(
@@ -183,7 +186,6 @@ def test_modeling_simulation_events_checks_and_terminal_reports(
             out_atol=[1e-9],
             method="diffsol",
         ),
-        modes=modes,
     )
     assert trajectory.accepted, trajectory.validation_error
     assert trajectory.checks_complete

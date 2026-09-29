@@ -260,6 +260,8 @@ frames! {
         PresolveTransformationV2 => "pse.presolve.transformation.v2",
         /// The constraint system a SCIP reoptimization session was built for.
         ScipReoptimizationSystemV1 => "pse.scip.reoptimization.system.v1",
+        /// A shooting window's oracle: its anchored starts and observed quadratures.
+        ShootingWindowV1 => "pse.shooting.window.v1",
         /// A tear-selection decision column.
         TearDecisionV1 => "pse.tear.decision.v1",
         /// A tear-selection order column.
@@ -281,8 +283,9 @@ frames! {
         DurableStudyRequestV1 => "pse.durable.study_request.v1",
         /// The value bindings of one durable study point (Plan 22 O7).
         DurableStudyPointBindingV1 => "pse.durable.study_point_binding.v1",
-        /// A dynamic simulation profile, with its scheduled inputs and typed sensitivity.
-        DynamicProfileV5 => "pse.dynamic.profile.v5",
+        /// A dynamic simulation profile, with its scheduled inputs and typed sensitivity; its
+        /// IDAS settings carry no sign constraints.
+        DynamicProfileV6 => "pse.dynamic.profile.v6",
         /// An explicit conic request.
         ExplicitConicV3 => "pse.explicit-conic.v3",
         /// A fitting coordinate alias of an experiment and source.
@@ -295,8 +298,9 @@ frames! {
         FitSourceV1 => "pse.fit.source.v1",
         /// Compiled simulation modes.
         ModelingDynamicModesV1 => "pse.modeling.dynamic-modes.v1",
-        /// A modeling dynamic simulation.
-        ModelingDynamicV1 => "pse.modeling.dynamic.v1",
+        /// A modeling dynamic simulation, with the derivative order of its functions, its
+        /// integration parameter values, event directions and state signs.
+        ModelingDynamicV2 => "pse.modeling.dynamic.v2",
         /// A modeling fit's execution.
         ModelingFitExecutionV1 => "pse.modeling.fit-execution.v1",
         /// A modeling fit's source.
@@ -313,6 +317,8 @@ frames! {
         RunSourceV1 => "pse.run.source.v1",
         /// A publication request's target.
         RunTargetV1 => "pse.run.target.v1",
+        /// A shooting NLP: its simulation, method, nodes, controls, rows and objective.
+        ShootingProblemV1 => "pse.shooting.problem.v1",
         /// A solve's compilation and normalization, before a seed is attached.
         SolvePreparationV1 => "pse.solve.preparation.v1",
         /// A complete selected solve request.

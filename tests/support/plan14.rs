@@ -156,6 +156,8 @@ pub(crate) async fn seed_package_on(
                             "68ba8dc2d6b05d9a9fe1b1a3625d8015",
                             "040af20814bc57abb565c3c7f680be05",
                             "079a378ba3ce46728b32c87f4fe6a3df",
+                            "e0d4fbe894134e60bb4e364dddae9c5f",
+                            "f622163224f64cecaa98b10d0952aa16",
                             "fc52409793e44e61adb3eff88946fdb6",
                             "efcd1d0ad288438daf6764b4ab25a2a6",
                             "8c22c4a4f87141b083bfc0d9442d382c",
@@ -299,7 +301,6 @@ pub(crate) async fn heat_fit(
         pse_runtime::workflow::FitProfile {
             solver,
             simulations,
-            modes: BTreeMap::new(),
             rank_tolerance: 1e-8,
             max_cells: 1 << 20,
             derivatives: pse_runtime::workflow::FitDerivatives::Responses,

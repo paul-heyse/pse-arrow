@@ -178,12 +178,6 @@ impl PreparedExperiments {
             h.id(&id.as_id())
                 .hash(&crate::workflow::dynamics::profile_identity(p));
         }
-        // Mode identity is the complete serde encoding, never a hand-written field list (F09).
-        for (id, modes) in &profile.modes {
-            let encoded = serde_json::to_string(modes)
-                .map_err(|e| contract(format!("fit mode encoding: {e}")))?;
-            h.id(&id.as_id()).str(&encoded);
-        }
         // The requested intervals change what the fit derives and publishes, not how it
         // solves; a profile without them keeps its identity.
         if let Some(uncertainty) = &profile.uncertainty {

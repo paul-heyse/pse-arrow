@@ -176,7 +176,7 @@ fn fixed_lp_duals_conditional_on_commitment() {
     // The duals are conditional on the recorded commitment y = 3.
     assert_eq!(
         fixed.commitment.columns,
-        vec![(p.contract.variables[1].id, 3.0)]
+        vec![(p.contract.variables[1].id, (3.0, 3.0))]
     );
     assert_eq!(fixed.termination.category, Termination::Success);
     let (rows, reduced) = (fixed.row_dual.unwrap(), fixed.reduced_costs.unwrap());

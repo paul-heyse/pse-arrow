@@ -60,6 +60,9 @@ CREATE TYPE pse_ops.settlement_outcome AS ENUM ('committed', 'proved_noncommit',
 -- Registry enumeration StoredSeedKind.
 CREATE TYPE pse_ops.stored_seed_kind AS ENUM ('root', 'nlp', 'highs');
 
+-- Registry enumeration StoredSolutionOrigin.
+CREATE TYPE pse_ops.stored_solution_origin AS ENUM ('output', 'incumbent');
+
 -- Registry enumeration StudyPointState.
 CREATE TYPE pse_ops.study_point_state AS ENUM ('pending', 'assigned', 'completed', 'failed', 'cancelled');
 
@@ -363,6 +366,7 @@ CREATE TABLE pse_ops."solutions" (
     "compatibility_stamp" pse_ops.content_hash NOT NULL,
     "preparation_identity" pse_ops.content_hash NOT NULL,
     "kind" pse_ops.stored_seed_kind NOT NULL,
+    "origin" pse_ops.stored_solution_origin NOT NULL,
     "backend" pse_ops.native_backend NOT NULL,
     "profile_stamp" pse_ops.content_hash NOT NULL,
     "data_stamp" pse_ops.content_hash NOT NULL,
@@ -381,6 +385,7 @@ CREATE TABLE pse_ops."solutions" (
     CONSTRAINT solutions_barrier_positive_check CHECK ("barrier" IS NULL OR "barrier" > 0),
     CONSTRAINT solutions_basis_columns_elements CHECK (array_position("basis_columns", NULL) IS NULL),
     CONSTRAINT solutions_basis_rows_elements CHECK (array_position("basis_rows", NULL) IS NULL),
+    CONSTRAINT solutions_capture_has_attempt_check CHECK ("origin" <> 'incumbent' OR "created_by" IS NOT NULL),
     CONSTRAINT solutions_column_duals_elements CHECK (array_position("column_duals", NULL) IS NULL AND NOT ("column_duals" && ARRAY['NaN', 'Infinity', '-Infinity']::double precision[])),
     CONSTRAINT solutions_lower_bound_duals_elements CHECK (array_position("lower_bound_duals", NULL) IS NULL AND NOT ("lower_bound_duals" && ARRAY['NaN', 'Infinity', '-Infinity']::double precision[])),
     CONSTRAINT solutions_primal_elements CHECK (array_position("primal", NULL) IS NULL AND NOT ("primal" && ARRAY['NaN', 'Infinity', '-Infinity']::double precision[])),

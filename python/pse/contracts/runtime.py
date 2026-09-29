@@ -246,6 +246,23 @@ class RuntimeFitVariablesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeIncumbentsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    seq: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    elapsed_seconds: b.float = attrs.field(validator=v.finite_float)
+    phase: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    objective: b.float = attrs.field(validator=v.finite_float)
+    dual_bound: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    gap: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    nodes: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
+    seconds: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    solution_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeInfeasibilityCertificatesFieldRayItem:
     """Declared relation row or nested value."""
 
@@ -1237,6 +1254,7 @@ class RuntimeOperationalSolutionsRow:
     compatibility_stamp: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     preparation_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     kind: e.StoredSeedKind = attrs.field(validator=attrs.validators.instance_of(e.StoredSeedKind))
+    origin: e.StoredSolutionOrigin = attrs.field(validator=attrs.validators.instance_of(e.StoredSolutionOrigin))
     backend: e.NativeBackend = attrs.field(validator=attrs.validators.instance_of(e.NativeBackend))
     profile_stamp: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     data_stamp: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
@@ -1603,7 +1621,8 @@ class RuntimeSolveRunsFieldCommitmentItem:
     """Declared relation row or nested value."""
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    value: b.float = attrs.field(validator=v.finite_float)
+    lower: b.float = attrs.field(validator=v.finite_float)
+    upper: b.float = attrs.field(validator=v.finite_float)
 
 
 @attrs.frozen(kw_only=True)

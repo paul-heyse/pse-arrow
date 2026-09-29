@@ -34,7 +34,8 @@ pub struct Settings {
     /// true exported program (`SCIPgenerateIIS`).
     pub iis: bool,
     /// Exact rational MILP (`SCIPenableExactSolving`); admitted for linear programs
-    /// without native forms, and never with reoptimization or concurrency.
+    /// without native forms, and never with reoptimization, IIS generation (SCIP's IIS
+    /// finders do not support exact solving) or concurrency.
     pub exact: bool,
     /// Retain the native search tree across a finite MIP sequence whose constraint system
     /// is unchanged and whose linear objective changes (`SCIPenableReoptimization`).
@@ -110,7 +111,8 @@ static CAPABILITY: Capability = Capability {
     warm: WarmCapability::Primal,
     general_bounds: true,
     sign_bounds: true,
-    // Concurrent solving in deterministic mode, with the admitted permits as threads.
+    // Concurrent solving in deterministic mode, with the admitted permits as threads; the
+    // concurrent solvers' improving incumbents stream while the search runs.
     parallel: true,
     certifies: true,
     // Indicator (nonlinear rows lifted exactly through slacks), SOS1/SOS2, and/or/xor and

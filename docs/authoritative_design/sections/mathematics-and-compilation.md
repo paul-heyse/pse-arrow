@@ -164,13 +164,15 @@ as constants, not model inputs.
 > left to native handlers are structure metadata in `CaseStructure` and `ProblemFacts` (Plan
 > 22 M3 and M4, implemented);
 > [ADR-0111](../../adr/0111-multi-objective-optimization.md) — several
-> objectives with priority, weight and degradation tolerances (Plan 22 C3; not yet
-> implemented).
+> objectives with priority, weight and degradation tolerances (Plan 22 C3 authoring,
+> implemented: members, levels and level-bound rows,
+> [§6.8](schema-and-relations.md#section-6-8); the C3 engine is not yet implemented).
 >
 > Decision: [ADR-0120](../../adr/0120-provider-envelope-contract.md) — a provider output
 > becomes an auxiliary bounded by its factory's declared and checked output envelope, which
-> makes the dependent rows `Relaxed` (Plan 22 G4, implemented); enforcement at evaluation
-> is not yet implemented, and no production provider declares an envelope yet.
+> makes the dependent rows `Relaxed` (Plan 22 G4, implemented), enforced at every
+> evaluation and framed into the provider configuration key (Plan 22 ENV, implemented); no
+> production provider declares an envelope yet.
 > [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — `ProblemFacts.convexity` from a
 > DCP pass over `FactorableProgram` and exact rational LDLᵀ Gram certificates, rebound with
 > values (Plan 22 C5; not yet implemented).
@@ -180,7 +182,10 @@ registry domain (`ModelingVariableDomain`: `continuous`, `integer`, `binary`,
 `semicontinuous`, `semiinteger`; [§6.8](schema-and-relations.md#section-6-8)), fixed/free
 status and optional closed bounds; ordinary parameters; instance bindings of body formals to
 global sources; semantic rows with closed canonical bounds; and an optional objective with
-its authored sense. A body output reaches rows or the objective through an explicit
+its authored sense: the one objective level a solve optimizes
+([§6.8](schema-and-relations.md#section-6-8)), whose earlier levels, when a level is
+selected, become generated `LevelBound` rows over a bound parameter. A body output reaches
+rows or the objective through an explicit
 contribution map with finite nonzero dimensionless weights. Authored `lhs == rhs`,
 `<=` and `>=` equations become residual `lhs - rhs` rows with bounds `[0, 0]`,
 `(-inf, 0]` or `[0, inf)`; a conditional equation selects its branch during definition
@@ -190,16 +195,24 @@ specialization ([§10](models-and-composition.md#section-10)).
 declared domain; a binary variable brings the unit box, which case bounds may only narrow.
 `PreparedModeling::bound_structure` ([§14.4](#section-14-4)) then admits every free discrete
 variable after case binding.
-Integer and semi domains need finite lower and upper bounds, and bounds that leave no value
-of the domain are refused: a binary box containing neither 0 nor 1, an integer range with
-no integer, or a semi active interval that is not positive. Integer and binary variables
-also need a count or indicator quantity kind
-([§8.1](physical-semantics.md#section-8-1)). Each refusal names the variable
-(`modeling.domain`, analysis `preparation`). Non-integral bounds on an integer variable are
-passed on unchanged: the recorded inward tightening of ADR-0103 is not implemented. A fixed
-variable needs no search range; its value is checked for exact domain membership instead
-([§7.6](#section-7-6)). `CaseStructure::key` frames each domain by its registry spelling,
-and every native constraint form below (`pse.math.case-structure.v3`).
+Integer and semi domains need finite lower and upper bounds. Integer, binary and
+semiinteger bounds are tightened exactly inward to integers (`admit_domains`: the lower
+bound rounded up, the upper rounded down, a negative zero normalized to zero; semicontinuous
+bounds are not tightened), and each change is recorded as a `DomainTightening` and published
+as the information finding `modeling.domain.tightened` in `runtime.modeling_findings`, with
+the specified and the tightened bounds (ADR-0103, Plan 22 M2a). A binary bound outside
+`[0, 1]` is refused (`DomainRefusal::ConflictingBound`) rather than clamped, and bounds that
+leave no value of the domain after tightening, or a semi active interval that is not
+positive, are refused (`EmptyDomain`). Integer and binary variables also need a count or
+indicator quantity kind ([§8.1](physical-semantics.md#section-8-1)). Each refusal names the
+variable (`modeling.domain`, analysis `preparation`). A fixed variable needs no search range;
+its value is checked for exact domain membership instead ([§7.6](#section-7-6)). *Tested* by
+`integer_bounds_tightened_inward_and_recorded` and `binary_bounds_outside_unit_box_refused`
+(compiler units). `CaseStructure::key` frames each domain by its registry spelling, every
+native constraint form below and the structural requirements a lowering places on the route
+(`pse.math.case-structure.v4`), such as the `l1_exact_penalty` requirement of a penalty
+complementarity ([§19.7](workflows-and-results.md#section-19-7)); no route reads a
+requirement yet.
 
 **Native constraint forms.** A constraint form or disjunction realized `native` or
 `indicator` ([§6.8](schema-and-relations.md#section-6-8),
@@ -272,8 +285,9 @@ The SCIP route ([§18.10.1](numerical-execution.md#section-18-10-1)) projects un
 that carries the case's implicit definitions (`factorable_definitions`, where a case bound
 on an unknown replaces that endpoint's bound hint, as it does for the evaluator) and the
 declared output envelope of every registered provider that has one
-(`Registration::envelope`, checked against the provider's contract;
-[§9.4](physical-semantics.md#section-9-4)). The envelopes enter the program's identity. A
+(`Registration::envelope`, checked against the provider's contract and enforced on every
+evaluation; [§9.4](physical-semantics.md#section-9-4)). The envelopes enter the program's
+identity. A
 provider output without a declared envelope has no finite box, so an export with such an
 output inside a nonlinear term is refused; no production provider declares an envelope yet.
 *Tested* by `implicit_residual_exported_exactly` and `relaxed_rows_enclose_evaluator`
@@ -359,17 +373,19 @@ lifetimes, and each has a distinct identity scope
 > named lowerings of indicator, SOS, cardinality, piecewise, logic and disjunction
 > declarations join generic specialization, and their derived realization parameters join
 > view preparation (Plan 22 M3 and M4, implemented;
-> [§19.7](workflows-and-results.md#section-19-7)); complementarity (M5) is not yet
-> implemented.
+> [§19.7](workflows-and-results.md#section-19-7)), as do complementarity lowerings (M5a,
+> implemented) and the `objective_bounds` transformation of
+> [ADR-0111](../../adr/0111-multi-objective-optimization.md) (Plan 22 C3 authoring,
+> implemented).
 
 | Stage | Owner | Consumes | Produces | Effects |
 |---|---|---|---|---|
 | Package admission | runtime modeling admission ([§22](models-and-composition.md#section-22)) | exact package closure, generic declarations, physical inventory and aliases | immutable checked revision | source loading and bounded admission |
-| Generic specialization | `pse-modeling`, tracked by compiler modeling queries | checked package, root/instance, bindings, analysis and limits | demanded members, equations, named lowerings of constraint forms and disjunctions, lineage, checks and reports | none |
+| Generic specialization | `pse-modeling`, tracked by compiler modeling queries | checked package, root/instance, bindings, analysis and limits | demanded members, equations, named lowerings of constraint forms, complementarity and disjunctions, objective levels with their level bounds, lineage, checks and reports | none |
 | Input publication | `CompilerWorkspace` | checked package/context and lowered case inputs | Salsa input revisions | validated before setters |
 | Definition admission | `admitted` query → `typed_math::Request::admit` | definition source, formals, domains, groups, providers, units, physical registry | `AdmittedBody`: `BodySpec`, types, occurrences, `PreparedBody` | none |
 | Case planning | `plan` query → `CasePlan::prepare` | case structure, semantic bodies | immutable `CasePlan` with faer patterns and local demands | none; no evaluators |
-| Modeling view and rebind | `PreparedModeling::bound_structure`, `CompilerWorkspace::prepare_modeling_view`, `PreparedCase::rebind` | bound case structure, derivation rules, case values | a `PreparedCase` view identified by `view_key`, whose value products are rebound per values ([§14.4](#section-14-4)) | none; no evaluators |
+| Modeling view and rebind | `PreparedModeling::bound_structure`, `CompilerWorkspace::prepare_modeling_view`, `PreparedCase::rebind` | bound case structure, derivation rules, case values | a `PreparedCase` view identified by `view_key`, whose value products are rebound per values ([§14.4](#section-14-4)), and on a sensitivity request its parametric program (`pse.compiler.modeling-parametric.v1`, [§15.5.1](numerical-execution.md#section-15-5-1)) | none; no evaluators |
 | Structure and facts | `structure`, `coefficients`, `presolve_facts`, `problem_facts` queries | plan, consumed fixed/parameter values | `StructuralAnalysis`, coefficient/presolve/class facts | none |
 | Artifact requests | `artifacts` query | plan demands, `Profile`, math environment | keyed `ArtifactRequest`s | none |
 | Program construction | `pse-runtime::math` | artifact request | `CompiledBody` | native build, retained under runtime policy |
@@ -521,7 +537,8 @@ providers, cases and flows are medium; values are low.
 
 **Prepared views and value-only rebind.** Solver views of a modeling analysis separate
 structure from values. `PreparedModeling::bound_structure` applies the case's variable
-states, admits discrete domains ([§7.5](#section-7-5)) and excludes observation rows; it
+states, admits discrete domains and tightens their bounds inward, returning the recorded
+tightenings beside the structure ([§7.5](#section-7-5)), and excludes observation rows; it
 reads no value. `PreparedModeling::view_key` (`pse.compiler.modeling-view.v2`) is the
 complete identity of the view prepared from that structure: the bound structure key,
 including native constraint forms; every admitted body with its source occurrences; the rules
@@ -551,7 +568,10 @@ recently used first. The first request for a structure prepares it; every later 
 (`MathService::rebind`), which runs no job when no consumed value changed and otherwise
 rebuilds only the value products on one admitted worker. A new package revision starts with
 no views. A study of five points that differ only in values therefore prepares one view
-(`value_only_study_prepares_once`).
+(`value_only_study_prepares_once`). A sensitivity request's parametric program is prepared
+once per view and parameter set and cached with the view. A smoothing width that references
+a parameter, and the bound parameter β of an objective level, are values of this kind: a
+continuation of the width, or a new β, rebinds without preparing another structure.
 
 A complete physical-inventory identity conservatively re-admits all bodies after any
 registry change; a finer consumed-physical fingerprint would be an optimization, not a
@@ -583,8 +603,10 @@ implies conservation, which remains an independent physical check
 **Limits.** This area supports finite, physically typed scalar and indexed algebra with
 exact first and second derivatives, value-only nonsmooth switching and explicit providers.
 Continuous-axis realizations are described in [§13](workflows-and-results.md#section-13).
-General implicit or higher-index integrated DAEs, global MINLP, JIT/SIMD evaluators, GPU
-and distributed execution are not admitted. Nested branch derivatives are local and
+General implicit or higher-index integrated DAEs, JIT/SIMD evaluators, GPU and distributed
+execution are not admitted; global MINLP is admitted only for factorable problems over
+finite boxes on SCIP's route ([§18.10.1](numerical-execution.md#section-18-10-1)). Nested
+branch derivatives are local and
 refuse unproved crossing/selection behavior. Vectorized
 evaluators must not call `optimize_stack()` after vectorization. Qualification basis:
 [§24.2](operations-and-validation.md#section-24-2).

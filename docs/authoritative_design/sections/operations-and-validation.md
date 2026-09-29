@@ -65,6 +65,8 @@ propagation beyond `tracing` task propagation inside the engine.
 > `ProblemError` variants (Plan 22 A1, implemented);
 > [ADR-0104](../../adr/0104-discrete-constraint-forms-and-realizations.md) — the typed
 > realization refusal `modeling.realization` (Plan 22 M3 and M4, implemented);
+> [ADR-0103](../../adr/0103-variable-domain-facet.md) — the recorded bound tightening
+> `modeling.domain.tightened` and the conflicting-bound refusal (Plan 22 M2a, implemented);
 > [ADR-0114](../../adr/0114-typed-operational-store.md) — operational-store failures are classified by SQLSTATE constants, never strings;
 > CHECK and foreign-key violations are a typed invariant violation, not `Internal` (Plan 22
 > B2, implemented).
@@ -155,9 +157,13 @@ never an invalid model. An undeclared rule is an `internal` error.
 of a declared variable domain ([§6.8](schema-and-relations.md#section-6-8)). Its boundary
 rule is `modeling.domain`, with the variable's instance path, its domain, the analysis and
 the reason as observations and its declaration and variable identities as sources. A
-quantity kind that is not a count or indicator, and bounds that admit no value of the
-domain, are `invalid_model` (`validation.invariant`); missing finite bounds and a free
-discrete variable that the analysis cannot decide are `unsupported` (`capability.backend`).
+quantity kind that is not a count or indicator, a binary bound outside `[0, 1]`
+(`ConflictingBound`) and bounds that admit no value of the domain are `invalid_model`
+(`validation.invariant`); missing finite bounds and a free discrete variable that the
+analysis cannot decide are `unsupported` (`capability.backend`). An integer bound that
+admission tightened inward is not a refusal: `DomainTightening` is the finding
+`modeling.domain.tightened`, class `invalid_model` with severity `info`, observing the
+variable, its domain and the specified and tightened bounds.
 
 **Modeling realization refusals.** `pse_modeling::ModelingError::Realization` is the typed
 refusal of a constraint-form or disjunction lowering that the bound case cannot admit
@@ -182,6 +188,7 @@ from the variant:
 |---|---|---|---|
 | `Unavailable` | The explicitly selected backend is not linked; other linked backends are listed; no fallback | `capability.backend` | `unsupported` (`native.unavailable`), backend observed |
 | `Unsupported` | No eligible route, an ineligible explicit selection, or an adapter that cannot represent the request | `capability.backend` | `unsupported` (`native.unsupported`) |
+| `Reuse` | `RequireReuse` found retained state it cannot reuse: another backend's (`Foreign`), a different structure (`Structure`) or options the step does not set (`DroppedOptions`) | `capability.backend` | `incompatible` (`native.reuse`), backend, reason and the held backend or dropped keys observed |
 | `Contract` | The model or request violates a declared contract | `compile.math` | `invalid_model` (`native.contract`) |
 | `Structural` | Structural deficiency with overdetermined rows and underdetermined columns | `compile.math` | `invalid_model` (`native.structural`), rows and columns as sources |
 | `Math` | Mathematical evaluation failure with its domain or provider cause | the cause's code | the cause's class |
@@ -226,7 +233,9 @@ ephemeral run asked to publish (`workflow.ephemeral_publication`), an unknown jo
 version (`workflow.job_payload_version`), a former Delta control root
 (`workflow.legacy_workspace`) and an expired export (`workflow.export_expired`) are
 `incompatible`; an unconfirmed catalog commit is `infrastructure`
-(`workflow.publication_unresolved`).
+(`workflow.publication_unresolved`). A fixture whose declared solve intent differs from its
+runtime fixture policy's is `conflict` (`workflow.fixture_intent_conflict`, code
+`config.invalid`, [§6.10](schema-and-relations.md#section-6-10)).
 
 **Native engine errors.** `pse-columnar::engine` classifies `DataFusionError` in one
 place, by the plan's origin (`PlanOrigin`), never per call site:

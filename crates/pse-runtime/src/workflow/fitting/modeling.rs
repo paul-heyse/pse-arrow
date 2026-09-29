@@ -248,15 +248,10 @@ impl ModelingPackage {
         }
         // A supplied Hessian (exact or Gauss–Newton) needs second-order steady models for
         // the constraint curvature. Only the exact Hessian also needs the residual
-        // curvature, which the forward sensitivities of a transient experiment lack.
+        // curvature, which a transient experiment takes from IDAS forward-over-adjoint
+        // second-order sensitivities over dynamic functions compiled to second order
+        // (ADR-0110 item 4).
         let hessian = profile.solver.controls.hessian;
-        if hessian == HessianMode::Exact
-            && d.experiments.iter().any(|e| e.route == Route::Integrated)
-        {
-            return Err(contract(
-                "transient fitting requires Gauss–Newton or limited-memory Hessians",
-            ));
-        }
         // An adjoint gradient carries no response Jacobian, so no supplied Hessian can be
         // formed from it (ADR-0110 item 3).
         if profile.derivatives == FitDerivatives::Gradient && hessian != HessianMode::LimitedMemory
@@ -482,21 +477,15 @@ impl ModelingPackage {
                 } else {
                     native::dynamics::DynamicSensitivity::None
                 };
-                let simulation = if let Some(modes) = profile.modes.get(&e.experiment_id) {
-                    self.prepare_simulation_modes(
-                        e.case_id,
-                        e.experiment_id,
-                        bindings,
-                        limits,
-                        case,
-                        compiler,
-                        integration,
-                        modes.clone(),
-                        cancel,
-                    )
-                    .await?
+                // Exact transient Hessians need the dynamic functions' second derivatives.
+                let transient_order = if hessian == HessianMode::Exact {
+                    DerivativeOrder::Second
                 } else {
-                    self.prepare_simulation(
+                    DerivativeOrder::First
+                };
+                // The experiment's authored case declares its modes and events.
+                let simulation = self
+                    .prepare_simulation(
                         e.case_id,
                         e.experiment_id,
                         bindings,
@@ -504,10 +493,10 @@ impl ModelingPackage {
                         case,
                         compiler,
                         integration,
+                        transient_order,
                         cancel,
                     )
-                    .await?
-                };
+                    .await?;
                 execution_identity.hash(&simulation.identity());
                 bytes = bytes
                     .checked_add(simulation.bytes)
@@ -541,6 +530,26 @@ impl ModelingPackage {
                         })
                     })
                     .collect::<Result<Vec<_>, WorkflowError>>()?;
+                // The exact Hessian's second-order route is admitted before any native
+                // work: the adjoint profile limits, IDAS (Diffsol has no second-order
+                // adjoint), and its estimate against the math allowance.
+                if hessian == HessianMode::Exact {
+                    let mut second = simulation.profile().clone();
+                    second.sensitivity = native::dynamics::DynamicSensitivity::Adjoint;
+                    let directions = bindings
+                        .iter()
+                        .filter(|b| parameter_columns[b.parameter].is_some())
+                        .map(|b| b.local)
+                        .collect::<Vec<_>>();
+                    if !directions.is_empty() {
+                        second
+                            .validate(simulation.contract(), &simulation.parameters)
+                            .and_then(|_| {
+                                second.admit_second_order(simulation.contract(), &directions)
+                            })
+                            .map_err(|e| WorkflowError::Math(e.into()))?;
+                    }
+                }
                 let output_ports = simulation
                     .contract()
                     .outputs
@@ -582,9 +591,7 @@ impl ModelingPackage {
                 assessments.push(Assessment::Transient(Box::new(simulation)));
                 result
             } else {
-                if profile.simulations.contains_key(&e.experiment_id)
-                    || profile.modes.contains_key(&e.experiment_id)
-                {
+                if profile.simulations.contains_key(&e.experiment_id) {
                     return Err(contract("algebraic experiment has a dynamic profile"));
                 }
                 let resolved = self
@@ -868,15 +875,11 @@ impl ModelingPackage {
         }
         if measurements.len() != d.observations.len()
             || !measurements.iter().any(|o| o.included)
-            || profile
-                .simulations
-                .keys()
-                .chain(profile.modes.keys())
-                .any(|id| {
-                    !d.experiments
-                        .iter()
-                        .any(|e| e.experiment_id == *id && e.route == Route::Integrated)
-                })
+            || profile.simulations.keys().any(|id| {
+                !d.experiments
+                    .iter()
+                    .any(|e| e.experiment_id == *id && e.route == Route::Integrated)
+            })
         {
             return Err(contract("fit observation or dynamic profile ownership"));
         }

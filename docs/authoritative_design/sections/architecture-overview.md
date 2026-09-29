@@ -78,9 +78,9 @@ admitted lifecycle ([§18](numerical-execution.md#section-18)):
 | Square roots and declared fixed-point maps | KINSOL with KLU, dense or Krylov linear solvers |
 | Matching, Dulmage–Mendelsohn, block triangularization, presolve | pounce-presolve, with independent original-coordinate validation |
 | LP, MILP, certified convex QP, tear selection | HiGHS |
-| Explicit cones, including SDP | Clarabel |
+| Explicit cones, including SDP; LP and convex QP on explicit selection | Clarabel |
 | Mixed-integer quadratic and nonlinear programs; explicit global certification | SCIP 10.0.2 over the factorable projection |
-| ODE/index-1 dynamics | Diffsol BDF, SDIRK or explicit schemes; IDAS for recoverable residual trials, scheduled inputs, directional events and sign constraints |
+| ODE/index-1 dynamics | Diffsol BDF, SDIRK or explicit schemes; IDAS for recoverable residual trials, directional events, sign constraints and exact transient Hessians; scheduled inputs and forward or adjoint sensitivities on both |
 
 Unsupported integrality, convexity, representation, derivative or root-domain
 combinations are refused before execution; there is no solver fallback. Native termination,
@@ -98,12 +98,17 @@ model checks and conservation remain independent of native termination
 ([§9](physical-semantics.md#section-9)).
 
 **Dynamics and fitting.** The integrated dynamic profile is ODE or index-1 DAE with a fixed
-diag(I,0) mass matrix, consistent initialization, finite events and resets, and smooth
-forward sensitivities. Authored finite-difference and Radau schemes also lower spatial or
-time axes to simultaneous algebraic problems. Steady, transient and mixed fitting reuse the same NLP oracle and
-physical results. General implicit or higher-index DAEs, hybrid IDAS sensitivities, global
-identifiability and uncertainty claims are outside the profile
-([§13](workflows-and-results.md#section-13), [§19](workflows-and-results.md#section-19)).
+diag(I,0) mass matrix, consistent initialization, finite events and resets, scheduled
+inputs, smooth forward sensitivities and checkpointed adjoint gradients; single and multiple
+shooting optimize through the one NLP runner. Authored finite-difference and Radau schemes
+also lower spatial or time axes to simultaneous algebraic problems. Steady, transient and
+mixed fitting reuse the same NLP oracle and physical results, and every fit derives a
+local covariance with its stated validity. One KKT-point analysis at the qualified candidate
+serves parametric sensitivity, the reduced Hessian, covariance and first-order uncertainty
+propagation on the NLP routes. General implicit or higher-index DAEs, hybrid IDAS
+sensitivities, global identifiability and claims beyond local first-order validity are
+outside the profile ([§13](workflows-and-results.md#section-13),
+[§15.5](numerical-execution.md#section-15-5), [§19](workflows-and-results.md#section-19)).
 
 **Workflows.** Rust and Python callers use immutable model revisions, explicit prepare and
 start operations, joined blocking or async jobs, retained Arrow results and explicit exact

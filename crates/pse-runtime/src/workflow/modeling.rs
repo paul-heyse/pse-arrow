@@ -10,9 +10,7 @@ pub use conformance::{
 };
 pub use pure::conform_pure_documents;
 pub(super) mod dynamics;
-pub use dynamics::{
-    ModelingDynamicEvent, ModelingDynamicMode, ModelingSimulation, ModelingTrajectory,
-};
+pub use dynamics::{ModelingSimulation, ModelingTrajectory};
 #[cfg(test)]
 mod certificate_tests;
 mod diagnostics;

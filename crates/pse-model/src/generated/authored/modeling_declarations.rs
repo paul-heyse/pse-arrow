@@ -215,6 +215,44 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    ///target
+    pub r#target: String,
+    ///times
+    pub r#times: Vec<String>,
+    ///values
+    pub r#values: Vec<String>,
+    ///free
+    pub r#free: bool,
+    ///lower
+    pub r#lower: Option<String>,
+    ///upper
+    pub r#upper: Option<String>,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
+            && crate::SemanticEq::semantic_eq(&self.r#times, &other.r#times)
+            && crate::SemanticEq::semantic_eq(&self.r#values, &other.r#values)
+            && crate::SemanticEq::semantic_eq(&self.r#free, &other.r#free)
+            && crate::SemanticEq::semantic_eq(&self.r#lower, &other.r#lower)
+            && crate::SemanticEq::semantic_eq(&self.r#upper, &other.r#upper)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
     ///samples
     pub r#samples: Vec<String>,
@@ -229,6 +267,10 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
     ///quadratures
     pub r#quadratures: Vec<
         AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem,
+    >,
+    ///schedules
+    pub r#schedules: Vec<
+        AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem,
     >,
 }
 impl crate::SemanticEq
@@ -252,9 +294,153 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
                 &other.r#quadrature_relative_tolerance,
             )
             && crate::SemanticEq::semantic_eq(&self.r#quadratures, &other.r#quadratures)
+            && crate::SemanticEq::semantic_eq(&self.r#schedules, &other.r#schedules)
     }
 }
 impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+    ///name
+    pub r#name: String,
+    ///value
+    pub r#value: bool,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#value, &other.r#value)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
+    ///target
+    pub r#target: String,
+    ///expression
+    pub r#expression: String,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
+            && crate::SemanticEq::semantic_eq(&self.r#expression, &other.r#expression)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
+    ///guard
+    pub r#guard: String,
+    ///direction
+    pub r#direction: crate::generated::enums::EventDirection,
+    ///tolerance
+    pub r#tolerance: String,
+    ///reset
+    pub r#reset: Vec<
+        AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem,
+    >,
+    ///next
+    pub r#next: Option<String>,
+}
+impl crate::SemanticEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#guard, &other.r#guard)
+            && crate::SemanticEq::semantic_eq(&self.r#direction, &other.r#direction)
+            && crate::SemanticEq::semantic_eq(&self.r#tolerance, &other.r#tolerance)
+            && crate::SemanticEq::semantic_eq(&self.r#reset, &other.r#reset)
+            && crate::SemanticEq::semantic_eq(&self.r#next, &other.r#next)
+    }
+}
+impl PartialEq
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+    ///name
+    pub r#name: String,
+    ///facts
+    pub r#facts: Vec<
+        AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem,
+    >,
+    ///events
+    pub r#events: Vec<
+        AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem,
+    >,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#facts, &other.r#facts)
+            && crate::SemanticEq::semantic_eq(&self.r#events, &other.r#events)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    ///method
+    pub r#method: crate::generated::enums::ShootingMethod,
+    ///nodes
+    pub r#nodes: Vec<String>,
+}
+impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#method, &other.r#method)
+            && crate::SemanticEq::semantic_eq(&self.r#nodes, &other.r#nodes)
+    }
+}
+impl PartialEq for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
     fn eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(self, other)
     }
@@ -336,6 +522,10 @@ pub struct AuthoredModelingDeclarationsFieldValueScopeFixture {
     pub r#integration: Option<
         AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration,
     >,
+    ///modes
+    pub r#modes: Vec<AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem>,
+    ///shooting
+    pub r#shooting: Option<AuthoredModelingDeclarationsFieldValueScopeFixtureShooting>,
     ///expected_failure
     pub r#expected_failure: Option<
         AuthoredModelingDeclarationsFieldValueScopeFixtureExpectedFailure,
@@ -358,6 +548,8 @@ impl crate::SemanticEq for AuthoredModelingDeclarationsFieldValueScopeFixture {
                 &other.r#initialization,
             )
             && crate::SemanticEq::semantic_eq(&self.r#integration, &other.r#integration)
+            && crate::SemanticEq::semantic_eq(&self.r#modes, &other.r#modes)
+            && crate::SemanticEq::semantic_eq(&self.r#shooting, &other.r#shooting)
             && crate::SemanticEq::semantic_eq(
                 &self.r#expected_failure,
                 &other.r#expected_failure,
@@ -5415,6 +5607,35 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationQuadraturesItem
     }
 }
 impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#target));
+        crate::SemanticFrame::frame(&self.r#target, hash);
+        hash.str(stringify!(r#times));
+        crate::SemanticFrame::frame(&self.r#times, hash);
+        hash.str(stringify!(r#values));
+        crate::SemanticFrame::frame(&self.r#values, hash);
+        hash.str(stringify!(r#free));
+        crate::SemanticFrame::frame(&self.r#free, hash);
+        hash.str(stringify!(r#lower));
+        crate::SemanticFrame::frame(&self.r#lower, hash);
+        hash.str(stringify!(r#upper));
+        crate::SemanticFrame::frame(&self.r#upper, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegrationSchedulesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#times))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#values))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#free))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#lower))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#upper))
+    }
+}
+impl crate::SemanticFrame
 for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#samples));
@@ -5429,6 +5650,8 @@ for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
         crate::SemanticFrame::frame(&self.r#quadrature_relative_tolerance, hash);
         hash.str(stringify!(r#quadratures));
         crate::SemanticFrame::frame(&self.r#quadratures, hash);
+        hash.str(stringify!(r#schedules));
+        crate::SemanticFrame::frame(&self.r#schedules, hash);
     }
 }
 impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureIntegration {
@@ -5444,6 +5667,102 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureInte
                 crate::HeapUsage::heap_bytes(&self.r#quadrature_relative_tolerance),
             )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quadratures))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schedules))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#value));
+        crate::SemanticFrame::frame(&self.r#value, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemFactsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#value))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#target));
+        crate::SemanticFrame::frame(&self.r#target, hash);
+        hash.str(stringify!(r#expression));
+        crate::SemanticFrame::frame(&self.r#expression, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItemResetItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expression))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#guard));
+        crate::SemanticFrame::frame(&self.r#guard, hash);
+        hash.str(stringify!(r#direction));
+        crate::SemanticFrame::frame(&self.r#direction, hash);
+        hash.str(stringify!(r#tolerance));
+        crate::SemanticFrame::frame(&self.r#tolerance, hash);
+        hash.str(stringify!(r#reset));
+        crate::SemanticFrame::frame(&self.r#reset, hash);
+        hash.str(stringify!(r#next));
+        crate::SemanticFrame::frame(&self.r#next, hash);
+    }
+}
+impl crate::HeapUsage
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItemEventsItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#guard))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#direction))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#tolerance))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reset))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#next))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#facts));
+        crate::SemanticFrame::frame(&self.r#facts, hash);
+        hash.str(stringify!(r#events));
+        crate::SemanticFrame::frame(&self.r#events, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureModesItem {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#facts))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#events))
+    }
+}
+impl crate::SemanticFrame
+for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#method));
+        crate::SemanticFrame::frame(&self.r#method, hash);
+        hash.str(stringify!(r#nodes));
+        crate::SemanticFrame::frame(&self.r#nodes, hash);
+    }
+}
+impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixtureShooting {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#method))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#nodes))
     }
 }
 impl crate::SemanticFrame
@@ -5497,6 +5816,10 @@ impl crate::SemanticFrame for AuthoredModelingDeclarationsFieldValueScopeFixture
         crate::SemanticFrame::frame(&self.r#initialization, hash);
         hash.str(stringify!(r#integration));
         crate::SemanticFrame::frame(&self.r#integration, hash);
+        hash.str(stringify!(r#modes));
+        crate::SemanticFrame::frame(&self.r#modes, hash);
+        hash.str(stringify!(r#shooting));
+        crate::SemanticFrame::frame(&self.r#shooting, hash);
         hash.str(stringify!(r#expected_failure));
         crate::SemanticFrame::frame(&self.r#expected_failure, hash);
         hash.str(stringify!(r#specifications));
@@ -5512,6 +5835,8 @@ impl crate::HeapUsage for AuthoredModelingDeclarationsFieldValueScopeFixture {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#stages))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#initialization))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#integration))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#modes))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#shooting))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expected_failure))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#specifications))
     }

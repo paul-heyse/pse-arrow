@@ -360,6 +360,14 @@ class EntityKind(StrEnum):
     DATASET = "dataset"
 
 
+class EventDirection(StrEnum):
+    """The declared EventDirection enumeration."""
+
+    EITHER = "either"
+    RISING = "rising"
+    FALLING = "falling"
+
+
 class EvidenceUnavailableReason(StrEnum):
     """The declared EvidenceUnavailableReason enumeration."""
 
@@ -747,6 +755,7 @@ class ModelingFixtureExecution(StrEnum):
     INITIALIZED = "initialized"
     INTEGRATED = "integrated"
     SIMULTANEOUS = "simultaneous"
+    SHOOTING = "shooting"
 
 
 class ModelingInitializationStep(StrEnum):
@@ -1409,6 +1418,13 @@ class Severity(StrEnum):
     WARNING = "warning"
 
 
+class ShootingMethod(StrEnum):
+    """The declared ShootingMethod enumeration."""
+
+    SINGLE = "single"
+    MULTIPLE = "multiple"
+
+
 class SnapshotClass(StrEnum):
     """The declared SnapshotClass enumeration."""
 
@@ -1467,6 +1483,13 @@ class StoredSeedKind(StrEnum):
     ROOT = "root"
     NLP = "nlp"
     HIGHS = "highs"
+
+
+class StoredSolutionOrigin(StrEnum):
+    """The declared StoredSolutionOrigin enumeration."""
+
+    OUTPUT = "output"
+    INCUMBENT = "incumbent"
 
 
 class StudyPointState(StrEnum):

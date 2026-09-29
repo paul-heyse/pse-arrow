@@ -150,11 +150,15 @@ fn backend(result: &crate::workflow::RunResult) -> NativeBackend {
     assert_ne!(run.qualification, NativeQualification::Unqualified, "{run:?}");
     run.backend.unwrap()
 }
-/// The step's commitment as `(column, value)` pairs.
+/// The step's commitment as `(column, value)` pairs; every committed box here is a
+/// fixed value.
 fn commitment(result: &crate::workflow::RunResult) -> Option<Vec<(SemanticId, f64)>> {
     run(result).commitment.as_ref().map(|c| {
         c.iter()
-            .map(|item| (item.source_id, item.value))
+            .map(|item| {
+                assert_eq!(item.lower, item.upper, "{item:?}");
+                (item.source_id, item.lower)
+            })
             .collect()
     })
 }

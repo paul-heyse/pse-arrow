@@ -12,7 +12,7 @@ pub use crate::settings::highs::{Penalties, Request};
 /// candidate's objective, they become the candidate's multipliers ([`FixedLp::price`]).
 #[derive(Clone, Debug)]
 pub struct FixedLp {
-    /// Discrete columns and the values they are fixed at.
+    /// Discrete columns and the closed boxes the LP commits them to.
     pub commitment: crate::transform::Commitment,
     /// Native termination of the fixed LP.
     pub termination: NativeTermination,
@@ -874,7 +874,9 @@ fn fixed_lp(
             .zip(&p.domains)
             .enumerate()
             .filter(|(_, (_, d))| **d != ModelingVariableDomain::Continuous)
-            .map(|(j, (v, _))| (v.id, lp.lower[j]))
+            // `Highs_getFixedLp` fixes integer, semi-integer and zero-branch
+            // semicontinuous columns; an active semicontinuous column keeps its interval.
+            .map(|(j, (v, _))| (v.id, (lp.lower[j], lp.upper[j])))
             .collect(),
     };
     let (termination, solution, objective) = lp.solve(execution).map_err(|e| e.to_string())?;

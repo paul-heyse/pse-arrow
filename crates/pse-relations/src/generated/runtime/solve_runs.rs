@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 5u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    75u8, 34u8, 74u8, 33u8, 205u8, 207u8, 243u8, 177u8, 100u8, 253u8, 216u8, 132u8,
-    243u8, 186u8, 158u8, 126u8, 173u8, 164u8, 127u8, 35u8, 62u8, 97u8, 88u8, 136u8, 12u8,
-    80u8, 224u8, 2u8, 119u8, 63u8, 155u8, 49u8,
+    156u8, 147u8, 116u8, 55u8, 127u8, 88u8, 159u8, 150u8, 34u8, 245u8, 48u8, 45u8, 66u8,
+    234u8, 183u8, 202u8, 255u8, 26u8, 43u8, 167u8, 180u8, 110u8, 126u8, 222u8, 138u8,
+    67u8, 254u8, 31u8, 7u8, 125u8, 183u8, 150u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolveRunsFieldCommitmentItem {
     fn append(
@@ -36,7 +36,8 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsFieldCommitmentItem {
             &self.r#source_id,
             children[0usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#lower, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#upper, children[2usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -51,6 +52,7 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsFieldCommitmentItem {
             children[0usize].as_mut(),
         )?;
         <f64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -65,8 +67,12 @@ impl crate::columnar::ArrowValue for RuntimeSolveRunsFieldCommitmentItem {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#value: <f64 as crate::columnar::ArrowValue>::read(
+            r#lower: <f64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#upper: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
                 index,
             )?,
         })
@@ -503,10 +509,10 @@ impl crate::columnar::RelationRow for RuntimeSolveRunsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        61_440_usize + size_of::<Self::Builder>()
+        63_488_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        480usize
+        496usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -722,6 +728,10 @@ impl crate::columnar::RelationRow for RuntimeSolveRunsRow {
                                     bytes = crate::columnar::allocation_add(
                                         bytes,
                                         Ok::<usize, crate::RelationError>(16usize)?,
+                                    )?;
+                                    bytes = crate::columnar::allocation_add(
+                                        bytes,
+                                        Ok::<usize, crate::RelationError>(8usize)?,
                                     )?;
                                     bytes = crate::columnar::allocation_add(
                                         bytes,

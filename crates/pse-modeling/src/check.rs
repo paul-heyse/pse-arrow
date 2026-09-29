@@ -449,7 +449,9 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
             if let Some(fixture) = &scope.fixture {
                 use pse_model::generated::enums::ModelingFixtureExecution as Execution;
                 let execution = fixture.execution.unwrap_or(Execution::Steady);
-                if (execution == Execution::Integrated) != fixture.integration.is_some()
+                // The integrated and shooting routes take the fixture's integration controls.
+                if matches!(execution, Execution::Integrated | Execution::Shooting)
+                    != fixture.integration.is_some()
                     || execution != Execution::Initialized
                         && (!fixture.stages.is_empty() || fixture.initialization.is_some())
                     || fixture.stages.iter().any(|s| s.is_empty())
@@ -462,6 +464,79 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                         row.declaration_id,
                         "fixture execution metadata disagrees with its route",
                     ));
+                }
+                // ADR-0110 Outcome 5: a shooting fixture declares its method and controls,
+                // schedules held free; single shooting has no inner nodes, multiple shooting
+                // at least one. Only a schedule held free has bounds.
+                let schedules = fixture
+                    .integration
+                    .iter()
+                    .flat_map(|i| &i.schedules)
+                    .collect::<Vec<_>>();
+                let shooting = execution == Execution::Shooting;
+                if shooting != fixture.shooting.is_some()
+                    || shooting != schedules.iter().any(|s| s.free)
+                    || schedules
+                        .iter()
+                        .any(|s| !s.free && (s.lower.is_some() || s.upper.is_some()))
+                    || fixture.shooting.as_ref().is_some_and(|s| {
+                        s.nodes.is_empty()
+                            != (s.method == pse_model::generated::enums::ShootingMethod::Single)
+                    })
+                {
+                    return Err(invalid(
+                        row.declaration_id,
+                        "a shooting fixture declares its method, the inner nodes of multiple shooting and schedules held free as its controls; only a shooting fixture holds a schedule free, with bounds",
+                    ));
+                }
+                for expression in fixture
+                    .shooting
+                    .iter()
+                    .flat_map(|s| &s.nodes)
+                    .chain(schedules.iter().flat_map(|s| s.lower.iter().chain(&s.upper)))
+                {
+                    dsl::parse_expr(expression)
+                        .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
+                }
+                // ADR-0119 Outcome 3: modes and events belong to an integrated fixture; a
+                // mode's facts select `when` variants and stages, never the analysis route
+                // or an objective level; a terminal event neither resets nor changes mode.
+                let mode_names = fixture
+                    .modes
+                    .iter()
+                    .map(|m| m.name.as_str())
+                    .collect::<BTreeSet<_>>();
+                if !fixture.modes.is_empty() && execution != Execution::Integrated
+                    || mode_names.len() != fixture.modes.len()
+                    || mode_names.contains("")
+                    || fixture.modes.iter().any(|m| {
+                        m.facts
+                            .iter()
+                            .map(|f| f.name.as_str())
+                            .collect::<BTreeSet<_>>()
+                            .len()
+                            != m.facts.len()
+                            || m.facts.iter().any(|f| {
+                                f.name.starts_with("analysis.") || f.name.starts_with("objective.")
+                            })
+                            || m.events.iter().any(|e| match &e.next {
+                                Some(next) => !mode_names.contains(next.as_str()),
+                                None => !e.reset.is_empty(),
+                            })
+                    })
+                {
+                    return Err(invalid(
+                        row.declaration_id,
+                        "fixture modes need the integrated route, unique names and structural facts; each event names a declared successor or is terminal without resets",
+                    ));
+                }
+                for expression in fixture.modes.iter().flat_map(|m| &m.events).flat_map(|e| {
+                    [&e.guard, &e.tolerance]
+                        .into_iter()
+                        .chain(e.reset.iter().flat_map(|r| [&r.target, &r.expression]))
+                }) {
+                    dsl::parse_expr(expression)
+                        .map_err(|e| invalid(row.declaration_id, e.to_string()))?;
                 }
                 if let Some(policy) = &fixture.initialization
                     && (!policy.initial_step.is_finite()
@@ -499,6 +574,17 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                             "integration fixture requires samples and positive finite tolerances",
                         ));
                     }
+                    // ADR-0119 Outcome 2: one value per interval of each scheduled input.
+                    if integration
+                        .schedules
+                        .iter()
+                        .any(|s| s.times.is_empty() || s.values.len() != s.times.len() + 1)
+                    {
+                        return Err(invalid(
+                            row.declaration_id,
+                            "a scheduled input declares its change times and one value per interval",
+                        ));
+                    }
                     for expression in integration
                         .samples
                         .iter()
@@ -508,6 +594,12 @@ fn check_declarations(rows: &[Declaration], context: &TypeContext<'_>) -> Result
                                 .quadratures
                                 .iter()
                                 .map(|q| &q.absolute_tolerance),
+                        )
+                        .chain(
+                            integration
+                                .schedules
+                                .iter()
+                                .flat_map(|s| s.times.iter().chain(&s.values)),
                         )
                     {
                         dsl::parse_expr(expression)
@@ -1150,6 +1242,27 @@ impl CheckedPackage {
                         for q in &integration.quadratures {
                             texts.push(&q.target);
                             texts.push(&q.absolute_tolerance);
+                        }
+                        for s in &integration.schedules {
+                            texts.push(&s.target);
+                            texts.extend(
+                                s.times
+                                    .iter()
+                                    .chain(&s.values)
+                                    .chain(s.lower.iter().chain(&s.upper))
+                                    .map(String::as_str),
+                            );
+                        }
+                    }
+                    if let Some(shooting) = &fixture.shooting {
+                        texts.extend(shooting.nodes.iter().map(String::as_str));
+                    }
+                    for e in fixture.modes.iter().flat_map(|m| &m.events) {
+                        texts.push(&e.guard);
+                        texts.push(&e.tolerance);
+                        for r in &e.reset {
+                            texts.push(&r.target);
+                            texts.push(&r.expression);
                         }
                     }
                     for s in &fixture.specifications {

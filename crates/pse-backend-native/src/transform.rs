@@ -9,8 +9,8 @@
 //!   parameter of a parametric sensitivity (sIPOPT's pin formulation, S1) or a profile pin
 //!   (S3). A pinned column stays a column, so the KKT-point analysis sees its bound as a
 //!   strongly active row whose multiplier is the derivative of the optimal value along it.
-//!   [`Pinned::discrete`] pins a [`Relaxed`] mixed-integer case under a [`Commitment`]:
-//!   the continuous problem of a discrete assignment.
+//!   [`Pinned::discrete`] commits a [`Relaxed`] mixed-integer case to the closed boxes of
+//!   a [`Commitment`]: the continuous problem of a discrete assignment.
 //! - [`Unconstrained`] removes the bounds of rows a discrete assignment leaves unenforced
 //!   (the SCIP fixed-assignment re-solve).
 //!
@@ -25,12 +25,16 @@ use pse_ids::SemanticId;
 use pse_model::generated::enums::ModelingVariableDomain;
 
 /// The discrete assignment a candidate's multipliers, and every quantity derived from
-/// them, are conditional on (ADR-0118 items 4 and 9; PS-12): the committed columns by
-/// identity, in column order, at their values in original coordinates.
+/// them, are conditional on (ADR-0118 items 4 and 9; PS-12): each committed column by
+/// identity, in column order, with its committed closed box `(lower, upper)` in original
+/// coordinates. A degenerate box `[v, v]` fixes a column at `v` (an integer value, a semi
+/// column's zero branch, a held SOS member); a semicontinuous column on its active branch
+/// is committed to its active interval `[l, u]`, over which the continuous problem still
+/// decides it. One box states both kinds of branch, so no second representation exists.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Commitment {
-    /// Committed columns and their values.
-    pub columns: Vec<(SemanticId, f64)>,
+    /// Committed columns and their closed boxes.
+    pub columns: Vec<(SemanticId, (f64, f64))>,
 }
 /// NLP callbacks over every column of a mixed-integer case, its discrete domains relaxed
 /// to their declared boxes, with each column's domain. It is not itself an [`NlpOracle`]:
@@ -90,23 +94,23 @@ impl Pinned {
         Ok(Self { inner, contract })
     }
     /// The continuous problem of a mixed-integer case under `commitment` (ADR-0105 §2,
-    /// ADR-0118 item 9). Each committed column is pinned at its value:
-    /// - an integer, binary or semi-integer column must be committed, at a member of its
-    ///   domain;
-    /// - a semi-continuous column is committed at zero, its off branch, or stays free over
-    ///   its declared active interval;
-    /// - a continuous column may be committed inside its box, such as an SOS or cardinality
-    ///   member held at zero.
+    /// ADR-0118 item 9): each committed column keeps its coordinate with its committed box.
+    /// - An integer, binary or semi-integer column must be committed to a degenerate box
+    ///   at a member of its domain.
+    /// - A semicontinuous column must be committed to a degenerate box at a member of its
+    ///   domain (zero is its off branch), or exactly to its declared active interval.
+    /// - A continuous column may be committed to a box inside its own, such as an SOS or
+    ///   cardinality member held at zero.
     ///
     /// # Errors
-    /// A committed identity that is not a column or is repeated, an integer-valued column
-    /// left free, or a value outside its column's domain or box.
+    /// A committed identity that is not a column or is repeated, a discrete column left
+    /// uncommitted, or a box its column's domain or declared box does not admit.
     pub fn discrete(relaxed: Relaxed, commitment: &Commitment) -> Result<Self, ProblemError> {
         use ModelingVariableDomain as D;
         let Relaxed { inner, domains } = relaxed;
         let mut contract = inner.contract().clone();
         let mut committed = std::collections::BTreeMap::new();
-        for (id, value) in &commitment.columns {
+        for (id, bounds) in &commitment.columns {
             let column = contract
                 .variables
                 .iter()
@@ -115,26 +119,29 @@ impl Pinned {
                 .ok_or_else(|| {
                     ProblemError::Contract(format!("committed column {id} absent or repeated"))
                 })?;
-            committed.insert(column, *value);
+            committed.insert(column, *bounds);
         }
         for (column, (variable, domain)) in contract.variables.iter_mut().zip(&domains).enumerate()
         {
+            let (lower, upper) = (variable.lower, variable.upper);
             let admitted = match (domain, committed.get(&column)) {
-                (D::Continuous, Some(v)) => v.is_finite() && *v >= variable.lower && *v <= variable.upper,
-                (d, Some(v)) => d.contains(*v, variable.lower, variable.upper),
-                (D::Continuous | D::Semicontinuous, None) => true,
+                (_, Some(&(l, u))) if !(l.is_finite() && u.is_finite() && l <= u) => false,
+                (D::Continuous, Some(&(l, u))) => l >= lower && u <= upper,
+                (D::Semicontinuous, Some(&(l, u))) if l < u => l == lower && u == upper,
+                (d, Some(&(l, u))) => l == u && d.contains(l, lower, upper),
+                (D::Continuous, None) => true,
                 (_, None) => false,
             };
             if !admitted {
                 return Err(ProblemError::Unsupported(format!(
-                    "a discrete assignment commits {} ({}) at a member of its domain",
+                    "a discrete assignment commits {} ({}) to one value of its domain, or a semicontinuous column to its active interval",
                     variable.id,
                     domain.as_str()
                 )));
             }
-            if let Some(v) = committed.get(&column) {
-                variable.lower = *v;
-                variable.upper = *v;
+            if let Some(&(l, u)) = committed.get(&column) {
+                variable.lower = l;
+                variable.upper = u;
             }
         }
         Ok(Self { inner, contract })

@@ -6,6 +6,11 @@
 //! coordinates, stored exactly; reads return the `runtime.operational_solutions` row, and
 //! [`SeedVectors::of`] gives its vectors their native meaning. The solution identity is a
 //! seed identity that enters lineage, so the runtime mints it.
+//!
+//! A solution's [`StoredSolutionOrigin`] follows from how it was stored (Plan 22 I13):
+//! [`Solutions::put`] stores an accepted output seed, and
+//! [`crate::streams::Streams::record_incumbents`] a point captured from an incumbent
+//! stream, which the newest-compatible lookup skips and retention prunes with its stream.
 
 use pse_ids::ContentHash;
 use pse_model::generated::enums::NativeBackend;
@@ -15,7 +20,7 @@ use pse_operations_queries::queries::solutions as statements;
 use crate::attempts::AttemptId;
 use crate::error::{Classify, OperationsError, Target};
 use crate::store::Store;
-pub use pse_model::generated::enums::StoredSeedKind;
+pub use pse_model::generated::enums::{StoredSeedKind, StoredSolutionOrigin};
 pub use pse_model::generated::identities::SolutionId;
 pub use pse_model::generated::runtime::operational_solutions::RuntimeOperationalSolutionsRow;
 
@@ -116,11 +121,13 @@ pub struct NewSolution {
     pub created_by: Option<AttemptId>,
 }
 
-/// Store one solution through `client`, alone or inside a caller's transaction.
+/// Store one solution of `origin` through `client`, alone or inside a caller's
+/// transaction.
 pub(crate) async fn insert<C: GenericClient>(
     client: &C,
     target: &Target,
     solution: &NewSolution,
+    origin: StoredSolutionOrigin,
 ) -> Result<RuntimeOperationalSolutionsRow, OperationsError> {
     let none: Option<&[f64]> = None;
     let (primal, lower, upper, columns, rows, barrier, basis) = match &solution.vectors {
@@ -163,6 +170,7 @@ pub(crate) async fn insert<C: GenericClient>(
                 compatibility_stamp: solution.compatibility_stamp,
                 preparation_identity: solution.preparation_identity,
                 kind: solution.vectors.kind(),
+                origin,
                 backend: solution.backend,
                 profile_stamp: solution.profile_stamp,
                 data_stamp: solution.data_stamp,
@@ -197,8 +205,9 @@ impl<'s> Solutions<'s> {
         self.store.target()
     }
 
-    /// Store a solution and return it as stored. Solutions are immutable: storing an
-    /// existing identity again is a [`OperationsError::Duplicate`].
+    /// Store an accepted output seed and return it as stored. Solutions are immutable:
+    /// storing an existing identity again is a [`OperationsError::Duplicate`]. Points
+    /// captured from an incumbent stream are stored with their incumbents instead.
     ///
     /// # Errors
     ///
@@ -209,7 +218,7 @@ impl<'s> Solutions<'s> {
         solution: &NewSolution,
     ) -> Result<RuntimeOperationalSolutionsRow, OperationsError> {
         let client = self.store.client().await?;
-        insert(&client, self.target(), solution).await
+        insert(&client, self.target(), solution, StoredSolutionOrigin::Output).await
     }
 
     /// The newest solution compatible with `stamp` under `preparation` for `backend` that
@@ -290,9 +299,10 @@ impl<'s> Solutions<'s> {
             .classify(self.target())
     }
 
-    /// The newest solution for `backend` compatible with `stamp` under `preparation`: the
-    /// seed a warm start may reuse. Coordinates and backend must both match for a seed to
-    /// be consumed.
+    /// The newest output seed for `backend` compatible with `stamp` under `preparation`:
+    /// the seed a warm start may reuse. Coordinates and backend must both match for a seed
+    /// to be consumed; a point captured from an incumbent stream is not a result and is
+    /// skipped (Plan 22 I13).
     ///
     /// # Errors
     ///

@@ -197,7 +197,11 @@ whose only unsafe use reads the GMP/MPFR version strings
 > tokio-postgres-rustls, with statements compiled by Cornucopia; sqlx is removed (Plan 22 B2,
 > implemented); [ADR-0116](../../adr/0116-typed-boundary-documents.md) — schemars and
 > nutype for Rust-owned documents and validated settings (Plan 22 B5, implemented);
-> typed-index-collections and enum-map at coordinate boundaries (Plan 22 B6, implemented).
+> typed-index-collections and enum-map at coordinate boundaries (Plan 22 B6, implemented);
+> [ADR-0118](../../adr/0118-one-kkt-point-analysis.md) — FERAL and `pounce-sens-core` for
+> the KKT-point analysis (Plan 22 S0 and S1, implemented);
+> [ADR-0121](../../adr/0121-convexity-compiler-facts.md) — Clarabel on LP and convex QP with
+> QDLDL or oneMKL Pardiso, without `clarabel/faer-sparse` (Plan 22 C4, implemented).
 
 Each library owns the operation it implements. PSE code owns the physical, identity and
 admission contracts around the library call. A library never becomes the authority for
@@ -217,11 +221,12 @@ units, identity, schemas or canonical encoding merely because it is present.
 | FeOS, `feos-core`, num-dual, `quantity`, nalgebra | optional conformance reference tests | Independent thermodynamic and derivative comparisons | No production property route or physical-type authority |
 | Ipopt (C ABI) with MUMPS+METIS, SPRAL SSIDS and oneMKL Pardiso; POUNCE | `pse-backend-native` | Local NLP through one shared oracle; a typed linear-solver selection for Ipopt | Separate native routes; no fallback between them or between linear solvers; one BLAS/LAPACK provider (oneMKL) and one OpenMP runtime (libgomp) per process ([§18.3](numerical-execution.md#section-18-3)) |
 | pounce-presolve | `pse-math`, `pse-structural`, `pse-backend-native` | Matching, DM, BTF and qualified presolve/postsolve | Original-coordinate recovery is validated independently |
-| SUNDIALS KINSOL/IDAS (+ KLU) | `pse-backend-native` | Square roots, including one-sided bounds, and declared fixed-point iteration; IDAS for recoverable trials, scheduled inputs, directional events and sign constraints | Optional features; two-sided boxes on KINSOL and unsupported profiles are refused |
+| FERAL, pounce-sens-core | `pse-backend-native` | FERAL: LDLᵀ with inertia of the normalized KKT matrix and sparse LU for conditioning estimates; pounce-sens-core: parametric steps and reduced Hessians over that factor (`SensBacksolver`) | Post-solve analysis only, never a solver of record; verdicts and quantities are stated in original coordinates with their validity ([§15.5.1](numerical-execution.md#section-15-5-1)) |
+| SUNDIALS KINSOL/IDAS (+ KLU) | `pse-backend-native` | Square roots, including one-sided bounds, and declared fixed-point iteration; IDAS for recoverable trials, scheduled inputs, directional events, sign constraints, adjoint gradients and forward-over-adjoint second-order sensitivities | Optional features; two-sided boxes on KINSOL and unsupported profiles are refused; KINSOL's nested sessions are budgeted in bytes |
 | HiGHS | `pse-backend-native` | LP, MILP, certified convex QP and tear MILPs | Integrality is never relaxed silently |
-| Clarabel | `pse-backend-native` | Explicit cones, with SDP under an optional feature on oneMKL | pse-owned boundary types; no implicit cone recognition |
+| Clarabel | `pse-backend-native` | Explicit cones, with SDP under an optional feature on oneMKL; LP and convex QP on explicit selection, lowered to cone form; KKT by QDLDL or, under `clarabel-pardiso`, oneMKL Pardiso from the linked oneMKL | pse-owned boundary types; no implicit cone recognition; rays are verified certificates; `clarabel/faer-sparse` is not used, since it would bring a second faer ([§18.10](numerical-execution.md#section-18-10)) |
 | SCIP 10.0.2 (`scip-sys`) | `pse-backend-native` | MIQP, MINLP and explicit global certification over the factorable projection; native constraint handlers, exact rational MILP, IIS, a ranked solution pool and reoptimization | Raw binding against the solver image, checked at build and run time; deterministic concurrency under admitted threads; every claim re-qualified in original coordinates ([§18.10.1](numerical-execution.md#section-18-10-1)) |
-| Diffsol | `pse-backend-native` | BDF, SDIRK and explicit dynamics for the admitted mass-matrix profile, with faer LU or KLU, events and forward sensitivities | No second model language |
+| Diffsol | `pse-backend-native` | BDF, SDIRK and explicit dynamics for the admitted mass-matrix profile, with pse-owned faer LU or KLU linear solvers, events, scheduled inputs, forward sensitivities and checkpointed adjoint gradients | No second model language |
 | Salsa | `pse-compiler` | Synchronous semantic reuse over admitted values | No I/O, native state or effects in tracked queries |
 | rustworkx-core, petgraph | `pse-structural` | Deterministic ordering, acyclicity and graph projections | Graph indices never cross the projection boundary |
 | BLAKE3 | `pse-ids` only | Content hashing and derived identity | The canonicalizer, not the hash, defines coverage |

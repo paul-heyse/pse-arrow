@@ -544,11 +544,15 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("transformation", T::hash()).optional(),
             column(
                 "commitment",
-                T::list(record(vec![("source_id", T::id()), ("value", real())])),
+                T::list(record(vec![
+                    ("source_id", T::id()),
+                    ("lower", real()),
+                    ("upper", real()),
+                ])),
             )
             .optional(),
         ],
-        "Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution. `commitment` states the discrete assignment, by column and value in original coordinates, that the step's multipliers and every quantity derived from them are conditional on (ADR-0118 item 9): the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP. It is absent when the multipliers are not conditional on an assignment.",
+        "Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution. `commitment` states the discrete assignment that the step's multipliers and every quantity derived from them are conditional on (ADR-0118 item 9), from the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP: each committed column with its closed box in original coordinates, degenerate for a fixed value (an integer value or a semi column's zero branch) and the active interval for a semicontinuous column on its active branch. It is absent when the multipliers are not conditional on an assignment.",
     );
     relation_version(
         b,
@@ -643,6 +647,28 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("feasible", flag()).optional(),
         ],
         "Ranked solutions a certifying backend stored beside the candidate, best first, over the free variables in original coordinates (ADR-0105 §8). `objective` is the backend's value in the authored sense; `feasible` is the original-coordinate re-qualification, absent when the point could not be evaluated. A pooled solution is an observation: only the qualified candidate is a result or a seed.",
+    );
+    relation_version(
+        b,
+        N::Runtime,
+        "incumbents",
+        1,
+        S::Derived,
+        &["run_id", "seq"],
+        vec![
+            run_id(),
+            column("seq", ordinal()),
+            column("step", ordinal()),
+            column("elapsed_seconds", real()),
+            column("phase", text()),
+            column("objective", real()),
+            column("dual_bound", real()).optional(),
+            column("gap", real()).optional(),
+            column("nodes", T::native(D::Int64)).optional(),
+            column("seconds", real()).optional(),
+            column("solution_id", T::id()).optional(),
+        ],
+        "The incumbent stream of a durable run as the operational store holds it when the attempt ends (Plan 22 I13): each improving feasible point of a branch-and-bound search with the bound at that time, numbered `seq` by the producer, with the step, the phase and `elapsed_seconds` of the event that reported it. `solution_id` names the captured point stored for resumption; the store prunes captures with their stream, so the published row outlives it. An ephemeral run keeps its retained incumbents in runtime.solve_metrics instead.",
     );
     declare_certificates(b);
 }

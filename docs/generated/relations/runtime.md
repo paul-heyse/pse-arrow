@@ -253,6 +253,26 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, symb
 | `lower` | `Float64` | true | `payload` | — | — |
 | `upper` | `Float64` | true | `payload` | — | — |
 
+## `incumbents`
+
+The incumbent stream of a durable run as the operational store holds it when the attempt ends (Plan 22 I13): each improving feasible point of a branch-and-bound search with the bound at that time, numbered `seq` by the producer, with the step, the phase and `elapsed_seconds` of the event that reported it. `solution_id` names the captured point stored for resumption; the store prunes captures with their stream, so the published row outlives it. An ephemeral run keeps its retained incumbents in runtime.solve_metrics instead.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, seq`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `seq` | `Int64` | false | `key` | — | — |
+| `step` | `Int64` | false | `payload` | — | — |
+| `elapsed_seconds` | `Float64` | false | `payload` | — | — |
+| `phase` | `Utf8` | false | `payload` | — | — |
+| `objective` | `Float64` | false | `payload` | — | — |
+| `dual_bound` | `Float64` | true | `payload` | — | — |
+| `gap` | `Float64` | true | `payload` | — | — |
+| `nodes` | `Int64` | true | `payload` | — | — |
+| `seconds` | `Float64` | true | `payload` | — | — |
+| `solution_id` | `semantic_id` | true | `payload` | — | — |
+
 ## `infeasibility_certificates`
 
 A native infeasibility (Farkas) or unboundedness ray, in original physical coordinates over the cone form of the solved problem: rows then finite variable bounds, lower before upper. Verification recomputes it against the original data: `residual` is the worst column's |Aᵀy| (or row's |Px|, |Ax| on zero rows) relative to the magnitudes it sums, `objective` is bᵀy (or qᵀx) and `cone` the dual-cone (or cone) violation, both relative to the ray's largest entry; `margin` is -bᵀy less the rows' and bounds' acceptance budgets weighted by |y| (or -qᵀx), relative to the same entry. A ray is verified when every relative quantity is within `tolerance` and the margin is positive, so a problem infeasible by less than its acceptance budgets is never certified. Only a verified ray at full accuracy carries the certificate assurance. Absent verification means the original data could not be evaluated.
@@ -1368,7 +1388,7 @@ Native row check `reason_nonempty` (must be true):
 
 ## `operational_solutions`
 
-Reusable seeds in original source coordinates, keyed by the coordinate-compatibility stamp (the layout stamp) and the preparation identity. `kind` fixes which vectors are present; an NLP seed may carry the final barrier parameter of its interior-point producer (authored objective units); basis codes keep the native integer statuses. The seed's content identity enters the lineage of every result it seeds (F25).
+Reusable seeds in original source coordinates, keyed by the coordinate-compatibility stamp (the layout stamp) and the preparation identity. `kind` fixes which vectors are present; an NLP seed may carry the final barrier parameter of its interior-point producer (authored objective units); basis codes keep the native integer statuses. `origin` is `output` for a step's accepted output seed, the only kind the newest-compatible lookup returns, and `incumbent` for a point captured from an attempt's incumbent stream: a capture belongs to its attempt and expires with that stream unless a queued job's start or a waiting study point still names it. The seed's content identity enters the lineage of every result it seeds (F25).
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `solution_id`.
 
@@ -1378,6 +1398,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `solution_id`.
 | `compatibility_stamp` | `content_hash` | false | `payload` | — | — |
 | `preparation_identity` | `content_hash` | false | `payload` | — | — |
 | `kind` | `enum:StoredSeedKind` | false | `payload` | — | — |
+| `origin` | `enum:StoredSolutionOrigin` | false | `payload` | — | — |
 | `backend` | `enum:NativeBackend` | false | `payload` | — | — |
 | `profile_stamp` | `content_hash` | false | `payload` | — | — |
 | `data_stamp` | `content_hash` | false | `payload` | — | — |
@@ -1403,6 +1424,12 @@ Native row check `barrier_positive` (must be true):
 
 ```sql
 "barrier" IS NULL OR "barrier" > 0
+```
+
+Native row check `capture_has_attempt` (must be true):
+
+```sql
+"origin" <> 'incumbent' OR "created_by" IS NOT NULL
 ```
 
 Native row check `vectors` (must be true):
@@ -1977,7 +2004,7 @@ Native row check `one_evidence_value` (must be true):
 
 ## `solve_runs`
 
-Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution. `commitment` states the discrete assignment, by column and value in original coordinates, that the step's multipliers and every quantity derived from them are conditional on (ADR-0118 item 9): the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP. It is absent when the multipliers are not conditional on an assignment.
+Actual native termination, independent original-model validation and explicit unattempted/error states. No candidate implies no claimed solution. `commitment` states the discrete assignment that the step's multipliers and every quantity derived from them are conditional on (ADR-0118 item 9), from the SCIP fixed-assignment re-solve or the HiGHS fixed-commitment LP: each committed column with its closed box in original coordinates, degenerate for a fixed value (an integer value or a semi column's zero branch) and the active interval for a semicontinuous column on its active branch. It is absent when the multipliers are not conditional on an assignment.
 
 Version: 5. Snapshot class: `derived`. Primary key: `run_id, step`.
 
@@ -2007,7 +2034,8 @@ Version: 5. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `commitment` | `List` | true | `payload` | — | — |
 | `commitment.item` | `Struct` | false | `payload` | — | — |
 | `commitment.item.source_id` | `semantic_id` | false | `payload` | — | — |
-| `commitment.item.value` | `Float64` | false | `payload` | — | — |
+| `commitment.item.lower` | `Float64` | false | `payload` | — | — |
+| `commitment.item.upper` | `Float64` | false | `payload` | — | — |
 
 ## `solve_variables`
 
