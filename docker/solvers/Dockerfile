@@ -22,7 +22,7 @@
 # Common Ubuntu base.  Pinned by the multi-arch index digest of ubuntu:24.04;
 # Dependabot's docker ecosystem updates this line.
 # ---------------------------------------------------------------------------
-FROM ubuntu:24.04@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254 AS base
+FROM ubuntu:26.04@sha256:da6fc2be547864451aa253836dd926da33623312df4a9a243e35dc877c378a78 AS base
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
