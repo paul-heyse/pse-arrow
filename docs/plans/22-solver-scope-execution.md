@@ -524,11 +524,13 @@ baseline with its command and conditions.
 | W10 | G6r tests, PC-SAFT, SCIP concurrency; Y0c kernel and Y0d; Y5a | complete: Y0c kernel, Y0d and authored shooting `667b9fae`; the rest landed with W8 and W9 |
 | W11 | Y5c1 → Y5c2 | complete: Y5c1 `8da0cff5`, Y5c2 `5a37033d` |
 | W12 | DOCS-z; re-publication only if C4 changed the image | complete: DOCS-z (blueprint revision 73); the image did not change after `ci-2893f027e09f` |
-| W13 | Q1 | running |
+| W13 | Q1 | complete: Q1 on the final state, recorded in the main plan's Outcome; the closure audit's missing tests `a3ba8793` |
 
 ## Current checkpoint (2026-09-29)
 
-**State.** Planned; nothing implemented. The solver image is published and pinned
+**State (2026-09-29).** Complete: W7–W13 landed and Q1 ran; the main plan's Outcome records the result. The entries below are the history of the waves.
+
+**State at planning.** Planned; nothing implemented. The solver image is published and pinned
 (`b0aed3ef`), and the doctor recognizes the native build (`9cab2ca2`). W7 starts with the
 decision records.
 
@@ -569,4 +571,15 @@ Blueprint revision 69. `just adr-lint` exits 0 on `main`.
 - **N5** adds `batch` and `sensitivities` to the capability record; a sensitivity request is an automatic-routing preference, not an eligibility rule, so an explicit coefficient adapter keeps S1's withheld-with-reason behaviour.
 - **Stale comments** listed by DOCS-b were fixed (`c5df295a`), including the Diffsol/IDAS derivative vocabulary.
 
-**Next:** Q1 (W13), then the Outcome and retirement (ADR-0096).
+**Q1 complete (2026-09-29).** The coordinator ran Q1 sequentially in the main checkout:
+- **Fixes.** Memory accounting (`5a219996`); the native lint to zero (`eacd304a`); the
+  test-database drop race (`54890730`); Clarabel's quadratic data build (`f0c72fc0`); the
+  KKT analysis's second factorization (`c839613a`).
+- **Parity.** The host parity route (`278957a8`), with the sIPOPT, parmest,
+  DegeneracyHunter and PETSc PID comparisons.
+- **Gaps.** The closure audit's missing tests (`a3ba8793`).
+
+Results and deviations are in the main plan's Outcome.
+
+**Next:** closure. Enduring meaning moves to the architecture sections and the register, and
+the plan and its resolved reviews retire (ADR-0096).
