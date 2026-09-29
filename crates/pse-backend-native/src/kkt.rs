@@ -37,6 +37,11 @@
 //! reduced Hessian from that factor through `pounce-sens-core` (the `sensitivity` module).
 //! Each quantity is computed or withheld with its typed reason.
 //!
+//! **Advanced step.** A sensitivity request may keep its pinned parametric factor after the
+//! step (Plan 22 Y5c2): the worker's retained state holds it, charged to the job's allowance,
+//! until a later sample predicts the solution at changed parameters by one backsolve or the
+//! next retaining step replaces it (the `advance` module).
+//!
 //! **Inverse reduced Hessian.** A request over some of the solve's own columns (Plan 22 S3)
 //! reads `B·K⁻¹·Bᵀ` with `B` selecting their rows of the `x` block from the step's factor,
 //! after qualification. With `Z` a basis of the null space of the active gradients,
@@ -55,7 +60,9 @@ use pse_math::{
 };
 use std::sync::Arc;
 
+mod advance;
 mod sensitivity;
+pub use advance::{Advance, Fallback, Prediction, predict};
 pub use sensitivity::{
     InverseReducedHessian, Parametric, ReducedHessian, Sensitivities, Sensitivity, Withheld,
 };
@@ -295,8 +302,9 @@ impl Layout {
 /// The factored normalized KKT matrix of one step's analysis, answering in original
 /// coordinates. Cloning shares the factor.
 ///
-/// It lives for the step's analysis only and never enters a `SolveReport`; moving it into
-/// `Retained`, charged to the job allowance, is the Y5c seam (I14).
+/// It never enters a `SolveReport`. It lives for the step's analysis, or, for an advanced
+/// step, in the worker's `Retained` state, charged to the job's allowance (I14, ADR-0118
+/// item 12).
 #[derive(Clone)]
 pub struct KktFactor {
     solver: Arc<feral::Solver>,
@@ -331,6 +339,20 @@ impl KktFactor {
     /// The same factor answering in normalized coordinates: `K̃ w = r` solved directly.
     pub fn normalized(&self) -> NormalizedFactor {
         NormalizedFactor(self.clone())
+    }
+    /// Bytes the factor holds: FERAL's allocation for the factor of its last symbolic
+    /// analysis, the factored matrix, the scales and the layout.
+    pub fn bytes(&self) -> usize {
+        let factor = self.solver.work_estimate().map_or(0, |w| w.factor_bytes);
+        let matrix = self.matrix.values.len() * (size_of::<f64>() + size_of::<usize>())
+            + self.matrix.col_ptr.len() * size_of::<usize>();
+        let layout = (self.layout.rows.len() + self.layout.bounds.len())
+            * size_of::<(usize, Side)>();
+        factor
+            .saturating_add(matrix)
+            .saturating_add(layout)
+            .saturating_add(self.scales.len() * size_of::<f64>())
+            .saturating_add(self.bound_rows.len() * size_of::<BoundRow>())
     }
 }
 /// A [`KktFactor`] answering in the normalized coordinates of the matrix it factored,
@@ -426,8 +448,8 @@ pub(crate) fn attach(
         )
     };
     // The factor serves this step's analysis and is dropped with it; it never enters the
-    // report. Keeping it for a later step (Y5c) moves it into `Retained` here, charged to
-    // the job allowance (I14).
+    // report. An advanced step keeps the parametric factor of its sensitivity request
+    // instead (the `advance` module).
     let (local, factor) = match local {
         Ok((point, factor)) => (Ok(point), Some(factor)),
         Err(unavailable) => (Err(unavailable), None),
@@ -471,6 +493,26 @@ fn side(value: f64, (lower, upper): (f64, f64), tolerance: f64, upward: bool) ->
         (true, _) => Some(Side::Lower),
         (false, true) => Some(Side::Upper),
         (false, false) => None,
+    }
+}
+
+/// The binding side of a limit beyond its tolerance whose multiplier is strong and exceeds
+/// its slack, all normalized: an interior-point candidate's active limit keeps a slack of
+/// `μ/z`, and an inactive one a multiplier of `μ/s` (the ratio of slack to multiplier tends
+/// to zero on an active limit and to infinity on an inactive one). `multipliers` holds the
+/// lower and upper limits' normalized multipliers, positive when they bind.
+fn dominant(
+    value: f64,
+    (lower, upper): (f64, f64),
+    (at_lower, at_upper): (f64, f64),
+    dual: f64,
+) -> Option<Side> {
+    if upper.is_finite() && at_upper > dual && upper - value < at_upper {
+        Some(Side::Upper)
+    } else if lower.is_finite() && at_lower > dual && value - lower < at_lower {
+        Some(Side::Lower)
+    } else {
+        None
     }
 }
 
@@ -541,11 +583,16 @@ pub(crate) fn analyse(
         .zip(&observation.values)
         .enumerate()
         .map(|(r, (&limits, &value))| {
-            activity(
-                side(value, limits, tolerances.rows[r], lambda[r] > 0.0),
-                lambda[r] * sr[r] / sf,
-                budget.dual,
-            )
+            let multiplier = lambda[r] * sr[r] / sf;
+            let side = side(value, limits, tolerances.rows[r], lambda[r] > 0.0).or_else(|| {
+                dominant(
+                    value / sr[r],
+                    (limits.0 / sr[r], limits.1 / sr[r]),
+                    (-multiplier, multiplier),
+                    budget.dual,
+                )
+            });
+            activity(side, multiplier, budget.dual)
         })
         .collect();
     let bounds: TiVec<OriginalCol, Activity> = oracle
@@ -554,7 +601,15 @@ pub(crate) fn analyse(
         .iter()
         .enumerate()
         .map(|(j, v)| {
-            let side = side(x[j], (v.lower, v.upper), tolerances.variables[j], zu[j] > zl[j]);
+            let side = side(x[j], (v.lower, v.upper), tolerances.variables[j], zu[j] > zl[j])
+                .or_else(|| {
+                    dominant(
+                        x[j] / sx[j],
+                        (v.lower / sx[j], v.upper / sx[j]),
+                        (zl[j] * sx[j] / sf, zu[j] * sx[j] / sf),
+                        budget.dual,
+                    )
+                });
             let multiplier = match side {
                 Some(Side::Upper) => zu[j],
                 Some(Side::Lower) => zl[j],

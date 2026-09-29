@@ -46,8 +46,9 @@ use pse_ids::SemanticId;
 use pse_math::{binding::ObjectiveSense, index::OriginalCol};
 
 /// A parametric sensitivity request: the parametric callbacks, the parameters and their
-/// values, and whether the reduced Hessian is wanted. The runner computes it after
-/// qualification, while the analysis factor is alive, and drops the factor with the step.
+/// values, whether the reduced Hessian is wanted, and whether the factor is kept for an
+/// advanced step. The runner computes it after qualification, while the analysis factor is
+/// alive, and drops the factor with the step unless it is kept.
 #[derive(Debug)]
 pub struct Sensitivity {
     /// Callbacks over the solve's columns followed by one column per parameter, in the
@@ -58,6 +59,9 @@ pub struct Sensitivity {
     pub parameters: Vec<(SemanticId, f64)>,
     /// Also compute the reduced Hessian over the parameters.
     pub reduced_hessian: bool,
+    /// Keep the pinned parametric factor in the worker's retained state after the step, for
+    /// an advanced-step prediction (Plan 22 Y5c2), when the sensitivities are certified.
+    pub retain: bool,
 }
 
 impl Sensitivity {
@@ -221,6 +225,9 @@ pub struct Parametric {
     pub sensitivities: Result<Sensitivities, Withheld>,
     /// The reduced Hessian; `None` when it was not requested.
     pub reduced_hessian: Option<Result<ReducedHessian, Withheld>>,
+    /// Bytes of the parametric factor kept for an advanced-step prediction and charged to
+    /// the job's allowance (Plan 22 Y5c2); `None` when none was kept.
+    pub retained: Option<usize>,
 }
 
 impl Parametric {
@@ -231,29 +238,36 @@ impl Parametric {
             point: None,
             sensitivities: Err(reason.clone()),
             reduced_hessian: reduced_hessian.then_some(Err(reason)),
+            retained: None,
         }
     }
 }
 
 /// Compute the request's quantities at the report's qualified candidate, or record why
-/// each is withheld. The factor lives for this call only.
+/// each is withheld. The factor lives for this call only, unless the request keeps it for
+/// an advanced step and the sensitivities are certified: then it is returned, with what a
+/// prediction needs, for the worker's retained state.
 pub(crate) fn derive(
     report: &mut SolveReport,
     request: Sensitivity,
     tolerances: &Tolerances,
     sense: ObjectiveSense,
     budget: Budget,
-) {
+) -> Option<super::Advance> {
     let parameters: Vec<SemanticId> = request.parameters.iter().map(|(id, _)| *id).collect();
-    let reduced = request.reduced_hessian;
-    let (point, result) = match analysed(report, request, tolerances, budget) {
-        Ok((point, factor, pins)) => {
-            let result = certify(&point).and_then(|()| {
-                compute(report, &factor, &pins, reduced, sense)
+    let values = request.parameters.clone();
+    let (reduced, retain) = (request.reduced_hessian, request.retain);
+    let (point, result, advance) = match analysed(report, request, tolerances, budget) {
+        Ok(analysed) => {
+            let result = certify(&analysed.point).and_then(|()| {
+                compute(report, &analysed.factor, &analysed.multipliers, reduced, sense)
             });
-            (Some(point), result)
+            let advance = (retain && result.is_ok())
+                .then(|| super::Advance::new(report, &analysed, values, tolerances))
+                .flatten();
+            (Some(analysed.point), result, advance)
         }
-        Err(withheld) => (None, Err(withheld)),
+        Err(withheld) => (None, Err(withheld), None),
     };
     let (sensitivities, reduced_hessian) = match result {
         Ok((sensitivities, hessian)) => (Ok(sensitivities), hessian),
@@ -264,7 +278,24 @@ pub(crate) fn derive(
         point,
         sensitivities,
         reduced_hessian,
+        retained: advance.as_ref().map(super::Advance::bytes),
     });
+    advance
+}
+
+/// The pinned parametric system at a qualified candidate, and what its analysis read there.
+pub(super) struct Analysed {
+    /// The KKT point of the pinned system.
+    pub point: KktPoint,
+    /// Its factor.
+    pub factor: KktFactor,
+    /// The pin multipliers, in parameter order.
+    pub multipliers: Vec<f64>,
+    /// The parametric Jacobian at the candidate, `(row, column, value)` over the solve's
+    /// columns followed by the parameters.
+    pub jacobian: Vec<(usize, usize, f64)>,
+    /// The bounds of the solve's columns.
+    pub bounds: Vec<(f64, f64)>,
 }
 
 /// The candidate's qualification: stationary or better with every multiplier recovered
@@ -294,14 +325,14 @@ fn qualified(report: &SolveReport) -> Result<(&Candidate, &Observation), Withhel
     }
 }
 
-/// The pinned parametric system at the candidate: its point, its factor and the pin
-/// multipliers.
+/// The pinned parametric system at the candidate: its point, its factor, the pin
+/// multipliers and the parametric Jacobian.
 fn analysed(
     report: &SolveReport,
     request: Sensitivity,
     tolerances: &Tolerances,
     budget: Budget,
-) -> Result<(KktPoint, KktFactor, Vec<f64>), Withheld> {
+) -> Result<Analysed, Withheld> {
     let (candidate, observation) = qualified(report)?;
     let failed = |message: &str| {
         Withheld::Analysis(Unavailable::from(ProblemError::internal(message.to_owned())))
@@ -328,6 +359,10 @@ fn analysed(
         .normalization()
         .cloned()
         .ok_or_else(|| failed("the parametric callbacks carry no normalization"))?;
+    let bounds = contract.variables[..n]
+        .iter()
+        .map(|v| (v.lower, v.upper))
+        .collect();
     let pins: Vec<(usize, f64)> = request
         .parameters
         .iter()
@@ -342,7 +377,7 @@ fn analysed(
     let mut primal = candidate.primal.clone();
     primal.extend(pins.iter().map(|(_, value)| value));
     // The pin multipliers: the stationarity of each parameter column at the candidate.
-    let multipliers = quality::contained(|| {
+    let (multipliers, jacobian) = quality::contained(|| {
         let mut gradient = vec![0.0; n + np];
         oracle.gradient(&primal, &mut gradient)?;
         let (starts, rows) = {
@@ -351,14 +386,19 @@ fn analysed(
         };
         let mut jacobian = vec![0.0; rows.len()];
         oracle.jacobian(&primal, &mut jacobian)?;
-        Ok((n..n + np)
+        let multipliers = (n..n + np)
             .map(|col| {
                 gradient[col]
                     + (starts[col]..starts[col + 1])
                         .map(|k| jacobian[k] * lambda[rows[k]])
                         .sum::<f64>()
             })
-            .collect::<Vec<f64>>())
+            .collect::<Vec<f64>>();
+        let entries = (0..n + np)
+            .flat_map(|col| (starts[col]..starts[col + 1]).map(move |k| (col, k)))
+            .map(|(col, k)| (rows[k], col, jacobian[k]))
+            .collect::<Vec<_>>();
+        Ok((multipliers, entries))
     })
     .map_err(|e| Withheld::Analysis(e.into()))?;
     if multipliers.iter().any(|v| !v.is_finite()) {
@@ -398,7 +438,13 @@ fn analysed(
         budget,
     )
     .map_err(Withheld::Analysis)?;
-    Ok((point, factor, multipliers))
+    Ok(Analysed {
+        point,
+        factor,
+        multipliers,
+        jacobian,
+        bounds,
+    })
 }
 
 /// Read the inverse reduced Hessian over `columns` from the step's own factor at its
@@ -493,6 +539,19 @@ fn certify(point: &KktPoint) -> Result<(), Withheld> {
     }
 }
 
+/// The KKT rows of the pins of the solve's `n` columns' `np` parameters, in parameter
+/// order; `None` when a pin is not a row of the system.
+pub(super) fn pin_rows(factor: &KktFactor, n: usize, np: usize) -> Option<Vec<i32>> {
+    (0..np)
+        .map(|k| {
+            factor
+                .layout()
+                .bound(OriginalCol::new(n + k))
+                .and_then(|row| i32::try_from(row).ok())
+        })
+        .collect()
+}
+
 /// The parametric steps and, on request, the reduced Hessian against the factor.
 fn compute(
     report: &SolveReport,
@@ -503,18 +562,11 @@ fn compute(
 ) -> Result<(Sensitivities, Option<Result<ReducedHessian, Withheld>>), Withheld> {
     let layout = factor.layout();
     let (n, m, np) = (report.variables.len(), report.rows.len(), multipliers.len());
-    let pins = (0..np)
-        .map(|k| {
-            layout
-                .bound(OriginalCol::new(n + k))
-                .and_then(|row| i32::try_from(row).ok())
-        })
-        .collect::<Option<Vec<i32>>>()
-        .ok_or_else(|| {
-            Withheld::Analysis(Unavailable::from(ProblemError::internal(
-                "a pin is not a row of the KKT system",
-            )))
-        })?;
+    let pins = pin_rows(factor, n, np).ok_or_else(|| {
+        Withheld::Analysis(Unavailable::from(ProblemError::internal(
+            "a pin is not a row of the KKT system",
+        )))
+    })?;
     let selector = || {
         IndexSchurData::from_parts(pins.clone(), vec![-1; np]).map_err(|_| Withheld::Backsolve)
     };

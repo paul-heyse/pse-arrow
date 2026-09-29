@@ -544,21 +544,57 @@ impl BackendSettings {
 /// Worker-owned native state retained from the previous step of a finite sequence.
 /// Opaque to workflows: each adapter recognizes only its own session. It never crosses a
 /// worker boundary and is dropped on the owning thread.
+///
+/// It also holds the parametric factor of an advanced step (Plan 22 Y5c2), which is not
+/// an adapter's state: a certified sensitivity step that keeps it replaces any earlier one,
+/// and the worker charges its bytes to the job's allowance before the next step runs
+/// (ADR-0118 item 12, I14). Clearing the adapter's session keeps it.
 #[derive(Default)]
 pub struct Retained {
     session: Option<(Backend, Box<dyn Any>)>,
+    advance: Option<(crate::kkt::Advance, Option<Box<dyn Any + Send>>)>,
 }
 impl std::fmt::Debug for Retained {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Retained")
             .field("backend", &self.session.as_ref().map(|s| s.0))
+            .field(
+                "advance",
+                &self.advance.as_ref().map(|(a, charge)| (a.bytes(), charge.is_some())),
+            )
             .finish_non_exhaustive()
     }
 }
 impl Retained {
-    /// Drop retained native state now.
+    /// Drop the retained adapter session now. A kept advanced-step factor stays.
     pub fn clear(&mut self) {
         self.session = None;
+    }
+    /// Keep an advanced-step factor, uncharged, replacing any earlier one with its charge.
+    pub fn keep(&mut self, advance: crate::kkt::Advance) {
+        self.advance = Some((advance, None));
+    }
+    /// Bytes of a kept advanced-step factor not yet charged to the job's allowance.
+    pub fn uncharged(&self) -> Option<usize> {
+        match &self.advance {
+            Some((advance, None)) => Some(advance.bytes()),
+            _ => None,
+        }
+    }
+    /// Hold `charge`, the job allowance reserved for the kept factor, until the factor is
+    /// dropped.
+    pub fn charge(&mut self, charge: Box<dyn Any + Send>) {
+        if let Some((_, held)) = &mut self.advance {
+            *held = Some(charge);
+        }
+    }
+    /// The kept advanced-step factor.
+    pub fn advance(&self) -> Option<&crate::kkt::Advance> {
+        self.advance.as_ref().map(|(a, _)| a)
+    }
+    /// Drop the kept advanced-step factor and release its charge.
+    pub fn release(&mut self) {
+        self.advance = None;
     }
     /// Whether any adapter retains native state.
     pub fn is_empty(&self) -> bool {

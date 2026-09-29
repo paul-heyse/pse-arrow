@@ -33,6 +33,17 @@
 //! set on POUNCE. The steps are the run's modeling steps: each is recorded and, under a
 //! durable runtime, its accepted seed is stored (O6), and every sample streams one
 //! `horizon.step` progress event (O5).
+//!
+//! **Advanced step** (Plan 22 Y5c2; I16). A controller may decide each sample by
+//! prediction instead of a solve on the critical path. After applying its moves at `tₖ` it
+//! solves at the values it predicts for `tₖ₊₁` (its own solution one period ahead for each
+//! mapped state, the next setpoint, the moves just applied), a background solve that keeps
+//! its parametric sensitivity factor with respect to the measured or estimated state in the
+//! session's retained state, charged to the job's allowance. At `tₖ₊₁` one backsolve against
+//! that factor corrects the background solution to the actual state (ADR-0118). A
+//! prediction that would change the active set, or a factor that was not kept, falls back to
+//! a full solve at the sample, recorded with its reason. While the active set holds, the
+//! prediction of a problem whose KKT conditions are linear in the state is its solution.
 use pse_ids::SemanticId;
 
 #[cfg(feature = "solver-diffsol")]
@@ -75,6 +86,19 @@ pub struct HorizonController {
     /// The first move of each driven input: the controller path whose solved value is
     /// applied over the next period, and the input's index into [`Horizon::inputs`].
     pub moves: Vec<(String, usize)>,
+    /// Decide samples by advanced-step prediction (Plan 22 Y5c2); `None` solves every
+    /// sample in full.
+    pub advanced: Option<AdvancedStep>,
+}
+
+/// An advanced-step controller: its measured and estimated state bindings are the
+/// parameters of a sensitivity request, and each background solve runs at the predicted
+/// next values of its bindings.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct AdvancedStep {
+    /// Each measured or estimated binding with the controller path whose solved value
+    /// predicts it one period ahead. A binding without one is predicted to hold its value.
+    pub predictions: Vec<(String, String)>,
 }
 
 /// How an estimator's model takes a driven input over its window.
@@ -149,6 +173,12 @@ pub enum HorizonDecision {
     Solved,
     /// The controller step was not accepted; the last applied inputs are held.
     Held,
+    /// The first moves predicted from the previous sample's background solve (Plan 22
+    /// Y5c2).
+    Predicted,
+    /// The prediction was refused, for [`HorizonStep::fallback`]; the first moves of an
+    /// accepted full solve at the sample.
+    Fallback,
 }
 impl HorizonDecision {
     /// Stable snake-case spelling, as the `horizon.step` event records it.
@@ -157,6 +187,8 @@ impl HorizonDecision {
             Self::OpenLoop => "open_loop",
             Self::Solved => "solved",
             Self::Held => "held",
+            Self::Predicted => "predicted",
+            Self::Fallback => "fallback",
         }
     }
 }
@@ -170,10 +202,17 @@ pub struct HorizonStep {
     pub measured: Vec<f64>,
     /// The run's modeling step of this sample's estimator, when it acted.
     pub estimator: Option<usize>,
-    /// The run's modeling step of this sample's controller, when it acted.
+    /// The run's modeling step of this sample's controller, when it acted: for a
+    /// prediction, the background solve whose factor predicted.
     pub controller: Option<usize>,
     /// How the applied inputs were decided.
     pub decision: HorizonDecision,
+    /// Why an advanced-step controller did not predict at this sample; a full solve decided
+    /// it instead.
+    pub fallback: Option<pse_backend_native::kkt::Fallback>,
+    /// The run's modeling step of the background solve an advanced-step controller ran at
+    /// this sample for the next one.
+    pub advanced: Option<usize>,
     /// The inputs applied over `[tₖ, tₖ + period]`, in [`HorizonReport::inputs`] order.
     pub applied: Vec<f64>,
     /// The plant outputs the period reached at `tₖ + period`.

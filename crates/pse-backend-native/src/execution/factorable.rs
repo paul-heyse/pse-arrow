@@ -1236,6 +1236,7 @@ fn fixed_assignment(
                         oracle,
                         parameters: request.parameters,
                         reduced_hessian: request.reduced_hessian,
+                        retain: false,
                     }),
                     None,
                 ),

@@ -203,6 +203,7 @@ fn controller(
             ("u[0{s}]".into(), HorizonSignal::Applied(0)),
         ],
         moves: vec![("u[0.25{s}]".into(), 0)],
+        advanced: None,
     }
 }
 async fn run(runtime: &Runtime, horizon: Horizon) -> Arc<RunResult> {
@@ -574,4 +575,128 @@ async fn horizon_refuses_inconsistent_loops() {
         let error = refusal(horizon).await;
         assert!(error.contains(message), "{message}: {error}");
     }
+}
+
+/// The antiwindup loop over `STEPS` samples, from rest, whose setpoint drops from 1 to 0.6
+/// at sample 12, under a controller that decides samples by advanced step when `advanced`.
+/// Its KKT budgets are tightened to 1e-12, so a prediction and a full solve at one state
+/// agree to far better than the comparison's tolerance of 1e-8.
+async fn antiwindup(advanced: Option<AdvancedStep>) -> Arc<RunResult> {
+    const STEPS: usize = 20;
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let (package, [root, whole, _]) = package(runtime.clone());
+    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
+    let setpoints = (0..STEPS)
+        .map(|k| if k < 12 { 1. } else { 0.6 })
+        .collect::<Vec<_>>();
+    let mut controller = controller(&package, root, x, setpoints);
+    controller.advanced = advanced;
+    controller.analysis.solver.numerics.kkt = pse_model::numerics::KktTolerances {
+        stationarity: 1e-12,
+        complementarity: 1e-12,
+    };
+    let result = run(
+        &runtime,
+        Horizon {
+            plant,
+            period: PERIOD,
+            steps: STEPS,
+            inputs: vec![HorizonInput {
+                parameter: actuator,
+                initial: 0.,
+            }],
+            estimator: None,
+            controller: Some(controller),
+        },
+    )
+    .await;
+    assert!(result.usable(), "{:?}", result.assessments());
+    result
+}
+/// The advanced loop's applied moves and plant outputs against the fully re-solving loop's,
+/// within `tolerance`; returns the advanced loop's decisions.
+fn matches_full_resolve(
+    advanced: &RunResult,
+    full: &RunResult,
+    tolerance: f64,
+) -> Vec<HorizonDecision> {
+    let (advanced, full) = (advanced.horizon().unwrap(), full.horizon().unwrap());
+    assert_eq!(advanced.steps.len(), full.steps.len());
+    for (k, (a, f)) in advanced.steps.iter().zip(&full.steps).enumerate() {
+        assert_eq!(f.decision, HorizonDecision::Solved, "{k}");
+        let (u, v) = (a.applied[0], f.applied[0]);
+        assert!((u - v).abs() < tolerance, "{k}: applied {u} vs {v} ({:?})", a.decision);
+        let (x, y) = (a.reached[0], f.reached[0]);
+        assert!((x - y).abs() < tolerance, "{k}: reached {x} vs {y}");
+    }
+    advanced.steps.iter().map(|s| s.decision).collect()
+}
+
+/// Advanced-step NMPC (Plan 22 Y5c2): after applying its moves, the controller solves at
+/// the state its own solution predicts one period ahead and keeps that solve's parametric
+/// factor; at the next sample one backsolve corrects the prediction to the measured state.
+/// The loop's KKT conditions are linear in the state while the active set holds, so every
+/// predicted sample applies the moves of the full re-solve at the measured state (declared
+/// tolerance 1e-8), the backward-Euler model's mismatch with the plant notwithstanding.
+/// Where that mismatch moves an actuator off its limit (sample 1) the controller falls
+/// back to a full solve.
+/// Each background solve keeps a factor of positive size, charged to the job's allowance.
+#[tokio::test]
+async fn advanced_step_matches_full_resolve() {
+    let full = antiwindup(None).await;
+    let advanced = antiwindup(Some(AdvancedStep {
+        predictions: vec![("x0".into(), "x[0.25{s}]".into())],
+    }))
+    .await;
+    let decisions = matches_full_resolve(&advanced, &full, 1e-8);
+    assert_eq!(decisions[0], HorizonDecision::Solved);
+    let predicted = decisions
+        .iter()
+        .filter(|d| **d == HorizonDecision::Predicted)
+        .count();
+    assert!(predicted >= 15, "{decisions:?}");
+    let report = advanced.horizon().unwrap();
+    let steps = modeling(&advanced);
+    for (k, sample) in report.steps.iter().enumerate() {
+        assert_eq!(sample.advanced.is_some(), k + 1 < report.steps.len(), "{k}");
+        if sample.decision == HorizonDecision::Predicted {
+            assert_eq!(sample.controller, report.steps[k - 1].advanced, "{k}");
+            assert_eq!(sample.fallback, None);
+        }
+        let Some(background) = sample.advanced else {
+            continue;
+        };
+        let Outcome::Native(native) = &steps[background].outcome else {
+            panic!("{:?}", steps[background].outcome)
+        };
+        let parametric = native.evidence.sensitivity.as_ref().unwrap();
+        assert!(parametric.retained.is_some_and(|b| b > 0), "{k}: {parametric:?}");
+    }
+}
+
+/// Without a predicting path the background solve holds the measured state, so the next
+/// sample's prediction steps over a whole period's change. Where that changes the active
+/// set (the actuator leaving its limit as the output rises, or reaching it after the
+/// setpoint drop) the controller falls back to a full solve and records why; the loop still
+/// applies the full re-solve's moves at every sample.
+#[tokio::test]
+async fn advanced_step_falls_back_on_active_set_change() {
+    let full = antiwindup(None).await;
+    let advanced = antiwindup(Some(AdvancedStep::default())).await;
+    let decisions = matches_full_resolve(&advanced, &full, 1e-8);
+    let report = advanced.horizon().unwrap();
+    let fallbacks = report
+        .steps
+        .iter()
+        .filter(|s| s.decision == HorizonDecision::Fallback)
+        .collect::<Vec<_>>();
+    assert!(!fallbacks.is_empty(), "{decisions:?}");
+    assert!(
+        fallbacks.iter().any(|s| matches!(
+            s.fallback,
+            Some(pse_backend_native::kkt::Fallback::ActiveSet { .. })
+        )),
+        "{fallbacks:?}"
+    );
+    assert!(decisions.contains(&HorizonDecision::Predicted), "{decisions:?}");
 }

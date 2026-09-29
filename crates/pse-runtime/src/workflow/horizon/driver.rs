@@ -19,6 +19,7 @@ use crate::workflow::{
 use pse_backend_native::{
     self as native, ProblemError,
     dynamics::DynamicSensitivity,
+    kkt::{Fallback, Prediction},
     solve::{Event, Metric, Progress},
 };
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
@@ -254,6 +255,17 @@ struct Controller {
     bindings: Vec<(String, Signal)>,
     /// Each first move's symbol and its driven input.
     moves: Vec<(SemanticId, usize)>,
+    advanced: Option<Advanced>,
+}
+
+/// An advanced-step controller's sensitivity parameters and predictions (Plan 22 Y5c2).
+#[derive(Debug)]
+struct Advanced {
+    /// Each measured or estimated binding and its parameter symbol, in the order of the
+    /// stage's sensitivity request.
+    parameters: Vec<(String, SemanticId)>,
+    /// The controller symbol that predicts a binding one period ahead.
+    predictions: BTreeMap<String, SemanticId>,
 }
 
 /// The plant: its integrated experiment and the columns the loop drives.
@@ -599,8 +611,66 @@ impl Admitted {
         cancel: &crate::CancelSource,
     ) -> Result<Controller, WorkflowError> {
         let bound = c.bindings.iter().map(|(path, _)| path).collect::<Vec<_>>();
-        let read = c.moves.iter().map(|(path, _)| path).collect::<Vec<_>>();
-        let stage = Stage::admit(runtime, &c.package, &c.analysis, &bound, &read, cancel).await?;
+        let mut read = c.moves.iter().map(|(path, _)| path).collect::<Vec<_>>();
+        // An advanced step differentiates with respect to the measured and estimated
+        // bindings, and reads the paths that predict them.
+        let states = c
+            .bindings
+            .iter()
+            .filter(|(_, signal)| {
+                matches!(signal, HorizonSignal::Measured(_) | HorizonSignal::Estimated(_))
+            })
+            .map(|(path, _)| path)
+            .collect::<Vec<_>>();
+        if let Some(advanced) = &c.advanced {
+            if states.is_empty() || c.analysis.solver.sensitivity.is_some() {
+                return Err(contract(
+                    "an advanced-step controller binds a measured or estimated state and requests no sensitivity of its own",
+                ));
+            }
+            let mut mapped = BTreeSet::new();
+            for (state, predictor) in &advanced.predictions {
+                if !states.contains(&state) || !mapped.insert(state) {
+                    return Err(contract(format!(
+                        "an advanced step predicts each measured or estimated binding once: {state}"
+                    )));
+                }
+                read.push(predictor);
+            }
+            read.extend(states.iter().copied());
+        }
+        let mut stage =
+            Stage::admit(runtime, &c.package, &c.analysis, &bound, &read, cancel).await?;
+        let advanced = match &c.advanced {
+            Some(a) => {
+                let parameters = states
+                    .iter()
+                    .map(|path| ((*path).clone(), stage.read[*path]))
+                    .collect::<Vec<_>>();
+                // The sensitivity request prepares with the stage, which is refused here
+                // when a state binding is not a declared parameter.
+                stage.analysis.solver.sensitivity =
+                    Some(crate::math::settings::SensitivityRequest {
+                        parameters: parameters.iter().map(|(_, id)| *id).collect(),
+                        reduced_hessian: false,
+                        propagation: None,
+                    });
+                let prepared = c.package.prepare_analysis(&stage.analysis, cancel).await?;
+                stage.identity = prepared
+                    .solve
+                    .request_identity()
+                    .map_err(MathRuntimeError::from)?;
+                Some(Advanced {
+                    parameters,
+                    predictions: a
+                        .predictions
+                        .iter()
+                        .map(|(state, predictor)| (state.clone(), stage.read[predictor]))
+                        .collect(),
+                })
+            }
+            None => None,
+        };
         let bindings = c
             .bindings
             .iter()
@@ -627,6 +697,7 @@ impl Admitted {
             stage,
             bindings,
             moves,
+            advanced,
         })
     }
 }
@@ -714,6 +785,21 @@ fn identity(
             for (id, i) in &c.moves {
                 h.id(id).u64(*i as u64);
             }
+            match &c.advanced {
+                Some(a) => {
+                    h.bool(true).u64(a.parameters.len() as u64);
+                    for (path, id) in &a.parameters {
+                        h.str(path).id(id);
+                    }
+                    h.u64(a.predictions.len() as u64);
+                    for (path, id) in &a.predictions {
+                        h.str(path).id(id);
+                    }
+                }
+                None => {
+                    h.bool(false);
+                }
+            }
         }
         None => {
             h.bool(false);
@@ -766,6 +852,31 @@ struct Loop {
     accepted: [Option<usize>; 2],
     /// This sample's accepted estimator step.
     estimate: Option<usize>,
+    /// An advanced-step controller's background solve for the next sample, whose factor the
+    /// session retains.
+    background: Option<usize>,
+}
+
+/// What decided a controller's moves at a sample.
+enum Source {
+    Solved(usize),
+    Predicted(Prediction),
+}
+
+/// A sample's controller decision.
+struct Control {
+    controller: Option<usize>,
+    decision: HorizonDecision,
+    fallback: Option<Fallback>,
+    advanced: Option<usize>,
+}
+impl Control {
+    const OPEN: Self = Self {
+        controller: None,
+        decision: HorizonDecision::OpenLoop,
+        fallback: None,
+        advanced: None,
+    };
 }
 impl Loop {
     fn new(
@@ -799,6 +910,7 @@ impl Loop {
             priors,
             accepted: [None; 2],
             estimate: None,
+            background: None,
         }
     }
     async fn run(&mut self) -> Result<(), WorkflowError> {
@@ -812,7 +924,7 @@ impl Loop {
                 return Err(MathRuntimeError::Cancelled.into());
             }
             let estimator = self.estimate(k).await?;
-            let (controller, decision) = self.control(k).await?;
+            let control = self.control(k).await?;
             let applied = self.applied.clone();
             let anchors = self.anchors.clone();
             let end = self
@@ -824,8 +936,10 @@ impl Loop {
                 time: self.admitted.plant.time(k),
                 measured: self.measured[k].clone(),
                 estimator,
-                controller,
-                decision,
+                controller: control.controller,
+                decision: control.decision,
+                fallback: control.fallback,
+                advanced: control.advanced,
                 applied: self.applied.clone(),
                 reached: self.measured[k + 1].clone(),
             };
@@ -865,10 +979,12 @@ impl Loop {
     /// One step of `role`: its overlay of `values` over its specification, seeded from the
     /// last accepted step of the role and offered its native seed (N2), executed and recorded
     /// as the run's next modeling step.
+    /// A step that keeps its sensitivity factor for an advanced-step prediction `retain`s it.
     async fn solve(
         &mut self,
         role: Role,
         values: BTreeMap<String, f64>,
+        retain: bool,
     ) -> Result<usize, WorkflowError> {
         let admitted = self.admitted.clone();
         let stage = match role {
@@ -886,7 +1002,7 @@ impl Loop {
             ..Overlay::default()
         }
         .compose(&stage.analysis);
-        let prepared = stage
+        let mut prepared = stage
             .package
             .prepare_analysis_attempt(
                 &specification,
@@ -897,6 +1013,12 @@ impl Loop {
                 &self.cancel,
             )
             .await?;
+        if retain {
+            prepared.solve = prepared
+                .solve
+                .retaining_factor()
+                .map_err(WorkflowError::from)?;
+        }
         let attempt = self.requests.len();
         if let Some(durable) = &self.durable {
             let seed = prepared
@@ -969,7 +1091,7 @@ impl Loop {
         for ((prior, _, _), value) in e.arrival.iter().zip(&self.priors) {
             values.insert(prior.clone(), *value);
         }
-        let index = self.solve(Role::Estimator, values).await?;
+        let index = self.solve(Role::Estimator, values, false).await?;
         let result = &self.results[index];
         if result.accepted {
             let next = e
@@ -982,43 +1104,184 @@ impl Loop {
         }
         Ok(Some(index))
     }
-    /// The controller step at sample `k`: its state, setpoints and held moves bound, and its
-    /// first moves applied when it is accepted.
-    async fn control(
-        &mut self,
+    /// The controller's bound values at sample `k`: its state, setpoints and held moves;
+    /// `None` while an estimate it binds does not exist.
+    fn bound(
+        &self,
+        c: &Controller,
         k: usize,
-    ) -> Result<(Option<usize>, HorizonDecision), WorkflowError> {
-        let admitted = self.admitted.clone();
-        let Some(c) = &admitted.controller else {
-            return Ok((None, HorizonDecision::OpenLoop));
-        };
+    ) -> Result<Option<BTreeMap<String, f64>>, WorkflowError> {
         let mut values = BTreeMap::new();
         for (path, signal) in &c.bindings {
             let value = match signal {
                 Signal::Measured(o) => self.measured[k][*o],
                 Signal::Estimated(id) => match self.estimate {
                     Some(i) => solved(&self.results[i], id)?,
-                    None => return Ok((None, HorizonDecision::OpenLoop)),
+                    None => return Ok(None),
                 },
                 Signal::Applied(i) => self.applied[*i],
                 Signal::Trajectory(values) => values[k],
             };
             values.insert(path.clone(), value);
         }
-        let index = self.solve(Role::Controller, values).await?;
+        Ok(Some(values))
+    }
+    /// Apply the first moves of the accepted step `index`.
+    fn apply_solved(&mut self, c: &Controller, index: usize) -> Result<(), WorkflowError> {
         let result = &self.results[index];
-        if !result.accepted {
-            return Ok((Some(index), HorizonDecision::Held));
-        }
         let moves = c
             .moves
             .iter()
-            .map(|(id, i)| Ok((*i, solved(result, id)?)))
+            .map(|(id, _)| Ok((*id, solved(result, id)?)))
+            .collect::<Result<BTreeMap<_, _>, WorkflowError>>()?;
+        self.apply(c, |id| Ok(moves[id]))
+    }
+    /// Apply the first moves `value` reads.
+    fn apply(
+        &mut self,
+        c: &Controller,
+        value: impl Fn(&SemanticId) -> Result<f64, WorkflowError>,
+    ) -> Result<(), WorkflowError> {
+        let moves = c
+            .moves
+            .iter()
+            .map(|(id, i)| Ok((*i, value(id)?)))
             .collect::<Result<Vec<_>, WorkflowError>>()?;
         for (i, value) in moves {
             self.applied[i] = value;
         }
-        Ok((Some(index), HorizonDecision::Solved))
+        Ok(())
+    }
+    /// The controller step at sample `k`: its state, setpoints and held moves bound, and its
+    /// first moves applied when it is accepted. An advanced-step controller predicts them
+    /// from the previous sample's background solve, or falls back to a full solve, and then
+    /// solves in the background for the next sample.
+    async fn control(&mut self, k: usize) -> Result<Control, WorkflowError> {
+        let admitted = self.admitted.clone();
+        let Some(c) = &admitted.controller else {
+            return Ok(Control::OPEN);
+        };
+        let Some(values) = self.bound(c, k)? else {
+            return Ok(Control::OPEN);
+        };
+        let Some(advanced) = &c.advanced else {
+            let index = self.solve(Role::Controller, values, false).await?;
+            let decision = if self.results[index].accepted {
+                self.apply_solved(c, index)?;
+                HorizonDecision::Solved
+            } else {
+                HorizonDecision::Held
+            };
+            return Ok(Control {
+                controller: Some(index),
+                decision,
+                ..Control::OPEN
+            });
+        };
+        // One backsolve against the background solve's retained factor at the actual state.
+        // A factor predicts once: the next background solve replaces it.
+        let predicted = match self.background.take() {
+            None => None,
+            Some(from) => {
+                let usable = self.results[from].accepted;
+                let parameters = advanced
+                    .parameters
+                    .iter()
+                    .map(|(path, id)| (*id, values[path]))
+                    .collect::<Vec<_>>();
+                let outcome = self
+                    .staged
+                    .native(admitted.threads, &self.cancel, move |retained, _, _| {
+                        let outcome = match retained.advance() {
+                            Some(advance) if usable => native::kkt::predict(advance, &parameters),
+                            _ => Err(Fallback::NotRetained),
+                        };
+                        retained.release();
+                        Ok(outcome)
+                    })
+                    .await?;
+                Some(outcome.map(|prediction| (from, prediction)))
+            }
+        };
+        let (mut control, source) = match predicted {
+            Some(Ok((from, prediction))) => {
+                self.apply(c, |id| {
+                    prediction.value(id).ok_or_else(|| {
+                        contract("an advanced-step controller's moves are columns of its solve")
+                    })
+                })?;
+                (
+                    Control {
+                        controller: Some(from),
+                        decision: HorizonDecision::Predicted,
+                        ..Control::OPEN
+                    },
+                    Some(Source::Predicted(prediction)),
+                )
+            }
+            refused => {
+                let fallback = match refused {
+                    Some(Err(reason)) => Some(reason),
+                    _ => None,
+                };
+                let index = self.solve(Role::Controller, values.clone(), false).await?;
+                let accepted = self.results[index].accepted;
+                if accepted {
+                    self.apply_solved(c, index)?;
+                }
+                let decision = match (accepted, fallback) {
+                    (false, _) => HorizonDecision::Held,
+                    (true, Some(_)) => HorizonDecision::Fallback,
+                    (true, None) => HorizonDecision::Solved,
+                };
+                (
+                    Control {
+                        controller: Some(index),
+                        decision,
+                        fallback,
+                        advanced: None,
+                    },
+                    accepted.then_some(Source::Solved(index)),
+                )
+            }
+        };
+        if k + 1 < admitted.steps {
+            let next = self.next(c, advanced, k, &values, source.as_ref())?;
+            let index = self.solve(Role::Controller, next, true).await?;
+            self.background = Some(index);
+            control.advanced = Some(index);
+        }
+        Ok(control)
+    }
+    /// The bound values an advanced-step controller predicts for sample `k + 1`: each mapped
+    /// state from the solution that decided sample `k` (held without one), the next
+    /// setpoint, and the moves just applied.
+    fn next(
+        &self,
+        c: &Controller,
+        advanced: &Advanced,
+        k: usize,
+        values: &BTreeMap<String, f64>,
+        source: Option<&Source>,
+    ) -> Result<BTreeMap<String, f64>, WorkflowError> {
+        let mut next = BTreeMap::new();
+        for (path, signal) in &c.bindings {
+            let value = match signal {
+                Signal::Measured(_) | Signal::Estimated(_) => {
+                    match (advanced.predictions.get(path), source) {
+                        (Some(id), Some(Source::Solved(i))) => solved(&self.results[*i], id)?,
+                        (Some(id), Some(Source::Predicted(p))) => p.value(id).ok_or_else(|| {
+                            contract("an advanced step's predicting path is a column of its solve")
+                        })?,
+                        _ => values[path],
+                    }
+                }
+                Signal::Applied(i) => self.applied[*i],
+                Signal::Trajectory(values) => values[k + 1],
+            };
+            next.insert(path.clone(), value);
+        }
+        Ok(next)
     }
 }
 
@@ -1038,6 +1301,15 @@ fn event(k: usize, step: &HorizonStep, elapsed: Duration) -> Event {
     }
     if let Some(controller) = step.controller {
         values.insert("controller".to_owned(), integer(controller));
+    }
+    if let Some(advanced) = step.advanced {
+        values.insert("advanced".to_owned(), integer(advanced));
+    }
+    if let Some(fallback) = step.fallback {
+        values.insert(
+            "fallback".to_owned(),
+            Metric::Text(fallback.as_str().to_owned()),
+        );
     }
     for (i, value) in step.applied.iter().enumerate() {
         values.insert(format!("input.{i}"), Metric::Real(*value));

@@ -192,6 +192,7 @@ fn request(parametric: Analytic, reduced_hessian: bool) -> Sensitivity {
         parameters: vec![(id(50), parametric.p[0]), (id(51), parametric.p[1])],
         oracle: Box::new(parametric),
         reduced_hessian,
+        retain: false,
     }
 }
 fn tolerances(n: usize, m: usize) -> Tolerances {
@@ -207,12 +208,24 @@ fn close(actual: f64, expected: f64) -> bool {
 /// The runner's tail at an exact candidate: original observation, KKT evidence,
 /// qualification and the requested derivation.
 fn tail(
-    mut solve: Analytic,
+    solve: Analytic,
     parametric: Analytic,
     x: [f64; 3],
     lambda: &[f64],
     zl: [f64; 3],
 ) -> SolveReport {
+    retaining(solve, parametric, x, lambda, zl, false, 1e-8).0
+}
+/// [`tail`] for a request that keeps its factor for an advanced step, when `retain`.
+fn retaining(
+    mut solve: Analytic,
+    parametric: Analytic,
+    x: [f64; 3],
+    lambda: &[f64],
+    zl: [f64; 3],
+    retain: bool,
+    bound_tolerance: f64,
+) -> (SolveReport, Option<crate::kkt::Advance>) {
     let (n, m) = (3, solve.bounds.len());
     let execution = Execution::new(Default::default(), &Controls::default());
     let mut report = SolveReport::new(
@@ -238,14 +251,20 @@ fn tail(
         commitment: None,
     });
     let accuracy = ResolvedAccuracy::nominal();
-    let tolerances = tolerances(n, m);
+    let tolerances = Tolerances {
+        variables: vec![bound_tolerance; n],
+        ..tolerances(n, m)
+    };
     let normalization = solve.normalization.clone();
     quality::attach_nlp(&mut report, &mut solve, &tolerances, ObjectiveSense::Minimize);
     quality::record_kkt(&mut report, &normalization, &accuracy);
     quality::qualify(&mut report, &accuracy);
-    derive(
+    let advance = derive(
         &mut report,
-        request(parametric, true),
+        Sensitivity {
+            retain,
+            ..request(parametric, true)
+        },
         &tolerances,
         ObjectiveSense::Minimize,
         Budget {
@@ -253,7 +272,7 @@ fn tail(
             limit: 10_000,
         },
     );
-    report
+    (report, advance)
 }
 fn withheld(report: &SolveReport) -> &Withheld {
     let parametric = report.evidence.sensitivity.as_ref().unwrap();
@@ -659,6 +678,112 @@ mod solved {
         let hessian = flipped.reduced_hessian.as_ref().unwrap().as_ref().unwrap();
         for (actual, expected) in hessian.values.iter().zip(H) {
             assert!(close(*actual, -expected), "{hessian:?}");
+        }
+    }
+}
+
+/// The advanced step (Plan 22 Y5c2): a certified step keeps its pinned factor, and one
+/// backsolve predicts the solution at other parameter values. The analytic NLP's KKT
+/// conditions are linear in `p` while its active set holds, so the prediction at
+/// `p = (1.5, 2.5)` is the solution `x = ((p₂ + 2p₁)/3, (p₁ − p₂)/3, 0)`,
+/// `λ_g = 2(p₂ − p₁)/3`. At `p₁ = −1` the bound multiplier `z_L,3 = p₁` changes sign (the
+/// bound leaves), and at `p₂ = 20` the row `x₁ − x₂ = (2p₂ + p₁)/3 ≤ 10` is driven beyond
+/// its limit (it enters): both fall back to a full solve.
+#[test]
+fn advanced_step_predicts_within_the_active_set() {
+    let (report, advance) = retaining(
+        Analytic::new(P, 2.0, false, false),
+        Analytic::new(P, 2.0, false, true),
+        [4.0 / 3.0, -1.0 / 3.0, 0.0],
+        &[2.0 / 3.0, 0.0],
+        [0.0, 0.0, 1.0],
+        true,
+        1e-8,
+    );
+    let advance = advance.expect("a certified step keeps its factor");
+    let parametric = report.evidence.sensitivity.as_ref().unwrap();
+    assert!(parametric.sensitivities.is_ok());
+    assert_eq!(parametric.retained, Some(advance.bytes()));
+    assert!(advance.bytes() > 0);
+    let at = |p1: f64, p2: f64| [(id(50), p1), (id(51), p2)];
+    let prediction = crate::kkt::predict(&advance, &at(1.5, 2.5)).unwrap();
+    let expected = [11.0 / 6.0, -1.0 / 3.0, 0.0];
+    for (j, x) in expected.iter().enumerate() {
+        assert!(close(prediction.primal[j], *x), "{prediction:?}");
+        assert!(close(prediction.value(&id(40 + u8::try_from(j).unwrap())).unwrap(), *x));
+    }
+    assert!(close(prediction.row_dual[0], 2.0 / 3.0), "{prediction:?}");
+    assert_eq!(prediction.step, vec![0.5, 0.5]);
+    // At the factor's own values the prediction is the candidate.
+    let same = crate::kkt::predict(&advance, &at(P[0], P[1])).unwrap();
+    assert!(close(same.primal[0], 4.0 / 3.0) && close(same.primal[1], -1.0 / 3.0));
+    assert_eq!(
+        crate::kkt::predict(&advance, &at(-1.0, 2.0)),
+        Err(crate::kkt::Fallback::ActiveSet {
+            leaving: 1,
+            entering: 0
+        })
+    );
+    assert_eq!(
+        crate::kkt::predict(&advance, &at(1.0, 20.0)),
+        Err(crate::kkt::Fallback::ActiveSet {
+            leaving: 0,
+            entering: 1
+        })
+    );
+    assert_eq!(
+        crate::kkt::predict(&advance, &[(id(51), 2.0), (id(50), 1.0)]),
+        Err(crate::kkt::Fallback::Parameters)
+    );
+    assert_eq!(
+        crate::kkt::predict(&advance, &at(f64::NAN, 2.0)),
+        Err(crate::kkt::Fallback::Parameters)
+    );
+}
+
+/// A step whose sensitivities are withheld keeps no factor to predict from.
+#[test]
+fn advanced_step_needs_certified_sensitivities() {
+    let (report, advance) = retaining(
+        Analytic::new(P, -2.0, false, false),
+        Analytic::new(P, -2.0, false, true),
+        [0.0, 1.0, 0.0],
+        &[2.0, 0.0],
+        [0.0, 0.0, 1.0],
+        true,
+        1e-8,
+    );
+    assert!(advance.is_none());
+    assert_eq!(report.evidence.sensitivity.as_ref().unwrap().retained, None);
+}
+
+/// An interior-point candidate keeps an active bound's slack at `μ/z`, which may exceed the
+/// declared bound tolerance. The bound `x₃ ≥ 0` is still active when its normalized
+/// multiplier is strong and exceeds its normalized slack: at `x₃ = 10⁻⁹` under a tolerance
+/// of `10⁻¹⁰`, with `z_L,3 = p₁ + x₃` (stationary), the analysis pins `x₃` and the
+/// sensitivities are the analytic ones, `dx₃/dp = 0`, rather than those of a free `x₃`.
+#[test]
+fn interior_point_active_bound_beyond_its_tolerance_is_active() {
+    let slack = 1e-9;
+    let (report, _) = retaining(
+        Analytic::new(P, 2.0, false, false),
+        Analytic::new(P, 2.0, false, true),
+        [4.0 / 3.0, -1.0 / 3.0, slack],
+        &[2.0 / 3.0, 0.0],
+        [0.0, 0.0, P[0] + slack],
+        false,
+        1e-10,
+    );
+    let parametric = report.evidence.sensitivity.as_ref().unwrap();
+    let point = parametric.point.as_ref().unwrap();
+    assert_eq!(
+        point.bounds[OriginalCol::new(2)],
+        crate::kkt::Activity::Strong(Side::Lower)
+    );
+    let s = parametric.sensitivities.as_ref().unwrap();
+    for k in 0..2 {
+        for j in 0..3 {
+            assert!(close(s.primal[k][j], DX[k][j]), "{s:?}");
         }
     }
 }

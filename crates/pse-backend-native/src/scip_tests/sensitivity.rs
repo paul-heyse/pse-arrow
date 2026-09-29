@@ -166,6 +166,7 @@ impl Parameterized {
             oracle: self.oracle(&self.parametric, false).unwrap(),
             parameters: self.parameters.clone(),
             reduced_hessian: true,
+            retain: false,
         }
     }
 }

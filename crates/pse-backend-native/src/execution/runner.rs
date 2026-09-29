@@ -185,9 +185,12 @@ pub fn nlp(
     quality::qualify(&mut report, step.accuracy);
     report.least_infeasible = quality::least_infeasible(&report);
     // The requested sensitivities read the qualified report; their factor lives for this
-    // step only (ADR-0118 item 12).
-    if let Some(request) = sensitivity {
-        crate::kkt::derive(&mut report, request, step.tolerances, run.sense, budget);
+    // step only, unless the request keeps it for an advanced step (ADR-0118 item 12).
+    if let Some(request) = sensitivity
+        && let Some(advance) =
+            crate::kkt::derive(&mut report, request, step.tolerances, run.sense, budget)
+    {
+        retained.keep(advance);
     }
     if let Some(columns) = run.analysis.inverse_reduced_hessian.take() {
         crate::kkt::invert(&mut report, factor, &columns, run.sense);

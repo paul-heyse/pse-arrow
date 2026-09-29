@@ -53,8 +53,8 @@ mod fitting;
 mod integrated;
 mod horizon;
 pub use horizon::{
-    Arrival, Horizon, HorizonController, HorizonDecision, HorizonEstimator, HorizonInput,
-    HorizonReport, HorizonSignal, HorizonStep, WindowInput,
+    AdvancedStep, Arrival, Horizon, HorizonController, HorizonDecision, HorizonEstimator,
+    HorizonInput, HorizonReport, HorizonSignal, HorizonStep, WindowInput,
 };
 #[cfg(feature = "solver-diffsol")]
 mod shooting;

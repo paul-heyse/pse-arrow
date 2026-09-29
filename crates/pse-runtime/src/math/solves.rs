@@ -104,6 +104,9 @@ struct SensitivityProgram {
     normalization: Normalization,
     parameters: Vec<(pse_ids::SemanticId, f64)>,
     reduced_hessian: bool,
+    /// Keep the pinned factor in the worker's retained state for an advanced step (Plan 22
+    /// Y5c2), charged to the job's allowance; set by [`PreparedSolve::retaining_factor`].
+    retain: bool,
 }
 impl SensitivityProgram {
     /// The request for the backend: callbacks over `worker`, or the reason none could be
@@ -119,6 +122,7 @@ impl SensitivityProgram {
             oracle: Box::new(oracle),
             parameters: self.parameters.clone(),
             reduced_hessian: self.reduced_hessian,
+            retain: self.retain,
         })
     }
     /// Every quantity withheld because the parametric callbacks could not be built.
@@ -356,8 +360,31 @@ impl PreparedSolve {
             normalization,
             parameters,
             reduced_hessian: request.reduced_hessian,
+            retain: false,
         });
         Ok(self)
+    }
+    /// Keep the attached sensitivity request's pinned factor after the step, for an
+    /// advanced-step prediction (Plan 22 Y5c2): the worker's retained state holds it,
+    /// charged to the job's allowance, until a later step replaces or releases it. Only the
+    /// callback route keeps one.
+    ///
+    /// # Errors
+    /// No sensitivity program is attached.
+    pub fn retaining_factor(mut self) -> Result<Self, MathRuntimeError> {
+        match &mut self.representation {
+            Representation::Algebraic(AlgebraicCase {
+                sensitivity: Some(program),
+                ..
+            }) => {
+                program.retain = true;
+                Ok(self)
+            }
+            _ => Err(ProblemError::Contract(
+                "an advanced step keeps the factor of an attached sensitivity request".into(),
+            )
+            .into()),
+        }
     }
     /// Current quadratic evidence, including explicit inconclusive or numerical assessments.
     pub fn quadratic_evidence(&self) -> Option<&dyn QuadraticEvidence> {
@@ -1775,6 +1802,19 @@ impl MathService {
         )?;
         if unbuilt.is_some() {
             report.evidence.sensitivity = unbuilt;
+        }
+        // A kept advanced-step factor is charged to the job's allowance before the next
+        // step runs; one the allowance cannot hold is released and recorded as not kept.
+        if let Some(bytes) = retained.uncharged() {
+            match budget.charge(bytes) {
+                Ok(charge) => retained.charge(Box::new(charge)),
+                Err(_) => {
+                    retained.release();
+                    if let Some(parametric) = &mut report.evidence.sensitivity {
+                        parametric.retained = None;
+                    }
+                }
+            }
         }
         // The case owner and enclosing job reservation outlive every native callback.
         drop(_case);
