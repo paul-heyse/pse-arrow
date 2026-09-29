@@ -420,6 +420,25 @@ mod solved {
 
     /// One solve of the analytic NLP through the one NLP runner with a sensitivity request.
     pub(super) fn solve(backend: Backend, p: [f64; 2], sense: ObjectiveSense) -> SolveReport {
+        run(
+            backend,
+            p,
+            sense,
+            Analysis {
+                second_order: true,
+                sensitivity: Some(request(Analytic::new(p, 2.0, false, true), true)),
+                inverse_reduced_hessian: None,
+            },
+        )
+        .unwrap()
+    }
+    /// One solve of the analytic NLP through the one NLP runner with `analysis`.
+    fn run(
+        backend: Backend,
+        p: [f64; 2],
+        sense: ObjectiveSense,
+        analysis: Analysis,
+    ) -> Result<SolveReport, ProblemError> {
         let solve = Analytic::new(p, 2.0, false, false);
         let (n, m) = (3, solve.bounds.len());
         let controls = Controls::default();
@@ -451,13 +470,61 @@ mod solved {
                 intent: crate::solve::SolveIntent::Optimize,
                 sense,
                 limit: 1 << 20,
-                analysis: Analysis {
-                    second_order: true,
-                    sensitivity: Some(request(Analytic::new(p, 2.0, false, true), true)),
-                },
+                analysis,
             },
         )
-        .unwrap()
+    }
+
+    /// Plan 22 S3: `B·K⁻¹·Bᵀ` over the solve's own columns is the inverse reduced Hessian.
+    /// At `P` the row `g` and `x₃`'s lower bound are active, the null space of their
+    /// gradients is spanned by `z = (1, −1, 0)` with `zᵀHz = 1 + c = 3`, so
+    /// `[K⁻¹]ₓₓ = z·zᵀ/3`: `x₃`, held by its active bound, has none.
+    #[test]
+    fn inverse_reduced_hessian_over_solve_columns() {
+        let columns: Vec<OriginalCol> = (0..3).map(OriginalCol::new).collect();
+        let inverse = |second_order| {
+            run(
+                Backend::Ipopt,
+                P,
+                ObjectiveSense::Minimize,
+                Analysis {
+                    second_order,
+                    sensitivity: None,
+                    inverse_reduced_hessian: Some(columns.clone()),
+                },
+            )
+        };
+        let report = inverse(true).unwrap();
+        assert_eq!(report.qualification, Qualification::Stationary);
+        let block = report
+            .evidence
+            .inverse_reduced_hessian
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .unwrap();
+        let z = [1.0, -1.0, 0.0];
+        for i in 0..3 {
+            for j in 0..3 {
+                assert!(close(block.values[3 * i + j], z[i] * z[j] / 3.0), "{block:?}");
+                let normalized = block.values[3 * i + j] * OBJECTIVE_SCALE / (SCALES[i] * SCALES[j]);
+                assert!(close(block.normalized[3 * i + j], normalized), "{block:?}");
+            }
+        }
+        assert_eq!(block.columns, columns);
+        // It is read from the step's own analysis, over distinct columns of the solve.
+        assert!(matches!(inverse(false), Err(ProblemError::Contract(_))));
+        let repeated = run(
+            Backend::Ipopt,
+            P,
+            ObjectiveSense::Minimize,
+            Analysis {
+                second_order: true,
+                sensitivity: None,
+                inverse_reduced_hessian: Some(vec![OriginalCol::new(0), OriginalCol::new(0)]),
+            },
+        );
+        assert!(matches!(repeated, Err(ProblemError::Contract(_))));
     }
 
     #[test]

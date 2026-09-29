@@ -203,6 +203,16 @@ impl ModelingPackage {
                 "fitting consumes declared guesses and fresh solver allocations",
             ));
         }
+        // A fit's parameters are its unknowns: what it derives from them is its covariance
+        // and intervals, never the parametric sensitivities of a modeling solve.
+        if profile.solver.sensitivity.is_some() {
+            return Err(contract(
+                "a fit derives its covariance and intervals (FitProfile.uncertainty), not parametric sensitivities",
+            ));
+        }
+        if let Some(uncertainty) = &profile.uncertainty {
+            uncertainty.admit()?;
+        }
         if profile.solver.intent != SolveIntent::Optimize
             || !profile.rank_tolerance.is_finite()
             || !(0.0..1.0).contains(&profile.rank_tolerance)
@@ -793,12 +803,14 @@ impl ModelingPackage {
                     .value
                     .map(|v| v * conversion.scale + conversion.offset);
                 let sigma = observation.std_dev.map(|s| s * conversion.scale.abs());
+                // An included observation without a declared deviation is weighted by one in
+                // its quantity's canonical unit; its fit has no covariance (ADR-0118 item 2).
                 if !binding.importance.is_finite()
                     || binding.importance <= 0.
                     || value.is_some_and(|v| !v.is_finite())
                     || sigma.is_some_and(|s| !s.is_finite() || s <= 0.)
                     || sigma.is_some_and(|s| !(binding.importance.sqrt() / s).is_finite())
-                    || (binding.included && (value.is_none() || sigma.is_none()))
+                    || (binding.included && value.is_none())
                 {
                     return Err(contract(
                         "included observations require finite values, positive difference-unit standard deviations and importance",
@@ -877,9 +889,12 @@ impl PreparedFit {
         run_id: RunId,
         flag: Arc<std::sync::atomic::AtomicBool>,
         progress: Arc<native::solve::Progress>,
+        workers: usize,
     ) -> Result<FitReport, crate::math::MathRuntimeError> {
         let started = std::time::Instant::now();
-        let mut report = self.problem.execute(self.route, flag.clone(), progress)?;
+        let mut report = self
+            .problem
+            .execute(self.route, flag.clone(), progress, workers)?;
         let Some(candidate) = report.candidate.as_ref() else {
             return Ok(report);
         };

@@ -183,6 +183,13 @@ impl PreparedExperiments {
                 .map_err(|e| contract(format!("fit mode encoding: {e}")))?;
             h.id(&id.as_id()).str(&encoded);
         }
+        // The requested intervals change what the fit derives and publishes, not how it
+        // solves; a profile without them keeps its identity.
+        if let Some(uncertainty) = &profile.uncertainty {
+            let encoded = serde_json::to_string(uncertainty)
+                .map_err(|e| contract(format!("fit uncertainty encoding: {e}")))?;
+            h.str("uncertainty").str(&encoded);
+        }
         let profile_key = h.finish_hash();
         let mut h = FramedHasher::new(pse_ids::Frame::FitPreparedV1);
         h.hash(&source)

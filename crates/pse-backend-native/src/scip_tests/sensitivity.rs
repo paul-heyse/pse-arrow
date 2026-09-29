@@ -203,6 +203,7 @@ fn nlp(
             analysis: execution::Analysis {
                 second_order: true,
                 sensitivity: Some(case.request(assignment)),
+                inverse_reduced_hessian: None,
             },
         },
     )

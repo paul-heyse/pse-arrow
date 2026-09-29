@@ -984,8 +984,12 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
                 "The covariance of fitted parameters under the declared statistical model.",
             ),
             EnumMember::new(
-                "parameter_interval",
-                "A confidence interval of one fitted parameter.",
+                "wald_interval",
+                "The Wald confidence intervals of the fitted parameters, from their covariance.",
+            ),
+            EnumMember::new(
+                "profile_interval",
+                "The profile-likelihood confidence intervals of the fitted parameters, from adaptive pin chains.",
             ),
             EnumMember::new(
                 "propagated_covariance",
@@ -1049,6 +1053,14 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
                 "An included observation has an importance weight other than one.",
             ),
             EnumMember::new(
+                "responses_unavailable",
+                "The fit's local responses at the candidate are unavailable, so its response rank is unknown: a closure that is not square, the dense allowance, or a failed evaluation.",
+            ),
+            EnumMember::new(
+                "parameter_at_bound",
+                "A fitted parameter lies at a declared bound: the estimate is held there, and its local curvature does not describe its distribution.",
+            ),
+            EnumMember::new(
                 "upstream_withheld",
                 "A quantity this one is computed from was withheld.",
             ),
@@ -1082,6 +1094,23 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
         vec![
             EnumMember::new("lower", "The interval's lower end."),
             EnumMember::new("upper", "The interval's upper end."),
+        ],
+    ));
+    b.declare_enum(EnumDecl::platform(
+        "IntervalOutcome",
+        vec![
+            EnumMember::new(
+                "threshold",
+                "The end is where the interval's statistic reaches its quantile: a Wald end, or a profile point within the chain tolerance of the likelihood-ratio threshold.",
+            ),
+            EnumMember::new(
+                "bound",
+                "The profile reached the parameter's declared bound below the threshold: the end is the bound, and the interval is cut there by the admissible domain.",
+            ),
+            EnumMember::new(
+                "stopped",
+                "The profile chain stopped before the threshold or the bound: a pinned fit failed at the smallest step, the point budget or the deadline ran out, or a pinned fit found an objective below the estimate's. The end has no value; the detail states why.",
+            ),
         ],
     ));
     let validity = record(vec![
@@ -1200,6 +1229,164 @@ fn declare_local_analysis(b: &mut RegistryBuilder) {
             ),
         ],
         "The reduced Hessian over declared parameters at a certified KKT point (ADR-0118 item 6): the second derivative of the optimal value, read over the parameter pin rows. Its eigen-decomposition is taken in the declared coordinate scales, where it does not depend on the choice of units. The validity is in local_validity.",
+    );
+    declare_fit_uncertainty(b);
+}
+
+/// A fit's covariance, its intervals, the profile chains behind them and its response
+/// directions (ADR-0118 items 1, 3 and 8; Plan 22 S3). The fit's validity rows are in
+/// `local_validity` at step 0.
+fn declare_fit_uncertainty(b: &mut RegistryBuilder) {
+    relation(
+        b,
+        N::Runtime,
+        "parameter_covariances",
+        S::Derived,
+        &["run_id"],
+        vec![
+            run_id(),
+            documented(
+                "approximation",
+                T::enumeration("CovarianceApproximation"),
+                "Exact, the inverse reduced Hessian of the fit's KKT analysis, when the fit used the exact Hessian; Gauss–Newton otherwise, which neglects residual curvature and is valid under the declared model with small residuals.",
+            ),
+            documented(
+                "parameters",
+                T::list(T::id()),
+                "The free fitted parameters in fit order: the order of every list in the row.",
+            ),
+            column("parameter_units", T::list(T::id())),
+            documented(
+                "values",
+                T::list(real()),
+                "Σ row-major, in row-parameter unit × column-parameter unit.",
+            ),
+        ],
+        "The covariance of a fit's free parameters at a certified estimate (ADR-0118 item 8), under the declared statistical model: weighted least squares with a declared standard deviation and unit importance for every included observation, the deviations taken as absolute, so no residual variance rescales it. One covariance per fit; the validity is in local_validity.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "parameter_intervals",
+        S::Derived,
+        &["run_id", "parameter_id", "method", "end"],
+        vec![
+            run_id(),
+            column("parameter_id", T::id()),
+            column("method", T::enumeration("IntervalMethod")),
+            column("end", T::enumeration("IntervalEnd")),
+            column("unit_id", T::id()),
+            documented(
+                "level",
+                real(),
+                "The confidence level in (0, 1).",
+            ),
+            column("estimate", real()),
+            documented(
+                "value",
+                real(),
+                "The end in the parameter's unit; absent when the chain stopped.",
+            )
+            .optional(),
+            column("outcome", T::enumeration("IntervalOutcome")),
+            documented(
+                "points",
+                ordinal(),
+                "Pinned fits the end's profile chain solved; zero for a Wald end.",
+            ),
+            documented(
+                "detail",
+                text(),
+                "Why a chain stopped: the typed cause of its last failure.",
+            )
+            .optional(),
+        ],
+        "Confidence intervals of a fit's free parameters (ADR-0118 item 8). A Wald end is the estimate ± z·σ with z the standard normal quantile of (1 + level)/2. A profile-likelihood end is the pinned value at which the signed root of twice the objective increase, √(2(f − f*)), reaches √χ²₁(level), found by an adaptive pin chain; with absolute deviations both use the same quantile, so they agree on a linear model. The validity of each method's intervals is in local_validity.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "profile_points",
+        S::Derived,
+        &["run_id", "parameter_id", "end", "point"],
+        vec![
+            run_id(),
+            column("parameter_id", T::id()),
+            column("end", T::enumeration("IntervalEnd")),
+            documented(
+                "point",
+                ordinal(),
+                "The point's position in its chain, in solve order.",
+            ),
+            documented(
+                "value",
+                real(),
+                "The pinned parameter value, in the parameter's unit.",
+            ),
+            documented(
+                "seed",
+                ordinal(),
+                "The point whose solution seeded this pinned fit; absent when the fit estimate seeded it (PS-11).",
+            )
+            .optional(),
+            column("qualification", T::enumeration("NativeQualification")).optional(),
+            documented(
+                "objective",
+                real(),
+                "The pinned fit's objective f, half the weighted residual sum of squares.",
+            )
+            .optional(),
+            documented(
+                "statistic",
+                real(),
+                "√(2·max(f − f*, 0)) against the estimate's objective f*.",
+            )
+            .optional(),
+            documented(
+                "accepted",
+                flag(),
+                "The pinned fit was qualified stationary or better and feasible, and the chain used it.",
+            ),
+            documented(
+                "detail",
+                text(),
+                "The typed cause of a failed pinned fit.",
+            )
+            .optional(),
+        ],
+        "Every pinned fit of a profile-likelihood chain (ADR-0118 item 8): one chain per free parameter and end, each point pinning the parameter on the fit prepared once and seeded from its chain's latest accepted point, which is recorded as its input.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "response_directions",
+        S::Derived,
+        &["run_id", "direction", "parameter_id"],
+        vec![
+            run_id(),
+            documented(
+                "direction",
+                ordinal(),
+                "The right singular vector's position, by decreasing singular value.",
+            ),
+            column("parameter_id", T::id()),
+            documented(
+                "singular_value",
+                real(),
+                "Its singular value; zero beyond the number of included observations.",
+            ),
+            documented(
+                "identifiable",
+                flag(),
+                "The singular value exceeds the fit's relative rank cutoff.",
+            ),
+            documented(
+                "component",
+                real(),
+                "The direction's component along the parameter, in coordinates divided by the parameter's declared scale.",
+            ),
+        ],
+        "The right singular vectors of a fit's weighted, parameter-scaled response matrix at its candidate (ADR-0118 item 8): the identifiable directions span the locally identifiable subspace, and the others are the parameter combinations the observations do not determine.",
     );
 }
 

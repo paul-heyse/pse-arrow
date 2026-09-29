@@ -249,6 +249,9 @@ pounce-feral = "=0.12.0"
 pounce-sens-core = "=0.12.0"
 # Direct FERAL for conditioning and certified inertia (Plan 22 N4); the version pounce-feral resolves.
 feral = "=0.18.0"
+# Quantiles of the fit's confidence intervals (Plan 22 S3, ADR-0118 item 8); default features
+# off: its nalgebra 0.33 and rand would split the pinned graph.
+statrs = { version = "=0.18.0", default-features = false }
 rayon = "=1.12.0"
 # Typed dense index spaces at coordinate boundaries (ADR-0115, Plan 22 B6).
 typed-index-collections = "=3.5.0"

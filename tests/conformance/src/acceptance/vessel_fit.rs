@@ -77,3 +77,75 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
         assert!(result.table("authored.computation_models").is_err());
     }
 }
+
+/// ADR-0118 item 8: zero inlet flow leaves the inlet enthalpy unidentifiable, so the fit's
+/// covariance is withheld as rank deficient, and the response directions report the
+/// identifiable subspace: the heat alone.
+#[tokio::test]
+async fn unidentifiable_fit_withholds_covariance() {
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::{
+            enums::{CovarianceApproximation, DerivedQuantity, WithheldReason},
+            runtime::{local_validity, response_directions},
+        },
+    };
+    let owner = WorkflowRuntime::new().unwrap();
+    let package = seed_package(&owner).await;
+    let (id, profile) = heat_fit(&package, "unidentifiable").await;
+    let result = package
+        .prepare_fit(id, profile, compiler(), seed_limits(), &CancelSource::new())
+        .await
+        .unwrap()
+        .start()
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    let RunReport::Fit(report) = result.report().unwrap() else {
+        panic!("missing fit")
+    };
+    let covariance = report.covariance.as_ref().unwrap();
+    // A quasi-Newton fit's covariance is Gauss–Newton.
+    assert_eq!(covariance.approximation, CovarianceApproximation::GaussNewton);
+    assert!(
+        matches!(
+            covariance.values,
+            Err(pse_runtime::workflow::FitWithheld::RankDeficient {
+                rank: 1,
+                parameters: 2
+            })
+        ),
+        "{covariance:?}"
+    );
+    // The identifiable direction is the heat, in declared-scale coordinates.
+    let directions = report.directions.as_ref().unwrap();
+    near(directions[(0, 0)].abs(), 1., 1e-6);
+    near(directions[(1, 0)], 0., 1e-6);
+    let validity =
+        local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+    assert_eq!(validity.len(), 1);
+    assert_eq!(validity[0].quantity, DerivedQuantity::ParameterCovariance);
+    assert!(!validity[0].validity.certified);
+    assert_eq!(
+        validity[0].validity.reason,
+        Some(WithheldReason::RankDeficient)
+    );
+    assert_eq!(
+        result
+            .table("runtime.parameter_covariances")
+            .unwrap()
+            .batch()
+            .num_rows(),
+        0
+    );
+    let published =
+        response_directions::Row::rows(&result.table("runtime.response_directions").unwrap())
+            .unwrap();
+    assert_eq!(published.len(), 4);
+    assert_eq!(published.iter().filter(|r| r.identifiable).count(), 2);
+    assert!(published
+        .iter()
+        .filter(|r| !r.identifiable)
+        .all(|r| r.direction == 1));
+}

@@ -27,7 +27,7 @@ use pse_relations::{
 use std::collections::BTreeMap;
 
 /// The registry reason of a withheld quantity and its typed cause.
-fn reason(withheld: &Withheld) -> WithheldReason {
+pub(super) fn reason(withheld: &Withheld) -> WithheldReason {
     match withheld {
         Withheld::NoCandidate => WithheldReason::NoCandidate,
         Withheld::Multipliers | Withheld::Analysis(Unavailable::Multipliers) => {
@@ -47,7 +47,7 @@ fn reason(withheld: &Withheld) -> WithheldReason {
 
 /// The validity record of one quantity: its outcome, whether it is conditional on a
 /// discrete assignment, and the verdicts of the point it was read from.
-fn record<T>(
+pub(super) fn record<T>(
     outcome: Result<&T, (WithheldReason, String)>,
     point: Option<&KktPoint>,
     conditional: bool,

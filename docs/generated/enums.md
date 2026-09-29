@@ -214,7 +214,8 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `parametric_sensitivity` | `` | false |
 | `reduced_hessian` | `` | false |
 | `parameter_covariance` | `` | false |
-| `parameter_interval` | `` | false |
+| `wald_interval` | `` | false |
+| `profile_interval` | `` | false |
 | `propagated_covariance` | `` | false |
 
 ## `Determinism`
@@ -488,6 +489,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 |---|---|---|
 | `wald` | `` | false |
 | `profile_likelihood` | `` | false |
+
+## `IntervalOutcome`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `threshold` | `` | false |
+| `bound` | `` | false |
+| `stopped` | `` | false |
 
 ## `InvariantKind`
 
@@ -1522,4 +1531,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `rank_deficient` | `` | false |
 | `undeclared_deviation` | `` | false |
 | `nonunit_importance` | `` | false |
+| `responses_unavailable` | `` | false |
+| `parameter_at_bound` | `` | false |
 | `upstream_withheld` | `` | false |

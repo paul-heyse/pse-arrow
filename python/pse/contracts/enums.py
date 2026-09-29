@@ -213,7 +213,8 @@ class DerivedQuantity(StrEnum):
     PARAMETRIC_SENSITIVITY = "parametric_sensitivity"
     REDUCED_HESSIAN = "reduced_hessian"
     PARAMETER_COVARIANCE = "parameter_covariance"
-    PARAMETER_INTERVAL = "parameter_interval"
+    WALD_INTERVAL = "wald_interval"
+    PROFILE_INTERVAL = "profile_interval"
     PROPAGATED_COVARIANCE = "propagated_covariance"
 
 
@@ -487,6 +488,14 @@ class IntervalMethod(StrEnum):
 
     WALD = "wald"
     PROFILE_LIKELIHOOD = "profile_likelihood"
+
+
+class IntervalOutcome(StrEnum):
+    """The declared IntervalOutcome enumeration."""
+
+    THRESHOLD = "threshold"
+    BOUND = "bound"
+    STOPPED = "stopped"
 
 
 class InvariantKind(StrEnum):
@@ -1521,6 +1530,8 @@ class WithheldReason(StrEnum):
     RANK_DEFICIENT = "rank_deficient"
     UNDECLARED_DEVIATION = "undeclared_deviation"
     NONUNIT_IMPORTANCE = "nonunit_importance"
+    RESPONSES_UNAVAILABLE = "responses_unavailable"
+    PARAMETER_AT_BOUND = "parameter_at_bound"
     UPSTREAM_WITHHELD = "upstream_withheld"
 
 

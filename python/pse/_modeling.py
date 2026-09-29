@@ -40,7 +40,7 @@ from pse.contracts.authored import (
     AuthoredModelingDeclarationsRow,
     AuthoredObservationsRow,
 )
-from pse.contracts.documents import PointOverlay, SolveSettings
+from pse.contracts.documents import FitUncertainty, PointOverlay, SolveSettings
 from pse.contracts.enums import ModelingAnalysisRoute
 from pse.contracts.identities import DeclarationId, FitId, InstanceId, RunId
 from pse.contracts.values import ContentHash, SemanticId
@@ -501,11 +501,14 @@ class ModelingPackage:
         modes: Mapping[InstanceId, Sequence[ModelingModeSettings]] | None = None,
         rank_tolerance: float = 1e-8,
         max_cells: int = 1000000,
+        uncertainty: FitUncertainty | None = None,
     ) -> "PreparedOperation":
         """Compile shared parameters over authored algebraic or integrated experiments.
 
         Experiment settings are keyed by the experiment's instance, its
-        ``experiment_id``.
+        ``experiment_id``. Every fit with free parameters derives their covariance;
+        ``uncertainty`` also requests Wald and, optionally, profile-likelihood
+        intervals.
         """
         profiles = [(key.to_hex(), value) for key, value in (simulations or {}).items()]
         return PreparedOperation(
@@ -519,6 +522,9 @@ class ModelingPackage:
                 ],
                 rank_tolerance=rank_tolerance,
                 max_cells=max_cells,
+                uncertainty=(
+                    None if uncertainty is None else codec.encode_json(uncertainty)
+                ),
             )
         )
 

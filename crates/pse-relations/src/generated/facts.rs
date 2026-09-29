@@ -1139,6 +1139,30 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            99u8, 85u8, 126u8, 252u8, 216u8, 59u8, 118u8, 217u8, 66u8, 229u8, 119u8,
+            91u8, 64u8, 226u8, 120u8, 12u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeParameterCovariances(
+                super::r#runtime::r#parameter_covariances::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            230u8, 10u8, 91u8, 1u8, 29u8, 235u8, 14u8, 116u8, 50u8, 194u8, 78u8, 227u8,
+            56u8, 186u8, 221u8, 214u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeParameterIntervals(
+                super::r#runtime::r#parameter_intervals::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             131u8, 112u8, 170u8, 50u8, 0u8, 109u8, 90u8, 134u8, 237u8, 209u8, 190u8,
             134u8, 18u8, 113u8, 186u8, 123u8,
         ])
@@ -1146,6 +1170,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeParametricSensitivities(
                 super::r#runtime::r#parametric_sensitivities::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            114u8, 6u8, 16u8, 161u8, 161u8, 104u8, 128u8, 88u8, 217u8, 165u8, 66u8, 89u8,
+            143u8, 73u8, 168u8, 63u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeProfilePoints(
+                super::r#runtime::r#profile_points::Row::rows(batch)?,
             ),
         );
     }
@@ -1182,6 +1218,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeResolvedNumerics(
                 super::r#runtime::r#resolved_numerics::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            38u8, 238u8, 176u8, 153u8, 79u8, 7u8, 108u8, 167u8, 177u8, 103u8, 240u8,
+            139u8, 82u8, 196u8, 219u8, 180u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeResponseDirections(
+                super::r#runtime::r#response_directions::Row::rows(batch)?,
             ),
         );
     }
@@ -1637,9 +1685,18 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeOperationalWorkspaces(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeParameterCovariances(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeParameterIntervals(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeParametricSensitivities(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeProfilePoints(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimePublicationManifests(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
@@ -1647,6 +1704,9 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeResolvedNumerics(rows) => {
+            crate::columnar::encode_rows(rows, registry, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeResponseDirections(rows) => {
             crate::columnar::encode_rows(rows, registry, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeResponseSensitivities(rows) => {

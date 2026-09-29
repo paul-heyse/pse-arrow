@@ -50,7 +50,9 @@ mod dynamics;
 mod fitting;
 pub use dynamics::SimulationProfile;
 pub use fitting::{
-    FitData, FitDeclaration, FitDiagnostic, FitProfile, FitReport, FitRule, PreparedFit,
+    Covariance, FitData, FitDeclaration, FitDiagnostic, FitProfile, FitReport, FitRule,
+    FitUncertainty, FitWithheld, Interval, IntervalBound, PreparedFit, ProfileChain,
+    ProfileControls, ProfilePoint,
 };
 mod physical;
 pub use physical::PhysicalContext;

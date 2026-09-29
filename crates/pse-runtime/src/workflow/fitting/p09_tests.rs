@@ -60,6 +60,7 @@ fn source(mixed: bool, expected: f64) -> (crate::workflow::ModelingPackage, FitP
         modes: BTreeMap::new(),
         rank_tolerance: 1e-8,
         max_cells: 100000,
+        uncertainty: None,
     };
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     (
@@ -395,4 +396,58 @@ async fn transient_fit_deadline_is_time_limit() {
         native::callback::classify(&error),
         native::callback::Failure::Stopped(native::solve::Termination::Cancelled)
     );
+}
+/// T11 (ADR-0118 items 3 and 8): a transient fit's covariance is Gauss–Newton from its
+/// forward-sensitivity responses, whichever supplied Hessian it solved with, and is
+/// published with that label. `y = 71 + p` observed once with σ = 1 gives `Σ = 1`.
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn gauss_newton_covariance_labelled() {
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::{
+            enums::{CovarianceApproximation, DerivedQuantity},
+            runtime::{local_validity, parameter_covariances},
+        },
+    };
+    for hessian in [HessianMode::LimitedMemory, HessianMode::GaussNewton] {
+        let (package, mut profile) = source(false, 73.);
+        profile.solver.controls.hessian = hessian;
+        let result = package
+            .prepare_fit(
+                FitId::from(id(73)),
+                profile,
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+            panic!("missing fit")
+        };
+        assert!((report.candidate.as_ref().unwrap()[0] - 2.).abs() < 1e-5, "{report:?}");
+        let covariance = report.covariance.as_ref().unwrap();
+        assert_eq!(covariance.approximation, CovarianceApproximation::GaussNewton);
+        let values = covariance.values.as_ref().unwrap();
+        assert!((values[0] - 1.).abs() < 1e-6, "{hessian:?} {values:?}");
+        let rows = parameter_covariances::Row::rows(
+            &result.table("runtime.parameter_covariances").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].approximation, CovarianceApproximation::GaussNewton);
+        let validity =
+            local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap();
+        assert_eq!(validity.len(), 1);
+        assert_eq!(validity[0].quantity, DerivedQuantity::ParameterCovariance);
+        assert!(validity[0].validity.certified);
+        // A Gauss–Newton covariance is not read from a KKT point.
+        assert_eq!(validity[0].validity.second_order, None);
+    }
 }

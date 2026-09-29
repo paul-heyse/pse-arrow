@@ -165,6 +165,18 @@ class FeralSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     static_pivoting: bool | None = None
 
 
+class FitUncertainty(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What a fit derives from its estimate beyond the covariance, which every fit with free
+    parameters derives (ADR-0118 item 8; Plan 22 S3).
+    """
+
+    #: The confidence level of the intervals, below one.
+    level: Fraction
+    #: Also derive profile-likelihood intervals under these controls; absent derives Wald
+    #: intervals alone.
+    profile: ProfileControls | None = None
+
+
 class HighsDiagnostics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Requested native diagnostic work, bounded by the original attempt's deadline."""
 
@@ -502,6 +514,18 @@ class PounceSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     restart: WarmRestart = msgspec.field(default_factory=lambda: msgspec.convert({"barrier": {"kind": "seed"}, "bound_frac": 1e-9, "bound_push": 1e-9, "mult_bound_push": 1e-9, "slack_bound_frac": 1e-9, "slack_bound_push": 1e-9}, type=WarmRestart))
 
 
+class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Controls of the profile-likelihood pin chains (ADR-0118 item 8)."""
+
+    #: Pinned fits at most per chain, refinements and failed fits included.
+    points: PositiveCount = 40
+    #: Relative tolerance on the signed-root statistic at a threshold end.
+    tolerance: Fraction = 0.001
+    #: Chains solved at once, each pinned fit on the fit's own threads; the fit's job admits
+    #: the cores of all of them. Absent solves as many at once as one job's cores admit.
+    workers: PositiveCount | None = None
+
+
 class RestartBarrierSeed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="seed"):
     """The final barrier value the producing interior-point solve recorded with the seed. A
     seed without one (an authored seed) leaves the native default in force, and the
@@ -759,6 +783,7 @@ __all__ = [
     "DiffsolSettings",
     "FeralSettings",
     "FiniteBound",
+    "FitUncertainty",
     "Fraction",
     "HighsDiagnostics",
     "HighsPenalties",
@@ -799,6 +824,7 @@ __all__ = [
     "PointOverlay",
     "PositiveCount",
     "PounceSettings",
+    "ProfileControls",
     "RestartBarrier",
     "RestartBarrierSeed",
     "RestartBarrierValue",

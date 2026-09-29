@@ -1364,6 +1364,11 @@ pub struct Evidence {
     /// computed or withheld with its reason; `None` when none was requested or the step
     /// ended before its analysis.
     pub sensitivity: Option<crate::kkt::Parametric>,
+    /// The inverse reduced Hessian a request named over the solve's own columns (Plan 22
+    /// S3), or why it is withheld; `None` when none was requested or the step ended before
+    /// its analysis.
+    pub inverse_reduced_hessian:
+        Option<Result<crate::kkt::InverseReducedHessian, crate::kkt::Withheld>>,
     /// Global bound evidence of a certifying adapter.
     pub global: Option<GlobalEvidence>,
 }
