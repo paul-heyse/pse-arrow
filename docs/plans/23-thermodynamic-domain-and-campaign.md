@@ -417,15 +417,7 @@ KR3 + KR8 are on main, rebased linearly. Verified on main's tree:
 - The `identifier` type node parses; resolution refuses it until KR4 declares identifier
   schemes.
 
-Architecture text owed at wave end:
-- §5.3: the new frame variants, and the source-revision preimage including name bindings;
-- §6.1, §6.2, §6.15.1: the version 9 IR, named physical types, typed dependencies and
-  physical-reference types;
-- §7: formal pool growth, and the 4096-slot figures;
-- §8.1, §8.2, §8.3: inventory v4, unit products, chain resolution, dimensionless reinterpretation kinds;
-- §18.10.1: the TPD pool-ceiling sentence;
-- the preparation-counts schema in §19;
-- regime crossings in §18.
+Architecture text for SM0, KR1–KR3, KR8, H1, H1f, H2–H4 and H7 is written (blueprint revisions 78, 80 and 81; `14a3e834`).
 
 ## Outcome (recorded after implementation)
 
