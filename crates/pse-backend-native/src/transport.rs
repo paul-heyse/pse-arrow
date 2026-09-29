@@ -264,25 +264,40 @@ fn duals(
     }
     Ok(())
 }
+/// A certificate ray in original coordinates: a row or bound multiplier divides by its
+/// row or variable scale (the rows it multiplies were divided by it), a recession
+/// direction multiplies by its variable scale. The ray is homogeneous, so no objective
+/// factor enters.
 fn recover_certificate(
-    c: &mut Certificate,
+    c: &mut InfeasibilityCertificate,
     n: &Normalization,
     contract: &OracleContract,
 ) -> Result<(), ProblemError> {
-    if let Some(ray) = &mut c.primal {
-        values(ray, &n.variables, false)?;
-    }
-    if let Some(ray) = &mut c.dual {
-        let mut scales = n.rows.clone();
-        for (v, s) in contract.variables.iter().zip(&n.variables) {
-            if v.lower.is_finite() {
-                scales.push(*s);
+    let absent = || ProblemError::Internal("certificate coordinate absent from map".into());
+    let row = |id: pse_ids::SemanticId| {
+        contract
+            .rows
+            .iter()
+            .position(|r| *r == id)
+            .ok_or_else(absent)
+    };
+    let variable = |id: pse_ids::SemanticId| {
+        contract
+            .variables
+            .iter()
+            .position(|v| v.id == id)
+            .ok_or_else(absent)
+    };
+    for entry in &mut c.ray {
+        entry.value = match entry.coordinate {
+            RayCoordinate::Row | RayCoordinate::RowLower | RayCoordinate::RowUpper => {
+                div(entry.value, n.rows[row(entry.id)?])?
             }
-            if v.upper.is_finite() {
-                scales.push(*s);
+            RayCoordinate::VariableLower | RayCoordinate::VariableUpper => {
+                div(entry.value, n.variables[variable(entry.id)?])?
             }
-        }
-        values(ray, &scales, true)?;
+            RayCoordinate::Variable => mul(entry.value, n.variables[variable(entry.id)?])?,
+        };
     }
     Ok(())
 }
@@ -294,7 +309,6 @@ pub fn recover(
 ) -> Result<(), ProblemError> {
     if let Some(c) = &mut report.certificate {
         recover_certificate(c, n, contract)?;
-        report.provenance.insert("certificate.coordinates".into(),"original physical homogeneous ray; native accuracy qualifier retained, no unit-length claim".into());
     }
     if let Some(c) = &mut report.candidate {
         values(&mut c.primal, &n.variables, false)?;
@@ -637,14 +651,35 @@ mod tests {
             rows: vec![4.0],
             objective: 8.0,
         };
-        let mut certificate = Certificate {
-            kind: "test native proof".into(),
-            primal: Some(vec![3.0]),
-            dual: Some(vec![8.0, 2.0, 6.0]),
+        // Row and bound multipliers divide by their scale; a direction multiplies.
+        let (row, variable) = (p.contract.rows[0], p.contract.variables[0].id);
+        let entry = |coordinate, id, value| RayEntry {
+            coordinate,
+            id,
+            value,
         };
-        recover_certificate(&mut certificate, &n, &p.contract).unwrap();
-        assert_eq!(certificate.primal.unwrap(), vec![6.0]);
-        assert_eq!(certificate.dual.unwrap(), vec![2.0, 1.0, 3.0]);
+        let mut farkas = InfeasibilityCertificate {
+            kind: CertificateKind::PrimalInfeasible,
+            accuracy: CertificateAccuracy::Full,
+            ray: vec![
+                entry(RayCoordinate::RowUpper, row, 8.0),
+                entry(RayCoordinate::VariableLower, variable, 2.0),
+                entry(RayCoordinate::VariableUpper, variable, 6.0),
+            ],
+            verification: None,
+        };
+        recover_certificate(&mut farkas, &n, &p.contract).unwrap();
+        assert_eq!(
+            farkas.ray.iter().map(|e| e.value).collect::<Vec<_>>(),
+            vec![2.0, 1.0, 3.0]
+        );
+        let mut direction = InfeasibilityCertificate {
+            kind: CertificateKind::DualInfeasible,
+            ray: vec![entry(RayCoordinate::Variable, variable, 3.0)],
+            ..farkas
+        };
+        recover_certificate(&mut direction, &n, &p.contract).unwrap();
+        assert_eq!(direction.ray[0].value, 6.0);
         let (scaled, evidence) = coefficients(&p, &n, Some(&proof)).unwrap();
         assert_eq!(scaled.objective, vec![0.75]);
         assert_eq!(scaled.constraints.val(), &[2.0]);

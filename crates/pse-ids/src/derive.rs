@@ -222,6 +222,8 @@ frames! {
         BackendSettingsV4 => "pse.backend.settings.v4",
         /// A cone sequence layout in the pse encoding.
         ConeLayoutV3 => "pse.cone.layout.v3",
+        /// The lower-bound cone row of a two-sided coefficient row lowered to cone form.
+        ConeLoweredRowV1 => "pse.cone.lowered-row.v1",
         /// A factorable problem's variable domains.
         FactorableDomainV1 => "pse.factorable.domain.v1",
         /// The continuous problem of a fixed discrete assignment.

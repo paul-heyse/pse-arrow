@@ -49,15 +49,20 @@ fn fit_id(doc: &'static str) -> T {
         .optional()
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "solver_capabilities",
+        2,
         S::Derived,
         &["backend"],
         vec![
             column("backend", T::enumeration("NativeBackend")),
             column("classes", T::list(T::enumeration("NativeProblemClass"))),
+            column(
+                "automatic_classes",
+                T::list(T::enumeration("NativeProblemClass")),
+            ),
             column("derivatives", T::enumeration("NativeDerivativeCapability")),
             column("warm", T::enumeration("NativeWarmCapability")),
             column("reuse", text()),
@@ -72,7 +77,7 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
                 T::list(T::enumeration("NativeConstraintForm")),
             ),
         ],
-        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).",
+        "Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).",
     );
     relation_version(
         b,
@@ -625,6 +630,98 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("feasible", flag()).optional(),
         ],
         "Ranked solutions a certifying backend stored beside the candidate, best first, over the free variables in original coordinates (ADR-0105 §8). `objective` is the backend's value in the authored sense; `feasible` is the original-coordinate re-qualification, absent when the point could not be evaluated. A pooled solution is an observation: only the qualified candidate is a result or a seed.",
+    );
+    declare_certificates(b);
+}
+
+/// Typed infeasibility and unboundedness certificates in original coordinates (Plan 22 I11).
+fn declare_certificates(b: &mut RegistryBuilder) {
+    b.declare_enum(EnumDecl::platform(
+        "NativeCertificateKind",
+        vec![
+            EnumMember::new(
+                "primal_infeasible",
+                "A Farkas ray y over the cone rows: Aᵀy = 0, bᵀy < 0 and y in the dual cone prove that no point satisfies the constraints.",
+            ),
+            EnumMember::new(
+                "dual_infeasible",
+                "A recession direction x: Px = 0, -Ax in the cone and qᵀx < 0 prove the dual infeasible: the objective is unbounded below whenever the constraints admit a point.",
+            ),
+        ],
+    ));
+    b.declare_enum(EnumDecl::platform(
+        "NativeCertificateAccuracy",
+        vec![
+            EnumMember::new(
+                "full",
+                "The native method met its full infeasibility tolerances.",
+            ),
+            EnumMember::new(
+                "reduced",
+                "The native method met only its reduced (almost) tolerances; never a certificate, whatever its verification.",
+            ),
+        ],
+    ));
+    b.declare_enum(EnumDecl::platform(
+        "NativeRayCoordinate",
+        vec![
+            EnumMember::new(
+                "row",
+                "The cone row of a row identity: an explicit cone row, or the zero-cone row of an equality.",
+            ),
+            EnumMember::new(
+                "row_lower",
+                "The nonnegative row -a·x + s = -L of a row's finite lower bound.",
+            ),
+            EnumMember::new(
+                "row_upper",
+                "The nonnegative row a·x + s = U of a row's finite upper bound.",
+            ),
+            EnumMember::new(
+                "variable_lower",
+                "The nonnegative row -x + s = -l of a variable's finite lower bound.",
+            ),
+            EnumMember::new(
+                "variable_upper",
+                "The nonnegative row x + s = u of a variable's finite upper bound.",
+            ),
+            EnumMember::new("variable", "A variable of a recession direction."),
+        ],
+    ));
+    relation(
+        b,
+        N::Runtime,
+        "infeasibility_certificates",
+        S::Derived,
+        &["run_id", "step"],
+        vec![
+            run_id(),
+            column("step", ordinal()),
+            column("backend", T::enumeration("NativeBackend")),
+            column("kind", T::enumeration("NativeCertificateKind")),
+            column("accuracy", T::enumeration("NativeCertificateAccuracy")),
+            column(
+                "ray",
+                T::list(record(vec![
+                    ("coordinate", T::enumeration("NativeRayCoordinate")),
+                    ("source_id", T::id()),
+                    ("value", real()),
+                ])),
+            ),
+            column(
+                "verification",
+                record(vec![
+                    ("residual", real()),
+                    ("objective", real()),
+                    ("cone", real()),
+                    ("margin", real()),
+                    ("tolerance", real()),
+                    ("verified", flag()),
+                ]),
+            )
+            .optional(),
+        ],
+        "A native infeasibility (Farkas) or unboundedness ray, in original physical coordinates over the cone form of the solved problem: rows then finite variable bounds, lower before upper. Verification recomputes it against the original data: `residual` is the worst column's |Aᵀy| (or row's |Px|, |Ax| on zero rows) relative to the magnitudes it sums, `objective` is bᵀy (or qᵀx) and `cone` the dual-cone (or cone) violation, both relative to the ray's largest entry; `margin` is -bᵀy less the rows' and bounds' acceptance budgets weighted by |y| (or -qᵀx), relative to the same entry. A ray is verified when every relative quantity is within `tolerance` and the margin is positive, so a problem infeasible by less than its acceptance budgets is never certified. Only a verified ray at full accuracy carries the certificate assurance. Absent verification means the original data could not be evaluated.",
     );
 }
 

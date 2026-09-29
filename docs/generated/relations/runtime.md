@@ -253,6 +253,32 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, experiment_id, symb
 | `lower` | `Float64` | true | `payload` | — | — |
 | `upper` | `Float64` | true | `payload` | — | — |
 
+## `infeasibility_certificates`
+
+A native infeasibility (Farkas) or unboundedness ray, in original physical coordinates over the cone form of the solved problem: rows then finite variable bounds, lower before upper. Verification recomputes it against the original data: `residual` is the worst column's |Aᵀy| (or row's |Px|, |Ax| on zero rows) relative to the magnitudes it sums, `objective` is bᵀy (or qᵀx) and `cone` the dual-cone (or cone) violation, both relative to the ray's largest entry; `margin` is -bᵀy less the rows' and bounds' acceptance budgets weighted by |y| (or -qᵀx), relative to the same entry. A ray is verified when every relative quantity is within `tolerance` and the margin is positive, so a problem infeasible by less than its acceptance budgets is never certified. Only a verified ray at full accuracy carries the certificate assurance. Absent verification means the original data could not be evaluated.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `backend` | `enum:NativeBackend` | false | `payload` | — | — |
+| `kind` | `enum:NativeCertificateKind` | false | `payload` | — | — |
+| `accuracy` | `enum:NativeCertificateAccuracy` | false | `payload` | — | — |
+| `ray` | `List` | false | `payload` | — | — |
+| `ray.item` | `Struct` | false | `payload` | — | — |
+| `ray.item.coordinate` | `enum:NativeRayCoordinate` | false | `payload` | — | — |
+| `ray.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `ray.item.value` | `Float64` | false | `payload` | — | — |
+| `verification` | `Struct` | true | `payload` | — | — |
+| `verification.residual` | `Float64` | false | `payload` | — | — |
+| `verification.objective` | `Float64` | false | `payload` | — | — |
+| `verification.cone` | `Float64` | false | `payload` | — | — |
+| `verification.margin` | `Float64` | false | `payload` | — | — |
+| `verification.tolerance` | `Float64` | false | `payload` | — | — |
+| `verification.verified` | `Boolean` | false | `payload` | — | — |
+
 ## `maintenance_outcomes`
 
 Actual native Delta maintenance outcomes; no bespoke data file deletion.
@@ -1823,15 +1849,17 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step, symbol_id`.
 
 ## `solver_capabilities`
 
-Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).
+Linked adapter inventory. Contextual eligibility is evaluated separately for the selected request. `automatic_classes` are the classes automatic routing may choose the adapter for; every other class in `classes` needs explicit selection. Automatic routing takes the problem's classes most specific first and selects among the eligible adapters automatic for the first class that has one. `certifies` marks an adapter that serves the explicit certify intent with global_bound and proven_infeasible assurances. `native_forms` lists the constraint handlers the adapter consumes; a structure that leaves any other form to a native handler is ineligible (ADR-0104).
 
-Version: 1. Snapshot class: `derived`. Primary key: `backend`.
+Version: 2. Snapshot class: `derived`. Primary key: `backend`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `backend` | `enum:NativeBackend` | false | `key` | — | — |
 | `classes` | `List` | false | `payload` | — | — |
 | `classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
+| `automatic_classes` | `List` | false | `payload` | — | — |
+| `automatic_classes.item` | `enum:NativeProblemClass` | false | `payload` | — | — |
 | `derivatives` | `enum:NativeDerivativeCapability` | false | `payload` | — | — |
 | `warm` | `enum:NativeWarmCapability` | false | `payload` | — | — |
 | `reuse` | `Utf8` | false | `payload` | — | — |

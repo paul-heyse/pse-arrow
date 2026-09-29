@@ -87,7 +87,10 @@ struct AlgebraicCase {
 enum Representation {
     Algebraic(AlgebraicCase),
     Conic {
+        /// Normalized at preparation.
         problem: Arc<native::ConicProblem>,
+        /// The submitted data a certificate is verified against.
+        original: Arc<native::ConicProblem>,
         certificate: Arc<dyn QuadraticEvidence>,
     },
 }
@@ -977,9 +980,10 @@ impl MathService {
                 .checked_add(a.values.capacity().checked_mul(size_of::<f64>())?)
             })
             .ok_or(MathRuntimeError::Limit("conic product extent"))?;
+        // The normalized copy beside the retained original.
         let bytes = (problem.contract.variables.len() + problem.contract.rows.len())
             .checked_mul(size_of::<pse_math::numerics::TargetSpec>() + 8 * size_of::<f64>())
-            .and_then(|n| n.checked_add(sparse_bytes))
+            .and_then(|n| n.checked_add(sparse_bytes.checked_mul(2)?))
             .and_then(|n| n.checked_add(self.policy.foreign_bytes))
             .ok_or(MathRuntimeError::Limit("conic product extent"))?;
         let owner = self.reserve("math:prepared-conic", bytes)?;
@@ -1030,12 +1034,18 @@ impl MathService {
         let numerics = Arc::new(resolved);
         let tolerances = Tolerances::from_policy(&numerics, &ids, &problem.contract.rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-        // A cone request routes to a cone adapter: the explicit one, or the preferred linked one.
+        // A cone request routes to a cone adapter: the explicit one, or the preferred linked
+        // automatic owner of explicit cones (ADR-0121).
         let adapter = match profile.selection {
             SolverSelection::Explicit(backend) => Some(execution::adapter(backend)),
             SolverSelection::Auto => execution::LINKED
                 .adapters()
                 .filter(|a| a.representation() == execution::Representation::Cone && a.linked())
+                .filter(|a| {
+                    a.capability()
+                        .automatic_classes
+                        .contains(&ProblemClass::ContinuousCone)
+                })
                 .filter_map(|a| a.automatic().map(|rank| (rank, a)))
                 .min_by_key(|(rank, _)| *rank)
                 .map(|(_, a)| a),
@@ -1051,6 +1061,7 @@ impl MathService {
         admit_profile(&profile, route)?;
         let (normalized, transported) =
             native::transport::conic(&problem, &normalization, certificate.as_ref())?;
+        let original = problem;
         let problem = Arc::new(normalized);
         let certificate: Arc<dyn QuadraticEvidence> = Arc::new(transported);
         // Cone coordinates are normalized at preparation, so the numerical policy belongs to
@@ -1101,6 +1112,7 @@ impl MathService {
         Ok(PreparedSolve {
             representation: Representation::Conic {
                 problem,
+                original,
                 certificate,
             },
             profile,
@@ -1281,13 +1293,16 @@ impl MathService {
             (
                 Representation::Conic {
                     problem,
+                    original,
                     certificate,
                 },
                 execution::Representation::Cone,
-            ) => execution::cone(run, retained, &problem, certificate.as_ref())?,
-            (Representation::Algebraic(case), execution::Representation::Coefficients) => {
-                self.coefficient_step(run, retained, case, budget)?
-            }
+            ) => execution::cone(run, retained, &problem, &original, certificate.as_ref())?,
+            // A cone adapter serves a coefficient model through the runner's lowering.
+            (
+                Representation::Algebraic(case),
+                execution::Representation::Coefficients | execution::Representation::Cone,
+            ) => self.coefficient_step(run, retained, case, budget)?,
             (Representation::Algebraic(case), execution::Representation::Factorable) => {
                 self.factorable_step(run, retained, case, &profile, budget)?
             }

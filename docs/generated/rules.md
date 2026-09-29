@@ -123,6 +123,7 @@
 | `runtime.fit_observations` | `unique:pk` | `SELECT s."run_id", s."observation_id" FROM "runtime"."fit_observations" s GROUP BY s."run_id", s."observation_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_parameters` | `unique:pk` | `SELECT s."run_id", s."parameter_id" FROM "runtime"."fit_parameters" s GROUP BY s."run_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_variables` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."symbol_id" FROM "runtime"."fit_variables" s GROUP BY s."run_id", s."experiment_id", s."symbol_id" HAVING COUNT(*) > 1` |
+| `runtime.infeasibility_certificates` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."infeasibility_certificates" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.maintenance_outcomes` | `unique:pk` | `SELECT s."table_uri" FROM "runtime"."maintenance_outcomes" s GROUP BY s."table_uri" HAVING COUNT(*) > 1` |
 | `runtime.modeling_checks` | `unique:pk` | `SELECT s."run_id", s."step", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_checks" s GROUP BY s."run_id", s."step", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |
 | `runtime.modeling_conformance` | `unique:pk` | `SELECT s."run_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_conformance" s GROUP BY s."run_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |

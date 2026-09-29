@@ -205,17 +205,15 @@ fn square_root(f: &ProblemFacts) -> bool {
 const fn root_intent(intent: SolveIntent) -> bool {
     matches!(intent, SolveIntent::Root | SolveIntent::Initialize)
 }
-/// The mathematical classes the facts and intent establish (ADR-0106 §7). Root intents
-/// make a square problem a root system; coefficient and discrete classes are optimization
-/// classes; a degree-two coefficient problem without a convexity certificate is
-/// nonconvex; an explicit cone or a trajectory is never inferred from algebraic facts.
+/// The mathematical classes the facts and intent establish (ADR-0106 §7), most specific
+/// first: a square root system, then the coefficient or discrete class, then smooth NLP.
+/// Root intents make a square problem a root system; coefficient and discrete classes are
+/// optimization classes; a degree-two coefficient problem without a convexity certificate
+/// is nonconvex; an explicit cone or a trajectory is never inferred from algebraic facts.
 pub fn problem_classes(f: &ProblemFacts, intent: SolveIntent, convex: bool) -> Vec<ProblemClass> {
     let mut classes = Vec::new();
     if root_intent(intent) && square_root(f) {
         classes.push(ProblemClass::SquareRoot);
-    }
-    if continuous(f) {
-        classes.push(ProblemClass::SmoothNlp);
     }
     if !root_intent(intent) {
         match (f.coefficients, f.quadratic, continuous(f)) {
@@ -227,6 +225,9 @@ pub fn problem_classes(f: &ProblemFacts, intent: SolveIntent, convex: bool) -> V
             (false, _, false) => classes.push(ProblemClass::MixedIntegerNonlinear),
             (false, _, true) => {}
         }
+    }
+    if continuous(f) {
+        classes.push(ProblemClass::SmoothNlp);
     }
     classes
 }
@@ -348,19 +349,25 @@ impl Requirements<'_> {
         let selected = match selection {
             SolverSelection::Explicit(b) => b,
             SolverSelection::Auto => {
-                let mut automatic: Vec<_> = self
-                    .table
-                    .adapters()
-                    .filter_map(|a| a.automatic().map(|rank| (rank, a.backend())))
-                    .filter(|(_, b)| admitted(*b))
-                    .collect();
-                automatic.sort_by_key(|(rank, _)| *rank);
-                automatic.first().map(|(_, b)| *b).ok_or_else(|| {
-                    ProblemError::Unsupported(format!(
-                        "no eligible native route: {}",
-                        assessed(&choices)
-                    ))
-                })?
+                // Classes most specific first; the first class with an eligible automatic
+                // owner decides, and its owners' preference orders them (ADR-0121).
+                problem_classes(self.facts, self.intent, self.convex)
+                    .into_iter()
+                    .find_map(|class| {
+                        self.table
+                            .adapters()
+                            .filter(|a| a.capability().automatic_classes.contains(&class))
+                            .filter_map(|a| a.automatic().map(|rank| (rank, a.backend())))
+                            .filter(|(_, b)| admitted(*b))
+                            .min_by_key(|(rank, _)| *rank)
+                            .map(|(_, b)| b)
+                    })
+                    .ok_or_else(|| {
+                        ProblemError::Unsupported(format!(
+                            "no eligible native route: {}",
+                            assessed(&choices)
+                        ))
+                    })?
             }
         };
         if !self.available(selected) {
@@ -615,7 +622,7 @@ mod tests {
             );
         }
         let mut f = f;
-        // Coefficient MILPs and opaque nonlinear expressions are not conic data.
+        // A coefficient MILP is not conic data, and neither is an opaque nonlinear model.
         f.quadratic = false;
         assert!(
             select(
@@ -654,21 +661,22 @@ mod tests {
             problem_classes(&f, SolveIntent::FeasiblePoint, false),
             [ProblemClass::SmoothNlp]
         );
+        // Most specific first: the coefficient class, then smooth NLP.
         f.coefficients = true;
         f.objective = true;
         assert_eq!(
             problem_classes(&f, SolveIntent::Optimize, false),
-            [ProblemClass::SmoothNlp, ProblemClass::Linear]
+            [ProblemClass::Linear, ProblemClass::SmoothNlp]
         );
         // Degree two over affine rows: nonconvex without a certificate.
         f.quadratic = true;
         assert_eq!(
             problem_classes(&f, SolveIntent::Optimize, false),
-            [ProblemClass::SmoothNlp, ProblemClass::NonconvexQuadratic]
+            [ProblemClass::NonconvexQuadratic, ProblemClass::SmoothNlp]
         );
         assert_eq!(
             problem_classes(&f, SolveIntent::Optimize, true),
-            [ProblemClass::SmoothNlp, ProblemClass::ConvexQuadratic]
+            [ProblemClass::ConvexQuadratic, ProblemClass::SmoothNlp]
         );
         f.domains = vec![ModelingVariableDomain::Binary];
         for convex in [false, true] {
@@ -690,6 +698,69 @@ mod tests {
         );
         // Discrete classes are optimization classes only.
         assert!(problem_classes(&f, SolveIntent::Root, false).is_empty());
+    }
+    /// Clarabel represents linear and convex quadratic programs but owns only explicit
+    /// cones automatically (ADR-0121): explicit selection admits it, automatic routing never
+    /// picks it for those classes, even when no other adapter is exposed. Every record's
+    /// automatic classes are among its classes.
+    #[test]
+    fn explicit_only_classes_never_automatic() {
+        let mut f = miqp_facts();
+        f.domains.fill(ModelingVariableDomain::Continuous);
+        static CLARABEL_ONLY: Table = Table::new(&[adapter(Backend::Clarabel)]);
+        for (quadratic, convex) in [(false, false), (true, true)] {
+            f.quadratic = quadratic;
+            f.objective_degree = Some(if quadratic { 2 } else { 1 });
+            let requirements = Requirements {
+                table: &CLARABEL_ONLY,
+                facts: &f,
+                intent: SolveIntent::Optimize,
+                convex,
+                controls: &crate::solve::Controls::default(),
+            };
+            assert_eq!(
+                requirements
+                    .select(SolverSelection::Explicit(Backend::Clarabel))
+                    .unwrap(),
+                Route::Native(Backend::Clarabel)
+            );
+            assert!(matches!(
+                requirements.select(SolverSelection::Auto),
+                Err(ProblemError::Unsupported(_))
+            ));
+            // In the linked table, HiGHS keeps both classes automatically.
+            if adapter(Backend::Highs).linked() {
+                assert_eq!(
+                    select(&f, SolveIntent::Optimize, SolverSelection::Auto, convex).unwrap(),
+                    Route::Native(Backend::Highs)
+                );
+            }
+        }
+        for a in LINKED.adapters() {
+            let record = a.capability();
+            assert!(
+                record
+                    .automatic_classes
+                    .iter()
+                    .all(|c| record.classes.contains(c)),
+                "{:?}",
+                a.backend()
+            );
+            assert_eq!(
+                record.automatic_classes.is_empty(),
+                a.automatic().is_none(),
+                "{:?}",
+                a.backend()
+            );
+        }
+        let clarabel = adapter(Backend::Clarabel).capability();
+        for class in clarabel.classes {
+            assert_eq!(
+                clarabel.automatic_classes.contains(class),
+                *class == ProblemClass::ContinuousCone,
+                "{class:?}"
+            );
+        }
     }
     #[test]
     fn miqp_routes_to_scip() {

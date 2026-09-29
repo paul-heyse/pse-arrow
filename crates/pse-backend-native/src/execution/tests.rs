@@ -21,6 +21,7 @@ struct Stub;
 static STUB: Stub = Stub;
 static STUB_CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::SquareRoot],
+    automatic_classes: &[ProblemClass::SquareRoot],
     derivatives: DerivativeCapability::JacobianOrProduct,
     warm: WarmCapability::Primal,
     general_bounds: false,
@@ -286,6 +287,7 @@ impl BackendExecution for Probe {
 fn from_row(row: &pse_model::generated::runtime::solver_capabilities::Row) -> &'static Capability {
     Box::leak(Box::new(Capability {
         classes: Box::leak(row.classes.clone().into_boxed_slice()),
+        automatic_classes: Box::leak(row.automatic_classes.clone().into_boxed_slice()),
         derivatives: row.derivatives,
         warm: row.warm,
         general_bounds: row.general_bounds,
@@ -601,7 +603,7 @@ fn settings_identity_is_type_name_independent() {
         ),
         (
             "clarabel",
-            "blake3:fde14ef90e0dc089add05759fe3f5bbd382ff49f037d6347efabed0e332eb6cd",
+            "blake3:77a643954ab01bb9183d439bd225b7283b80b9ee41ce1b14e57e151fca44ffd2",
         ),
         (
             "default",

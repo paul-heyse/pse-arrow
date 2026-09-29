@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#solver_capabilities::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    223u8, 154u8, 86u8, 234u8, 87u8, 237u8, 32u8, 225u8, 181u8, 122u8, 236u8, 20u8, 68u8,
-    100u8, 169u8, 160u8,
+    115u8, 109u8, 126u8, 171u8, 112u8, 182u8, 10u8, 175u8, 162u8, 151u8, 107u8, 190u8,
+    100u8, 166u8, 142u8, 85u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "solver_capabilities";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    126u8, 240u8, 170u8, 224u8, 72u8, 70u8, 161u8, 137u8, 209u8, 61u8, 86u8, 14u8, 192u8,
-    125u8, 3u8, 158u8, 172u8, 225u8, 115u8, 73u8, 164u8, 247u8, 184u8, 153u8, 133u8,
-    117u8, 174u8, 247u8, 208u8, 255u8, 51u8, 40u8,
+    195u8, 9u8, 122u8, 154u8, 226u8, 221u8, 150u8, 29u8, 99u8, 18u8, 124u8, 174u8, 190u8,
+    74u8, 149u8, 214u8, 254u8, 109u8, 160u8, 6u8, 191u8, 52u8, 132u8, 50u8, 234u8, 166u8,
+    183u8, 178u8, 231u8, 85u8, 0u8, 135u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
     fn append(
@@ -35,38 +35,42 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
         crate::columnar::ArrowValue::append(&self.r#backend, children[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#classes, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#derivatives,
+            &self.r#automatic_classes,
             children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#warm, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#reuse, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#derivatives,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#warm, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#reuse, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#cancellation,
-            children[5usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#diagnostics,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#general_bounds,
+            &self.r#diagnostics,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#sign_bounds,
+            &self.r#general_bounds,
             children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#parallel,
+            &self.r#sign_bounds,
             children[9usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#certifies,
+            &self.r#parallel,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#native_forms,
+            &self.r#certifies,
             children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#native_forms,
+            children[12usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -84,22 +88,25 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
         <Vec<
             crate::generated::enums::NativeProblemClass,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Vec<
+            crate::generated::enums::NativeProblemClass,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <crate::generated::enums::NativeDerivativeCapability as crate::columnar::ArrowValue>::append_null(
-            children[2usize].as_mut(),
-        )?;
-        <crate::generated::enums::NativeWarmCapability as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <crate::generated::enums::NativeWarmCapability as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
         <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Vec<
             crate::generated::enums::NativeConstraintForm,
-        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -120,46 +127,52 @@ impl crate::columnar::ArrowValue for RuntimeSolverCapabilitiesRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#derivatives: <crate::generated::enums::NativeDerivativeCapability as crate::columnar::ArrowValue>::read(
+            r#automatic_classes: <Vec<
+                crate::generated::enums::NativeProblemClass,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#warm: <crate::generated::enums::NativeWarmCapability as crate::columnar::ArrowValue>::read(
+            r#derivatives: <crate::generated::enums::NativeDerivativeCapability as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#reuse: <String as crate::columnar::ArrowValue>::read(
+            r#warm: <crate::generated::enums::NativeWarmCapability as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#cancellation: <String as crate::columnar::ArrowValue>::read(
+            r#reuse: <String as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#diagnostics: <String as crate::columnar::ArrowValue>::read(
+            r#cancellation: <String as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#general_bounds: <bool as crate::columnar::ArrowValue>::read(
+            r#diagnostics: <String as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#sign_bounds: <bool as crate::columnar::ArrowValue>::read(
+            r#general_bounds: <bool as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#parallel: <bool as crate::columnar::ArrowValue>::read(
+            r#sign_bounds: <bool as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
                 index,
             )?,
-            r#certifies: <bool as crate::columnar::ArrowValue>::read(
+            r#parallel: <bool as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#certifies: <bool as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
                 index,
             )?,
             r#native_forms: <Vec<
                 crate::generated::enums::NativeConstraintForm,
             > as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -213,35 +226,42 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
         crate::columnar::ArrowValue::append(&self.r#backend, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#classes, columns[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#derivatives,
+            &self.r#automatic_classes,
             columns[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#warm, columns[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#reuse, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#derivatives,
+            columns[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#warm, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#reuse, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#cancellation,
-            columns[5usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#diagnostics,
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#general_bounds,
+            &self.r#diagnostics,
             columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#sign_bounds,
+            &self.r#general_bounds,
             columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#parallel, columns[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#certifies,
+            &self.r#sign_bounds,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parallel,
             columns[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#native_forms,
+            &self.r#certifies,
             columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#native_forms,
+            columns[12usize].as_mut(),
         )?;
         Ok(())
     }
@@ -277,10 +297,10 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        26_624_usize + size_of::<Self::Builder>()
+        29_696_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        208usize
+        232usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -291,6 +311,18 @@ impl crate::columnar::RelationRow for RuntimeSolverCapabilitiesRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             (self.r#classes)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).as_str().len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#automatic_classes)
                 .iter()
                 .try_fold(
                     8usize,
@@ -358,7 +390,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "backend",
@@ -371,53 +403,58 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "derivatives",
+        name: "automatic_classes",
         position: 2usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "warm",
+        name: "derivatives",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "reuse",
+        name: "warm",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "cancellation",
+        name: "reuse",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "diagnostics",
+        name: "cancellation",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "general_bounds",
+        name: "diagnostics",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "sign_bounds",
+        name: "general_bounds",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "parallel",
+        name: "sign_bounds",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "certifies",
+        name: "parallel",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "native_forms",
+        name: "certifies",
         position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "native_forms",
+        position: 12usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -426,26 +463,28 @@ pub mod columns {
     pub const BACKEND: crate::columnar::ColumnReference = super::COLUMNS[0usize];
     ///classes
     pub const CLASSES: crate::columnar::ColumnReference = super::COLUMNS[1usize];
+    ///automatic_classes
+    pub const AUTOMATIC_CLASSES: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///derivatives
-    pub const DERIVATIVES: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    pub const DERIVATIVES: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///warm
-    pub const WARM: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const WARM: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///reuse
-    pub const REUSE: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const REUSE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///cancellation
-    pub const CANCELLATION: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const CANCELLATION: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///diagnostics
-    pub const DIAGNOSTICS: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const DIAGNOSTICS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///general_bounds
-    pub const GENERAL_BOUNDS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const GENERAL_BOUNDS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///sign_bounds
-    pub const SIGN_BOUNDS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const SIGN_BOUNDS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///parallel
-    pub const PARALLEL: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const PARALLEL: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///certifies
-    pub const CERTIFIES: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const CERTIFIES: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///native_forms
-    pub const NATIVE_FORMS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const NATIVE_FORMS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -454,6 +493,7 @@ pub struct RuntimeSolverCapabilitiesView<'a> {
     batch: &'a crate::RecordBatch,
     backend_column: &'a arrow_array::StringArray,
     classes_column: &'a arrow_array::ListArray,
+    automatic_classes_column: &'a arrow_array::ListArray,
     derivatives_column: &'a arrow_array::StringArray,
     warm_column: &'a arrow_array::StringArray,
     reuse_column: &'a arrow_array::StringArray,
@@ -509,36 +549,39 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
             classes_column: crate::columnar::array::<
                 arrow_array::ListArray,
             >(batch.column(1usize).as_ref())?,
+            automatic_classes_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(2usize).as_ref())?,
             derivatives_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(2usize).as_ref())?,
+            >(batch.column(3usize).as_ref())?,
             warm_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(3usize).as_ref())?,
+            >(batch.column(4usize).as_ref())?,
             reuse_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
             cancellation_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             diagnostics_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             general_bounds_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             sign_bounds_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             parallel_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             certifies_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             native_forms_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -579,6 +622,18 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "automatic_classes",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn automatic_classes_column(&self) -> &'a arrow_array::ListArray {
+        self.automatic_classes_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "automatic_classes", "`.")]
+    pub fn automatic_classes_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "derivatives",
         "`, including its offsets and validity bitmap.",
     )]
@@ -587,7 +642,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "derivatives", "`.")]
     pub fn derivatives_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
+        &self.batch.schema_ref().fields()[3usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -599,7 +654,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "warm", "`.")]
     pub fn warm_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -611,7 +666,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "reuse", "`.")]
     pub fn reuse_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -623,7 +678,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "cancellation", "`.")]
     pub fn cancellation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -635,7 +690,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "diagnostics", "`.")]
     pub fn diagnostics_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -647,7 +702,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "general_bounds", "`.")]
     pub fn general_bounds_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -659,7 +714,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "sign_bounds", "`.")]
     pub fn sign_bounds_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -671,7 +726,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "parallel", "`.")]
     pub fn parallel_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -683,7 +738,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "certifies", "`.")]
     pub fn certifies_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -695,7 +750,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "native_forms", "`.")]
     pub fn native_forms_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -711,6 +766,10 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
         Ok(RuntimeSolverCapabilitiesRow {
             r#backend: crate::columnar::ArrowValue::read(self.backend_column, index)?,
             r#classes: crate::columnar::ArrowValue::read(self.classes_column, index)?,
+            r#automatic_classes: crate::columnar::ArrowValue::read(
+                self.automatic_classes_column,
+                index,
+            )?,
             r#derivatives: crate::columnar::ArrowValue::read(
                 self.derivatives_column,
                 index,

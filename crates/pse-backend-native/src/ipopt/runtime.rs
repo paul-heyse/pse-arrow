@@ -5,9 +5,8 @@
     reason = "scalar oneMKL, OpenMP and Ipopt runtime queries with caller-owned storage"
 )]
 //! The linked runtime of the Ipopt profile (ADR-0108): which linear solvers the library was
-//! built with, the OpenMP and oneMKL state SPRAL and Pardiso depend on, native thread counts
-//! scoped to the owning worker, and the build identity recorded in every profile key.
-use crate::ProblemError;
+//! built with, the OpenMP and oneMKL state SPRAL and Pardiso depend on, and the build
+//! identity recorded in every profile key. Native thread counts are scoped by `crate::mkl`.
 use pse_ids::{ContentHash, FramedHasher};
 use std::{
     ffi::{CStr, c_char, c_int},
@@ -20,11 +19,8 @@ unsafe extern "C" {
     fn MKL_CBWR_Get(option: c_int) -> c_int;
     fn MKL_Get_Dynamic() -> c_int;
     fn MKL_Get_Version_String(buffer: *mut c_char, len: c_int);
-    fn MKL_Set_Num_Threads_Local(threads: c_int) -> c_int;
     fn omp_get_cancellation() -> c_int;
-    fn omp_get_max_threads() -> c_int;
     fn omp_get_proc_bind() -> c_int;
-    fn omp_set_num_threads(threads: c_int);
 }
 /// `MKL_CBWR_BRANCH` (`mkl_types.h`): query the branch in force.
 const MKL_CBWR_BRANCH: c_int = 1;
@@ -153,87 +149,19 @@ pub fn build() -> &'static Build {
     })
 }
 
-/// OpenMP and oneMKL thread counts of the owning worker for one solve, restored on drop
-/// (ADR-0108 item 12). SPRAL uses OpenMP threads and Pardiso MKL threads; MUMPS runs at one.
-#[derive(Debug)]
-pub(crate) struct Threads {
-    omp: c_int,
-    mkl: c_int,
-}
-impl Threads {
-    pub(crate) fn enter(threads: usize) -> Result<Self, ProblemError> {
-        let n = c_int::try_from(threads)
-            .ok()
-            .filter(|n| *n > 0)
-            .ok_or_else(|| ProblemError::Contract("native thread count".into()))?;
-        // SAFETY: per-thread ICV and MKL-local settings of the calling worker.
-        unsafe {
-            let omp = omp_get_max_threads();
-            omp_set_num_threads(n);
-            let mkl = MKL_Set_Num_Threads_Local(n);
-            Ok(Self { omp, mkl })
-        }
-    }
-}
-impl Drop for Threads {
-    fn drop(&mut self) {
-        // SAFETY: restores the calling worker's own previous settings.
-        unsafe {
-            omp_set_num_threads(self.omp);
-            MKL_Set_Num_Threads_Local(self.mkl);
-        }
-    }
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::mkl::{mapped_libraries, object_of};
     use std::ffi::c_void;
 
-    #[repr(C)]
-    struct DlInfo {
-        fname: *const c_char,
-        fbase: *mut c_void,
-        sname: *const c_char,
-        saddr: *mut c_void,
-    }
-    unsafe extern "C" {
-        fn dladdr(address: *const c_void, info: *mut DlInfo) -> c_int;
-    }
     #[cfg(feature = "sdp")]
     unsafe extern "C" {
         fn dgemm_();
     }
-    /// The file that defines the code at `address`, by the dynamic linker.
-    fn object_of(address: *const c_void) -> Option<String> {
-        let mut info = DlInfo {
-            fname: std::ptr::null(),
-            fbase: std::ptr::null_mut(),
-            sname: std::ptr::null(),
-            saddr: std::ptr::null_mut(),
-        };
-        // SAFETY: `info` is caller-owned and `dladdr` only reads the address.
-        let found = unsafe { dladdr(address, &mut info) } != 0 && !info.fname.is_null();
-        // SAFETY: a successful lookup returns a NUL-terminated loader-owned path.
-        found.then(|| {
-            unsafe { CStr::from_ptr(info.fname) }
-                .to_string_lossy()
-                .into_owned()
-        })
-    }
-    /// Shared objects mapped into this process, by file name.
-    pub(crate) fn mapped_libraries() -> std::collections::BTreeSet<String> {
-        std::fs::read_to_string("/proc/self/maps")
-            .unwrap()
-            .lines()
-            .filter_map(|l| l.split_whitespace().nth(5))
-            .filter_map(|p| p.rsplit('/').next())
-            .filter(|n| n.contains(".so"))
-            .map(str::to_owned)
-            .collect()
-    }
     /// One BLAS/LAPACK provider (oneMKL, LP64, GNU threading) and one OpenMP runtime
-    /// (libgomp) are loaded after an Ipopt solve, and the Fortran BLAS symbols every other
+    /// (libgomp) are loaded after an Ipopt solve (and a Clarabel MKL Pardiso solve, whose
+    /// runtime loader resolves the same library), and the Fortran BLAS symbols every other
     /// native component calls resolve into oneMKL (ADR-0108 item 5).
     pub(crate) fn assert_single_provider() {
         let libraries = mapped_libraries();
@@ -300,20 +228,5 @@ pub(crate) mod tests {
         assert_eq!(pinned_cbwr(), MKL_CBWR_COMPATIBLE);
         assert_eq!(cbwr_name(3), "COMPATIBLE");
         assert_eq!(cbwr_name(99), "code 99");
-    }
-    #[test]
-    fn worker_threads_are_scoped_and_restored() {
-        // SAFETY: per-thread queries of this test's own worker.
-        let before = unsafe { (omp_get_max_threads(), MKL_Set_Num_Threads_Local(0)) };
-        // SAFETY: restore the MKL-local value the probe above cleared.
-        unsafe { MKL_Set_Num_Threads_Local(before.1) };
-        {
-            let _scope = Threads::enter(3).unwrap();
-            // SAFETY: as above.
-            assert_eq!(unsafe { omp_get_max_threads() }, 3);
-        }
-        // SAFETY: as above.
-        assert_eq!(unsafe { omp_get_max_threads() }, before.0);
-        assert!(Threads::enter(0).is_err());
     }
 }

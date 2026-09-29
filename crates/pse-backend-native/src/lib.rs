@@ -4,6 +4,7 @@
 //! Class-specific native problem contracts. Execution adapters are supplied by Plan 14 M11–M17.
 pub mod assembled;
 pub mod callback;
+mod certificate;
 pub mod conditioning;
 pub mod conic;
 mod convexity;
@@ -21,6 +22,8 @@ pub mod ipopt;
 pub mod jacobian_diagnostics;
 #[cfg(feature = "kinsol")]
 pub mod kinsol;
+#[cfg(any(feature = "ipopt", feature = "clarabel-pardiso"))]
+mod mkl;
 mod nlp_pattern;
 #[cfg(feature = "pounce")]
 pub mod pounce;
@@ -816,6 +819,8 @@ mod solver_tests;
 #[cfg(all(test, any(feature = "ipopt", feature = "pounce")))]
 mod restart_tests;
 
+#[cfg(test)]
+mod clarabel_tests;
 #[cfg(all(test, feature = "pounce"))]
 mod l1_tests;
 

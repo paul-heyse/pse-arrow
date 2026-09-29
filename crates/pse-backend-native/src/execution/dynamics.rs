@@ -16,6 +16,7 @@ pub(super) struct Idas;
 pub(super) static IDAS: Idas = Idas;
 static DIFFSOL_CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
+    automatic_classes: &[],
     derivatives: DerivativeCapability::FirstWithSmoothSensitivities,
     warm: WarmCapability::None,
     general_bounds: false,
@@ -29,6 +30,7 @@ static DIFFSOL_CAPABILITY: Capability = Capability {
 };
 static IDAS_CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::Ode, ProblemClass::SemiExplicitIndex1],
+    automatic_classes: &[],
     derivatives: DerivativeCapability::FirstWithSmoothSensitivities,
     warm: WarmCapability::None,
     general_bounds: false,

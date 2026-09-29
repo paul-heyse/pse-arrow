@@ -19,6 +19,11 @@ static CAPABILITY: Capability = Capability {
         ProblemClass::MixedLinear,
         ProblemClass::ConvexQuadratic,
     ],
+    automatic_classes: &[
+        ProblemClass::Linear,
+        ProblemClass::MixedLinear,
+        ProblemClass::ConvexQuadratic,
+    ],
     derivatives: DerivativeCapability::Coefficients,
     warm: WarmCapability::PrimalDualAndBasis,
     general_bounds: true,
@@ -131,6 +136,14 @@ impl BackendExecution for Highs {
                         unavailable: BTreeMap::from([("operation".into(), e.to_string())]),
                         ..Default::default()
                     });
+                // An exported ray is the typed certificate of an infeasible or unbounded LP,
+                // in native coordinates like every adapter's; the runner verifies it.
+                report.certificate = crate::certificate::from_highs_rays(
+                    problem,
+                    report.termination.category,
+                    diagnostics.dual_ray.as_deref(),
+                    diagnostics.primal_ray.as_deref(),
+                );
                 transport::recover_diagnostics(
                     &mut diagnostics,
                     normalization,

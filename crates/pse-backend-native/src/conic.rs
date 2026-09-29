@@ -8,8 +8,9 @@ use crate::{
     ConicProblem, ProblemError,
     quality::{Quality, Tolerances, Violation, interval},
     solve::{
-        Assurance, Backend, Candidate, Certificate, Compatibility, ConicEvidence, Controls, Event,
-        Execution, Metric, NativeTermination, ResolvedAccuracy, SolveReport, Termination,
+        Assurance, Backend, Candidate, CertificateAccuracy, CertificateKind, Compatibility,
+        ConicEvidence, Controls, Event, Execution, InfeasibilityCertificate, Metric,
+        NativeTermination, RayCoordinate, RayEntry, ResolvedAccuracy, SolveReport, Termination,
     },
 };
 use clarabel::solver::traits::Settings as _;
@@ -18,6 +19,9 @@ use clarabel::{
     solver::{DefaultInfo, DefaultSettings, DefaultSolver, IPSolver, SolverStatus, SupportedConeT},
 };
 use std::collections::BTreeMap;
+
+pub(crate) mod lowering;
+pub use lowering::{Lowered, LoweredRow, RowSide};
 
 /// Compressed-sparse-column matrix of the conic boundary.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -191,6 +195,10 @@ pub fn cone_key(cones: &[Cone]) -> Result<pse_ids::ContentHash, ProblemError> {
 /// whatever [`Settings`] request), and the clique merging of the chordal decomposition:
 /// registry vocabularies (ADR-0115 Outcome 3).
 pub use pse_model::generated::enums::{ClarabelMergeMethod as MergeMethod, ClarabelMode as Mode};
+/// The KKT direct solver: Clarabel's serial QDLDL, or oneMKL Pardiso from the process's one
+/// linked oneMKL (ADR-0108), which admits more than one thread (blueprint §18.8). A
+/// registry vocabulary (ADR-0115 Outcome 3).
+pub use pse_model::generated::enums::ClarabelDirect as Direct;
 /// Clarabel's native `chordal_decomposition_merge_method` value.
 #[cfg_attr(
     not(feature = "sdp"),
@@ -208,9 +216,9 @@ const fn merge_method(method: MergeMethod) -> &'static str {
 /// `clarabel_boundary_types_are_pse_owned` test checks them against the library.
 const CHORDAL_DEFAULTS: (bool, MergeMethod, bool, bool) =
     (true, MergeMethod::CliqueGraph, true, true);
-/// The Clarabel adapter's settings type: the mode plus every admitted native control.
-/// Iteration and time budgets, stopping tolerances, equilibration, threads and the direct
-/// KKT method are owned by the shared controls and the resolved accuracy, so they are not
+/// The Clarabel adapter's settings type: the mode, the KKT direct solver and every admitted
+/// native control. Iteration and time budgets, stopping tolerances, equilibration and the
+/// thread count are owned by the shared controls and the resolved accuracy, so they are not
 /// fields. Native defaults are the pinned library's. Identity derives from serde.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(default, deny_unknown_fields)]
@@ -218,6 +226,8 @@ const CHORDAL_DEFAULTS: (bool, MergeMethod, bool, bool) =
 pub struct Settings {
     /// Preprocessing or data-update mode.
     pub mode: Mode,
+    /// KKT direct solver; only MKL Pardiso admits more than one thread.
+    pub direct: Direct,
     /// Maximum interior step fraction.
     pub max_step_fraction: f64,
     /// Absolute infeasibility tolerance.
@@ -286,6 +296,7 @@ impl Default for Settings {
         let (enable, merge, compact, complete) = CHORDAL_DEFAULTS;
         Self {
             mode: Mode::SingleSolve,
+            direct: Direct::Qdldl,
             max_step_fraction: d.max_step_fraction,
             tol_infeas_abs: d.tol_infeas_abs,
             tol_infeas_rel: d.tol_infeas_rel,
@@ -344,20 +355,29 @@ struct Data {
     cones: Vec<SupportedConeT<f64>>,
     bounds: Vec<(usize, bool)>,
 }
-/// Clarabel's native data: pse cones and matrices mapped, finite bounds appended as rows.
-fn data(p: &ConicProblem) -> Result<Data, ProblemError> {
+/// The finite variable bounds of a cone form, as rows appended after the cone rows: in
+/// variable order, lower (`-x + s = -l`) before upper (`x + s = u`), each `(variable, lower)`.
+/// Every cone form, its certificates and their verification share this one layout.
+pub(crate) fn bound_rows(variables: &[crate::Variable]) -> Vec<(usize, bool)> {
     let mut bounds = Vec::new();
-    let mut rhs = p.rhs.clone();
-    let mut cones = clarabel_cones(&p.cones)?;
-    for (i, v) in p.contract.variables.iter().enumerate() {
+    for (i, v) in variables.iter().enumerate() {
         if v.lower.is_finite() {
             bounds.push((i, true));
-            rhs.push(-v.lower);
         }
         if v.upper.is_finite() {
             bounds.push((i, false));
-            rhs.push(v.upper);
         }
+    }
+    bounds
+}
+/// Clarabel's native data: pse cones and matrices mapped, finite bounds appended as rows.
+fn data(p: &ConicProblem) -> Result<Data, ProblemError> {
+    let bounds = bound_rows(&p.contract.variables);
+    let mut rhs = p.rhs.clone();
+    let mut cones = clarabel_cones(&p.cones)?;
+    for &(i, lower) in &bounds {
+        let v = &p.contract.variables[i];
+        rhs.push(if lower { -v.lower } else { v.upper });
     }
     if !bounds.is_empty() {
         cones.push(SupportedConeT::NonnegativeConeT(bounds.len()));
@@ -386,6 +406,26 @@ fn data(p: &ConicProblem) -> Result<Data, ProblemError> {
         bounds,
     })
 }
+/// Thread admission of a direct solver: QDLDL factorizes on one thread; MKL Pardiso admits
+/// the worker's native threads (blueprint §18.8) when this build links it.
+///
+/// # Errors
+/// More than one thread for QDLDL, or MKL Pardiso in a build without it.
+pub(crate) fn admit_threads(direct: Direct, threads: usize) -> Result<(), ProblemError> {
+    match direct {
+        Direct::Qdldl if threads != 1 => Err(ProblemError::Unsupported(
+            "Clarabel's QDLDL factorizes on one thread; more threads need the MKL Pardiso KKT solver"
+                .into(),
+        )),
+        Direct::MklPardiso if !cfg!(feature = "clarabel-pardiso") => {
+            Err(ProblemError::Unsupported(
+                "the MKL Pardiso KKT solver needs the clarabel-pardiso profile, which this build does not link"
+                    .into(),
+            ))
+        }
+        _ => Ok(()),
+    }
+}
 /// Map the pse settings, the shared controls and the resolved accuracy to Clarabel's
 /// complete native settings. Only this adapter sees `DefaultSettings`.
 fn settings(
@@ -401,11 +441,7 @@ fn settings(
             "Clarabel uses typed settings instead of native option strings".into(),
         ));
     }
-    if controls.threads != 1 {
-        return Err(ProblemError::Unsupported(
-            "Clarabel QDLDL/serial-netlib profile requires one core".into(),
-        ));
-    }
+    admit_threads(pse.direct, controls.threads)?;
     let mut settings = DefaultSettings::<f64> {
         max_step_fraction: pse.max_step_fraction,
         tol_infeas_abs: pse.tol_infeas_abs,
@@ -457,7 +493,22 @@ fn settings(
     }
     settings.max_iter = controls.iterations;
     settings.time_limit = controls.time_limit.as_secs_f64();
-    settings.max_threads = 1;
+    match pse.direct {
+        Direct::Qdldl => {
+            settings.direct_solve_method = "qdldl".into();
+            settings.max_threads = 1;
+        }
+        Direct::MklPardiso => {
+            // pardiso-wrapper resolves the process's one linked oneMKL before Clarabel
+            // validates the method. Zero leaves Pardiso's thread count to the owning
+            // worker's oneMKL-local setting (`mkl::Threads`) instead of the process-wide
+            // Pardiso domain Clarabel would set.
+            #[cfg(feature = "clarabel-pardiso")]
+            crate::mkl::pardiso()?;
+            settings.direct_solve_method = "mkl".into();
+            settings.max_threads = 0;
+        }
+    }
     settings.tol_gap_abs = accuracy.gap_absolute;
     settings.tol_gap_rel = accuracy.gap_relative;
     settings.tol_feas = accuracy.feasibility;
@@ -601,12 +652,18 @@ impl Session {
         });
         report.provenance.insert(
             "native".into(),
-            if cfg!(feature = "sdp") {
-                "Clarabel 0.11.1; QDLDL; SDP serial netlib LP64"
-            } else {
-                "Clarabel 0.11.1; QDLDL; SDP unavailable"
-            }
-            .into(),
+            format!(
+                "Clarabel 0.11.1; {}; {}",
+                match pse.direct {
+                    Direct::Qdldl => "QDLDL",
+                    Direct::MklPardiso => "MKL Pardiso (the linked oneMKL, LP64, GNU threading)",
+                },
+                if cfg!(feature = "sdp") {
+                    "SDP BLAS/LAPACK from the linked oneMKL (LP64, GNU threading)"
+                } else {
+                    "SDP unavailable"
+                }
+            ),
         );
         report
             .provenance
@@ -619,28 +676,9 @@ impl Session {
             report.termination.category = stop;
             report.termination.assurance = Assurance::None;
         }
-        if matches!(
-            solution.status,
-            SolverStatus::PrimalInfeasible
-                | SolverStatus::DualInfeasible
-                | SolverStatus::AlmostPrimalInfeasible
-                | SolverStatus::AlmostDualInfeasible
-        ) {
-            report.certificate = Some(Certificate {
-                kind: status_name(solution.status).into(),
-                primal: matches!(
-                    solution.status,
-                    SolverStatus::DualInfeasible | SolverStatus::AlmostDualInfeasible
-                )
-                .then(|| solution.x.clone()),
-                dual: matches!(
-                    solution.status,
-                    SolverStatus::PrimalInfeasible | SolverStatus::AlmostPrimalInfeasible
-                )
-                .then(|| solution.z.clone()),
-            });
-            // Certificate duals include appended bound rows, explicitly described.
-            report.provenance.insert("certificate.rows".into(),"original conic rows then finite variable bounds in source variable order, lower before upper".into());
+        if let Some(certificate) = self.certificate(p, solution.status, &solution.x, &solution.z)
+        {
+            report.certificate = Some(certificate);
         } else if solution.status != SolverStatus::Unsolved
             && solution.x.iter().all(|v| v.is_finite())
             && solution.obj_val.is_finite()
@@ -679,6 +717,73 @@ impl Session {
             report.termination.assurance = Assurance::None;
         }
         Ok(report)
+    }
+}
+impl Session {
+    /// The native ray of an infeasibility status over this session's cone form: a Farkas
+    /// ray over the cone rows then the appended bound rows, or a recession direction over
+    /// the variables. An almost status keeps its reduced accuracy.
+    fn certificate(
+        &self,
+        p: &ConicProblem,
+        status: SolverStatus,
+        x: &[f64],
+        z: &[f64],
+    ) -> Option<InfeasibilityCertificate> {
+        let (kind, accuracy) = match status {
+            SolverStatus::PrimalInfeasible => {
+                (CertificateKind::PrimalInfeasible, CertificateAccuracy::Full)
+            }
+            SolverStatus::AlmostPrimalInfeasible => (
+                CertificateKind::PrimalInfeasible,
+                CertificateAccuracy::Reduced,
+            ),
+            SolverStatus::DualInfeasible => {
+                (CertificateKind::DualInfeasible, CertificateAccuracy::Full)
+            }
+            SolverStatus::AlmostDualInfeasible => {
+                (CertificateKind::DualInfeasible, CertificateAccuracy::Reduced)
+            }
+            _ => return None,
+        };
+        let variables = &p.contract.variables;
+        let ray = match kind {
+            CertificateKind::PrimalInfeasible => p
+                .contract
+                .rows
+                .iter()
+                .map(|id| (RayCoordinate::Row, *id))
+                .chain(self.bounds.iter().map(|&(i, lower)| {
+                    let coordinate = if lower {
+                        RayCoordinate::VariableLower
+                    } else {
+                        RayCoordinate::VariableUpper
+                    };
+                    (coordinate, variables[i].id)
+                }))
+                .zip(z)
+                .map(|((coordinate, id), value)| RayEntry {
+                    coordinate,
+                    id,
+                    value: *value,
+                })
+                .collect(),
+            CertificateKind::DualInfeasible => variables
+                .iter()
+                .zip(x)
+                .map(|(v, value)| RayEntry {
+                    coordinate: RayCoordinate::Variable,
+                    id: v.id,
+                    value: *value,
+                })
+                .collect(),
+        };
+        Some(InfeasibilityCertificate {
+            kind,
+            accuracy,
+            ray,
+            verification: None,
+        })
     }
 }
 fn metrics(info: &DefaultInfo<f64>) -> BTreeMap<String, Metric> {
@@ -740,31 +845,33 @@ pub const fn status_name(status: SolverStatus) -> &'static str {
         SolverStatus::CallbackTerminated => "CallbackTerminated",
     }
 }
-/// Native conic statuses retain certificate versus candidate distinctions.
+/// Native conic statuses retain certificate versus candidate distinctions. A native
+/// infeasibility status claims no assurance: the certificate assurance follows only from
+/// the ray's verification in original coordinates (`quality::qualify`).
 pub fn termination(status: SolverStatus) -> NativeTermination {
-    let (category, assurance) = match status {
-        SolverStatus::Solved => (Termination::Success, Assurance::None),
-        SolverStatus::AlmostSolved => (Termination::Acceptable, Assurance::None),
+    let category = match status {
+        SolverStatus::Solved => Termination::Success,
+        SolverStatus::AlmostSolved => Termination::Acceptable,
         SolverStatus::PrimalInfeasible | SolverStatus::AlmostPrimalInfeasible => {
-            (Termination::Infeasible, Assurance::Certificate)
+            Termination::Infeasible
         }
         SolverStatus::DualInfeasible | SolverStatus::AlmostDualInfeasible => {
-            (Termination::Unbounded, Assurance::Certificate)
+            Termination::Unbounded
         }
-        SolverStatus::MaxIterations => (Termination::IterationLimit, Assurance::None),
-        SolverStatus::MaxTime => (Termination::TimeLimit, Assurance::None),
-        SolverStatus::CallbackTerminated => (Termination::Cancelled, Assurance::None),
+        SolverStatus::MaxIterations => Termination::IterationLimit,
+        SolverStatus::MaxTime => Termination::TimeLimit,
+        SolverStatus::CallbackTerminated => Termination::Cancelled,
         SolverStatus::NumericalError | SolverStatus::InsufficientProgress => {
-            (Termination::Numerical, Assurance::None)
+            Termination::Numerical
         }
-        SolverStatus::Unsolved => (Termination::Invalid, Assurance::None),
+        SolverStatus::Unsolved => Termination::Invalid,
     };
     NativeTermination {
         code: status as i64,
         name: status_name(status).into(),
         message: None,
         category,
-        assurance,
+        assurance: Assurance::None,
     }
 }
 /// Pack a symmetric matrix in Clarabel's upper-column svec convention. This small
@@ -796,7 +903,7 @@ pub fn svec(matrix: faer::MatRef<'_, f64>) -> Result<Vec<f64>, ProblemError> {
 /// Original-space cone violation. Symmetric eigenvalues use faer; nonsymmetric
 /// closed-cone predicates are boundary glue because Clarabel's public margins
 /// deliberately panic for exponential and power cones.
-fn cone_violation(cone: &Cone, s: &[f64]) -> Result<f64, ProblemError> {
+pub(crate) fn cone_violation(cone: &Cone, s: &[f64]) -> Result<f64, ProblemError> {
     let violation = match cone {
         Cone::Zero { .. } => s.iter().map(|v| v.abs()).fold(0.0, f64::max),
         Cone::Nonnegative { .. } => s.iter().map(|v| -v).fold(0.0, f64::max),

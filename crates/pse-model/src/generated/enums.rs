@@ -959,6 +959,95 @@ impl core::str::FromStr for ChangeKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ClarabelDirect {
+    ///Clarabel's built-in quasidefinite LDLᵀ; factorizes on one thread.
+    #[serde(rename = "qdldl")]
+    Qdldl,
+    ///oneMKL Pardiso from the process's one linked oneMKL (LP64, GNU threading); admits more than one thread.
+    #[serde(rename = "mkl_pardiso")]
+    MklPardiso,
+}
+impl crate::SemanticEq for ClarabelDirect {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ClarabelDirect {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Qdldl, Self::MklPardiso];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Qdldl => "qdldl",
+            Self::MklPardiso => "mkl_pardiso",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Qdldl => 0usize,
+            Self::MklPardiso => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Qdldl => None,
+            Self::MklPardiso => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ClarabelDirect {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ClarabelDirect))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(concat!("pse_model::", stringify!(ClarabelDirect)))
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["qdldl", "mkl_pardiso"] })
+    }
+}
+impl core::str::FromStr for ClarabelDirect {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "qdldl" => Ok(Self::Qdldl),
+            "mkl_pardiso" => Ok(Self::MklPardiso),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(ClarabelDirect).to_owned(),
+                    enumeration: stringify!(ClarabelDirect).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ClarabelMergeMethod {
     ///No merging.
     #[serde(rename = "none")]
@@ -7143,6 +7232,190 @@ impl core::str::FromStr for NativeCandidateKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NativeCertificateAccuracy {
+    ///The native method met its full infeasibility tolerances.
+    #[serde(rename = "full")]
+    Full,
+    ///The native method met only its reduced (almost) tolerances; never a certificate, whatever its verification.
+    #[serde(rename = "reduced")]
+    Reduced,
+}
+impl crate::SemanticEq for NativeCertificateAccuracy {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativeCertificateAccuracy {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Full, Self::Reduced];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Full => "full",
+            Self::Reduced => "reduced",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Full => 0usize,
+            Self::Reduced => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Full => None,
+            Self::Reduced => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeCertificateAccuracy {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeCertificateAccuracy))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeCertificateAccuracy)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({ "type" : "string", "enum" : ["full", "reduced"] })
+    }
+}
+impl core::str::FromStr for NativeCertificateAccuracy {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "full" => Ok(Self::Full),
+            "reduced" => Ok(Self::Reduced),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(NativeCertificateAccuracy).to_owned(),
+                    enumeration: stringify!(NativeCertificateAccuracy).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NativeCertificateKind {
+    ///A Farkas ray y over the cone rows: Aᵀy = 0, bᵀy < 0 and y in the dual cone prove that no point satisfies the constraints.
+    #[serde(rename = "primal_infeasible")]
+    PrimalInfeasible,
+    ///A recession direction x: Px = 0, -Ax in the cone and qᵀx < 0 prove the dual infeasible: the objective is unbounded below whenever the constraints admit a point.
+    #[serde(rename = "dual_infeasible")]
+    DualInfeasible,
+}
+impl crate::SemanticEq for NativeCertificateKind {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativeCertificateKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::PrimalInfeasible, Self::DualInfeasible];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PrimalInfeasible => "primal_infeasible",
+            Self::DualInfeasible => "dual_infeasible",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::PrimalInfeasible => 0usize,
+            Self::DualInfeasible => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::PrimalInfeasible => None,
+            Self::DualInfeasible => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeCertificateKind {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeCertificateKind))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeCertificateKind)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["primal_infeasible", "dual_infeasible"] }
+        )
+    }
+}
+impl core::str::FromStr for NativeCertificateKind {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "primal_infeasible" => Ok(Self::PrimalInfeasible),
+            "dual_infeasible" => Ok(Self::DualInfeasible),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(NativeCertificateKind).to_owned(),
+                    enumeration: stringify!(NativeCertificateKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NativeConstraintForm {
     ///indicator
     #[serde(rename = "indicator")]
@@ -8349,6 +8622,135 @@ impl core::str::FromStr for NativeQualification {
                 Err(crate::ModelError::EnumMember {
                     field: stringify!(NativeQualification).to_owned(),
                     enumeration: stringify!(NativeQualification).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NativeRayCoordinate {
+    ///The cone row of a row identity: an explicit cone row, or the zero-cone row of an equality.
+    #[serde(rename = "row")]
+    Row,
+    ///The nonnegative row -a·x + s = -L of a row's finite lower bound.
+    #[serde(rename = "row_lower")]
+    RowLower,
+    ///The nonnegative row a·x + s = U of a row's finite upper bound.
+    #[serde(rename = "row_upper")]
+    RowUpper,
+    ///The nonnegative row -x + s = -l of a variable's finite lower bound.
+    #[serde(rename = "variable_lower")]
+    VariableLower,
+    ///The nonnegative row x + s = u of a variable's finite upper bound.
+    #[serde(rename = "variable_upper")]
+    VariableUpper,
+    ///A variable of a recession direction.
+    #[serde(rename = "variable")]
+    Variable,
+}
+impl crate::SemanticEq for NativeRayCoordinate {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl NativeRayCoordinate {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 6usize] = [
+        Self::Row,
+        Self::RowLower,
+        Self::RowUpper,
+        Self::VariableLower,
+        Self::VariableUpper,
+        Self::Variable,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Row => "row",
+            Self::RowLower => "row_lower",
+            Self::RowUpper => "row_upper",
+            Self::VariableLower => "variable_lower",
+            Self::VariableUpper => "variable_upper",
+            Self::Variable => "variable",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Row => 0usize,
+            Self::RowLower => 1usize,
+            Self::RowUpper => 2usize,
+            Self::VariableLower => 3usize,
+            Self::VariableUpper => 4usize,
+            Self::Variable => 5usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Row => None,
+            Self::RowLower => None,
+            Self::RowUpper => None,
+            Self::VariableLower => None,
+            Self::VariableUpper => None,
+            Self::Variable => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for NativeRayCoordinate {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(NativeRayCoordinate))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(NativeRayCoordinate)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["row", "row_lower", "row_upper",
+            "variable_lower", "variable_upper", "variable"] }
+        )
+    }
+}
+impl core::str::FromStr for NativeRayCoordinate {
+    type Err = crate::ModelError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "row" => Ok(Self::Row),
+            "row_lower" => Ok(Self::RowLower),
+            "row_upper" => Ok(Self::RowUpper),
+            "variable_lower" => Ok(Self::VariableLower),
+            "variable_upper" => Ok(Self::VariableUpper),
+            "variable" => Ok(Self::Variable),
+            _ => {
+                Err(crate::ModelError::EnumMember {
+                    field: stringify!(NativeRayCoordinate).to_owned(),
+                    enumeration: stringify!(NativeRayCoordinate).to_owned(),
                     value: value.to_owned(),
                 })
             }
@@ -13010,6 +13412,16 @@ impl crate::SemanticFrame for ChangeKind {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for ClarabelDirect {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ClarabelDirect {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for ClarabelMergeMethod {
     fn heap_bytes(&self) -> usize {
         0
@@ -13510,6 +13922,26 @@ impl crate::SemanticFrame for NativeCandidateKind {
         hash.str(self.as_str());
     }
 }
+impl crate::HeapUsage for NativeCertificateAccuracy {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeCertificateAccuracy {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NativeCertificateKind {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeCertificateKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
 impl crate::HeapUsage for NativeConstraintForm {
     fn heap_bytes(&self) -> usize {
         0
@@ -13596,6 +14028,16 @@ impl crate::HeapUsage for NativeQualification {
     }
 }
 impl crate::SemanticFrame for NativeQualification {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for NativeRayCoordinate {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for NativeRayCoordinate {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

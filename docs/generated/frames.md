@@ -101,6 +101,7 @@ Derived in: pse-backend-native.
 |---|---|---|
 | `BackendSettingsV4` | `pse.backend.settings.v4` | Complete backend settings, derived from serde. |
 | `ConeLayoutV3` | `pse.cone.layout.v3` | A cone sequence layout in the pse encoding. |
+| `ConeLoweredRowV1` | `pse.cone.lowered-row.v1` | The lower-bound cone row of a two-sided coefficient row lowered to cone form. |
 | `FactorableDomainV1` | `pse.factorable.domain.v1` | A factorable problem's variable domains. |
 | `FactorableFixedAssignmentV1` | `pse.factorable.fixed-assignment.v1` | The continuous problem of a fixed discrete assignment. |
 | `FactorableFixedAssignmentProfileV1` | `pse.factorable.fixed-assignment.profile.v1` | The profile of a fixed discrete assignment's continuous solve. |

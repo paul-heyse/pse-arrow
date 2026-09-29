@@ -21,6 +21,7 @@ pub(super) struct Kinsol;
 pub(super) static ADAPTER: Kinsol = Kinsol;
 static CAPABILITY: Capability = Capability {
     classes: &[ProblemClass::SquareRoot, ProblemClass::DeclaredFixedPoint],
+    automatic_classes: &[ProblemClass::SquareRoot, ProblemClass::DeclaredFixedPoint],
     derivatives: DerivativeCapability::JacobianOrProduct,
     warm: WarmCapability::Primal,
     general_bounds: false,

@@ -166,6 +166,82 @@ pub fn normalize_quadratic(
     Ok((result, evidence))
 }
 
+/// The minimization form `sign · q` of an admitted objective quadratic as a solver that
+/// stores only the upper triangle sees it: the upper triangle mirrored into the lower one.
+/// Negation is exact; a mirrored entry replaces its lower partner, which may differ from
+/// it only by the rounding of the congruence that produced `q`, so the evidence is the
+/// admitted evidence's, transported to exactly the returned matrix under orientation one.
+/// A matrix without nonzeros needs no evidence.
+///
+/// # Errors
+/// Missing or stale evidence, a structurally unsymmetric `q`, or partners that differ by
+/// more than rounding.
+pub fn minimization_form(
+    q: &faer::sparse::SparseColMat<usize, f64>,
+    sign: f64,
+    proof: Option<&dyn QuadraticEvidence>,
+) -> Result<(faer::sparse::SparseColMat<usize, f64>, TransportedEvidence), MathError> {
+    let n = q.ncols();
+    if q.nrows() != n || !(sign == 1.0 || sign == -1.0) {
+        return Err(MathError::Contract(
+            "objective quadratic dimensions or orientation".into(),
+        ));
+    }
+    let nonzero = q.val().iter().any(|v| *v != 0.0);
+    match proof {
+        Some(proof) => proof.validate(q, sign)?,
+        None if nonzero => {
+            return Err(MathError::Contract(
+                "a nonzero objective quadratic needs convexity evidence".into(),
+            ));
+        }
+        None => {}
+    }
+    // Upper-triangle entries, and the strictly lower ones at their mirrored position.
+    let mut upper = std::collections::BTreeMap::new();
+    let mut lower = std::collections::BTreeMap::new();
+    for c in 0..n {
+        for (r, &v) in q.row_idx_of_col(c).zip(q.val_of_col(c)) {
+            if v == 0.0 {
+                continue;
+            }
+            if r <= c {
+                upper.insert((r, c), v);
+            } else {
+                lower.insert((c, r), v);
+            }
+        }
+    }
+    // Four units in the last place bound the congruence's rounding of either partner.
+    let rounding = 4.0 * f64::EPSILON;
+    let unsymmetric = upper.keys().any(|&(r, c)| r != c && !lower.contains_key(&(r, c)))
+        || lower.iter().any(|(position, &v)| {
+            upper
+                .get(position)
+                .is_none_or(|&u| (u - v).abs() > rounding * u.abs().max(v.abs()))
+        });
+    if unsymmetric {
+        return Err(MathError::Contract(
+            "objective quadratic is not symmetric".into(),
+        ));
+    }
+    let mut entries = Vec::with_capacity(2 * upper.len());
+    for (&(r, c), &v) in &upper {
+        entries.push(faer::sparse::Triplet::new(r, c, sign * v));
+        if r != c {
+            entries.push(faer::sparse::Triplet::new(c, r, sign * v));
+        }
+    }
+    let result = faer::sparse::SparseColMat::try_new_from_triplets(n, n, &entries)
+        .map_err(|e| MathError::Contract(e.to_string()))?;
+    let evidence = TransportedEvidence {
+        assessment: proof.and_then(|p| p.assessment().cloned()),
+        matrix: crate::coefficients::quadratic_identity(&result, 1.0),
+        assumptions: proof.and_then(|p| p.assumptions()),
+    };
+    Ok((result, evidence))
+}
+
 /// Numerical assessment is a separate, explicit permission from exact certification.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ConvexityPolicy {

@@ -8,7 +8,10 @@ use pse_model::generated::identities::RunId;
 use pse_operations::streams::{ProgressEvent, ProgressValue};
 use pse_relations::{
     columnar::FieldCheckedBatch,
-    generated::{enums::NativeMetricKind, runtime::solve_metrics as metrics},
+    generated::{
+        enums::NativeMetricKind,
+        runtime::{infeasibility_certificates as certificates, solve_metrics as metrics},
+    },
 };
 use std::{collections::BTreeMap, sync::Arc};
 impl RunResult {
@@ -218,7 +221,43 @@ fn push_events(
     Ok(())
 }
 
-/// Common native options, metrics, certificates, progress and presolve receipt.
+/// A native step's typed infeasibility certificate, in original coordinates with its
+/// verification (Plan 22 I11); `None` when the step exported no ray.
+pub(super) fn certificate_row(
+    run_id: RunId,
+    step: i64,
+    native: &pse_backend_native::solve::SolveReport,
+) -> Option<certificates::Row> {
+    let c = native.certificate.as_ref()?;
+    Some(certificates::Row {
+        run_id,
+        step,
+        backend: native.backend,
+        kind: c.kind,
+        accuracy: c.accuracy,
+        ray: c
+            .ray
+            .iter()
+            .map(|e| certificates::RuntimeInfeasibilityCertificatesFieldRayItem {
+                coordinate: e.coordinate,
+                source_id: e.id,
+                value: e.value,
+            })
+            .collect(),
+        verification: c.verification.map(|v| {
+            certificates::RuntimeInfeasibilityCertificatesFieldVerification {
+                residual: v.residual,
+                objective: v.objective,
+                cone: v.cone,
+                margin: v.margin,
+                tolerance: v.tolerance,
+                verified: v.verified,
+            }
+        }),
+    })
+}
+
+/// Common native options, metrics, progress and presolve receipt.
 pub(super) fn push_native_metrics(
     builder: &mut metrics::Builder,
     run_id: RunId,
@@ -283,30 +322,6 @@ pub(super) fn push_native_metrics(
         }
     }
     push_events(builder, run_id, step, native, events)?;
-    if let Some(c) = &native.certificate {
-        push_metric(
-            builder,
-            run_id,
-            step,
-            "certificate",
-            "kind",
-            &Metric::Text(c.kind.clone()),
-        )?;
-        for (family, values) in [("primal", &c.primal), ("dual", &c.dual)] {
-            if let Some(values) = values {
-                for (i, v) in values.iter().enumerate() {
-                    push_metric(
-                        builder,
-                        run_id,
-                        step,
-                        "certificate",
-                        &format!("{family}.{i}"),
-                        &Metric::Real(*v),
-                    )?;
-                }
-            }
-        }
-    }
     #[cfg(feature = "solver-highs")]
     if let Some(d) = &native.highs_diagnostics {
         for (name, message) in &d.unavailable {

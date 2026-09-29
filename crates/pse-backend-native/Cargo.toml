@@ -29,6 +29,11 @@ kinsol = ["dep:sundials-sys", "dep:suitesparse_sys"]
 # provider (ADR-0108 item 5). `clarabel/sdp-mkl` is not used: its intel-mkl-src pins a static
 # Intel-OpenMP MKL, a second threading runtime the image does not ship.
 sdp = ["clarabel/sdp", "clarabel/blas-src", "clarabel/lapack-src"]
+# Clarabel's MKL Pardiso KKT solver. pardiso-wrapper loads `libmkl_rt.so` at run time; the
+# image ships none, so `mkl::pardiso` points its loader at the linked LP64 interface library,
+# which exports every symbol it resolves: the process keeps one oneMKL (ADR-0108 item 5).
+# `clarabel/faer-sparse` is not used: it pulls a second faer beside the pinned one.
+clarabel-pardiso = ["clarabel/pardiso-mkl"]
 diffsol = ["dep:diffsol", "diffsol/suitesparse"]
 idas = ["dep:sundials-sys", "sundials-sys/idas", "dep:suitesparse_sys"]
 scip = ["dep:scip-sys"]
@@ -38,6 +43,7 @@ native-solvers = [
   "pounce",
   "kinsol",
   "sdp",
+  "clarabel-pardiso",
   "diffsol",
   "idas",
   "scip",

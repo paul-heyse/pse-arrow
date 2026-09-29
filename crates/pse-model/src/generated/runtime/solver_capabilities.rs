@@ -14,6 +14,8 @@ pub struct RuntimeSolverCapabilitiesRow {
     pub r#backend: crate::generated::enums::NativeBackend,
     ///classes
     pub r#classes: Vec<crate::generated::enums::NativeProblemClass>,
+    ///automatic_classes
+    pub r#automatic_classes: Vec<crate::generated::enums::NativeProblemClass>,
     ///derivatives
     pub r#derivatives: crate::generated::enums::NativeDerivativeCapability,
     ///warm
@@ -39,6 +41,10 @@ impl crate::SemanticEq for RuntimeSolverCapabilitiesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#backend, &other.r#backend)
             && crate::SemanticEq::semantic_eq(&self.r#classes, &other.r#classes)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#automatic_classes,
+                &other.r#automatic_classes,
+            )
             && crate::SemanticEq::semantic_eq(&self.r#derivatives, &other.r#derivatives)
             && crate::SemanticEq::semantic_eq(&self.r#warm, &other.r#warm)
             && crate::SemanticEq::semantic_eq(&self.r#reuse, &other.r#reuse)
@@ -73,6 +79,8 @@ impl crate::SemanticFrame for RuntimeSolverCapabilitiesRow {
         crate::SemanticFrame::frame(&self.r#backend, hash);
         hash.str(stringify!(r#classes));
         crate::SemanticFrame::frame(&self.r#classes, hash);
+        hash.str(stringify!(r#automatic_classes));
+        crate::SemanticFrame::frame(&self.r#automatic_classes, hash);
         hash.str(stringify!(r#derivatives));
         crate::SemanticFrame::frame(&self.r#derivatives, hash);
         hash.str(stringify!(r#warm));
@@ -100,6 +108,7 @@ impl crate::HeapUsage for RuntimeSolverCapabilitiesRow {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#backend))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#classes))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#automatic_classes))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#derivatives))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#warm))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#reuse))
