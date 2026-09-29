@@ -48,6 +48,7 @@ third-party = [
   # native-solvers (pse-backend-native, pse-runtime, pse-py, conformance profiles).
   { name = "clarabel" },
   { name = "diffsol" },
+  { name = "diffsol-la" },
   { name = "highs" },
   { name = "highs-sys" },
   { name = "pounce-nlp" },

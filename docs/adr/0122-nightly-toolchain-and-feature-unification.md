@@ -128,14 +128,17 @@ changes a dependency version.
 - **Feature comparison.** A unit-level comparison against workspace unification alone
   found no `force_validate` or native-solver feature added by the hakari crate, including
   in a release `pse-py` build.
-- **Tested, compile only.** On nightly-2026-09-29 with `CARGO_BUILD_JOBS=8`:
+- **Tested, compile only.** On `main` 4e0d2107 plus this change, with nightly-2026-09-29,
+  `CARGO_BUILD_JOBS=8` and each checkout's own `target/`:
   - `just check` and `just check-solver-contracts` exit 0, with no compiler or Cargo
     warning in workspace code (the `proc-macro-error2` report remains);
   - `just codegen-hakari-check` (`cargo hakari generate --diff`,
     `cargo hakari manage-deps --dry-run`) exits 0;
-  - `just setup-test` passes 91 tests, 0 failed.
+  - `just setup-test` passes 91 tests, 0 failed;
+  - `just adr-lint` exits 0.
 
-  No Rust test suite was run, and no build was timed or measured.
+  The unit-graph counts above were repeated on 4e0d2107 with the same result. No Rust
+  test suite was run, and no build was timed or measured.
 
 ## Pros and cons
 
