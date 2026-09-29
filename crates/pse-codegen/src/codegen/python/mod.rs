@@ -138,12 +138,67 @@ fn references_structures(reg: &Registry, declarations: &str) -> bool {
         .any(|name| declarations.contains(&format!("s.{name}")))
 }
 
-/// Every registry named structure, declared once (Plan 22 X11); relation rows refer to
-/// these classes by name.
+/// The named structures a contract nests directly: a nested named structure is referenced
+/// by name, so its own nesting belongs to its own declaration.
+fn nested_names(contract: &crate::model::FieldContract, out: &mut Vec<String>) {
+    for child in contract.children() {
+        match child.structure_name() {
+            Some(name) => out.push(name.to_owned()),
+            None => nested_names(&child, out),
+        }
+    }
+}
+
+/// Named structures in dependency order: each after every named structure it nests, and
+/// otherwise by name. A class body evaluates its annotations and validators when it is
+/// defined, so a structure declared before one it nests raises a `NameError` on import.
+fn dependency_order(
+    structures: &std::collections::BTreeMap<String, crate::model::FieldContract>,
+) -> Result<Vec<&str>, SchemaError> {
+    fn visit<'a>(
+        name: &'a str,
+        structures: &'a std::collections::BTreeMap<String, crate::model::FieldContract>,
+        visiting: &mut Vec<&'a str>,
+        order: &mut Vec<&'a str>,
+    ) -> Result<(), SchemaError> {
+        if order.contains(&name) {
+            return Ok(());
+        }
+        if visiting.contains(&name) {
+            return Err(error(format!("named structure {name} nests itself")));
+        }
+        let (name, contract) = structures
+            .get_key_value(name)
+            .ok_or_else(|| error(format!("named structure {name} is not declared")))?;
+        visiting.push(name);
+        let mut nested = Vec::new();
+        nested_names(&contract.clone().unnamed(), &mut nested);
+        nested.sort();
+        nested.dedup();
+        for dependency in &nested {
+            let (dependency, _) = structures
+                .get_key_value(dependency.as_str())
+                .ok_or_else(|| error(format!("named structure {dependency} is not declared")))?;
+            visit(dependency, structures, visiting, order)?;
+        }
+        visiting.pop();
+        order.push(name);
+        Ok(())
+    }
+    let mut order = Vec::new();
+    for name in structures.keys() {
+        visit(name, structures, &mut Vec::new(), &mut order)?;
+    }
+    Ok(order)
+}
+
+/// Every registry named structure, declared once (Plan 22 X11) and in dependency order;
+/// relation rows refer to these classes by name.
 fn structures(reg: &Registry) -> Result<String, SchemaError> {
     let mut declarations = String::new();
     let mut typed_ids = false;
-    for (name, contract) in reg.structures() {
+    for name in dependency_order(reg.structures())? {
+        let contract = &reg.structures()[name];
         typed_ids |= carries_identity(contract);
         types::logical(&contract.clone().unnamed(), name, &mut declarations)?;
     }
@@ -172,6 +227,57 @@ fn structures(reg: &Registry) -> Result<String, SchemaError> {
     }
     source.push_str(&local);
     Ok(source)
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, reason = "assertions over a small test registry")]
+
+    use crate::model::{Authority, FieldContract as F, Namespace, RelationDecl, SnapshotClass};
+    use arrow_schema::DataType;
+
+    /// A named structure is declared after every named structure it nests, whatever their
+    /// names; alphabetical order would define `Alpha` before the `Zulu` it validates with.
+    #[test]
+    fn nested_named_structures_are_declared_in_dependency_order() {
+        let zulu = || {
+            F::structure(vec![F::native(DataType::Utf8).with_name("symbol")]).named("Zulu")
+        };
+        let alpha = F::structure(vec![
+            F::native(DataType::Int64).with_name("count"),
+            F::list(zulu()).with_name("factors"),
+        ])
+        .named("Alpha");
+        let middle = F::structure(vec![alpha.clone().with_name("inner")]).named("Middle");
+        let mut builder = crate::RegistryBuilder::new();
+        builder.declare_relation(
+            RelationDecl::new(
+                Namespace::Authored,
+                "nested",
+                1,
+                Authority::Authored,
+                SnapshotClass::Model,
+                "Nested named structure test relation",
+            )
+            .pk(&["id"])
+            .columns(vec![
+                F::key("id", F::native(DataType::Int64), "Key"),
+                F::payload("middle", middle, "Middle"),
+                F::payload("zulus", F::list(zulu()), "Zulus"),
+            ]),
+        );
+        let registry = builder.build().unwrap();
+        assert_eq!(
+            super::dependency_order(registry.structures()).unwrap(),
+            ["Zulu", "Alpha", "Middle"]
+        );
+        let source = super::structures(&registry).unwrap();
+        let position = |name: &str| source.find(&format!("class {name}:")).unwrap();
+        assert!(position("Zulu") < position("Alpha"), "{source}");
+        assert!(position("Alpha") < position("Middle"), "{source}");
+        // Nested structures refer to one another locally, never through the package.
+        assert!(!source.contains("s.Zulu") && source.contains("instance_of(Zulu)"), "{source}");
+    }
 }
 
 /// Whether a value nested in the column names an entity identity.

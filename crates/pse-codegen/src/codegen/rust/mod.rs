@@ -165,7 +165,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
 fn structures(reg: &Registry) -> Result<TokenStream, SchemaError> {
     let mut declarations = Vec::new();
     for (name, contract) in reg.structures() {
-        types::logical(&contract.clone().unnamed(), name, &mut declarations)?;
+        types::named_structure(&contract.clone().unnamed(), name, &mut declarations)?;
     }
     Ok(quote!(#(#declarations)*))
 }

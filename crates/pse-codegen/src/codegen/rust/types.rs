@@ -110,7 +110,27 @@ pub(super) fn logical(
     declarations: &mut Vec<TokenStream>,
 ) -> Result<TokenStream, SchemaError> {
     super::super::native::render(
-        &mut RustPolicy { declarations },
+        &mut RustPolicy {
+            declarations,
+            local: false,
+        },
+        ty,
+        stem,
+        super::super::native::Mode::Domain,
+    )
+}
+/// A named structure's body, rendered inside the `structures` module itself: the named
+/// structures it nests are its siblings and are referenced unqualified.
+pub(super) fn named_structure(
+    ty: &FieldContract,
+    stem: &str,
+    declarations: &mut Vec<TokenStream>,
+) -> Result<TokenStream, SchemaError> {
+    super::super::native::render(
+        &mut RustPolicy {
+            declarations,
+            local: true,
+        },
         ty,
         stem,
         super::super::native::Mode::Domain,
@@ -121,13 +141,22 @@ pub(super) fn storage(
     stem: &str,
     declarations: &mut Vec<TokenStream>,
 ) -> Result<TokenStream, SchemaError> {
-    super::super::native::storage(&mut RustPolicy { declarations }, ty, stem)
+    super::super::native::storage(
+        &mut RustPolicy {
+            declarations,
+            local: false,
+        },
+        ty,
+        stem,
+    )
 }
 pub(super) fn optional(ty: TokenStream, nullable: bool) -> TokenStream {
     if nullable { quote!(Option<#ty>) } else { ty }
 }
 struct RustPolicy<'a> {
     declarations: &'a mut Vec<TokenStream>,
+    /// Whether the declarations are emitted into the `structures` module.
+    local: bool,
 }
 impl super::super::native::Policy for RustPolicy<'_> {
     type Value = TokenStream;
@@ -148,7 +177,11 @@ impl super::super::native::Policy for RustPolicy<'_> {
             // A named structure is emitted once and referenced by name (Plan 22 X11).
             if let Some(name) = ty.structure_name() {
                 let name = format_ident!("{}", name);
-                return Ok(Some(quote!(crate::generated::structures::#name)));
+                return Ok(Some(if self.local {
+                    quote!(#name)
+                } else {
+                    quote!(crate::generated::structures::#name)
+                }));
             }
             // A nested identity value is typed by the entity it names, as a column is
             // (ADR-0115); its value and codec are the base identity's.
@@ -220,7 +253,7 @@ impl super::super::native::Policy for RustPolicy<'_> {
                     .collect::<Vec<_>>();
                 self.declarations.push(structure(stem, &fields));
                 self.declarations
-                    .push(super::alternative::accessors(ty, stem)?);
+                    .push(super::alternative::accessors(ty, stem, self.local)?);
                 let name = format_ident!("{stem}");
                 quote!(#name)
             }

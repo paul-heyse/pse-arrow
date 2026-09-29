@@ -11,7 +11,12 @@ use crate::{
     model::{FieldContract, TaggedAlternative},
 };
 
-pub(super) fn accessors(field: &FieldContract, stem: &str) -> Result<TokenStream, SchemaError> {
+/// `local` renders inside the `structures` module, where named structures are siblings.
+pub(super) fn accessors(
+    field: &FieldContract,
+    stem: &str,
+    local: bool,
+) -> Result<TokenStream, SchemaError> {
     let Some(alternative) = TaggedAlternative::from_field(field.field())? else {
         return Ok(TokenStream::new());
     };
@@ -62,11 +67,12 @@ pub(super) fn accessors(field: &FieldContract, stem: &str) -> Result<TokenStream
                 .iter()
                 .find(|field| field.name() == arm)
                 .ok_or_else(|| super::error("alternative arm absent".into()))?;
-            let payload = super::types::logical(
-                arm_field,
-                &format!("{stem}{}", pascal(arm)),
-                &mut Vec::new(),
-            )?;
+            let render = if local {
+                super::types::named_structure
+            } else {
+                super::types::logical
+            };
+            let payload = render(arm_field, &format!("{stem}{}", pascal(arm)), &mut Vec::new())?;
             variants.push(quote!(#[doc = #tag] #variant(&'a #payload)));
             selections.push(quote!((#tag, #(#patterns,)*) => Ok(#selected::#variant(value))));
             quote!(value: #payload)
